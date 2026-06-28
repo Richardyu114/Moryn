@@ -926,7 +926,8 @@ describe("observability dashboard", () => {
       expect(detailHtml).toContain("<small data-memory-explorer-detail-meaning-detail data-i18n-en=\"Open details first. If this can change memory, Moryn will show real confirm buttons nearby.\" data-i18n-zh=\"先打开详情；如果这条可以改变记忆，Moryn 会在附近显示真正的确认按钮。\">Open details first. If this can change memory, Moryn will show real confirm buttons nearby.</small>");
       expect(detailHtml).toContain("<dl class=\"memory-explorer-detail-grid\" data-memory-explorer-detail-grid>");
       expect(detailHtml).toContain("<dd data-memory-explorer-detail-state data-i18n-en=\"Saved, not organized\" data-i18n-zh=\"已保存，未整理\">Saved, not organized</dd>");
-      expect(detailHtml).toContain("<dd data-memory-explorer-detail-source>gemini / dashboard-all-clear-info</dd>");
+      expect(detailHtml).toContain("<dd data-memory-explorer-detail-source data-i18n-en=\"Gemini session\" data-i18n-zh=\"Gemini 会话\">Gemini session</dd>");
+      expect(detailHtml).not.toContain("gemini / dashboard-all-clear-info");
       expect(detailHtml).toContain("<dd data-memory-explorer-detail-updated data-i18n-en=\"19d ago | 2026-06-01T00:03:00.000Z\" data-i18n-zh=\"19 天前 | 2026-06-01T00:03:00.000Z\">19d ago | 2026-06-01T00:03:00.000Z</dd>");
       expect(detailHtml).toContain("<div class=\"memory-explorer-guidance\" data-memory-explorer-guidance>");
       expect(detailHtml).toContain("<div class=\"memory-explorer-guidance-card\" data-memory-explorer-guidance-card=\"why-saved\">");
@@ -952,6 +953,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<article class=\"stored-content-item state-candidate selected\" data-stored-content-item=\"rec_action_board_3\"");
       expect(html).toContain("data-stored-content-state=\"candidate\"");
       expect(html).toContain("data-stored-content-source=\"Gemini\"");
+      expect(html).toContain("data-memory-explorer-source=\"Gemini session\"");
+      expect(html).toContain("data-memory-explorer-source-zh=\"Gemini 会话\"");
       expect(html).toContain("data-memory-explorer-title=\"Status\"");
       expect(html).toContain("data-memory-explorer-title-zh=\"状态\"");
       expect(html).toContain("data-memory-explorer-full-text=\"Recent session status belongs on the dashboard front page.\"");

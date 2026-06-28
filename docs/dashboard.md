@@ -759,7 +759,8 @@ pane. It starts with a read-first summary for `Status`, `Meaning`, `Why saved`,
 and `Next`, then shows the full text and trace links. For saved content, the
 detail pane repeats the plain-language `Why saved` and `Next step` guidance from
 the card so opening details preserves the user's context before showing trace
-commands. All of these controls are client-side and read-only.
+commands. Visible source labels use readable agent names such as `Codex session`;
+raw client/session ids stay in `/api/dashboard` and trace commands. All of these controls are client-side and read-only.
 The preview cards are representative rather than strictly newest-first: Moryn
 shows available `Saved, not organized`, `Ready to use`, `Saved briefly`, and
 `Set aside` examples before filling the remaining preview slots by recency. The full

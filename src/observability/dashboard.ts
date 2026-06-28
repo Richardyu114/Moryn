@@ -1048,6 +1048,26 @@ function humanSourceDetail(source: RecordSource): string {
   return sourceLabel(source) || "unknown";
 }
 
+function sourceLabelZh(label: string): string {
+  if (label === "User") return "用户";
+  if (label === "Moryn Local") return "Moryn 本机";
+  return label;
+}
+
+function memoryExplorerSourceDisplay(sourceLabel: string, sourceDetail?: string): { en: string; zh: string } {
+  const detail = sourceDetail?.trim();
+  if (detail && detail !== sourceLabel && detail.includes("/")) {
+    return {
+      en: `${sourceLabel} session`,
+      zh: `${sourceLabelZh(sourceLabel)} 会话`
+    };
+  }
+  return {
+    en: sourceLabel,
+    zh: sourceLabelZh(sourceLabel)
+  };
+}
+
 function titleCase(value: string): string {
   return value
     .replace(/[_-]+/g, " ")
@@ -7367,6 +7387,7 @@ function storedContentItem(item: DashboardValueRecord, selected = false): string
   const state = memoryStateLabelFromRecordState(item.state);
   const nextStep = storedContentNextStep(item);
   const whySaved = storedContentWhySaved(item);
+  const sourceDisplay = memoryExplorerSourceDisplay(item.source_label, item.source_detail);
   const sourceRelative = sourceRelativePair(item.source_label, item.relative_time);
   const updatedEn = `${item.relative_time} | ${item.exact_time}`;
   const updatedZh = `${relativeTimeZh(item.relative_time)} | ${item.exact_time}`;
@@ -7377,7 +7398,7 @@ function storedContentItem(item: DashboardValueRecord, selected = false): string
     provenanceReason: item.provenance_reason
   });
   return `
-            <article class="stored-content-item state-${escapeHtml(item.state)}${selected ? " selected" : ""}" data-stored-content-item="${escapeHtml(item.id)}" data-stored-content-state="${escapeHtml(item.state)}" data-stored-content-source="${escapeHtml(item.source_label)}" data-memory-explorer-item-id="${escapeHtml(item.id)}" data-memory-explorer-title="${escapeHtml(item.title)}" data-memory-explorer-title-zh="${escapeHtml(item.title_zh)}" data-memory-explorer-full-text="${escapeHtml(item.summary)}" data-memory-explorer-state="${escapeHtml(state.en)}" data-memory-explorer-state-en="${escapeHtml(state.en)}" data-memory-explorer-state-zh="${escapeHtml(state.zh)}" data-memory-explorer-source="${escapeHtml(item.source_detail || item.source_label)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" ${guidanceAttributes} data-memory-explorer-timeline="${escapeHtml(item.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(item.citation.recall_command)}" tabindex="0">
+            <article class="stored-content-item state-${escapeHtml(item.state)}${selected ? " selected" : ""}" data-stored-content-item="${escapeHtml(item.id)}" data-stored-content-state="${escapeHtml(item.state)}" data-stored-content-source="${escapeHtml(item.source_label)}" data-memory-explorer-item-id="${escapeHtml(item.id)}" data-memory-explorer-title="${escapeHtml(item.title)}" data-memory-explorer-title-zh="${escapeHtml(item.title_zh)}" data-memory-explorer-full-text="${escapeHtml(item.summary)}" data-memory-explorer-state="${escapeHtml(state.en)}" data-memory-explorer-state-en="${escapeHtml(state.en)}" data-memory-explorer-state-zh="${escapeHtml(state.zh)}" data-memory-explorer-source="${escapeHtml(sourceDisplay.en)}" data-memory-explorer-source-zh="${escapeHtml(sourceDisplay.zh)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" ${guidanceAttributes} data-memory-explorer-timeline="${escapeHtml(item.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(item.citation.recall_command)}" tabindex="0">
               <div class="stored-content-item-head">
                 <span data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}">${escapeHtml(state.en)}</span>
                 <small ${i18nAttribute(sourceRelative.en, sourceRelative.zh)}>${escapeHtml(sourceRelative.en)}</small>
@@ -7476,6 +7497,7 @@ function memorySearchText(parts: unknown[]): string {
 
 function memorySearchRecordEntry(record: DashboardRecordSummary, generatedAt: string): string {
   const source = humanSourceLabel(record.source);
+  const sourceDisplay = memoryExplorerSourceDisplay(source, humanSourceDetail(record.source));
   const stateLabel = memoryStateLabelFromRecordState(record.state);
   const relative = relativeTime(record.updated_at, generatedAt);
   const metaEn = `${stateLabel.en} | ${source} | ${relative}`;
@@ -7499,7 +7521,7 @@ function memorySearchRecordEntry(record: DashboardRecordSummary, generatedAt: st
     record.text
   ]);
   return `
-          <article class="memory-search-result record" data-memory-search-entry="record:${escapeHtml(record.id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="${escapeHtml(record.state)}" data-memory-search-source="${escapeHtml(source)}" data-memory-search-kind="${escapeHtml(record.kind)}" data-memory-search-record-type="${escapeHtml(record.type)}" data-memory-search-updated-at="${escapeHtml(record.updated_at)}" data-memory-explorer-item-id="record:${escapeHtml(record.id)}" data-memory-explorer-title="${escapeHtml(title.en)}" data-memory-explorer-title-zh="${escapeHtml(title.zh)}" data-memory-explorer-full-text="${escapeHtml(record.text)}" data-memory-explorer-state="${escapeHtml(stateLabel.en)}" data-memory-explorer-state-en="${escapeHtml(stateLabel.en)}" data-memory-explorer-state-zh="${escapeHtml(stateLabel.zh)}" data-memory-explorer-source="${escapeHtml(source)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" ${guidanceAttributes} data-memory-explorer-timeline="${escapeHtml(record.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(record.citation.recall_command)}" tabindex="0">
+          <article class="memory-search-result record" data-memory-search-entry="record:${escapeHtml(record.id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="${escapeHtml(record.state)}" data-memory-search-source="${escapeHtml(source)}" data-memory-search-kind="${escapeHtml(record.kind)}" data-memory-search-record-type="${escapeHtml(record.type)}" data-memory-search-updated-at="${escapeHtml(record.updated_at)}" data-memory-explorer-item-id="record:${escapeHtml(record.id)}" data-memory-explorer-title="${escapeHtml(title.en)}" data-memory-explorer-title-zh="${escapeHtml(title.zh)}" data-memory-explorer-full-text="${escapeHtml(record.text)}" data-memory-explorer-state="${escapeHtml(stateLabel.en)}" data-memory-explorer-state-en="${escapeHtml(stateLabel.en)}" data-memory-explorer-state-zh="${escapeHtml(stateLabel.zh)}" data-memory-explorer-source="${escapeHtml(sourceDisplay.en)}" data-memory-explorer-source-zh="${escapeHtml(sourceDisplay.zh)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" ${guidanceAttributes} data-memory-explorer-timeline="${escapeHtml(record.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(record.citation.recall_command)}" tabindex="0">
             <span ${i18nAttribute("Memory", "记忆")}>Memory</span>
             <strong ${i18nAttribute(title.en, title.zh)}>${escapeHtml(title.en)}</strong>
             <p>${escapeHtml(record.text)}</p>
@@ -7510,6 +7532,7 @@ function memorySearchRecordEntry(record: DashboardRecordSummary, generatedAt: st
 
 function memorySearchEventEntry(event: DashboardEventSummary, generatedAt: string): string {
   const source = humanSourceLabel(event.source);
+  const sourceDisplay = memoryExplorerSourceDisplay(source, humanSourceDetail(event.source));
   const relative = relativeTime(event.created_at, generatedAt);
   const meta = sourceRelativePair(source, relative);
   const updatedEn = `${relative} | ${event.created_at}`;
@@ -7527,7 +7550,7 @@ function memorySearchEventEntry(event: DashboardEventSummary, generatedAt: strin
     source
   ]);
   return `
-          <article class="memory-search-result event" data-memory-search-entry="event:${escapeHtml(event.event_id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="event" data-memory-search-source="${escapeHtml(source)}" data-memory-search-kind="event" data-memory-search-record-type="${escapeHtml(event.op)}" data-memory-search-updated-at="${escapeHtml(event.created_at)}" data-memory-explorer-item-id="event:${escapeHtml(event.event_id)}" data-memory-explorer-title="${escapeHtml(event.op)}" data-memory-explorer-full-text="${escapeHtml(detailText)}" data-memory-explorer-full-text-zh="${escapeHtml(detailTextZh)}" data-memory-explorer-state="Event" data-memory-explorer-state-en="Event" data-memory-explorer-state-zh="事件" data-memory-explorer-source="${escapeHtml(source)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" data-memory-explorer-has-guidance="false" data-memory-explorer-timeline="${escapeHtml(event.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(event.citation.recall_command ?? "")}" tabindex="0">
+          <article class="memory-search-result event" data-memory-search-entry="event:${escapeHtml(event.event_id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="event" data-memory-search-source="${escapeHtml(source)}" data-memory-search-kind="event" data-memory-search-record-type="${escapeHtml(event.op)}" data-memory-search-updated-at="${escapeHtml(event.created_at)}" data-memory-explorer-item-id="event:${escapeHtml(event.event_id)}" data-memory-explorer-title="${escapeHtml(event.op)}" data-memory-explorer-full-text="${escapeHtml(detailText)}" data-memory-explorer-full-text-zh="${escapeHtml(detailTextZh)}" data-memory-explorer-state="Event" data-memory-explorer-state-en="Event" data-memory-explorer-state-zh="事件" data-memory-explorer-source="${escapeHtml(sourceDisplay.en)}" data-memory-explorer-source-zh="${escapeHtml(sourceDisplay.zh)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" data-memory-explorer-has-guidance="false" data-memory-explorer-timeline="${escapeHtml(event.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(event.citation.recall_command ?? "")}" tabindex="0">
             <span ${i18nAttribute("Event", "事件")}>Event</span>
             <strong>${escapeHtml(event.op)}</strong>
             <p>${eventTarget}</p>
@@ -7690,6 +7713,7 @@ function memoryExplorerDetailPanel(item?: DashboardValueRecord): string {
   const state = item ? memoryStateLabelFromRecordState(item.state) : undefined;
   const nextStep = item ? storedContentNextStep(item) : undefined;
   const whySaved = item ? storedContentWhySaved(item) : undefined;
+  const sourceDisplay = item ? memoryExplorerSourceDisplay(item.source_label, item.source_detail) : undefined;
   const updatedEn = item ? `${item.relative_time} | ${item.exact_time}` : "";
   const updatedZh = item ? `${relativeTimeZh(item.relative_time)} | ${item.exact_time}` : "";
   const title = item?.title ?? "Select an item";
@@ -7724,7 +7748,7 @@ function memoryExplorerDetailPanel(item?: DashboardValueRecord): string {
         </div>
         <dl class="memory-explorer-detail-grid" data-memory-explorer-detail-grid${gridHidden}>
           <div><dt data-i18n-en="State" data-i18n-zh="状态">State</dt><dd data-memory-explorer-detail-state${state ? ` data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}"` : ""}>${state ? escapeHtml(state.en) : ""}</dd></div>
-          <div><dt data-i18n-en="Source" data-i18n-zh="来源">Source</dt><dd data-memory-explorer-detail-source>${item ? escapeHtml(item.source_detail || item.source_label) : ""}</dd></div>
+          <div><dt data-i18n-en="Source" data-i18n-zh="来源">Source</dt><dd data-memory-explorer-detail-source${sourceDisplay ? ` data-i18n-en="${escapeHtml(sourceDisplay.en)}" data-i18n-zh="${escapeHtml(sourceDisplay.zh)}"` : ""}>${sourceDisplay ? escapeHtml(sourceDisplay.en) : ""}</dd></div>
           <div><dt data-i18n-en="Updated" data-i18n-zh="更新时间">Updated</dt><dd data-memory-explorer-detail-updated${item ? ` data-i18n-en="${escapeHtml(updatedEn)}" data-i18n-zh="${escapeHtml(updatedZh)}"` : ""}>${item ? escapeHtml(updatedEn) : ""}</dd></div>
         </dl>
         <div class="memory-explorer-guidance" data-memory-explorer-guidance${guidanceHidden}>
@@ -8373,7 +8397,7 @@ function dashboardStoredContentScript(): string {
             detailText.textContent = selectedLanguage() === "zh" ? "选择一条保存内容，可查看全文、来源和状态。" : "Select a saved item to read its full text, source, and status.";
           }
           setDetailText("[data-memory-explorer-detail-state]", "");
-          setDetailText("[data-memory-explorer-detail-source]", "");
+          setLocalizedDetailText(detail.querySelector("[data-memory-explorer-detail-source]"), "");
           setDetailText("[data-memory-explorer-detail-updated]", "");
           setLocalizedDetailText(detail.querySelector("[data-memory-explorer-detail-why]"), "");
           setLocalizedDetailText(detail.querySelector("[data-memory-explorer-detail-next-step]"), "");
@@ -8434,7 +8458,7 @@ function dashboardStoredContentScript(): string {
         setLocalizedDetailText(detailNextStepDetail, item.dataset.memoryExplorerNextStepDetail || "", item.dataset.memoryExplorerNextStepDetailZh || item.dataset.memoryExplorerNextStepDetail || "");
         setLocalizedDetailText(detailMeaning, item.dataset.memoryExplorerNextStep || "", item.dataset.memoryExplorerNextStepZh || item.dataset.memoryExplorerNextStep || "");
         setLocalizedDetailText(detailMeaningDetail, item.dataset.memoryExplorerNextStepDetail || "", item.dataset.memoryExplorerNextStepDetailZh || item.dataset.memoryExplorerNextStepDetail || "");
-        setDetailText("[data-memory-explorer-detail-source]", item.dataset.memoryExplorerSource || "");
+        setLocalizedDetailText(detail.querySelector("[data-memory-explorer-detail-source]"), item.dataset.memoryExplorerSource || "", item.dataset.memoryExplorerSourceZh || item.dataset.memoryExplorerSource || "");
         setLocalizedDetailText(detailUpdated, item.dataset.memoryExplorerUpdated || "", item.dataset.memoryExplorerUpdatedZh || item.dataset.memoryExplorerUpdated || "");
         setDetailText("[data-memory-explorer-detail-timeline]", item.dataset.memoryExplorerTimeline || "");
         setDetailText("[data-memory-explorer-detail-recall]", item.dataset.memoryExplorerRecall || "");
