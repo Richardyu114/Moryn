@@ -711,10 +711,13 @@ describe("observability dashboard", () => {
       expect(html).toContain("--surface-glass: rgba(13, 16, 21, 0.82);");
       expect(html).not.toContain("--canvas: #f4f2ee;");
       expect(html).toContain("<strong data-i18n-en=\"No action needed\" data-i18n-zh=\"无需操作\">No action needed</strong>");
-      expect(html).toContain("<p data-i18n-en=\"1 saved item and 1 session note are searchable now. Organize later if useful; this summary does not write to memory.\" data-i18n-zh=\"1 条保存内容和 1 条会话笔记现在可搜索；需要时再整理，这个摘要不会写入记忆。\">1 saved item and 1 session note are searchable now. Organize later if useful; this summary does not write to memory.</p>");
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Search saved content\" data-i18n-zh=\"搜索已保存内容\">Search saved content</button>");
-      expect(html).toContain("<p data-i18n-en=\"2 saved items\" data-i18n-zh=\"2 条已保存内容\">2 saved items</p>");
-      expect(html).toContain("<p data-i18n-en=\"Clean\" data-i18n-zh=\"已同步\">Clean</p>");
+      expect(html).not.toContain("data-dashboard-overview");
+      expect(html).not.toContain("aria-label=\"Dashboard Overview\"");
+      expect(html).not.toContain("<span data-i18n-en=\"Other status\" data-i18n-zh=\"其他状态\">Other status</span>");
+      expect(html).not.toContain("<p data-i18n-en=\"1 saved item and 1 session note are searchable now. Organize later if useful; this summary does not write to memory.\" data-i18n-zh=\"1 条保存内容和 1 条会话笔记现在可搜索；需要时再整理，这个摘要不会写入记忆。\">1 saved item and 1 session note are searchable now. Organize later if useful; this summary does not write to memory.</p>");
+      expect(html).not.toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Search saved content\" data-i18n-zh=\"搜索已保存内容\">Search saved content</button>");
+      expect(html).not.toContain("<p data-i18n-en=\"2 saved items\" data-i18n-zh=\"2 条已保存内容\">2 saved items</p>");
+      expect(html).not.toContain("<p data-i18n-en=\"Clean\" data-i18n-zh=\"已同步\">Clean</p>");
       expect(html).not.toContain("data-i18n-zh=\"2 saved items\"");
       expect(html).not.toContain("data-i18n-zh=\"Clean\"");
       expect(html).not.toContain("<strong>All clear</strong>");
@@ -1750,13 +1753,15 @@ describe("observability dashboard", () => {
       expect(data.health.status).toBe("healthy");
       expect(data.dashboard_overview.headline).toBe("No action needed");
       expect(data.dashboard_overview.detail).toBe("3 saved items and 1 session note are searchable now. Organize later if useful; this summary does not write to memory.");
-      expect(html).toContain("<p data-i18n-en=\"3 saved items and 1 session note are searchable now. Organize later if useful; this summary does not write to memory.\" data-i18n-zh=\"3 条保存内容和 1 条会话笔记现在可搜索；需要时再整理，这个摘要不会写入记忆。\">3 saved items and 1 session note are searchable now. Organize later if useful; this summary does not write to memory.</p>");
+      expect(html).not.toContain("<p data-i18n-en=\"3 saved items and 1 session note are searchable now. Organize later if useful; this summary does not write to memory.\" data-i18n-zh=\"3 条保存内容和 1 条会话笔记现在可搜索；需要时再整理，这个摘要不会写入记忆。\">3 saved items and 1 session note are searchable now. Organize later if useful; this summary does not write to memory.</p>");
       expect(data.dashboard_overview.primary_action).toMatchObject({
         label: "Search saved content",
         target: "stored-content",
         source: "memory_inventory"
       });
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Search saved content\" data-i18n-zh=\"搜索已保存内容\">Search saved content</button>");
+      expect(html).not.toContain("<section class=\"dashboard-overview");
+      expect(html).not.toContain("data-dashboard-overview");
+      expect(html).not.toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Search saved content\" data-i18n-zh=\"搜索已保存内容\">Search saved content</button>");
       expect(data.candidate_triage.summary).toMatchObject({
         total_candidates: 3,
         groups: 1,
@@ -3850,11 +3855,11 @@ describe("observability dashboard", () => {
 
         const html = renderDashboardHtml(data);
         expect(html).toContain("Recall Eval");
-        expect(html).toContain("<section class=\"dashboard-overview good\" data-dashboard-overview aria-label=\"Dashboard Overview\">");
-        expect(html).toContain("<strong data-i18n-en=\"All clear\" data-i18n-zh=\"暂时不用管\">All clear</strong>");
-        expect(html).toContain("<p data-i18n-en=\"No work needs attention.\" data-i18n-zh=\"No work needs attention.\">No work needs attention.</p>");
+        expect(html).not.toContain("<section class=\"dashboard-overview");
+        expect(html).not.toContain("data-dashboard-overview");
+        expect(html).not.toContain("<p data-i18n-en=\"No work needs attention.\" data-i18n-zh=\"No work needs attention.\">No work needs attention.</p>");
         expect(html).not.toContain("<p>No confirmations, warnings, or sync actions need attention. Read-only inspections remain available below.</p>");
-        expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action dashboard-overview-action-quiet\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\" data-i18n-en=\"View checks\" data-i18n-zh=\"查看检查\">View checks</button>");
+        expect(html).not.toContain("<button type=\"button\" class=\"dashboard-overview-action dashboard-overview-action-quiet\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\" data-i18n-en=\"View checks\" data-i18n-zh=\"查看检查\">View checks</button>");
         expect(html).not.toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\">Inspect checks</button>");
         expect(html).not.toContain("<div class=\"dashboard-overview-safety\" aria-label=\"Dashboard safety\">");
         expect(html).not.toContain("<span>Read-only overview</span>");
@@ -3889,7 +3894,6 @@ describe("observability dashboard", () => {
           value: "Healthy",
           source: "action_board.items_by_id.sync"
         });
-        expect(html).toContain("<strong data-i18n-en=\"All clear\" data-i18n-zh=\"暂时不用管\">All clear</strong>");
         expect(data.action_board.items.map((item) => item.id)).toEqual(["confirm", "review", "inspect", "sync"]);
         expect(data.action_board.items_by_id.inspect).toMatchObject({
           label: "Inspect",

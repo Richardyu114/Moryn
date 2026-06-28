@@ -249,10 +249,13 @@ describe("documentation contracts", () => {
     expectText(dashboard, "unless the first-screen action summary already owns the zero-state");
     expectText(dashboard, "Non-healthy states that need a separate explanation, such as local-only, review, or conflict, still render the full status strip");
     expectText(dashboard, "When a high-priority action owns the first screen, the four derived cards for current health, next action, context, and sync");
-    expectText(dashboard, "All-clear and saved-for-later pages skip duplicate shortcut grids, work lanes, and safety chips on the first screen");
+    expectText(dashboard, "All-clear and saved-for-later pages skip duplicate overview sections, shortcut");
+    expectText(dashboard, "grids, work lanes, and safety chips on the first screen");
     expectText(dashboard, "compact `More details` fold");
     expectText(dashboard, "`/api/dashboard.attention_items` remains the audit source for routine checks");
     expectText(dashboard, "`/api/dashboard.action_board` remains the audit source for the complete shortcut list");
+    expectText(dashboard, "`/api/dashboard.dashboard_overview` still keeps the");
+    expectText(dashboard, "live HTML does not repeat `Do I need to act?` or `Other status` after `Right now`");
     expectText(dashboard, "visible background-check labels and item descriptions carry English and Chinese display text");
     expectText(dashboard, "does not expose raw status templates such as routine-check counts, temporary-note counts, or candidate-record cleanup wording");
     expectText(dashboard, "Each background overview card is also a local navigation button");

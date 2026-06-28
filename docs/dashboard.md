@@ -786,12 +786,15 @@ background overview card is also a local navigation button that reuses the same
 scroll targets as the Action Board. It does not add a new API endpoint, Safe
 Action Registry entry, or memory mutation path.
 
-All-clear and saved-for-later pages skip duplicate shortcut grids, work lanes,
-and safety chips on the first screen because the summary, inventory, recent
-status, compact `More details` fold, and `/api/dashboard` already expose
-the same routes. `/api/dashboard.attention_items` remains the audit source for
+All-clear and saved-for-later pages skip duplicate overview sections, shortcut
+grids, work lanes, and safety chips on the first screen because the summary,
+inventory, recent status, compact `More details` fold, and `/api/dashboard`
+already expose the same routes. `/api/dashboard.attention_items` remains the audit source for
 routine checks, and `/api/dashboard.action_board` remains the audit source for
-the complete shortcut list. The visible background-check labels and item
+the complete shortcut list. `/api/dashboard.dashboard_overview` still keeps the
+derived overview cards for agents, but the live HTML does not repeat `Do I need
+to act?` or `Other status` after `Right now` when no warning, sync task, or
+approval needs foreground attention. The visible background-check labels and item
 descriptions carry English and Chinese display text, so switching language does
 not expose raw status templates such as routine-check counts, temporary-note
 counts, or candidate-record cleanup wording. When the quiet overview card group

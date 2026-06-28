@@ -7490,6 +7490,7 @@ function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderO
   const showBackgroundStatus = !hasPendingDecisions && !shouldHideQuietInfoPanel && !isAllClearOverview;
   const shouldPromoteStoreSignals = !hasPendingDecisions && !hasActionSignals && data.health.status === "sync_pending";
   const isSavedForLaterOverview = data.dashboard_overview.primary_action.source === "memory_inventory";
+  const shouldRenderOverview = !isAllClearOverview && !isSavedForLaterOverview;
   const shouldRenderWorkLanes = !shouldPromoteStoreSignals && !isAllClearOverview && !isSavedForLaterOverview;
   const promotedStoreSignals = shouldPromoteStoreSignals ? promotedStoreSignalsPanel(data) : "";
   const healthLabelZh = dashboardHealthZh(data.health.status, data.health.label);
@@ -7512,7 +7513,7 @@ function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderO
 
     ${statusBoard(data)}
 
-    ${dashboardOverview(data.dashboard_overview, { showBackgroundStatus, showSafety: !isAllClearOverview && !isSavedForLaterOverview })}
+    ${shouldRenderOverview ? dashboardOverview(data.dashboard_overview, { showBackgroundStatus, showSafety: true }) : ""}
 
     ${dashboardDecisionPanel(data)}
 
