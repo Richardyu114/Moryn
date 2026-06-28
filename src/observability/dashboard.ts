@@ -3229,6 +3229,8 @@ function dashboardActionLabelZh(label: string): string {
   if (label === "Health") return "健康";
   if (label === "Next") return "下一步";
   if (label === "Context") return "上下文";
+  if (label === "Decide") return "决定";
+  if (label === "Evidence") return "依据";
   if (label === "Sync") return "共享副本";
   if (label === "Healthy") return "正常";
   if (label === "Sync Pending") return "等待同步";
@@ -3261,6 +3263,9 @@ function dashboardActionLabelZh(label: string): string {
   if (label === "All clear") return "暂时不用管";
   if (label === "View checks") return "查看检查";
   if (label === "View details") return "查看详情";
+  if (label === "Inspect decision surfaces") return "查看可确认的地方";
+  if (label === "Open handoff review") return "打开交接查看";
+  if (label === "Open read-only evidence") return "打开只读依据";
   return label;
 }
 
@@ -3273,6 +3278,8 @@ function dashboardDisplayZh(label: string): string {
 function dashboardActionDetailZh(detail: string): string {
   const savedItems = detail.match(/^(\d+) saved item(s)?$/);
   if (savedItems) return `${savedItems[1]} 条已保存内容`;
+  const approvalWaiting = detail.match(/^(\d+) approval(s)? waiting$/);
+  if (approvalWaiting) return `${approvalWaiting[1]} 个确认项待处理`;
   const attentionItems = detail.match(/^(\d+) attention item(s)?$/);
   if (attentionItems) return `${attentionItems[1]} 条提醒`;
   const safeChecks = detail.match(/^(\d+) safe check(s)?$/);
@@ -3280,7 +3287,12 @@ function dashboardActionDetailZh(detail: string): string {
   if (detail === "Clean") return "已同步";
   if (detail === "No action needed") return "无需操作";
   if (detail === "No urgent review") return "没有紧急提醒";
+  if (detail === "No approvals waiting") return "没有等待确认的内容";
   if (detail === "No safe checks") return "没有安全检查";
+  if (detail === "Context unavailable") return "暂无上下文";
+  if (detail === "Ready handoff context") return "交接上下文已就绪";
+  if (detail === "Ready handoff context | no handoff evidence") return "交接上下文已就绪 | 暂无交接依据";
+  if (detail === "Read-only reference material") return "只读参考资料";
   if (detail === "Explicit approvals stay in Capture Inbox, Review Queue, and Candidate Triage.") {
     return "需要明确确认的操作会保留在 Capture Inbox、Review Queue 和 Candidate Triage 中。";
   }
@@ -3634,11 +3646,14 @@ function workLaneButton(input: {
   target: string;
   severity: DashboardActionBoardSeverity;
 }, dataAttribute = "data-dashboard-work-lane"): string {
+  const labelZh = dashboardActionLabelZh(input.label);
+  const summaryZh = dashboardActionDetailZh(input.summary);
+  const nextStepZh = dashboardActionLabelZh(input.nextStep);
   return `
         <button type="button" class="dashboard-work-lane ${escapeHtml(input.severity)}" ${dataAttribute}="${escapeHtml(input.id)}" data-action-board-target="${escapeHtml(input.target)}" aria-controls="${escapeHtml(input.target)}">
-          <span>${escapeHtml(input.label)}</span>
-          <strong>${escapeHtml(input.summary)}</strong>
-          <em>${escapeHtml(input.nextStep)}</em>
+          <span ${i18nAttribute(input.label, labelZh)}>${escapeHtml(input.label)}</span>
+          <strong ${i18nAttribute(input.summary, summaryZh)}>${escapeHtml(input.summary)}</strong>
+          <em ${i18nAttribute(input.nextStep, nextStepZh)}>${escapeHtml(input.nextStep)}</em>
         </button>
   `;
 }

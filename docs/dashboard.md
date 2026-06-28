@@ -649,7 +649,7 @@ stable routes, API fields, or audit evidence.
 Clicking a Memory Search result-mix chip applies that status or event filter
 while keeping the search local and read-only. Memory Search
 result type labels, event target labels, and memory-state metadata follow the
-language toggle. First-screen action labels, health badges, current-answer cards, and
+language toggle. First-screen action labels, health badges, current-answer cards, Work Lane labels, and
 derived overview cards also follow the language toggle, so `Approval needed`,
 `Review approvals`, `Review what changed`, `Local Only`, and `Sync Pending` do not remain as English-only
 UI labels in Chinese mode. Derived overview-card count and status snippets such

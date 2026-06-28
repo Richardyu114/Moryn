@@ -120,7 +120,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Search results open the same read-only");
     expectText(dashboard, "detail pane with full text, source, status, and timeline/recall commands");
     expectText(dashboard, "Memory Search result type labels, event target labels, and memory-state metadata follow the language toggle");
-    expectText(dashboard, "First-screen action labels, health badges, current-answer cards, and derived overview cards also follow the language toggle");
+    expectText(dashboard, "First-screen action labels, health badges, current-answer cards, Work Lane labels, and derived overview cards also follow the language toggle");
     expectText(dashboard, "Derived overview-card count and status snippets such as `saved items`, `safe check available`, and `Clean` also carry Chinese display text");
     expectText(dashboard, "Relative-time labels such as `2d ago` also carry Chinese display text");
     expectText(dashboard, "Source names, exact timestamps, event operation names, and record ids stay literal");
