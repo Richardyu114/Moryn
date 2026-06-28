@@ -27,7 +27,7 @@ without opening a collapsed section:
   `Needs your decision` panel only when approval is waiting.
 - What is stored? -> the `Current answers` memory card, `At a glance` chart,
   `Find what Moryn saved`, and `What Moryn stores`.
-- Is sync healthy? -> the `Current answers` shared-copy card, `This device`,
+- Is everything synced? -> the `Current answers` shared-copy card, `This device`,
   and the sync rail.
 
 The visual system uses soft glass surfaces, restrained glow, and stable grid
@@ -652,7 +652,7 @@ The first screen is arranged around three plain questions:
 ```text
 Do I need to act? -> Current answers action card
 What is stored?   -> Current answers memory card, At a glance, Find what Moryn saved
-Is sync healthy?  -> Current answers shared-copy card, sync rail
+Is everything synced? -> Current answers shared-copy card, sync rail
 ```
 
 `Current answers` is the first read after the header. It keeps `This device` and

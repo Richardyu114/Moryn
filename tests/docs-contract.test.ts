@@ -130,7 +130,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "visible `Needs your decision` panel only when approval is waiting");
     expectText(dashboard, "What is stored? -> the `Current answers` memory card, `At a glance` chart");
     expectText(dashboard, "`Find what Moryn saved`, and `What Moryn stores`");
-    expectText(dashboard, "Is sync healthy? -> the `Current answers` shared-copy card, `This device`");
+    expectText(dashboard, "Is everything synced? -> the `Current answers` shared-copy card, `This device`");
     expectText(dashboard, "and the sync rail");
     expectText(dashboard, "Those answer cards reuse the dashboard's local navigation");
     expectText(dashboard, "the action card opens the current next step");

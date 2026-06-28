@@ -6423,7 +6423,7 @@ function statusBoard(data: DashboardData): string {
           ${answerMemoryMix(data.memory_inventory)}
         </button>
         <button type="button" class="answer-card sync ${escapeHtml(shared.severity)}" data-dashboard-priority="sync" data-action-board-target="store-signals" aria-controls="store-signals">
-          ${i18nText("Is sync healthy?", "同步健康吗？")}
+          ${i18nText("Is everything synced?", "都同步了吗？")}
           ${i18nText(shared.label, shared.zh, "strong")}
           <small data-i18n-en="${escapeHtml(shared.detail)}" data-i18n-zh="${escapeHtml(shared.zhDetail)}">${escapeHtml(shared.detail)}</small>
         </button>

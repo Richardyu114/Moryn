@@ -747,7 +747,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span data-i18n-en=\"1 saved, not organized\" data-i18n-zh=\"1 条已保存待整理\">1 saved, not organized</span>");
       expect(html).toContain("<span data-i18n-en=\"1 session note\" data-i18n-zh=\"1 条会话笔记\">1 session note</span>");
       expect(html).toContain("<button type=\"button\" class=\"answer-card sync good\" data-dashboard-priority=\"sync\" data-action-board-target=\"store-signals\" aria-controls=\"store-signals\">");
-      expect(html).toContain("<span data-i18n-en=\"Is sync healthy?\" data-i18n-zh=\"同步健康吗？\">Is sync healthy?</span>");
+      expect(html).toContain("<span data-i18n-en=\"Is everything synced?\" data-i18n-zh=\"都同步了吗？\">Is everything synced?</span>");
       expect(html).toContain("<div class=\"status-board-ticker\" data-status-board-ticker aria-label=\"Latest status ticker\">");
       expect(html).toContain("<span data-status-ticker-item=\"last-write\"><b data-i18n-en=\"Last write\" data-i18n-zh=\"最近写入\">Last write</b><strong><time datetime=\"2026-06-01T00:03:00.000Z\" title=\"2026-06-01T00:03:00.000Z\" data-i18n-en=\"19d ago\" data-i18n-zh=\"19 天前\">19d ago</time></strong></span>");
       expect(html).toContain("<span data-status-ticker-item=\"source\"><b data-i18n-en=\"Source\" data-i18n-zh=\"来源\">Source</b><strong data-i18n-en=\"Gemini\" data-i18n-zh=\"Gemini\">Gemini</strong></span>");
