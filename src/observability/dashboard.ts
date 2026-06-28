@@ -6431,28 +6431,29 @@ function glanceSummaryStrip(data: DashboardData): string {
   const recentWritesZh = `${recentWrites} 条可见内容`;
   const topSourceDetail = topSource ? pluralize(topSourceSignals, "recent signal") : "No recent signals";
   const topSourceDetailZh = topSource ? `${topSourceSignals} 条最近信号` : "暂无最近信号";
+  const topSourceFilter = topSource?.client ?? "all";
   return `
       <div class="glance-summary-strip" data-glance-summary-strip aria-label="Recent activity summary">
-        <article data-glance-summary="recent-writes">
+        <button type="button" data-glance-summary="recent-writes" data-action-board-target="stored-content" aria-controls="stored-content" data-glance-filter="all">
           <span data-i18n-en="Recent writes" data-i18n-zh="最近写入">Recent writes</span>
           <strong>${escapeHtml(recentWrites)}</strong>
           <small ${i18nAttribute(recentWritesLabel, recentWritesZh)}>${escapeHtml(recentWritesLabel)}</small>
-        </article>
-        <article data-glance-summary="remembered-now">
+        </button>
+        <button type="button" data-glance-summary="remembered-now" data-action-board-target="stored-content" aria-controls="stored-content" data-glance-filter="canonical">
           <span data-i18n-en="Remembered" data-i18n-zh="已记住">Remembered</span>
           <strong>${escapeHtml(remembered)}</strong>
           <small data-i18n-en="Long-term memory" data-i18n-zh="长期记忆">Long-term memory</small>
-        </article>
-        <article data-glance-summary="to-organize">
+        </button>
+        <button type="button" data-glance-summary="to-organize" data-action-board-target="stored-content" aria-controls="stored-content" data-glance-filter="candidate,raw,archived,quarantined">
           <span data-i18n-en="To organize" data-i18n-zh="待整理">To organize</span>
           <strong>${escapeHtml(toOrganize)}</strong>
           <small data-i18n-en="Saved for later" data-i18n-zh="稍后整理">Saved for later</small>
-        </article>
-        <article data-glance-summary="top-source">
+        </button>
+        <button type="button" data-glance-summary="top-source" data-action-board-target="stored-content" aria-controls="stored-content" data-glance-source="${escapeHtml(topSourceFilter)}">
           <span data-i18n-en="Top source" data-i18n-zh="主要来源">Top source</span>
           <strong data-i18n-en="${escapeHtml(topSourceLabel)}" data-i18n-zh="${escapeHtml(topSourceLabelZh)}">${escapeHtml(topSourceLabel)}</strong>
           <small ${i18nAttribute(topSourceDetail, topSourceDetailZh)}>${escapeHtml(topSourceDetail)}</small>
-        </article>
+        </button>
       </div>
   `;
 }
@@ -7483,6 +7484,20 @@ function dashboardStoredContentScript(): string {
         const memoryStateFilter = target.closest("[data-memory-state-filter]");
         if (memoryStateFilter instanceof HTMLElement) {
           writeStoredContentState({ overflowOpen: true, storedContentFilter: memoryStateFilter.dataset.memoryStateFilter || "all" });
+          applyStoredContentState({ highlight: true });
+          document.querySelector("[data-stored-content]")?.scrollIntoView({ block: "start", behavior: "smooth" });
+          return;
+        }
+        const glanceFilter = target.closest("[data-glance-filter]");
+        if (glanceFilter instanceof HTMLElement) {
+          writeStoredContentState({ overflowOpen: true, storedContentFilter: glanceFilter.dataset.glanceFilter || "all" });
+          applyStoredContentState({ highlight: true });
+          document.querySelector("[data-stored-content]")?.scrollIntoView({ block: "start", behavior: "smooth" });
+          return;
+        }
+        const glanceSource = target.closest("[data-glance-source]");
+        if (glanceSource instanceof HTMLElement) {
+          writeStoredContentState({ overflowOpen: true, storedContentFilter: "all", searchOpen: true, searchSourceFilter: glanceSource.dataset.glanceSource || "all" });
           applyStoredContentState({ highlight: true });
           document.querySelector("[data-stored-content]")?.scrollIntoView({ block: "start", behavior: "smooth" });
           return;
@@ -8641,7 +8656,8 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       gap: 8px;
       margin-bottom: 10px;
     }
-    .glance-summary-strip article {
+    .glance-summary-strip button {
+      appearance: none;
       display: grid;
       gap: 3px;
       min-width: 0;
@@ -8649,8 +8665,27 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       border: 1px solid rgba(112, 129, 149, 0.24);
       border-radius: 8px;
       padding: 10px;
-      background: rgba(9, 11, 14, 0.68);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.048), rgba(69, 185, 255, 0.02) 52%, rgba(255, 255, 255, 0.006)),
+        rgba(9, 11, 14, 0.74);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+      text-align: left;
+      transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+    }
+    .glance-summary-strip button:hover {
+      border-color: rgba(69, 185, 255, 0.44);
+      background:
+        linear-gradient(145deg, rgba(69, 185, 255, 0.085), rgba(116, 242, 145, 0.03)),
+        rgba(12, 15, 20, 0.96);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.055);
+      transform: translateY(-1px);
+    }
+    .glance-summary-strip button:focus-visible {
+      outline: 2px solid var(--signal-blue);
+      outline-offset: 2px;
     }
     .glance-summary-strip span {
       color: var(--muted);

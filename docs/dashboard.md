@@ -661,7 +661,10 @@ appears before `What Moryn remembers`, `Recent status`, and the compact
 visible writes, remembered items, items to organize, and the most active source,
 then shows the memory-state chart, content mix, shared-copy rail, and source
 activity bars. The user does not need to open a detail section to understand the
-current state.
+current state. The summary numbers are also read-only shortcuts: `Recent
+writes` opens all saved content, `Remembered` filters to long-term memory, `To
+organize` filters to saved-but-not-final items, and `Top source` opens saved
+content search filtered to that source.
 `Shared copy` is the user-facing name for Git sync state: it can read `Up to
 date`, `Waiting to upload`, `New shared updates`, `Needs help`, or `Not
 connected`. The API still exposes the underlying sync data in

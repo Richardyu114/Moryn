@@ -136,6 +136,14 @@ describe("documentation contracts", () => {
     expectText(dashboard, "visible writes, remembered items, items to organize, and the most active source");
     expectText(dashboard, "then shows the memory-state chart, content mix, shared-copy rail, and source");
     expectText(dashboard, "activity bars");
+    expectText(dashboard, "The summary numbers are also read-only shortcuts");
+    expectText(dashboard, "`Recent");
+    expectText(dashboard, "writes` opens all saved content");
+    expectText(dashboard, "`Remembered` filters to long-term memory");
+    expectText(dashboard, "`To");
+    expectText(dashboard, "organize` filters to saved-but-not-final items");
+    expectText(dashboard, "`Top source` opens saved");
+    expectText(dashboard, "content search filtered to that source");
     expectText(dashboard, "`Needs your decision` routes users to the owning approval rows only when a real");
     expectText(dashboard, "If the state is only `Saved, not remembered`, the visible action");
     expectText(dashboard, "opens `Find what Moryn saved`, expands saved previews, and keeps search visible");
