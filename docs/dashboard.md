@@ -1301,6 +1301,12 @@ Trust`, `Setup Commands`, `Safe checks`, `Manual input`, `CLI command`, and
 as `Moryn 健康检查`, `安装信任说明`, `设置命令`, `安全检查`, `需要输入`, `命令行命令`,
 and `检查详情`. The underlying `/api/dashboard.health_check` response remains
 unchanged and uses the stable English API field names.
+The Health Check stats row also carries human labels for both languages:
+`Visible records`, `Private hidden`, `Events`, and `Capture review` map to
+`可见内容`, `已隐藏私有内容`, `事件`, and `待确认捕获内容`. Readiness action timing
+sentences remain the API-provided English defaults, but the HTML adds Chinese
+text for the known Health Check reasons so Chinese mode does not leave the
+expanded action rows as English-only instructions.
 When served from the dashboard CLI, pass `--readiness-host <host>` and
 `--sync-remote <remote>` to make this embedded Health Check match the host and
 sync context you would pass to `moryn health check --host <host> --sync-remote

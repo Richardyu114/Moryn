@@ -2056,6 +2056,10 @@ describe("observability dashboard", () => {
       expect(healthBriefHtml).toContain("<span data-i18n-en=\"4 safe suggestions\" data-i18n-zh=\"4 条安全建议\">4 safe suggestions</span>");
       expect(healthBriefHtml).toContain("<span data-i18n-en=\"1 need input\" data-i18n-zh=\"1 条需要输入\">1 need input</span>");
       expect(healthBriefHtml).not.toContain("moryn dashboard --serve --project-id moryn");
+      expect(html).toContain("<dt data-i18n-en=\"Visible records\" data-i18n-zh=\"可见内容\">Visible records</dt>");
+      expect(html).toContain("<dt data-i18n-en=\"Private hidden\" data-i18n-zh=\"已隐藏私有内容\">Private hidden</dt>");
+      expect(html).toContain("<dt data-i18n-en=\"Events\" data-i18n-zh=\"事件\">Events</dt>");
+      expect(html).toContain("<dt data-i18n-en=\"Capture review\" data-i18n-zh=\"待确认捕获内容\">Capture review</dt>");
       expect(html).toContain("<section class=\"health-check-install-trust\" aria-label=\"Install Trust\" data-i18n-aria-label-en=\"Install Trust\" data-i18n-aria-label-zh=\"安装信任说明\">");
       expect(html).toContain("<h4 data-i18n-en=\"Install Trust\" data-i18n-zh=\"安装信任说明\">Install Trust</h4>");
       expect(html).toContain("<p data-i18n-en=\"Review readiness commands before setup\" data-i18n-zh=\"设置前先查看准备命令\">Review readiness commands before setup</p>");
@@ -2090,6 +2094,7 @@ describe("observability dashboard", () => {
       expect(reviewActionHtml).not.toContain("<span>CLI command</span>");
       expect(reviewActionHtml).not.toContain("<small>copy from CLI</small>");
       expect(reviewActionHtml).toContain("<span class=\"pill state-canonical\" data-i18n-en=\"Read-only\" data-i18n-zh=\"只读\">Read-only</span>");
+      expect(reviewActionHtml).toContain("<small data-i18n-en=\"When Health Check finds capture candidates waiting for explicit review.\" data-i18n-zh=\"当健康检查发现有捕获内容等待明确确认时。\">When Health Check finds capture candidates waiting for explicit review.</small>");
       expect(reviewActionHtml).not.toContain("moryn dashboard --serve --project-id moryn");
       expect(html).not.toContain("moryn install --host codex --sync-remote git@github.com:user/moryn-store.git");
       expect(html).not.toContain("moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task &#39;&lt;current task&gt;&#39; --agent codex");
@@ -2104,6 +2109,7 @@ describe("observability dashboard", () => {
       expect(captureActionHtml).toContain("<details class=\"health-check-action-command\" data-dashboard-detail=\"health-check-action-command:capture_session\">");
       expect(captureActionHtml).toContain("<span data-i18n-en=\"CLI command\" data-i18n-zh=\"命令行命令\">CLI command</span>");
       expect(captureActionHtml).toContain("<small data-i18n-en=\"copy from CLI\" data-i18n-zh=\"从命令行复制\">copy from CLI</small>");
+      expect(captureActionHtml).toContain("<small data-i18n-en=\"At the end of a meaningful agent session, with a user-authored or agent-authored summary.\" data-i18n-zh=\"在一次有意义的 agent 会话结束时，填写用户或 agent 写的总结。\">At the end of a meaningful agent session, with a user-authored or agent-authored summary.</small>");
       expect(captureActionHtml).toContain("moryn capture session --project-id moryn");
       expect(html).toContain("<details class=\"health-check-details\" data-dashboard-detail=\"health-check-details\">");
       expect(html).toContain("<span data-i18n-en=\"Check Details\" data-i18n-zh=\"检查详情\">Check Details</span>");

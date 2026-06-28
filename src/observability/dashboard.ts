@@ -3976,8 +3976,37 @@ function healthCheckActionRequirementZh(action: HealthCheckReport["suggested_act
   return `需要填写 ${action.required_fields.map((field) => field.replace(/_/g, " ")).join("、")}`;
 }
 
+function healthCheckRequiredWhenZh(requiredWhen: string): string {
+  if (requiredWhen === "When Health Check finds capture candidates waiting for explicit review.") {
+    return "当健康检查发现有捕获内容等待明确确认时。";
+  }
+  if (requiredWhen === "When Health Check runs without an explicit project id and project-specific readiness is needed.") {
+    return "当健康检查没有明确项目 id，但需要项目级准备情况时。";
+  }
+  if (requiredWhen === "When setup readiness needs browser-mediated review.") {
+    return "当设置准备情况需要在浏览器中查看时。";
+  }
+  if (requiredWhen === "After install or host changes, review the host adapter plan before editing host configuration.") {
+    return "安装或主机变更后，先查看主机适配计划，再修改主机配置。";
+  }
+  if (requiredWhen === "At the start of an agent session, after setup readiness checks are reviewed.") {
+    return "在 agent 会话开始时，并且已查看设置准备检查之后。";
+  }
+  if (requiredWhen === "At the end of a meaningful agent session, with a user-authored or agent-authored summary.") {
+    return "在一次有意义的 agent 会话结束时，填写用户或 agent 写的总结。";
+  }
+  if (requiredWhen === "When cross-device handoff matters and no sync remote was supplied.") {
+    return "需要跨设备交接，但还没有提供共享副本地址时。";
+  }
+  return requiredWhen;
+}
+
 function shouldRenderHealthCheckActionCommand(action: HealthCheckReport["suggested_actions"][number]): boolean {
   return !action.safe_to_run || action.required_fields.length > 0;
+}
+
+function healthCheckStatRow(label: string, zhLabel: string, value: number): string {
+  return `<div>${i18nText(label, zhLabel, "dt")}<dd>${escapeHtml(value)}</dd></div>`;
 }
 
 function healthCheckActionList(actions: HealthCheckReport["suggested_actions"]): string {
@@ -3989,13 +4018,14 @@ function healthCheckActionList(actions: HealthCheckReport["suggested_actions"]):
       ${actions.map((action) => {
         const requirement = healthCheckActionRequirement(action);
         const requirementZh = healthCheckActionRequirementZh(action);
+        const requiredWhenZh = healthCheckRequiredWhenZh(action.required_when);
         return `
         <article class="health-check-action ${action.safe_to_run ? "safe" : "input"}" data-health-check-action="${escapeHtml(action.action_id)}">
           <div>
             <span class="pill ${action.safe_to_run ? "state-canonical" : "warning"}" ${i18nAttribute(requirement, requirementZh)}>${escapeHtml(requirement)}</span>
             <strong>${escapeHtml(titleCase(action.recommended_action))}</strong>
           </div>
-          <small>${escapeHtml(action.required_when)}</small>
+          <small ${i18nAttribute(action.required_when, requiredWhenZh)}>${escapeHtml(action.required_when)}</small>
           ${shouldRenderHealthCheckActionCommand(action) ? `
           <details class="health-check-action-command" data-dashboard-detail="health-check-action-command:${escapeHtml(action.action_id)}">
             <summary class="dashboard-fold-summary">
@@ -4079,10 +4109,10 @@ function healthCheckPanel(report: HealthCheckReport): string {
           <span ${i18nAttribute(needsInput, `${actionSummary.needsInput} 条需要输入`)}>${escapeHtml(needsInput)}</span>
         </div>
         <dl class="health-check-stats">
-          <div><dt>Visible records</dt><dd>${escapeHtml(report.stats.visible_records)}</dd></div>
-          <div><dt>Private hidden</dt><dd>${escapeHtml(report.stats.excluded_private_records)}</dd></div>
-          <div><dt>Events</dt><dd>${escapeHtml(report.stats.total_events)}</dd></div>
-          <div><dt>Capture review</dt><dd>${escapeHtml(report.stats.capture_review_candidates)}</dd></div>
+          ${healthCheckStatRow("Visible records", "可见内容", report.stats.visible_records)}
+          ${healthCheckStatRow("Private hidden", "已隐藏私有内容", report.stats.excluded_private_records)}
+          ${healthCheckStatRow("Events", "事件", report.stats.total_events)}
+          ${healthCheckStatRow("Capture review", "待确认捕获内容", report.stats.capture_review_candidates)}
         </dl>
         ${healthCheckInstallTrust(report)}
         ${healthCheckReadinessActions(report)}
