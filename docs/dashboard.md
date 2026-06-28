@@ -26,23 +26,24 @@ without opening a collapsed section:
 - Do I need to act? -> the `Current answers` action card plus a visible
   `Needs your decision` panel only when approval is waiting.
 - What is stored? -> the `Current answers` memory card, `At a glance` chart,
-  `Memory Explorer`, and `What Moryn remembers`.
+  `Find what Moryn saved`, and `What Moryn remembers`.
 - Is sync healthy? -> the `Current answers` shared-copy card, `This device`,
   and the sync rail.
 
 The `Current answers`, `Needs your decision`, `Saved for later`, `At a glance`, and
-`Memory Explorer` rows are visible above `More details` in the live
+`Find what Moryn saved` rows are visible above `More details` in the live
 non-private dashboard.
 `Needs your decision` routes users to the owning approval rows only when a real
 write is waiting. If the state is only `Saved for later`, the visible action
-opens `Memory Explorer`, expands saved previews, and keeps search visible
+opens `Find what Moryn saved`, expands saved previews, and keeps search visible
 without writing. Approve and reject buttons stay on the owning row beside the
 relevant evidence.
 `At a glance` shows a clickable memory state meter, content-type bars,
 shared-copy state, and recent source activity. Clicking a memory state filters
-`Memory Explorer` to the matching saved items. `Memory Explorer` combines recent
+`Find what Moryn saved` to the matching saved items. This saved-content area combines recent
 saved text previews, keyword search, memory-state/source filters, and a detail
-pane with full text, source, state, and trace commands; it never writes.
+pane with full text, source, and status; history links stay available after an
+item is selected. It never writes.
 Collapsed sections are for audit evidence, raw trace details, and
 optional checks; they should not be required to understand the current dashboard
 state.
@@ -134,7 +135,7 @@ Pass `--include-private` only when the user explicitly wants private memory in
 the dashboard. The same flag applies to the server shell, `/fragment`, and
 `/api/dashboard`.
 
-Visible `Memory Explorer` previews render in the live dashboard when private
+Visible `Find what Moryn saved` previews render in the live dashboard when private
 records are not included. Static snapshots and `--include-private` fragments
 keep saved text out of the visible HTML; use `/api/dashboard.recent_value[]` for
 the explicit machine-readable view in those cases.
@@ -630,15 +631,15 @@ The first screen is arranged around three plain questions:
 
 ```text
 Do I need to act? -> Current answers action card
-What is stored?   -> Current answers memory card, At a glance, Memory Explorer
+What is stored?   -> Current answers memory card, At a glance, Find what Moryn saved
 Is sync healthy?  -> Current answers shared-copy card, sync rail
 ```
 
 `Current answers` is the first read after the header. It keeps `This device` and
 `Shared copy` as compact status chips, then answers action, memory, and sync in
 three larger cards. Those answer cards reuse the dashboard's local navigation:
-the action card opens the current next step, the memory card opens `Memory
-Explorer`, and the sync card opens `Store Signals`. The `At a glance` chart row
+the action card opens the current next step, the memory card opens `Find what
+Moryn saved`, and the sync card opens `Store Signals`. The `At a glance` chart row
 appears before `What Moryn remembers`, `Recent status`, and the compact
 `More details` fold, so the user does not need to open a detail section to
 understand the current state.
@@ -653,15 +654,15 @@ warnings, sync work, then saved notes that are available for later organization.
 `Saved for later` is intentionally lighter than an urgent warning: it appears
 only when there are no higher-priority actions and Moryn has saved `Saved for
 review`, `Recent notes`, or `Set aside` items. If Capture Inbox has real
-approval work, the action opens Capture Inbox. Otherwise it opens `Memory
-Explorer`, expands hidden saved previews, and highlights the section so the
-click has visible feedback. Candidate Triage stays a technical/audit route
+approval work, the action opens Capture Inbox. Otherwise it opens `Find what
+Moryn saved`, expands hidden saved previews, and highlights the
+section so the click has visible feedback. Candidate Triage stays a technical/audit route
 unless it has an explicit promotion approval.
 
 The memory-state chart is also a local navigation control: clicking
 `Long-term memory`, `Saved recently`, `Recent notes`, or `Set aside` opens
-`Memory Explorer` and filters the visible previews by that state. The Explorer
-filter bar can switch back to `All` or jump between available states. Its search
+`Find what Moryn saved` and filters the visible previews by that state. The
+saved-content filter bar can switch back to `All` or jump between available states. Its search
 controls filter across recent records and events by keyword, memory state, and
 source; selecting a saved item fills the read-only detail pane. All of these
 controls are client-side and read-only.
@@ -1382,7 +1383,7 @@ Default read-boundary and redaction rules still apply:
 - quarantined records render as `[quarantined]`
 - sensitive text is not shown in overview cards
 - inspector tables also avoid exposing quarantined content
-- visible `Memory Explorer` previews are disabled for static snapshots and
+- visible `Find what Moryn saved` previews are disabled for static snapshots and
   `--include-private` HTML fragments, while `/api/dashboard.recent_value[]`
   remains the explicit data source
 

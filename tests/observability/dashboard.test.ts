@@ -649,19 +649,21 @@ describe("observability dashboard", () => {
       expect(html).toContain(".dashboard-target-active,");
       expect(html).toContain(".stored-content-active {");
       expect(html.indexOf("data-dashboard-decision-panel")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
-      expect(html).toContain("<section id=\"stored-content\" class=\"stored-content memory-explorer\" data-stored-content data-memory-explorer aria-label=\"Memory Explorer\">");
-      expect(html).toContain("<h2 data-i18n-en=\"Memory Explorer\" data-i18n-zh=\"记忆浏览器\">Memory Explorer</h2>");
-      expect(html).toContain("<small data-i18n-en=\"Search, filter, and inspect saved memory without writing.\" data-i18n-zh=\"搜索、筛选并查看保存的记忆；这里不会写入。\">Search, filter, and inspect saved memory without writing.</small>");
+      expect(html).toContain("<section id=\"stored-content\" class=\"stored-content memory-explorer\" data-stored-content data-memory-explorer aria-label=\"Find what Moryn saved\">");
+      expect(html).toContain("<h2 data-i18n-en=\"Find what Moryn saved\" data-i18n-zh=\"查找 Moryn 保存的内容\">Find what Moryn saved</h2>");
+      expect(html).toContain("<small data-i18n-en=\"Search first, then open any item for full text. Nothing writes here.\" data-i18n-zh=\"先搜索，再打开任何内容查看全文；这里不会写入。\">Search first, then open any item for full text. Nothing writes here.</small>");
       expect(html).toContain("<div class=\"memory-explorer-layout\" data-memory-explorer-layout>");
       expect(html).toContain("<div class=\"memory-explorer-main\" data-memory-explorer-main>");
       expect(html).toContain("<aside class=\"memory-explorer-detail\" data-memory-explorer-detail aria-live=\"polite\">");
       expect(html).toContain("<strong data-memory-explorer-detail-title data-i18n-en=\"Select an item\" data-i18n-zh=\"选择一条内容\">Select an item</strong>");
-      expect(html).toContain("<p data-memory-explorer-detail-text data-i18n-en=\"Click a saved item to see the full text, source, state, and trace commands.\" data-i18n-zh=\"点击保存内容，可查看全文、来源、状态和追踪命令。\">Click a saved item to see the full text, source, state, and trace commands.</p>");
+      expect(html).toContain("<p data-memory-explorer-detail-text data-i18n-en=\"Select a saved item to read its full text, source, and status.\" data-i18n-zh=\"选择一条保存内容，可查看全文、来源和状态。\">Select a saved item to read its full text, source, and status.</p>");
       expect(html).toContain("<dl class=\"memory-explorer-detail-grid\" data-memory-explorer-detail-grid hidden>");
       expect(html).toContain("<dd data-memory-explorer-detail-state></dd>");
       expect(html).toContain("<dd data-memory-explorer-detail-source></dd>");
       expect(html).toContain("<dd data-memory-explorer-detail-updated></dd>");
       expect(html).toContain("<div class=\"memory-explorer-trace\" data-memory-explorer-trace hidden>");
+      expect(html).toContain("<span data-i18n-en=\"History links\" data-i18n-zh=\"历史入口\">History links</span>");
+      expect(html).not.toContain("trace commands.");
       expect(html).toContain("data-memory-explorer-detail-timeline");
       expect(html).toContain("data-memory-explorer-detail-recall");
       expect(html).toContain("<div class=\"stored-content-filterbar\" data-stored-content-filterbar aria-label=\"Stored content filters\">");
@@ -969,11 +971,12 @@ describe("observability dashboard", () => {
       expect(data.recent_records.map((record) => record.id)).toContain("rec_memory_search_1");
       expect(data.recent_events.map((event) => event.event_id)).toContain("evt_memory_search_1");
       expect(html).not.toContain("<button type=\"button\" class=\"memory-search-toggle\" data-memory-search-toggle");
-      expect(html).toContain("<div id=\"memory-search-panel\" class=\"memory-search-panel\" data-memory-search-panel>");
-      expect(html).toContain("<input id=\"memory-search-input\" class=\"memory-search-input\" type=\"search\" data-memory-search-input placeholder=\"Search memory or events\" aria-label=\"Search memory or events\" data-i18n-placeholder-en=\"Search memory or events\" data-i18n-placeholder-zh=\"搜索记忆或事件\" data-i18n-aria-label-en=\"Search memory or events\" data-i18n-aria-label-zh=\"搜索记忆或事件\">");
+      expect(html).toContain("<div id=\"memory-search-panel\" class=\"memory-search-panel primary-memory-search\" data-memory-search-panel aria-label=\"Find memory\">");
+      expect(html).toContain("<label class=\"memory-search-label\" for=\"memory-search-input\" data-i18n-en=\"Find memory or events\" data-i18n-zh=\"查找记忆或事件\">Find memory or events</label>");
+      expect(html).toContain("<input id=\"memory-search-input\" class=\"memory-search-input\" type=\"search\" data-memory-search-input placeholder=\"Type a keyword, source, or topic\" aria-label=\"Find memory or events\" data-i18n-placeholder-en=\"Type a keyword, source, or topic\" data-i18n-placeholder-zh=\"输入关键词、来源或主题\" data-i18n-aria-label-en=\"Find memory or events\" data-i18n-aria-label-zh=\"查找记忆或事件\">");
       expect(html).toContain("<div class=\"memory-search-controls\" data-memory-search-controls>");
       expect(html).toContain("<select class=\"memory-search-select\" data-memory-search-state aria-label=\"Filter search by memory state\">");
-      expect(html).toContain("<option value=\"all\" data-i18n-en=\"All memory states\" data-i18n-zh=\"全部记忆状态\">All memory states</option>");
+      expect(html).toContain("<option value=\"all\" data-i18n-en=\"All statuses\" data-i18n-zh=\"全部状态\">All statuses</option>");
       expect(html).toContain("<option value=\"canonical\" data-i18n-en=\"Long-term memory\" data-i18n-zh=\"长期记忆\">Long-term memory</option>");
       expect(html).toContain("<option value=\"event\" data-i18n-en=\"Events\" data-i18n-zh=\"事件\">Events</option>");
       expect(html).toContain("<select class=\"memory-search-select\" data-memory-search-source aria-label=\"Filter search by source\">");
@@ -990,7 +993,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-memory-search-state=\"event\"");
       expect(html).toContain("data-memory-search-source=\"Codex\"");
       expect(html).toContain("<span data-i18n-en=\"Event\" data-i18n-zh=\"事件\">Event</span>");
-      expect(html).toContain("<p><span data-i18n-en=\"Record\" data-i18n-zh=\"记录\">Record</span> <code>rec_memory_search_1</code></p>");
+      expect(html).toContain("<p><span data-i18n-en=\"Saved item\" data-i18n-zh=\"保存内容\">Saved item</span> <code>rec_memory_search_1</code></p>");
       expect(html).toContain("data-memory-search-text=");
       expect(html).toContain("writeStoredContentState({ searchQuery: query, searchOpen: true });");
       expect(html).toContain("selectedItemId: null");
@@ -1022,6 +1025,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("window.shouldPauseStoredContentRefresh = () => {");
       expect(html).toContain("return state.searchOpen === true && (String(state.searchQuery || \"\").trim().length > 0 || hasSearchFocus);");
       expect(html).toContain("data-memory-search-status");
+      expect(html).toContain(".primary-memory-search {");
+      expect(html).toContain("border-color: rgba(69, 185, 255, 0.42);");
       expect(html).toContain("grid-template-columns: minmax(12ch, max-content) minmax(0, 1fr);");
       expect(html).toContain("span[data-memory-search-status]");
       expect(html).toContain("height: clamp(320px, 46vh, 520px);");
@@ -7375,8 +7380,8 @@ describe("observability dashboard", () => {
         expect(page).toContain("main.addEventListener(\"toggle\"");
         expect(page).not.toContain("<article class=\"recent-value-reference\" data-dashboard-detail=\"recent-value:index\">");
         expect(page).toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
-        expect(page).toContain("<section id=\"stored-content\" class=\"stored-content memory-explorer\" data-stored-content data-memory-explorer aria-label=\"Memory Explorer\">");
-        expect(page).toContain("<div id=\"memory-search-panel\" class=\"memory-search-panel\" data-memory-search-panel>");
+        expect(page).toContain("<section id=\"stored-content\" class=\"stored-content memory-explorer\" data-stored-content data-memory-explorer aria-label=\"Find what Moryn saved\">");
+        expect(page).toContain("<div id=\"memory-search-panel\" class=\"memory-search-panel primary-memory-search\" data-memory-search-panel aria-label=\"Find memory\">");
         expect(page).toContain("<aside class=\"memory-explorer-detail\" data-memory-explorer-detail aria-live=\"polite\">");
         expect(page).toContain("Initial live dashboard memory");
 
@@ -7435,8 +7440,8 @@ describe("observability dashboard", () => {
         expect(refreshedApi.recent_value.map((record) => record.summary)).toContain("Live dashboard refresh memory");
 
         const refreshedFragment = await (await fetch(new URL("/fragment", server.url))).text();
-        expect(refreshedFragment).toContain("<section id=\"stored-content\" class=\"stored-content memory-explorer\" data-stored-content data-memory-explorer aria-label=\"Memory Explorer\">");
-        expect(refreshedFragment).toContain("<div id=\"memory-search-panel\" class=\"memory-search-panel\" data-memory-search-panel>");
+        expect(refreshedFragment).toContain("<section id=\"stored-content\" class=\"stored-content memory-explorer\" data-stored-content data-memory-explorer aria-label=\"Find what Moryn saved\">");
+        expect(refreshedFragment).toContain("<div id=\"memory-search-panel\" class=\"memory-search-panel primary-memory-search\" data-memory-search-panel aria-label=\"Find memory\">");
         expect(refreshedFragment).toContain("<aside class=\"memory-explorer-detail\" data-memory-explorer-detail aria-live=\"polite\">");
         expect(refreshedFragment).toContain("Live dashboard refresh memory");
         const refreshedAuditTrailHtml = supportingEvidenceSummaryRowHtml(refreshedFragment, "store-snapshot");

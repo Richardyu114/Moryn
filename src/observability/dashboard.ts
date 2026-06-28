@@ -6456,7 +6456,7 @@ function memorySearchRecordEntry(record: DashboardRecordSummary, generatedAt: st
 function memorySearchEventEntry(event: DashboardEventSummary, generatedAt: string): string {
   const source = humanSourceLabel(event.source);
   const eventTarget = event.record_id
-    ? `<span ${i18nAttribute("Record", "记录")}>Record</span> <code>${escapeHtml(event.record_id)}</code>`
+    ? `<span ${i18nAttribute("Saved item", "保存内容")}>Saved item</span> <code>${escapeHtml(event.record_id)}</code>`
     : i18nText("Store-level event", "全局事件", "span");
   const searchText = memorySearchText([
     "event",
@@ -6501,12 +6501,12 @@ function memorySearchPanel(data: DashboardData): string {
   ])].sort((left, right) => left.localeCompare(right));
   const statusLabel = memorySearchStatusLabel(entries.length);
   return `
-      <div id="memory-search-panel" class="memory-search-panel" data-memory-search-panel>
-        <label class="memory-search-label" for="memory-search-input" data-i18n-en="Search memory or events" data-i18n-zh="搜索记忆或事件">Search memory or events</label>
+      <div id="memory-search-panel" class="memory-search-panel primary-memory-search" data-memory-search-panel aria-label="Find memory">
+        <label class="memory-search-label" for="memory-search-input" data-i18n-en="Find memory or events" data-i18n-zh="查找记忆或事件">Find memory or events</label>
         <div class="memory-search-controls" data-memory-search-controls>
-          <input id="memory-search-input" class="memory-search-input" type="search" data-memory-search-input placeholder="Search memory or events" aria-label="Search memory or events" data-i18n-placeholder-en="Search memory or events" data-i18n-placeholder-zh="搜索记忆或事件" data-i18n-aria-label-en="Search memory or events" data-i18n-aria-label-zh="搜索记忆或事件">
+          <input id="memory-search-input" class="memory-search-input" type="search" data-memory-search-input placeholder="Type a keyword, source, or topic" aria-label="Find memory or events" data-i18n-placeholder-en="Type a keyword, source, or topic" data-i18n-placeholder-zh="输入关键词、来源或主题" data-i18n-aria-label-en="Find memory or events" data-i18n-aria-label-zh="查找记忆或事件">
           <select class="memory-search-select" data-memory-search-state aria-label="Filter search by memory state">
-            <option value="all" ${i18nAttribute("All memory states", "全部记忆状态")}>All memory states</option>
+            <option value="all" ${i18nAttribute("All statuses", "全部状态")}>All statuses</option>
             ${recordStates.map((state) => {
               const label = memoryStateLabelFromRecordState(state);
               return `<option value="${escapeHtml(state)}" ${i18nAttribute(label.en, label.zh)}>${escapeHtml(label.en)}</option>`;
@@ -6534,14 +6534,14 @@ function memoryExplorerDetailPanel(): string {
       <aside class="memory-explorer-detail" data-memory-explorer-detail aria-live="polite">
         <span data-i18n-en="Selected item" data-i18n-zh="当前内容">Selected item</span>
         <strong data-memory-explorer-detail-title data-i18n-en="Select an item" data-i18n-zh="选择一条内容">Select an item</strong>
-        <p data-memory-explorer-detail-text data-i18n-en="Click a saved item to see the full text, source, state, and trace commands." data-i18n-zh="点击保存内容，可查看全文、来源、状态和追踪命令。">Click a saved item to see the full text, source, state, and trace commands.</p>
+        <p data-memory-explorer-detail-text data-i18n-en="Select a saved item to read its full text, source, and status." data-i18n-zh="选择一条保存内容，可查看全文、来源和状态。">Select a saved item to read its full text, source, and status.</p>
         <dl class="memory-explorer-detail-grid" data-memory-explorer-detail-grid hidden>
           <div><dt data-i18n-en="State" data-i18n-zh="状态">State</dt><dd data-memory-explorer-detail-state></dd></div>
           <div><dt data-i18n-en="Source" data-i18n-zh="来源">Source</dt><dd data-memory-explorer-detail-source></dd></div>
           <div><dt data-i18n-en="Updated" data-i18n-zh="更新时间">Updated</dt><dd data-memory-explorer-detail-updated></dd></div>
         </dl>
         <div class="memory-explorer-trace" data-memory-explorer-trace hidden>
-          <span data-i18n-en="Trace commands" data-i18n-zh="追踪命令">Trace commands</span>
+          <span data-i18n-en="History links" data-i18n-zh="历史入口">History links</span>
           <code data-memory-explorer-detail-timeline></code>
           <code data-memory-explorer-detail-recall></code>
         </div>
@@ -6557,11 +6557,11 @@ function storedContentPanel(data: DashboardData): string {
   const moreLabel = `View ${overflowCount} more`;
   const moreLabelZh = `查看更多 ${overflowCount} 条`;
   return `
-    <section id="stored-content" class="stored-content memory-explorer" data-stored-content data-memory-explorer aria-label="Memory Explorer">
+    <section id="stored-content" class="stored-content memory-explorer" data-stored-content data-memory-explorer aria-label="Find what Moryn saved">
       <div class="section-heading">
-        <h2 data-i18n-en="Memory Explorer" data-i18n-zh="记忆浏览器">Memory Explorer</h2>
+        <h2 data-i18n-en="Find what Moryn saved" data-i18n-zh="查找 Moryn 保存的内容">Find what Moryn saved</h2>
         <div class="stored-content-tools">
-          ${i18nText("Search, filter, and inspect saved memory without writing.", "搜索、筛选并查看保存的记忆；这里不会写入。", "small")}
+          ${i18nText("Search first, then open any item for full text. Nothing writes here.", "先搜索，再打开任何内容查看全文；这里不会写入。", "small")}
         </div>
       </div>
       <div class="memory-explorer-layout" data-memory-explorer-layout>
@@ -7069,9 +7069,9 @@ function dashboardStoredContentScript(): string {
             detailTitle.textContent = selectedLanguage() === "zh" ? "选择一条内容" : "Select an item";
           }
           if (detailText instanceof HTMLElement) {
-            detailText.dataset.i18nEn = "Click a saved item to see the full text, source, state, and trace commands.";
-            detailText.dataset.i18nZh = "点击保存内容，可查看全文、来源、状态和追踪命令。";
-            detailText.textContent = selectedLanguage() === "zh" ? "点击保存内容，可查看全文、来源、状态和追踪命令。" : "Click a saved item to see the full text, source, state, and trace commands.";
+            detailText.dataset.i18nEn = "Select a saved item to read its full text, source, and status.";
+            detailText.dataset.i18nZh = "选择一条保存内容，可查看全文、来源和状态。";
+            detailText.textContent = selectedLanguage() === "zh" ? "选择一条保存内容，可查看全文、来源和状态。" : "Select a saved item to read its full text, source, and status.";
           }
           setDetailText("[data-memory-explorer-detail-state]", "");
           setDetailText("[data-memory-explorer-detail-source]", "");
@@ -8054,9 +8054,16 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
         rgba(10, 12, 15, 0.72);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
+    .primary-memory-search {
+      border-color: rgba(69, 185, 255, 0.42);
+      background:
+        linear-gradient(180deg, rgba(69, 185, 255, 0.09), rgba(116, 242, 145, 0.025)),
+        rgba(8, 10, 13, 0.88);
+      box-shadow: 0 18px 38px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.055);
+    }
     .memory-search-label {
       color: var(--ink);
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 820;
     }
     .memory-search-controls {
@@ -8067,7 +8074,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     }
     .memory-search-input {
       width: 100%;
-      min-height: 44px;
+      min-height: 48px;
       border: 1px solid rgba(112, 129, 149, 0.34);
       border-radius: 7px;
       padding: 8px 12px;
