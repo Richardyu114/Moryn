@@ -149,6 +149,13 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Its search controls filter across recent records and events by keyword, memory state, and source");
     expectText(dashboard, "selecting a saved item fills the read-only detail pane");
     expectText(dashboard, "client-side and read-only");
+    expectText(dashboard, "Each saved-content card also carries a plain next-step hint");
+    expectText(dashboard, "`Already");
+    expectText(dashboard, "remembered`, `Can be organized`, `Keep for context`, or `Set aside`");
+    expectText(dashboard, "expose only `Open details`");
+    expectText(dashboard, "remember,");
+    expectText(dashboard, "dismiss, archive, or approval writes appear only beside the real confirmation");
+    expectText(dashboard, "rows that already have server endpoints");
     expectText(dashboard, "Candidate Triage stays a technical/audit route unless it has an explicit promotion approval");
     expectText(dashboard, "`All clear` now means there are no confirmations, visible warnings, sync tasks, or saved items waiting for later organization");
     expectText(dashboard, "Directly below the action summary, `What Moryn remembers` shows the user-facing memory inventory");

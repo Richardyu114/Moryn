@@ -6389,8 +6389,42 @@ function memoryStateLabelFromRecordState(state: MorynRecord["state"]): { en: str
   return { en: "Set aside", zh: "已搁置" };
 }
 
+function storedContentNextStep(item: DashboardValueRecord): { label: string; zhLabel: string; detail: string; zhDetail: string } {
+  if (item.state === "canonical") {
+    return {
+      label: "Already remembered",
+      zhLabel: "已经记住",
+      detail: "This is already in long-term memory.",
+      zhDetail: "这条已经在长期记忆里。"
+    };
+  }
+  if (item.state === "candidate") {
+    return {
+      label: "Can be organized",
+      zhLabel: "可以整理",
+      detail: "Open details first. If this can change memory, Moryn will show real confirm buttons nearby.",
+      zhDetail: "先打开详情；如果这条可以改变记忆，Moryn 会在附近显示真正的确认按钮。"
+    };
+  }
+  if (item.state === "raw") {
+    return {
+      label: "Keep for context",
+      zhLabel: "作为上下文保留",
+      detail: "Recent notes stay searchable but are not treated as long-term memory.",
+      zhDetail: "最近笔记可搜索，但不会被当作长期记忆。"
+    };
+  }
+  return {
+    label: "Set aside",
+    zhLabel: "已搁置",
+    detail: "This stays searchable here without changing long-term memory.",
+    zhDetail: "这条仍可在这里搜索，不会改变长期记忆。"
+  };
+}
+
 function storedContentItem(item: DashboardValueRecord): string {
   const state = memoryStateLabelFromRecordState(item.state);
+  const nextStep = storedContentNextStep(item);
   return `
             <article class="stored-content-item state-${escapeHtml(item.state)}" data-stored-content-item="${escapeHtml(item.id)}" data-stored-content-state="${escapeHtml(item.state)}" data-stored-content-source="${escapeHtml(item.source_label)}" data-memory-explorer-title="${escapeHtml(item.title)}" data-memory-explorer-full-text="${escapeHtml(item.summary)}" data-memory-explorer-state="${escapeHtml(state.en)}" data-memory-explorer-state-en="${escapeHtml(state.en)}" data-memory-explorer-state-zh="${escapeHtml(state.zh)}" data-memory-explorer-source="${escapeHtml(item.source_detail || item.source_label)}" data-memory-explorer-updated="${escapeHtml(`${item.relative_time} | ${item.exact_time}`)}" data-memory-explorer-timeline="${escapeHtml(item.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(item.citation.recall_command)}" tabindex="0">
               <div class="stored-content-item-head">
@@ -6399,7 +6433,11 @@ function storedContentItem(item: DashboardValueRecord): string {
               </div>
               <strong>${escapeHtml(item.title)}</strong>
               ${textExcerptBlock(item.summary)}
-              <button type="button" class="stored-content-open" data-memory-explorer-open data-i18n-en="Inspect" data-i18n-zh="查看">Inspect</button>
+              <div class="stored-content-next-step" data-stored-content-next-step>
+                <span data-i18n-en="${escapeHtml(nextStep.label)}" data-i18n-zh="${escapeHtml(nextStep.zhLabel)}">${escapeHtml(nextStep.label)}</span>
+                <small data-i18n-en="${escapeHtml(nextStep.detail)}" data-i18n-zh="${escapeHtml(nextStep.zhDetail)}">${escapeHtml(nextStep.detail)}</small>
+              </div>
+              <button type="button" class="stored-content-open" data-memory-explorer-open data-i18n-en="Open details" data-i18n-zh="打开详情">Open details</button>
             </article>
   `;
 }
@@ -8249,6 +8287,24 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       margin: 0;
       color: var(--ink-2);
       overflow-wrap: anywhere;
+    }
+    .stored-content-next-step {
+      display: grid;
+      gap: 3px;
+      border: 1px solid rgba(112, 129, 149, 0.22);
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: rgba(5, 7, 10, 0.44);
+    }
+    .stored-content-next-step span {
+      color: #d7ecff;
+      font-size: 12px;
+      font-weight: 830;
+      overflow-wrap: anywhere;
+    }
+    .stored-content-next-step small {
+      color: var(--muted);
+      line-height: 1.35;
     }
     .stored-content-open {
       justify-self: start;

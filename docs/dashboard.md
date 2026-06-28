@@ -666,6 +666,11 @@ saved-content filter bar can switch back to `All` or jump between available stat
 controls filter across recent records and events by keyword, memory state, and
 source; selecting a saved item fills the read-only detail pane. All of these
 controls are client-side and read-only.
+Each saved-content card also carries a plain next-step hint: `Already
+remembered`, `Can be organized`, `Keep for context`, or `Set aside`. Those hints
+explain what the item means now and expose only `Open details`; remember,
+dismiss, archive, or approval writes appear only beside the real confirmation
+rows that already have server endpoints.
 
 `All clear` now means there are no confirmations, visible warnings, sync tasks,
 or saved items waiting for later organization. Pure read-only inspections do not
