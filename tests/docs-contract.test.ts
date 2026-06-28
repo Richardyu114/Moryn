@@ -101,6 +101,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "covers legacy diagnostic labels inside `Background checks` and compact `Technical details`");
     expectText(dashboard, "Memory Search controls and result-count feedback also follow the language toggle");
     expectText(dashboard, "Memory Search result type labels, event target labels, and memory-state metadata follow the language toggle");
+    expectText(dashboard, "First-screen action labels, health badges, current-answer cards, and derived overview cards also follow the language toggle");
     expectText(dashboard, "event operation names, and record ids stay literal");
     expectText(dashboard, "saved memory text and event evidence stay in their original wording");
     expectText(dashboard, "The visible receipt labels, decision sentence, write-boundary summary, changed count, and trace status follow the dashboard language toggle");

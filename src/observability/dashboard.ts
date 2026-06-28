@@ -3092,6 +3092,84 @@ function i18nAttribute(en: string, zh: string): string {
   return `data-i18n-en="${escapeHtml(en)}" data-i18n-zh="${escapeHtml(zh)}"`;
 }
 
+function dashboardHealthZh(status: DashboardHealthStatus, label: string): string {
+  if (status === "healthy" || label === "Healthy") return "正常";
+  if (status === "sync_pending" || label === "Sync Pending") return "等待同步";
+  if (status === "needs_review" || label === "Needs Review") return "需要查看";
+  if (status === "conflict" || label === "Conflict") return "需要处理冲突";
+  if (status === "local_only" || label === "Local Only") return "仅本机";
+  return label;
+}
+
+function dashboardActionLabelZh(label: string): string {
+  if (label === "Health") return "健康";
+  if (label === "Next") return "下一步";
+  if (label === "Context") return "上下文";
+  if (label === "Sync") return "共享副本";
+  if (label === "Healthy") return "正常";
+  if (label === "Sync Pending") return "等待同步";
+  if (label === "Needs Review") return "需要查看";
+  if (label === "Conflict") return "需要处理冲突";
+  if (label === "Local Only") return "仅本机";
+  if (label === "Local only") return "仅本机";
+  if (label === "Ready") return "已就绪";
+  if (label === "Available") return "可用";
+  if (label === "Unavailable") return "不可用";
+  if (label === "Configured") return "已配置";
+  if (label === "Not configured") return "未配置";
+  if (label === "Local changes") return "本机有新变化";
+  if (label === "Review decisions") return "查看待确认事项";
+  if (label === "Review warnings") return "查看提醒";
+  if (label === "Review health") return "查看健康状态";
+  if (label === "Open info checks") return "查看后台检查";
+  if (label === "Open context") return "查看上下文";
+  if (label === "Open governance") return "查看安全检查";
+  if (label === "Check attention") return "查看需要注意的内容";
+  if (label === "Inspect checks") return "查看检查";
+  if (label === "Inspect sync") return "检查共享副本";
+  if (label === "Browse saved notes") return "浏览已保存内容";
+  if (label === "Saved for later") return "已保存，可稍后整理";
+  if (label === "All clear") return "暂时不用管";
+  if (label === "View checks") return "查看检查";
+  if (label === "View details") return "查看详情";
+  return label;
+}
+
+function dashboardDisplayZh(label: string): string {
+  return dashboardActionLabelZh(label);
+}
+
+function dashboardActionDetailZh(detail: string): string {
+  if (detail === "Explicit approvals stay in Capture Inbox, Review Queue, and Candidate Triage.") {
+    return "需要明确确认的操作会保留在 Capture Inbox、Review Queue 和 Candidate Triage 中。";
+  }
+  if (detail === "Sync is not configured; this snapshot is useful locally, but other devices will not see these records yet.") {
+    return "同步还没有连接；这份快照在本机可用，但其他设备还看不到这些记录。";
+  }
+  if (detail === "Local sync changes are waiting to be pushed or pulled; memory data remains usable on this device.") {
+    return "本机同步变化还在等待上传或拉取；这台设备上的记忆仍可使用。";
+  }
+  if (detail === "Sync is clean and no urgent safety items were detected in this snapshot.") {
+    return "同步正常，这份快照没有发现需要立刻处理的安全事项。";
+  }
+  if (detail === "Warnings and critical signals remain visible in Needs Attention.") {
+    return "提醒和重要信号会继续显示在需要注意的区域。";
+  }
+  if (detail === "Sync pending is shown in the Sync lane and Store Signals.") {
+    return "同步事项会显示在共享副本和存储信号区域。";
+  }
+  if (detail === "Handoff evidence stays read-only") {
+    return "交接依据保持只读。";
+  }
+  if (detail === "Project context is required for Context Pack Review.") {
+    return "需要项目上下文才能查看交接上下文。";
+  }
+  if (detail === "No confirmations, warnings, or sync actions need attention. Read-only inspections remain available below.") {
+    return "没有需要确认、提醒或同步的事项；只读检查仍保留在下方。";
+  }
+  return detail;
+}
+
 function statusClass(sync: GitSyncStatus): string {
   if (sync.sync_state === "clean") return "good";
   if (sync.sync_state === "conflict") return "critical";
@@ -3315,10 +3393,10 @@ function isPrimaryDashboardOverviewCard(card: DashboardOverviewCard, data: Dashb
 function dashboardOverviewCardButton(card: DashboardOverviewCard, dataAttribute = "data-dashboard-overview-card"): string {
   return `
           <button type="button" class="dashboard-overview-card ${escapeHtml(card.severity)}" ${dataAttribute}="${escapeHtml(card.id)}" data-action-board-target="${escapeHtml(card.target)}" aria-controls="${escapeHtml(card.target)}" data-dashboard-overview-source="${escapeHtml(card.source)}">
-            <span>${escapeHtml(card.label)}</span>
-            <strong>${escapeHtml(card.value)}</strong>
-            <p>${escapeHtml(card.summary)}</p>
-            <small>${escapeHtml(card.target_label)}</small>
+            <span ${i18nAttribute(card.label, dashboardActionLabelZh(card.label))}>${escapeHtml(card.label)}</span>
+            <strong ${i18nAttribute(card.value, dashboardDisplayZh(card.value))}>${escapeHtml(card.value)}</strong>
+            <p ${i18nAttribute(card.summary, dashboardActionDetailZh(card.summary))}>${escapeHtml(card.summary)}</p>
+            <small ${i18nAttribute(card.target_label, dashboardActionLabelZh(card.target_label))}>${escapeHtml(card.target_label)}</small>
           </button>
         `;
 }
@@ -3359,28 +3437,14 @@ function dashboardOverview(
   const actionLabel = isAllClear
     ? data.primary_action.label === "Inspect checks" ? "View checks" : "View details"
     : data.primary_action.label;
-  const headlineZh = data.headline === "Saved for later"
-    ? "已保存，可稍后整理"
-    : data.headline === "All clear"
-      ? "暂时不用管"
-      : data.headline === "Inspect sync"
-        ? "检查共享副本"
-        : data.headline;
+  const headlineZh = dashboardActionLabelZh(data.headline);
   const detailZh = data.headline === "Saved for later"
     ? data.detail
       .replace("1 saved-for-review item and 1 recent note are stored safely. Browse them when you want to decide what becomes long-term memory.", "Moryn 已安全保存 1 条待整理内容和 1 条最近笔记。你想决定哪些进入长期记忆时再查看。")
       .replace("1 saved-for-review item is stored safely. Browse it when you want to decide what becomes long-term memory.", "Moryn 已安全保存 1 条待整理内容。你想决定它是否进入长期记忆时再查看。")
       .replace("1 recent note is stored safely. Browse it when you want to decide what becomes long-term memory.", "Moryn 已安全保存 1 条最近笔记。你想决定它是否进入长期记忆时再查看。")
-    : visibleDetail;
-  const actionLabelZh = actionLabel === "Browse saved notes"
-    ? "浏览已保存内容"
-    : actionLabel === "View checks"
-      ? "查看检查"
-      : actionLabel === "View details"
-        ? "查看详情"
-        : actionLabel === "Inspect sync"
-          ? "检查共享副本"
-          : actionLabel;
+    : dashboardActionDetailZh(visibleDetail);
+  const actionLabelZh = dashboardActionLabelZh(actionLabel);
   return `
     <section class="dashboard-overview ${escapeHtml(data.status)}" data-dashboard-overview aria-label="Dashboard Overview">
       <div class="dashboard-overview-main">
@@ -5996,17 +6060,18 @@ function evidenceLibrary(
 function dashboardStatusSummary(data: DashboardData, options: { hideHealthyLine?: boolean } = {}): string {
   const health = data.health;
   const statusClass = healthClass(health.status);
+  const healthZh = dashboardHealthZh(health.status, health.label);
   if (health.status === "healthy") {
     if (options.hideHealthyLine) return "";
     return `
-    <p class="dashboard-status-line ${statusClass}" data-dashboard-status="${escapeHtml(health.status)}"><strong>${escapeHtml(health.label)}</strong><span>${escapeHtml(health.explanation)}</span></p>
+    <p class="dashboard-status-line ${statusClass}" data-dashboard-status="${escapeHtml(health.status)}"><strong ${i18nAttribute(health.label, healthZh)}>${escapeHtml(health.label)}</strong><span>${escapeHtml(health.explanation)}</span></p>
   `;
   }
   if (health.status === "sync_pending") return "";
   return `
     <section class="status-strip ${statusClass}" data-dashboard-status="${escapeHtml(health.status)}">
       <strong>Dashboard Status</strong>
-      <span>${escapeHtml(health.label)}</span>
+      <span ${i18nAttribute(health.label, healthZh)}>${escapeHtml(health.label)}</span>
       <p>${escapeHtml(health.explanation)}</p>
     </section>
   `;
@@ -6036,6 +6101,10 @@ function statusBoard(data: DashboardData): string {
   const shared = sharedCopyLabel(data.sync);
   const actionIsCalm = data.decision_summary.total_decisions === 0 && (data.dashboard_overview.headline === "Saved for later" || (data.dashboard_overview.status !== "critical" && data.dashboard_overview.status !== "warning"));
   const actionClass = actionIsCalm ? "calm" : escapeHtml(data.dashboard_overview.status);
+  const healthLabel = data.health.status === "healthy" ? "Healthy" : data.health.label;
+  const healthZh = dashboardHealthZh(data.health.status, healthLabel);
+  const headlineZh = dashboardActionLabelZh(data.dashboard_overview.headline);
+  const primaryActionZh = dashboardActionLabelZh(data.dashboard_overview.primary_action.label);
   return `
     <section class="status-board" data-status-board aria-label="Current answers">
       <div class="section-heading status-board-heading">
@@ -6045,7 +6114,7 @@ function statusBoard(data: DashboardData): string {
       <div class="status-board-rail" data-status-board-rail aria-label="Local and shared status">
         <article class="status-chip ${escapeHtml(overviewStatusFromHealth(data.health.status))}" data-status-chip="device">
           ${i18nText("This device", "本机记忆")}
-          ${i18nText(data.health.status === "healthy" ? "Healthy" : data.health.label, data.health.status === "healthy" ? "正常" : data.health.label, "strong")}
+          ${i18nText(healthLabel, healthZh, "strong")}
           ${i18nText("Local memory is ready", "本机记忆可用", "small")}
         </article>
         <article class="status-chip ${escapeHtml(shared.severity)}" data-status-chip="shared-copy">
@@ -6057,8 +6126,8 @@ function statusBoard(data: DashboardData): string {
       <div class="status-board-answers" data-status-board-answers>
         <button type="button" class="answer-card action ${actionClass}" data-dashboard-priority="action" data-action-board-target="${escapeHtml(data.dashboard_overview.primary_action.target)}" aria-controls="${escapeHtml(data.dashboard_overview.primary_action.target)}">
           ${i18nText("Do I need to act?", "我需要操作吗？")}
-          <strong data-i18n-en="${escapeHtml(data.dashboard_overview.headline)}" data-i18n-zh="${escapeHtml(data.dashboard_overview.headline === "Saved for later" ? "已保存，可稍后整理" : data.dashboard_overview.headline)}">${escapeHtml(data.dashboard_overview.headline)}</strong>
-          <small data-i18n-en="${escapeHtml(data.dashboard_overview.primary_action.label)}" data-i18n-zh="${escapeHtml(data.dashboard_overview.primary_action.label === "Browse saved notes" ? "浏览已保存内容" : data.dashboard_overview.primary_action.label)}">${escapeHtml(data.dashboard_overview.primary_action.label)}</small>
+          <strong data-i18n-en="${escapeHtml(data.dashboard_overview.headline)}" data-i18n-zh="${escapeHtml(headlineZh)}">${escapeHtml(data.dashboard_overview.headline)}</strong>
+          <small data-i18n-en="${escapeHtml(data.dashboard_overview.primary_action.label)}" data-i18n-zh="${escapeHtml(primaryActionZh)}">${escapeHtml(data.dashboard_overview.primary_action.label)}</small>
         </button>
         <button type="button" class="answer-card memory" data-dashboard-priority="memory" data-action-board-target="stored-content" aria-controls="stored-content">
           ${i18nText("What is stored?", "存了什么？")}
@@ -6567,6 +6636,7 @@ function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderO
   const isSavedForLaterOverview = data.dashboard_overview.headline === "Saved for later";
   const shouldRenderWorkLanes = !shouldPromoteStoreSignals && !isAllClearOverview && !isSavedForLaterOverview;
   const promotedStoreSignals = shouldPromoteStoreSignals ? promotedStoreSignalsPanel(data) : "";
+  const healthLabelZh = dashboardHealthZh(data.health.status, data.health.label);
   return `
     <header>
       <div>
@@ -6575,7 +6645,7 @@ function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderO
         <p class="dashboard-generated-at"><time datetime="${escapeHtml(data.generated_at)}" title="${escapeHtml(data.generated_at)}">${escapeHtml(dashboardGeneratedAtLabel(data.generated_at))}</time></p>
       </div>
       <div class="dashboard-header-actions">
-        <span class="health-badge ${healthClass(data.health.status)}">${escapeHtml(data.health.label)}</span>
+        <span class="health-badge ${healthClass(data.health.status)}" ${i18nAttribute(data.health.label, healthLabelZh)}>${escapeHtml(data.health.label)}</span>
         ${dashboardLanguageToggle()}
       </div>
     </header>

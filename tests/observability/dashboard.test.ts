@@ -320,7 +320,7 @@ describe("observability dashboard", () => {
           source: "action_board.items_by_id.sync"
         }
       });
-      expect(html).toContain("<span class=\"health-badge warning\">Sync Pending</span>");
+      expect(html).toContain("<span class=\"health-badge warning\" data-i18n-en=\"Sync Pending\" data-i18n-zh=\"等待同步\">Sync Pending</span>");
       expect(html).not.toContain("<p class=\"dashboard-status-line warning\" data-dashboard-status=\"sync_pending\">");
       expect(html).not.toContain("<section class=\"status-strip warning\" data-dashboard-status=\"sync_pending\">");
       expect(html).not.toContain("Local sync changes are waiting to be pushed or pulled");
@@ -596,7 +596,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Browse saved notes\" data-i18n-zh=\"浏览已保存内容\">Browse saved notes</button>");
       expect(html).not.toContain("<strong>All clear</strong>");
       expect(html).not.toContain("<p>No work needs attention.</p>");
-      expect(html).toContain("<span class=\"health-badge good\">Healthy</span>");
+      expect(html).toContain("<span class=\"health-badge good\" data-i18n-en=\"Healthy\" data-i18n-zh=\"正常\">Healthy</span>");
       expect(html).toContain(`<p class="store-path" title="${storePath}" data-i18n-en="Local memory" data-i18n-zh="本机记忆">Local memory</p>`);
       expect(html).toContain("<p class=\"dashboard-generated-at\"><time datetime=\"2026-06-21T00:00:00.000Z\" title=\"2026-06-21T00:00:00.000Z\">Updated 00:00 UTC</time></p>");
       expect(html).toContain("<section class=\"status-board\" data-status-board aria-label=\"Current answers\">");
@@ -3449,9 +3449,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("<section class=\"dashboard-overview warning\" data-dashboard-overview aria-label=\"Dashboard Overview\">");
       expect(html).not.toContain("<h2>Dashboard Overview</h2>");
       expect(html).toContain("<h2><span data-i18n-en=\"Needs attention?\" data-i18n-zh=\"现在需要我做什么吗？\">Needs attention?</span></h2>");
-      expect(html).toContain("<strong data-i18n-en=\"Review warnings\" data-i18n-zh=\"Review warnings\">Review warnings</strong>");
-      expect(html).toContain("<p data-i18n-en=\"Warnings and critical signals remain visible in Needs Attention.\" data-i18n-zh=\"Warnings and critical signals remain visible in Needs Attention.\">Warnings and critical signals remain visible in Needs Attention.</p>");
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\" data-i18n-en=\"Review warnings\" data-i18n-zh=\"Review warnings\">Review warnings</button>");
+      expect(html).toContain("<strong data-i18n-en=\"Review warnings\" data-i18n-zh=\"查看提醒\">Review warnings</strong>");
+      expect(html).toContain("<p data-i18n-en=\"Warnings and critical signals remain visible in Needs Attention.\" data-i18n-zh=\"提醒和重要信号会继续显示在需要注意的区域。\">Warnings and critical signals remain visible in Needs Attention.</p>");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\" data-i18n-en=\"Review warnings\" data-i18n-zh=\"查看提醒\">Review warnings</button>");
       expect(html).not.toContain("<div class=\"dashboard-overview-grid\">");
       expect(html).not.toContain("data-dashboard-overview-card=\"health\"");
       expect(html).not.toContain("data-dashboard-overview-card=\"context\"");
@@ -3461,13 +3461,13 @@ describe("observability dashboard", () => {
       expect(html).toContain("<summary class=\"dashboard-fold-summary dashboard-overview-quiet-fold\" aria-label=\"Background Status: Healthy signals kept for context\">");
       expect(html).toContain("<small>Signals ready</small>");
       expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-card info\" data-dashboard-overview-quiet-card=\"health\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\" data-dashboard-overview-source=\"health\">");
-      expect(html).toContain("<span>Health</span>");
-      expect(html).toContain("<strong>Local Only</strong>");
-      expect(html).toContain("<small>Review health</small>");
+      expect(html).toContain("<span data-i18n-en=\"Health\" data-i18n-zh=\"健康\">Health</span>");
+      expect(html).toContain("<strong data-i18n-en=\"Local Only\" data-i18n-zh=\"仅本机\">Local Only</strong>");
+      expect(html).toContain("<small data-i18n-en=\"Review health\" data-i18n-zh=\"查看健康状态\">Review health</small>");
       expect(html).not.toContain("<button type=\"button\" class=\"dashboard-overview-card warning\" data-dashboard-overview-card=\"action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\" data-dashboard-overview-source=\"action_board.items_by_id.review\">");
-      expect(html).toContain("<small>Open context</small>");
+      expect(html).toContain("<small data-i18n-en=\"Open context\" data-i18n-zh=\"查看上下文\">Open context</small>");
       expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-card info\" data-dashboard-overview-quiet-card=\"sync\" data-action-board-target=\"store-signals\" aria-controls=\"store-signals\" data-dashboard-overview-source=\"action_board.items_by_id.sync\">");
-      expect(html).toContain("<small>Inspect sync</small>");
+      expect(html).toContain("<small data-i18n-en=\"Inspect sync\" data-i18n-zh=\"检查共享副本\">Inspect sync</small>");
       expect(html).not.toContain("<small>action_board.items_by_id.sync</small>");
       expect(html).not.toContain("<small>context_pack_review</small>");
       expect(html).not.toContain("<article class=\"dashboard-overview-card");
@@ -5726,7 +5726,10 @@ describe("observability dashboard", () => {
         value: "Review decisions",
         source: "action_board.items_by_id.confirm"
       });
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"decision-summary\" aria-controls=\"decision-summary\" data-i18n-en=\"Review decisions\" data-i18n-zh=\"Review decisions\">Review decisions</button>");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"decision-summary\" aria-controls=\"decision-summary\" data-i18n-en=\"Review decisions\" data-i18n-zh=\"查看待确认事项\">Review decisions</button>");
+      expect(html).toContain("<strong data-i18n-en=\"Review decisions\" data-i18n-zh=\"查看待确认事项\">Review decisions</strong>");
+      expect(html).toContain("<small data-i18n-en=\"Review decisions\" data-i18n-zh=\"查看待确认事项\">Review decisions</small>");
+      expect(html).toContain("data-i18n-en=\"Explicit approvals stay in Capture Inbox, Review Queue, and Candidate Triage.\" data-i18n-zh=\"需要明确确认的操作会保留在 Capture Inbox、Review Queue 和 Candidate Triage 中。\"");
       expect(html).not.toContain("data-dashboard-overview-card=\"action\"");
       expect(html).not.toContain("data-dashboard-overview-quiet-card=\"action\"");
       expect(html).not.toContain("data-dashboard-detail=\"dashboard-overview-quiet-cards\"");
@@ -5824,8 +5827,8 @@ describe("observability dashboard", () => {
         target: "store-signals",
         source: "action_board.items_by_id.sync"
       });
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"decision-summary\" aria-controls=\"decision-summary\" data-i18n-en=\"Review decisions\" data-i18n-zh=\"Review decisions\">Review decisions</button>");
-      expect(html).toContain("<span class=\"health-badge warning\">Sync Pending</span>");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"decision-summary\" aria-controls=\"decision-summary\" data-i18n-en=\"Review decisions\" data-i18n-zh=\"查看待确认事项\">Review decisions</button>");
+      expect(html).toContain("<span class=\"health-badge warning\" data-i18n-en=\"Sync Pending\" data-i18n-zh=\"等待同步\">Sync Pending</span>");
       expect(html).not.toContain("<p class=\"dashboard-status-line warning\" data-dashboard-status=\"sync_pending\">");
       expect(html).not.toContain("<section class=\"status-strip warning\" data-dashboard-status=\"sync_pending\">");
       expect(html).toContain("<details id=\"maintenance-review-queue\"");

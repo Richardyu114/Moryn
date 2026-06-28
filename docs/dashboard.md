@@ -619,8 +619,12 @@ The same language switch also covers legacy diagnostic labels inside
 `Background checks` and compact `Technical details`. Memory Search controls and
 result-count feedback also follow the language toggle. Memory Search result type
 labels, event target labels, and memory-state metadata follow the language
-toggle. Source names, timestamps, event operation names, and record ids stay
-literal; saved memory text and event evidence stay in their original wording.
+toggle. First-screen action labels, health badges, current-answer cards, and
+derived overview cards also follow the language toggle, so `Review decisions`,
+`Review warnings`, `Local Only`, and `Sync Pending` do not remain as English-only
+UI labels in Chinese mode. Source names, timestamps, event operation names, and
+record ids stay literal; saved memory text and event evidence stay in their
+original wording.
 
 The first screen is arranged around three plain questions:
 
