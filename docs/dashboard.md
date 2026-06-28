@@ -615,9 +615,9 @@ attributes, and `/api/dashboard.store.path` plus
 `/api/dashboard.generated_at` remain the machine-readable audit source. A
 language toggle defaults to English and can switch the visible dashboard copy to
 Chinese; the browser remembers the choice in `moryn.dashboard.language`.
-The same language switch also covers legacy diagnostic labels inside `Info
-Checks` and compact `Technical details`, while saved memory text and event
-evidence stay in their original wording.
+The same language switch also covers legacy diagnostic labels inside
+`Background checks` and compact `Technical details`, while saved memory text and
+event evidence stay in their original wording.
 
 The first screen is arranged around three plain questions:
 
@@ -644,15 +644,15 @@ The main action summary is labeled `Needs attention?` in the visible UI. It
 picks the most urgent derived action in this order: explicit decisions, visible
 warnings, sync work, then saved notes that are available for later organization.
 `Saved for later` is intentionally lighter than an urgent warning: it appears
-only when there are no higher-priority actions and Moryn has saved `Saved, not
-remembered yet`, `Temporary`, or `Set aside` items. If Capture Inbox has real
+only when there are no higher-priority actions and Moryn has saved `Saved for
+review`, `Recent notes`, or `Set aside` items. If Capture Inbox has real
 approval work, the action opens Capture Inbox. Otherwise it opens `Memory
 Explorer`, expands hidden saved previews, and highlights the section so the
 click has visible feedback. Candidate Triage stays a technical/audit route
 unless it has an explicit promotion approval.
 
 The memory-state chart is also a local navigation control: clicking
-`Remembered`, `Saved, not remembered yet`, `Temporary`, or `Set aside` opens
+`Long-term memory`, `Saved for review`, `Recent notes`, or `Set aside` opens
 `Memory Explorer` and filters the visible previews by that state. The Explorer
 filter bar can switch back to `All` or jump between available states. Its search
 controls filter across recent records and events by keyword, memory state, and
@@ -670,10 +670,10 @@ Directly below the action summary, `What Moryn remembers` shows the user-facing
 memory inventory:
 
 ```text
-remembered  <- canonical records
-saved, not remembered yet <- candidate records
-temporary   <- raw records
-set aside   <- archived or quarantined records
+long-term memory <- canonical records
+saved for review <- candidate records
+recent notes     <- raw records
+set aside        <- archived or quarantined records
 ```
 
 The inventory also groups visible records by kind, using human labels such as
@@ -681,7 +681,7 @@ The inventory also groups visible records by kind, using human labels such as
 `/api/dashboard.memory_inventory` keeps the counts and source states for agents.
 
 `Recent status` shows the last write time, latest source, shared-copy state, and
-the number of saved or temporary items waiting for later organization. This gives
+the number of saved-for-review or recent-note items waiting for later organization. This gives
 the user the recent state of the local memory without opening the raw record
 list.
 
@@ -890,22 +890,22 @@ overview, Work Lane, and Page Shortcuts routes keep working. The strip
 counts action signals, non-zero warning checks, and non-zero informational
 checks, then shows the next review step as a dedicated action chip. Warning and
 critical items remain directly visible. Informational checks are grouped under a
-collapsed `Info Checks` summary so routine status signals remain inspectable
-without competing with action-oriented warnings. The collapsed `Info Checks`
-detail opens with `Routine status checks` so the row explains its purpose
+collapsed `Background checks` summary so routine status signals remain inspectable
+without competing with action-oriented warnings. The collapsed `Background checks`
+detail opens with `Routine checks` so the row explains its purpose
 instead of repeating the focus-strip count. When there are no warning or
 critical action signals but the Overview is not all-clear, the same scroll
 target renders as a quiet `needs-attention-quiet-line` anchor. It contains only
-the collapsed `Info Checks` detail and does not render the focus strip or a
-separate quiet summary. Quiet `Info Checks` opens first to a nested `Info
-Details` fold; the individual informational rows stay inside that nested fold so
+the collapsed `Background checks` detail and does not render the focus strip or a
+separate quiet summary. Quiet `Background checks` opens first to a nested `Check
+details` fold; the individual informational rows stay inside that nested fold so
 routine labels do not scatter across the first screen. This preserves the
 `id="needs-attention"` scroll target for local-only and review-context audit
 without making routine informational checks look like user work. When
 `Pending Decisions` is rendered, when all-clear Overview already owns the quiet
 zero-state, or when active sync work such as `sync_pending` or `conflict`
 already owns the Overview and Health lane, the visible HTML skips the quiet
-`Info Checks` anchor entirely;
+`Background checks` anchor entirely;
 `/api/dashboard.attention_items` still keeps the info checks and sync signals
 for agents and audit tooling.
 
@@ -1074,8 +1074,8 @@ Attention items call out conditions such as:
 - ahead or behind remote counts
 - unresolved quarantined records
 - quarantined records that have active safe replacement indexes
-- raw records waiting for review
-- many candidate records relative to canonical records
+- temporary notes waiting outside normal recall
+- many saved-for-review items relative to long-term memory
 - missing sync remote
 
 Attention items render as compact expandable rows. The default row shows the

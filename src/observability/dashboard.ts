@@ -1210,15 +1210,15 @@ function buildAttentionItems(sync: GitSyncStatus, records: MorynRecord[]): Dashb
   if (raw > 0) {
     items.push({
       severity: "info",
-      title: "Raw records waiting for review",
-      description: `${raw} raw record(s) are preserved but excluded from normal recall.`
+      title: "Temporary notes waiting",
+      description: `${raw} temporary note(s) are preserved but excluded from normal recall.`
     });
   }
   if (candidates > Math.max(8, canonical * 2)) {
     items.push({
       severity: "info",
-      title: "Many candidate records",
-      description: `${candidates} candidate record(s) may need promotion, archival, or cleanup.`
+      title: "Many saved-for-review items",
+      description: `${candidates} saved-for-review item(s) may need long-term memory, archive, or cleanup.`
     });
   }
 
@@ -1289,29 +1289,29 @@ function buildMemoryInventory(records: MorynRecord[]): DashboardMemoryInventory 
     states: [
       {
         id: "remembered",
-        label: "Remembered",
-        zh_label: "已记住",
+        label: "Long-term memory",
+        zh_label: "长期记忆",
         count: remembered,
         source_states: ["canonical"]
       },
       {
         id: "new_items",
-        label: "Saved, not remembered yet",
-        zh_label: "已保存，尚未记住",
+        label: "Saved for review",
+        zh_label: "待整理保存",
         count: newItems,
         source_states: ["candidate"]
       },
       {
         id: "temporary",
-        label: "Temporary",
-        zh_label: "临时保存",
+        label: "Recent notes",
+        zh_label: "最近笔记",
         count: temporary,
         source_states: ["raw"]
       },
       {
         id: "set_aside",
         label: "Set aside",
-        zh_label: "已放一边",
+        zh_label: "已搁置",
         count: setAside,
         source_states: ["archived", "quarantined"]
       }
@@ -3260,12 +3260,12 @@ type DashboardPrimaryFocusItem = DashboardActionBoardItem & { source?: string };
 
 function memoryInventoryReviewDetail(inventory: DashboardMemoryInventory): string {
   const parts = [
-    inventory.summary.new_items > 0 ? pluralize(inventory.summary.new_items, "saved, not remembered yet item") : "",
-    inventory.summary.temporary > 0 ? pluralize(inventory.summary.temporary, "temporary item") : "",
+    inventory.summary.new_items > 0 ? pluralize(inventory.summary.new_items, "saved-for-review item") : "",
+    inventory.summary.temporary > 0 ? pluralize(inventory.summary.temporary, "recent note") : "",
     inventory.summary.set_aside > 0 ? pluralize(inventory.summary.set_aside, "set-aside item") : ""
   ].filter(Boolean);
   const subject = joinHumanList(parts);
-  return `${subject} ${parts.length === 1 ? "is" : "are"} saved safely. Browse ${parts.length === 1 ? "it" : "them"} when you want to decide what Moryn remembers long term.`;
+  return `${subject} ${parts.length === 1 ? "is" : "are"} stored safely. Browse ${parts.length === 1 ? "it" : "them"} when you want to decide what becomes long-term memory.`;
 }
 
 function memoryInventoryReviewItem(
@@ -3368,9 +3368,9 @@ function dashboardOverview(
         : data.headline;
   const detailZh = data.headline === "Saved for later"
     ? data.detail
-      .replace("1 saved, not remembered yet item and 1 temporary item are saved safely. Browse them when you want to decide what Moryn remembers long term.", "Moryn 已安全保存 1 条尚未记住的内容和 1 条临时内容。你想整理长期记忆时再查看。")
-      .replace("1 saved, not remembered yet item is saved safely. Browse it when you want to decide what Moryn remembers long term.", "Moryn 已安全保存 1 条尚未记住的内容。你想整理长期记忆时再查看。")
-      .replace("1 temporary item is saved safely. Browse it when you want to decide what Moryn remembers long term.", "Moryn 已安全保存 1 条临时内容。你想整理长期记忆时再查看。")
+      .replace("1 saved-for-review item and 1 recent note are stored safely. Browse them when you want to decide what becomes long-term memory.", "Moryn 已安全保存 1 条待整理内容和 1 条最近笔记。你想决定哪些进入长期记忆时再查看。")
+      .replace("1 saved-for-review item is stored safely. Browse it when you want to decide what becomes long-term memory.", "Moryn 已安全保存 1 条待整理内容。你想决定它是否进入长期记忆时再查看。")
+      .replace("1 recent note is stored safely. Browse it when you want to decide what becomes long-term memory.", "Moryn 已安全保存 1 条最近笔记。你想决定它是否进入长期记忆时再查看。")
     : visibleDetail;
   const actionLabelZh = actionLabel === "Browse saved notes"
     ? "浏览已保存内容"
@@ -3974,13 +3974,13 @@ function infoChecksGroup(items: DashboardAttentionItem[], options: { quiet?: boo
   return `
         <details class="attention-info-group" data-dashboard-detail="attention-info-checks">
           <summary class="dashboard-fold-summary">
-            <span>Info Checks</span>
-            <small>Routine status checks</small>
+            <span>Background checks</span>
+            <small>Routine checks</small>
           </summary>
           ${options.quiet ? `
             <details class="attention-info-details" data-dashboard-detail="attention-info-details">
               <summary class="dashboard-fold-summary">
-                <span>Info Details</span>
+                <span>Check details</span>
                 <small>${escapeHtml(pluralize(items.length, "routine check"))}</small>
               </summary>
               ${list}
@@ -6256,20 +6256,20 @@ function dashboardDecisionPanel(data: DashboardData): string {
       }));
     }
   } else if (reviewable > 0) {
-    const title = `${pluralize(reviewable, "saved item")} not remembered yet`;
+    const title = `${pluralize(reviewable, "item")} saved for later`;
     items.push(decisionPanelItem({
       kind: "review",
       status: "No approval needed",
       zhStatus: "不需要立刻确认",
       title,
-      zhTitle: `${reviewable} 条已保存但尚未记住的内容`,
+      zhTitle: `${reviewable} 条内容已保存，可稍后整理`,
       detail: "These are saved safely, but Moryn will not treat them as long-term memory unless you choose to organize them later.",
       zhDetail: "这些内容已经安全保存，但除非你稍后整理，Moryn 不会把它们当作长期记忆。",
       target: "stored-content",
       actionLabel: "Browse saved content",
       zhActionLabel: "浏览已保存内容",
-      note: "This opens saved content only. Use Memory search when you want to search across memory and events.",
-      zhNote: "这里仅打开已保存内容；需要跨记忆和事件搜索时，再使用搜索记忆。",
+      note: "This only opens saved content. Nothing becomes long-term memory from this summary.",
+      zhNote: "这里只打开已保存内容；这里不会把内容写成长久记忆。",
       feedback: "Nothing to open here yet.",
       zhFeedback: "这里暂时没有可打开的审核队列。"
     }));
@@ -6291,10 +6291,10 @@ function dashboardDecisionPanel(data: DashboardData): string {
 }
 
 function memoryStateLabelFromRecordState(state: MorynRecord["state"]): { en: string; zh: string } {
-  if (state === "canonical") return { en: "Remembered", zh: "已记住" };
-  if (state === "candidate") return { en: "Saved, not remembered yet", zh: "已保存，尚未记住" };
-  if (state === "raw") return { en: "Temporary", zh: "临时保存" };
-  return { en: "Set aside", zh: "已放一边" };
+  if (state === "canonical") return { en: "Long-term memory", zh: "长期记忆" };
+  if (state === "candidate") return { en: "Saved for review", zh: "待整理保存" };
+  if (state === "raw") return { en: "Recent notes", zh: "最近笔记" };
+  return { en: "Set aside", zh: "已搁置" };
 }
 
 function storedContentItem(item: DashboardValueRecord): string {
@@ -6394,7 +6394,7 @@ function memorySearchPanel(data: DashboardData): string {
         <div class="memory-search-controls" data-memory-search-controls>
           <input id="memory-search-input" class="memory-search-input" type="search" data-memory-search-input placeholder="Search memory or events" aria-label="Search memory or events">
           <select class="memory-search-select" data-memory-search-state aria-label="Filter search by memory state">
-            <option value="all">All states</option>
+            <option value="all">All memory states</option>
             ${recordStates.map((state) => {
               const label = memoryStateLabelFromRecordState(state);
               return `<option value="${escapeHtml(state)}">${escapeHtml(label.en)}</option>`;
@@ -6407,7 +6407,7 @@ function memorySearchPanel(data: DashboardData): string {
           </select>
         </div>
         <div class="memory-search-meta">
-          <span data-memory-search-status>${escapeHtml(entries.length)} searchable items</span>
+          <span data-memory-search-status>${escapeHtml(pluralize(entries.length, "item"))} to search</span>
           <small data-i18n-en="Local search only; no writes happen here." data-i18n-zh="仅本地搜索；这里不会写入。">Local search only; no writes happen here.</small>
         </div>
         <div class="memory-search-results" data-memory-search-results>
@@ -6657,15 +6657,15 @@ function dashboardLanguageScript(): string {
     (() => {
       const key = "moryn.dashboard.language";
       const staticTranslations = new Map([
-        ["Info Checks", "常规检查"],
-        ["Info Details", "检查详情"],
-        ["Routine status checks", "日常状态检查"],
+        ["Background checks", "后台检查"],
+        ["Check details", "检查详情"],
+        ["Routine checks", "日常检查"],
         ["Info", "信息"],
         ["Warning", "警告"],
         ["Critical", "严重"],
         ["Quarantined records superseded", "隔离内容已有安全替代"],
-        ["Raw records waiting for review", "临时内容待整理"],
-        ["Many candidate records", "较多新内容待整理"],
+        ["Temporary notes waiting", "临时笔记待整理"],
+        ["Many saved-for-review items", "较多待整理内容"],
         ["Check records", "检查记录"],
         ["Read-only details available", "可查看只读详情"],
         ["Optional details", "可选详情"],
@@ -7011,7 +7011,7 @@ function dashboardStoredContentScript(): string {
           if (matches) visible += 1;
         }
         const status = panel.querySelector("[data-memory-search-status]");
-        if (status instanceof HTMLElement) status.textContent = normalizedQuery.length === 0 && filters.state === "all" && filters.source === "all" ? entries.length + " searchable items" : visible + " matches";
+        if (status instanceof HTMLElement) status.textContent = normalizedQuery.length === 0 && filters.state === "all" && filters.source === "all" ? entries.length + (entries.length === 1 ? " item" : " items") + " to search" : visible + (visible === 1 ? " item shown" : " items shown");
       };
       const setSearchState = (state, options = {}) => {
         document.querySelectorAll("[data-memory-search-panel]").forEach((panel) => {
