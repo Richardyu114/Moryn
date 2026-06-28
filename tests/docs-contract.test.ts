@@ -191,6 +191,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "open and filter saved content but never");
     expectText(dashboard, "write");
     expectText(dashboard, "defaults to the first visible item");
+    expectText(dashboard, "starts with a `Full text` reading block plus a `What this means` summary");
+    expectText(dashboard, "before metadata and history links");
     expectText(dashboard, "Filtering updates the search summary and detail pane to the first matching visible");
     expectText(dashboard, "Visible `Find what Moryn saved` previews render in the live dashboard when private");
     expectText(dashboard, "visible preview chooses representative saved");
