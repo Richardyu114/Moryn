@@ -99,6 +99,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "language toggle defaults to English and can switch the visible dashboard copy to Chinese");
     expectText(dashboard, "moryn.dashboard.language");
     expectText(dashboard, "covers legacy diagnostic labels inside `Background checks` and compact `More details`");
+    expectText(dashboard, "`Info Checks`, `Routine status checks`, `Info Details`, `Raw records waiting for");
+    expectText(dashboard, "review`, and `Many candidate records`");
     expectText(dashboard, "Memory Search controls and result-count feedback also follow the language toggle");
     expectText(dashboard, "Memory Search result type labels, event target labels, and memory-state metadata follow the language toggle");
     expectText(dashboard, "First-screen action labels, health badges, current-answer cards, and derived overview cards also follow the language toggle");

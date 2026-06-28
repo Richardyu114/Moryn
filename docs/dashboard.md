@@ -626,8 +626,10 @@ attributes, and `/api/dashboard.store.path` plus
 language toggle defaults to English and can switch the visible dashboard copy to
 Chinese; the browser remembers the choice in `moryn.dashboard.language`.
 The same language switch also covers legacy diagnostic labels inside
-`Background checks` and compact `More details`. Memory Search controls and
-result-count feedback also follow the language toggle. Memory Search result type
+`Background checks` and compact `More details`, including older labels such as
+`Info Checks`, `Routine status checks`, `Info Details`, `Raw records waiting for
+review`, and `Many candidate records`. Memory Search controls and result-count
+feedback also follow the language toggle. Memory Search result type
 labels, event target labels, and memory-state metadata follow the language
 toggle. First-screen action labels, health badges, current-answer cards, and
 derived overview cards also follow the language toggle, so `Approval needed`,

@@ -6992,8 +6992,11 @@ function dashboardLanguageScript(): string {
       const key = "moryn.dashboard.language";
       const staticTranslations = new Map([
         ["Background checks", "后台检查"],
+        ["Info Checks", "后台检查"],
         ["Check details", "检查详情"],
+        ["Info Details", "检查详情"],
         ["Routine checks", "日常检查"],
+        ["Routine status checks", "日常状态检查"],
         ["Info", "信息"],
         ["Warning", "警告"],
         ["Critical", "严重"],
@@ -7002,6 +7005,8 @@ function dashboardLanguageScript(): string {
         ["Many recently saved items", "较多最近保存内容"],
         ["Session notes not remembered", "会话笔记未记住"],
         ["Many saved items not remembered", "较多内容已保存但未记住"],
+        ["Raw records waiting for review", "临时内容待整理"],
+        ["Many candidate records", "较多已保存内容待整理"],
         ["Check records", "检查记录"],
         ["Read-only details available", "可查看只读详情"],
         ["Optional details", "可选详情"],

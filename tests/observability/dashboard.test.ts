@@ -683,11 +683,16 @@ describe("observability dashboard", () => {
       expect(html).toContain("const key = \"moryn.dashboard.language\";");
       expect(html).toContain("const staticTranslations = new Map(");
       expect(html).toContain("[\"Background checks\", \"后台检查\"]");
+      expect(html).toContain("[\"Info Checks\", \"后台检查\"]");
       expect(html).toContain("[\"Check details\", \"检查详情\"]");
+      expect(html).toContain("[\"Info Details\", \"检查详情\"]");
       expect(html).toContain("[\"Routine checks\", \"日常检查\"]");
+      expect(html).toContain("[\"Routine status checks\", \"日常状态检查\"]");
       expect(html).toContain("[\"Check records\", \"检查记录\"]");
       expect(html).toContain("[\"Detail links\", \"详情入口\"]");
       expect(html).toContain("[\"Health checks\", \"健康检查\"]");
+      expect(html).toContain("[\"Raw records waiting for review\", \"临时内容待整理\"]");
+      expect(html).toContain("[\"Many candidate records\", \"较多已保存内容待整理\"]");
       expect(html).toContain("[\"Session notes not remembered\", \"会话笔记未记住\"]");
       expect(html).toContain("[\"Many saved items not remembered\", \"较多内容已保存但未记住\"]");
       expect(html).toContain("translateStaticText(original)");
