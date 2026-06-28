@@ -739,6 +739,8 @@ so the behavior survives fragment refreshes through the stored client state.
 The memory-state chart is also a local navigation control: clicking
 `Ready to use`, `Saved for later`, `Saved briefly`, or `Set aside` opens
 `Find what Moryn saved` and filters the visible previews by that state. The
+first-screen state buttons also carry hover and screen-reader hints with the
+same plain-language meaning used by the saved-content guide. The
 saved-content filter bar can switch back to `All` or jump between available states. Its search
 controls filter across recent records and events by keyword, memory state, and
 source. The search panel includes a compact memory-status guide before the

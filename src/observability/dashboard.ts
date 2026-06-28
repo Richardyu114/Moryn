@@ -6907,6 +6907,20 @@ function memoryInventoryFilterValue(state: DashboardMemoryInventoryState): strin
   return state.source_states.join(",");
 }
 
+function memoryStateHintAttributes(state: DashboardMemoryInventoryState): string {
+  const explanation = memoryInventoryStateExplanation(state);
+  const label = `${state.label}: ${explanation.en}`;
+  const zhLabel = `${state.zh_label}：${explanation.zh}`;
+  return [
+    `aria-label="${escapeHtml(label)}"`,
+    `title="${escapeHtml(label)}"`,
+    `data-i18n-aria-label-en="${escapeHtml(label)}"`,
+    `data-i18n-aria-label-zh="${escapeHtml(zhLabel)}"`,
+    `data-i18n-title-en="${escapeHtml(label)}"`,
+    `data-i18n-title-zh="${escapeHtml(zhLabel)}"`
+  ].join(" ");
+}
+
 function answerMemoryCountLabel(state: DashboardMemoryInventoryState): { en: string; zh: string } {
   if (state.id === "remembered") return {
     en: `${state.count} ready to use`,
@@ -6975,7 +6989,7 @@ function memoryStateMeter(inventory: DashboardMemoryInventory): string {
       </div>
       <div class="memory-state-key">
         ${inventory.states.map((state) => `
-          <button type="button" class="memory-state-filter ${escapeHtml(memoryStateClass(state.id))}" data-memory-state-filter="${escapeHtml(memoryInventoryFilterValue(state))}" data-action-board-target="stored-content" aria-controls="stored-content">
+          <button type="button" class="memory-state-filter ${escapeHtml(memoryStateClass(state.id))}" data-memory-state-filter="${escapeHtml(memoryInventoryFilterValue(state))}" data-action-board-target="stored-content" aria-controls="stored-content" ${memoryStateHintAttributes(state)}>
             <i></i>
             <strong>${escapeHtml(state.count)}</strong>
             <span data-i18n-en="${escapeHtml(state.label)}" data-i18n-zh="${escapeHtml(state.zh_label)}">${escapeHtml(state.label)}</span>

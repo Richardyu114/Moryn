@@ -201,6 +201,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "clickable memory state meter, content-type bars, shared-copy state, and recent source activity");
     expectText(dashboard, "Clicking a memory state filters");
     expectText(dashboard, "`Find what Moryn saved` to the matching saved items");
+    expectText(dashboard, "first-screen state buttons also carry hover and screen-reader hints");
+    expectText(dashboard, "same plain-language meaning used by the saved-content guide");
     expectText(dashboard, "This saved-content area combines recent");
     expectText(dashboard, "a detail pane with full text, source, and status");
     expectText(dashboard, "A compact search summary shows the");
