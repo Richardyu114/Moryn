@@ -6050,6 +6050,31 @@ function frontStatusGrid(data: DashboardData): string {
   `;
 }
 
+function dashboardPriorityStrip(data: DashboardData): string {
+  const shared = sharedCopyLabel(data.sync);
+  const actionIsCalm = data.decision_summary.total_decisions === 0 && (data.dashboard_overview.headline === "Saved for later" || (data.dashboard_overview.status !== "critical" && data.dashboard_overview.status !== "warning"));
+  const actionClass = actionIsCalm ? "calm" : escapeHtml(data.dashboard_overview.status);
+  return `
+    <section class="dashboard-priority-strip" data-dashboard-priority-strip aria-label="Dashboard priorities">
+      <article class="priority-card action ${actionClass}" data-dashboard-priority="action">
+        ${i18nText("Do I need to act?", "我需要操作吗？")}
+        <strong data-i18n-en="${escapeHtml(data.dashboard_overview.headline)}" data-i18n-zh="${escapeHtml(data.dashboard_overview.headline === "Saved for later" ? "已保存，可稍后整理" : data.dashboard_overview.headline)}">${escapeHtml(data.dashboard_overview.headline)}</strong>
+        <small data-i18n-en="${escapeHtml(data.dashboard_overview.primary_action.label)}" data-i18n-zh="${escapeHtml(data.dashboard_overview.primary_action.label === "Browse saved notes" ? "浏览已保存内容" : data.dashboard_overview.primary_action.label)}">${escapeHtml(data.dashboard_overview.primary_action.label)}</small>
+      </article>
+      <article class="priority-card memory" data-dashboard-priority="memory">
+        ${i18nText("What is stored?", "存了什么？")}
+        <strong>${escapeHtml(data.memory_inventory.summary.total_visible)}</strong>
+        ${i18nText("visible saved items", "条可见保存内容", "small")}
+      </article>
+      <article class="priority-card sync ${escapeHtml(shared.severity)}" data-dashboard-priority="sync">
+        ${i18nText("Is sync healthy?", "同步健康吗？")}
+        ${i18nText(shared.label, shared.zh, "strong")}
+        <small data-i18n-en="${escapeHtml(shared.detail)}" data-i18n-zh="${escapeHtml(shared.zhDetail)}">${escapeHtml(shared.detail)}</small>
+      </article>
+    </section>
+  `;
+}
+
 function chartPercent(count: number, total: number): string {
   if (count <= 0 || total <= 0) return "0";
   const percent = (count / total) * 100;
@@ -6061,6 +6086,10 @@ function memoryStateClass(id: DashboardMemoryInventoryStateId): string {
   if (id === "new_items") return "memory-state-new";
   if (id === "temporary") return "memory-state-temporary";
   return "memory-state-set-aside";
+}
+
+function memoryInventoryFilterValue(state: DashboardMemoryInventoryState): string {
+  return state.source_states.join(",");
 }
 
 function memoryStateMeter(inventory: DashboardMemoryInventory): string {
@@ -6078,11 +6107,11 @@ function memoryStateMeter(inventory: DashboardMemoryInventory): string {
       </div>
       <div class="memory-state-key">
         ${inventory.states.map((state) => `
-          <span class="${escapeHtml(memoryStateClass(state.id))}" data-memory-state-key="${escapeHtml(state.id)}">
+          <button type="button" class="memory-state-filter ${escapeHtml(memoryStateClass(state.id))}" data-memory-state-filter="${escapeHtml(memoryInventoryFilterValue(state))}" data-action-board-target="stored-content" aria-controls="stored-content">
             <i></i>
             <strong>${escapeHtml(state.count)}</strong>
             <span data-i18n-en="${escapeHtml(state.label)}" data-i18n-zh="${escapeHtml(state.zh_label)}">${escapeHtml(state.label)}</span>
-          </span>
+          </button>
         `).join("")}
       </div>
   `;
@@ -6271,7 +6300,7 @@ function memoryStateLabelFromRecordState(state: MorynRecord["state"]): { en: str
 function storedContentItem(item: DashboardValueRecord): string {
   const state = memoryStateLabelFromRecordState(item.state);
   return `
-            <article class="stored-content-item state-${escapeHtml(item.state)}" data-stored-content-item="${escapeHtml(item.id)}">
+            <article class="stored-content-item state-${escapeHtml(item.state)}" data-stored-content-item="${escapeHtml(item.id)}" data-stored-content-state="${escapeHtml(item.state)}" data-stored-content-source="${escapeHtml(item.source_label)}">
               <div class="stored-content-item-head">
                 <span data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}">${escapeHtml(state.en)}</span>
                 <small>${escapeHtml(`${item.source_label} | ${item.relative_time}`)}</small>
@@ -6279,6 +6308,20 @@ function storedContentItem(item: DashboardValueRecord): string {
               <strong>${escapeHtml(item.title)}</strong>
               ${textExcerptBlock(item.summary)}
             </article>
+  `;
+}
+
+function storedContentFilterBar(items: DashboardValueRecord[]): string {
+  const stateOrder: MorynRecord["state"][] = ["canonical", "candidate", "raw", "archived", "quarantined"];
+  const states = stateOrder.filter((state) => items.some((item) => item.state === state));
+  return `
+      <div class="stored-content-filterbar" data-stored-content-filterbar aria-label="Stored content filters">
+        <button type="button" class="stored-content-filter active" data-stored-content-filter="all" aria-pressed="true" data-i18n-en="All" data-i18n-zh="全部">All</button>
+        ${states.map((state) => {
+          const label = memoryStateLabelFromRecordState(state);
+          return `<button type="button" class="stored-content-filter" data-stored-content-filter="${escapeHtml(state)}" aria-pressed="false" data-i18n-en="${escapeHtml(label.en)}" data-i18n-zh="${escapeHtml(label.zh)}">${escapeHtml(label.en)}</button>`;
+        }).join("")}
+      </div>
   `;
 }
 
@@ -6292,6 +6335,7 @@ function memorySearchText(parts: unknown[]): string {
 
 function memorySearchRecordEntry(record: DashboardRecordSummary, generatedAt: string): string {
   const source = humanSourceLabel(record.source);
+  const stateLabel = memoryStateLabelFromRecordState(record.state);
   const searchText = memorySearchText([
     "record",
     record.id,
@@ -6304,11 +6348,11 @@ function memorySearchRecordEntry(record: DashboardRecordSummary, generatedAt: st
     record.text
   ]);
   return `
-          <article class="memory-search-result record" data-memory-search-entry="record:${escapeHtml(record.id)}" data-memory-search-text="${escapeHtml(searchText)}">
+          <article class="memory-search-result record" data-memory-search-entry="record:${escapeHtml(record.id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="${escapeHtml(record.state)}" data-memory-search-source="${escapeHtml(source)}">
             <span>Memory</span>
             <strong>${escapeHtml(titleCase(record.type || record.kind))}</strong>
             <p>${escapeHtml(record.text)}</p>
-            <small>${escapeHtml(`${record.state} | ${source} | ${relativeTime(record.updated_at, generatedAt)}`)}</small>
+            <small>${escapeHtml(`${stateLabel.en} | ${source} | ${relativeTime(record.updated_at, generatedAt)}`)}</small>
           </article>
   `;
 }
@@ -6323,7 +6367,7 @@ function memorySearchEventEntry(event: DashboardEventSummary, generatedAt: strin
     source
   ]);
   return `
-          <article class="memory-search-result event" data-memory-search-entry="event:${escapeHtml(event.event_id)}" data-memory-search-text="${escapeHtml(searchText)}">
+          <article class="memory-search-result event" data-memory-search-entry="event:${escapeHtml(event.event_id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="event" data-memory-search-source="${escapeHtml(source)}">
             <span>Event</span>
             <strong>${escapeHtml(event.op)}</strong>
             <p>${event.record_id ? `Record <code>${escapeHtml(event.record_id)}</code>` : "Store-level event"}</p>
@@ -6338,10 +6382,29 @@ function memorySearchPanel(data: DashboardData): string {
     ...data.recent_events.map((event) => memorySearchEventEntry(event, data.generated_at))
   ];
   if (entries.length === 0) return "";
+  const recordStates = [...new Set(data.recent_records.map((record) => record.state))];
+  const sources = [...new Set([
+    ...data.recent_records.map((record) => humanSourceLabel(record.source)),
+    ...data.recent_events.map((event) => humanSourceLabel(event.source))
+  ])].sort((left, right) => left.localeCompare(right));
   return `
       <div id="memory-search-panel" class="memory-search-panel" data-memory-search-panel hidden>
         <label class="memory-search-label" for="memory-search-input" data-i18n-en="Search memory or events" data-i18n-zh="搜索记忆或事件">Search memory or events</label>
-        <input id="memory-search-input" class="memory-search-input" type="search" data-memory-search-input placeholder="Search memory or events" aria-label="Search memory or events">
+        <div class="memory-search-controls" data-memory-search-controls>
+          <input id="memory-search-input" class="memory-search-input" type="search" data-memory-search-input placeholder="Search memory or events" aria-label="Search memory or events">
+          <select class="memory-search-select" data-memory-search-state aria-label="Filter search by memory state">
+            <option value="all">All states</option>
+            ${recordStates.map((state) => {
+              const label = memoryStateLabelFromRecordState(state);
+              return `<option value="${escapeHtml(state)}">${escapeHtml(label.en)}</option>`;
+            }).join("")}
+            <option value="event">Events</option>
+          </select>
+          <select class="memory-search-select" data-memory-search-source aria-label="Filter search by source">
+            <option value="all">All sources</option>
+            ${sources.map((source) => `<option value="${escapeHtml(source)}">${escapeHtml(source)}</option>`).join("")}
+          </select>
+        </div>
         <div class="memory-search-meta">
           <span data-memory-search-status>${escapeHtml(entries.length)} searchable items</span>
           <small data-i18n-en="Local search only; no writes happen here." data-i18n-zh="仅本地搜索；这里不会写入。">Local search only; no writes happen here.</small>
@@ -6370,6 +6433,7 @@ function storedContentPanel(data: DashboardData): string {
         </div>
       </div>
       ${memorySearchPanel(data)}
+      ${storedContentFilterBar(data.recent_value)}
       <div class="stored-content-list">
         ${visibleItems.map(storedContentItem).join("")}
       </div>
@@ -6476,6 +6540,8 @@ function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderO
     <section id="last-action-receipt" class="panel last-action-receipt" data-action-receipt-anchor aria-live="polite" hidden></section>
 
     ${frontStatusGrid(data)}
+
+    ${dashboardPriorityStrip(data)}
 
     ${dashboardOverview(data.dashboard_overview, { showBackgroundStatus, showSafety: !isAllClearOverview && !isSavedForLaterOverview })}
 
@@ -6656,13 +6722,19 @@ function dashboardStoredContentScript(): string {
       const defaultStoredContentState = () => ({
         overflowOpen: false,
         searchOpen: false,
-        searchQuery: ""
+        searchQuery: "",
+        searchStateFilter: "all",
+        searchSourceFilter: "all",
+        storedContentFilter: "all"
       });
       let fallbackStoredContentState = defaultStoredContentState();
       const normalizeStoredContentState = (value) => ({
         overflowOpen: value?.overflowOpen === true,
         searchOpen: value?.searchOpen === true,
-        searchQuery: typeof value?.searchQuery === "string" ? value.searchQuery : ""
+        searchQuery: typeof value?.searchQuery === "string" ? value.searchQuery : "",
+        searchStateFilter: typeof value?.searchStateFilter === "string" && value.searchStateFilter.length > 0 ? value.searchStateFilter : "all",
+        searchSourceFilter: typeof value?.searchSourceFilter === "string" && value.searchSourceFilter.length > 0 ? value.searchSourceFilter : "all",
+        storedContentFilter: typeof value?.storedContentFilter === "string" && value.storedContentFilter.length > 0 ? value.storedContentFilter : "all"
       });
       const readStoredContentState = () => {
         try {
@@ -6706,19 +6778,48 @@ function dashboardStoredContentScript(): string {
           node.textContent = labelFor(node, state.overflowOpen);
         });
       };
-      const filterMemorySearch = (panel, query) => {
-        const normalizedQuery = String(query || "").trim().toLowerCase();
+      const setStoredFilterButtons = (state) => {
+        document.querySelectorAll("[data-stored-content-filter]").forEach((node) => {
+          if (!(node instanceof HTMLButtonElement)) return;
+          const active = node.dataset.storedContentFilter === state.storedContentFilter;
+          node.classList.toggle("active", active);
+          node.setAttribute("aria-pressed", active ? "true" : "false");
+        });
+      };
+      const filterStoredContent = (state) => {
+        let visible = 0;
+        document.querySelectorAll("[data-stored-content-item]").forEach((node) => {
+          if (!(node instanceof HTMLElement)) return;
+          const matches = state.storedContentFilter === "all" || String(state.storedContentFilter || "").split(",").includes(node.dataset.storedContentState || "");
+          node.hidden = !matches;
+          if (matches) visible += 1;
+        });
+        document.querySelectorAll("[data-stored-content-count]").forEach((node) => {
+          if (node instanceof HTMLElement) node.textContent = visible + " shown";
+        });
+        setStoredFilterButtons(state);
+      };
+      const currentSearchFilters = (state) => ({
+        query: String(state.searchQuery || ""),
+        state: state.searchStateFilter || "all",
+        source: state.searchSourceFilter || "all"
+      });
+      const filterMemorySearch = (panel, filters) => {
+        const normalizedQuery = String(filters.query || "").trim().toLowerCase();
         const entries = Array.from(panel.querySelectorAll("[data-memory-search-entry]"));
         let visible = 0;
         for (const entry of entries) {
           if (!(entry instanceof HTMLElement)) continue;
           const text = entry.dataset.memorySearchText || entry.textContent || "";
-          const matches = normalizedQuery.length === 0 || text.toLowerCase().includes(normalizedQuery);
+          const matchesQuery = normalizedQuery.length === 0 || text.toLowerCase().includes(normalizedQuery);
+          const matchesState = filters.state === "all" || entry.dataset.memorySearchState === filters.state;
+          const matchesSource = filters.source === "all" || entry.dataset.memorySearchSource === filters.source;
+          const matches = matchesQuery && matchesState && matchesSource;
           entry.hidden = !matches;
           if (matches) visible += 1;
         }
         const status = panel.querySelector("[data-memory-search-status]");
-        if (status instanceof HTMLElement) status.textContent = normalizedQuery.length === 0 ? entries.length + " searchable items" : visible + " matches";
+        if (status instanceof HTMLElement) status.textContent = normalizedQuery.length === 0 && filters.state === "all" && filters.source === "all" ? entries.length + " searchable items" : visible + " matches";
       };
       const setSearchState = (state, options = {}) => {
         document.querySelectorAll("[data-memory-search-toggle]").forEach((node) => {
@@ -6732,7 +6833,11 @@ function dashboardStoredContentScript(): string {
             if (input.value !== state.searchQuery) input.value = state.searchQuery;
             if (options.focusSearch === true && state.searchOpen) input.focus();
           }
-          filterMemorySearch(panel, state.searchQuery || "");
+          const stateSelect = panel.querySelector("[data-memory-search-state]");
+          if (stateSelect instanceof HTMLSelectElement) stateSelect.value = state.searchStateFilter || "all";
+          const sourceSelect = panel.querySelector("[data-memory-search-source]");
+          if (sourceSelect instanceof HTMLSelectElement) sourceSelect.value = state.searchSourceFilter || "all";
+          filterMemorySearch(panel, { ...currentSearchFilters(state) });
         });
       };
       const setStoredContentActive = () => {
@@ -6745,6 +6850,7 @@ function dashboardStoredContentScript(): string {
       const applyStoredContentState = (options = {}) => {
         const state = readStoredContentState();
         setOverflowState(state);
+        filterStoredContent(state);
         setSearchState(state, options);
         if (options.highlight === true) setStoredContentActive();
       };
@@ -6773,6 +6879,19 @@ function dashboardStoredContentScript(): string {
           applyStoredContentState({ focusSearch: willOpen });
           return;
         }
+        const memoryStateFilter = target.closest("[data-memory-state-filter]");
+        if (memoryStateFilter instanceof HTMLElement) {
+          writeStoredContentState({ overflowOpen: true, storedContentFilter: memoryStateFilter.dataset.memoryStateFilter || "all" });
+          applyStoredContentState({ highlight: true });
+          document.querySelector("[data-stored-content]")?.scrollIntoView({ block: "start", behavior: "smooth" });
+          return;
+        }
+        const storedFilter = target.closest("[data-stored-content-filter]");
+        if (storedFilter instanceof HTMLButtonElement) {
+          writeStoredContentState({ storedContentFilter: storedFilter.dataset.storedContentFilter || "all" });
+          applyStoredContentState();
+          return;
+        }
         const button = target.closest("[data-stored-content-more]");
         if (!(button instanceof HTMLButtonElement)) return;
         const overflow = controlledElementFor(button);
@@ -6789,7 +6908,22 @@ function dashboardStoredContentScript(): string {
         if (!(panel instanceof HTMLElement)) return;
         const query = target.value.trim().toLowerCase();
         writeStoredContentState({ searchQuery: query, searchOpen: true });
-        filterMemorySearch(panel, query);
+        filterMemorySearch(panel, currentSearchFilters(readStoredContentState()));
+      });
+      document.addEventListener("change", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLSelectElement)) return;
+        const panel = target.closest("[data-memory-search-panel]");
+        if (!(panel instanceof HTMLElement)) return;
+        if (target.matches("[data-memory-search-state]")) {
+          writeStoredContentState({ searchStateFilter: target.value, searchOpen: true });
+          filterMemorySearch(panel, currentSearchFilters(readStoredContentState()));
+          return;
+        }
+        if (target.matches("[data-memory-search-source]")) {
+          writeStoredContentState({ searchSourceFilter: target.value, searchOpen: true });
+          filterMemorySearch(panel, currentSearchFilters(readStoredContentState()));
+        }
       });
       applyStoredContentState();
     })();
@@ -7256,6 +7390,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       color: #061007;
     }
     .front-status-grid,
+    .dashboard-priority-strip,
     .memory-inventory-grid,
     .recent-status-grid {
       display: grid;
@@ -7263,7 +7398,11 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       gap: 10px;
       margin-bottom: 12px;
     }
+    .dashboard-priority-strip {
+      grid-template-columns: 1.15fr 1fr 1fr;
+    }
     .front-status-card,
+    .priority-card,
     .memory-inventory,
     .recent-status {
       border: 1px solid var(--border);
@@ -7271,7 +7410,8 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       background: rgba(16, 18, 22, 0.92);
       box-shadow: 0 16px 34px rgba(0, 0, 0, 0.34);
     }
-    .front-status-card {
+    .front-status-card,
+    .priority-card {
       display: grid;
       gap: 4px;
       min-width: 0;
@@ -7282,7 +7422,25 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .front-status-card.info { border-left-color: var(--info); }
     .front-status-card.warning { border-left-color: var(--warning); }
     .front-status-card.critical { border-left-color: var(--critical); }
+    .priority-card {
+      min-height: 94px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.008)),
+        rgba(12, 15, 20, 0.94);
+      box-shadow: 0 18px 38px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+    }
+    .priority-card.action.calm { border-left-color: var(--signal-blue); }
+    .priority-card.action.good { border-left-color: var(--signal-green); }
+    .priority-card.action.info { border-left-color: var(--signal-blue); }
+    .priority-card.action.warning { border-left-color: var(--signal-amber); }
+    .priority-card.action.critical { border-left-color: var(--signal-red); }
+    .priority-card.memory { border-left-color: var(--signal-violet); }
+    .priority-card.sync.good { border-left-color: var(--signal-green); }
+    .priority-card.sync.info { border-left-color: var(--signal-blue); }
+    .priority-card.sync.warning { border-left-color: var(--signal-amber); }
+    .priority-card.sync.critical { border-left-color: var(--signal-red); }
     .front-status-card span,
+    .priority-card span,
     .memory-inventory-card span,
     .recent-status article span {
       color: var(--muted);
@@ -7291,12 +7449,18 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       overflow-wrap: anywhere;
     }
     .front-status-card strong,
+    .priority-card strong,
     .recent-status article strong {
       color: var(--ink);
       font-size: 17px;
       line-height: 1.2;
       font-weight: 830;
       overflow-wrap: anywhere;
+    }
+    .priority-card strong {
+      font-size: 20px;
+      line-height: 1.1;
+      font-weight: 850;
     }
     .memory-inventory,
     .recent-status {
@@ -7474,6 +7638,12 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       font-size: 12px;
       font-weight: 820;
     }
+    .memory-search-controls {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(150px, max-content) minmax(150px, max-content);
+      gap: 8px;
+      align-items: center;
+    }
     .memory-search-input {
       width: 100%;
       min-height: 44px;
@@ -7486,6 +7656,20 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
     }
     .memory-search-input:focus { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
+    .memory-search-select {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid rgba(112, 129, 149, 0.34);
+      border-radius: 7px;
+      padding: 8px 10px;
+      background: rgba(8, 10, 13, 0.94);
+      color: var(--ink);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 760;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+    }
+    .memory-search-select:focus { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .memory-search-meta {
       display: grid;
       grid-template-columns: minmax(12ch, max-content) minmax(0, 1fr);
@@ -7552,6 +7736,36 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       color: var(--ink-2);
       overflow-wrap: anywhere;
     }
+    .stored-content-filterbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .stored-content-filter {
+      appearance: none;
+      border: 1px solid rgba(112, 129, 149, 0.34);
+      border-radius: 7px;
+      padding: 6px 9px;
+      background: rgba(8, 10, 13, 0.62);
+      color: var(--muted);
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 790;
+      transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+    }
+    .stored-content-filter:hover {
+      border-color: rgba(69, 185, 255, 0.46);
+      color: var(--ink);
+    }
+    .stored-content-filter.active {
+      border-color: rgba(69, 185, 255, 0.62);
+      background: rgba(69, 185, 255, 0.13);
+      color: #d8efff;
+    }
+    .stored-content-filter:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .stored-content-list {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -7671,7 +7885,13 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 6px 8px;
     }
-    .memory-state-key > span {
+    .memory-state-filter {
+      appearance: none;
+      border: 1px solid rgba(112, 129, 149, 0.22);
+      border-radius: 7px;
+      padding: 6px;
+      background: rgba(9, 11, 14, 0.58);
+      cursor: pointer;
       display: flex;
       align-items: center;
       min-width: 0;
@@ -7679,7 +7899,15 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       color: var(--muted);
       font-size: 12px;
       font-weight: 720;
+      text-align: left;
+      transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
     }
+    .memory-state-filter:hover {
+      border-color: rgba(69, 185, 255, 0.42);
+      background: rgba(69, 185, 255, 0.08);
+      transform: translateY(-1px);
+    }
+    .memory-state-filter:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .memory-state-key i {
       flex: 0 0 auto;
       width: 9px;
@@ -7692,7 +7920,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       line-height: 1;
       font-weight: 820;
     }
-    .memory-state-key > span > span {
+    .memory-state-filter > span {
       min-width: 0;
       overflow-wrap: anywhere;
     }
@@ -10267,7 +10495,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .truncate { display: inline-block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     details summary { cursor: pointer; }
     @media (max-width: 920px) {
-      header, .front-status-grid, .memory-inventory-grid, .recent-status-grid, .glance-grid, .stored-content-list, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
+      header, .front-status-grid, .dashboard-priority-strip, .memory-inventory-grid, .recent-status-grid, .glance-grid, .stored-content-list, .memory-search-controls, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .dashboard-header-actions { justify-content: flex-start; }
