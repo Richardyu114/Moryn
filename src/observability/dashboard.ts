@@ -6337,6 +6337,9 @@ function memorySearchText(parts: unknown[]): string {
 function memorySearchRecordEntry(record: DashboardRecordSummary, generatedAt: string): string {
   const source = humanSourceLabel(record.source);
   const stateLabel = memoryStateLabelFromRecordState(record.state);
+  const relative = relativeTime(record.updated_at, generatedAt);
+  const metaEn = `${stateLabel.en} | ${source} | ${relative}`;
+  const metaZh = `${stateLabel.zh} | ${source} | ${relative}`;
   const searchText = memorySearchText([
     "record",
     record.id,
@@ -6350,10 +6353,10 @@ function memorySearchRecordEntry(record: DashboardRecordSummary, generatedAt: st
   ]);
   return `
           <article class="memory-search-result record" data-memory-search-entry="record:${escapeHtml(record.id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="${escapeHtml(record.state)}" data-memory-search-source="${escapeHtml(source)}">
-            <span>Memory</span>
+            <span ${i18nAttribute("Memory", "记忆")}>Memory</span>
             <strong>${escapeHtml(titleCase(record.type || record.kind))}</strong>
             <p>${escapeHtml(record.text)}</p>
-            <small>${escapeHtml(`${stateLabel.en} | ${source} | ${relativeTime(record.updated_at, generatedAt)}`)}</small>
+            <small ${i18nAttribute(metaEn, metaZh)}>${escapeHtml(metaEn)}</small>
           </article>
   `;
 }
@@ -6369,7 +6372,7 @@ function memorySearchEventEntry(event: DashboardEventSummary, generatedAt: strin
   ]);
   return `
           <article class="memory-search-result event" data-memory-search-entry="event:${escapeHtml(event.event_id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="event" data-memory-search-source="${escapeHtml(source)}">
-            <span>Event</span>
+            <span ${i18nAttribute("Event", "事件")}>Event</span>
             <strong>${escapeHtml(event.op)}</strong>
             <p>${event.record_id ? `Record <code>${escapeHtml(event.record_id)}</code>` : "Store-level event"}</p>
             <small>${escapeHtml(`${source} | ${relativeTime(event.created_at, generatedAt)}`)}</small>

@@ -983,9 +983,12 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-memory-search-state=\"canonical\"");
       expect(html).toContain("data-memory-search-source=\"Codex\"");
       expect(html).toContain("Searchable dashboard keyword alpha");
+      expect(html).toContain("<span data-i18n-en=\"Memory\" data-i18n-zh=\"记忆\">Memory</span>");
+      expect(html).toContain("<small data-i18n-en=\"Long-term memory | Codex | 19d ago\" data-i18n-zh=\"长期记忆 | Codex | 19d ago\">Long-term memory | Codex | 19d ago</small>");
       expect(html).toContain("<article class=\"memory-search-result event\" data-memory-search-entry=\"event:evt_memory_search_1\"");
       expect(html).toContain("data-memory-search-state=\"event\"");
       expect(html).toContain("data-memory-search-source=\"Codex\"");
+      expect(html).toContain("<span data-i18n-en=\"Event\" data-i18n-zh=\"事件\">Event</span>");
       expect(html).toContain("data-memory-search-text=");
       expect(html).toContain("writeStoredContentState({ searchQuery: query, searchOpen: true });");
       expect(html).toContain("selectedItemId: null");
