@@ -6555,33 +6555,37 @@ function syncAnswerConclusion(sync: GitSyncStatus): { en: string; zh: string } {
   };
 }
 
+function recentAnswer(data: DashboardData): { valueHtml: string; conclusion: { en: string; zh: string }; note: { en: string; zh: string } } {
+  const latestRecord = data.recent_records[0];
+  if (!latestRecord) {
+    return {
+      valueHtml: `<strong ${i18nAttribute("No writes yet", "还没有写入")}>No writes yet</strong>`,
+      conclusion: {
+        en: "No saved content has changed yet.",
+        zh: "还没有保存内容变化。"
+      },
+      note: {
+        en: "Waiting for saved content",
+        zh: "等待保存内容"
+      }
+    };
+  }
+  const source = humanSourceLabel(latestRecord.source);
+  return {
+    valueHtml: `<strong>${relativeTimeElement(latestRecord.updated_at, data.generated_at)}</strong>`,
+    conclusion: {
+      en: `Latest saved content came from ${source}.`,
+      zh: `最近保存内容来自 ${source}。`
+    },
+    note: {
+      en: "Latest saved content",
+      zh: "最近保存的内容"
+    }
+  };
+}
+
 function answerCardConclusionText(conclusion: { en: string; zh: string }): string {
   return `<p class="answer-card-conclusion" ${i18nAttribute(conclusion.en, conclusion.zh)}>${escapeHtml(conclusion.en)}</p>`;
-}
-
-function statusTickerItem(id: string, label: string, zhLabel: string, value: string, zhValue: string, valueHtml?: string): string {
-  const valueAttribute = valueHtml ? "" : ` ${i18nAttribute(value, zhValue)}`;
-  return `<span data-status-ticker-item="${escapeHtml(id)}"><b ${i18nAttribute(label, zhLabel)}>${escapeHtml(label)}</b><strong${valueAttribute}>${valueHtml ?? escapeHtml(value)}</strong></span>`;
-}
-
-function statusBoardTicker(data: DashboardData, shared: ReturnType<typeof sharedCopyLabel>): string {
-  const latestRecord = data.recent_records[0];
-  const latestSource = latestRecord ? humanSourceLabel(latestRecord.source) : "No writes yet";
-  const latestSourceZh = latestRecord ? latestSource : "还没有写入";
-  const latestWrite = latestRecord ? relativeTime(latestRecord.updated_at, data.generated_at) : "None";
-  const latestWriteZh = latestRecord ? relativeTimeZh(latestWrite) : "暂无写入";
-  const latestWriteHtml = latestRecord ? relativeTimeElement(latestRecord.updated_at, data.generated_at) : undefined;
-  const toOrganize = data.memory_inventory.summary.new_items + data.memory_inventory.summary.temporary;
-  const toOrganizeLabel = toOrganize > 0 ? `${toOrganize} saved for later` : "Nothing saved for later";
-  const toOrganizeZh = toOrganize > 0 ? `${toOrganize} 条已保存待整理` : "没有稍后整理内容";
-  return `
-      <div class="status-board-ticker" data-status-board-ticker aria-label="Latest status ticker">
-        ${statusTickerItem("last-write", "Last write", "最近写入", latestWrite, latestWriteZh, latestWriteHtml)}
-        ${statusTickerItem("source", "Source", "来源", latestSource, latestSourceZh)}
-        ${statusTickerItem("shared-copy", "Shared copy", "共享副本", shared.label, shared.zh)}
-        ${statusTickerItem("to-organize", "Saved for later", "稍后整理", toOrganizeLabel, toOrganizeZh)}
-      </div>
-  `;
 }
 
 function statusBoard(data: DashboardData): string {
@@ -6589,6 +6593,7 @@ function statusBoard(data: DashboardData): string {
   const actionConclusion = actionAnswerConclusion(data);
   const memoryConclusion = memoryAnswerConclusion(data.memory_inventory);
   const syncConclusion = syncAnswerConclusion(data.sync);
+  const recent = recentAnswer(data);
   const actionIsCalm = data.decision_summary.total_decisions === 0 && ((data.dashboard_overview.headline === "Saved, not remembered" || data.dashboard_overview.headline === "Saved for later") || (data.dashboard_overview.status !== "critical" && data.dashboard_overview.status !== "warning"));
   const actionClass = actionIsCalm ? "calm" : escapeHtml(data.dashboard_overview.status);
   const healthLabel = data.health.status === "healthy" ? "Healthy" : data.health.label;
@@ -6628,6 +6633,12 @@ function statusBoard(data: DashboardData): string {
           ${i18nText("visible saved items", "条可见保存内容", "small")}
           ${answerMemoryMix(data.memory_inventory)}
         </button>
+        <button type="button" class="answer-card recent" data-dashboard-priority="recent" data-action-board-target="stored-content" aria-controls="stored-content">
+          ${i18nText("What changed recently?", "最近有什么变化？")}
+          ${recent.valueHtml}
+          ${answerCardConclusionText(recent.conclusion)}
+          <small data-i18n-en="${escapeHtml(recent.note.en)}" data-i18n-zh="${escapeHtml(recent.note.zh)}">${escapeHtml(recent.note.en)}</small>
+        </button>
         <button type="button" class="answer-card sync ${escapeHtml(shared.severity)}" data-dashboard-priority="sync" data-action-board-target="store-signals" aria-controls="store-signals">
           ${i18nText("Is everything synced?", "都同步了吗？")}
           ${i18nText(shared.label, shared.zh, "strong")}
@@ -6635,7 +6646,6 @@ function statusBoard(data: DashboardData): string {
           <small data-i18n-en="${escapeHtml(shared.detail)}" data-i18n-zh="${escapeHtml(shared.zhDetail)}">${escapeHtml(shared.detail)}</small>
         </button>
       </div>
-      ${statusBoardTicker(data, shared)}
       <div class="status-board-explain" data-status-board-explain>
         ${i18nText("Write safety", "写入边界")}
         <p ${i18nAttribute(explain.en, explain.zh)}>${escapeHtml(explain.en)}</p>
@@ -9041,49 +9051,8 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       margin-bottom: 10px;
     }
     .status-board-answers {
-      grid-template-columns: 1.15fr 1fr 1fr;
-      margin-bottom: 0;
-    }
-    .status-board-ticker {
-      display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 8px;
-      align-items: center;
-      min-height: 44px;
-      border: 1px solid rgba(112, 129, 149, 0.2);
-      border-radius: 8px;
-      padding: 7px 9px;
-      margin-top: 10px;
-      background:
-        linear-gradient(90deg, rgba(255, 255, 255, 0.035), rgba(69, 185, 255, 0.028)),
-        rgba(5, 7, 10, 0.58);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
-    }
-    .status-board-ticker span {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      min-width: 0;
-      white-space: nowrap;
-    }
-    .status-board-ticker b {
-      flex: 0 0 auto;
-      color: var(--muted);
-      font-size: 11px;
-      font-weight: 820;
-    }
-    .status-board-ticker strong {
-      min-width: 0;
-      color: var(--ink);
-      font-size: 12px;
-      font-weight: 820;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .status-board-ticker time {
-      color: inherit;
-      font-size: inherit;
+      margin-bottom: 0;
     }
     .status-board-explain {
       display: grid;
@@ -9167,6 +9136,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .answer-card.action.warning { border-left-color: var(--signal-amber); }
     .answer-card.action.critical { border-left-color: var(--signal-red); }
     .answer-card.memory { border-left-color: var(--signal-violet); }
+    .answer-card.recent { border-left-color: var(--signal-amber); }
     .answer-card.sync.good { border-left-color: var(--signal-green); }
     .answer-card.sync.info { border-left-color: var(--signal-blue); }
     .answer-card.sync.warning { border-left-color: var(--signal-amber); }

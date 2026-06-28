@@ -677,22 +677,22 @@ add a write path, and it repeats the rule that memory changes require a real
 confirm button.
 
 `Right now` is the first read after the header. It keeps `This device` and
-`Shared copy` as compact status chips, then answers action, memory, and sync in
-three larger cards. Each answer card includes a short conclusion sentence before
+`Shared copy` as compact status chips, then answers action, memory, recent
+change, and sync in four larger cards. Each answer card includes a short conclusion sentence before
 its navigation hint, so users can read the answer without interpreting raw counts:
 the action card says whether confirmation is waiting, the memory card summarizes
-ready-to-use versus saved-for-later content, and the sync card says whether the
-shared copy is current on this device. Those answer cards reuse the dashboard's
+ready-to-use versus saved-for-later content, the recent card shows the latest
+saved-content time and source, and the sync card says whether the shared copy is
+current on this device. Those answer cards reuse the dashboard's
 local navigation: the action card opens the current next step, the memory card
-opens `Find what Moryn saved`, and the sync card opens `Shared copy details`.
+opens `Find what Moryn saved`, the recent card opens `Find what Moryn saved`,
+and the sync card opens `Shared copy details`.
 The memory card also shows a compact `Ready to use` / `Saved, not organized` / `Saved briefly`
 mix bar and short counts, so the first screen shows whether saved content is
 already long-term memory before the user opens search. A short `Write safety`
 line under the answer cards keeps the write boundary visible without repeating
 the saved-content summary: only rows with confirm buttons can change long-term
-memory. Between the answer cards and that line, a fixed-height status ticker repeats the
-latest write, latest source, shared-copy state, and saved-for-later items without
-resizing the first screen. The `At a glance` chart row
+memory. The `At a glance` chart row
 appears before `What Moryn stores`, `Recent status`, and the compact
 `More details` fold. It starts with a compact recent-activity summary for
 visible writes, ready-to-use items, saved-but-unorganized items, and the most active source,
