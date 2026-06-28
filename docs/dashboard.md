@@ -1294,6 +1294,13 @@ them. Full check rows stay inside the nested `Check Details` fold. `Check
 Details` summarizes pass, info, warning, and failed counts before listing
 individual checks, so expanded Health Check still starts with setup readiness
 instead of a full diagnostic transcript.
+All visible Health Check labels and summaries in the HTML carry language
+attributes for the dashboard language toggle: `Moryn Health Check`, `Install
+Trust`, `Setup Commands`, `Safe checks`, `Manual input`, `CLI command`, and
+`Check Details` keep their English defaults while providing Chinese labels such
+as `Moryn 健康检查`, `安装信任说明`, `设置命令`, `安全检查`, `需要输入`, `命令行命令`,
+and `检查详情`. The underlying `/api/dashboard.health_check` response remains
+unchanged and uses the stable English API field names.
 When served from the dashboard CLI, pass `--readiness-host <host>` and
 `--sync-remote <remote>` to make this embedded Health Check match the host and
 sync context you would pass to `moryn health check --host <host> --sync-remote

@@ -3891,6 +3891,24 @@ function healthCheckSummary(report: HealthCheckReport): string {
   ].filter((part): part is string => Boolean(part)).join(" | ");
 }
 
+function healthCheckStatusZh(status: HealthCheckReport["status"]): string {
+  if (status === "healthy") return "正常";
+  if (status === "needs_attention") return "需要看一下";
+  return "需要处理";
+}
+
+function healthCheckSummaryZh(report: HealthCheckReport): string {
+  if (report.summary.warning_checks === 0 && report.summary.failing_checks === 0) {
+    return report.status === "healthy" ? "本机存储正常" : healthCheckStatusZh(report.status);
+  }
+
+  return [
+    healthCheckStatusZh(report.status),
+    report.summary.warning_checks > 0 ? `${report.summary.warning_checks} 条提醒` : undefined,
+    report.summary.failing_checks > 0 ? `${report.summary.failing_checks} 项失败检查` : undefined
+  ].filter((part): part is string => Boolean(part)).join(" | ");
+}
+
 function healthCheckActionSummary(report: HealthCheckReport): { safe: number; needsInput: number } {
   return {
     safe: report.suggested_actions.filter((action) => action.safe_to_run).length,
@@ -3903,20 +3921,28 @@ function healthCheckSetupCommandSummary(report: HealthCheckReport): string {
   return `${pluralize(summary.safe, "safe check")} | ${pluralize(summary.needsInput, "manual input")}`;
 }
 
+function healthCheckSetupCommandSummaryZh(report: HealthCheckReport): string {
+  const summary = healthCheckActionSummary(report);
+  return `${summary.safe} 条安全检查 | ${summary.needsInput} 项需要输入`;
+}
+
 function healthCheckInstallTrust(report: HealthCheckReport): string {
   const summary = healthCheckActionSummary(report);
   const status = report.summary.failing_checks > 0 ? "Needs setup review" : "Safe to inspect";
+  const statusZh = report.summary.failing_checks > 0 ? "需要检查设置" : "可安全查看";
+  const safeChecks = pluralize(summary.safe, "safe check");
+  const manualInput = pluralize(summary.needsInput, "manual input");
   return `
-        <section class="health-check-install-trust" aria-label="Install Trust">
+        <section class="health-check-install-trust" aria-label="Install Trust" data-i18n-aria-label-en="Install Trust" data-i18n-aria-label-zh="安装信任说明">
           <div>
-            <h4>Install Trust</h4>
-            <p>Review readiness commands before setup</p>
+            ${i18nText("Install Trust", "安装信任说明", "h4")}
+            ${i18nText("Review readiness commands before setup", "设置前先查看准备命令", "p")}
           </div>
-          <strong>${escapeHtml(status)}</strong>
+          <strong ${i18nAttribute(status, statusZh)}>${escapeHtml(status)}</strong>
           <div class="health-check-install-trust-chips">
-            <span>${escapeHtml(pluralize(summary.safe, "safe check"))}</span>
-            <span>${escapeHtml(pluralize(summary.needsInput, "manual input"))}</span>
-            <span>No host config writes from dashboard</span>
+            <span ${i18nAttribute(safeChecks, `${summary.safe} 条安全检查`)}>${escapeHtml(safeChecks)}</span>
+            <span ${i18nAttribute(manualInput, `${summary.needsInput} 项需要输入`)}>${escapeHtml(manualInput)}</span>
+            ${i18nText("No host config writes from dashboard", "dashboard 不会写入主机配置")}
           </div>
         </section>
   `;
@@ -3931,9 +3957,23 @@ function healthCheckCheckSummary(report: HealthCheckReport): string {
   ].filter((part): part is string => Boolean(part)).join(" | ");
 }
 
+function healthCheckCheckSummaryZh(report: HealthCheckReport): string {
+  return [
+    report.summary.passing_checks > 0 ? `${report.summary.passing_checks} 项通过` : undefined,
+    report.summary.info_checks > 0 ? `${report.summary.info_checks} 条信息` : undefined,
+    report.summary.warning_checks > 0 ? `${report.summary.warning_checks} 条提醒` : undefined,
+    report.summary.failing_checks > 0 ? `${report.summary.failing_checks} 项失败检查` : undefined
+  ].filter((part): part is string => Boolean(part)).join(" | ");
+}
+
 function healthCheckActionRequirement(action: HealthCheckReport["suggested_actions"][number]): string {
   if (action.required_fields.length === 0) return action.safe_to_run ? "Read-only" : "Needs review";
   return `Requires ${action.required_fields.map((field) => field.replace(/_/g, " ")).join(", ")}`;
+}
+
+function healthCheckActionRequirementZh(action: HealthCheckReport["suggested_actions"][number]): string {
+  if (action.required_fields.length === 0) return action.safe_to_run ? "只读" : "需要查看";
+  return `需要填写 ${action.required_fields.map((field) => field.replace(/_/g, " ")).join("、")}`;
 }
 
 function shouldRenderHealthCheckActionCommand(action: HealthCheckReport["suggested_actions"][number]): boolean {
@@ -3946,24 +3986,28 @@ function healthCheckActionList(actions: HealthCheckReport["suggested_actions"]):
   }
   return `
     <div class="health-check-action-list">
-      ${actions.map((action) => `
+      ${actions.map((action) => {
+        const requirement = healthCheckActionRequirement(action);
+        const requirementZh = healthCheckActionRequirementZh(action);
+        return `
         <article class="health-check-action ${action.safe_to_run ? "safe" : "input"}" data-health-check-action="${escapeHtml(action.action_id)}">
           <div>
-            <span class="pill ${action.safe_to_run ? "state-canonical" : "warning"}">${escapeHtml(healthCheckActionRequirement(action))}</span>
+            <span class="pill ${action.safe_to_run ? "state-canonical" : "warning"}" ${i18nAttribute(requirement, requirementZh)}>${escapeHtml(requirement)}</span>
             <strong>${escapeHtml(titleCase(action.recommended_action))}</strong>
           </div>
           <small>${escapeHtml(action.required_when)}</small>
           ${shouldRenderHealthCheckActionCommand(action) ? `
           <details class="health-check-action-command" data-dashboard-detail="health-check-action-command:${escapeHtml(action.action_id)}">
             <summary class="dashboard-fold-summary">
-              <span>CLI command</span>
-              <small>copy from CLI</small>
+              ${i18nText("CLI command", "命令行命令")}
+              ${i18nText("copy from CLI", "从命令行复制", "small")}
             </summary>
             <code>${escapeHtml(action.command)}</code>
           </details>
           ` : ""}
         </article>
-      `).join("")}
+      `;
+      }).join("")}
     </div>
   `;
 }
@@ -3976,16 +4020,16 @@ function healthCheckReadinessActions(report: HealthCheckReport): string {
   return `
     <details class="health-check-readiness-actions" data-dashboard-detail="health-check-readiness-actions">
       <summary class="dashboard-fold-summary">
-        <span>Setup Commands</span>
-        <small>${escapeHtml(healthCheckSetupCommandSummary(report))}</small>
+        ${i18nText("Setup Commands", "设置命令")}
+        <small ${i18nAttribute(healthCheckSetupCommandSummary(report), healthCheckSetupCommandSummaryZh(report))}>${escapeHtml(healthCheckSetupCommandSummary(report))}</small>
       </summary>
       <div class="health-check-action-groups">
         <section class="health-check-action-group">
-          <h4>Safe checks</h4>
+          ${i18nText("Safe checks", "安全检查", "h4")}
           ${healthCheckActionList(safeActions)}
         </section>
         <section class="health-check-action-group">
-          <h4>Manual input</h4>
+          ${i18nText("Manual input", "需要输入", "h4")}
           ${healthCheckActionList(inputActions)}
         </section>
       </div>
@@ -3998,8 +4042,8 @@ function healthCheckDetails(report: HealthCheckReport): string {
   return `
         <details class="health-check-details" data-dashboard-detail="health-check-details">
           <summary class="dashboard-fold-summary">
-            <span>Check Details</span>
-            <small>${escapeHtml(healthCheckCheckSummary(report))}</small>
+            ${i18nText("Check Details", "检查详情")}
+            <small ${i18nAttribute(healthCheckCheckSummary(report), healthCheckCheckSummaryZh(report))}>${escapeHtml(healthCheckCheckSummary(report))}</small>
           </summary>
           <div class="health-check-list">
             ${report.checks.map((check) => `
@@ -4017,19 +4061,22 @@ function healthCheckDetails(report: HealthCheckReport): string {
 
 function healthCheckPanel(report: HealthCheckReport): string {
   const summary = healthCheckSummary(report);
+  const summaryZh = healthCheckSummaryZh(report);
   const actionSummary = healthCheckActionSummary(report);
+  const safeSuggestions = pluralize(actionSummary.safe, "safe suggestion");
+  const needsInput = `${actionSummary.needsInput} need input`;
   return `
     <details class="panel health-check-panel" data-dashboard-detail="health-check" data-dashboard-section="health-check">
       <summary class="dashboard-fold-summary">
-        <span>Moryn Health Check</span>
-        <small>${escapeHtml(summary)}</small>
+        ${i18nText("Moryn Health Check", "Moryn 健康检查")}
+        <small ${i18nAttribute(summary, summaryZh)}>${escapeHtml(summary)}</small>
       </summary>
       <div class="health-check-body">
         <div class="health-check-brief">
           <strong class="${healthCheckClass(report.status)}">${escapeHtml(titleCase(report.status))}</strong>
-          <span>Read-only</span>
-          <span>${escapeHtml(pluralize(actionSummary.safe, "safe suggestion"))}</span>
-          <span>${escapeHtml(`${actionSummary.needsInput} need input`)}</span>
+          ${i18nText("Read-only", "只读")}
+          <span ${i18nAttribute(safeSuggestions, `${actionSummary.safe} 条安全建议`)}>${escapeHtml(safeSuggestions)}</span>
+          <span ${i18nAttribute(needsInput, `${actionSummary.needsInput} 条需要输入`)}>${escapeHtml(needsInput)}</span>
         </div>
         <dl class="health-check-stats">
           <div><dt>Visible records</dt><dd>${escapeHtml(report.stats.visible_records)}</dd></div>

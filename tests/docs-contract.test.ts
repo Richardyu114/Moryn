@@ -951,6 +951,12 @@ describe("documentation contracts", () => {
     expectText(dashboard, "manual-input actions keep a `CLI command` fold");
     expectText(dashboard, "Full check rows stay inside the nested `Check Details` fold");
     expectText(dashboard, "`Check Details` summarizes pass, info, warning, and failed counts before listing individual checks");
+    expectText(dashboard, "All visible Health Check labels and summaries in the HTML carry language attributes");
+    expectText(dashboard, "`Moryn Health Check`, `Install");
+    expectText(dashboard, "Trust`, `Setup Commands`, `Safe checks`, `Manual input`, `CLI command`, and");
+    expectText(dashboard, "`Check Details` keep their English defaults while providing Chinese labels");
+    expectText(dashboard, "`Moryn 健康检查`, `安装信任说明`, `设置命令`, `安全检查`, `需要输入`, `命令行命令`");
+    expectText(dashboard, "The underlying `/api/dashboard.health_check` response remains unchanged");
     expectText(dashboard, "Safe-check rows stay readable before they read as command transcripts");
     expectText(dashboard, "commands remain available in `/api/dashboard.health_check.suggested_actions[]`");
     expectText(dashboard, "`capture_session` stays explicit because it needs the user-authored session summary");
