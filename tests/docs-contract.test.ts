@@ -218,6 +218,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Directly below the action summary, `What Moryn stores` shows the user-facing memory inventory");
     expectText(dashboard, "remembered <- canonical records");
     expectText(dashboard, "to organize <- candidate records");
+    expectText(dashboard, "Each inventory state card is clickable");
+    expectText(dashboard, "applies the matching read-only filter");
     expectText(dashboard, "session notes <- raw records");
     expectText(dashboard, "set aside <- archived or quarantined records");
     expectText(dashboard, "`To organize` means the item is already saved and searchable");

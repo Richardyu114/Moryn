@@ -738,6 +738,8 @@ set aside             <- archived or quarantined records
 Each inventory state includes a plain-language explanation. `To organize` means
 the item is already saved and searchable; it can be organized later if it becomes
 useful, but it is not a user decision by itself.
+Each inventory state card is clickable: it opens `Find what Moryn saved` and
+applies the matching read-only filter.
 
 The inventory also groups visible records by kind, using human labels such as
 `Memories`, `Skills`, `Preferences`, `Session notes`, and `Agent notes`.

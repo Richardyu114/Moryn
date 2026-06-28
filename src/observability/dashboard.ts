@@ -7152,11 +7152,11 @@ function memoryInventoryPanel(inventory: DashboardMemoryInventory): string {
         ${inventory.states.map((state) => {
           const explanation = memoryInventoryStateExplanation(state);
           return `
-          <article class="memory-inventory-card memory-inventory-${escapeHtml(state.id)}">
+          <button type="button" class="memory-inventory-card memory-inventory-${escapeHtml(state.id)}" data-memory-state-filter="${escapeHtml(memoryInventoryFilterValue(state))}" data-action-board-target="stored-content" aria-controls="stored-content">
             <span data-i18n-en="${escapeHtml(state.label)}" data-i18n-zh="${escapeHtml(state.zh_label)}">${escapeHtml(state.label)}</span>
             <strong>${escapeHtml(state.count)}</strong>
             <small data-i18n-en="${escapeHtml(explanation.en)}" data-i18n-zh="${escapeHtml(explanation.zh)}">${escapeHtml(explanation.en)}</small>
-          </article>
+          </button>
         `;
         }).join("")}
       </div>
@@ -8674,6 +8674,23 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       padding: 10px;
       background: var(--surface-2);
     }
+    .memory-inventory-card {
+      appearance: none;
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+      text-align: left;
+      transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+    }
+    .memory-inventory-card:hover {
+      border-color: rgba(69, 185, 255, 0.38);
+      background:
+        linear-gradient(145deg, rgba(69, 185, 255, 0.075), rgba(116, 242, 145, 0.025)),
+        rgba(18, 23, 30, 0.96);
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.055);
+      transform: translateY(-1px);
+    }
+    .memory-inventory-card:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .memory-inventory-card strong {
       color: var(--ink);
       font-size: 24px;
