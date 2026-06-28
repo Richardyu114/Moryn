@@ -1316,7 +1316,7 @@ describe("observability dashboard", () => {
       expect(data.recent_records.map((record) => record.id)).toContain("rec_memory_search_1");
       expect(data.recent_events.map((event) => event.event_id)).toContain("evt_memory_search_1");
       expect(html).not.toContain("<button type=\"button\" class=\"memory-search-toggle\" data-memory-search-toggle");
-      expect(html).toContain("<div id=\"memory-search-panel\" class=\"memory-search-panel primary-memory-search\" data-memory-search-panel aria-label=\"Find memory\">");
+      expect(html).toContain("<div id=\"memory-search-panel\" class=\"memory-search-panel primary-memory-search\" data-memory-search-panel data-memory-search-now=\"2026-06-21T00:00:00.000Z\" aria-label=\"Find memory\">");
       expect(html).toContain("<label class=\"memory-search-label\" for=\"memory-search-input\" data-i18n-en=\"Find memory or events\" data-i18n-zh=\"查找记忆或事件\">Find memory or events</label>");
       expect(html).toContain("<input id=\"memory-search-input\" class=\"memory-search-input\" type=\"search\" data-memory-search-input placeholder=\"Type a keyword, source, or topic\" aria-label=\"Find memory or events\" data-i18n-placeholder-en=\"Type a keyword, source, or topic\" data-i18n-placeholder-zh=\"输入关键词、来源或主题\" data-i18n-aria-label-en=\"Find memory or events\" data-i18n-aria-label-zh=\"查找记忆或事件\">");
       expect(html).toContain("<div class=\"memory-search-controls\" data-memory-search-controls>");
@@ -1387,6 +1387,90 @@ describe("observability dashboard", () => {
       expect(html).toContain("height: clamp(320px, 46vh, 520px);");
       expect(html).toContain("scrollbar-gutter: stable both-edges;");
       expect(html).toContain("transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;");
+    });
+  });
+
+  it("supports command-style memory search shortcuts", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-18T00:01:00.000Z",
+            "2026-06-10T00:01:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-21T00:03:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_memory_command_${++record}` : `evt_memory_command_${++event}`;
+        })()
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Codex decision for command search", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex" }
+      });
+      await engine.write({
+        kind: "session_summary",
+        type: "status",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Gemini handoff queue command search", format: "text" },
+        state: "candidate",
+        source: { client: "gemini" }
+      });
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      });
+      const html = renderDashboardHtml(data, { showStoredContent: true });
+      const serverHtml = renderDashboardServerHtml(data, 2000, { showStoredContent: true });
+
+      expect(html).toContain("<div id=\"memory-search-panel\" class=\"memory-search-panel primary-memory-search\" data-memory-search-panel data-memory-search-now=\"2026-06-21T00:00:00.000Z\" aria-label=\"Find memory\">");
+      expect(html).toContain("<div class=\"memory-search-chips\" data-memory-search-chips aria-label=\"Search shortcuts\">");
+      expect(html).toContain("<button type=\"button\" class=\"memory-search-chip\" data-memory-search-chip=\"source:Codex\" data-i18n-en=\"Codex\" data-i18n-zh=\"Codex\">Codex</button>");
+      expect(html).toContain("<button type=\"button\" class=\"memory-search-chip\" data-memory-search-chip=\"source:Gemini\" data-i18n-en=\"Gemini\" data-i18n-zh=\"Gemini\">Gemini</button>");
+      expect(html).toContain("<button type=\"button\" class=\"memory-search-chip\" data-memory-search-chip=\"state:remembered\" data-i18n-en=\"Remembered\" data-i18n-zh=\"已记住\">Remembered</button>");
+      expect(html).toContain("<button type=\"button\" class=\"memory-search-chip\" data-memory-search-chip=\"state:to-organize\" data-i18n-en=\"To organize\" data-i18n-zh=\"待整理\">To organize</button>");
+      expect(html).toContain("<button type=\"button\" class=\"memory-search-chip\" data-memory-search-chip=\"type:event\" data-i18n-en=\"Events\" data-i18n-zh=\"事件\">Events</button>");
+      expect(html).toContain("<button type=\"button\" class=\"memory-search-chip\" data-memory-search-chip=\"recent:7d\" data-i18n-en=\"Recent 7d\" data-i18n-zh=\"最近 7 天\">Recent 7d</button>");
+      expect(html).toContain("data-memory-search-kind=\"memory\"");
+      expect(html).toContain("data-memory-search-record-type=\"decision\"");
+      expect(html).toContain("data-memory-search-updated-at=\"2026-06-18T00:01:00.000Z\"");
+      expect(html).toContain("data-memory-search-kind=\"session_summary\"");
+      expect(html).toContain("data-memory-search-record-type=\"status\"");
+      expect(html).toContain("data-memory-search-updated-at=\"2026-06-10T00:01:00.000Z\"");
+      expect(html).toContain("data-memory-search-kind=\"event\"");
+      expect(html).toContain("data-memory-search-record-type=\"upsert_record\"");
+
+      expect(serverHtml).toContain("const parseMemorySearchQuery = (query) => {");
+      expect(serverHtml).toContain("const commandMatch = token.match(/^([a-z]+):(.+)$/);");
+      expect(serverHtml).toContain("const normalizeMemoryStateQuery = (value) => {");
+      expect(serverHtml).toContain("parsed.source = value;");
+      expect(serverHtml).toContain("parsed.state = normalizeMemoryStateQuery(value);");
+      expect(serverHtml).toContain("parsed.type = value;");
+      expect(serverHtml).toContain("parsed.recentDays = Number(value.replace(/d$/, \"\"));");
+      expect(serverHtml).toContain("const matchesCommandSource = !parsed.source || String(entry.dataset.memorySearchSource || \"\").toLowerCase() === parsed.source;");
+      expect(serverHtml).toContain("const matchesCommandState = !parsed.state || entry.dataset.memorySearchState === parsed.state;");
+      expect(serverHtml).toContain("const matchesCommandType = !parsed.type || [entry.dataset.memorySearchKind, entry.dataset.memorySearchRecordType, entry.dataset.memorySearchState].some((value) => String(value || \"\").toLowerCase() === parsed.type);");
+      expect(serverHtml).toContain("const matchesRecent = !parsed.recentDays || entryIsRecent(entry, parsed.recentDays, panel.dataset.memorySearchNow || \"\");");
+      expect(serverHtml).toContain("const chip = target.closest(\"[data-memory-search-chip]\");");
+      expect(serverHtml).toContain("writeStoredContentState({ searchQuery: chip.dataset.memorySearchChip || \"\", searchStateFilter: \"all\", searchSourceFilter: \"all\", searchOpen: true });");
+      expect(serverHtml).toContain(".memory-search-chips {");
+      expect(serverHtml).toContain(".memory-search-chip {");
     });
   });
 
@@ -7736,7 +7820,7 @@ describe("observability dashboard", () => {
         expect(page).not.toContain("<article class=\"recent-value-reference\" data-dashboard-detail=\"recent-value:index\">");
         expect(page).toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
         expect(page).toContain("<section id=\"stored-content\" class=\"stored-content memory-explorer\" data-stored-content data-memory-explorer aria-label=\"Find what Moryn saved\">");
-        expect(page).toContain("<div id=\"memory-search-panel\" class=\"memory-search-panel primary-memory-search\" data-memory-search-panel aria-label=\"Find memory\">");
+        expect(page).toContain("<div id=\"memory-search-panel\" class=\"memory-search-panel primary-memory-search\" data-memory-search-panel data-memory-search-now=");
         expect(page).toContain("<aside class=\"memory-explorer-detail\" data-memory-explorer-detail aria-live=\"polite\">");
         expect(page).toContain("Initial live dashboard memory");
 
@@ -7796,7 +7880,7 @@ describe("observability dashboard", () => {
 
         const refreshedFragment = await (await fetch(new URL("/fragment", server.url))).text();
         expect(refreshedFragment).toContain("<section id=\"stored-content\" class=\"stored-content memory-explorer\" data-stored-content data-memory-explorer aria-label=\"Find what Moryn saved\">");
-        expect(refreshedFragment).toContain("<div id=\"memory-search-panel\" class=\"memory-search-panel primary-memory-search\" data-memory-search-panel aria-label=\"Find memory\">");
+        expect(refreshedFragment).toContain("<div id=\"memory-search-panel\" class=\"memory-search-panel primary-memory-search\" data-memory-search-panel data-memory-search-now=");
         expect(refreshedFragment).toContain("<aside class=\"memory-explorer-detail\" data-memory-explorer-detail aria-live=\"polite\">");
         expect(refreshedFragment).toContain("Live dashboard refresh memory");
         const refreshedAuditTrailHtml = supportingEvidenceSummaryRowHtml(refreshedFragment, "store-snapshot");

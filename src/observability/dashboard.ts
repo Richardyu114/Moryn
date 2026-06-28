@@ -6835,7 +6835,7 @@ function memorySearchRecordEntry(record: DashboardRecordSummary, generatedAt: st
     record.text
   ]);
   return `
-          <article class="memory-search-result record" data-memory-search-entry="record:${escapeHtml(record.id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="${escapeHtml(record.state)}" data-memory-search-source="${escapeHtml(source)}">
+          <article class="memory-search-result record" data-memory-search-entry="record:${escapeHtml(record.id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="${escapeHtml(record.state)}" data-memory-search-source="${escapeHtml(source)}" data-memory-search-kind="${escapeHtml(record.kind)}" data-memory-search-record-type="${escapeHtml(record.type)}" data-memory-search-updated-at="${escapeHtml(record.updated_at)}">
             <span ${i18nAttribute("Memory", "记忆")}>Memory</span>
             <strong>${escapeHtml(titleCase(record.type || record.kind))}</strong>
             <p>${escapeHtml(record.text)}</p>
@@ -6859,7 +6859,7 @@ function memorySearchEventEntry(event: DashboardEventSummary, generatedAt: strin
     source
   ]);
   return `
-          <article class="memory-search-result event" data-memory-search-entry="event:${escapeHtml(event.event_id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="event" data-memory-search-source="${escapeHtml(source)}">
+          <article class="memory-search-result event" data-memory-search-entry="event:${escapeHtml(event.event_id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="event" data-memory-search-source="${escapeHtml(source)}" data-memory-search-kind="event" data-memory-search-record-type="${escapeHtml(event.op)}" data-memory-search-updated-at="${escapeHtml(event.created_at)}">
             <span ${i18nAttribute("Event", "事件")}>Event</span>
             <strong>${escapeHtml(event.op)}</strong>
             <p>${eventTarget}</p>
@@ -6881,6 +6881,33 @@ function memorySearchStatusLabel(count: number, filtered = false): { en: string;
   };
 }
 
+function memorySearchChip(query: string, label: string, zhLabel: string): string {
+  return `<button type="button" class="memory-search-chip" data-memory-search-chip="${escapeHtml(query)}" data-i18n-en="${escapeHtml(label)}" data-i18n-zh="${escapeHtml(zhLabel)}">${escapeHtml(label)}</button>`;
+}
+
+function memorySearchShortcutChips(input: { sources: string[]; recordStates: MorynRecord["state"][]; hasEvents: boolean }): string {
+  const sourceChips = input.sources.slice(0, 3).map((source) => memorySearchChip(`source:${source}`, source, source));
+  const stateChips = [
+    input.recordStates.includes("canonical") ? memorySearchChip("state:remembered", "Remembered", "已记住") : "",
+    input.recordStates.includes("candidate") ? memorySearchChip("state:to-organize", "To organize", "待整理") : "",
+    input.recordStates.includes("raw") ? memorySearchChip("state:session-notes", "Session notes", "会话记录") : "",
+    (input.recordStates.includes("archived") || input.recordStates.includes("quarantined")) ? memorySearchChip("state:set-aside", "Set aside", "已搁置") : ""
+  ].filter(Boolean);
+  const eventChip = input.hasEvents ? memorySearchChip("type:event", "Events", "事件") : "";
+  const chips = [
+    ...sourceChips,
+    ...stateChips,
+    eventChip,
+    memorySearchChip("recent:7d", "Recent 7d", "最近 7 天")
+  ].filter(Boolean);
+  if (chips.length === 0) return "";
+  return `
+        <div class="memory-search-chips" data-memory-search-chips aria-label="Search shortcuts">
+          ${chips.join("")}
+        </div>
+  `;
+}
+
 function memorySearchPanel(data: DashboardData): string {
   const entries = [
     ...data.recent_records.map((record) => memorySearchRecordEntry(record, data.generated_at)),
@@ -6893,8 +6920,13 @@ function memorySearchPanel(data: DashboardData): string {
     ...data.recent_events.map((event) => humanSourceLabel(event.source))
   ])].sort((left, right) => left.localeCompare(right));
   const statusLabel = memorySearchStatusLabel(entries.length);
+  const chips = memorySearchShortcutChips({
+    sources,
+    recordStates,
+    hasEvents: data.recent_events.length > 0
+  });
   return `
-      <div id="memory-search-panel" class="memory-search-panel primary-memory-search" data-memory-search-panel aria-label="Find memory">
+      <div id="memory-search-panel" class="memory-search-panel primary-memory-search" data-memory-search-panel data-memory-search-now="${escapeHtml(data.generated_at)}" aria-label="Find memory">
         <label class="memory-search-label" for="memory-search-input" data-i18n-en="Find memory or events" data-i18n-zh="查找记忆或事件">Find memory or events</label>
         <div class="memory-search-controls" data-memory-search-controls>
           <input id="memory-search-input" class="memory-search-input" type="search" data-memory-search-input placeholder="Type a keyword, source, or topic" aria-label="Find memory or events" data-i18n-placeholder-en="Type a keyword, source, or topic" data-i18n-placeholder-zh="输入关键词、来源或主题" data-i18n-aria-label-en="Find memory or events" data-i18n-aria-label-zh="查找记忆或事件">
@@ -6911,6 +6943,7 @@ function memorySearchPanel(data: DashboardData): string {
             ${sources.map((source) => `<option value="${escapeHtml(source)}">${escapeHtml(source)}</option>`).join("")}
           </select>
         </div>
+        ${chips}
         <div class="memory-search-meta">
           <span data-memory-search-status ${i18nAttribute(statusLabel.en, statusLabel.zh)}>${escapeHtml(statusLabel.en)}</span>
           <small data-i18n-en="Local search only; no writes happen here." data-i18n-zh="仅本地搜索；这里不会写入。">Local search only; no writes happen here.</small>
@@ -7541,6 +7574,57 @@ function dashboardStoredContentScript(): string {
         state: state.searchStateFilter || "all",
         source: state.searchSourceFilter || "all"
       });
+      const normalizeMemoryStateQuery = (value) => {
+        const normalized = String(value || "").toLowerCase();
+        if (normalized === "remembered") return "canonical";
+        if (normalized === "to-organize" || normalized === "organize") return "candidate";
+        if (normalized === "session-notes" || normalized === "session") return "raw";
+        if (normalized === "set-aside") return "archived";
+        return normalized;
+      };
+      const parseMemorySearchQuery = (query) => {
+        const parsed = {
+          terms: [],
+          source: "",
+          state: "",
+          type: "",
+          recentDays: 0
+        };
+        const tokens = String(query || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
+        for (const token of tokens) {
+          const commandMatch = token.match(/^([a-z]+):(.+)$/);
+          if (!commandMatch) {
+            parsed.terms.push(token);
+            continue;
+          }
+          const [, command, value] = commandMatch;
+          if (command === "source") {
+            parsed.source = value;
+            continue;
+          }
+          if (command === "state" || command === "status") {
+            parsed.state = normalizeMemoryStateQuery(value);
+            continue;
+          }
+          if (command === "type" || command === "kind") {
+            parsed.type = value;
+            continue;
+          }
+          if (command === "recent") {
+            parsed.recentDays = Number(value.replace(/d$/, ""));
+            if (!Number.isFinite(parsed.recentDays) || parsed.recentDays <= 0) parsed.recentDays = 0;
+            continue;
+          }
+          parsed.terms.push(token);
+        }
+        return parsed;
+      };
+      const entryIsRecent = (entry, recentDays, nowIso) => {
+        const updatedAt = Date.parse(entry.dataset.memorySearchUpdatedAt || "");
+        const now = Date.parse(nowIso || "");
+        if (!Number.isFinite(updatedAt) || !Number.isFinite(now)) return false;
+        return Math.max(0, now - updatedAt) <= recentDays * 24 * 60 * 60 * 1000;
+      };
       const setMemorySearchStatus = (status, count, filtered) => {
         if (!(status instanceof HTMLElement)) return;
         status.dataset.i18nEn = filtered ? count + (count === 1 ? " item shown" : " items shown") : count + (count === 1 ? " item" : " items") + " to search";
@@ -7549,15 +7633,21 @@ function dashboardStoredContentScript(): string {
       };
       const filterMemorySearch = (panel, filters) => {
         const normalizedQuery = String(filters.query || "").trim().toLowerCase();
+        const parsed = parseMemorySearchQuery(normalizedQuery);
         const entries = Array.from(panel.querySelectorAll("[data-memory-search-entry]"));
         let visible = 0;
         for (const entry of entries) {
           if (!(entry instanceof HTMLElement)) continue;
           const text = entry.dataset.memorySearchText || entry.textContent || "";
-          const matchesQuery = normalizedQuery.length === 0 || text.toLowerCase().includes(normalizedQuery);
+          const searchableText = text.toLowerCase();
+          const matchesQuery = parsed.terms.length === 0 || parsed.terms.every((term) => searchableText.includes(term));
           const matchesState = filters.state === "all" || entry.dataset.memorySearchState === filters.state;
           const matchesSource = filters.source === "all" || entry.dataset.memorySearchSource === filters.source;
-          const matches = matchesQuery && matchesState && matchesSource;
+          const matchesCommandSource = !parsed.source || String(entry.dataset.memorySearchSource || "").toLowerCase() === parsed.source;
+          const matchesCommandState = !parsed.state || entry.dataset.memorySearchState === parsed.state;
+          const matchesCommandType = !parsed.type || [entry.dataset.memorySearchKind, entry.dataset.memorySearchRecordType, entry.dataset.memorySearchState].some((value) => String(value || "").toLowerCase() === parsed.type);
+          const matchesRecent = !parsed.recentDays || entryIsRecent(entry, parsed.recentDays, panel.dataset.memorySearchNow || "");
+          const matches = matchesQuery && matchesState && matchesSource && matchesCommandSource && matchesCommandState && matchesCommandType && matchesRecent;
           entry.hidden = !matches;
           if (matches) visible += 1;
         }
@@ -7638,6 +7728,12 @@ function dashboardStoredContentScript(): string {
           writeStoredContentState({ overflowOpen: true, storedContentFilter: "all", searchOpen: true, searchSourceFilter: glanceSource.dataset.glanceSource || "all" });
           applyStoredContentState({ highlight: true });
           document.querySelector("[data-stored-content]")?.scrollIntoView({ block: "start", behavior: "smooth" });
+          return;
+        }
+        const chip = target.closest("[data-memory-search-chip]");
+        if (chip instanceof HTMLElement) {
+          writeStoredContentState({ searchQuery: chip.dataset.memorySearchChip || "", searchStateFilter: "all", searchSourceFilter: "all", searchOpen: true });
+          applyStoredContentState({ focusSearch: true });
           return;
         }
         const storedFilter = target.closest("[data-stored-content-filter]");
@@ -8645,6 +8741,38 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
     }
     .memory-search-select:focus { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
+    .memory-search-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      min-height: 30px;
+    }
+    .memory-search-chip {
+      appearance: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      max-width: 100%;
+      min-height: 28px;
+      border: 1px solid rgba(69, 185, 255, 0.28);
+      border-radius: 999px;
+      padding: 4px 9px;
+      background: rgba(69, 185, 255, 0.085);
+      color: #c7e8ff;
+      cursor: pointer;
+      font: inherit;
+      font-size: 11px;
+      font-weight: 820;
+      overflow-wrap: anywhere;
+      transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+    }
+    .memory-search-chip:hover {
+      border-color: rgba(116, 242, 145, 0.48);
+      background: rgba(116, 242, 145, 0.12);
+      transform: translateY(-1px);
+    }
+    .memory-search-chip:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .memory-search-meta {
       display: grid;
       grid-template-columns: minmax(12ch, max-content) minmax(0, 1fr);

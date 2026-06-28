@@ -101,7 +101,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "covers legacy diagnostic labels inside `Background checks` and compact `More details`");
     expectText(dashboard, "`Info Checks`, `Routine status checks`, `Info Details`, `Raw records waiting for");
     expectText(dashboard, "review`, and `Many candidate records`");
-    expectText(dashboard, "Memory Search controls and result-count feedback also follow the language toggle");
+    expectText(dashboard, "Memory Search controls, query shortcut");
+    expectText(dashboard, "chips, and result-count feedback also follow the language toggle");
     expectText(dashboard, "Memory Search result type labels, event target labels, and memory-state metadata follow the language toggle");
     expectText(dashboard, "First-screen action labels, health badges, current-answer cards, and derived overview cards also follow the language toggle");
     expectText(dashboard, "Derived overview-card count and status snippets such as `saved items`, `safe check available`, and `Clean` also carry Chinese display text");
@@ -180,6 +181,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "opens `Find what Moryn saved` and filters the visible previews by that state");
     expectText(dashboard, "The saved-content filter bar can switch back to `All`");
     expectText(dashboard, "Its search controls filter across recent records and events by keyword, memory state, and source");
+    expectText(dashboard, "Search shortcut chips write readable local queries into the same input");
+    expectText(dashboard, "`source:Codex`, `state:remembered`, `state:to-organize`, `type:event`");
+    expectText(dashboard, "and `recent:7d`; users can also type those query terms directly");
     expectText(dashboard, "The read-only detail pane opens with the first visible saved item");
     expectText(dashboard, "follows the first matching item after filtering");
     expectText(dashboard, "client-side and read-only");

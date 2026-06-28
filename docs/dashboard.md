@@ -628,10 +628,10 @@ Chinese; the browser remembers the choice in `moryn.dashboard.language`.
 The same language switch also covers legacy diagnostic labels inside
 `Background checks` and compact `More details`, including older labels such as
 `Info Checks`, `Routine status checks`, `Info Details`, `Raw records waiting for
-review`, and `Many candidate records`. Memory Search controls and result-count
-feedback also follow the language toggle. Memory Search result type
-labels, event target labels, and memory-state metadata follow the language
-toggle. First-screen action labels, health badges, current-answer cards, and
+review`, and `Many candidate records`. Memory Search controls, query shortcut
+chips, and result-count feedback also follow the language toggle. Memory Search
+result type labels, event target labels, and memory-state metadata follow the
+language toggle. First-screen action labels, health badges, current-answer cards, and
 derived overview cards also follow the language toggle, so `Approval needed`,
 `Review approvals`, `Review warnings`, `Local Only`, and `Sync Pending` do not remain as English-only
 UI labels in Chinese mode. Derived overview-card count and status snippets such
@@ -691,9 +691,12 @@ The memory-state chart is also a local navigation control: clicking
 `Find what Moryn saved` and filters the visible previews by that state. The
 saved-content filter bar can switch back to `All` or jump between available states. Its search
 controls filter across recent records and events by keyword, memory state, and
-source. The read-only detail pane opens with the first visible saved item and
-follows the first matching item after filtering; selecting another saved item
-updates the same pane. All of these controls are client-side and read-only.
+source. Search shortcut chips write readable local queries into the same input,
+such as `source:Codex`, `state:remembered`, `state:to-organize`, `type:event`,
+and `recent:7d`; users can also type those query terms directly. The read-only
+detail pane opens with the first visible saved item and follows the first
+matching item after filtering; selecting another saved item updates the same
+pane. All of these controls are client-side and read-only.
 The preview cards are representative rather than strictly newest-first: Moryn
 shows available `To organize`, `Remembered`, `Session notes`, and `Set
 aside` examples before filling the remaining preview slots by recency. The full
