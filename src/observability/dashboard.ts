@@ -6189,6 +6189,8 @@ function decisionPanelItem(input: {
   zhActionLabel: string;
   note: string;
   zhNote: string;
+  feedback?: string;
+  zhFeedback?: string;
 }): string {
   return `
         <article class="decision-panel-item ${escapeHtml(input.kind)}">
@@ -6199,6 +6201,7 @@ function decisionPanelItem(input: {
             <small data-i18n-en="${escapeHtml(input.note)}" data-i18n-zh="${escapeHtml(input.zhNote)}">${escapeHtml(input.note)}</small>
           </div>
           <button type="button" class="decision-panel-link" data-action-board-target="${escapeHtml(input.target)}" aria-controls="${escapeHtml(input.target)}" data-i18n-en="${escapeHtml(input.actionLabel)}" data-i18n-zh="${escapeHtml(input.zhActionLabel)}">${escapeHtml(input.actionLabel)}</button>
+          ${input.feedback ? `<p class="decision-panel-feedback" data-dashboard-action-feedback data-i18n-en="${escapeHtml(input.feedback)}" data-i18n-zh="${escapeHtml(input.zhFeedback ?? input.feedback)}" hidden>${escapeHtml(input.feedback)}</p>` : ""}
         </article>
   `;
 }
@@ -6235,11 +6238,13 @@ function dashboardDecisionPanel(data: DashboardData): string {
       zhTitle: `${reviewable} 条保存内容可查看`,
       detail: "These are saved safely. Open the review view when you want to decide what becomes long-term memory.",
       zhDetail: "这些内容已经安全保存。你想决定哪些进入长期记忆时，再打开查看。",
-      target: data.dashboard_overview.primary_action.target,
-      actionLabel: data.dashboard_overview.primary_action.label,
-      zhActionLabel: data.dashboard_overview.primary_action.label === "Review new notes" ? "查看新内容" : "查看详情",
-      note: "No write happens from this card; approval stays in Capture Inbox, Review Queue, or Candidate Triage rows when available.",
-      zhNote: "这张卡不会写入；如果有审批按钮，会出现在 Capture Inbox、Review Queue 或 Candidate Triage 行内。"
+      target: "stored-content",
+      actionLabel: "Open saved content",
+      zhActionLabel: "打开已保存内容",
+      note: "This opens saved content and search. Approval buttons only appear in Capture Inbox, Review Queue, or Candidate Triage when a real write is waiting.",
+      zhNote: "这里会打开已保存内容和搜索；只有真的有待写入事项时，审批按钮才会出现在 Capture Inbox、Review Queue 或 Candidate Triage。",
+      feedback: "Nothing to open here yet.",
+      zhFeedback: "这里暂时没有可打开的审核队列。"
     }));
   }
   if (items.length === 0) return "";
@@ -6356,7 +6361,7 @@ function storedContentPanel(data: DashboardData): string {
   const moreLabel = `View ${overflowCount} more`;
   const moreLabelZh = `查看更多 ${overflowCount} 条`;
   return `
-    <section class="stored-content" data-stored-content aria-label="Stored content">
+    <section id="stored-content" class="stored-content" data-stored-content aria-label="Stored content">
       <div class="section-heading">
         <h2 data-i18n-en="Stored content" data-i18n-zh="存储内容">Stored content</h2>
         <div class="stored-content-tools">
@@ -6612,10 +6617,23 @@ function dashboardActionBoardScript(): string {
         if (!(trigger instanceof HTMLElement)) return;
         const targetId = trigger.dataset.actionBoardTarget;
         if (!targetId) return;
+        const feedback = document.querySelector("[data-dashboard-action-feedback]");
         const target = findDashboardTarget(targetId);
-        if (!(target instanceof HTMLElement)) return;
+        if (!target) {
+          if (feedback instanceof HTMLElement) {
+            feedback.hidden = false;
+            feedback.textContent = document.documentElement.lang === "zh"
+              ? feedback.dataset.i18nZh || "这里暂时没有可打开的内容。"
+              : feedback.dataset.i18nEn || "Nothing to open here yet.";
+          }
+          return;
+        }
+        if (feedback instanceof HTMLElement) feedback.hidden = true;
         if (target instanceof HTMLDetailsElement) {
           target.open = true;
+        }
+        if (target.matches("[data-stored-content]")) {
+          window.openStoredContentSearch?.();
         }
         let parent = target.closest("details");
         while (parent instanceof HTMLDetailsElement) {
@@ -6721,6 +6739,10 @@ function dashboardStoredContentScript(): string {
         setSearchState(state, options);
       };
       window.restoreStoredContentState = applyStoredContentState;
+      window.openStoredContentSearch = () => {
+        writeStoredContentState({ searchOpen: true });
+        applyStoredContentState({ focusSearch: true });
+      };
       window.shouldPauseStoredContentRefresh = () => {
         const state = readStoredContentState();
         const active = document.activeElement;
@@ -7372,6 +7394,12 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .decision-panel-item small {
       margin-top: 6px;
       color: var(--muted);
+    }
+    .decision-panel-feedback {
+      grid-column: 1 / -1;
+      margin: -2px 0 0;
+      color: var(--muted);
+      font-size: 12px;
     }
     .decision-panel-link {
       appearance: none;
