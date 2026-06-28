@@ -7,6 +7,20 @@ describe("documentation contracts", () => {
     expect(document.replace(/\s+/g, " ")).toContain(text);
   }
 
+  it("keeps deployment-private addresses out of public docs", async () => {
+    const docs = await Promise.all([
+      readFile("README.md", "utf8"),
+      readFile("docs/agent-install-prompt.md", "utf8"),
+      readFile("docs/agent-workflow.md", "utf8"),
+      readFile("docs/contracts.md", "utf8"),
+      readFile("docs/dashboard.md", "utf8")
+    ]);
+    const joinedDocs = docs.join("\n");
+
+    expect(joinedDocs).not.toMatch(/https?:\/\/(?!127\.0\.0\.1)(?!0\.0\.0\.0)\d{1,3}(?:\.\d{1,3}){3}\b/);
+    expect(joinedDocs).not.toMatch(/git@github\.com:(?!yourname\b)(?!user\b)[^/]+\/[^`\s"]*-store\.git/);
+  });
+
   it("documents the observability dashboard server and static artifact", async () => {
     const [readme, installPrompt, workflow, contracts, roadmap, dashboard] = await Promise.all([
       readFile("README.md", "utf8"),
@@ -20,21 +34,29 @@ describe("documentation contracts", () => {
     expect(readme).toContain("moryn dashboard");
     expect(readme).toContain("moryn dashboard --serve --host 127.0.0.1 --port 8765");
     expect(readme).toContain("--readiness-host");
-    expect(readme).toContain("http://127.0.0.1:8765/");
+    expect(readme).toContain("deployment-specific dashboard URL");
+    expect(readme).toContain("<dashboard-url>");
+    expect(readme).toContain("127.0.0.1:8765` is the internal");
     expect(readme).toContain("docs/dashboard.md");
     expect(readme).toContain("[Dashboard](docs/dashboard.md)");
     expect(readme).toContain("--no-open");
     expect(readme).toContain("state/dashboard/index.html");
     expect(installPrompt).toContain("moryn dashboard --serve --host 127.0.0.1 --port 8765");
-    expect(installPrompt).toContain("http://127.0.0.1:8765/");
-    expect(installPrompt).toContain("--host 0.0.0.0");
+    expect(installPrompt).toContain("deployment-specific dashboard URL");
+    expect(installPrompt).toContain("<dashboard-url>");
+    expect(installPrompt).toContain("not the address to report to the human");
     expect(installPrompt).toContain("moryn dashboard --no-open");
     expect(installPrompt).toContain("[Dashboard](dashboard.md)");
     expect(workflow).toContain("moryn dashboard --serve --host 127.0.0.1 --port 8765");
-    expect(workflow).toContain("http://127.0.0.1:8765/");
+    expect(workflow).toContain("deployment-specific dashboard URL");
+    expect(workflow).toContain("<dashboard-url>");
+    expectText(workflow, "not the address to give the human");
     expect(workflow).toContain("record quality");
     expect(workflow).toContain("open the static snapshot");
     expect(contracts).toContain("moryn dashboard --serve --host 127.0.0.1 --port 8765");
+    expect(contracts).toContain("deployment-specific dashboard URL");
+    expect(contracts).toContain("<dashboard-url>");
+    expectText(contracts, "not the address to report to the human");
     expect(contracts).toContain("/api/dashboard");
     expect(contracts).toContain("/api/maintenance/plans/:plan_id/approve");
     expect(contracts).toContain("/api/capture-inbox/:record_id/approve");
@@ -52,7 +74,9 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("moryn dashboard --serve --host 127.0.0.1 --port 8765");
     expect(dashboard).toContain("--readiness-host <host>");
     expect(dashboard).toContain("server bind address");
-    expect(dashboard).toContain("http://127.0.0.1:8765/");
+    expect(dashboard).toContain("deployment-specific URL");
+    expect(dashboard).toContain("<dashboard-url>");
+    expect(dashboard).toContain("canonical human-facing URL");
     expect(dashboard).toContain("moryn dashboard --serve --host 0.0.0.0 --port 8765");
     expect(dashboard).toContain("GET /fragment");
     expect(dashboard).toContain("GET /api/dashboard");

@@ -50,19 +50,25 @@ Serve the dashboard for the current machine:
 moryn dashboard --serve --host 127.0.0.1 --port 8765
 ```
 
-Open:
+Open the shared Moryn dashboard at the deployment-specific URL:
 
 ```text
-http://127.0.0.1:8765/
+<dashboard-url>
 ```
 
-To let another device on the same LAN view it, bind to all local interfaces:
+The local server still listens on `127.0.0.1:8765` in the default deployment;
+that address is the reverse-proxy upstream, not the user-facing dashboard URL.
+When reporting the dashboard location to a human, use the shared deployment URL
+instead of the internal bind address.
+
+To run a separate LAN-only dashboard outside the shared deployment, bind to all
+local interfaces:
 
 ```bash
 moryn dashboard --serve --host 0.0.0.0 --port 8765
 ```
 
-Then open the serving machine's LAN address:
+Then open that serving machine's LAN address:
 
 ```text
 http://<machine-ip>:8765/
@@ -1383,4 +1389,6 @@ moryn rebuild
 If a reverse proxy serves the dashboard under a path prefix, proxy all dashboard
 paths to the local server. For example, `/moryn-dashboard/`, `/moryn-dashboard/fragment`,
 `/moryn-dashboard/api/dashboard`, and `/moryn-dashboard/healthz` should all reach
-the same local dashboard server.
+the same local dashboard server. A shared Moryn deployment should document its
+canonical human-facing URL outside the public source tree, for example as
+`<dashboard-url>`.

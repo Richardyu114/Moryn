@@ -67,9 +67,9 @@ During agent work:
 - Use `moryn dashboard --serve --host 127.0.0.1 --port 8765` when a human needs
   live browser monitoring of sync state, records, recent events, or agent
   activity.
-- Tell the human to open `http://127.0.0.1:8765/` on the same machine. For
-  another device on the same LAN, use `--host 0.0.0.0` and the serving
-  machine's LAN IP, subject to firewall rules.
+- Tell the human to open the deployment-specific dashboard URL, for example
+  `<dashboard-url>`, in a shared Moryn environment. Treat `127.0.0.1:8765` as
+  the internal server bind target, not the address to report to the human.
 - Use `moryn dashboard --no-open` when automation needs a static HTML snapshot
   without launching a browser.
 - If derived views look stale, run `moryn refresh` or `moryn rebuild`.

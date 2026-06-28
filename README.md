@@ -357,9 +357,9 @@ moryn dashboard --serve --host 127.0.0.1 --port 8765
 moryn dashboard --serve --host 127.0.0.1 --port 8765 --project-id moryn --readiness-host codex --sync-remote <remote>
 ```
 
-Open `http://127.0.0.1:8765/` on the same machine. To view it from another
-device on the same LAN, bind to `0.0.0.0` and open
-`http://<machine-ip>:8765/`; firewall and network policy must allow the port.
+In a shared Moryn environment, report the deployment-specific dashboard URL, for
+example `<dashboard-url>`. `127.0.0.1:8765` is the internal server bind target
+behind that reverse-proxy path, not the address to report to the human.
 For dashboard, `--host` is the HTTP server bind address. Use
 `--readiness-host` when you want the embedded Health Check setup readiness
 commands to target an agent adapter such as `codex`; `--sync-remote` only

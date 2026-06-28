@@ -344,9 +344,9 @@ For human monitoring, use the CLI server mode:
 moryn dashboard --serve --host 127.0.0.1 --port 8765 --project-id moryn
 ```
 
-Open `http://127.0.0.1:8765/` on the same machine. To view from another device
-on the same LAN, bind with `--host 0.0.0.0` and open
-`http://<machine-ip>:8765/`, assuming the network allows the port.
+Open the deployment-specific dashboard URL, for example `<dashboard-url>`, in a
+shared Moryn environment. `127.0.0.1:8765` is the internal server bind target
+behind that route, not the address to report to the human.
 
 The browser refreshes from the local event store on the configured interval.
 The server also exposes `/api/dashboard` for JSON inspection and `/healthz` for

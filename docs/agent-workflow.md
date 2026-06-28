@@ -414,9 +414,10 @@ health. For live monitoring on the same machine, serve it locally:
 moryn dashboard --serve --host 127.0.0.1 --port 8765
 ```
 
-Open `http://127.0.0.1:8765/`. For another device on the same LAN, use
-`--host 0.0.0.0` and open `http://<machine-ip>:8765/`. The browser refreshes
-from the current local store on the configured interval.
+Open the deployment-specific dashboard URL, for example `<dashboard-url>`, in a
+shared Moryn environment. `127.0.0.1:8765` is the internal server bind target
+behind that route, not the address to give the human. The browser refreshes from
+the current local store on the configured interval.
 
 For automation or static inspection, `moryn dashboard --no-open` writes
 `state/dashboard/index.html` inside the local Moryn store. The dashboard shows
