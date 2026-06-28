@@ -818,6 +818,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<section class=\"recent-status\" data-recent-status aria-label=\"Recent status\">");
       expect(html).toContain("<h2 data-i18n-en=\"Recent status\" data-i18n-zh=\"最近状态\">Recent status</h2>");
       expect(html).toContain("<span data-i18n-en=\"Last write\" data-i18n-zh=\"最近写入\">Last write</span>");
+      expect(html).toContain("<time datetime=\"2026-06-01T00:03:00.000Z\" title=\"2026-06-01T00:03:00.000Z\" data-i18n-en=\"19d ago\" data-i18n-zh=\"19 天前\">19d ago</time>");
       expect(html).toContain("<span data-i18n-en=\"Latest source\" data-i18n-zh=\"最近来源\">Latest source</span>");
       expect(html).toContain("<span data-i18n-en=\"Shared copy\" data-i18n-zh=\"共享副本\">Shared copy</span>");
       expect(html).toContain("<span data-i18n-en=\"To organize\" data-i18n-zh=\"待整理\">To organize</span>");

@@ -708,7 +708,9 @@ The inventory also groups visible records by kind, using human labels such as
 `Recent status` shows the last write time, latest source, shared-copy state, and
 the number of `items to organize` instead of exposing saved-recently versus
 recent-note wording. This gives the user the recent state of the local memory
-without opening the raw record list.
+without opening the raw record list. Its last-write relative time follows the
+language toggle, while the exact timestamp stays in the `time` title and
+`datetime` attributes.
 
 The top health message stays below the header, but healthy snapshots render as a
 lightweight `dashboard-status-line` instead of a full status panel unless the

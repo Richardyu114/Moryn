@@ -1068,6 +1068,11 @@ function sourceRelativePair(source: string, relative: string): { en: string; zh:
   };
 }
 
+function relativeTimeElement(iso: string, nowIso: string): string {
+  const relative = relativeTime(iso, nowIso);
+  return `<time datetime="${escapeHtml(iso)}" title="${escapeHtml(iso)}" ${i18nAttribute(relative, relativeTimeZh(relative))}>${escapeHtml(relative)}</time>`;
+}
+
 function stateCounts(records: MorynRecord[]): Map<MorynRecord["state"], number> {
   const counts = new Map<MorynRecord["state"], number>();
   for (const record of records) {
@@ -6825,7 +6830,7 @@ function recentStatusPanel(data: DashboardData): string {
       <div class="recent-status-grid">
         <article>
           ${i18nText("Last write", "最近写入")}
-          <strong>${latestRecord ? `<time datetime="${escapeHtml(latestRecord.updated_at)}" title="${escapeHtml(latestRecord.updated_at)}">${escapeHtml(relativeTime(latestRecord.updated_at, data.generated_at))}</time>` : escapeHtml("None")}</strong>
+          <strong>${latestRecord ? relativeTimeElement(latestRecord.updated_at, data.generated_at) : escapeHtml("None")}</strong>
         </article>
         <article>
           ${i18nText("Latest source", "最近来源")}
