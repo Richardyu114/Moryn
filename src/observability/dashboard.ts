@@ -6300,7 +6300,7 @@ function memoryStateLabelFromRecordState(state: MorynRecord["state"]): { en: str
 function storedContentItem(item: DashboardValueRecord): string {
   const state = memoryStateLabelFromRecordState(item.state);
   return `
-            <article class="stored-content-item state-${escapeHtml(item.state)}" data-stored-content-item="${escapeHtml(item.id)}" data-stored-content-state="${escapeHtml(item.state)}" data-stored-content-source="${escapeHtml(item.source_label)}" data-memory-explorer-title="${escapeHtml(item.title)}" data-memory-explorer-full-text="${escapeHtml(item.summary)}" data-memory-explorer-state="${escapeHtml(state.en)}" data-memory-explorer-source="${escapeHtml(item.source_detail || item.source_label)}" data-memory-explorer-updated="${escapeHtml(`${item.relative_time} | ${item.exact_time}`)}" data-memory-explorer-timeline="${escapeHtml(item.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(item.citation.recall_command)}" tabindex="0">
+            <article class="stored-content-item state-${escapeHtml(item.state)}" data-stored-content-item="${escapeHtml(item.id)}" data-stored-content-state="${escapeHtml(item.state)}" data-stored-content-source="${escapeHtml(item.source_label)}" data-memory-explorer-title="${escapeHtml(item.title)}" data-memory-explorer-full-text="${escapeHtml(item.summary)}" data-memory-explorer-state="${escapeHtml(state.en)}" data-memory-explorer-state-en="${escapeHtml(state.en)}" data-memory-explorer-state-zh="${escapeHtml(state.zh)}" data-memory-explorer-source="${escapeHtml(item.source_detail || item.source_label)}" data-memory-explorer-updated="${escapeHtml(`${item.relative_time} | ${item.exact_time}`)}" data-memory-explorer-timeline="${escapeHtml(item.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(item.citation.recall_command)}" tabindex="0">
               <div class="stored-content-item-head">
                 <span data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}">${escapeHtml(state.en)}</span>
                 <small>${escapeHtml(`${item.source_label} | ${item.relative_time}`)}</small>
@@ -6929,11 +6929,11 @@ function dashboardStoredContentScript(): string {
           }
         });
       };
-      const setLocalizedDetailText = (node, value) => {
+      const setLocalizedDetailText = (node, value, zhValue = value) => {
         if (!(node instanceof HTMLElement)) return;
         node.dataset.i18nEn = value || "";
-        node.dataset.i18nZh = value || "";
-        node.textContent = value || "";
+        node.dataset.i18nZh = zhValue || "";
+        node.textContent = selectedLanguage() === "zh" ? zhValue || "" : value || "";
       };
       const resetMemoryExplorerDetail = () => {
         document.querySelectorAll("[data-memory-explorer-detail]").forEach((detail) => {
@@ -6969,11 +6969,12 @@ function dashboardStoredContentScript(): string {
         if (!(detail instanceof HTMLElement)) return;
         const detailTitle = detail.querySelector("[data-memory-explorer-detail-title]");
         const detailText = detail.querySelector("[data-memory-explorer-detail-text]");
+        const detailState = detail.querySelector("[data-memory-explorer-detail-state]");
         const detailGrid = detail.querySelector("[data-memory-explorer-detail-grid]");
         const trace = detail.querySelector("[data-memory-explorer-trace]");
         setLocalizedDetailText(detailTitle, item.dataset.memoryExplorerTitle || "Saved item");
         setLocalizedDetailText(detailText, item.dataset.memoryExplorerFullText || item.textContent || "");
-        setDetailText("[data-memory-explorer-detail-state]", item.dataset.memoryExplorerState || "");
+        setLocalizedDetailText(detailState, item.dataset.memoryExplorerStateEn || item.dataset.memoryExplorerState || "", item.dataset.memoryExplorerStateZh || item.dataset.memoryExplorerState || "");
         setDetailText("[data-memory-explorer-detail-source]", item.dataset.memoryExplorerSource || "");
         setDetailText("[data-memory-explorer-detail-updated]", item.dataset.memoryExplorerUpdated || "");
         setDetailText("[data-memory-explorer-detail-timeline]", item.dataset.memoryExplorerTimeline || "");

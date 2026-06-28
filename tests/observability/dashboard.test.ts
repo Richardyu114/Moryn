@@ -669,6 +669,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-stored-content-source=\"Gemini\"");
       expect(html).toContain("data-memory-explorer-title=\"Status\"");
       expect(html).toContain("data-memory-explorer-full-text=\"Recent session status belongs on the dashboard front page.\"");
+      expect(html).toContain("data-memory-explorer-state-en=\"Saved for review\"");
+      expect(html).toContain("data-memory-explorer-state-zh=\"待整理保存\"");
       expect(html).toContain("data-memory-explorer-timeline=\"moryn timeline --record-id rec_action_board_3 --project-id moryn\"");
       expect(html).toContain("data-memory-explorer-recall=\"moryn recall --record-id rec_action_board_3 --project-id moryn\"");
       expect(html).toContain("<button type=\"button\" class=\"stored-content-open\" data-memory-explorer-open data-i18n-en=\"Inspect\" data-i18n-zh=\"查看\">Inspect</button>");
@@ -978,11 +980,12 @@ describe("observability dashboard", () => {
       expect(html).toContain("writeStoredContentState({ searchQuery: query, searchOpen: true });");
       expect(html).toContain("selectedItemId: null");
       expect(html).toContain("const selectMemoryExplorerItem = (item) => {");
-      expect(html).toContain("const setLocalizedDetailText = (node, value) => {");
+      expect(html).toContain("const setLocalizedDetailText = (node, value, zhValue = value) => {");
       expect(html).toContain("node.dataset.i18nEn = value || \"\";");
-      expect(html).toContain("node.dataset.i18nZh = value || \"\";");
+      expect(html).toContain("node.dataset.i18nZh = zhValue || \"\";");
       expect(html).toContain("setLocalizedDetailText(detailTitle, item.dataset.memoryExplorerTitle || \"Saved item\");");
       expect(html).toContain("setLocalizedDetailText(detailText, item.dataset.memoryExplorerFullText || item.textContent || \"\");");
+      expect(html).toContain("setLocalizedDetailText(detailState, item.dataset.memoryExplorerStateEn || item.dataset.memoryExplorerState || \"\", item.dataset.memoryExplorerStateZh || item.dataset.memoryExplorerState || \"\");");
       expect(html).toContain("writeStoredContentState({ selectedItemId: item.dataset.storedContentItem || null });");
       expect(html).toContain("const resetMemoryExplorerDetail = () => {");
       expect(html).toContain("detailGrid.hidden = true;");
