@@ -1242,8 +1242,8 @@ function buildAttentionItems(sync: GitSyncStatus, records: MorynRecord[]): Dashb
   if (candidates > Math.max(8, canonical * 2)) {
     items.push({
       severity: "info",
-      title: "Many saved items not remembered",
-      description: `${candidates} saved item(s) are searchable but not long-term memory yet.`
+      title: "Many items to organize",
+      description: `${candidates} item(s) are saved and searchable. Organize later if they should become long-term memory.`
     });
   }
 
@@ -1321,8 +1321,8 @@ function buildMemoryInventory(records: MorynRecord[]): DashboardMemoryInventory 
       },
       {
         id: "new_items",
-        label: "Saved, not remembered",
-        zh_label: "已保存，未记住",
+        label: "To organize",
+        zh_label: "待整理",
         count: newItems,
         source_states: ["candidate"]
       },
@@ -3185,6 +3185,7 @@ function dashboardActionLabelZh(label: string): string {
   if (label === "Search saved content") return "搜索已保存内容";
   if (label === "Saved for later") return "已保存，可稍后整理";
   if (label === "Saved, not remembered") return "已保存，未记住";
+  if (label === "To organize") return "待整理";
   if (label === "No action needed") return "无需操作";
   if (label === "All clear") return "暂时不用管";
   if (label === "View checks") return "查看检查";
@@ -4089,7 +4090,7 @@ function attentionTitleZh(title: string): string {
   if (title === "Temporary notes waiting") return "临时笔记待整理";
   if (title === "Many recently saved items") return "较多最近保存内容";
   if (title === "Session notes not remembered") return "会话笔记未记住";
-  if (title === "Many saved items not remembered") return "较多内容已保存但未记住";
+  if (title === "Many items to organize") return "较多内容待整理";
   return title;
 }
 
@@ -4115,6 +4116,8 @@ function attentionDescriptionZh(description: string): string {
   if (sessionNoteMatch) return `${sessionNoteMatch[1]} 条会话笔记可作为上下文搜索，但不会被当作长期记忆。`;
   const candidateMatch = description.match(/^(\d+) recently saved item\(s\) may need long-term memory, archive, or cleanup\.$/);
   if (candidateMatch) return `${candidateMatch[1]} 条最近保存内容可以稍后整理：记住、继续保留，或放一边。`;
+  const toOrganizeMatch = description.match(/^(\d+) item\(s\) are saved and searchable\. Organize later if they should become long-term memory\.$/);
+  if (toOrganizeMatch) return `${toOrganizeMatch[1]} 条内容已保存并可搜索；如果应该成为长期记忆，可以稍后整理。`;
   const savedNotRememberedMatch = description.match(/^(\d+) saved item\(s\) are searchable but not long-term memory yet\.$/);
   if (savedNotRememberedMatch) return `${savedNotRememberedMatch[1]} 条内容已保存并可搜索，但还不是长期记忆。`;
   return description;
@@ -6241,6 +6244,20 @@ function dashboardLanguageToggle(): string {
   `;
 }
 
+function statusBoardExplainText(data: DashboardData): { en: string; zh: string } {
+  const count = data.memory_inventory.summary.total_visible;
+  if (count <= 0) {
+    return {
+      en: "Moryn has not saved visible content for this view yet. When agents save useful work, it will appear here first.",
+      zh: "这个视图里还没有可见保存内容；之后代理保存有用工作时，会先显示在这里。"
+    };
+  }
+  return {
+    en: `Moryn saved ${pluralize(count, "recent item")} from recent work. They stay searchable here; only rows with confirm buttons can change long-term memory.`,
+    zh: `Moryn 从最近工作保存了 ${count} 条内容；它们会留在这里可搜索，只有带确认按钮的条目才能改变长期记忆。`
+  };
+}
+
 function statusBoard(data: DashboardData): string {
   const shared = sharedCopyLabel(data.sync);
   const actionIsCalm = data.decision_summary.total_decisions === 0 && ((data.dashboard_overview.headline === "Saved, not remembered" || data.dashboard_overview.headline === "Saved for later") || (data.dashboard_overview.status !== "critical" && data.dashboard_overview.status !== "warning"));
@@ -6249,6 +6266,7 @@ function statusBoard(data: DashboardData): string {
   const healthZh = dashboardHealthZh(data.health.status, healthLabel);
   const headlineZh = dashboardActionLabelZh(data.dashboard_overview.headline);
   const primaryActionZh = dashboardActionLabelZh(data.dashboard_overview.primary_action.label);
+  const explain = statusBoardExplainText(data);
   return `
     <section class="status-board" data-status-board aria-label="Current answers">
       <div class="section-heading status-board-heading">
@@ -6285,6 +6303,10 @@ function statusBoard(data: DashboardData): string {
           <small data-i18n-en="${escapeHtml(shared.detail)}" data-i18n-zh="${escapeHtml(shared.zhDetail)}">${escapeHtml(shared.detail)}</small>
         </button>
       </div>
+      <div class="status-board-explain" data-status-board-explain>
+        ${i18nText("Why this is here", "为什么会看到这些内容")}
+        <p ${i18nAttribute(explain.en, explain.zh)}>${escapeHtml(explain.en)}</p>
+      </div>
     </section>
   `;
 }
@@ -6312,8 +6334,8 @@ function answerMemoryCountLabel(state: DashboardMemoryInventoryState): { en: str
     zh: `${state.count} 条已记住`
   };
   if (state.id === "new_items") return {
-    en: `${state.count} saved, not remembered`,
-    zh: `${state.count} 条已保存，未记住`
+    en: `${state.count} to organize`,
+    zh: `${state.count} 条待整理`
   };
   if (state.id === "temporary") return {
     en: pluralize(state.count, "session note"),
@@ -6560,13 +6582,13 @@ function dashboardDecisionPanel(data: DashboardData): string {
       }));
     }
   } else if (reviewable > 0) {
-    const title = `${pluralize(reviewable, "saved item")} not remembered yet`;
+    const title = pluralize(reviewable, "item to organize", "items to organize");
     items.push(decisionPanelItem({
       kind: "review",
       status: "No decision needed now",
       zhStatus: "现在不需要决定",
       title,
-      zhTitle: `${reviewable} 条已保存但未记住的内容`,
+      zhTitle: `${reviewable} 条待整理内容`,
       detail: "These are saved safely, but Moryn will not treat them as long-term memory unless you choose to organize them later.",
       zhDetail: "这些内容已经安全保存，但除非你稍后整理，Moryn 不会把它们当作长期记忆。",
       target: "stored-content",
@@ -6579,8 +6601,8 @@ function dashboardDecisionPanel(data: DashboardData): string {
     }));
   }
   if (items.length === 0) return "";
-  const panelLabel = explicitDecisions > 0 ? "Needs your decision" : "Saved, not remembered";
-  const panelLabelZh = explicitDecisions > 0 ? "需要你确认" : "已保存，未记住";
+  const panelLabel = explicitDecisions > 0 ? "Needs your decision" : "To organize";
+  const panelLabelZh = explicitDecisions > 0 ? "需要你确认" : "待整理";
   return `
     <section class="decision-panel${explicitDecisions > 0 ? "" : " saved-later"}" data-dashboard-decision-panel aria-label="${escapeHtml(panelLabel)}">
       <div class="section-heading">
@@ -6596,7 +6618,7 @@ function dashboardDecisionPanel(data: DashboardData): string {
 
 function memoryStateLabelFromRecordState(state: MorynRecord["state"]): { en: string; zh: string } {
   if (state === "canonical") return { en: "Remembered", zh: "已记住" };
-  if (state === "candidate") return { en: "Saved, not remembered", zh: "已保存，未记住" };
+  if (state === "candidate") return { en: "To organize", zh: "待整理" };
   if (state === "raw") return { en: "Session notes", zh: "本次会话笔记" };
   return { en: "Set aside", zh: "已搁置" };
 }
@@ -7050,7 +7072,7 @@ function dashboardLanguageScript(): string {
         ["Temporary notes waiting", "临时笔记待整理"],
         ["Many recently saved items", "较多最近保存内容"],
         ["Session notes not remembered", "会话笔记未记住"],
-        ["Many saved items not remembered", "较多内容已保存但未记住"],
+        ["Many items to organize", "较多内容待整理"],
         ["Raw records waiting for review", "临时内容待整理"],
         ["Many candidate records", "较多已保存内容待整理"],
         ["Check records", "检查记录"],
@@ -8056,6 +8078,29 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .status-board-answers {
       grid-template-columns: 1.15fr 1fr 1fr;
       margin-bottom: 0;
+    }
+    .status-board-explain {
+      display: grid;
+      gap: 4px;
+      min-height: 58px;
+      border: 1px solid rgba(69, 185, 255, 0.24);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-top: 10px;
+      background:
+        linear-gradient(90deg, rgba(69, 185, 255, 0.08), rgba(116, 242, 145, 0.026)),
+        rgba(7, 9, 12, 0.52);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+    }
+    .status-board-explain span {
+      color: #bde6ff;
+      font-size: 12px;
+      font-weight: 820;
+    }
+    .status-board-explain p {
+      margin: 0;
+      color: var(--ink-2);
+      overflow-wrap: anywhere;
     }
     .status-chip,
     .answer-card,

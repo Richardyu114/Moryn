@@ -35,11 +35,11 @@ row heights for the first-screen answer cards. Status colors act as narrow
 signals rather than full-card color washes, so the black dashboard still feels
 calm while hover, focus, and active states remain visible.
 
-The `Current answers`, `Needs your decision`, `Saved, not remembered`, `At a glance`, and
+The `Current answers`, `Needs your decision`, `To organize`, `At a glance`, and
 `Find what Moryn saved` rows are visible above `More details` in the live
 non-private dashboard.
 `Needs your decision` routes users to the owning approval rows only when a real
-write is waiting. If the state is only `Saved, not remembered`, the visible action
+write is waiting. If the state is only `To organize`, the visible action
 opens `Find what Moryn saved`, expands saved previews, and keeps search visible
 without writing. Approve and reject buttons stay on the owning row beside the
 relevant evidence.
@@ -653,9 +653,11 @@ Is sync healthy?  -> Current answers shared-copy card, sync rail
 three larger cards. Those answer cards reuse the dashboard's local navigation:
 the action card opens the current next step, the memory card opens `Find what
 Moryn saved`, and the sync card opens `Store Signals`. The memory card also
-shows a compact `Remembered` / `Saved, not remembered` / `Session notes` mix bar
+shows a compact `Remembered` / `To organize` / `Session notes` mix bar
 and short counts, so the first screen shows whether saved content is already
-long-term memory before the user opens search. The `At a glance` chart row
+long-term memory before the user opens search. A short `Why this is here`
+explanation under the answer cards states why saved items appear and reminds the
+user that only rows with confirm buttons can change long-term memory. The `At a glance` chart row
 appears before `What Moryn remembers`, `Recent status`, and the compact
 `More details` fold. It starts with a compact recent-activity summary for
 visible writes, remembered items, items to organize, and the most active source,
@@ -673,7 +675,7 @@ connected`. The API still exposes the underlying sync data in
 The main action summary is labeled `Do I need to act?` in the visible UI. It
 picks the most urgent derived action in this order: explicit decisions, visible
 warnings, then sync work. Ordinary saved content does not become a user decision
-by itself: when the only state is `Saved, not remembered`, `Session notes`, or
+by itself: when the only state is `To organize`, `Session notes`, or
 `Set aside`, the headline stays `No action needed` and the visible action simply
 opens `Find what Moryn saved`. That click expands hidden saved previews and
 highlights the section so the user can inspect what was stored without writing
@@ -682,7 +684,7 @@ Inbox. Candidate Triage stays a technical/audit route unless it has an explicit
 promotion approval.
 
 The memory-state chart is also a local navigation control: clicking
-`Remembered`, `Saved, not remembered`, `Session notes`, or `Set aside` opens
+`Remembered`, `To organize`, `Session notes`, or `Set aside` opens
 `Find what Moryn saved` and filters the visible previews by that state. The
 saved-content filter bar can switch back to `All` or jump between available states. Its search
 controls filter across recent records and events by keyword, memory state, and
@@ -690,7 +692,7 @@ source. The read-only detail pane opens with the first visible saved item and
 follows the first matching item after filtering; selecting another saved item
 updates the same pane. All of these controls are client-side and read-only.
 The preview cards are representative rather than strictly newest-first: Moryn
-shows available `Saved, not remembered`, `Remembered`, `Session notes`, and `Set
+shows available `To organize`, `Remembered`, `Session notes`, and `Set
 aside` examples before filling the remaining preview slots by recency. The full
 newest-first list remains in `/api/dashboard.recent_value[]`.
 Each saved-content card also carries a plain next-step hint: `Already
@@ -711,7 +713,7 @@ memory inventory:
 
 ```text
 remembered            <- canonical records
-saved, not remembered <- candidate records
+to organize           <- candidate records
 session notes         <- raw records
 set aside             <- archived or quarantined records
 ```
