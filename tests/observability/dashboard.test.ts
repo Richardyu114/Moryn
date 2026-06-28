@@ -342,7 +342,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<strong data-i18n-en=\"Session notes not remembered\" data-i18n-zh=\"会话笔记未记住\">Session notes not remembered</strong>");
       expect(html).toContain("<p data-i18n-en=\"1 session note(s) are searchable for context but not treated as long-term memory.\" data-i18n-zh=\"1 条会话笔记可作为上下文搜索，但不会被当作长期记忆。\">1 session note(s) are searchable for context but not treated as long-term memory.</p>");
       expect(html).toContain("<strong data-i18n-en=\"Many items to organize\" data-i18n-zh=\"较多内容待整理\">Many items to organize</strong>");
-      expect(html).toContain("<p data-i18n-en=\"10 item(s) are saved and searchable. Organize later if they should become long-term memory.\" data-i18n-zh=\"10 条内容已保存并可搜索；如果应该成为长期记忆，可以稍后整理。\">10 item(s) are saved and searchable. Organize later if they should become long-term memory.</p>");
+      expect(html).toContain("<p data-i18n-en=\"10 item(s) are saved and searchable. They stay searchable unless you choose to make them long-term memory.\" data-i18n-zh=\"10 条内容已保存并可搜索；除非你决定整理为长期记忆，否则会保持可搜索。\">10 item(s) are saved and searchable. They stay searchable unless you choose to make them long-term memory.</p>");
       expect(html).toContain("<span data-i18n-en=\"Info\" data-i18n-zh=\"信息\">Info</span>");
     });
   });

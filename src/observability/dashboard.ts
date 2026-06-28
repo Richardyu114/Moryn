@@ -1290,7 +1290,7 @@ function buildAttentionItems(sync: GitSyncStatus, records: MorynRecord[]): Dashb
     items.push({
       severity: "info",
       title: "Many items to organize",
-      description: `${candidates} item(s) are saved and searchable. Organize later if they should become long-term memory.`
+      description: `${candidates} item(s) are saved and searchable. They stay searchable unless you choose to make them long-term memory.`
     });
   }
 
@@ -4347,6 +4347,8 @@ function attentionDescriptionZh(description: string): string {
   if (candidateMatch) return `${candidateMatch[1]} 条最近保存内容可以稍后整理：记住、继续保留，或放一边。`;
   const toOrganizeMatch = description.match(/^(\d+) item\(s\) are saved and searchable\. Organize later if they should become long-term memory\.$/);
   if (toOrganizeMatch) return `${toOrganizeMatch[1]} 条内容已保存并可搜索；如果应该成为长期记忆，可以稍后整理。`;
+  const searchableUntilChosenMatch = description.match(/^(\d+) item\(s\) are saved and searchable\. They stay searchable unless you choose to make them long-term memory\.$/);
+  if (searchableUntilChosenMatch) return `${searchableUntilChosenMatch[1]} 条内容已保存并可搜索；除非你决定整理为长期记忆，否则会保持可搜索。`;
   const savedNotRememberedMatch = description.match(/^(\d+) saved item\(s\) are searchable but not long-term memory yet\.$/);
   if (savedNotRememberedMatch) return `${savedNotRememberedMatch[1]} 条内容已保存并可搜索，但还不是长期记忆。`;
   return description;
