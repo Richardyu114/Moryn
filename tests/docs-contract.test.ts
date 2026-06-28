@@ -126,11 +126,11 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Status colors act as narrow");
     expectText(dashboard, "signals rather than full-card color washes");
     expectText(dashboard, "The first screen is arranged around three plain questions");
-    expectText(dashboard, "Do I need to act? -> the `Current answers` action card plus a visible");
+    expectText(dashboard, "Do I need to act? -> the `Right now` action card plus a visible");
     expectText(dashboard, "visible `Needs your decision` panel only when approval is waiting");
-    expectText(dashboard, "What is stored? -> the `Current answers` memory card, `At a glance` chart");
+    expectText(dashboard, "What is stored? -> the `Right now` memory card, `At a glance` chart");
     expectText(dashboard, "`Find what Moryn saved`, and `What Moryn stores`");
-    expectText(dashboard, "Is everything synced? -> the `Current answers` shared-copy card, `This device`");
+    expectText(dashboard, "Is everything synced? -> the `Right now` shared-copy card, `This device`");
     expectText(dashboard, "and the sync rail");
     expectText(dashboard, "Each answer card includes a short conclusion sentence before");
     expectText(dashboard, "users can read the answer without interpreting raw counts");
@@ -150,7 +150,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "latest write, latest source, shared-copy state, and saved-for-later items");
     expectText(dashboard, "without");
     expectText(dashboard, "resizing the first screen");
-    expectText(dashboard, "The `Current answers`, `Needs your decision`, `Saved for later`, `At a glance`, and");
+    expectText(dashboard, "The `Right now`, `Needs your decision`, `Saved for later`, `At a glance`, and");
     expectText(dashboard, "`Find what Moryn saved` rows are visible");
     expectText(dashboard, "above `More details` in the live non-private dashboard");
     expectText(dashboard, "It starts with a compact recent-activity summary for");

@@ -23,11 +23,11 @@ tool. It uses a black high-contrast surface with visible status colors and chart
 cards before any evidence folds. A user should be able to answer these questions
 without opening a collapsed section:
 
-- Do I need to act? -> the `Current answers` action card plus a visible
+- Do I need to act? -> the `Right now` action card plus a visible
   `Needs your decision` panel only when approval is waiting.
-- What is stored? -> the `Current answers` memory card, `At a glance` chart,
+- What is stored? -> the `Right now` memory card, `At a glance` chart,
   `Find what Moryn saved`, and `What Moryn stores`.
-- Is everything synced? -> the `Current answers` shared-copy card, `This device`,
+- Is everything synced? -> the `Right now` shared-copy card, `This device`,
   and the sync rail.
 
 The visual system uses soft glass surfaces, restrained glow, and stable grid
@@ -35,7 +35,7 @@ row heights for the first-screen answer cards. Status colors act as narrow
 signals rather than full-card color washes, so the black dashboard still feels
 calm while hover, focus, and active states remain visible.
 
-The `Current answers`, `Needs your decision`, `Saved for later`, `At a glance`, and
+The `Right now`, `Needs your decision`, `Saved for later`, `At a glance`, and
 `Find what Moryn saved` rows are visible above `More details` in the live
 non-private dashboard.
 `Needs your decision` routes users to the owning approval rows only when a real
@@ -650,12 +650,12 @@ literal; saved memory text and event evidence stay in their original wording.
 The first screen is arranged around three plain questions:
 
 ```text
-Do I need to act? -> Current answers action card
-What is stored?   -> Current answers memory card, At a glance, Find what Moryn saved
-Is everything synced? -> Current answers shared-copy card, sync rail
+Do I need to act? -> Right now action card
+What is stored?   -> Right now memory card, At a glance, Find what Moryn saved
+Is everything synced? -> Right now shared-copy card, sync rail
 ```
 
-`Current answers` is the first read after the header. It keeps `This device` and
+`Right now` is the first read after the header. It keeps `This device` and
 `Shared copy` as compact status chips, then answers action, memory, and sync in
 three larger cards. Each answer card includes a short conclusion sentence before
 its navigation hint, so users can read the answer without interpreting raw counts:

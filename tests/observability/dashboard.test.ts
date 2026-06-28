@@ -722,8 +722,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span class=\"health-badge good\" data-i18n-en=\"Healthy\" data-i18n-zh=\"正常\">Healthy</span>");
       expect(html).toContain(`<p class="store-path" title="${storePath}" data-i18n-en="Local memory" data-i18n-zh="本机记忆">Local memory</p>`);
       expect(html).toContain("<p class=\"dashboard-generated-at\"><time datetime=\"2026-06-21T00:00:00.000Z\" title=\"2026-06-21T00:00:00.000Z\">Updated 00:00 UTC</time></p>");
-      expect(html).toContain("<section class=\"status-board\" data-status-board aria-label=\"Current answers\">");
-      expect(html).toContain("<h2 data-i18n-en=\"Current answers\" data-i18n-zh=\"当前结论\">Current answers</h2>");
+      expect(html).toContain("<section class=\"status-board\" data-status-board aria-label=\"Right now\">");
+      expect(html).toContain("<h2 data-i18n-en=\"Right now\" data-i18n-zh=\"现在情况\">Right now</h2>");
+      expect(html).toContain("<small data-i18n-en=\"Action, saved content, and shared copy\" data-i18n-zh=\"要不要操作、存了什么、共享副本是否同步\">Action, saved content, and shared copy</small>");
+      expect(html).not.toContain("<h2 data-i18n-en=\"Current answers\" data-i18n-zh=\"当前结论\">Current answers</h2>");
+      expect(html).not.toContain("<small data-i18n-en=\"Act, memory, and shared copy\" data-i18n-zh=\"操作、记忆和共享副本\">Act, memory, and shared copy</small>");
       expect(html).not.toContain("<h2 data-i18n-en=\"Status Board\" data-i18n-zh=\"状态总览\">Status Board</h2>");
       expect(html).toContain("<div class=\"status-board-rail\" data-status-board-rail aria-label=\"Local and shared status\">");
       expect(html).not.toContain("<section class=\"front-status-grid\" data-front-status-grid aria-label=\"Local and shared status\">");

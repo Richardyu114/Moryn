@@ -6527,10 +6527,10 @@ function statusBoard(data: DashboardData): string {
   const primaryActionZh = dashboardActionLabelZh(data.dashboard_overview.primary_action.label);
   const explain = statusBoardExplainText(data);
   return `
-    <section class="status-board" data-status-board aria-label="Current answers">
+    <section class="status-board" data-status-board aria-label="Right now">
       <div class="section-heading status-board-heading">
-        <h2 data-i18n-en="Current answers" data-i18n-zh="当前结论">Current answers</h2>
-        ${i18nText("Act, memory, and shared copy", "操作、记忆和共享副本", "small")}
+        <h2 data-i18n-en="Right now" data-i18n-zh="现在情况">Right now</h2>
+        ${i18nText("Action, saved content, and shared copy", "要不要操作、存了什么、共享副本是否同步", "small")}
       </div>
       <div class="status-board-rail" data-status-board-rail aria-label="Local and shared status">
         <article class="status-chip ${escapeHtml(overviewStatusFromHealth(data.health.status))}" data-status-chip="device">
