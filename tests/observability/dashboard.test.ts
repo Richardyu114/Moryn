@@ -740,7 +740,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span data-i18n-en=\"What is stored?\" data-i18n-zh=\"存了什么？\">What is stored?</span>");
       expect(html).toContain("<div class=\"answer-memory-mix\" data-answer-memory-mix aria-label=\"Stored content mix\">");
       expect(html).toContain("<span class=\"answer-memory-segment memory-state-remembered\" style=\"width: 33%\" title=\"Remembered 1\"></span>");
-      expect(html).toContain("<span class=\"answer-memory-segment memory-state-new\" style=\"width: 33%\" title=\"To organize 1\"></span>");
+      expect(html).toContain("<span class=\"answer-memory-segment memory-state-to-organize\" style=\"width: 33%\" title=\"To organize 1\"></span>");
       expect(html).toContain("<span class=\"answer-memory-segment memory-state-temporary\" style=\"width: 33%\" title=\"Session notes 1\"></span>");
       expect(html).toContain("<div class=\"answer-memory-counts\" data-answer-memory-counts>");
       expect(html).toContain("<span data-i18n-en=\"1 remembered\" data-i18n-zh=\"1 条已记住\">1 remembered</span>");
@@ -785,7 +785,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<small data-i18n-en=\"4 recent signals\" data-i18n-zh=\"4 条最近信号\">4 recent signals</small>");
       expect(html).toContain("<article class=\"glance-chart memory-shape\" data-memory-state-chart>");
       expect(html).toContain("<div class=\"memory-state-meter\" aria-label=\"Memory state chart\">");
-      expect(html).toContain("<button type=\"button\" class=\"memory-state-filter memory-state-new\" data-memory-state-filter=\"candidate\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\">");
+      expect(html).toContain("<button type=\"button\" class=\"memory-state-filter memory-state-to-organize\" data-memory-state-filter=\"candidate\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\">");
       expect(html).toContain("<button type=\"button\" class=\"memory-state-filter memory-state-remembered\" data-memory-state-filter=\"canonical\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\">");
       expect(html).toContain("<article class=\"glance-chart memory-types\" data-memory-kind-chart>");
       expect(html).toContain("<article class=\"glance-chart shared-copy good\" data-shared-copy-chart>");
@@ -870,12 +870,16 @@ describe("observability dashboard", () => {
       expect(html).toContain("<p>Moryn should make dashboard storage easy to understand.</p>");
       expect(html.indexOf("data-stored-content")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
       expect(html).toContain("<section class=\"memory-inventory\" data-memory-inventory aria-label=\"What Moryn stores\">");
-      expect(html).toContain("<h2 data-i18n-en=\"What Moryn remembers\" data-i18n-zh=\"Moryn 记住了什么\">What Moryn remembers</h2>");
+      expect(html).toContain("<h2 data-i18n-en=\"What Moryn stores\" data-i18n-zh=\"Moryn 存了什么\">What Moryn stores</h2>");
       expect(html).toContain("<span data-i18n-en=\"Remembered\" data-i18n-zh=\"已记住\">Remembered</span>");
+      expect(html).toContain("<small data-i18n-en=\"Long-term memory Moryn can use directly.\" data-i18n-zh=\"Moryn 可直接使用的长期记忆。\">Long-term memory Moryn can use directly.</small>");
       expect(html).toContain("<strong>1</strong>");
       expect(html).toContain("<span data-i18n-en=\"To organize\" data-i18n-zh=\"待整理\">To organize</span>");
+      expect(html).toContain("<small data-i18n-en=\"Saved and searchable; organize later if useful.\" data-i18n-zh=\"已保存并可搜索；需要时再整理。\">Saved and searchable; organize later if useful.</small>");
       expect(html).toContain("<span data-i18n-en=\"Session notes\" data-i18n-zh=\"本次会话笔记\">Session notes</span>");
+      expect(html).toContain("<small data-i18n-en=\"Temporary notes from recent work.\" data-i18n-zh=\"最近工作的临时笔记。\">Temporary notes from recent work.</small>");
       expect(html).toContain("<span data-i18n-en=\"Set aside\" data-i18n-zh=\"已搁置\">Set aside</span>");
+      expect(html).toContain("<small data-i18n-en=\"Archived or replaced items kept for audit.\" data-i18n-zh=\"为审计保留的归档或已替换内容。\">Archived or replaced items kept for audit.</small>");
       expect(html).not.toContain("Saved recently");
       expect(html).not.toContain("Recent notes");
       expect(html).toContain("<section class=\"recent-status\" data-recent-status aria-label=\"Recent status\">");

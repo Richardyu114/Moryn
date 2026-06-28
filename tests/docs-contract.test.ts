@@ -129,7 +129,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Do I need to act? -> the `Current answers` action card plus a visible");
     expectText(dashboard, "visible `Needs your decision` panel only when approval is waiting");
     expectText(dashboard, "What is stored? -> the `Current answers` memory card, `At a glance` chart");
-    expectText(dashboard, "`Find what Moryn saved`, and `What Moryn remembers`");
+    expectText(dashboard, "`Find what Moryn saved`, and `What Moryn stores`");
     expectText(dashboard, "Is sync healthy? -> the `Current answers` shared-copy card, `This device`");
     expectText(dashboard, "and the sync rail");
     expectText(dashboard, "Those answer cards reuse the dashboard's local navigation");
@@ -215,11 +215,13 @@ describe("documentation contracts", () => {
     expectText(dashboard, "rows that already have server endpoints");
     expectText(dashboard, "Candidate Triage stays a technical/audit route unless it has an explicit promotion approval");
     expectText(dashboard, "`All clear` now means there are no confirmations, visible warnings, sync tasks, or saved items waiting for later organization");
-    expectText(dashboard, "Directly below the action summary, `What Moryn remembers` shows the user-facing memory inventory");
+    expectText(dashboard, "Directly below the action summary, `What Moryn stores` shows the user-facing memory inventory");
     expectText(dashboard, "remembered <- canonical records");
     expectText(dashboard, "to organize <- candidate records");
     expectText(dashboard, "session notes <- raw records");
     expectText(dashboard, "set aside <- archived or quarantined records");
+    expectText(dashboard, "`To organize` means the item is already saved and searchable");
+    expectText(dashboard, "it is not a user decision by itself");
     expectText(dashboard, "`Recent status` shows the last write time, latest source, shared-copy state, and the number of `items to organize`");
     expectText(dashboard, "Its last-write relative time follows the language toggle");
     expectText(dashboard, "exact timestamp stays in the `time` title and `datetime` attributes");

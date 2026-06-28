@@ -26,7 +26,7 @@ without opening a collapsed section:
 - Do I need to act? -> the `Current answers` action card plus a visible
   `Needs your decision` panel only when approval is waiting.
 - What is stored? -> the `Current answers` memory card, `At a glance` chart,
-  `Find what Moryn saved`, and `What Moryn remembers`.
+  `Find what Moryn saved`, and `What Moryn stores`.
 - Is sync healthy? -> the `Current answers` shared-copy card, `This device`,
   and the sync rail.
 
@@ -665,7 +665,7 @@ user that only rows with confirm buttons can change long-term memory. Between
 the answer cards and that explanation, a fixed-height status ticker repeats the
 latest write, latest source, shared-copy state, and items to organize without
 resizing the first screen. The `At a glance` chart row
-appears before `What Moryn remembers`, `Recent status`, and the compact
+appears before `What Moryn stores`, `Recent status`, and the compact
 `More details` fold. It starts with a compact recent-activity summary for
 visible writes, remembered items, items to organize, and the most active source,
 then shows the memory-state chart, content mix, seven-day saved-content trend,
@@ -725,7 +725,7 @@ turn the headline into urgent work. The API still keeps the full overview contra
 `cards`, `cards_by_id`, `safety`, and `evidence_sources`, so agents retain the
 audit trail even when visible cards are folded or hidden.
 
-Directly below the action summary, `What Moryn remembers` shows the user-facing
+Directly below the action summary, `What Moryn stores` shows the user-facing
 memory inventory:
 
 ```text
@@ -734,6 +734,10 @@ to organize           <- candidate records
 session notes         <- raw records
 set aside             <- archived or quarantined records
 ```
+
+Each inventory state includes a plain-language explanation. `To organize` means
+the item is already saved and searchable; it can be organized later if it becomes
+useful, but it is not a user decision by itself.
 
 The inventory also groups visible records by kind, using human labels such as
 `Memories`, `Skills`, `Preferences`, `Session notes`, and `Agent notes`.

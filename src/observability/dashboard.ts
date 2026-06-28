@@ -6423,9 +6423,28 @@ function chartPercent(count: number, total: number): string {
 
 function memoryStateClass(id: DashboardMemoryInventoryStateId): string {
   if (id === "remembered") return "memory-state-remembered";
-  if (id === "new_items") return "memory-state-new";
+  if (id === "new_items") return "memory-state-to-organize";
   if (id === "temporary") return "memory-state-temporary";
   return "memory-state-set-aside";
+}
+
+function memoryInventoryStateExplanation(state: DashboardMemoryInventoryState): { en: string; zh: string } {
+  if (state.id === "remembered") return {
+    en: "Long-term memory Moryn can use directly.",
+    zh: "Moryn 可直接使用的长期记忆。"
+  };
+  if (state.id === "new_items") return {
+    en: "Saved and searchable; organize later if useful.",
+    zh: "已保存并可搜索；需要时再整理。"
+  };
+  if (state.id === "temporary") return {
+    en: "Temporary notes from recent work.",
+    zh: "最近工作的临时笔记。"
+  };
+  return {
+    en: "Archived or replaced items kept for audit.",
+    zh: "为审计保留的归档或已替换内容。"
+  };
 }
 
 function memoryInventoryFilterValue(state: DashboardMemoryInventoryState): string {
@@ -7126,16 +7145,20 @@ function memoryInventoryPanel(inventory: DashboardMemoryInventory): string {
   return `
     <section class="memory-inventory" data-memory-inventory aria-label="What Moryn stores">
       <div class="section-heading">
-        <h2 data-i18n-en="What Moryn remembers" data-i18n-zh="Moryn 记住了什么">What Moryn remembers</h2>
+        <h2 data-i18n-en="What Moryn stores" data-i18n-zh="Moryn 存了什么">What Moryn stores</h2>
         ${i18nText(`${inventory.summary.total_visible} visible items`, `${inventory.summary.total_visible} 条可见内容`, "small")}
       </div>
       <div class="memory-inventory-grid">
-        ${inventory.states.map((state) => `
+        ${inventory.states.map((state) => {
+          const explanation = memoryInventoryStateExplanation(state);
+          return `
           <article class="memory-inventory-card memory-inventory-${escapeHtml(state.id)}">
             <span data-i18n-en="${escapeHtml(state.label)}" data-i18n-zh="${escapeHtml(state.zh_label)}">${escapeHtml(state.label)}</span>
             <strong>${escapeHtml(state.count)}</strong>
+            <small data-i18n-en="${escapeHtml(explanation.en)}" data-i18n-zh="${escapeHtml(explanation.zh)}">${escapeHtml(explanation.en)}</small>
           </article>
-        `).join("")}
+        `;
+        }).join("")}
       </div>
       <div class="memory-kind-strip" aria-label="Memory types">
         ${kindSummary}
@@ -9310,8 +9333,8 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     }
     .memory-state-meter .memory-state-remembered,
     .memory-state-key .memory-state-remembered i { background: var(--signal-green); }
-    .memory-state-meter .memory-state-new,
-    .memory-state-key .memory-state-new i { background: var(--signal-blue); }
+    .memory-state-meter .memory-state-to-organize,
+    .memory-state-key .memory-state-to-organize i { background: var(--signal-blue); }
     .memory-state-meter .memory-state-temporary,
     .memory-state-key .memory-state-temporary i { background: var(--signal-amber); }
     .memory-state-meter .memory-state-set-aside,
