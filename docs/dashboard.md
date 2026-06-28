@@ -639,8 +639,8 @@ language toggle defaults to English and can switch the visible dashboard copy to
 Chinese; the browser remembers the choice in `moryn.dashboard.language`.
 The same language switch covers first-screen diagnostic labels inside
 `Background checks` and compact `More details` from the source markup, including
-plain labels such as `Saved details`, `Check details`, `Detail links`, and
-`Routes and checks`. It also covers the deeper `More details` / `Reference
+plain labels such as `Inspect saved content`, `Check details`, `Open related views`, and
+`Sources and status`. It also covers the deeper `More details` / `Reference
 Library` index labels such as `Evidence index`, `Review Notes`, `Routine
 Reference`, `Diagnostics Index`, `Audit Reports`, `Store Snapshot`, and `Raw
 Store`, while preserving literal API routes and source ids. Older internal labels such as `Info Checks`, `Routine
@@ -1048,16 +1048,16 @@ routine/background material it reads `Reference evidence only`.
 
 When the first screen is quiet, sync-only, or saved-for-later, the same
 read-only material uses the lighter `More details` shell instead of the
-normal full evidence panel. Expanding it reveals a `Saved details` face with
-`Read-only details available` and `Optional context`, so the compact path does
+normal full evidence panel. Expanding it reveals an `Inspect saved content` face with
+`Read-only, no memory changes` and `Helpful context`, so the compact path does
 not lead with internal reference-library naming. Compact route chips move into
-the collapsed `Detail links` fold with human labels such as `Product notes`,
+the collapsed `Open related views` fold with human labels such as `Product notes`,
 `Saved notes`, and `History`; their stable
 `data-reference-library-route` attributes still keep the machine routes for
 audit tooling. Those compact route chips, row titles, row summaries, and
 evidence chips also carry English and Chinese display text, so Chinese mode does
 not leave the `More details` shell half-translated. The long `/api/dashboard` pointer is shortened inside that fold
-in compact mode to `Full evidence stays in /api/dashboard.`, so expanding
+in compact mode to `Raw technical details stay in /api/dashboard.`, so expanding
 `More details` does not render prose about every API evidence family.
 
 The compact rows also use quiet summaries such as `Saved notes indexed`,
@@ -1095,9 +1095,9 @@ buttons can open the parent library before scrolling to `governance-hub`,
 Inside the background-only `Reference Library Index`, the collapsed
 `Reference routes` fold contains routine read-only diagnostics such as a healthy
 Health Check, clean or unavailable Recall Eval, and ready or unavailable Context
-Pack Review as a `Diagnostics Index` row in the normal shell, or `Diagnostics`
+Pack Review as a `Diagnostics Index` row in the normal shell, or `Store Status`
 inside compact `More details`. The row
-uses the stable visible summary `Routine checks indexed` instead of listing each
+uses the stable visible summary `Status sources ready` instead of listing each
 diagnostic module name. It keeps stable `data-dashboard-detail` chips for
 `health-check`, `recall-eval`, and `context-pack-review`, and those chips carry
 accessible summaries such as `Ready handoff context` or `unavailable`. It does

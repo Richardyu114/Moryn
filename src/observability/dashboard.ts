@@ -6267,7 +6267,7 @@ function referenceLibraryIndex(input: {
   const diagnosticSummary = "Routine checks indexed";
   const routeLabel = (route: { label: string; route: string }): string => {
     if (!input.compact) return route.label;
-    if (route.route === "routine-diagnostics") return "Health checks";
+    if (route.route === "routine-diagnostics") return "Store status";
     if (route.route === "dogfood-review") return "Product notes";
     if (route.route === "governance-hub") return "Safety checks";
     if (route.route === "candidate-triage") return "Saved notes";
@@ -6275,6 +6275,12 @@ function referenceLibraryIndex(input: {
     return route.label;
   };
   const uiLabelZh = (label: string): string => {
+    if (label === "Store status") return "存储状态";
+    if (label === "Store Status") return "存储状态";
+    if (label === "Store check") return "存储检查";
+    if (label === "Search check") return "搜索检查";
+    if (label === "Handoff check") return "交接检查";
+    if (label === "Status sources ready") return "状态来源已就绪";
     if (label === "Health checks") return "健康检查";
     if (label === "Product notes") return "产品记录";
     if (label === "Safety checks") return "安全检查";
@@ -6322,19 +6328,19 @@ function referenceLibraryIndex(input: {
     const label = routeLabel(route);
     return i18nInline(label, "code", ` data-reference-library-route="${escapeHtml(route.route)}"`);
   }).join("");
-  const indexTitle = input.compact ? "Saved details" : "Reference Library Index";
-  const indexTitleZh = input.compact ? "保存细节" : "参考资料索引";
-  const indexSummary = input.compact ? "Read-only details available" : "Background reports indexed";
-  const indexSummaryZh = input.compact ? "可查看只读详情" : "后台报告已建立索引";
-  const routeFaceSummary = input.compact ? "Optional context" : routeChips;
-  const routeFaceSummaryZh = input.compact ? "可选上下文" : "";
-  const routeFoldTitle = input.compact ? "Detail links" : "Reference routes";
-  const routeFoldTitleZh = input.compact ? "详情入口" : "参考入口";
-  const routeFoldSummary = input.compact ? "Routes and checks" : "Indexed background sources";
-  const routeFoldSummaryZh = input.compact ? "入口和检查" : "已索引的后台来源";
+  const indexTitle = input.compact ? "Inspect saved content" : "Reference Library Index";
+  const indexTitleZh = input.compact ? "查看保存内容" : "参考资料索引";
+  const indexSummary = input.compact ? "Read-only, no memory changes" : "Background reports indexed";
+  const indexSummaryZh = input.compact ? "只查看，不改记忆" : "后台报告已建立索引";
+  const routeFaceSummary = input.compact ? "Helpful context" : routeChips;
+  const routeFaceSummaryZh = input.compact ? "补充上下文" : "";
+  const routeFoldTitle = input.compact ? "Open related views" : "Reference routes";
+  const routeFoldTitleZh = input.compact ? "打开相关内容" : "参考入口";
+  const routeFoldSummary = input.compact ? "Sources and status" : "Indexed background sources";
+  const routeFoldSummaryZh = input.compact ? "来源和状态" : "已索引的后台来源";
   const detailedApiReferenceHint = "Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.";
-  const compactApiReferenceHint = "Full evidence stays in <code>/api/dashboard</code>.";
-  const diagnosticsTitle = input.compact ? "Health Checks" : "Diagnostics Index";
+  const compactApiReferenceHint = "Raw technical details stay in <code>/api/dashboard</code>.";
+  const diagnosticsTitle = input.compact ? "Store Status" : "Diagnostics Index";
   const candidateTriageTitle = input.compact ? "Saved Notes" : "Candidate Backlog Index";
   const governanceTitle = input.compact ? "Safety Checks" : "Governance Index";
   const dogfoodTitle = input.compact ? "Product Notes" : "Dogfood Notes Index";
@@ -6352,9 +6358,9 @@ function referenceLibraryIndex(input: {
   const rawStoreSummary = input.compact ? "History indexed" : "Raw evidence indexed";
   const evidenceLabel = (label: string): string => {
     if (!input.compact) return label;
-    if (label === "health_check") return "Health check";
-    if (label === "recall_eval") return "Recall check";
-    if (label === "context_pack_review") return "Handoff context";
+    if (label === "health_check") return "Store check";
+    if (label === "recall_eval") return "Search check";
+    if (label === "context_pack_review") return "Handoff check";
     if (label === "candidate_triage") return "Saved notes";
     if (label === "governance") return "Safety checks";
     if (label === "dogfood_report") return "Product notes";
@@ -6382,7 +6388,7 @@ function referenceLibraryIndex(input: {
             <div class="reference-library-index-row" data-reference-library-index-row="diagnostics" data-dashboard-detail="routine-diagnostics" data-routine-diagnostics-reference data-reference-library-index="diagnostics">
               <div>
                 ${i18nInline(diagnosticsTitle, "strong")}
-                ${i18nInline(diagnosticSummary, "span")}
+                ${i18nInline(input.compact ? "Status sources ready" : diagnosticSummary, "span")}
               </div>
               <small>${diagnosticRoutes.map((route) => evidenceCode(route.label, ` data-dashboard-detail="${escapeHtml(route.route)}" aria-label="${escapeHtml(route.description)}"`)).join("")}</small>
             </div>` : "",
@@ -8084,6 +8090,12 @@ function dashboardLanguageScript(): string {
             enBefore: "Full evidence stays in ",
             enAfter: ".",
             zhBefore: "完整依据保留在 ",
+            zhAfter: "。"
+          }],
+          ["Raw technical details stay in /api/dashboard.", {
+            enBefore: "Raw technical details stay in ",
+            enAfter: ".",
+            zhBefore: "原始技术细节保留在 ",
             zhAfter: "。"
           }],
           ["Open /api/dashboard for full routine diagnostic reports, commands, and evidence paths.", {
