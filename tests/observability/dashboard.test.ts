@@ -937,8 +937,9 @@ describe("observability dashboard", () => {
       expect(detailHtml).toContain("<span data-i18n-en=\"Next step\" data-i18n-zh=\"下一步\">Next step</span>");
       expect(detailHtml).toContain("<strong data-memory-explorer-detail-next-step data-i18n-en=\"Can be organized\" data-i18n-zh=\"可以整理\">Can be organized</strong>");
       expect(detailHtml).toContain("<small data-memory-explorer-detail-next-step-detail data-i18n-en=\"Open details first. If this can change memory, Moryn will show real confirm buttons nearby.\" data-i18n-zh=\"先打开详情；如果这条可以改变记忆，Moryn 会在附近显示真正的确认按钮。\">Open details first. If this can change memory, Moryn will show real confirm buttons nearby.</small>");
-      expect(detailHtml).toContain("<div class=\"memory-explorer-trace\" data-memory-explorer-trace>");
-      expect(detailHtml).toContain("<span data-i18n-en=\"History links\" data-i18n-zh=\"历史入口\">History links</span>");
+      expect(detailHtml).toContain("<details class=\"memory-explorer-trace\" data-memory-explorer-trace>");
+      expect(detailHtml).toContain("<summary data-i18n-en=\"Trace details\" data-i18n-zh=\"追踪详情\">Trace details</summary>");
+      expect(detailHtml).not.toContain("<span data-i18n-en=\"History links\" data-i18n-zh=\"历史入口\">History links</span>");
       expect(detailHtml).toContain("<code data-memory-explorer-detail-timeline>moryn timeline --record-id rec_action_board_3 --project-id moryn</code>");
       expect(detailHtml).toContain("<code data-memory-explorer-detail-recall>moryn recall --record-id rec_action_board_3 --project-id moryn</code>");
       expect(detailHtml).not.toContain("Select an item");

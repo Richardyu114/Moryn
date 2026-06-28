@@ -7760,11 +7760,11 @@ function memoryExplorerDetailPanel(item?: DashboardValueRecord): string {
           ${memoryExplorerGuidanceCard("next-step", "Next step", "下一步", "", "", "", "")}
           `}
         </div>
-        <div class="memory-explorer-trace" data-memory-explorer-trace${traceHidden}>
-          <span data-i18n-en="History links" data-i18n-zh="历史入口">History links</span>
+        <details class="memory-explorer-trace" data-memory-explorer-trace${traceHidden}>
+          <summary data-i18n-en="Trace details" data-i18n-zh="追踪详情">Trace details</summary>
           <code data-memory-explorer-detail-timeline>${item ? escapeHtml(item.citation.timeline_command) : ""}</code>
           <code data-memory-explorer-detail-recall>${item ? escapeHtml(item.citation.recall_command) : ""}</code>
-        </div>
+        </details>
       </aside>
   `;
 }
@@ -9910,6 +9910,18 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       gap: 7px;
       border-top: 1px solid rgba(112, 129, 149, 0.22);
       padding-top: 10px;
+    }
+    .memory-explorer-trace summary {
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 820;
+      list-style-position: inside;
+    }
+    .memory-explorer-trace summary:hover { color: var(--ink-2); }
+    .memory-explorer-trace summary:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
+    .memory-explorer-trace code {
+      margin-top: 6px;
     }
     .memory-search-panel {
       display: grid;
