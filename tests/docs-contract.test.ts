@@ -972,6 +972,12 @@ describe("documentation contracts", () => {
     expectText(dashboard, "it does not render a second visible policy history panel");
     expectText(dashboard, "`MCP runtime freshness` is an informational check");
     expectText(dashboard, "restart the MCP host when MCP tool output disagrees with the CLI or dashboard after an upgrade, rebuild, or local link change");
+    expectText(dashboard, "The HTML check list translates that raw runtime check into user-facing copy");
+    expectText(dashboard, "`MCP runtime freshness` renders as `Connection may need restart` / `连接可能需要重启`");
+    expectText(dashboard, "long-running app connections load Moryn when they");
+    expectText(dashboard, "restart the connected app after an");
+    expectText(dashboard, "The raw `checks_by_id.mcp_runtime` label, summary, and reason stay on the");
+    expectText(dashboard, "`data-health-check-raw-*` attributes and in `/api/dashboard`");
     expectText(contracts, "The capture review backlog is scoped to candidates whose capture policy requires explicit review or user action");
     expectText(contracts, "Older autocapture review metadata is rechecked against the current autocapture policy before it becomes a Health Check warning");
     expectText(contracts, "`health_check.checks_by_id.mcp_runtime` is informational");

@@ -1272,6 +1272,13 @@ dashboard after an upgrade, rebuild, or local link change. Suggested actions are
 safe inspection commands only, such as opening the dashboard or listing known
 projects. The panel does not add Apply, Approve, repair, retry, or background
 execution controls.
+The HTML check list translates that raw runtime check into user-facing copy:
+`MCP runtime freshness` renders as `Connection may need restart` / `连接可能需要重启`.
+Its summary explains that long-running app connections load Moryn when they
+start, and its detail asks the user to restart the connected app after an
+upgrade or local rebuild if tool output disagrees with the CLI or dashboard.
+The raw `checks_by_id.mcp_runtime` label, summary, and reason stay on the
+rendered nodes as `data-health-check-raw-*` attributes and in `/api/dashboard`.
 `health_check.setup_readiness` summarizes the selected host adapter, dashboard
 command, install plan command, context pack command, capture command, and
 optional sync remote. Readiness suggestions such as `open_dashboard`,

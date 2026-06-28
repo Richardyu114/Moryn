@@ -2048,9 +2048,16 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span data-i18n-en=\"Moryn Health Check\" data-i18n-zh=\"Moryn 健康检查\">Moryn Health Check</span>");
       expect(html).toContain("<small data-i18n-en=\"needs attention | 1 warning\" data-i18n-zh=\"需要看一下 | 1 条提醒\">needs attention | 1 warning</small>");
       expect(html).not.toContain("<small>needs attention | 1 warning | 0 failed</small>");
-      expect(html).toContain("MCP runtime freshness");
-      expect(html).toContain("MCP hosts load Moryn when the host process starts.");
-      expect(html).toContain("restart the MCP host");
+      expect(data.health_check.checks_by_id.mcp_runtime).toMatchObject({
+        label: "MCP runtime freshness",
+        summary: "MCP hosts load Moryn when the host process starts.",
+        reason: "After upgrading, rebuilding, or linking a local checkout, restart the MCP host if MCP tool output disagrees with the CLI or dashboard."
+      });
+      expect(html).toContain("<strong data-i18n-en=\"Connection may need restart\" data-i18n-zh=\"连接可能需要重启\" data-health-check-raw-label=\"MCP runtime freshness\">Connection may need restart</strong>");
+      expect(html).toContain("<p data-i18n-en=\"Long-running app connections load Moryn when they start.\" data-i18n-zh=\"长时间运行的应用连接会在启动时加载 Moryn。\" data-health-check-raw-summary=\"MCP hosts load Moryn when the host process starts.\">Long-running app connections load Moryn when they start.</p>");
+      expect(html).toContain("<small data-i18n-en=\"After an upgrade or local rebuild, restart the connected app if its tool output disagrees with the CLI or dashboard.\" data-i18n-zh=\"升级或本地重建后，如果连接应用的工具输出和 CLI 或 dashboard 不一致，请重启这个应用。\" data-health-check-raw-reason=\"After upgrading, rebuilding, or linking a local checkout, restart the MCP host if MCP tool output disagrees with the CLI or dashboard.\">After an upgrade or local rebuild, restart the connected app if its tool output disagrees with the CLI or dashboard.</small>");
+      expect(html).not.toContain("<strong>MCP runtime freshness</strong>");
+      expect(html).not.toContain("<p>MCP hosts load Moryn when the host process starts.</p>");
       const healthBriefHtml = html.slice(html.indexOf("<div class=\"health-check-brief\">"), html.indexOf("<dl class=\"health-check-stats\">"));
       expect(healthBriefHtml).toContain("<span data-i18n-en=\"Read-only\" data-i18n-zh=\"只读\">Read-only</span>");
       expect(healthBriefHtml).toContain("<span data-i18n-en=\"4 safe suggestions\" data-i18n-zh=\"4 条安全建议\">4 safe suggestions</span>");
@@ -2118,7 +2125,7 @@ describe("observability dashboard", () => {
       const healthCheckListIndex = html.indexOf("<div class=\"health-check-list\">", checkDetailsIndex);
       expect(checkDetailsIndex).toBeGreaterThan(readinessActionsIndex);
       expect(healthCheckListIndex).toBeGreaterThan(checkDetailsIndex);
-      expect(html.indexOf("MCP runtime freshness")).toBeGreaterThan(healthCheckListIndex);
+      expect(html.indexOf("Connection may need restart")).toBeGreaterThan(healthCheckListIndex);
       expect(html).toContain("<span class=\"pill warning\" data-i18n-en=\"Requires summary\" data-i18n-zh=\"需要填写 summary\">Requires summary</span>");
       expect(html).toContain("Read-only");
       expect(html.indexOf("data-dashboard-background-shortcuts")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));

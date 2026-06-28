@@ -3926,6 +3926,34 @@ function healthCheckSetupCommandSummaryZh(report: HealthCheckReport): string {
   return `${summary.safe} 条安全检查 | ${summary.needsInput} 项需要输入`;
 }
 
+function healthCheckDisplayCopy(check: HealthCheckReport["checks"][number]): {
+  label: string;
+  labelZh: string;
+  summary: string;
+  summaryZh: string;
+  reason: string;
+  reasonZh: string;
+} {
+  if (check.id === "mcp_runtime") {
+    return {
+      label: "Connection may need restart",
+      labelZh: "连接可能需要重启",
+      summary: "Long-running app connections load Moryn when they start.",
+      summaryZh: "长时间运行的应用连接会在启动时加载 Moryn。",
+      reason: "After an upgrade or local rebuild, restart the connected app if its tool output disagrees with the CLI or dashboard.",
+      reasonZh: "升级或本地重建后，如果连接应用的工具输出和 CLI 或 dashboard 不一致，请重启这个应用。"
+    };
+  }
+  return {
+    label: check.label,
+    labelZh: check.label,
+    summary: check.summary,
+    summaryZh: check.summary,
+    reason: check.reason,
+    reasonZh: check.reason
+  };
+}
+
 function healthCheckInstallTrust(report: HealthCheckReport): string {
   const summary = healthCheckActionSummary(report);
   const status = report.summary.failing_checks > 0 ? "Needs setup review" : "Safe to inspect";
@@ -4076,14 +4104,17 @@ function healthCheckDetails(report: HealthCheckReport): string {
             <small ${i18nAttribute(healthCheckCheckSummary(report), healthCheckCheckSummaryZh(report))}>${escapeHtml(healthCheckCheckSummary(report))}</small>
           </summary>
           <div class="health-check-list">
-            ${report.checks.map((check) => `
+            ${report.checks.map((check) => {
+              const copy = healthCheckDisplayCopy(check);
+              return `
               <article class="health-check-item ${escapeHtml(check.status)}">
                 <span>${escapeHtml(titleCase(check.status))}</span>
-                <strong>${escapeHtml(check.label)}</strong>
-                <p>${escapeHtml(check.summary)}</p>
-                <small>${escapeHtml(check.reason)}</small>
+                <strong ${i18nAttribute(copy.label, copy.labelZh)} data-health-check-raw-label="${escapeHtml(check.label)}">${escapeHtml(copy.label)}</strong>
+                <p ${i18nAttribute(copy.summary, copy.summaryZh)} data-health-check-raw-summary="${escapeHtml(check.summary)}">${escapeHtml(copy.summary)}</p>
+                <small ${i18nAttribute(copy.reason, copy.reasonZh)} data-health-check-raw-reason="${escapeHtml(check.reason)}">${escapeHtml(copy.reason)}</small>
               </article>
-            `).join("")}
+            `;
+            }).join("")}
           </div>
         </details>
   `;
@@ -7948,7 +7979,7 @@ function dashboardLanguageScript(): string {
         ["Recent records", "最近记录"],
         ["Recent events", "最近事件"],
         ["Shared copy", "共享副本"],
-        ["Routine checks indexed", "常规检查已建立索引"],
+        ["Routine checks indexed", "日常检查已建立索引"],
         ["Saved notes indexed", "已保存内容已建立索引"],
         ["Safety checks indexed", "安全检查已建立索引"],
         ["Product notes indexed", "产品记录已建立索引"],
