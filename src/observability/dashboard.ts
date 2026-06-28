@@ -1382,29 +1382,29 @@ function buildMemoryInventory(records: MorynRecord[]): DashboardMemoryInventory 
     states: [
       {
         id: "remembered",
-        label: "Remembered",
-        zh_label: "已记住",
+        label: "Ready to use",
+        zh_label: "可直接使用",
         count: remembered,
         source_states: ["canonical"]
       },
       {
         id: "new_items",
-        label: "To organize",
-        zh_label: "待整理",
+        label: "Saved, not organized",
+        zh_label: "已保存待整理",
         count: newItems,
         source_states: ["candidate"]
       },
       {
         id: "temporary",
         label: "Session notes",
-        zh_label: "本次会话笔记",
+        zh_label: "会话记录",
         count: temporary,
         source_states: ["raw"]
       },
       {
         id: "set_aside",
-        label: "Set aside",
-        zh_label: "已搁置",
+        label: "Kept for history",
+        zh_label: "历史留存",
         count: setAside,
         source_states: ["archived", "quarantined"]
       }
@@ -3501,7 +3501,7 @@ function memoryInventoryReviewDetailZh(inventory: DashboardMemoryInventory): str
   const parts = [
     inventory.summary.new_items > 0 ? zhCount(inventory.summary.new_items, "保存内容") : "",
     inventory.summary.temporary > 0 ? zhCount(inventory.summary.temporary, "会话笔记") : "",
-    inventory.summary.set_aside > 0 ? zhCount(inventory.summary.set_aside, "已搁置内容") : ""
+    inventory.summary.set_aside > 0 ? zhCount(inventory.summary.set_aside, "历史留存内容") : ""
   ].filter(Boolean);
   const subject = joinZhList(parts);
   return `${subject}现在可搜索；需要时再整理，这个摘要不会写入记忆。`;
@@ -6452,20 +6452,20 @@ function memoryStateClass(id: DashboardMemoryInventoryStateId): string {
 
 function memoryInventoryStateExplanation(state: DashboardMemoryInventoryState): { en: string; zh: string } {
   if (state.id === "remembered") return {
-    en: "Long-term memory Moryn can use directly.",
-    zh: "Moryn 可直接使用的长期记忆。"
+    en: "Moryn can use this as long-term memory.",
+    zh: "Moryn 可以把这些作为长期记忆使用。"
   };
   if (state.id === "new_items") return {
-    en: "Saved and searchable; organize later if useful.",
-    zh: "已保存并可搜索；需要时再整理。"
+    en: "Saved and searchable; not long-term memory yet.",
+    zh: "已保存并可搜索；还不是长期记忆。"
   };
   if (state.id === "temporary") return {
-    en: "Temporary notes from recent work.",
-    zh: "最近工作的临时笔记。"
+    en: "Session context kept for lookup.",
+    zh: "作为会话上下文保留，可供查找。"
   };
   return {
-    en: "Archived or replaced items kept for audit.",
-    zh: "为审计保留的归档或已替换内容。"
+    en: "Archived or replaced items kept for traceability.",
+    zh: "为追溯保留的归档或已替换内容。"
   };
 }
 
@@ -6475,12 +6475,12 @@ function memoryInventoryFilterValue(state: DashboardMemoryInventoryState): strin
 
 function answerMemoryCountLabel(state: DashboardMemoryInventoryState): { en: string; zh: string } {
   if (state.id === "remembered") return {
-    en: pluralize(state.count, "remembered"),
-    zh: `${state.count} 条已记住`
+    en: `${state.count} ready to use`,
+    zh: `${state.count} 条可直接使用`
   };
   if (state.id === "new_items") return {
-    en: `${state.count} to organize`,
-    zh: `${state.count} 条待整理`
+    en: `${state.count} saved, not organized`,
+    zh: `${state.count} 条已保存待整理`
   };
   if (state.id === "temporary") return {
     en: pluralize(state.count, "session note"),
@@ -6488,7 +6488,7 @@ function answerMemoryCountLabel(state: DashboardMemoryInventoryState): { en: str
   };
   return {
     en: pluralize(state.count, "set aside"),
-    zh: `${state.count} 条已搁置`
+    zh: `${state.count} 条历史留存`
   };
 }
 
@@ -6626,9 +6626,9 @@ function glanceSummaryStrip(data: DashboardData): string {
           <small ${i18nAttribute(recentWritesLabel, recentWritesZh)}>${escapeHtml(recentWritesLabel)}</small>
         </button>
         <button type="button" data-glance-summary="remembered-now" data-action-board-target="stored-content" aria-controls="stored-content" data-glance-filter="canonical">
-          <span data-i18n-en="Remembered" data-i18n-zh="已记住">Remembered</span>
+          <span data-i18n-en="Ready to use" data-i18n-zh="可直接使用">Ready to use</span>
           <strong>${escapeHtml(remembered)}</strong>
-          <small data-i18n-en="Long-term memory" data-i18n-zh="长期记忆">Long-term memory</small>
+          <small data-i18n-en="Moryn can use now" data-i18n-zh="Moryn 现在可用">Moryn can use now</small>
         </button>
         <button type="button" data-glance-summary="to-organize" data-action-board-target="stored-content" aria-controls="stored-content" data-glance-filter="candidate,raw,archived,quarantined">
           <span data-i18n-en="To organize" data-i18n-zh="待整理">To organize</span>
@@ -6785,19 +6785,19 @@ function dashboardDecisionPanel(data: DashboardData): string {
 }
 
 function memoryStateLabelFromRecordState(state: MorynRecord["state"]): { en: string; zh: string } {
-  if (state === "canonical") return { en: "Remembered", zh: "已记住" };
-  if (state === "candidate") return { en: "To organize", zh: "待整理" };
-  if (state === "raw") return { en: "Session notes", zh: "本次会话笔记" };
-  return { en: "Set aside", zh: "已搁置" };
+  if (state === "canonical") return { en: "Ready to use", zh: "可直接使用" };
+  if (state === "candidate") return { en: "Saved, not organized", zh: "已保存待整理" };
+  if (state === "raw") return { en: "Session notes", zh: "会话记录" };
+  return { en: "Kept for history", zh: "历史留存" };
 }
 
 function storedContentNextStep(item: DashboardValueRecord): { label: string; zhLabel: string; detail: string; zhDetail: string } {
   if (item.state === "canonical") {
     return {
-      label: "Already remembered",
-      zhLabel: "已经记住",
-      detail: "This is already in long-term memory.",
-      zhDetail: "这条已经在长期记忆里。"
+      label: "Ready to use",
+      zhLabel: "可直接使用",
+      detail: "Moryn can use this now as long-term memory.",
+      zhDetail: "Moryn 现在可把这条作为长期记忆使用。"
     };
   }
   if (item.state === "candidate") {
@@ -6813,12 +6813,12 @@ function storedContentNextStep(item: DashboardValueRecord): { label: string; zhL
       label: "Keep for context",
       zhLabel: "作为上下文保留",
       detail: "Session notes stay searchable for context but are not long-term memory.",
-      zhDetail: "本次会话笔记可作为上下文搜索，但不是长期记忆。"
+      zhDetail: "会话记录可作为上下文搜索，但不是长期记忆。"
     };
   }
   return {
-    label: "Set aside",
-    zhLabel: "已搁置",
+    label: "Kept for history",
+    zhLabel: "历史留存",
     detail: "This stays searchable here without changing long-term memory.",
     zhDetail: "这条仍可在这里搜索，不会改变长期记忆。"
   };
@@ -7070,10 +7070,10 @@ function memorySearchChip(query: string, label: string, zhLabel: string): string
 function memorySearchShortcutChips(input: { sources: string[]; recordStates: MorynRecord["state"][]; hasEvents: boolean }): string {
   const sourceChips = input.sources.slice(0, 3).map((source) => memorySearchChip(`source:${source}`, source, source));
   const stateChips = [
-    input.recordStates.includes("canonical") ? memorySearchChip("state:remembered", "Remembered", "已记住") : "",
-    input.recordStates.includes("candidate") ? memorySearchChip("state:to-organize", "To organize", "待整理") : "",
+    input.recordStates.includes("canonical") ? memorySearchChip("state:remembered", "Ready to use", "可直接使用") : "",
+    input.recordStates.includes("candidate") ? memorySearchChip("state:to-organize", "Saved, not organized", "已保存待整理") : "",
     input.recordStates.includes("raw") ? memorySearchChip("state:session-notes", "Session notes", "会话记录") : "",
-    (input.recordStates.includes("archived") || input.recordStates.includes("quarantined")) ? memorySearchChip("state:set-aside", "Set aside", "已搁置") : ""
+    (input.recordStates.includes("archived") || input.recordStates.includes("quarantined")) ? memorySearchChip("state:set-aside", "Kept for history", "历史留存") : ""
   ].filter(Boolean);
   const eventChip = input.hasEvents ? memorySearchChip("type:event", "Events", "事件") : "";
   const chips = [

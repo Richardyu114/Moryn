@@ -39,7 +39,7 @@ The `Current answers`, `Needs your decision`, `To organize`, `At a glance`, and
 `Find what Moryn saved` rows are visible above `More details` in the live
 non-private dashboard.
 `Needs your decision` routes users to the owning approval rows only when a real
-write is waiting. If the state is only `To organize`, the visible action
+write is waiting. If the state is only `Saved, not organized`, the visible action
 opens `Find what Moryn saved`, expands saved previews, and keeps search visible
 without writing. Approve and reject buttons stay on the owning row beside the
 relevant evidence.
@@ -660,7 +660,7 @@ Is sync healthy?  -> Current answers shared-copy card, sync rail
 three larger cards. Those answer cards reuse the dashboard's local navigation:
 the action card opens the current next step, the memory card opens `Find what
 Moryn saved`, and the sync card opens `Store Signals`. The memory card also
-shows a compact `Remembered` / `To organize` / `Session notes` mix bar
+shows a compact `Ready to use` / `Saved, not organized` / `Session notes` mix bar
 and short counts, so the first screen shows whether saved content is already
 long-term memory before the user opens search. A short `Why this is here`
 explanation under the answer cards states why saved items appear and reminds the
@@ -670,12 +670,12 @@ latest write, latest source, shared-copy state, and items to organize without
 resizing the first screen. The `At a glance` chart row
 appears before `What Moryn stores`, `Recent status`, and the compact
 `More details` fold. It starts with a compact recent-activity summary for
-visible writes, remembered items, items to organize, and the most active source,
+visible writes, ready-to-use items, saved-but-not-organized items, and the most active source,
 then shows the memory-state chart, content mix, seven-day saved-content trend,
 shared-copy rail, and source activity bars. The user does not need to open a
 detail section to understand the current state. The summary numbers are also read-only shortcuts: `Recent
-writes` opens all saved content, `Remembered` filters to long-term memory, `To
-organize` filters to saved-but-not-final items, and `Top source` opens saved
+writes` opens all saved content, `Ready to use` filters to memory Moryn can use now,
+`Saved, not organized` filters to saved-but-not-final items, and `Top source` opens saved
 content search filtered to that source.
 `Shared copy` is the user-facing name for Git sync state: it can read `Up to
 date`, `Waiting to upload`, `New shared updates`, `Needs help`, or `Not
@@ -685,8 +685,8 @@ connected`. The API still exposes the underlying sync data in
 The main action summary is labeled `Do I need to act?` in the visible UI. It
 picks the most urgent derived action in this order: explicit decisions, visible
 warnings, then sync work. Ordinary saved content does not become a user decision
-by itself: when the only state is `To organize`, `Session notes`, or
-`Set aside`, the headline stays `No action needed` and the visible action simply
+by itself: when the only state is `Saved, not organized`, `Session notes`, or
+`Kept for history`, the headline stays `No action needed` and the visible action simply
 opens `Find what Moryn saved`. That click expands hidden saved previews and
 highlights the section so the user can inspect what was stored without writing
 anything. If Capture Inbox has real approval work, the action opens Capture
@@ -694,12 +694,12 @@ Inbox. Candidate Triage stays a technical/audit route unless it has an explicit
 promotion approval.
 
 The memory-state chart is also a local navigation control: clicking
-`Remembered`, `To organize`, `Session notes`, or `Set aside` opens
+`Ready to use`, `Saved, not organized`, `Session notes`, or `Kept for history` opens
 `Find what Moryn saved` and filters the visible previews by that state. The
 saved-content filter bar can switch back to `All` or jump between available states. Its search
 controls filter across recent records and events by keyword, memory state, and
-source. The search panel also shows a live result mix for `Remembered`, `To
-organize`, `Session notes`, `Set aside`, and `Events`, and those counts follow
+source. The search panel also shows a live result mix for `Ready to use`,
+`Saved, not organized`, `Session notes`, `Kept for history`, and `Events`, and those counts follow
 typed queries, shortcut chips, and source/status filters. Search shortcut chips
 write readable local queries into the same input, such as `source:Codex`,
 `state:remembered`, `state:to-organize`, `type:event`, and `recent:7d`; users
@@ -713,14 +713,14 @@ and `Next step` guidance from the card so opening details preserves the user's
 context before showing trace commands. All of these controls are client-side and
 read-only.
 The preview cards are representative rather than strictly newest-first: Moryn
-shows available `To organize`, `Remembered`, `Session notes`, and `Set
-aside` examples before filling the remaining preview slots by recency. The full
+shows available `Saved, not organized`, `Ready to use`, `Session notes`, and
+`Kept for history` examples before filling the remaining preview slots by recency. The full
 newest-first list remains in `/api/dashboard.recent_value[]`.
 Each saved-content card now carries three read-only explanation cards before
 the detail pane: why it was saved, current status, and next step. The why-saved
 line uses the stored provenance reason when available, then falls back to clear
-source/state wording. Next-step values remain `Already remembered`, `Can be
-organized`, `Keep for context`, or `Set aside`, and the card exposes only `Open
+source/state wording. Next-step values remain `Ready to use`, `Can be
+organized`, `Keep for context`, or `Kept for history`, and the card exposes only `Open
 details`; remember, dismiss, archive, or approval writes appear only beside the
 real confirmation rows that already have server endpoints.
 
@@ -735,15 +735,15 @@ Directly below the action summary, `What Moryn stores` shows the user-facing
 memory inventory:
 
 ```text
-remembered            <- canonical records
-to organize           <- candidate records
+ready to use          <- canonical records
+saved, not organized  <- candidate records
 session notes         <- raw records
-set aside             <- archived or quarantined records
+kept for history      <- archived or quarantined records
 ```
 
-Each inventory state includes a plain-language explanation. `To organize` means
-the item is already saved and searchable; it can be organized later if it becomes
-useful, but it is not a user decision by itself.
+Each inventory state includes a plain-language explanation. `Saved, not
+organized` means the item is already saved and searchable; it can be organized
+later if it becomes useful, but it is not a user decision by itself.
 Each inventory state card is clickable: it opens `Find what Moryn saved` and
 applies the matching read-only filter.
 
