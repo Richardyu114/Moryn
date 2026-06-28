@@ -826,6 +826,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("<strong>Codex</strong>");
       expect(html).toContain("<small data-i18n-en=\"4 recent signals\" data-i18n-zh=\"4 条最近信号\">4 recent signals</small>");
       expect(html).toContain("<article class=\"glance-chart memory-shape\" data-memory-state-chart>");
+      expect(html).toContain(".glance-chart {");
+      expect(html).toContain("grid-template-rows: minmax(15px, auto) minmax(2.3em, auto) minmax(0, 1fr);");
+      expect(html).toContain("align-content: stretch;");
       expect(html).toContain("<div class=\"memory-state-meter\" aria-label=\"Memory state chart\">");
       expect(html).toContain("<p class=\"glance-chart-insight\" data-i18n-en=\"33% ready to use · 67% searchable\" data-i18n-zh=\"33% 可直接使用 · 67% 可搜索\">33% ready to use · 67% searchable</p>");
       expect(html).toContain("<span data-memory-state-percent=\"remembered\" data-i18n-en=\"33%\" data-i18n-zh=\"33%\">33%</span>");
@@ -837,6 +840,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span data-i18n-en=\"1 · 33%\" data-i18n-zh=\"1 条 · 33%\">1 · 33%</span>");
       expect(html).toContain("<article class=\"glance-chart shared-copy good\" data-shared-copy-chart>");
       expect(html).toContain("<article class=\"glance-chart recent-activity\" data-recent-activity-chart>");
+      expect(html).toContain(".memory-state-key,");
+      expect(html).toContain(".kind-bars,");
+      expect(html).toContain(".activity-bars { align-self: end; }");
       expect(html).toContain("<p class=\"glance-chart-insight\" data-i18n-en=\"Top source: Codex, 67% of recent activity\" data-i18n-zh=\"主要来源：Codex，占最近活动的 67%\">Top source: Codex, 67% of recent activity</p>");
       expect(html).toContain("<strong data-i18n-en=\"19d ago\" data-i18n-zh=\"19 天前\">19d ago</strong>");
       expect(html).toContain("<span data-i18n-en=\"1 saved | 19d ago\" data-i18n-zh=\"1 条保存内容 | 19 天前\">1 saved | 19d ago</span>");

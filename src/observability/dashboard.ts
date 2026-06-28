@@ -10368,8 +10368,9 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     }
     .glance-chart {
       display: grid;
+      grid-template-rows: minmax(15px, auto) minmax(2.3em, auto) minmax(0, 1fr);
       gap: 10px;
-      align-content: start;
+      align-content: stretch;
       min-width: 0;
       min-height: 214px;
       border: 1px solid var(--border);
@@ -10487,6 +10488,9 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       display: grid;
       gap: 9px;
     }
+    .memory-state-key,
+    .kind-bars,
+    .activity-bars { align-self: end; }
     .kind-row,
     .activity-row {
       display: grid;
