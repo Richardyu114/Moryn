@@ -7507,7 +7507,7 @@ function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderO
       </div>
     </header>
 
-    ${dashboardStatusSummary(data, { hideHealthyLine: isAllClearOverview })}
+    ${dashboardStatusSummary(data, { hideHealthyLine: isAllClearOverview || isSavedForLaterOverview })}
 
     <section id="last-action-receipt" class="panel last-action-receipt" data-action-receipt-anchor aria-live="polite" hidden></section>
 

@@ -768,12 +768,13 @@ without opening the raw record list. Its last-write relative time follows the
 language toggle, while the exact timestamp stays in the `time` title and
 `datetime` attributes.
 
-The top health message stays below the header, but healthy snapshots render as a
-lightweight `dashboard-status-line` with `Everything is synced and no action is
-waiting.` instead of a full status panel unless the first-screen action summary
-already owns the zero-state. Non-healthy states that need a separate explanation,
-such as local-only, review, or conflict, still render the full status strip
-because they need first-screen attention.
+The top health message stays below the header only when it adds new context.
+Healthy snapshots render as a lightweight `dashboard-status-line` with
+`Everything is synced and no action is waiting.` instead of a full status panel,
+unless `Right now` already owns the quiet state such as all-clear or
+saved-for-later. Non-healthy states that need a separate explanation, such as
+local-only, review, or conflict, still render the full status strip because they
+need first-screen attention.
 
 When a high-priority action owns the first screen, the four derived cards for
 current health, next action, context, and sync still point back to source paths
