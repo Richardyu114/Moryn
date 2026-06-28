@@ -769,10 +769,11 @@ language toggle, while the exact timestamp stays in the `time` title and
 `datetime` attributes.
 
 The top health message stays below the header, but healthy snapshots render as a
-lightweight `dashboard-status-line` instead of a full status panel unless the
-first-screen action summary already owns the zero-state. Non-healthy states that
-need a separate explanation, such as local-only, review, or conflict, still
-render the full status strip because they need first-screen attention.
+lightweight `dashboard-status-line` with `Everything is synced and no action is
+waiting.` instead of a full status panel unless the first-screen action summary
+already owns the zero-state. Non-healthy states that need a separate explanation,
+such as local-only, review, or conflict, still render the full status strip
+because they need first-screen attention.
 
 When a high-priority action owns the first screen, the four derived cards for
 current health, next action, context, and sync still point back to source paths
@@ -1143,7 +1144,7 @@ removing audit data from the page or from `/api/dashboard`.
 
 Health badge states:
 
-- `Healthy`: sync is clean and no urgent safety signals were detected.
+- `Healthy`: everything is synced and no action is waiting.
 - `Sync Pending`: configured sync has local changes or ahead/behind remote
   state; push or pull before cross-device handoff.
 - `Needs Review`: unresolved safety signals such as quarantined content need a

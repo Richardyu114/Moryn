@@ -676,7 +676,9 @@ describe("observability dashboard", () => {
         severity: "info",
         title: "Session notes not remembered"
       }));
-      expect(data.health.explanation).toBe("Sync is clean and no urgent safety items were detected in this snapshot.");
+      expect(data.health.explanation).toBe("Everything is synced and no action is waiting.");
+      expect(html).toContain("<p class=\"dashboard-status-line good\" data-dashboard-status=\"healthy\"><strong data-i18n-en=\"Healthy\" data-i18n-zh=\"正常\">Healthy</strong><span data-i18n-en=\"Everything is synced and no action is waiting.\" data-i18n-zh=\"已同步，没有等待处理的事项。\">Everything is synced and no action is waiting.</span></p>");
+      expect(html).not.toContain("Sync is clean and no urgent safety items were detected in this snapshot.");
       expect(html).toContain("<span class=\"language-toggle-label\" data-i18n-en=\"Language\" data-i18n-zh=\"语言\">Language</span>");
       expect(html).toContain("<button type=\"button\" class=\"language-option active\" data-dashboard-language-option=\"en\" aria-pressed=\"true\">EN</button>");
       expect(html).toContain("<button type=\"button\" class=\"language-option\" data-dashboard-language-option=\"zh\" aria-pressed=\"false\">中文</button>");

@@ -243,6 +243,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Its last-write relative time follows the language toggle");
     expectText(dashboard, "exact timestamp stays in the `time` title and `datetime` attributes");
     expectText(dashboard, "healthy snapshots render as a lightweight `dashboard-status-line`");
+    expectText(dashboard, "`Everything is synced and no action is");
+    expectText(dashboard, "waiting.` instead of a full status panel");
     expectText(dashboard, "unless the first-screen action summary already owns the zero-state");
     expectText(dashboard, "Non-healthy states that need a separate explanation, such as local-only, review, or conflict, still render the full status strip");
     expectText(dashboard, "When a high-priority action owns the first screen, the four derived cards for current health, next action, context, and sync");

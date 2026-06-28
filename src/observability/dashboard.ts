@@ -65,7 +65,7 @@ declare global {
     restoreActionReceipt?: () => void;
     renderActionReceipt?: (result: unknown) => void;
   }
-}
+  }
 
 export type DashboardActionSurface = "capture_inbox" | "capture_policy" | "maintenance_review" | "candidate_triage";
 export type DashboardActionKind = "dashboard_api" | "cli_command";
@@ -1195,7 +1195,7 @@ function buildHealth(sync: GitSyncStatus, records: MorynRecord[], generatedAt: s
   return {
     status: "healthy",
     label: "Healthy",
-    explanation: "Sync is clean and no urgent safety items were detected in this snapshot.",
+    explanation: "Everything is synced and no action is waiting.",
     generated_at: generatedAt
   };
 }
@@ -3290,8 +3290,8 @@ function dashboardActionDetailZh(detail: string): string {
   if (detail === "Local sync changes are waiting to be pushed or pulled; memory data remains usable on this device.") {
     return "本机同步变化还在等待上传或拉取；这台设备上的记忆仍可使用。";
   }
-  if (detail === "Sync is clean and no urgent safety items were detected in this snapshot.") {
-    return "同步正常，这份快照没有发现需要立刻处理的安全事项。";
+  if (detail === "Everything is synced and no action is waiting.") {
+    return "已同步，没有等待处理的事项。";
   }
   if (detail === "Warnings and critical signals remain visible in Needs Attention.") {
     return "提醒和重要信号会继续显示在需要注意的区域。";
@@ -6318,9 +6318,9 @@ function dashboardStatusSummary(data: DashboardData, options: { hideHealthyLine?
   if (health.status === "healthy") {
     if (options.hideHealthyLine) return "";
     return `
-    <p class="dashboard-status-line ${statusClass}" data-dashboard-status="${escapeHtml(health.status)}"><strong ${i18nAttribute(health.label, healthZh)}>${escapeHtml(health.label)}</strong><span>${escapeHtml(health.explanation)}</span></p>
+    <p class="dashboard-status-line ${statusClass}" data-dashboard-status="${escapeHtml(health.status)}"><strong ${i18nAttribute(health.label, healthZh)}>${escapeHtml(health.label)}</strong><span ${i18nAttribute(health.explanation, dashboardActionDetailZh(health.explanation))}>${escapeHtml(health.explanation)}</span></p>
   `;
-  }
+}
   if (health.status === "sync_pending") return "";
   return `
     <section class="status-strip ${statusClass}" data-dashboard-status="${escapeHtml(health.status)}">
