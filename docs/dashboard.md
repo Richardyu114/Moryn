@@ -666,7 +666,7 @@ long-term memory before the user opens search. A short `Why this is here`
 explanation under the answer cards states why saved items appear and reminds the
 user that only rows with confirm buttons can change long-term memory. Between
 the answer cards and that explanation, a fixed-height status ticker repeats the
-latest write, latest source, shared-copy state, and items to organize without
+latest write, latest source, shared-copy state, and saved-for-later items without
 resizing the first screen. The `At a glance` chart row
 appears before `What Moryn stores`, `Recent status`, and the compact
 `More details` fold. It starts with a compact recent-activity summary for
@@ -752,7 +752,7 @@ The inventory also groups visible records by kind, using human labels such as
 `/api/dashboard.memory_inventory` keeps the counts and source states for agents.
 
 `Recent status` shows the last write time, latest source, shared-copy state, and
-the number of `items to organize` instead of exposing saved-recently versus
+the number of `saved for later` items instead of exposing saved-recently versus
 recent-note wording. This gives the user the recent state of the local memory
 without opening the raw record list. Its last-write relative time follows the
 language toggle, while the exact timestamp stays in the `time` title and

@@ -6371,14 +6371,14 @@ function statusBoardTicker(data: DashboardData, shared: ReturnType<typeof shared
   const latestWriteZh = latestRecord ? relativeTimeZh(latestWrite) : "无";
   const latestWriteHtml = latestRecord ? relativeTimeElement(latestRecord.updated_at, data.generated_at) : escapeHtml(latestWrite);
   const toOrganize = data.memory_inventory.summary.new_items + data.memory_inventory.summary.temporary;
-  const toOrganizeLabel = toOrganize > 0 ? pluralize(toOrganize, "item to organize", "items to organize") : "Nothing to organize";
-  const toOrganizeZh = toOrganize > 0 ? `${toOrganize} 条待整理内容` : "没有待整理内容";
+  const toOrganizeLabel = toOrganize > 0 ? `${toOrganize} saved for later` : "Nothing saved for later";
+  const toOrganizeZh = toOrganize > 0 ? `${toOrganize} 条已保存待整理` : "没有稍后整理内容";
   return `
       <div class="status-board-ticker" data-status-board-ticker aria-label="Latest status ticker">
         ${statusTickerItem("last-write", "Last write", "最近写入", latestWrite, latestWriteZh, latestWriteHtml)}
         ${statusTickerItem("source", "Source", "来源", latestSource, latestSourceZh)}
         ${statusTickerItem("shared-copy", "Shared copy", "共享副本", shared.label, shared.zh)}
-        ${statusTickerItem("to-organize", "To organize", "待整理", toOrganizeLabel, toOrganizeZh)}
+        ${statusTickerItem("to-organize", "Saved for later", "稍后整理", toOrganizeLabel, toOrganizeZh)}
       </div>
   `;
 }
@@ -6631,7 +6631,7 @@ function glanceSummaryStrip(data: DashboardData): string {
           <small data-i18n-en="Moryn can use now" data-i18n-zh="Moryn 现在可用">Moryn can use now</small>
         </button>
         <button type="button" data-glance-summary="to-organize" data-action-board-target="stored-content" aria-controls="stored-content" data-glance-filter="candidate,raw,archived,quarantined">
-          <span data-i18n-en="To organize" data-i18n-zh="待整理">To organize</span>
+          <span data-i18n-en="Saved for later" data-i18n-zh="稍后整理">Saved for later</span>
           <strong>${escapeHtml(toOrganize)}</strong>
           <small data-i18n-en="Saved for later" data-i18n-zh="稍后整理">Saved for later</small>
         </button>
@@ -7251,8 +7251,8 @@ function recentStatusPanel(data: DashboardData): string {
   const latestSource = latestRecord ? humanSourceLabel(latestRecord.source) : "No writes yet";
   const latestSourceZh = latestRecord ? latestSource : "还没有写入";
   const reviewable = data.memory_inventory.summary.new_items + data.memory_inventory.summary.temporary;
-  const reviewableLabel = reviewable > 0 ? pluralize(reviewable, "item to organize", "items to organize") : "Nothing to organize";
-  const reviewableZh = reviewable > 0 ? `${reviewable} 条待整理内容` : "没有待整理内容";
+  const reviewableLabel = reviewable > 0 ? `${reviewable} saved for later` : "Nothing saved for later";
+  const reviewableZh = reviewable > 0 ? `${reviewable} 条已保存待整理` : "没有稍后整理内容";
   const shared = sharedCopyLabel(data.sync);
   return `
     <section class="recent-status" data-recent-status aria-label="Recent status">
@@ -7274,7 +7274,7 @@ function recentStatusPanel(data: DashboardData): string {
           ${i18nText(shared.label, shared.zh, "strong")}
         </article>
         <article>
-          ${i18nText("To organize", "待整理")}
+          ${i18nText("Saved for later", "稍后整理")}
           <strong ${i18nAttribute(reviewableLabel, reviewableZh)}>${escapeHtml(reviewableLabel)}</strong>
         </article>
       </div>

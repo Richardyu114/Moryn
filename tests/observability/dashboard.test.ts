@@ -752,7 +752,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span data-status-ticker-item=\"last-write\"><b data-i18n-en=\"Last write\" data-i18n-zh=\"最近写入\">Last write</b><strong><time datetime=\"2026-06-01T00:03:00.000Z\" title=\"2026-06-01T00:03:00.000Z\" data-i18n-en=\"19d ago\" data-i18n-zh=\"19 天前\">19d ago</time></strong></span>");
       expect(html).toContain("<span data-status-ticker-item=\"source\"><b data-i18n-en=\"Source\" data-i18n-zh=\"来源\">Source</b><strong data-i18n-en=\"Gemini\" data-i18n-zh=\"Gemini\">Gemini</strong></span>");
       expect(html).toContain("<span data-status-ticker-item=\"shared-copy\"><b data-i18n-en=\"Shared copy\" data-i18n-zh=\"共享副本\">Shared copy</b><strong data-i18n-en=\"Up to date\" data-i18n-zh=\"已同步\">Up to date</strong></span>");
-      expect(html).toContain("<span data-status-ticker-item=\"to-organize\"><b data-i18n-en=\"To organize\" data-i18n-zh=\"待整理\">To organize</b><strong data-i18n-en=\"2 items to organize\" data-i18n-zh=\"2 条待整理内容\">2 items to organize</strong></span>");
+      expect(html).toContain("<span data-status-ticker-item=\"to-organize\"><b data-i18n-en=\"Saved for later\" data-i18n-zh=\"稍后整理\">Saved for later</b><strong data-i18n-en=\"2 saved for later\" data-i18n-zh=\"2 条已保存待整理\">2 saved for later</strong></span>");
       expect(html).toContain("<div class=\"status-board-explain\" data-status-board-explain>");
       expect(html).toContain("<span data-i18n-en=\"Why this is here\" data-i18n-zh=\"为什么会看到这些内容\">Why this is here</span>");
       expect(html).toContain("<p data-i18n-en=\"Moryn saved 3 recent items from recent work. They stay searchable here; only rows with confirm buttons can change long-term memory.\" data-i18n-zh=\"Moryn 从最近工作保存了 3 条内容；它们会留在这里可搜索，只有带确认按钮的条目才能改变长期记忆。\">Moryn saved 3 recent items from recent work. They stay searchable here; only rows with confirm buttons can change long-term memory.</p>");
@@ -776,7 +776,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span data-i18n-en=\"Ready to use\" data-i18n-zh=\"可直接使用\">Ready to use</span>");
       expect(html).toContain("<small data-i18n-en=\"Moryn can use now\" data-i18n-zh=\"Moryn 现在可用\">Moryn can use now</small>");
       expect(html).toContain("<button type=\"button\" data-glance-summary=\"to-organize\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-glance-filter=\"candidate,raw,archived,quarantined\">");
-      expect(html).toContain("<span data-i18n-en=\"To organize\" data-i18n-zh=\"待整理\">To organize</span>");
+      expect(html).toContain("<span data-i18n-en=\"Saved for later\" data-i18n-zh=\"稍后整理\">Saved for later</span>");
       expect(html).toContain("<strong>2</strong>");
       expect(html).toContain("<small data-i18n-en=\"Saved for later\" data-i18n-zh=\"稍后整理\">Saved for later</small>");
       expect(html).toContain("<button type=\"button\" data-glance-summary=\"top-source\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-glance-source=\"Codex\">");
@@ -909,13 +909,13 @@ describe("observability dashboard", () => {
       expect(html).toContain("<time datetime=\"2026-06-01T00:03:00.000Z\" title=\"2026-06-01T00:03:00.000Z\" data-i18n-en=\"19d ago\" data-i18n-zh=\"19 天前\">19d ago</time>");
       expect(html).toContain("<span data-i18n-en=\"Latest source\" data-i18n-zh=\"最近来源\">Latest source</span>");
       expect(html).toContain("<span data-i18n-en=\"Shared copy\" data-i18n-zh=\"共享副本\">Shared copy</span>");
-      expect(html).toContain("<span data-i18n-en=\"To organize\" data-i18n-zh=\"待整理\">To organize</span>");
+      expect(html).toContain("<span data-i18n-en=\"Saved for later\" data-i18n-zh=\"稍后整理\">Saved for later</span>");
       expect(data.recent_records[0]).toMatchObject({
         source: { client: "gemini" },
         text: "Recent session status belongs on the dashboard front page."
       });
-      expect(html).toContain("2 items to organize");
-      expect(html).toContain("<strong data-i18n-en=\"2 items to organize\" data-i18n-zh=\"2 条待整理内容\">2 items to organize</strong>");
+      expect(html).toContain("2 saved for later");
+      expect(html).toContain("<strong data-i18n-en=\"2 saved for later\" data-i18n-zh=\"2 条已保存待整理\">2 saved for later</strong>");
       expect(html).not.toContain("2 saved or temporary items");
       expect(data.action_board.items.map((item) => item.id)).toEqual(["confirm", "review", "inspect", "sync"]);
       expect(data.action_board.items_by_id.review).toMatchObject({
