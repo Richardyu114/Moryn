@@ -629,9 +629,12 @@ Is sync healthy?  -> Status Board shared-copy answer, sync rail
 
 `Status Board` is the first read after the header. It keeps `This device` and
 `Shared copy` as compact status chips, then answers action, memory, and sync in
-three larger cards. The `At a glance` chart row appears before `What Moryn
-remembers`, `Recent status`, and the compact `Technical details` fold, so the
-user does not need to open a detail section to understand the current state.
+three larger cards. Those answer cards reuse the dashboard's local navigation:
+the action card opens the current next step, the memory card opens `Memory
+Explorer`, and the sync card opens `Store Signals`. The `At a glance` chart row
+appears before `What Moryn remembers`, `Recent status`, and the compact
+`Technical details` fold, so the user does not need to open a detail section to
+understand the current state.
 `Shared copy` is the user-facing name for Git sync state: it can read `Up to
 date`, `Waiting to upload`, `New shared updates`, `Needs help`, or `Not
 connected`. The API still exposes the underlying sync data in

@@ -109,6 +109,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Memory Explorer`, and `What Moryn remembers`");
     expectText(dashboard, "Is sync healthy? -> the `Status Board` shared-copy answer, `This device`");
     expectText(dashboard, "and the sync rail");
+    expectText(dashboard, "Those answer cards reuse the dashboard's local navigation");
+    expectText(dashboard, "the action card opens the current next step");
+    expectText(dashboard, "the memory card opens `Memory Explorer`, and the sync card opens `Store Signals`");
     expectText(dashboard, "The `Status Board`, `Needs your decision`, `Saved for later`, `At a glance`, and");
     expectText(dashboard, "`Memory Explorer` rows are visible");
     expectText(dashboard, "above `Technical details` in the live non-private dashboard");

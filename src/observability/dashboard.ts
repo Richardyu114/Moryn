@@ -6055,21 +6055,21 @@ function statusBoard(data: DashboardData): string {
         </article>
       </div>
       <div class="status-board-answers" data-status-board-answers>
-        <article class="answer-card action ${actionClass}" data-dashboard-priority="action">
+        <button type="button" class="answer-card action ${actionClass}" data-dashboard-priority="action" data-action-board-target="${escapeHtml(data.dashboard_overview.primary_action.target)}" aria-controls="${escapeHtml(data.dashboard_overview.primary_action.target)}">
           ${i18nText("Do I need to act?", "我需要操作吗？")}
           <strong data-i18n-en="${escapeHtml(data.dashboard_overview.headline)}" data-i18n-zh="${escapeHtml(data.dashboard_overview.headline === "Saved for later" ? "已保存，可稍后整理" : data.dashboard_overview.headline)}">${escapeHtml(data.dashboard_overview.headline)}</strong>
           <small data-i18n-en="${escapeHtml(data.dashboard_overview.primary_action.label)}" data-i18n-zh="${escapeHtml(data.dashboard_overview.primary_action.label === "Browse saved notes" ? "浏览已保存内容" : data.dashboard_overview.primary_action.label)}">${escapeHtml(data.dashboard_overview.primary_action.label)}</small>
-        </article>
-        <article class="answer-card memory" data-dashboard-priority="memory">
+        </button>
+        <button type="button" class="answer-card memory" data-dashboard-priority="memory" data-action-board-target="stored-content" aria-controls="stored-content">
           ${i18nText("What is stored?", "存了什么？")}
           <strong>${escapeHtml(data.memory_inventory.summary.total_visible)}</strong>
           ${i18nText("visible saved items", "条可见保存内容", "small")}
-        </article>
-        <article class="answer-card sync ${escapeHtml(shared.severity)}" data-dashboard-priority="sync">
+        </button>
+        <button type="button" class="answer-card sync ${escapeHtml(shared.severity)}" data-dashboard-priority="sync" data-action-board-target="store-signals" aria-controls="store-signals">
           ${i18nText("Is sync healthy?", "同步健康吗？")}
           ${i18nText(shared.label, shared.zh, "strong")}
           <small data-i18n-en="${escapeHtml(shared.detail)}" data-i18n-zh="${escapeHtml(shared.zhDetail)}">${escapeHtml(shared.detail)}</small>
-        </article>
+        </button>
       </div>
     </section>
   `;
@@ -7637,12 +7637,25 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .status-chip.warning { border-left-color: var(--warning); }
     .status-chip.critical { border-left-color: var(--critical); }
     .answer-card {
+      appearance: none;
+      text-align: left;
+      color: inherit;
+      cursor: pointer;
       min-height: 94px;
       background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.008)),
         rgba(12, 15, 20, 0.94);
+      font: inherit;
       box-shadow: 0 18px 38px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+      transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
     }
+    .answer-card:hover {
+      border-color: rgba(69, 185, 255, 0.38);
+      background: linear-gradient(180deg, rgba(69, 185, 255, 0.055), rgba(255, 255, 255, 0.01)), rgba(14, 17, 23, 0.96);
+      box-shadow: 0 20px 42px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.045);
+      transform: translateY(-1px);
+    }
+    .answer-card:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .answer-card.action.calm { border-left-color: var(--signal-blue); }
     .answer-card.action.good { border-left-color: var(--signal-green); }
     .answer-card.action.info { border-left-color: var(--signal-blue); }

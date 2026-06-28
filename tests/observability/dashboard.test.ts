@@ -611,11 +611,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("<small data-i18n-en=\"0 behind · 0 ahead\" data-i18n-zh=\"落后 0 · 待上传 0\">0 behind · 0 ahead</small>");
       expect(html).toContain("<div class=\"status-board-answers\" data-status-board-answers>");
       expect(html).not.toContain("<section class=\"dashboard-priority-strip\" data-dashboard-priority-strip aria-label=\"Dashboard priorities\">");
-      expect(html).toContain("<article class=\"answer-card action calm\" data-dashboard-priority=\"action\">");
+      expect(html).toContain("<button type=\"button\" class=\"answer-card action calm\" data-dashboard-priority=\"action\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\">");
       expect(html).toContain("<span data-i18n-en=\"Do I need to act?\" data-i18n-zh=\"我需要操作吗？\">Do I need to act?</span>");
-      expect(html).toContain("<article class=\"answer-card memory\" data-dashboard-priority=\"memory\">");
+      expect(html).toContain("<button type=\"button\" class=\"answer-card memory\" data-dashboard-priority=\"memory\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\">");
       expect(html).toContain("<span data-i18n-en=\"What is stored?\" data-i18n-zh=\"存了什么？\">What is stored?</span>");
-      expect(html).toContain("<article class=\"answer-card sync good\" data-dashboard-priority=\"sync\">");
+      expect(html).toContain("<button type=\"button\" class=\"answer-card sync good\" data-dashboard-priority=\"sync\" data-action-board-target=\"store-signals\" aria-controls=\"store-signals\">");
       expect(html).toContain("<span data-i18n-en=\"Is sync healthy?\" data-i18n-zh=\"同步健康吗？\">Is sync healthy?</span>");
       expect(html).toContain("<section class=\"glance-board\" data-dashboard-glance aria-label=\"At a glance\">");
       expect(html).toContain("<h2 data-i18n-en=\"At a glance\" data-i18n-zh=\"一眼看懂\">At a glance</h2>");
@@ -3730,6 +3730,7 @@ describe("observability dashboard", () => {
       expect(evidenceSupportingIndex).toBeGreaterThan(evidenceBackgroundGroupIndex);
       expect(evidenceCaptureInboxIndex === -1 || evidenceCaptureInboxIndex < evidenceLibraryDetailIndex).toBe(true);
       expect(html).toContain("const findDashboardTarget = (targetId) => {");
+      expect(html).toContain("const trigger = clicked.closest(\"[data-action-board-target]\");");
       expect(html).toContain("document.getElementById(targetId)");
       expect(html).toContain("document.querySelector(`[data-dashboard-detail=\"${cssEscape(targetId)}\"]`)");
       expect(html).toContain("const target = findDashboardTarget(targetId);");
