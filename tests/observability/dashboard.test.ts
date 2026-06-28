@@ -560,7 +560,7 @@ describe("observability dashboard", () => {
         expect.objectContaining({ kind: "agent_note", label: "Agent notes", count: 1 })
       ]));
       expect(data.dashboard_overview.headline).toBe("Saved for later");
-      expect(data.dashboard_overview.detail).toBe("1 saved-for-review item and 1 recent note are stored safely. Browse them when you want to decide what becomes long-term memory.");
+      expect(data.dashboard_overview.detail).toBe("1 recently saved item and 1 recent note are stored safely. Browse them when you want to decide what becomes long-term memory.");
       expect(data.dashboard_overview.primary_action).toMatchObject({
         label: "Browse saved notes",
         target: "stored-content",
@@ -583,7 +583,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("[\"Detail links\", \"详情入口\"]");
       expect(html).toContain("[\"Health checks\", \"健康检查\"]");
       expect(html).toContain("[\"Temporary notes waiting\", \"临时笔记待整理\"]");
-      expect(html).toContain("[\"Many saved-for-review items\", \"较多待整理内容\"]");
+      expect(html).toContain("[\"Many recently saved items\", \"较多最近保存内容\"]");
       expect(html).toContain("translateStaticText(original)");
       expect(html).toContain("translateLegacyText(document.body, language);");
       expect(html).toContain("localStorage.getItem(key)");
@@ -592,7 +592,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("--surface: #101216;");
       expect(html).not.toContain("--canvas: #f4f2ee;");
       expect(html).toContain("<strong data-i18n-en=\"Saved for later\" data-i18n-zh=\"已保存，可稍后整理\">Saved for later</strong>");
-      expect(html).toContain("<p data-i18n-en=\"1 saved-for-review item and 1 recent note are stored safely. Browse them when you want to decide what becomes long-term memory.\" data-i18n-zh=\"Moryn 已安全保存 1 条待整理内容和 1 条最近笔记。你想决定哪些进入长期记忆时再查看。\">1 saved-for-review item and 1 recent note are stored safely. Browse them when you want to decide what becomes long-term memory.</p>");
+      expect(html).toContain("<p data-i18n-en=\"1 recently saved item and 1 recent note are stored safely. Browse them when you want to decide what becomes long-term memory.\" data-i18n-zh=\"Moryn 已安全保存 1 条最近保存内容和 1 条最近笔记。你想决定哪些进入长期记忆时再查看。\">1 recently saved item and 1 recent note are stored safely. Browse them when you want to decide what becomes long-term memory.</p>");
       expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Browse saved notes\" data-i18n-zh=\"浏览已保存内容\">Browse saved notes</button>");
       expect(html).not.toContain("<strong>All clear</strong>");
       expect(html).not.toContain("<p>No work needs attention.</p>");
@@ -1098,6 +1098,8 @@ describe("observability dashboard", () => {
 
       expect(data.health.status).toBe("healthy");
       expect(data.dashboard_overview.headline).toBe("Saved for later");
+      expect(data.dashboard_overview.detail).toBe("3 recently saved items and 1 recent note are stored safely. Browse them when you want to decide what becomes long-term memory.");
+      expect(html).toContain("<p data-i18n-en=\"3 recently saved items and 1 recent note are stored safely. Browse them when you want to decide what becomes long-term memory.\" data-i18n-zh=\"Moryn 已安全保存 3 条最近保存内容和 1 条最近笔记。你想决定哪些进入长期记忆时再查看。\">3 recently saved items and 1 recent note are stored safely. Browse them when you want to decide what becomes long-term memory.</p>");
       expect(data.dashboard_overview.primary_action).toMatchObject({
         label: "Browse saved notes",
         target: "stored-content",

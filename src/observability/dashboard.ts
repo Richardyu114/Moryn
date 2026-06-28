@@ -288,6 +288,7 @@ export interface DashboardOverview {
   status: DashboardOverviewStatus;
   headline: string;
   detail: string;
+  zh_detail?: string;
   primary_action: {
     label: string;
     target: string;
@@ -1217,8 +1218,8 @@ function buildAttentionItems(sync: GitSyncStatus, records: MorynRecord[]): Dashb
   if (candidates > Math.max(8, canonical * 2)) {
     items.push({
       severity: "info",
-      title: "Many saved-for-review items",
-      description: `${candidates} saved-for-review item(s) may need long-term memory, archive, or cleanup.`
+      title: "Many recently saved items",
+      description: `${candidates} recently saved item(s) may need long-term memory, archive, or cleanup.`
     });
   }
 
@@ -2239,6 +2240,7 @@ function buildDashboardOverview(input: {
     : primary;
   const headline = primary.source === "memory_inventory" ? "Saved for later" : primary.next_action_label;
   const primaryActionLabel = primary.source === "memory_inventory" ? primary.hint : actionCardPrimary.next_action_label;
+  const zhDetail = primary.source === "memory_inventory" ? memoryInventoryReviewDetailZh(input.memoryInventory) : undefined;
   const contextGate = input.contextPackReview.handoff_pack?.quality_gate.status;
   const cards: DashboardOverviewCard[] = [
     {
@@ -2288,6 +2290,7 @@ function buildDashboardOverview(input: {
     status: overviewStatusFromActionSeverity(primary.severity),
     headline,
     detail: primary.detail,
+    ...(zhDetail ? { zh_detail: zhDetail } : {}),
     primary_action: {
       label: primaryActionLabel,
       target: actionCardPrimary.target,
@@ -3338,12 +3341,32 @@ type DashboardPrimaryFocusItem = DashboardActionBoardItem & { source?: string };
 
 function memoryInventoryReviewDetail(inventory: DashboardMemoryInventory): string {
   const parts = [
-    inventory.summary.new_items > 0 ? pluralize(inventory.summary.new_items, "saved-for-review item") : "",
+    inventory.summary.new_items > 0 ? pluralize(inventory.summary.new_items, "recently saved item") : "",
     inventory.summary.temporary > 0 ? pluralize(inventory.summary.temporary, "recent note") : "",
     inventory.summary.set_aside > 0 ? pluralize(inventory.summary.set_aside, "set-aside item") : ""
   ].filter(Boolean);
   const subject = joinHumanList(parts);
   return `${subject} ${parts.length === 1 ? "is" : "are"} stored safely. Browse ${parts.length === 1 ? "it" : "them"} when you want to decide what becomes long-term memory.`;
+}
+
+function zhCount(count: number, label: string): string {
+  return `${count} 条${label}`;
+}
+
+function joinZhList(items: readonly string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  if (items.length === 2) return `${items[0]}和 ${items[1]}`;
+  return `${items.slice(0, -1).join("、")}和 ${items.at(-1)}`;
+}
+
+function memoryInventoryReviewDetailZh(inventory: DashboardMemoryInventory): string {
+  const parts = [
+    inventory.summary.new_items > 0 ? zhCount(inventory.summary.new_items, "最近保存内容") : "",
+    inventory.summary.temporary > 0 ? zhCount(inventory.summary.temporary, "最近笔记") : "",
+    inventory.summary.set_aside > 0 ? zhCount(inventory.summary.set_aside, "已搁置内容") : ""
+  ].filter(Boolean);
+  const subject = joinZhList(parts);
+  return `Moryn 已安全保存 ${subject}。你想决定${parts.length === 1 ? "它是否" : "哪些"}进入长期记忆时再查看。`;
 }
 
 function memoryInventoryReviewItem(
@@ -3439,9 +3462,9 @@ function dashboardOverview(
     : data.primary_action.label;
   const headlineZh = dashboardActionLabelZh(data.headline);
   const detailZh = data.headline === "Saved for later"
-    ? data.detail
-      .replace("1 saved-for-review item and 1 recent note are stored safely. Browse them when you want to decide what becomes long-term memory.", "Moryn 已安全保存 1 条待整理内容和 1 条最近笔记。你想决定哪些进入长期记忆时再查看。")
-      .replace("1 saved-for-review item is stored safely. Browse it when you want to decide what becomes long-term memory.", "Moryn 已安全保存 1 条待整理内容。你想决定它是否进入长期记忆时再查看。")
+    ? data.zh_detail ?? data.detail
+      .replace("1 recently saved item and 1 recent note are stored safely. Browse them when you want to decide what becomes long-term memory.", "Moryn 已安全保存 1 条最近保存内容和 1 条最近笔记。你想决定哪些进入长期记忆时再查看。")
+      .replace("1 recently saved item is stored safely. Browse it when you want to decide what becomes long-term memory.", "Moryn 已安全保存 1 条最近保存内容。你想决定它是否进入长期记忆时再查看。")
       .replace("1 recent note is stored safely. Browse it when you want to decide what becomes long-term memory.", "Moryn 已安全保存 1 条最近笔记。你想决定它是否进入长期记忆时再查看。")
     : dashboardActionDetailZh(visibleDetail);
   const actionLabelZh = dashboardActionLabelZh(actionLabel);
@@ -6755,7 +6778,7 @@ function dashboardLanguageScript(): string {
         ["Critical", "严重"],
         ["Quarantined records superseded", "隔离内容已有安全替代"],
         ["Temporary notes waiting", "临时笔记待整理"],
-        ["Many saved-for-review items", "较多待整理内容"],
+        ["Many recently saved items", "较多最近保存内容"],
         ["Check records", "检查记录"],
         ["Read-only details available", "可查看只读详情"],
         ["Optional details", "可选详情"],

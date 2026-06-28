@@ -1080,7 +1080,7 @@ Attention items call out conditions such as:
 - unresolved quarantined records
 - quarantined records that have active safe replacement indexes
 - temporary notes waiting outside normal recall
-- many saved-for-review items relative to long-term memory
+- many recently saved items relative to long-term memory
 - missing sync remote
 
 Attention items render as compact expandable rows. The default row shows the
