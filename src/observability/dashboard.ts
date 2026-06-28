@@ -6941,6 +6941,35 @@ function memorySearchStatusLabel(count: number, filtered = false): { en: string;
   };
 }
 
+function memorySearchMixItem(state: MorynRecord["state"] | "event", count: number): string {
+  const label = state === "event" ? { en: "Event", pluralEn: "Events", zh: "事件" } : (() => {
+    const stateLabel = memoryStateLabelFromRecordState(state);
+    return { en: stateLabel.en, pluralEn: stateLabel.en, zh: stateLabel.zh };
+  })();
+  const en = `${count} ${count === 1 ? label.en : label.pluralEn}`;
+  const zh = `${count} 条${label.zh}`;
+  return `<span data-memory-search-mix-item="${escapeHtml(state)}" data-i18n-singular-en="${escapeHtml(label.en)}" data-i18n-plural-en="${escapeHtml(label.pluralEn)}" data-i18n-label-zh="${escapeHtml(label.zh)}" ${i18nAttribute(en, zh)}${count === 0 ? " hidden" : ""}>${escapeHtml(en)}</span>`;
+}
+
+function memorySearchMix(records: DashboardRecordSummary[], events: DashboardEventSummary[]): string {
+  const counts: Record<MorynRecord["state"] | "event", number> = {
+    canonical: 0,
+    candidate: 0,
+    raw: 0,
+    archived: 0,
+    quarantined: 0,
+    event: events.length
+  };
+  for (const record of records) {
+    counts[record.state] = (counts[record.state] ?? 0) + 1;
+  }
+  return `
+        <div class="memory-search-mix" data-memory-search-mix aria-label="Search result mix">
+          ${(["canonical", "candidate", "raw", "archived", "quarantined", "event"] as Array<MorynRecord["state"] | "event">).map((state) => memorySearchMixItem(state, counts[state] ?? 0)).join("")}
+        </div>
+  `;
+}
+
 function memorySearchChip(query: string, label: string, zhLabel: string): string {
   return `<button type="button" class="memory-search-chip" data-memory-search-chip="${escapeHtml(query)}" data-i18n-en="${escapeHtml(label)}" data-i18n-zh="${escapeHtml(zhLabel)}">${escapeHtml(label)}</button>`;
 }
@@ -7008,6 +7037,7 @@ function memorySearchPanel(data: DashboardData): string {
           <span data-memory-search-status ${i18nAttribute(statusLabel.en, statusLabel.zh)}>${escapeHtml(statusLabel.en)}</span>
           <small data-i18n-en="Local search only; no writes happen here." data-i18n-zh="仅本地搜索；这里不会写入。">Local search only; no writes happen here.</small>
         </div>
+        ${memorySearchMix(data.recent_records, data.recent_events)}
         <div class="memory-search-results" data-memory-search-results>
           ${entries.join("")}
         </div>
@@ -7681,11 +7711,35 @@ function dashboardStoredContentScript(): string {
         status.dataset.i18nZh = filtered ? \`显示 \${count} 条内容\` : \`可搜索 \${count} 条内容\`;
         status.textContent = selectedLanguage() === "zh" ? status.dataset.i18nZh : status.dataset.i18nEn;
       };
+      const setMemorySearchMixItem = (item, count) => {
+        if (!(item instanceof HTMLElement)) return;
+        const singular = item.dataset.i18nSingularEn || item.dataset.i18nLabelEn || "";
+        const plural = item.dataset.i18nPluralEn || singular;
+        const zhLabel = item.dataset.i18nLabelZh || "";
+        item.dataset.i18nEn = count + " " + (count === 1 ? singular : plural);
+        item.dataset.i18nZh = count + " 条" + zhLabel;
+        item.textContent = selectedLanguage() === "zh" ? item.dataset.i18nZh : item.dataset.i18nEn;
+      };
+      const updateMemorySearchMix = (panel, visibleEntries) => {
+        const counts = {};
+        for (const entry of visibleEntries) {
+          if (!(entry instanceof HTMLElement)) continue;
+          const key = entry.dataset.memorySearchState || "event";
+          counts[key] = (counts[key] || 0) + 1;
+        }
+        panel.querySelectorAll("[data-memory-search-mix-item]").forEach((item) => {
+          if (!(item instanceof HTMLElement)) return;
+          const count = counts[item.dataset.memorySearchMixItem || ""] || 0;
+          item.hidden = count === 0;
+          setMemorySearchMixItem(item, count);
+        });
+      };
       const filterMemorySearch = (panel, filters) => {
         const normalizedQuery = String(filters.query || "").trim().toLowerCase();
         const parsed = parseMemorySearchQuery(normalizedQuery);
         const entries = Array.from(panel.querySelectorAll("[data-memory-search-entry]"));
         let visible = 0;
+        const visibleEntries = [];
         for (const entry of entries) {
           if (!(entry instanceof HTMLElement)) continue;
           const text = entry.dataset.memorySearchText || entry.textContent || "";
@@ -7699,11 +7753,15 @@ function dashboardStoredContentScript(): string {
           const matchesRecent = !parsed.recentDays || entryIsRecent(entry, parsed.recentDays, panel.dataset.memorySearchNow || "");
           const matches = matchesQuery && matchesState && matchesSource && matchesCommandSource && matchesCommandState && matchesCommandType && matchesRecent;
           entry.hidden = !matches;
-          if (matches) visible += 1;
+          if (matches) {
+            visible += 1;
+            visibleEntries.push(entry);
+          }
         }
         const status = panel.querySelector("[data-memory-search-status]");
         const filtered = normalizedQuery.length > 0 || filters.state !== "all" || filters.source !== "all";
         setMemorySearchStatus(status, filtered ? visible : entries.length, filtered);
+        updateMemorySearchMix(panel, filtered ? visibleEntries : entries);
       };
       const setSearchState = (state, options = {}) => {
         document.querySelectorAll("[data-memory-search-panel]").forEach((panel) => {
@@ -8843,6 +8901,26 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .memory-search-meta small {
       text-align: right;
       white-space: nowrap;
+    }
+    .memory-search-mix {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-height: 26px;
+      align-items: center;
+    }
+    .memory-search-mix span {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      border: 1px solid rgba(112, 129, 149, 0.22);
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: rgba(4, 5, 7, 0.42);
+      color: var(--ink-2);
+      font-size: 11px;
+      font-weight: 800;
+      overflow-wrap: anywhere;
     }
     .memory-search-results {
       display: grid;

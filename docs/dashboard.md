@@ -693,9 +693,12 @@ The memory-state chart is also a local navigation control: clicking
 `Find what Moryn saved` and filters the visible previews by that state. The
 saved-content filter bar can switch back to `All` or jump between available states. Its search
 controls filter across recent records and events by keyword, memory state, and
-source. Search shortcut chips write readable local queries into the same input,
-such as `source:Codex`, `state:remembered`, `state:to-organize`, `type:event`,
-and `recent:7d`; users can also type those query terms directly. The read-only
+source. The search panel also shows a live result mix for `Remembered`, `To
+organize`, `Session notes`, `Set aside`, and `Events`, and those counts follow
+typed queries, shortcut chips, and source/status filters. Search shortcut chips
+write readable local queries into the same input, such as `source:Codex`,
+`state:remembered`, `state:to-organize`, `type:event`, and `recent:7d`; users
+can also type those query terms directly. The read-only
 detail pane opens with the first visible saved item and follows the first
 matching item after filtering; selecting another saved item updates the same
 pane. All of these controls are client-side and read-only.

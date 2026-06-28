@@ -185,6 +185,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "opens `Find what Moryn saved` and filters the visible previews by that state");
     expectText(dashboard, "The saved-content filter bar can switch back to `All`");
     expectText(dashboard, "Its search controls filter across recent records and events by keyword, memory state, and source");
+    expectText(dashboard, "The search panel also shows a live result mix for `Remembered`, `To");
+    expectText(dashboard, "organize`, `Session notes`, `Set aside`, and `Events`");
+    expectText(dashboard, "those counts follow typed queries, shortcut chips, and source/status filters");
     expectText(dashboard, "Search shortcut chips write readable local queries into the same input");
     expectText(dashboard, "`source:Codex`, `state:remembered`, `state:to-organize`, `type:event`");
     expectText(dashboard, "and `recent:7d`; users can also type those query terms directly");
