@@ -1050,6 +1050,24 @@ function relativeTime(iso: string, nowIso: string): string {
   return `${days}d ago`;
 }
 
+function relativeTimeZh(relative: string): string {
+  if (relative === "just now") return "刚刚";
+  const minutes = relative.match(/^(\d+)m ago$/);
+  if (minutes) return `${minutes[1]} 分钟前`;
+  const hours = relative.match(/^(\d+)h ago$/);
+  if (hours) return `${hours[1]} 小时前`;
+  const days = relative.match(/^(\d+)d ago$/);
+  if (days) return `${days[1]} 天前`;
+  return relative;
+}
+
+function sourceRelativePair(source: string, relative: string): { en: string; zh: string } {
+  return {
+    en: `${source} | ${relative}`,
+    zh: `${source} | ${relativeTimeZh(relative)}`
+  };
+}
+
 function stateCounts(records: MorynRecord[]): Map<MorynRecord["state"], number> {
   const counts = new Map<MorynRecord["state"], number>();
   for (const record of records) {
@@ -6316,15 +6334,19 @@ function recentActivityBars(agents: DashboardAgentChartItem[]): string {
   if (agents.length === 0) return `<div class="empty-state">No recent activity yet.</div>`;
   return `
       <div class="activity-bars" aria-label="Recent source activity">
-        ${agents.map((agent) => `
+        ${agents.map((agent) => {
+          const savedEn = `${agent.records} saved | ${agent.relative_time}`;
+          const savedZh = `${agent.records} 条保存内容 | ${relativeTimeZh(agent.relative_time)}`;
+          return `
           <div class="activity-row">
             <div class="type-label">
               <strong>${escapeHtml(agent.client)}</strong>
-              <span>${escapeHtml(agent.records)} saved | ${escapeHtml(agent.relative_time)}</span>
+              <span ${i18nAttribute(savedEn, savedZh)}>${escapeHtml(savedEn)}</span>
             </div>
             <div class="bar-track" aria-hidden="true"><span style="width: ${escapeHtml(agent.weight)}%"></span></div>
           </div>
-        `).join("")}
+        `;
+        }).join("")}
       </div>
   `;
 }
@@ -6335,7 +6357,7 @@ function dashboardGlanceBoard(data: DashboardData): string {
   const latestSource = latestRecord ? humanSourceLabel(latestRecord.source) : "No writes yet";
   const latestSourceZh = latestRecord ? latestSource : "还没有写入";
   const latestWhen = latestRecord ? relativeTime(latestRecord.updated_at, data.generated_at) : "None";
-  const latestWhenZh = latestRecord ? latestWhen : "无";
+  const latestWhenZh = latestRecord ? relativeTimeZh(latestWhen) : "无";
   return `
     <section class="glance-board" data-dashboard-glance aria-label="At a glance">
       <div class="section-heading">
@@ -6507,11 +6529,14 @@ function storedContentNextStep(item: DashboardValueRecord): { label: string; zhL
 function storedContentItem(item: DashboardValueRecord): string {
   const state = memoryStateLabelFromRecordState(item.state);
   const nextStep = storedContentNextStep(item);
+  const sourceRelative = sourceRelativePair(item.source_label, item.relative_time);
+  const updatedEn = `${item.relative_time} | ${item.exact_time}`;
+  const updatedZh = `${relativeTimeZh(item.relative_time)} | ${item.exact_time}`;
   return `
-            <article class="stored-content-item state-${escapeHtml(item.state)}" data-stored-content-item="${escapeHtml(item.id)}" data-stored-content-state="${escapeHtml(item.state)}" data-stored-content-source="${escapeHtml(item.source_label)}" data-memory-explorer-title="${escapeHtml(item.title)}" data-memory-explorer-full-text="${escapeHtml(item.summary)}" data-memory-explorer-state="${escapeHtml(state.en)}" data-memory-explorer-state-en="${escapeHtml(state.en)}" data-memory-explorer-state-zh="${escapeHtml(state.zh)}" data-memory-explorer-source="${escapeHtml(item.source_detail || item.source_label)}" data-memory-explorer-updated="${escapeHtml(`${item.relative_time} | ${item.exact_time}`)}" data-memory-explorer-timeline="${escapeHtml(item.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(item.citation.recall_command)}" tabindex="0">
+            <article class="stored-content-item state-${escapeHtml(item.state)}" data-stored-content-item="${escapeHtml(item.id)}" data-stored-content-state="${escapeHtml(item.state)}" data-stored-content-source="${escapeHtml(item.source_label)}" data-memory-explorer-title="${escapeHtml(item.title)}" data-memory-explorer-full-text="${escapeHtml(item.summary)}" data-memory-explorer-state="${escapeHtml(state.en)}" data-memory-explorer-state-en="${escapeHtml(state.en)}" data-memory-explorer-state-zh="${escapeHtml(state.zh)}" data-memory-explorer-source="${escapeHtml(item.source_detail || item.source_label)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" data-memory-explorer-timeline="${escapeHtml(item.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(item.citation.recall_command)}" tabindex="0">
               <div class="stored-content-item-head">
                 <span data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}">${escapeHtml(state.en)}</span>
-                <small>${escapeHtml(`${item.source_label} | ${item.relative_time}`)}</small>
+                <small ${i18nAttribute(sourceRelative.en, sourceRelative.zh)}>${escapeHtml(sourceRelative.en)}</small>
               </div>
               <strong>${escapeHtml(item.title)}</strong>
               ${textExcerptBlock(item.summary)}
@@ -6551,7 +6576,7 @@ function memorySearchRecordEntry(record: DashboardRecordSummary, generatedAt: st
   const stateLabel = memoryStateLabelFromRecordState(record.state);
   const relative = relativeTime(record.updated_at, generatedAt);
   const metaEn = `${stateLabel.en} | ${source} | ${relative}`;
-  const metaZh = `${stateLabel.zh} | ${source} | ${relative}`;
+  const metaZh = `${stateLabel.zh} | ${source} | ${relativeTimeZh(relative)}`;
   const searchText = memorySearchText([
     "record",
     record.id,
@@ -6575,6 +6600,8 @@ function memorySearchRecordEntry(record: DashboardRecordSummary, generatedAt: st
 
 function memorySearchEventEntry(event: DashboardEventSummary, generatedAt: string): string {
   const source = humanSourceLabel(event.source);
+  const relative = relativeTime(event.created_at, generatedAt);
+  const meta = sourceRelativePair(source, relative);
   const eventTarget = event.record_id
     ? `<span ${i18nAttribute("Saved item", "保存内容")}>Saved item</span> <code>${escapeHtml(event.record_id)}</code>`
     : i18nText("Store-level event", "全局事件", "span");
@@ -6590,7 +6617,7 @@ function memorySearchEventEntry(event: DashboardEventSummary, generatedAt: strin
             <span ${i18nAttribute("Event", "事件")}>Event</span>
             <strong>${escapeHtml(event.op)}</strong>
             <p>${eventTarget}</p>
-            <small>${escapeHtml(`${source} | ${relativeTime(event.created_at, generatedAt)}`)}</small>
+            <small ${i18nAttribute(meta.en, meta.zh)}>${escapeHtml(meta.en)}</small>
           </article>
   `;
 }
@@ -7214,13 +7241,14 @@ function dashboardStoredContentScript(): string {
         const detailTitle = detail.querySelector("[data-memory-explorer-detail-title]");
         const detailText = detail.querySelector("[data-memory-explorer-detail-text]");
         const detailState = detail.querySelector("[data-memory-explorer-detail-state]");
+        const detailUpdated = detail.querySelector("[data-memory-explorer-detail-updated]");
         const detailGrid = detail.querySelector("[data-memory-explorer-detail-grid]");
         const trace = detail.querySelector("[data-memory-explorer-trace]");
         setLocalizedDetailText(detailTitle, item.dataset.memoryExplorerTitle || "Saved item");
         setLocalizedDetailText(detailText, item.dataset.memoryExplorerFullText || item.textContent || "");
         setLocalizedDetailText(detailState, item.dataset.memoryExplorerStateEn || item.dataset.memoryExplorerState || "", item.dataset.memoryExplorerStateZh || item.dataset.memoryExplorerState || "");
         setDetailText("[data-memory-explorer-detail-source]", item.dataset.memoryExplorerSource || "");
-        setDetailText("[data-memory-explorer-detail-updated]", item.dataset.memoryExplorerUpdated || "");
+        setLocalizedDetailText(detailUpdated, item.dataset.memoryExplorerUpdated || "", item.dataset.memoryExplorerUpdatedZh || item.dataset.memoryExplorerUpdated || "");
         setDetailText("[data-memory-explorer-detail-timeline]", item.dataset.memoryExplorerTimeline || "");
         setDetailText("[data-memory-explorer-detail-recall]", item.dataset.memoryExplorerRecall || "");
         if (detailGrid instanceof HTMLElement) detailGrid.hidden = false;

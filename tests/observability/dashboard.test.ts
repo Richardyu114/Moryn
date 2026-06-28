@@ -732,6 +732,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<article class=\"glance-chart memory-types\" data-memory-kind-chart>");
       expect(html).toContain("<article class=\"glance-chart shared-copy good\" data-shared-copy-chart>");
       expect(html).toContain("<article class=\"glance-chart recent-activity\" data-recent-activity-chart>");
+      expect(html).toContain("<strong data-i18n-en=\"19d ago\" data-i18n-zh=\"19 天前\">19d ago</strong>");
+      expect(html).toContain("<span data-i18n-en=\"1 saved | 19d ago\" data-i18n-zh=\"1 条保存内容 | 19 天前\">1 saved | 19d ago</span>");
       expect(html.indexOf("data-dashboard-glance")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
       expect(data.dashboard_overview.cards.map((card) => card.id)).toEqual(["health", "action", "context", "sync"]);
       expect(html).toContain("<section class=\"decision-panel saved-later\" data-dashboard-decision-panel aria-label=\"Saved for later\">");
@@ -778,6 +780,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-memory-explorer-full-text=\"Recent session status belongs on the dashboard front page.\"");
       expect(html).toContain("data-memory-explorer-state-en=\"Saved recently\"");
       expect(html).toContain("data-memory-explorer-state-zh=\"最近保存\"");
+      expect(html).toContain("data-memory-explorer-updated-zh=\"19 天前 | 2026-06-01T00:03:00.000Z\"");
       expect(html).toContain("data-memory-explorer-timeline=\"moryn timeline --record-id rec_action_board_3 --project-id moryn\"");
       expect(html).toContain("data-memory-explorer-recall=\"moryn recall --record-id rec_action_board_3 --project-id moryn\"");
       expect(html).toContain("<div class=\"stored-content-next-step\" data-stored-content-next-step>");
@@ -1181,12 +1184,15 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-memory-search-source=\"Codex\"");
       expect(html).toContain("Searchable dashboard keyword alpha");
       expect(html).toContain("<span data-i18n-en=\"Memory\" data-i18n-zh=\"记忆\">Memory</span>");
-      expect(html).toContain("<small data-i18n-en=\"Long-term memory | Codex | 19d ago\" data-i18n-zh=\"长期记忆 | Codex | 19d ago\">Long-term memory | Codex | 19d ago</small>");
+      expect(html).toContain("<small data-i18n-en=\"Long-term memory | Codex | 19d ago\" data-i18n-zh=\"长期记忆 | Codex | 19 天前\">Long-term memory | Codex | 19d ago</small>");
       expect(html).toContain("<article class=\"memory-search-result event\" data-memory-search-entry=\"event:evt_memory_search_1\"");
       expect(html).toContain("data-memory-search-state=\"event\"");
       expect(html).toContain("data-memory-search-source=\"Codex\"");
       expect(html).toContain("<span data-i18n-en=\"Event\" data-i18n-zh=\"事件\">Event</span>");
       expect(html).toContain("<p><span data-i18n-en=\"Saved item\" data-i18n-zh=\"保存内容\">Saved item</span> <code>rec_memory_search_1</code></p>");
+      expect(html).toContain("<small data-i18n-en=\"Codex | 19d ago\" data-i18n-zh=\"Codex | 19 天前\">Codex | 19d ago</small>");
+      expect(html).not.toContain("data-i18n-zh=\"长期记忆 | Codex | 19d ago\"");
+      expect(html).not.toContain("data-i18n-zh=\"Codex | 19d ago\"");
       expect(html).toContain("data-memory-search-text=");
       expect(html).toContain("writeStoredContentState({ searchQuery: query, searchOpen: true });");
       expect(html).toContain("selectedItemId: null");
@@ -1199,6 +1205,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("setLocalizedDetailText(detailTitle, item.dataset.memoryExplorerTitle || \"Saved item\");");
       expect(html).toContain("setLocalizedDetailText(detailText, item.dataset.memoryExplorerFullText || item.textContent || \"\");");
       expect(html).toContain("setLocalizedDetailText(detailState, item.dataset.memoryExplorerStateEn || item.dataset.memoryExplorerState || \"\", item.dataset.memoryExplorerStateZh || item.dataset.memoryExplorerState || \"\");");
+      expect(html).toContain("const detailUpdated = detail.querySelector(\"[data-memory-explorer-detail-updated]\");");
+      expect(html).toContain("setLocalizedDetailText(detailUpdated, item.dataset.memoryExplorerUpdated || \"\", item.dataset.memoryExplorerUpdatedZh || item.dataset.memoryExplorerUpdated || \"\");");
+      expect(html).not.toContain("setLocalizedDetailText(\"[data-memory-explorer-detail-updated]\"");
       expect(html).toContain("writeStoredContentState({ selectedItemId: item.dataset.storedContentItem || null });");
       expect(html).toContain("const resetMemoryExplorerDetail = () => {");
       expect(html).toContain("detailGrid.hidden = true;");

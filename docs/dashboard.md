@@ -628,7 +628,8 @@ derived overview cards also follow the language toggle, so `Review decisions`,
 `Review warnings`, `Local Only`, and `Sync Pending` do not remain as English-only
 UI labels in Chinese mode. Derived overview-card count and status snippets such
 as `saved items`, `safe check available`, and `Clean` also carry Chinese display
-text. Source names, timestamps, event operation names, and record ids stay
+text. Relative-time labels such as `2d ago` also carry Chinese display text.
+Source names, exact timestamps, event operation names, and record ids stay
 literal; saved memory text and event evidence stay in their original wording.
 
 The first screen is arranged around three plain questions:
