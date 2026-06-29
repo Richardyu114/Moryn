@@ -367,7 +367,10 @@ canonical memory with `source.client: "user"` and explicit confirmation.
 `reject` archives one active candidate. Both endpoints replay the current store
 before writing and return `409` when the record is no longer actionable. Group
 endpoints require the rendered `record_ids[]` and reject stale batches when any
-selected candidate changed state.
+selected candidate changed state. Successful record responses return
+`event_id` plus `trace.timeline_command` and `trace.recall_command`.
+Successful group responses return `event_ids` plus
+`trace.timeline_commands[]` and `trace.recall_commands[]`.
 
 `/api/dashboard` also returns `capture_inbox.policy`, `capture_inbox.groups[]`,
 `capture_inbox.autocapture_policy`, and item-level noise signals. The default
@@ -400,7 +403,11 @@ Review Queue approvals post only `plan_hash` to
 `POST /api/maintenance/plans/:plan_id/approve`; the server reconstructs the
 current plan before writing. Project identity repair plans append
 `revise_record` events, while candidate noise cleanup plans append
-`archive_record` events after explicit approval.
+`archive_record` events after explicit approval. Successful approval responses
+return `event_ids` plus `trace.timeline_commands[]` and
+`trace.recall_commands[]` so every append-only write has immediate inspection
+commands. Candidate Triage promotion draft approvals return `event_id` plus
+`trace.timeline_command` and `trace.recall_command`.
 
 `/api/dashboard` also returns `governance`, a read-only normalized review queue
 for existing local reports. Its contract is:

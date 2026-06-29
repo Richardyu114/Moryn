@@ -8619,7 +8619,13 @@ describe("observability dashboard", () => {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({})
         });
-        const approveBody = await approveResponse.json() as { ok: boolean; status: string; record_id: string; event_id: string };
+        const approveBody = await approveResponse.json() as {
+          ok: boolean;
+          status: string;
+          record_id: string;
+          event_id: string;
+          trace: { timeline_command: string; recall_command: string };
+        };
 
         expect(approveResponse.status).toBe(200);
         expect(approveBody).toMatchObject({
@@ -8628,6 +8634,10 @@ describe("observability dashboard", () => {
           record_id: approved.record.id
         });
         expect(approveBody.event_id).toMatch(/^evt_/);
+        expect(approveBody.trace).toEqual({
+          timeline_command: `moryn timeline --event-id ${approveBody.event_id} --project-id moryn`,
+          recall_command: `moryn recall --record-id ${approved.record.id} --project-id moryn`
+        });
         expect((await engine.recall({ record_ids: [approved.record.id], states: ["canonical"], project_id: "moryn" })).results[0]?.record.state).toBe("canonical");
 
         const rejectResponse = await fetch(new URL(`/api/capture-inbox/${rejected.record.id}/reject`, server.url), {
@@ -8635,7 +8645,13 @@ describe("observability dashboard", () => {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ reason: "User rejected Capture Inbox candidate." })
         });
-        const rejectBody = await rejectResponse.json() as { ok: boolean; status: string; record_id: string; event_id: string };
+        const rejectBody = await rejectResponse.json() as {
+          ok: boolean;
+          status: string;
+          record_id: string;
+          event_id: string;
+          trace: { timeline_command: string; recall_command: string };
+        };
 
         expect(rejectResponse.status).toBe(200);
         expect(rejectBody).toMatchObject({
@@ -8644,6 +8660,10 @@ describe("observability dashboard", () => {
           record_id: rejected.record.id
         });
         expect(rejectBody.event_id).toMatch(/^evt_/);
+        expect(rejectBody.trace).toEqual({
+          timeline_command: `moryn timeline --event-id ${rejectBody.event_id} --project-id moryn`,
+          recall_command: `moryn recall --record-id ${rejected.record.id} --project-id moryn`
+        });
         expect((await engine.recall({ record_ids: [rejected.record.id], states: ["archived"], project_id: "moryn" })).results[0]?.record.state).toBe("archived");
 
         const refreshed = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
@@ -8738,7 +8758,15 @@ describe("observability dashboard", () => {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ record_ids: approveGroup.record_ids })
         });
-        const approved = await approveResponse.json() as { ok: boolean; status: string; group_id: string; records_changed: number; record_ids: string[] };
+        const approved = await approveResponse.json() as {
+          ok: boolean;
+          status: string;
+          group_id: string;
+          records_changed: number;
+          record_ids: string[];
+          event_ids: string[];
+          trace: { timeline_commands: string[]; recall_commands: string[] };
+        };
 
         expect(approveResponse.status).toBe(200);
         expect(approved).toMatchObject({
@@ -8746,6 +8774,10 @@ describe("observability dashboard", () => {
           status: "approved",
           records_changed: 2,
           record_ids: [approveTwo.record.id, approveOne.record.id]
+        });
+        expect(approved.trace).toEqual({
+          timeline_commands: approved.event_ids.map((eventId) => `moryn timeline --event-id ${eventId} --project-id moryn`),
+          recall_commands: [approveTwo.record.id, approveOne.record.id].map((recordId) => `moryn recall --record-id ${recordId} --project-id moryn`)
         });
         expect((await engine.recall({ record_ids: [approveOne.record.id, approveTwo.record.id], states: ["canonical"], project_id: "moryn" })).results.map((result) => result.record.id).sort()).toEqual([
           approveOne.record.id,
@@ -8760,7 +8792,14 @@ describe("observability dashboard", () => {
             reason: "User rejected Capture Inbox group."
           })
         });
-        const rejected = await rejectResponse.json() as { ok: boolean; status: string; records_changed: number; record_ids: string[] };
+        const rejected = await rejectResponse.json() as {
+          ok: boolean;
+          status: string;
+          records_changed: number;
+          record_ids: string[];
+          event_ids: string[];
+          trace: { timeline_commands: string[]; recall_commands: string[] };
+        };
 
         expect(rejectResponse.status).toBe(200);
         expect(rejected).toMatchObject({
@@ -8768,6 +8807,10 @@ describe("observability dashboard", () => {
           status: "rejected",
           records_changed: 2,
           record_ids: [rejectTwo.record.id, rejectOne.record.id]
+        });
+        expect(rejected.trace).toEqual({
+          timeline_commands: rejected.event_ids.map((eventId) => `moryn timeline --event-id ${eventId} --project-id moryn`),
+          recall_commands: [rejectTwo.record.id, rejectOne.record.id].map((recordId) => `moryn recall --record-id ${recordId} --project-id moryn`)
         });
         expect((await engine.recall({ record_ids: [rejectOne.record.id, rejectTwo.record.id], states: ["archived"], project_id: "moryn" })).results.map((result) => result.record.id).sort()).toEqual([
           rejectOne.record.id,
@@ -8979,7 +9022,13 @@ describe("observability dashboard", () => {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({})
         });
-        const approved = await response.json() as { ok: boolean; status: string; record_id: string; event_id: string };
+        const approved = await response.json() as {
+          ok: boolean;
+          status: string;
+          record_id: string;
+          event_id: string;
+          trace: { timeline_command: string; recall_command: string };
+        };
 
         expect(response.status).toBe(200);
         expect(approved).toMatchObject({
@@ -8988,6 +9037,10 @@ describe("observability dashboard", () => {
           record_id: candidate.record.id
         });
         expect(approved.event_id).toMatch(/^evt_/);
+        expect(approved.trace).toEqual({
+          timeline_command: `moryn timeline --event-id ${approved.event_id} --project-id moryn`,
+          recall_command: `moryn recall --record-id ${candidate.record.id} --project-id moryn`
+        });
         expect((await engine.recall({ record_ids: [candidate.record.id], states: ["canonical"], project_id: "moryn" })).results[0]?.record.state).toBe("canonical");
 
         const refreshed = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
@@ -9142,6 +9195,7 @@ describe("observability dashboard", () => {
           events_written: number;
           record_ids: string[];
           event_ids: string[];
+          trace: { timeline_commands: string[]; recall_commands: string[] };
         };
 
         expect(response.status).toBe(200);
@@ -9154,6 +9208,10 @@ describe("observability dashboard", () => {
         });
         expect(applied.event_ids).toHaveLength(1);
         expect(applied.event_ids[0]).toMatch(/^evt_/);
+        expect(applied.trace).toEqual({
+          timeline_commands: applied.event_ids.map((eventId) => `moryn timeline --event-id ${eventId} --project-id moryn`),
+          recall_commands: [oldRecord.record.id].map((recordId) => `moryn recall --record-id ${recordId} --project-id moryn`)
+        });
         expect((await engine.recall({ record_ids: [oldRecord.record.id], project_id: "moryn" })).results[0]?.record.project_id).toBe("moryn");
       } finally {
         await server.close();
@@ -9256,6 +9314,7 @@ describe("observability dashboard", () => {
           events_written: number;
           record_ids: string[];
           event_ids: string[];
+          trace: { timeline_commands: string[]; recall_commands: string[] };
         };
 
         expect(response.status).toBe(200);
@@ -9273,6 +9332,10 @@ describe("observability dashboard", () => {
         });
         expect(applied.event_ids).toHaveLength(3);
         expect(applied.event_ids.every((eventId) => /^evt_/.test(eventId))).toBe(true);
+        expect(applied.trace).toEqual({
+          timeline_commands: applied.event_ids.map((eventId) => `moryn timeline --event-id ${eventId} --project-id moryn`),
+          recall_commands: [e2e.record.id, smoke.record.id, marker.record.id].map((recordId) => `moryn recall --record-id ${recordId} --project-id moryn`)
+        });
         const recalled = await engine.recall({
           record_ids: [e2e.record.id, smoke.record.id, marker.record.id],
           states: ["archived"],

@@ -930,6 +930,24 @@ function timelineEventCommand(eventId: string, projectId: string | undefined): s
   return parts.join(" ");
 }
 
+function actionTrace(eventId: string, recordId: string, projectId: string | undefined): { timeline_command: string; recall_command: string } {
+  return {
+    timeline_command: timelineEventCommand(eventId, projectId),
+    recall_command: recallCommand(recordId, projectId)
+  };
+}
+
+function actionBatchTrace(
+  eventIds: string[],
+  recordIds: string[],
+  projectId: string | undefined
+): { timeline_commands: string[]; recall_commands: string[] } {
+  return {
+    timeline_commands: eventIds.map((eventId) => timelineEventCommand(eventId, projectId)),
+    recall_commands: recordIds.map((recordId) => recallCommand(recordId, projectId))
+  };
+}
+
 function latestEventsByRecord(events: MorynEvent[]): Map<string, MorynEvent> {
   const byRecord = new Map<string, MorynEvent>();
   for (const event of [...events].sort((left, right) => left.created_at.localeCompare(right.created_at) || left.event_id.localeCompare(right.event_id))) {
@@ -13834,7 +13852,8 @@ async function applyCaptureInboxAction(
         ok: true,
         status: "approved",
         record_id: record.id,
-        event_id: promoted.event.event_id
+        event_id: promoted.event.event_id,
+        trace: actionTrace(promoted.event.event_id, record.id, record.project_id)
       }
     };
   }
@@ -13853,7 +13872,8 @@ async function applyCaptureInboxAction(
       ok: true,
       status: "rejected",
       record_id: record.id,
-      event_id: archived.event.event_id
+      event_id: archived.event.event_id,
+      trace: actionTrace(archived.event.event_id, record.id, record.project_id)
     }
   };
 }
@@ -13899,7 +13919,8 @@ async function applyCaptureInboxGroupAction(
         group_id: groupId,
         records_changed: records.length,
         record_ids: records.map((record) => record.id),
-        event_ids: events
+        event_ids: events,
+        trace: actionBatchTrace(events, records.map((record) => record.id), records[0]?.project_id)
       }
     };
   }
@@ -13923,7 +13944,8 @@ async function applyCaptureInboxGroupAction(
       group_id: groupId,
       records_changed: records.length,
       record_ids: records.map((record) => record.id),
-      event_ids: events
+      event_ids: events,
+      trace: actionBatchTrace(events, records.map((record) => record.id), records[0]?.project_id)
     }
   };
 }
@@ -13960,7 +13982,8 @@ async function applyCandidateTriagePromotionApproval(
       status: "approved",
       surface: "candidate_triage",
       record_id: record.id,
-      event_id: promoted.event.event_id
+      event_id: promoted.event.event_id,
+      trace: actionTrace(promoted.event.event_id, record.id, record.project_id)
     }
   };
 }

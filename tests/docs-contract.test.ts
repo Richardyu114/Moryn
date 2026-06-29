@@ -663,6 +663,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Write boundary` reads `Append-only events`");
     expectText(dashboard, "`Changed` uses record-oriented language such as `1 record updated`");
     expectText(dashboard, "`Trace` reads `Timeline ready` when event ids are returned");
+    expectText(dashboard, "The underlying approval response carries the trace commands");
+    expectText(dashboard, "record actions and Candidate Triage promotion approvals return `trace.timeline_command` and `trace.recall_command`");
+    expectText(dashboard, "group and Review Queue approvals return `trace.timeline_commands[]` and `trace.recall_commands[]`");
     expectText(dashboard, "read-only trace commands such as `moryn timeline --event-id <event_id>`");
     expectText(dashboard, "`moryn recall --record-id <record_id>` stay literal inside the collapsed");
     expectText(dashboard, "`Trace details` fold");
@@ -734,6 +737,8 @@ describe("documentation contracts", () => {
     expectText(contracts, "Review approvals reuse the existing Capture Inbox");
     expectText(contracts, "policy-archived decisions expose only");
     expectText(contracts, "does not expose a separate Capture Policy apply endpoint");
+    expectText(contracts, "Successful approval responses return `event_ids` plus `trace.timeline_commands[]`");
+    expectText(contracts, "Candidate Triage promotion draft approvals return `event_id` plus");
     expect(contracts).toContain("policy_decision");
     expect(contracts).toContain("canonical memory requires explicit user");
     expect(dashboard).toContain("Memory Lifecycle");

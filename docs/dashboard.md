@@ -1402,7 +1402,11 @@ boundary` reads `Append-only events`, `Changed` uses record-oriented language
 such as `1 record updated`, and `Trace` reads `Timeline ready` when event ids
 are returned. The visible receipt labels, decision sentence, write-boundary
 summary, changed count, and trace status follow the dashboard language toggle.
-Record ids, event ids, decision context, and read-only trace commands such as
+The underlying approval response carries the trace commands: record actions and
+Candidate Triage promotion approvals return `trace.timeline_command` and
+`trace.recall_command`, while group and Review Queue approvals return
+`trace.timeline_commands[]` and `trace.recall_commands[]`. Record ids, event
+ids, decision context, and read-only trace commands such as
 `moryn timeline --event-id <event_id>` and
 `moryn recall --record-id <record_id>` stay literal inside the collapsed
 `Trace details` fold. It is a visibility layer only: it does not add background

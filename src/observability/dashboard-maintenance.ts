@@ -60,6 +60,11 @@ export interface DashboardMaintenanceData {
   plans_by_id: Record<string, DashboardMaintenancePlan>;
 }
 
+export interface DashboardMaintenanceApprovalTrace {
+  timeline_commands: string[];
+  recall_commands: string[];
+}
+
 export interface DashboardMaintenanceOptions {
   project_id?: string;
   include_private?: boolean;
@@ -78,6 +83,7 @@ export type DashboardMaintenanceApprovalResult =
     events_written: number;
     record_ids: string[];
     event_ids: string[];
+    trace: DashboardMaintenanceApprovalTrace;
   }
   | {
     ok: true;
@@ -89,6 +95,7 @@ export type DashboardMaintenanceApprovalResult =
     events_written: number;
     record_ids: string[];
     event_ids: string[];
+    trace: DashboardMaintenanceApprovalTrace;
   }
   | {
     ok: false;
@@ -151,6 +158,29 @@ function privateRecordsSummary(skipped: number, included: number): string {
 function shellQuote(value: string): string {
   if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(value)) return value;
   return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+function appendProjectId(parts: string[], projectId: string | undefined): void {
+  if (projectId) parts.push("--project-id", projectId);
+}
+
+function recallCommand(recordId: string, projectId: string | undefined): string {
+  const parts = ["moryn", "recall", "--record-id", recordId];
+  appendProjectId(parts, projectId);
+  return parts.join(" ");
+}
+
+function timelineEventCommand(eventId: string, projectId: string | undefined): string {
+  const parts = ["moryn", "timeline", "--event-id", eventId];
+  appendProjectId(parts, projectId);
+  return parts.join(" ");
+}
+
+function approvalTrace(eventIds: string[], recordIds: string[], projectId: string | undefined): DashboardMaintenanceApprovalTrace {
+  return {
+    timeline_commands: eventIds.map((eventId) => timelineEventCommand(eventId, projectId)),
+    recall_commands: recordIds.map((recordId) => recallCommand(recordId, projectId))
+  };
 }
 
 export function projectMigrateApplyCommand(fromProjectId: string, toProjectId: string, includePrivate = false): string {
@@ -421,7 +451,8 @@ export async function approveMaintenancePlan(
       records_changed: plan.record_ids.length,
       events_written: eventIds.length,
       record_ids: plan.record_ids,
-      event_ids: eventIds
+      event_ids: eventIds,
+      trace: approvalTrace(eventIds, plan.record_ids, plan.to_project_id)
     };
   }
 
@@ -447,6 +478,7 @@ export async function approveMaintenancePlan(
     records_changed: applied.migrated_records,
     events_written: applied.events.length,
     record_ids: plan.record_ids,
-    event_ids: applied.events.map((event) => event.event_id)
+    event_ids: applied.events.map((event) => event.event_id),
+    trace: approvalTrace(applied.events.map((event) => event.event_id), plan.record_ids, toProjectId)
   };
 }
