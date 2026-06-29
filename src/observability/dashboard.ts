@@ -3258,6 +3258,19 @@ function i18nAttribute(en: string, zh: string): string {
   return `data-i18n-en="${escapeHtml(en)}" data-i18n-zh="${escapeHtml(zh)}"`;
 }
 
+function i18nAriaAndTitle(en: string, zh: string): string {
+  const escapedEn = escapeHtml(en);
+  const escapedZh = escapeHtml(zh);
+  return [
+    `aria-label="${escapedEn}"`,
+    `title="${escapedEn}"`,
+    `data-i18n-aria-label-en="${escapedEn}"`,
+    `data-i18n-aria-label-zh="${escapedZh}"`,
+    `data-i18n-title-en="${escapedEn}"`,
+    `data-i18n-title-zh="${escapedZh}"`
+  ].join(" ");
+}
+
 function dashboardHealthZh(status: DashboardHealthStatus, label: string): string {
   if (status === "healthy" || label === "Healthy") return "正常";
   if (status === "sync_pending" || label === "Sync Pending") return "等待同步";
@@ -7923,14 +7936,16 @@ function memoryInventoryPanel(inventory: DashboardMemoryInventory): string {
   `;
 }
 
-function recentChangeRow(record: DashboardRecordSummary, generatedAt: string): string {
+function recentChangeRow(record: DashboardRecordSummary, generatedAt: string, selected = false): string {
   const state = memoryStateLabelFromRecordState(record.state);
   const source = humanSourceLabel(record.source);
   const relative = relativeTime(record.updated_at, generatedAt);
   const sourceRelative = sourceRelativePair(source, relative);
   const title = dashboardRecordTitleLabel(record.kind, record.type);
+  const actionLabel = `Open saved item: ${title.en} · ${state.en} · ${sourceRelative.en}`;
+  const actionLabelZh = `打开保存内容：${title.zh} · ${state.zh} · ${sourceRelative.zh}`;
   return `
-        <button type="button" class="recent-change-row state-${escapeHtml(record.state)}" data-recent-change-record="${escapeHtml(record.id)}" data-recent-change-select="${escapeHtml(record.id)}" data-action-board-target="stored-content" aria-controls="stored-content">
+        <button type="button" class="recent-change-row state-${escapeHtml(record.state)}${selected ? " selected" : ""}" data-recent-change-record="${escapeHtml(record.id)}" data-recent-change-select="${escapeHtml(record.id)}" data-memory-explorer-item-id="${escapeHtml(record.id)}" data-action-board-target="stored-content" aria-controls="stored-content" aria-pressed="${selected ? "true" : "false"}" ${i18nAriaAndTitle(actionLabel, actionLabelZh)}>
           <span data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}">${escapeHtml(state.en)}</span>
           <strong ${i18nAttribute(title.en, title.zh)}>${escapeHtml(title.en)}</strong>
           <small ${i18nAttribute(sourceRelative.en, sourceRelative.zh)}>${escapeHtml(sourceRelative.en)}</small>
@@ -7939,13 +7954,13 @@ function recentChangeRow(record: DashboardRecordSummary, generatedAt: string): s
 }
 
 function recentChangesList(records: DashboardRecordSummary[], generatedAt: string): string {
-  const rows = records.slice(0, 3).map((record) => recentChangeRow(record, generatedAt)).join("");
+  const rows = records.slice(0, 3).map((record, index) => recentChangeRow(record, generatedAt, index === 0)).join("");
   if (!rows) return "";
   return `
-      <div class="recent-changes" data-recent-changes aria-label="Recent changes">
+      <div class="recent-changes" data-recent-changes aria-label="Recently saved" data-i18n-aria-label-en="Recently saved" data-i18n-aria-label-zh="最近保存内容">
         <div class="recent-changes-heading">
-          <span data-i18n-en="Recent changes" data-i18n-zh="最近变化">Recent changes</span>
-          <small data-i18n-en="Latest saved content" data-i18n-zh="最近保存的内容">Latest saved content</small>
+          <span data-i18n-en="Recently saved" data-i18n-zh="最近保存内容">Recently saved</span>
+          <small data-i18n-en="Opens the full saved item" data-i18n-zh="打开保存内容全文">Opens the full saved item</small>
         </div>
         <div class="recent-change-list">
           ${rows}
@@ -8291,6 +8306,10 @@ function dashboardLanguageScript(): string {
           if (!(node instanceof HTMLElement)) return;
           node.setAttribute("aria-label", language === "zh" ? node.dataset.i18nAriaLabelZh || "" : node.dataset.i18nAriaLabelEn || "");
         });
+        document.querySelectorAll("[data-i18n-title-en][data-i18n-title-zh]").forEach((node) => {
+          if (!(node instanceof HTMLElement)) return;
+          node.setAttribute("title", language === "zh" ? node.dataset.i18nTitleZh || "" : node.dataset.i18nTitleEn || "");
+        });
         if (document.body) translateLegacyText(document.body, language);
         document.querySelectorAll("[data-dashboard-language-option]").forEach((node) => {
           if (!(node instanceof HTMLButtonElement)) return;
@@ -8465,6 +8484,11 @@ function dashboardStoredContentScript(): string {
             node.classList.toggle("selected", item instanceof HTMLElement && selectedId.length > 0 && node.dataset.memoryExplorerItemId === selectedId);
           }
         });
+        document.querySelectorAll("[data-recent-change-select]").forEach((node) => {
+          if (!(node instanceof HTMLElement)) return;
+          node.classList.toggle("selected", selectedId.length > 0 && node.dataset.recentChangeSelect === selectedId);
+          node.setAttribute("aria-pressed", selectedId.length > 0 && node.dataset.recentChangeSelect === selectedId ? "true" : "false");
+        });
       };
       const setLocalizedDetailText = (node, value, zhValue = value) => {
         if (!(node instanceof HTMLElement)) return;
@@ -8566,7 +8590,7 @@ function dashboardStoredContentScript(): string {
         writeStoredContentState({ selectedItemId: item.dataset.memoryExplorerItemId || item.dataset.storedContentItem || item.dataset.memorySearchEntry || null });
       };
       const restoreMemoryExplorerSelection = (state) => {
-        const selected = state.selectedItemId ? document.querySelector(\`[data-memory-explorer-item-id="\${cssEscape(state.selectedItemId)}"]\`) : null;
+        const selected = state.selectedItemId ? document.querySelector(\`[data-stored-content-item][data-memory-explorer-item-id="\${cssEscape(state.selectedItemId)}"], [data-memory-search-entry][data-memory-explorer-item-id="\${cssEscape(state.selectedItemId)}"]\`) : null;
         if (selected instanceof HTMLElement && !selected.hidden && selected.offsetParent !== null) {
           selectMemoryExplorerItem(selected);
           return;
@@ -9763,6 +9787,13 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       background: var(--surface-hover);
       box-shadow: var(--elevation-hover);
       transform: translateY(-1px);
+    }
+    .recent-change-row.selected {
+      border-color: rgba(116, 242, 145, 0.52);
+      background:
+        linear-gradient(145deg, rgba(116, 242, 145, 0.105), rgba(69, 185, 255, 0.04)),
+        rgba(12, 15, 20, 0.9);
+      box-shadow: inset 0 0 0 1px rgba(116, 242, 145, 0.16), 0 14px 34px rgba(0, 0, 0, 0.3);
     }
     .recent-change-row:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .recent-change-row span {

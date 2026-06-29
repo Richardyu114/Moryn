@@ -708,6 +708,7 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("[\"Raw records waiting for review\", \"临时内容待整理\"]");
       expect(html).not.toContain("[\"Many candidate records\", \"较多已保存内容待整理\"]");
       expect(html).toContain("[\"Sync details\", \"同步详情\"]");
+      expect(html).toContain("document.querySelectorAll(\"[data-i18n-title-en][data-i18n-title-zh]\").forEach((node) => {");
       expect(html).toContain("[\"Position rail\", \"位置状态\"]");
       expect(html).toContain("[\"Sync Position\", \"同步位置\"]");
       expect(html).toContain("[\"Sync Action\", \"同步操作\"]");
@@ -1048,25 +1049,29 @@ describe("observability dashboard", () => {
       const recentStatusHtml = html.slice(html.indexOf("data-recent-status"), html.indexOf("data-recent-changes"));
       expect(recentStatusHtml).toContain("<span data-i18n-en=\"Searchable\" data-i18n-zh=\"可搜索内容\">Searchable</span>");
       expect(recentStatusHtml).toContain("<strong data-i18n-en=\"2 searchable items\" data-i18n-zh=\"2 条可搜索内容\">2 searchable items</strong>");
-      expect(html).toContain("<div class=\"recent-changes\" data-recent-changes aria-label=\"Recent changes\">");
+      expect(html).toContain("<div class=\"recent-changes\" data-recent-changes aria-label=\"Recently saved\" data-i18n-aria-label-en=\"Recently saved\" data-i18n-aria-label-zh=\"最近保存内容\">");
       expect(html).toContain("<div class=\"recent-changes-heading\">");
-      expect(html).toContain("<span data-i18n-en=\"Recent changes\" data-i18n-zh=\"最近变化\">Recent changes</span>");
-      expect(html).toContain("<small data-i18n-en=\"Latest saved content\" data-i18n-zh=\"最近保存的内容\">Latest saved content</small>");
-      expect(html).toContain("<button type=\"button\" class=\"recent-change-row state-candidate\" data-recent-change-record=\"rec_action_board_3\" data-recent-change-select=\"rec_action_board_3\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\">");
+      expect(html).toContain("<span data-i18n-en=\"Recently saved\" data-i18n-zh=\"最近保存内容\">Recently saved</span>");
+      expect(html).toContain("<small data-i18n-en=\"Opens the full saved item\" data-i18n-zh=\"打开保存内容全文\">Opens the full saved item</small>");
+      expect(html).toContain("<button type=\"button\" class=\"recent-change-row state-candidate selected\" data-recent-change-record=\"rec_action_board_3\" data-recent-change-select=\"rec_action_board_3\" data-memory-explorer-item-id=\"rec_action_board_3\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" aria-pressed=\"true\" aria-label=\"Open saved item: Status · Saved for later · Gemini | 19d ago\" title=\"Open saved item: Status · Saved for later · Gemini | 19d ago\" data-i18n-aria-label-en=\"Open saved item: Status · Saved for later · Gemini | 19d ago\" data-i18n-aria-label-zh=\"打开保存内容：状态 · 已保存，稍后整理 · Gemini | 19 天前\" data-i18n-title-en=\"Open saved item: Status · Saved for later · Gemini | 19d ago\" data-i18n-title-zh=\"打开保存内容：状态 · 已保存，稍后整理 · Gemini | 19 天前\">");
       expect(html).toContain("<span data-i18n-en=\"Saved for later\" data-i18n-zh=\"已保存，稍后整理\">Saved for later</span>");
       expect(html).toContain("<strong data-i18n-en=\"Status\" data-i18n-zh=\"状态\">Status</strong>");
       expect(html).toContain("<small data-i18n-en=\"Gemini | 19d ago\" data-i18n-zh=\"Gemini | 19 天前\">Gemini | 19d ago</small>");
-      expect(html).toContain("<button type=\"button\" class=\"recent-change-row state-canonical\" data-recent-change-record=\"rec_action_board_2\" data-recent-change-select=\"rec_action_board_2\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\">");
+      expect(html).toContain("<button type=\"button\" class=\"recent-change-row state-canonical\" data-recent-change-record=\"rec_action_board_2\" data-recent-change-select=\"rec_action_board_2\" data-memory-explorer-item-id=\"rec_action_board_2\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" aria-pressed=\"false\"");
       expect(html).toContain("<span data-i18n-en=\"Ready to use\" data-i18n-zh=\"可直接使用\">Ready to use</span>");
       expect(html).toContain("<strong data-i18n-en=\"Decision\" data-i18n-zh=\"决策\">Decision</strong>");
-      expect(html).toContain("<button type=\"button\" class=\"recent-change-row state-raw\" data-recent-change-record=\"rec_action_board_1\" data-recent-change-select=\"rec_action_board_1\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\">");
+      expect(html).toContain("<button type=\"button\" class=\"recent-change-row state-raw\" data-recent-change-record=\"rec_action_board_1\" data-recent-change-select=\"rec_action_board_1\" data-memory-explorer-item-id=\"rec_action_board_1\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" aria-pressed=\"false\"");
       expect(html).toContain("<span data-i18n-en=\"Saved briefly\" data-i18n-zh=\"临时保存\">Saved briefly</span>");
       expect(html).toContain("<strong data-i18n-en=\"Raw Note\" data-i18n-zh=\"临时笔记\">Raw Note</strong>");
       expect(html).not.toContain("<strong>Status</strong>");
       expect(html).not.toContain("<strong>Summary</strong>");
+      expect(html).toContain("document.querySelectorAll(\"[data-recent-change-select]\").forEach((node) => {");
+      expect(html).toContain("node.classList.toggle(\"selected\", selectedId.length > 0 && node.dataset.recentChangeSelect === selectedId);");
+      expect(html).toContain("node.setAttribute(\"aria-pressed\", selectedId.length > 0 && node.dataset.recentChangeSelect === selectedId ? \"true\" : \"false\");");
       expect(html).toContain("const recentChange = target.closest(\"[data-recent-change-select]\");");
       expect(html).toContain("selectedItemId: recentChange.dataset.recentChangeSelect || null");
       expect(html).toContain(".recent-change-row:hover {");
+      expect(html).toContain(".recent-change-row.selected {");
       expect(html).toContain(".recent-change-row:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }");
       expect(data.recent_records[0]).toMatchObject({
         source: { client: "gemini" },
@@ -1774,7 +1779,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("writeStoredContentState({ selectedItemId: null });");
       expect(html).toContain("const visibleMemoryExplorerItem = (section = document) => {");
       expect(html).toContain("return Array.from(section.querySelectorAll(\"[data-stored-content-item], [data-memory-search-entry]\")).find((node) => {");
-      expect(html).toContain("const selected = state.selectedItemId ? document.querySelector(`[data-memory-explorer-item-id=\"${cssEscape(state.selectedItemId)}\"]`) : null;");
+      expect(html).toContain("const selected = state.selectedItemId ? document.querySelector(`[data-stored-content-item][data-memory-explorer-item-id=\"${cssEscape(state.selectedItemId)}\"], [data-memory-search-entry][data-memory-explorer-item-id=\"${cssEscape(state.selectedItemId)}\"]`) : null;");
+      expect(html).not.toContain("const selected = state.selectedItemId ? document.querySelector(`[data-memory-explorer-item-id=\"${cssEscape(state.selectedItemId)}\"]`) : null;");
       expect(html).toContain("const firstVisible = visibleMemoryExplorerItem();");
       expect(html).toContain("selectMemoryExplorerItem(firstVisible);");
       expect(html).toContain("selected.offsetParent !== null");

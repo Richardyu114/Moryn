@@ -816,9 +816,11 @@ recent-note wording. This gives the user the recent state of the local memory
 without opening the raw record list. Its last-saved relative time follows the
 language toggle, while the exact timestamp stays in the `time` title and
 `datetime` attributes.
-It also shows a read-only `Recent changes` strip with the latest saved content,
-state labels, source, and relative time. Clicking a row opens `Find what Moryn
-saved` and selects the matching item; it never writes or approves memory.
+It also shows a read-only `Recently saved` strip with the latest saved content,
+state labels, source, and relative time. Rows carry translated labels and
+tooltips that say they open saved content. Clicking a row opens `Find what Moryn
+saved`, selects the matching item, and keeps the row highlighted; it never
+writes or approves memory.
 
 The top health message stays below the header only when it adds new context.
 Healthy snapshots render as a lightweight `dashboard-status-line` with
