@@ -2695,6 +2695,117 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("surfaces duplicate and conflicting candidate doctor findings as read-only governance items", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z",
+            "2026-06-01T00:03:00.000Z",
+            "2026-06-01T00:04:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:05:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_doctor_quality_${++record}` : `evt_doctor_quality_${++event}`;
+        })()
+      });
+      const duplicateOne = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["dashboard"],
+        content: { text: "Use dashboard approvals for canonical memory.", format: "text" },
+        source: { client: "codex" }
+      });
+      const duplicateTwo = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["dashboard"],
+        content: { text: "Use dashboard approvals for canonical memory.", format: "text" },
+        source: { client: "claude" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["storage"],
+        content: { text: "Use SQLite for the local event store.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const conflicting = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["storage"],
+        content: { text: "Use JSONL for the local event store.", format: "text" },
+        state: "canonical",
+        source: { client: "codex" }
+      });
+
+      const beforeEvents = await readEvents(storePath);
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      });
+      const html = renderDashboardHtml(data);
+
+      expect(await readEvents(storePath)).toHaveLength(beforeEvents.length);
+      expect(data.memory_doctor.findings_by_id.duplicate_candidates).toMatchObject({
+        summary: "Some candidate records appear to duplicate each other.",
+        record_ids: [duplicateOne.record.id, duplicateTwo.record.id]
+      });
+      expect(data.memory_doctor.findings_by_id.conflicting_candidates).toMatchObject({
+        summary: "Some candidate records conflict with canonical memory.",
+        record_ids: [conflicting.record.id]
+      });
+      expect(data.governance.items_by_id["memory_doctor:duplicate_candidates"]).toMatchObject({
+        source: "memory_doctor",
+        category: "candidate_quality",
+        evidence_path: "memory_doctor.findings_by_id.duplicate_candidates",
+        action_label: "Review duplicate candidates",
+        safe_to_run: true,
+        requires_user_confirmation: false,
+        writes: "none"
+      });
+      expect(data.governance.items_by_id["memory_doctor:conflicting_candidates"]).toMatchObject({
+        source: "memory_doctor",
+        category: "candidate_quality",
+        evidence_path: "memory_doctor.findings_by_id.conflicting_candidates",
+        action_label: "Review conflicting candidates",
+        safe_to_run: true,
+        requires_user_confirmation: false,
+        writes: "none"
+      });
+      expect(data.governance.summary).toMatchObject({
+        total_items: 3,
+        needs_user_action: 0,
+        safe_inspections: 3
+      });
+      expect(data.actions.some((action) => action.source_path.startsWith("memory_doctor"))).toBe(false);
+      expect(html).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"governance\" data-dashboard-detail=\"governance-hub\" data-governance-reference data-reference-library-index=\"governance\">");
+      expect(html).toContain("<strong data-i18n-en=\"Governance Index\" data-i18n-zh=\"治理索引\">Governance Index</strong>");
+      expect(html).toContain("<span data-i18n-en=\"3 governance notes indexed\" data-i18n-zh=\"3 条治理记录已建立索引\">3 governance notes indexed</span>");
+      expect(html).not.toContain("data-dashboard-action-id=\"memory_doctor");
+    });
+  });
+
   it("adds a read-only candidate triage queue for memory doctor backlog", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {

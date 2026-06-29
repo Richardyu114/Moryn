@@ -471,6 +471,12 @@ summary, follow the dashboard language toggle.
 safe inspection when candidate records are accumulating faster than canonical
 records. It points back to the raw memory doctor evidence and does not add
 dashboard approval, archive, promote, apply, or background execution controls.
+`memory_doctor.findings_by_id.duplicate_candidates` and
+`memory_doctor.findings_by_id.conflicting_candidates` use the same read-only
+Governance Hub pattern: they point to duplicate candidate text or candidate
+records that conflict with canonical memory, while link, revise, archive, and
+timeline suggestions stay in `/api/dashboard.memory_doctor` for audit instead
+of becoming dashboard write controls.
 When backlog exists, `candidate_triage` groups active candidate records into
 `likely_noise`, `promotable`, `session_summaries`, and `needs_inspection`. The
 visible `Candidate Triage` panel stays collapsed by default inside Evidence

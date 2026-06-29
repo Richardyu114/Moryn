@@ -1311,6 +1311,116 @@ describe("core engine", () => {
     });
   });
 
+  it("diagnoses duplicate and conflicting candidates without mutating records", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let tick = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => `2026-06-19T01:00:${String(tick++).padStart(2, "0")}.000Z`
+      });
+      const duplicateOne = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["dashboard"],
+        content: { text: "Use dashboard approvals for canonical memory.", format: "text" },
+        source: { client: "codex" }
+      });
+      const duplicateTwo = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["dashboard"],
+        content: { text: "Use dashboard approvals for canonical memory.", format: "text" },
+        source: { client: "claude" }
+      });
+      const existing = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["storage"],
+        content: { text: "Use SQLite for the local event store.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const conflicting = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["storage"],
+        content: { text: "Use JSONL for the local event store.", format: "text" },
+        state: "canonical",
+        source: { client: "codex" }
+      });
+
+      const beforeEvents = await readEvents(storePath);
+      const doctor = await engine.memoryDoctor({ project_id: "moryn", limit: 20 });
+      const afterEvents = await readEvents(storePath);
+
+      expect(afterEvents).toHaveLength(beforeEvents.length);
+      expect(doctor.findings_by_id.duplicate_candidates).toMatchObject({
+        id: "duplicate_candidates",
+        category: "candidate_quality",
+        severity: "warning",
+        record_ids: [duplicateOne.record.id, duplicateTwo.record.id]
+      });
+      expect(doctor.findings_by_id.conflicting_candidates).toMatchObject({
+        id: "conflicting_candidates",
+        category: "candidate_quality",
+        severity: "warning",
+        record_ids: [conflicting.record.id]
+      });
+      expect(doctor.suggested_actions_by_id[`link_duplicate:${duplicateTwo.record.id}`]).toMatchObject({
+        recommended_action: "link_duplicate_candidate",
+        tool: "link",
+        command: `moryn link ${duplicateTwo.record.id} ${duplicateOne.record.id} --type duplicate_of`,
+        arguments: {
+          record_id: duplicateTwo.record.id,
+          linked_record_id: duplicateOne.record.id,
+          link_type: "duplicate_of"
+        },
+        safe_to_run: false
+      });
+      expect(doctor.suggested_actions_by_id[`archive_duplicate:${duplicateTwo.record.id}`]).toMatchObject({
+        recommended_action: "archive_duplicate_candidate",
+        tool: "archive",
+        command: `moryn archive ${duplicateTwo.record.id} --reason 'Memory doctor: duplicate candidate after linking or review'`,
+        safe_to_run: false
+      });
+      expect(doctor.suggested_actions_by_id[`revise_conflict:${conflicting.record.id}`]).toMatchObject({
+        recommended_action: "revise_conflicting_candidate",
+        tool: "revise",
+        command: `moryn revise ${conflicting.record.id} --reason 'Memory doctor: resolve semantic conflict before promotion'`,
+        arguments: {
+          record_id: conflicting.record.id,
+          patch: {},
+          reason: "Memory doctor: resolve semantic conflict before promotion"
+        },
+        safe_to_run: false
+      });
+      expect(doctor.suggested_actions_by_id[`inspect_conflict:${conflicting.record.id}`]).toMatchObject({
+        recommended_action: "inspect_conflict_timeline",
+        tool: "timeline",
+        command: `moryn timeline --record-id ${conflicting.record.id} --project-id moryn --before 3 --after 3`,
+        arguments: {
+          record_id: conflicting.record.id,
+          project_id: "moryn",
+          before: 3,
+          after: 3
+        },
+        safe_to_run: true
+      });
+      expect(doctor.records_by_id[duplicateOne.record.id]?.id).toBe(duplicateOne.record.id);
+      expect(doctor.records_by_id[duplicateTwo.record.id]?.id).toBe(duplicateTwo.record.id);
+      expect(doctor.records_by_id[conflicting.record.id]?.conflict?.with).toEqual([existing.record.id]);
+    });
+  });
+
   it("reports memory lifecycle review states without mutating or exposing private records", async () => {
     await withInitializedTempStore(async (storePath) => {
       let currentTime = "2026-01-01T00:00:00.000Z";

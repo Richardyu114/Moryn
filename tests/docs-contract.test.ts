@@ -576,7 +576,11 @@ describe("documentation contracts", () => {
     expectText(contracts, "decision_summary.summary.candidate_triage_promotions");
     expectText(contracts, "routes through the dashboard `Pending Decisions` panel");
     expect(contracts).toContain("memory_doctor.findings_by_id.candidate_backlog");
+    expect(contracts).toContain("memory_doctor.findings_by_id.duplicate_candidates");
+    expect(contracts).toContain("memory_doctor.findings_by_id.conflicting_candidates");
     expectText(contracts, "`memory_doctor` findings remain read-only dashboard governance inspections");
+    expectText(dashboard, "`memory_doctor.findings_by_id.duplicate_candidates` and `memory_doctor.findings_by_id.conflicting_candidates` use the same read-only Governance Hub pattern");
+    expectText(dashboard, "link, revise, archive, and timeline suggestions stay in `/api/dashboard.memory_doctor` for audit");
     expect(dashboard).toContain("Safe Action Registry");
     expect(dashboard).toContain("Capture Inbox");
     expectText(dashboard, "Capture Inbox group metadata such as Source, Project, Items, and Captured is folded behind `Review context`");

@@ -176,8 +176,14 @@ The MCP equivalent is:
 ```
 
 `memory_doctor` returns summary counts, keyed findings, and suggested promote,
-archive, or project-identity review actions. It does not mutate records; any
-returned mutation action has `safe_to_run: false` and requires user authority.
+archive, link, revise, timeline, or project-identity review actions. Duplicate
+candidate text is reported under
+`memory_doctor.findings_by_id.duplicate_candidates`; candidates that conflict
+with canonical memory are reported under
+`memory_doctor.findings_by_id.conflicting_candidates`. It does not mutate
+records; any returned mutation action has `safe_to_run: false` and requires
+user authority. Read-only inspection actions such as timeline commands may be
+`safe_to_run: true`.
 
 The read-only memory lifecycle report is available through the same registry:
 
@@ -434,12 +440,14 @@ guidance.
 
 `/api/dashboard` also returns `memory_doctor`, the same read-only report shape
 as `moryn memory doctor` and MCP `memory_doctor`. The dashboard uses
-`memory_doctor.findings_by_id.candidate_backlog` as a compact Governance Hub
-safe inspection when candidates are accumulating faster than canonical records.
-Other `memory_doctor` findings and suggested actions remain available in the
-raw JSON for audit. `memory_doctor` findings remain read-only dashboard
-governance inspections; they do not add dashboard approval, archive, promote,
-apply, background execution, or Safe Action Registry entries.
+`memory_doctor.findings_by_id.candidate_backlog`,
+`memory_doctor.findings_by_id.duplicate_candidates`, and
+`memory_doctor.findings_by_id.conflicting_candidates` as compact Governance Hub
+safe inspections for backlog, duplicate candidate text, and semantic conflict
+review. Memory Doctor suggested actions remain available in the raw JSON for
+audit. `memory_doctor` findings remain read-only dashboard governance
+inspections; they do not add dashboard approval, archive, promote, apply,
+background execution, or Safe Action Registry entries.
 
 `/api/dashboard` also returns `candidate_triage`, a read-only
 dashboard-derived grouping for active candidate records. It is built from the

@@ -427,6 +427,7 @@ export type DashboardGovernanceCategory =
   | "auto_capture"
   | "policy_archive"
   | "candidate_backlog"
+  | "candidate_quality"
   | "memory_lifecycle"
   | "project_identity"
   | "recall_quality"
@@ -2657,32 +2658,45 @@ function governanceFromMemoryLifecycle(report: MemoryLifecycleResult): Dashboard
 }
 
 function governanceFromMemoryDoctor(report: MemoryDoctorResult): DashboardGovernanceItem[] {
-  const finding = report.findings_by_id.candidate_backlog;
-  if (!finding) return [];
-  const evidencePath = "memory_doctor.findings_by_id.candidate_backlog";
-  const actionLabel = "Review candidate backlog";
-  return [{
-    id: governanceItemId("memory_doctor", finding.id),
-    source: "memory_doctor",
-    category: "candidate_backlog",
-    severity: finding.severity,
-    title: finding.summary,
-    summary: finding.reason,
-    record_ids: finding.record_ids ?? (finding.record_id ? [finding.record_id] : []),
-    evidence_path: evidencePath,
-    action_label: actionLabel,
-    safe_to_run: true,
-    requires_user_confirmation: false,
-    writes: "none",
-    review_log: governanceReviewLog({
+  return report.findings.map((finding) => {
+    const evidencePath = `memory_doctor.findings_by_id.${finding.id}`;
+    const category: DashboardGovernanceCategory = finding.id === "candidate_backlog"
+      ? "candidate_backlog"
+      : finding.category === "candidate_quality"
+        ? "candidate_quality"
+        : finding.category === "project_identity"
+          ? "project_identity"
+          : "candidate_backlog";
+    const actionLabel = finding.id === "candidate_backlog"
+      ? "Review candidate backlog"
+      : finding.id === "duplicate_candidates"
+        ? "Review duplicate candidates"
+        : finding.id === "conflicting_candidates"
+          ? "Review conflicting candidates"
+          : "Review memory doctor finding";
+    return {
+      id: governanceItemId("memory_doctor", finding.id),
       source: "memory_doctor",
-      category: "candidate_backlog",
-      actionLabel,
-      evidencePath,
-      requiresUserConfirmation: false,
-      writes: "none"
-    })
-  }];
+      category,
+      severity: finding.severity,
+      title: finding.summary,
+      summary: finding.reason,
+      record_ids: finding.record_ids ?? (finding.record_id ? [finding.record_id] : []),
+      evidence_path: evidencePath,
+      action_label: actionLabel,
+      safe_to_run: true,
+      requires_user_confirmation: false,
+      writes: "none",
+      review_log: governanceReviewLog({
+        source: "memory_doctor",
+        category,
+        actionLabel,
+        evidencePath,
+        requiresUserConfirmation: false,
+        writes: "none"
+      })
+    };
+  });
 }
 
 function governanceFromMaintenance(maintenance: DashboardMaintenanceData): DashboardGovernanceItem[] {

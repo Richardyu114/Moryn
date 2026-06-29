@@ -1,7 +1,7 @@
 import { operationArgumentsByTool } from "../operation-contracts.js";
 import { actionExecution, actionSafety } from "./action-safety.js";
 import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js";
-import { commandForArchiveContext, commandForPromoteContext } from "./errors.js";
+import { commandForArchiveContext, commandForLinkContext, commandForPromoteContext, commandForReviseContext, commandForTimelineContext } from "./errors.js";
 import { displayRecordText } from "./content-text.js";
 import type { MorynRecord, RecordKind, RecordState } from "./types.js";
 import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
@@ -19,7 +19,7 @@ export interface MemoryDoctorDiagnoseInput extends MemoryDoctorInput {
 
 type MemoryDoctorSeverity = "info" | "warning";
 type MemoryDoctorCategory = "backlog" | "candidate_quality" | "project_identity";
-type MemoryDoctorActionTool = "promote" | "archive" | "project_list";
+type MemoryDoctorActionTool = "promote" | "archive" | "project_list" | "link" | "revise" | "timeline";
 
 export interface MemoryDoctorFinding {
   id: string;
@@ -96,6 +96,8 @@ export const MEMORY_DOCTOR_SELECTION_SOURCES = {
 
 const PROMOTE_REASON = "Memory doctor: confirmed/high-confidence candidate review";
 const ARCHIVE_MARKER_REASON = "Memory doctor: e2e marker/noise candidate";
+const ARCHIVE_DUPLICATE_REASON = "Memory doctor: duplicate candidate after linking or review";
+const REVISE_CONFLICT_REASON = "Memory doctor: resolve semantic conflict before promotion";
 const PROJECT_ID_UNKNOWN = "(none)";
 
 function countBy<T extends string>(values: T[]): Partial<Record<T, number>> {
@@ -231,6 +233,74 @@ function archiveAction(record: MorynRecord): MemoryDoctorSuggestedAction {
   });
 }
 
+function archiveDuplicateAction(record: MorynRecord): MemoryDoctorSuggestedAction {
+  const args = {
+    record_id: record.id,
+    reason: ARCHIVE_DUPLICATE_REASON
+  };
+  return withSuggestedActionMetadata({
+    action_id: `archive_duplicate:${record.id}`,
+    recommended_action: "archive_duplicate_candidate",
+    tool: "archive",
+    command: commandForArchiveContext(args),
+    arguments: args,
+    safe_to_run: false,
+    required_when: "After the user confirms this candidate duplicates another record and should leave normal review."
+  });
+}
+
+function linkDuplicateAction(record: MorynRecord, duplicateOf: MorynRecord): MemoryDoctorSuggestedAction {
+  const args = {
+    record_id: record.id,
+    linked_record_id: duplicateOf.id,
+    link_type: "duplicate_of"
+  };
+  return withSuggestedActionMetadata({
+    action_id: `link_duplicate:${record.id}`,
+    recommended_action: "link_duplicate_candidate",
+    tool: "link",
+    command: commandForLinkContext(args),
+    arguments: args,
+    safe_to_run: false,
+    required_when: "After the user confirms these candidates describe the same durable memory."
+  });
+}
+
+function reviseConflictAction(record: MorynRecord): MemoryDoctorSuggestedAction {
+  const args = {
+    record_id: record.id,
+    patch: {},
+    reason: REVISE_CONFLICT_REASON
+  };
+  return withSuggestedActionMetadata({
+    action_id: `revise_conflict:${record.id}`,
+    recommended_action: "revise_conflicting_candidate",
+    tool: "revise",
+    command: commandForReviseContext(args),
+    arguments: args,
+    safe_to_run: false,
+    required_when: "After the user decides how this candidate should differ from the conflicting canonical memory."
+  });
+}
+
+function inspectConflictAction(record: MorynRecord, projectId: string | undefined): MemoryDoctorSuggestedAction {
+  const args = {
+    record_id: record.id,
+    ...(projectId ? { project_id: projectId } : {}),
+    before: 3,
+    after: 3
+  };
+  return withSuggestedActionMetadata({
+    action_id: `inspect_conflict:${record.id}`,
+    recommended_action: "inspect_conflict_timeline",
+    tool: "timeline",
+    command: commandForTimelineContext(args),
+    arguments: args,
+    safe_to_run: true,
+    required_when: "Before revising or promoting a candidate that conflicts with canonical memory."
+  });
+}
+
 function projectListAction(): MemoryDoctorSuggestedAction {
   return withSuggestedActionMetadata({
     action_id: "review_project_identity",
@@ -241,6 +311,52 @@ function projectListAction(): MemoryDoctorSuggestedAction {
     safe_to_run: true,
     required_when: "When memory doctor finds records for likely-same work under multiple project ids."
   });
+}
+
+function normalizedCandidateText(record: MorynRecord): string {
+  return recordText(record).replace(/\s+/g, " ").trim();
+}
+
+function duplicateCandidateGroups(records: MorynRecord[]): MorynRecord[][] {
+  const groups = new Map<string, MorynRecord[]>();
+  for (const record of records.filter((record) => record.state === "candidate")) {
+    const text = normalizedCandidateText(record);
+    if (!text) continue;
+    const key = `${record.kind}\u0000${record.type}\u0000${record.scope}\u0000${record.project_id ?? ""}\u0000${text}`;
+    groups.set(key, [...(groups.get(key) ?? []), record]);
+  }
+  return [...groups.values()]
+    .map((group) => [...group].sort((left, right) => left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id)))
+    .filter((group) => group.length > 1);
+}
+
+function duplicateCandidateFinding(groups: MorynRecord[][]): MemoryDoctorFinding | undefined {
+  if (!groups.length) return undefined;
+  const records = groups.flat();
+  return {
+    id: "duplicate_candidates",
+    category: "candidate_quality",
+    severity: "warning",
+    summary: "Some candidate records appear to duplicate each other.",
+    reason: `${groups.length} duplicate candidate text group${groups.length === 1 ? "" : "s"} found.`,
+    record_ids: records.map((record) => record.id)
+  };
+}
+
+function conflictingCandidates(records: MorynRecord[]): MorynRecord[] {
+  return records.filter((record) => record.state === "candidate" && record.conflict?.with?.length);
+}
+
+function conflictingCandidateFinding(records: MorynRecord[]): MemoryDoctorFinding | undefined {
+  if (!records.length) return undefined;
+  return {
+    id: "conflicting_candidates",
+    category: "candidate_quality",
+    severity: "warning",
+    summary: "Some candidate records conflict with canonical memory.",
+    reason: `${records.length} candidate record${records.length === 1 ? "" : "s"} should be revised, linked, archived, or explicitly promoted after review.`,
+    record_ids: records.map((record) => record.id)
+  };
 }
 
 function candidateBacklogFinding(memoryStats: MemoryDoctorStats): MemoryDoctorFinding | undefined {
@@ -327,14 +443,27 @@ export function diagnoseMemory(input: MemoryDoctorDiagnoseInput): MemoryDoctorRe
   const memoryStats = stats(records, input.excluded_private_records ?? 0);
   const promotable = records.filter(isPromotableCandidate).slice(0, limit);
   const markerNoise = records.filter(isMarkerNoiseCandidate).slice(0, limit);
+  const duplicateGroups = duplicateCandidateGroups(records);
+  const duplicateRecordsForActions = duplicateGroups.flatMap((group) => group.slice(1)).slice(0, limit);
+  const conflictRecords = conflictingCandidates(records).slice(0, limit);
   const findings = [
     candidateBacklogFinding(memoryStats),
     projectIdentityFinding(records, input.project_id),
+    duplicateCandidateFinding(duplicateGroups),
+    conflictingCandidateFinding(conflictRecords),
     ...actionFindings(promotable, markerNoise)
   ].filter((finding): finding is MemoryDoctorFinding => finding !== undefined);
   const actions = uniqueActions([
     ...promotable.map(promoteAction),
     ...markerNoise.map(archiveAction),
+    ...duplicateGroups.flatMap((group) => group.slice(1).flatMap((record) => [
+      linkDuplicateAction(record, group[0]!),
+      archiveDuplicateAction(record)
+    ])),
+    ...conflictRecords.flatMap((record) => [
+      reviseConflictAction(record),
+      inspectConflictAction(record, input.project_id)
+    ]),
     ...(findings.some((finding) => finding.id === "project_identity_split") ? [projectListAction()] : [])
   ], limit);
   const referencedRecordIds = new Set([
@@ -342,7 +471,7 @@ export function diagnoseMemory(input: MemoryDoctorDiagnoseInput): MemoryDoctorRe
     ...actions.flatMap((action) => typeof action.arguments.record_id === "string" ? [action.arguments.record_id] : [])
   ]);
   const recordSelection = records
-    .filter((record) => referencedRecordIds.has(record.id))
+    .filter((record) => referencedRecordIds.has(record.id) || duplicateRecordsForActions.some((duplicate) => duplicate.id === record.id))
     .slice(0, limit);
   return {
     read_only: true,
