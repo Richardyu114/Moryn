@@ -916,6 +916,18 @@ describe("documentation contracts", () => {
     expect(phasePlan).toContain("## Phase 4: Recall Eval");
     expect(phasePlan).toContain("## Phase 5: Public Polish");
     expect(phasePlan).toContain("## Phase 6: Release Gate");
+    expect(phasePlan).toContain("## Current Status Snapshot");
+    expect(phasePlan).toContain("## Phase Gate Checklist");
+    expect(phasePlan).toContain("write failing focused test");
+    expect(phasePlan).toContain("record durable progress in moryn-store");
+    expect(phasePlan).toContain("Dashboard first screen answers three plain questions");
+    expect(phasePlan).toContain("### P3.3 Blocked Failure Recovery");
+    expect(phasePlan).toContain("### P4.1 Golden Fixture Set");
+    expect(phasePlan).toContain("### P4.3 Read-Only Guard and Hygiene Suggestions");
+    expect(phasePlan).toContain("### P6.5 Public-Docs Cleanup");
+    expectText(phasePlan, "After v0.2 is complete, keep the public-facing product truth in `README.md`, `docs/moryn-design.md`, `docs/agent-workflow.md`, `docs/dashboard.md`, and `docs/contracts.md`, then delete this file.");
+    expectText(phasePlan, "Blocked setup and health checks return executable next actions, not prose-only troubleshooting.");
+    expectText(phasePlan, "Recall quality can be measured read-only.");
     expect(phasePlan).toContain("npm run smoke:dogfood-demo");
     expect(phasePlan).toContain("npm run smoke:agent-lifecycle");
     expect(phasePlan).toContain("npm pack --dry-run --json");
