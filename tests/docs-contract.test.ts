@@ -902,11 +902,10 @@ describe("documentation contracts", () => {
   });
 
   it("documents the product positioning guardrail and phase decision gate", async () => {
-    const [readme, design, roadmap, phasePlan] = await Promise.all([
+    const [readme, design, roadmap] = await Promise.all([
       readFile("README.md", "utf8"),
       readFile("docs/moryn-design.md", "utf8"),
-      readFile("docs/implementation-roadmap.md", "utf8"),
-      readFile("docs/v0.2-phase-plan.md", "utf8")
+      readFile("docs/implementation-roadmap.md", "utf8")
     ]);
 
     for (const document of [readme, design, roadmap]) {
@@ -919,7 +918,7 @@ describe("documentation contracts", () => {
     }
 
     expect(roadmap).toContain("Default path");
-    expect(roadmap).toContain("[v0.2-phase-plan.md](v0.2-phase-plan.md)");
+    expect(roadmap).not.toContain("v0.2-phase-plan.md");
     expect(roadmap).toContain("Power path");
     expect(roadmap).toContain("Core boundary");
     expect(roadmap).toContain("Phase decision gate");
@@ -938,30 +937,15 @@ describe("documentation contracts", () => {
     expect(roadmap).toContain("npm run smoke:dogfood-demo");
     expect(roadmap).toContain("npm run release:check");
     expect(roadmap).toContain("Do not start this phase until");
-    expect(phasePlan).toContain("# Moryn v0.2 Phase 1-6 Plan");
-    expect(phasePlan).toContain("setup -> context pack -> capture -> review -> approve -> sync");
-    expect(phasePlan).toContain("## Phase 1: Auditable Autocapture");
-    expect(phasePlan).toContain("## Phase 2: Memory Governance");
-    expect(phasePlan).toContain("## Phase 3: Setup Wizard");
-    expect(phasePlan).toContain("## Phase 4: Recall Eval");
-    expect(phasePlan).toContain("## Phase 5: Public Polish");
-    expect(phasePlan).toContain("## Phase 6: Release Gate");
-    expect(phasePlan).toContain("## Current Status Snapshot");
-    expect(phasePlan).toContain("## Phase Gate Checklist");
-    expect(phasePlan).toContain("write failing focused test");
-    expect(phasePlan).toContain("record durable progress in moryn-store");
-    expect(phasePlan).toContain("Dashboard first screen answers three plain questions");
-    expect(phasePlan).toContain("### P3.3 Blocked Failure Recovery");
-    expect(phasePlan).toContain("### P4.1 Golden Fixture Set");
-    expect(phasePlan).toContain("### P4.3 Read-Only Guard and Hygiene Suggestions");
-    expect(phasePlan).toContain("### P6.5 Public-Docs Cleanup");
-    expectText(phasePlan, "After v0.2 is complete, keep the public-facing product truth in `README.md`, `docs/moryn-design.md`, `docs/agent-workflow.md`, `docs/dashboard.md`, and `docs/contracts.md`, then delete this file.");
-    expectText(phasePlan, "Blocked setup and health checks return executable next actions, not prose-only troubleshooting.");
-    expectText(phasePlan, "Recall quality can be measured read-only.");
-    expect(phasePlan).toContain("npm run smoke:dogfood-demo");
-    expect(phasePlan).toContain("npm run smoke:agent-lifecycle");
-    expect(phasePlan).toContain("npm pack --dry-run --json");
-    expect(phasePlan).toContain("Final v0.2.0 Definition of Done");
+    expectText(roadmap, "Blocked setup and health checks return executable next actions, not prose-only troubleshooting");
+    expectText(roadmap, "Recall quality can be measured read-only");
+    expectText(roadmap, "write failing focused test");
+    expectText(roadmap, "record durable progress in moryn-store");
+    expectText(roadmap, "Public docs keep the product truth in README.md, docs/moryn-design.md, docs/agent-workflow.md, docs/dashboard.md, and docs/contracts.md");
+    expectText(roadmap, "Temporary development plans are not part of the public package");
+    expect(roadmap).toContain("npm run smoke:agent-lifecycle");
+    expect(roadmap).toContain("npm pack --dry-run --json");
+    expect(roadmap).toContain("Final v0.2.0 Definition of Done");
   });
 
   it("documents plain-language Recall Eval interpretation", async () => {

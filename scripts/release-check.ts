@@ -33,6 +33,8 @@ export function assertSafePackageFiles(files: string[]): void {
       || normalized === ".moryn.json"
       || normalized.startsWith(".moryn/")
       || normalized.startsWith(".gemini/")
+      || normalized.startsWith("docs/superpowers/")
+      || normalized === "docs/v0.2-phase-plan.md"
       || normalized.startsWith("events/")
       || normalized.startsWith("snapshots/")
       || normalized.startsWith("indexes/")

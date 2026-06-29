@@ -24,6 +24,14 @@ describe("release check", () => {
     ])).toThrow(/private Moryn store data/);
 
     expect(() => assertSafePackageFiles([
+      "package/docs/superpowers/plans/internal-plan.md"
+    ])).toThrow(/private Moryn store data/);
+
+    expect(() => assertSafePackageFiles([
+      "package/docs/v0.2-phase-plan.md"
+    ])).toThrow(/private Moryn store data/);
+
+    expect(() => assertSafePackageFiles([
       "package/dist/cli.js",
       "package/docs/moryn-design.md",
       "package/assets/moryn-hero.png"

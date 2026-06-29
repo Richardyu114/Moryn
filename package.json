@@ -27,7 +27,13 @@
   "files": [
     "dist",
     "README.md",
-    "docs",
+    "docs/agent-install-prompt.md",
+    "docs/agent-workflow.md",
+    "docs/contracts.md",
+    "docs/dashboard.md",
+    "docs/development.md",
+    "docs/implementation-roadmap.md",
+    "docs/moryn-design.md",
     "assets",
     "scripts/agent-lifecycle-smoke.js",
     "scripts/dogfood-demo-smoke.js"

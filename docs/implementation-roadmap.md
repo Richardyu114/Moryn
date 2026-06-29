@@ -1,11 +1,14 @@
 # Moryn Implementation Roadmap
 
-This roadmap tracks the public first-version status and the next cleanup work.
+This roadmap tracks the public first-version status and release acceptance
+criteria.
 Detailed protocol design lives in [moryn-design.md](moryn-design.md). Agent
 usage details live in [agent-workflow.md](agent-workflow.md). Machine-readable
 contracts are summarized in [contracts.md](contracts.md). Dashboard usage lives
-in [dashboard.md](dashboard.md). The executable v0.2 phase plan lives in
-[v0.2-phase-plan.md](v0.2-phase-plan.md).
+in [dashboard.md](dashboard.md). Public docs keep the product truth in
+README.md, docs/moryn-design.md, docs/agent-workflow.md, docs/dashboard.md, and
+docs/contracts.md. Temporary development plans are not part of the public
+package.
 
 ## Current Status
 
@@ -56,7 +59,7 @@ dry-run   handoff     evidence    decision   append    user-owned
 | Review | Capture Inbox groups decisions by source/session/project/day; Review Queue and Candidate Triage use the same approval brief language. | Dashboard tests and `/api/dashboard.decision_summary`. |
 | Approval | No silent canonical writes. Canonical memory changes only happen through explicit Capture Inbox, Review Queue, or Candidate Triage approval controls with append-only events. | Safe Action Registry, stale guards, timeline evidence. |
 | Sync | Private Git sync can report clean/pending/conflict, push local events, pull remote events, and leave generated views local-only. | Sync adapter tests, lifecycle tests, live `moryn sync --status`. |
-| Dashboard | Dashboard first screen answers whether the user needs to act, what Moryn remembers, recent local state, and shared-copy state. Default copy is English with a Chinese language switch; read-only evidence stays folded under `More details` while `/api/dashboard` keeps the full machine-readable trail. | `tests/observability/dashboard.test.ts`, live `/api/dashboard`, browser fragment smoke. |
+| Dashboard | Dashboard first screen answers whether the user needs to act, what Moryn stores, recently saved content, and shared-copy state. Default copy is English with a Chinese language switch; read-only evidence stays folded under `More details` while `/api/dashboard` keeps the full machine-readable trail. | `tests/observability/dashboard.test.ts`, live `/api/dashboard`, browser fragment smoke. |
 | Audit | Evidence remains in `/api/dashboard`; visible HTML may collapse or index evidence, but should not delete the machine-readable trail. | Docs contract, dashboard JSON smoke, release check. |
 | Release gate | Typecheck, build, focused dashboard tests, docs-contract, `npm run smoke:dogfood-demo`, `npm run release:check`, diff check, package contents, dashboard restart, and clean Moryn store sync all pass. | Terminal verification and final commit summary. |
 
@@ -64,6 +67,48 @@ Two rules cut across every row:
 
 - No silent canonical writes.
 - Evidence remains in `/api/dashboard` even when the visible UI gets quieter.
+
+Release work follows the same implementation loop as feature work:
+
+```text
+write failing focused test
+  -> implement the smallest behavior or docs change
+  -> run focused verification
+  -> run the release gate commands
+  -> commit on main
+  -> push
+  -> record durable progress in moryn-store
+  -> restart the dashboard when dashboard UI, API, or served docs changed
+```
+
+Additional release checks:
+
+- Blocked setup and health checks return executable next actions, not
+  prose-only troubleshooting.
+- Recall quality can be measured read-only with `moryn eval recall` /
+  `recall_eval`.
+- `npm pack --dry-run --json` must exclude private store data, generated
+  dashboard snapshots, tarballs, local-only scratch plans, and temporary
+  development plans.
+
+The final v0.2.0 release gate is:
+
+```bash
+npm run typecheck
+npm test
+npm run release:check
+npm run smoke:dogfood-demo
+npm run smoke:agent-lifecycle
+npm pack --dry-run --json
+git diff --check
+```
+
+Final v0.2.0 Definition of Done: the default dogfood path works end to end;
+saved content is searchable without becoming a forced decision; long-term
+memory writes are explicit, append-only, and auditable; setup is dry-run safe
+and package-installed smoke tested; recall quality can be measured read-only;
+public docs explain Moryn as a user-owned, auditable context store and handoff
+layer; dashboard health and moryn-store sync are clean.
 
 ## First-Version Completion Criteria
 

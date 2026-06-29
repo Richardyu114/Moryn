@@ -1,6 +1,10 @@
 import { readFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { version } from "../src/index.js";
+
+const exec = promisify(execFile);
 
 describe("package metadata", () => {
   it("is ready for scoped npm publication", async () => {
@@ -45,4 +49,17 @@ describe("package metadata", () => {
     expect(license).toContain("MIT License");
     expect(license).toContain("Richard Yu");
   });
+
+  it("keeps temporary development plans and local artifacts out of the packed package", async () => {
+    const result = await exec("npm", ["pack", "--dry-run", "--json"], { cwd: process.cwd() });
+    const packs = JSON.parse(result.stdout) as Array<{ files: Array<{ path: string }> }>;
+    const files = packs[0]?.files.map((file) => file.path) ?? [];
+
+    expect(files).toContain("README.md");
+    expect(files).toContain("docs/implementation-roadmap.md");
+    expect(files).not.toContain("docs/v0.2-phase-plan.md");
+    expect(files.some((file) => file.startsWith("state/"))).toBe(false);
+    expect(files.some((file) => file.includes(".moryn"))).toBe(false);
+    expect(files.some((file) => file.endsWith(".tgz"))).toBe(false);
+  }, 30000);
 });
