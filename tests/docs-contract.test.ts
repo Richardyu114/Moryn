@@ -803,6 +803,7 @@ describe("documentation contracts", () => {
     expect(readme).toContain("moryn install --host codex --project . --apply");
     expect(readme).toContain("moryn context pack --project . --agent codex");
     expect(readme).toContain("moryn capture session --project . --agent codex --summary");
+    expect(readme).toContain("`--file <path>` flags preserve touched-file evidence");
     expect(readme).toContain("moryn capture policy --project . --limit 20");
     expect(readme).toContain("npm run smoke:dogfood-demo");
     expect(readme).toContain("low-risk autocapture");
@@ -813,6 +814,8 @@ describe("documentation contracts", () => {
     expect(workflow).toContain("handoff_pack");
     expect(workflow).toContain("recent_decisions");
     expect(workflow).toContain("open_threads");
+    expect(workflow).toContain("pass repeated");
+    expect(workflow).toContain("`--file <path>` flags");
     expect(roadmap).toContain("Handoff Pack v0.2");
     expect(installPrompt).toContain("host adapter");
     expect(installPrompt).toContain("autocapture");

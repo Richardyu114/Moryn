@@ -954,6 +954,12 @@ const captureSessionArguments = {
     cli: { flag: "--summary" },
     mcp: { argument: "summary" }
   },
+  files: {
+    type: "string[]",
+    required: false,
+    cli: { flag: "--file", repeatable: true },
+    mcp: { argument: "files" }
+  },
   ...lifecycleContextArguments
 } as const satisfies Record<string, OperationArgumentMetadataInput>;
 

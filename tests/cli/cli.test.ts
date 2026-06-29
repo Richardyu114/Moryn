@@ -3231,7 +3231,7 @@ describe("moryn CLI", () => {
     });
   });
 
-  it("captures a session summary from the CLI with normalized host identity", async () => {
+  it("captures session summaries from the CLI with normalized host identity and touched files", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
       const project = join(dir, "project");
@@ -3244,73 +3244,98 @@ describe("moryn CLI", () => {
         "--project-id", "moryn"
       ]);
 
-      const result = await exec("node", [
-        "--import", tsxLoader, cliPath,
-        "--store", store,
-        "capture", "session",
-        "--project", project,
-        "--sync-remote", "git@github.com:user/moryn-store.git",
-        "--agent", "claude-code",
-        "--session-id", "s1",
-        "--current-task", "design host adapter",
-        "--summary", "Finished planner"
-      ]);
-      const parsed = JSON.parse(result.stdout) as {
-        mode: string;
-        policy_decision: {
-          policy_id: string;
-          decision: string;
-          route: string;
-          review_required: boolean;
-          user_action_required: boolean;
-          auto_canonical: boolean;
-          dashboard_surface: string;
-          target_state: string;
-          rule_ids: string[];
-        };
-        record: {
-          kind: string;
-          type: string;
-          project_id: string;
-          tags: string[];
-          source: { client: string; session_id: string };
-          content: { text: string; capture: { host: string; current_task: string } };
-        };
-      };
+      const hostCases = [
+        { input: "claude-code", normalized: "claude" },
+        { input: "codex-cli", normalized: "codex" },
+        { input: "gemini-cli", normalized: "gemini" },
+        { input: "cursor-agent", normalized: "cursor" },
+        { input: "bash", normalized: "shell" }
+      ];
 
-      expect(parsed.mode).toBe("capture_session");
-      expect(parsed.policy_decision).toMatchObject({
-        policy_id: "default_autocapture_policy",
-        decision: "capture",
-        route: "auto_capture",
-        review_required: false,
-        user_action_required: false,
-        auto_canonical: false,
-        dashboard_surface: "handoff",
-        rule_ids: ["low_risk_handoff_auto_capture"],
-        target_state: "candidate"
-      });
-      expect(parsed.record.kind).toBe("session_summary");
-      expect(parsed.record.type).toBe("summary");
-      expect(parsed.record.project_id).toBe("moryn");
-      expect(parsed.record.tags).toContain("autocapture");
-      expect(parsed.record.tags).toContain("auto-captured");
-      expect(parsed.record.tags).not.toContain("review");
-      expect(parsed.record.source).toMatchObject({ client: "claude", session_id: "s1" });
-      expect(parsed.record.content.text).toBe("Finished planner");
-      expect(parsed.record.content.capture).toMatchObject({
-        host: "claude",
-        current_task: "design host adapter",
-        policy: {
-          id: "default_autocapture_policy",
+      for (const hostCase of hostCases) {
+        const touchedFiles = [`src/${hostCase.normalized}.ts`, `docs/${hostCase.normalized}.md`];
+        const result = await exec("node", [
+          "--import", tsxLoader, cliPath,
+          "--store", store,
+          "capture", "session",
+          "--project", project,
+          "--sync-remote", "git@github.com:user/moryn-store.git",
+          "--agent", hostCase.input,
+          "--session-id", `s-${hostCase.normalized}`,
+          "--current-task", `design host adapter ${hostCase.normalized}`,
+          "--file", touchedFiles[0]!,
+          "--file", touchedFiles[1]!,
+          "--summary", `Finished planner for ${hostCase.normalized}`
+        ]);
+        const parsed = JSON.parse(result.stdout) as {
+          mode: string;
+          policy_decision: {
+            policy_id: string;
+            decision: string;
+            route: string;
+            review_required: boolean;
+            user_action_required: boolean;
+            auto_canonical: boolean;
+            dashboard_surface: string;
+            target_state: string;
+            rule_ids: string[];
+          };
+          record: {
+            kind: string;
+            type: string;
+            project_id: string;
+            state: string;
+            tags: string[];
+            source: { client: string; session_id: string };
+            content: {
+              text: string;
+              capture: {
+                host: string;
+                current_task: string;
+                files: string[];
+                policy: { id: string; decision: string; route: string; dashboard_surface: string };
+              };
+            };
+          };
+        };
+
+        expect(parsed.mode).toBe("capture_session");
+        expect(parsed.policy_decision).toMatchObject({
+          policy_id: "default_autocapture_policy",
           decision: "capture",
           route: "auto_capture",
-          dashboard_surface: "handoff"
-        }
-      });
+          review_required: false,
+          user_action_required: false,
+          auto_canonical: false,
+          dashboard_surface: "handoff",
+          rule_ids: ["low_risk_handoff_auto_capture"],
+          target_state: "candidate"
+        });
+        expect(parsed.record.kind).toBe("session_summary");
+        expect(parsed.record.type).toBe("summary");
+        expect(parsed.record.project_id).toBe("moryn");
+        expect(parsed.record.state).toBe("candidate");
+        expect(parsed.record.tags).toContain("autocapture");
+        expect(parsed.record.tags).toContain("auto-captured");
+        expect(parsed.record.tags).toContain(`host:${hostCase.normalized}`);
+        expect(parsed.record.tags).not.toContain("review");
+        expect(parsed.record.source).toMatchObject({ client: hostCase.normalized, session_id: `s-${hostCase.normalized}` });
+        expect(parsed.record.content.text).toBe(`Finished planner for ${hostCase.normalized}`);
+        expect(parsed.record.content.capture).toMatchObject({
+          host: hostCase.normalized,
+          current_task: `design host adapter ${hostCase.normalized}`,
+          files: touchedFiles,
+          policy: {
+            id: "default_autocapture_policy",
+            decision: "capture",
+            route: "auto_capture",
+            dashboard_surface: "handoff"
+          }
+        });
+      }
 
       const events = await readEvents(store);
-      expect(events.filter((event) => event.op === "upsert_record")).toHaveLength(1);
+      expect(events.filter((event) => event.op === "upsert_record")).toHaveLength(hostCases.length);
     });
   });
 
@@ -5935,7 +5960,7 @@ describe("moryn CLI", () => {
       expect(snapshot.url).toMatch(/^file:\/\//);
       const snapshotHtml = await readFile(snapshot.path, "utf8");
       const snapshotStoreSnapshotHtml = storeSnapshotAuditRowHtml(snapshotHtml);
-      expect(snapshotStoreSnapshotHtml).toContain("<strong>Store Snapshot</strong>");
+      expect(snapshotStoreSnapshotHtml).toContain("<strong data-i18n-en=\"Store Snapshot\"");
       expect(snapshotStoreSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
       expect(snapshotStoreSnapshotHtml).not.toContain("Dashboard CLI snapshot memory");
       expect(snapshotHtml).not.toContain("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
@@ -5943,9 +5968,9 @@ describe("moryn CLI", () => {
       expect(snapshotHtml).not.toContain("moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task &#39;&lt;current task&gt;&#39; --agent codex");
       expect(snapshotHtml).not.toContain("moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary &#39;&lt;summary&gt;&#39;");
       expect(snapshotHtml).toContain("<article class=\"reference-library-index\" data-dashboard-detail=\"reference-library:index\" data-reference-library-index>");
-      expect(snapshotHtml).toContain("<strong>Reference Library Index</strong>");
+      expect(snapshotHtml).toContain("data-i18n-en=\"Reference Library Index\"");
       expect(snapshotHtml).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"diagnostics\" data-dashboard-detail=\"routine-diagnostics\" data-routine-diagnostics-reference data-reference-library-index=\"diagnostics\">");
-      expect(snapshotHtml).toContain("<strong>Diagnostics Index</strong>");
+      expect(snapshotHtml).toContain("data-i18n-en=\"Diagnostics Index\"");
       expect(snapshotHtml).toContain("<code data-dashboard-detail=\"health-check\" aria-label=\"Health Check: Healthy local store. Full report is available in /api/dashboard.health_check.\">health_check</code>");
       expect(snapshotHtml).toContain("<code data-dashboard-detail=\"context-pack-review\" aria-label=\"Context Pack Review: Ready handoff context. Full report is available in /api/dashboard.context_pack_review.\">context_pack_review</code>");
       expect(snapshotHtml).toContain("Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.");
@@ -6030,7 +6055,7 @@ describe("moryn CLI", () => {
 
         const page = await (await fetch(served.url)).text();
         const pageStoreSnapshotHtml = storeSnapshotAuditRowHtml(page);
-        expect(pageStoreSnapshotHtml).toContain("<strong>Store Snapshot</strong>");
+        expect(pageStoreSnapshotHtml).toContain("<strong data-i18n-en=\"Store Snapshot\"");
         expect(pageStoreSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
         expect(pageStoreSnapshotHtml).not.toContain("Dashboard CLI server memory");
         expect(page).not.toContain("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
@@ -6050,7 +6075,7 @@ describe("moryn CLI", () => {
 
         const fragment = await (await fetch(new URL("/fragment", served.url))).text();
         const fragmentStoreSnapshotHtml = storeSnapshotAuditRowHtml(fragment);
-        expect(fragmentStoreSnapshotHtml).toContain("<strong>Store Snapshot</strong>");
+        expect(fragmentStoreSnapshotHtml).toContain("<strong data-i18n-en=\"Store Snapshot\"");
         expect(fragmentStoreSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
         expect(fragmentStoreSnapshotHtml).not.toContain("Dashboard CLI server refreshed");
         expect(fragment).not.toContain("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");

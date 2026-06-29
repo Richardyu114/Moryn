@@ -112,7 +112,9 @@ stable evidence paths such as `sections.boot.project.important_decisions[]`,
 `sections.handoff.inbox[]`, and `next.actions_by_id.capture_session`.
 `capture_session` evaluates `default_autocapture_policy`, returns
 `policy_decision`, and writes an autocapture `session_summary` with normalized
-host provenance. Low-risk handoffs use `decision: "capture"` and remain local
+host provenance. Optional repeated CLI `--file <path>` flags or MCP
+`files: ["<path>"]` arguments are stored as touched-file evidence on the
+captured handoff. Low-risk handoffs use `decision: "capture"` and remain local
 handoff evidence without requiring a user click. Completed implementation
 handoffs that mention dashboard review controls can still use this path when
 they also report verification; smoke/test language used as verification

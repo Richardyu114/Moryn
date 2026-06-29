@@ -1229,6 +1229,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_path: coreValidatedStringSchema.optional(),
         sync_remote: z.unknown().optional(),
         current_task: z.unknown().optional(),
+        files: z.array(coreValidatedStringSchema).optional(),
         agent: coreValidatedAgentSchema.optional(),
         ...objectPathAliasInputSchema("capture_session"),
         ...agentAliasInputSchema,
@@ -1244,6 +1245,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         syncRemote: normalizedInput.sync_remote as string | undefined,
         summary: normalizedInput.summary as string,
         currentTask: normalizedInput.current_task as string | undefined,
+        files: normalizedInput.files as string[] | undefined,
         agent: lifecycleAgentInput(normalizedInput.agent)
       });
     })

@@ -72,10 +72,12 @@ checks whether key sections, evidence paths, and the required capture action
 are present before another agent trusts the pack. It also includes the required
 `capture_session` next action. `moryn capture session` evaluates
 `default_autocapture_policy` and records an autocapture handoff so the next
-agent, host, or device can resume from the same store. Low-risk handoffs are
-auto-captured as local handoff evidence without a user click. Handoffs that
-mention decisions, risks, blockers, credentials, permissions, or approval enter
-the dashboard Capture Inbox as review candidates; obvious smoke/test or
+agent, host, or device can resume from the same store. Optional repeated
+`--file <path>` flags preserve touched-file evidence inside the captured
+handoff. Low-risk handoffs are auto-captured as local handoff evidence without
+a user click. Handoffs that mention decisions, risks, blockers, credentials,
+permissions, or approval enter the dashboard Capture Inbox as review
+candidates; obvious smoke/test or
 duplicate captures are archived with policy evidence. Nothing becomes canonical
 memory without user approval.
 

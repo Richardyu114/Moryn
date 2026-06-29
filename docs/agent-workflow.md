@@ -345,6 +345,9 @@ repair.
 For autocaptured session handoffs, use `moryn capture session` and let
 `default_autocapture_policy` choose the route. Low-risk handoffs are
 auto-captured as local handoff evidence for context packs without a user click.
+When the agent knows which files changed or mattered, pass repeated
+`--file <path>` flags; Moryn stores those paths as capture evidence for recall
+and audit without making the handoff long-term memory.
 Decision, risk, blocker, permission, credential, or approval handoffs enter the
 dashboard `Capture Inbox`. `Approve Memory` promotes a current review candidate
 to canonical memory with user confirmation. `Reject` archives the candidate.

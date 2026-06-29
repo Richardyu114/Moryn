@@ -1512,6 +1512,7 @@ function cliParserArgumentSource(option: string): CliParserSource | undefined {
     if (option === "--project-id") return { operation: "capture_session", argument: "project_id" };
     if (option === "--sync-remote") return { operation: "capture_session", argument: "sync_remote" };
     if (option === "--current-task") return { operation: "capture_session", argument: "current_task" };
+    if (option === "--file") return { operation: "capture_session", argument: "files" };
     if (option === "--agent") return { operation: "capture_session", argument: "agent_client" };
     if (option === "--session-id") return { operation: "capture_session", argument: "agent_session_id" };
     if (option === "--model") return { operation: "capture_session", argument: "agent_model" };
@@ -2155,6 +2156,7 @@ capture.command("session")
   .option("--project <path>")
   .option("--sync-remote <remote>")
   .option("--current-task <task>")
+  .option("--file <path>", "Touched file path", collectNonEmptyOption("--file", { operation: "capture_session", argument: "files" }), [])
   .option("--agent <client>", "Agent host/client name")
   .option("--session-id <id>")
   .option("--model <model>")
@@ -2168,6 +2170,7 @@ capture.command("session")
       syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
       summary,
       currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
+      files: options.file,
       agent: parseAgentOptions(options)
     });
     printJson(result);

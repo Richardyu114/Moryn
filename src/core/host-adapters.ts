@@ -47,6 +47,7 @@ export type CaptureSessionInput = {
   syncRemote?: string;
   summary: string;
   currentTask?: string;
+  files?: string[];
   agent?: Partial<RecordSource>;
 };
 
@@ -318,6 +319,7 @@ export async function captureSession(input: CaptureSessionInput): Promise<Captur
   if (!summary) {
     throw new Error("Invalid argument: --summary must not be empty");
   }
+  const files = uniqueNonEmptyStrings(input.files);
   const adapter = getHostAdapter(input.agent?.client) ?? getHostAdapter("shell")!;
   const project = await resolveProjectContext({
     projectPath: input.projectPath,
@@ -359,6 +361,7 @@ export async function captureSession(input: CaptureSessionInput): Promise<Captur
         adapter: adapter.id,
         session_id: input.agent?.session_id,
         current_task: input.currentTask,
+        ...(files.length ? { files } : {}),
         policy: {
           id: policyDecision.policy_id,
           version: policyDecision.version,
@@ -407,6 +410,10 @@ export async function captureSession(input: CaptureSessionInput): Promise<Captur
     },
     selection_sources: CAPTURE_SESSION_SELECTION_SOURCES
   };
+}
+
+function uniqueNonEmptyStrings(values: string[] | undefined): string[] {
+  return Array.from(new Set((values ?? []).map((value) => value.trim()).filter(Boolean)));
 }
 
 export async function contextPack(input: ContextPackInput): Promise<ContextPackResult> {
