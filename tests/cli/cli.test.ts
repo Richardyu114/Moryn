@@ -3253,6 +3253,186 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("returns executable setup recovery when the project path is not a directory", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      const projectFile = join(dir, "project-file");
+      await writeFile(projectFile, "not a directory", "utf8");
+
+      try {
+        await exec("node", [
+          "--import", tsxLoader, cliPath,
+          "--store", store,
+          "setup",
+          "--host", "codex",
+          "--project", projectFile
+        ]);
+        throw new Error("Expected setup to reject a file project path");
+      } catch (error) {
+        const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recoverable: boolean;
+            recommended_action: string;
+            next_action: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: { path: string };
+              safe_to_run: boolean;
+              required_fields: string[];
+              interfaces: { cli: { command: string; executable: string; args: string[] }; mcp: { tool: string; arguments: Record<string, unknown> } };
+              safety: { safe_to_auto_run: boolean; requires_user_confirmation: boolean; requires_authored_input: boolean; writes_local_config: boolean };
+              execution: { ready_to_run: boolean; next_step: string; requires_user_confirmation: boolean; missing_required_fields: string[] };
+              workflow: { phases_by_name: Record<string, { action_source: string; tool: string; required_fields: string[] }> };
+              selection_sources: Record<string, string>;
+            };
+          };
+        };
+
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error).toMatchObject({
+          code: "PROJECT_PATH_NOT_FOUND",
+          recoverable: true,
+          recommended_action: "run moryn project init --path <path> for a new project or retry with the correct --project/--project-id"
+        });
+        expect(parsed.error.message).toContain(projectFile);
+        expect(parsed.error.next_action).toMatchObject({
+          recommended_action: "initialize_project_or_retry_corrected_context",
+          tool: "project_init",
+          command: `moryn project init --path ${projectFile}`,
+          arguments: { path: projectFile },
+          safe_to_run: false,
+          required_fields: [],
+          interfaces: {
+            cli: {
+              command: `moryn project init --path ${projectFile}`,
+              executable: "moryn",
+              args: ["project", "init", "--path", projectFile]
+            },
+            mcp: {
+              tool: "project_init",
+              arguments: { path: projectFile }
+            }
+          },
+          safety: {
+            safe_to_auto_run: false,
+            requires_user_confirmation: true,
+            requires_authored_input: false,
+            writes_local_config: true
+          },
+          execution: {
+            ready_to_run: false,
+            next_step: "confirm_with_user",
+            requires_user_confirmation: true,
+            missing_required_fields: []
+          }
+        });
+        expect(parsed.error.next_action.workflow.phases_by_name.initialize_project_or_retry_corrected_context).toMatchObject({
+          action_source: "next_action",
+          tool: "project_init",
+          required_fields: []
+        });
+        expect(parsed.error.next_action.selection_sources.error_next_action).toBe("error.next_action");
+      }
+    });
+  });
+
+  it("returns executable setup recovery for an invalid sync remote", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      const project = join(dir, "project");
+      await mkdir(project, { recursive: true });
+      const invalidRemote = "git@github.com:user/moryn-store.git\n--upload-pack=bad";
+
+      try {
+        await exec("node", [
+          "--import", tsxLoader, cliPath,
+          "--store", store,
+          "setup",
+          "--host", "codex",
+          "--project", project,
+          "--sync-remote", invalidRemote
+        ]);
+        throw new Error("Expected setup to reject an invalid sync remote");
+      } catch (error) {
+        const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+          ok: boolean;
+          error: {
+            code: string;
+            recoverable: boolean;
+            recommended_action: string;
+            recovery_hint: {
+              operation_contract: string;
+              rejected_argument: { option: string; value: string };
+              expected: { kind: string };
+              argument_sources: { sync_remote: string };
+              retry_with: { option: string; value_placeholder: string };
+            };
+            next_action: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: { host: string; project_path: string; sync_remote: string };
+              safe_to_run: boolean;
+              required_fields: string[];
+              required_fields_by_name: Record<string, { argument_path: string }>;
+              execution: { ready_to_run: boolean; next_step: string; missing_required_fields: string[]; required_inputs_by_field: Record<string, { field: string }> };
+              safety: { safe_to_auto_run: boolean; requires_user_confirmation: boolean; requires_authored_input: boolean; writes_local_config: boolean };
+            };
+          };
+        };
+
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error).toMatchObject({
+          code: "INVALID_ARGUMENT",
+          recoverable: true,
+          recommended_action: "retry setup with a valid sync_remote"
+        });
+        expect(parsed.error.recovery_hint).toMatchObject({
+          operation_contract: "operations_by_id.setup",
+          rejected_argument: { option: "--sync-remote", value: invalidRemote },
+          expected: { kind: "git_remote_or_local_path" },
+          argument_sources: {
+            sync_remote: "operations_by_id.setup.arguments_by_name.sync_remote"
+          },
+          retry_with: { option: "--sync-remote", value_placeholder: "<sync_remote>" }
+        });
+        expect(parsed.error.next_action).toMatchObject({
+          recommended_action: "retry_setup_with_valid_sync_remote",
+          tool: "setup",
+          command: `moryn setup --host codex --project ${project} --sync-remote '<sync_remote>'`,
+          arguments: {
+            host: "codex",
+            project_path: project,
+            sync_remote: "<sync_remote>"
+          },
+          safe_to_run: false,
+          required_fields: ["sync_remote"],
+          required_fields_by_name: {
+            sync_remote: { argument_path: "sync_remote" }
+          },
+          execution: {
+            ready_to_run: false,
+            next_step: "collect_required_fields",
+            missing_required_fields: ["sync_remote"],
+            required_inputs_by_field: {
+              sync_remote: { field: "sync_remote" }
+            }
+          },
+          safety: {
+            safe_to_auto_run: false,
+            requires_user_confirmation: false,
+            requires_authored_input: true,
+            writes_local_config: false
+          }
+        });
+      }
+    });
+  });
+
   it("captures session summaries from the CLI with normalized host identity and touched files", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");

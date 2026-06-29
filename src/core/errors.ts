@@ -1069,6 +1069,20 @@ export function commandForLinkContext(input: { record_id: unknown; linked_record
   return parts.join(" ");
 }
 
+export function commandForSetupContext(input: {
+  host?: unknown;
+  project_path?: unknown;
+  sync_remote?: unknown;
+  apply?: boolean;
+}): string {
+  const parts = ["moryn", "setup"];
+  appendCommandOptionValue(parts, "--host", input.host);
+  appendCommandOptionValue(parts, "--project", input.project_path);
+  appendCommandOptionValue(parts, "--sync-remote", input.sync_remote);
+  if (input.apply === true) parts.push("--apply");
+  return parts.join(" ");
+}
+
 type AgentStartContextInput = {
   project_id?: unknown;
   project_path?: unknown;
@@ -1284,6 +1298,22 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
         };
       }
     case "INVALID_ARGUMENT":
+      if (context?.tool === "setup" && message === "Invalid argument: Invalid sync_remote") {
+        const retryArguments = {
+          ...context.arguments,
+          sync_remote: "<sync_remote>"
+        };
+        return withNextActionMetadata({
+          recommended_action: "retry_setup_with_valid_sync_remote",
+          tool: "setup",
+          command: commandForSetupContext(retryArguments),
+          arguments: retryArguments,
+          required_when: "After setup rejects an invalid sync_remote, before retrying setup or generated sync commands.",
+          required_fields: ["sync_remote"],
+          argument_sources: userInputArgumentSources(["sync_remote"]),
+          safe_to_run: false
+        });
+      }
       if (message === "Invalid argument: project_id is required for project scope") {
         return withNextActionMetadata({
           recommended_action: "discover_project_context_before_project_scoped_write",

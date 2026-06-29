@@ -1,4 +1,5 @@
 import { join, resolve } from "node:path";
+import { stat } from "node:fs/promises";
 import { readStoreConfig, initializeStore } from "./config.js";
 import { readProjectConfig, initializeProjectConfig } from "./project.js";
 import { normalizeHostId, planInstall, type HostAdapterId, type InstallPlanAction } from "./host-adapters.js";
@@ -65,6 +66,35 @@ export type SetupWizardInput = {
   apply?: boolean;
 };
 
+export class SetupWizardArgumentError extends Error {
+  readonly recommended_action: string;
+  readonly recovery_hint: {
+    operation_contract: "operations_by_id.setup";
+    rejected_argument: { argument: "sync_remote"; value: unknown };
+    expected: { kind: "git_remote_or_local_path"; disallow: string[] };
+    argument_sources: { sync_remote: "operations_by_id.setup.arguments_by_name.sync_remote" };
+    retry_with: { argument: "sync_remote"; value_placeholder: "<sync_remote>" };
+  };
+
+  constructor(argument: "sync_remote", value: unknown) {
+    super("Invalid argument: Invalid sync_remote");
+    this.name = "SetupWizardArgumentError";
+    this.recommended_action = "retry setup with a valid sync_remote";
+    this.recovery_hint = {
+      operation_contract: "operations_by_id.setup",
+      rejected_argument: { argument, value },
+      expected: {
+        kind: "git_remote_or_local_path",
+        disallow: ["empty", "control_characters", "newlines"]
+      },
+      argument_sources: {
+        sync_remote: "operations_by_id.setup.arguments_by_name.sync_remote"
+      },
+      retry_with: { argument, value_placeholder: "<sync_remote>" }
+    };
+  }
+}
+
 export const SETUP_WIZARD_SELECTION_SOURCES = {
   setup: "setup",
   check: "checks_by_id.<check>",
@@ -80,6 +110,25 @@ export const SETUP_WIZARD_SELECTION_SOURCES = {
 
 function isNotFoundError(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
+}
+
+function validateSetupSyncRemote(value: string | undefined): void {
+  if (value === undefined) return;
+  if (value.length === 0 || /[\u0000-\u001F\u007F]/u.test(value)) {
+    throw new SetupWizardArgumentError("sync_remote", value);
+  }
+}
+
+async function assertProjectPathCanBeDirectory(projectPath: string): Promise<void> {
+  try {
+    const stats = await stat(projectPath);
+    if (!stats.isDirectory()) {
+      throw new Error(`Project path does not exist: ${projectPath}. Run project_init for a new project, or pass the correct project_path/project_id.`);
+    }
+  } catch (error) {
+    if (isNotFoundError(error)) return;
+    throw error;
+  }
 }
 
 async function storeCheck(storePath: string): Promise<SetupWizardCheck> {
@@ -111,6 +160,7 @@ async function projectCheck(projectPath?: string): Promise<SetupWizardCheck> {
     };
   }
 
+  await assertProjectPathCanBeDirectory(projectPath);
   const config = await readProjectConfig(projectPath);
   return config
     ? {
@@ -216,6 +266,7 @@ async function applySetup(input: SetupWizardInput, actions: InstallPlanAction[])
 }
 
 export async function setupWizard(input: SetupWizardInput): Promise<SetupWizardPlan> {
+  validateSetupSyncRemote(input.syncRemote);
   const installPlan = planInstall({
     host: input.host,
     projectPath: input.projectPath,

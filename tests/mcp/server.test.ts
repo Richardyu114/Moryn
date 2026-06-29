@@ -1033,6 +1033,142 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("returns executable setup recovery for an invalid sync remote", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        const projectPath = join(store, "project");
+        await mkdir(projectPath, { recursive: true });
+        const invalidRemote = "git@github.com:user/moryn-store.git\n--upload-pack=bad";
+
+        const response = await client.callTool({
+          name: "setup",
+          arguments: {
+            host: "codex",
+            project_path: projectPath,
+            sync_remote: invalidRemote
+          }
+        });
+
+        expect("isError" in response ? response.isError : false).toBe(true);
+        const parsed = parseTextContent(response) as {
+          ok: boolean;
+          error: {
+            code: string;
+            recoverable: boolean;
+            recommended_action: string;
+            recovery_hint: {
+              operation_contract: string;
+              rejected_argument: { argument: string; value: string };
+              expected: { kind: string; disallow: string[] };
+              argument_sources: { sync_remote: string };
+              retry_with: { argument: string; value_placeholder: string };
+            };
+            next_action: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: { host: string; project_path: string; sync_remote: string };
+              required_fields: string[];
+              safe_to_run: boolean;
+              interfaces: {
+                cli: { executable: string; args: string[]; placeholders: string[]; has_placeholders: boolean };
+                mcp: { tool: string; arguments: { host: string; project_path: string; sync_remote: string } };
+              };
+              safety: { safe_to_auto_run: boolean; requires_user_confirmation: boolean; requires_authored_input: boolean; writes_local_config: boolean };
+              execution: {
+                ready_to_run: boolean;
+                next_step: string;
+                missing_required_fields: string[];
+                required_inputs_by_field: Record<string, { field: string; argument_path: string; collect: { value_path: string; placeholder: string } }>;
+              };
+              workflow: { phases_by_name: Record<string, { action_source: string; tool: string; required_fields: string[] }> };
+              selection_sources: Record<string, string>;
+            };
+          };
+        };
+
+        expect(parsed).toMatchObject({
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            recoverable: true,
+            recommended_action: "retry setup with a valid sync_remote",
+            recovery_hint: {
+              operation_contract: "operations_by_id.setup",
+              rejected_argument: { argument: "sync_remote", value: invalidRemote },
+              expected: {
+                kind: "git_remote_or_local_path",
+                disallow: ["empty", "control_characters", "newlines"]
+              },
+              argument_sources: {
+                sync_remote: "operations_by_id.setup.arguments_by_name.sync_remote"
+              },
+              retry_with: { argument: "sync_remote", value_placeholder: "<sync_remote>" }
+            }
+          }
+        });
+        expect(parsed.error.next_action).toMatchObject({
+          recommended_action: "retry_setup_with_valid_sync_remote",
+          tool: "setup",
+          command: `moryn setup --host codex --project ${projectPath} --sync-remote '<sync_remote>'`,
+          arguments: {
+            host: "codex",
+            project_path: projectPath,
+            sync_remote: "<sync_remote>"
+          },
+          required_fields: ["sync_remote"],
+          safe_to_run: false,
+          interfaces: {
+            cli: {
+              executable: "moryn",
+              args: ["setup", "--host", "codex", "--project", projectPath, "--sync-remote", "<sync_remote>"],
+              placeholders: ["sync_remote"],
+              has_placeholders: true
+            },
+            mcp: {
+              tool: "setup",
+              arguments: {
+                host: "codex",
+                project_path: projectPath,
+                sync_remote: "<sync_remote>"
+              }
+            }
+          },
+          safety: {
+            safe_to_auto_run: false,
+            requires_user_confirmation: false,
+            requires_authored_input: true,
+            writes_local_config: false
+          },
+          execution: {
+            ready_to_run: false,
+            next_step: "collect_required_fields",
+            missing_required_fields: ["sync_remote"],
+            required_inputs_by_field: {
+              sync_remote: {
+                field: "sync_remote",
+                argument_path: "sync_remote",
+                collect: {
+                  value_path: "user_input.sync_remote",
+                  placeholder: "<sync_remote>"
+                }
+              }
+            }
+          }
+        });
+        expect(parsed.error.next_action.workflow.phases_by_name.retry_setup_with_valid_sync_remote).toMatchObject({
+          action_source: "next_action",
+          tool: "setup",
+          required_fields: ["sync_remote"]
+        });
+        expect(parsed.error.next_action.selection_sources.error_next_action).toBe("error.next_action");
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("returns operation contracts through MCP", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-operation-contracts-"));
     try {

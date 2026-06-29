@@ -517,6 +517,9 @@ function cliOptionForCoreArgument(argument: string, context?: MorynErrorContext)
   if (argument === "refresh_since") {
     return "--refresh-since";
   }
+  if (argument === "sync_remote") {
+    return "--sync-remote";
+  }
   return undefined;
 }
 
@@ -2139,13 +2142,35 @@ program.command("setup")
     const host = parseNonEmptyString(options.host, "--host");
     const projectPath = parseNonEmptyString(options.project, "--project");
     const syncRemote = parseNonEmptyString(options.syncRemote, "--sync-remote");
-    printJson(await setupWizard({
-      storePath: storePath(),
+    const contextArguments = compactUndefined({
       host,
-      projectPath,
-      syncRemote,
-      apply: Boolean(options.apply)
-    }));
+      project_path: projectPath,
+      sync_remote: syncRemote,
+      ...(options.apply ? { apply: true } : {})
+    });
+    const context = {
+      tool: "setup",
+      command: commandLineForCliInterface("moryn", [
+        "setup",
+        ...(host ? ["--host", host] : []),
+        ...(projectPath ? ["--project", projectPath] : []),
+        ...(syncRemote ? ["--sync-remote", syncRemote] : []),
+        ...(options.apply ? ["--apply"] : [])
+      ]),
+      arguments: contextArguments
+    };
+    try {
+      printJson(await setupWizard({
+        storePath: storePath(),
+        host,
+        projectPath,
+        syncRemote,
+        apply: Boolean(options.apply)
+      }));
+    } catch (error) {
+      printError(error, context);
+      process.exitCode = 1;
+    }
   });
 
 const capture = program.command("capture");

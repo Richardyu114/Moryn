@@ -40,6 +40,7 @@ import {
   commandForRecallContext,
   commandForQuarantineContext,
   commandForReviseContext,
+  commandForSetupContext,
   commandForTimelineContext,
   type MorynErrorContext,
   toErrorEnvelope
@@ -1215,6 +1216,18 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         syncRemote: normalizedInput.sync_remote as string | undefined,
         apply: normalizedInput.apply as boolean | undefined
       });
+    }, (normalizedInput) => {
+      const argumentsForContext = compactUndefined({
+        host: normalizedInput.host,
+        project_path: normalizedInput.project_path,
+        sync_remote: normalizedInput.sync_remote,
+        ...(normalizedInput.apply === true ? { apply: true } : {})
+      });
+      return {
+        tool: "setup",
+        command: commandForSetupContext(argumentsForContext),
+        arguments: argumentsForContext
+      };
     })
   );
 
