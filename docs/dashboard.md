@@ -167,6 +167,12 @@ queries, write eval records, create an index, or add approval endpoints for
 Recall Eval. When there are no active stored cases, the folded `Recall Eval`
 row reads `No recall eval cases yet`; the expanded panel still shows the
 read-only unavailable reason and zero-case stats.
+Hidden expected records show as read-only Recall Eval evidence by id and reason:
+they mean the record exists, but normal recall filters such as state, privacy,
+project, kind, tag, file, or explicit scope kept it out. The
+action `inspect_hidden_expected_records` remains a safe inspection action, and
+hidden record text stays out of the visible dashboard unless the user explicitly
+requests private or hidden content.
 
 ### Capture Inbox
 
@@ -1492,10 +1498,12 @@ Review Queue maintenance approval.
 review pressure without expanding every low-level panel. Recall Eval misses use
 `source: "recall_eval"` and `category: "recall_quality"` with evidence paths
 such as `recall_eval.report.cases_by_id.<case_id>`, safe-to-run inspection
-metadata, and `writes: "none"`. Memory Lifecycle, Capture Policy, Recent Value,
-raw records, raw events, and sync metadata remain available through
-`/api/dashboard` and Audit Trail index chips instead of full low-level HTML
-panels.
+metadata, and `writes: "none"`. Hidden expected-record cases use the same
+read-only quality category with action `inspect_hidden_expected_records`; they
+do not expose hidden text and Recall Eval does not add a dashboard approval
+endpoint. Memory Lifecycle, Capture Policy, Recent Value, raw records, raw
+events, and sync metadata remain available through `/api/dashboard` and Audit
+Trail index chips instead of full low-level HTML panels.
 
 The expanded safe-only Governance Hub heading reads `API-backed governance
 index`, and its visible card reads `Governance Index` instead of exposing

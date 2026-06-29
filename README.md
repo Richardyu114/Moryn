@@ -248,9 +248,15 @@ moryn eval recall --project . --cases '[{"case_id":"sync","query":"private sync"
 ```
 
 It runs the existing recall path against expected record ids and reports pass
-or fail cases, ranking reasons, provenance method, privacy leaks, and suggested
-follow-up recall commands. It does not mutate records or add an index. The MCP
-tool name is `recall_eval`.
+or fail cases, matched, missing, and hidden expected record ids, ranking
+reasons, provenance method, privacy leaks, and suggested follow-up recall
+commands. Missing ids mean normal recall could not find an expected record.
+Hidden ids mean the record exists but normal recall filters kept it out, such
+as state, privacy, project, kind, tag, or file filters. Hidden cases use the
+`inspect_hidden_expected_records` suggestion so an agent can inspect ids and
+reasons without exposing hidden text by default. Recall Eval uses normal recall
+with no embedding index and does not mutate memory. The MCP tool name is
+`recall_eval`.
 
 To audit what the autocapture policy already decided, use the read-only Capture
 Policy Audit:

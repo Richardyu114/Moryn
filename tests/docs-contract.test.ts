@@ -943,6 +943,29 @@ describe("documentation contracts", () => {
     expect(phasePlan).toContain("Final v0.2.0 Definition of Done");
   });
 
+  it("documents plain-language Recall Eval interpretation", async () => {
+    const [readme, workflow, dashboard] = await Promise.all([
+      readFile("README.md", "utf8"),
+      readFile("docs/agent-workflow.md", "utf8"),
+      readFile("docs/dashboard.md", "utf8")
+    ]);
+
+    for (const document of [readme, workflow]) {
+      expect(document).toContain("moryn eval recall");
+      expect(document).toContain("recall_eval");
+      expectText(document, "matched, missing, and hidden expected record ids");
+      expectText(document, "Hidden ids mean the record exists but normal recall filters kept it out");
+      expectText(document, "inspect_hidden_expected_records");
+      expectText(document, "no embedding index");
+      expectText(document, "does not mutate memory");
+    }
+
+    expectText(dashboard, "Hidden expected records show as read-only Recall Eval evidence by id and reason");
+    expectText(dashboard, "hidden record text stays out of the visible dashboard unless the user explicitly requests private or hidden content");
+    expectText(dashboard, "action `inspect_hidden_expected_records` remains a safe inspection action");
+    expectText(dashboard, "Recall Eval does not add a dashboard approval endpoint");
+  });
+
   it("documents the read-only memory doctor governance surface", async () => {
     const [readme, workflow, contracts] = await Promise.all([
       readFile("README.md", "utf8"),

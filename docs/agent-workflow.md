@@ -309,10 +309,16 @@ moryn eval recall \
   --cases '[{"case_id":"sync","query":"private sync","expected_record_ids":["rec_..."]}]'
 ```
 
-The result is read-only. It reports pass/fail cases, matched and missing record
-ids, ranking reasons, provenance method, privacy leaks, and suggested recall
-commands for failed cases. It uses normal recall and does not add an embedding
-index or mutate memory. MCP hosts call `recall_eval`.
+The result is read-only. It reports pass/fail cases, matched, missing, and
+hidden expected record ids, ranking reasons, provenance method, privacy leaks,
+and suggested recall commands for failed cases. Missing ids mean normal recall
+could not find an expected record. Hidden ids mean the record exists but normal
+recall filters kept it out because of state, privacy, project, kind, tag, file,
+or explicit scope filters. Hidden cases use the
+`inspect_hidden_expected_records` suggestion so agents can inspect ids and
+filter reasons without exposing hidden text by default. It uses normal recall
+with no embedding index and does not mutate memory. MCP hosts call
+`recall_eval`.
 
 If the project identity finding points at an obvious old id and a chosen
 canonical id, run the repair as a dry run first:
