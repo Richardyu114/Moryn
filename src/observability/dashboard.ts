@@ -593,6 +593,12 @@ export interface DashboardCaptureInboxItem {
   type: string;
   project_id?: string;
   text: string;
+  current_task?: string;
+  files?: string[];
+  policy_decision?: string;
+  policy_route?: string;
+  policy_rule_ids: string[];
+  policy_reasons: string[];
   source_label: string;
   source_detail: string;
   relative_time: string;
@@ -1650,6 +1656,44 @@ function capturePolicyRuleIds(record: MorynRecord): AutocapturePolicyRuleId[] {
   });
 }
 
+function captureEvidenceForRecord(record: MorynRecord): {
+  current_task?: string;
+  files?: string[];
+  policy_decision?: string;
+  policy_route?: string;
+  policy_rule_ids: AutocapturePolicyRuleId[];
+  policy_reasons: string[];
+} {
+  const capture = record.content.capture;
+  if (typeof capture !== "object" || capture === null || Array.isArray(capture)) {
+    return { policy_rule_ids: [], policy_reasons: [] };
+  }
+  const captureObject = capture as Record<string, unknown>;
+  const policy = captureObject.policy;
+  const policyObject = typeof policy === "object" && policy !== null && !Array.isArray(policy)
+    ? policy as Record<string, unknown>
+    : {};
+  const files = Array.isArray(captureObject.files)
+    ? captureObject.files.filter((file): file is string => typeof file === "string" && file.length > 0)
+    : [];
+  const reasons = Array.isArray(policyObject.reasons)
+    ? policyObject.reasons.filter((reason): reason is string => typeof reason === "string" && reason.length > 0)
+    : [];
+  const decision = typeof policyObject.decision === "string" ? policyObject.decision : undefined;
+  const route = typeof policyObject.route === "string" ? policyObject.route : undefined;
+  const currentTask = typeof captureObject.current_task === "string" && captureObject.current_task.length > 0
+    ? captureObject.current_task
+    : undefined;
+  return {
+    ...(currentTask ? { current_task: currentTask } : {}),
+    ...(files.length ? { files } : {}),
+    ...(decision ? { policy_decision: decision } : {}),
+    ...(route ? { policy_route: route } : {}),
+    policy_rule_ids: capturePolicyRuleIds(record),
+    policy_reasons: reasons
+  };
+}
+
 function isAutoCapturedAutocapture(record: MorynRecord): boolean {
   return record.state === "candidate"
     && record.visibility === "active"
@@ -1734,6 +1778,7 @@ function summarizeCaptureInboxItem(
   noise: DashboardCaptureNoise,
   eventsByRecord: Map<string, MorynEvent>
 ): DashboardCaptureInboxItem {
+  const captureEvidence = captureEvidenceForRecord(record);
   return {
     id: record.id,
     group_id: groupId,
@@ -1741,6 +1786,7 @@ function summarizeCaptureInboxItem(
     type: record.type,
     project_id: record.project_id,
     text: recordText(record),
+    ...captureEvidence,
     source_label: humanSourceLabel(record.source),
     source_detail: humanSourceDetail(record.source),
     relative_time: relativeTime(record.updated_at, generatedAt),
@@ -5843,6 +5889,14 @@ function captureInbox(items: DashboardCaptureInbox): string {
                         <div><dt>Confidence</dt><dd>${escapeHtml(item.confidence)}<small>${escapeHtml(item.priority)} priority</small></dd></div>
                         <div><dt>Captured</dt><dd><time title="${escapeHtml(item.exact_time)}">${escapeHtml(item.relative_time)}</time></dd></div>
                         <div><dt>Reason</dt><dd>${escapeHtml(item.provenance_reason ?? "Candidate memory is waiting for review.")}</dd></div>
+                        ${item.current_task ? `<div><dt>Task</dt><dd>${escapeHtml(item.current_task)}</dd></div>` : ""}
+                        ${item.files?.length ? `<div><dt>Files</dt><dd>${item.files.map((file) => `<code>${escapeHtml(file)}</code>`).join(" ")}</dd></div>` : ""}
+                        ${item.policy_decision || item.policy_route || item.policy_rule_ids.length || item.policy_reasons.length ? `<div><dt>Policy</dt><dd>${[
+                          item.policy_decision,
+                          item.policy_route,
+                          ...item.policy_rule_ids,
+                          ...item.policy_reasons
+                        ].filter(Boolean).map((value) => `<code>${escapeHtml(value)}</code>`).join(" ")}</dd></div>` : ""}
                         <div><dt>Trace</dt><dd>${citationCommands(item.citation)}</dd></div>
                       </dl>
                       <div class="capture-inbox-actions">

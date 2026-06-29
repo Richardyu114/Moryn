@@ -7655,6 +7655,103 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("keeps Capture Inbox autocapture evidence explainable from API and trace details", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-06-01T10:01:00.000Z",
+        id: (prefix: string) => prefix === "rec" ? "rec_capture_evidence" : "evt_capture_evidence"
+      });
+
+      const capture = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:codex"],
+        content: {
+          format: "json",
+          text: "Decision: keep review approval explicit before long-term memory.",
+          capture: {
+            mode: "autocapture",
+            host: "codex",
+            adapter: "codex",
+            session_id: "codex-risk-1",
+            current_task: "dashboard review approval",
+            files: ["src/observability/dashboard.ts"],
+            policy: {
+              id: "default_autocapture_policy",
+              version: 1,
+              decision: "review",
+              route: "manual_review",
+              review_required: true,
+              user_action_required: true,
+              auto_canonical: false,
+              dashboard_surface: "capture_inbox",
+              rule_ids: ["review_risk_marker"],
+              reasons: ["review_risk_marker"]
+            }
+          }
+        },
+        state: "candidate",
+        source: { client: "codex", session_id: "codex-risk-1" },
+        provenance: {
+          method: "agent-proposed",
+          reason: "Captured through Moryn host adapter autocapture."
+        }
+      });
+
+      const data = await buildDashboardData(storePath, { limit: 10 }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+        capture_inbox: {
+          items: Array<{
+            id: string;
+            project_id?: string;
+            text: string;
+            source_detail: string;
+            current_task?: string;
+            files?: string[];
+            policy_decision?: string;
+            policy_route?: string;
+            policy_rule_ids: string[];
+            policy_reasons: string[];
+            citation: { timeline_command: string; recall_command: string };
+          }>;
+        };
+      };
+
+      const item = data.capture_inbox.items.find((candidate) => candidate.id === capture.record.id);
+      expect(item).toMatchObject({
+        project_id: "moryn",
+        text: "Decision: keep review approval explicit before long-term memory.",
+        source_detail: "codex / codex-risk-1",
+        current_task: "dashboard review approval",
+        files: ["src/observability/dashboard.ts"],
+        policy_decision: "review",
+        policy_route: "manual_review",
+        policy_rule_ids: ["review_risk_marker"],
+        policy_reasons: ["review_risk_marker"],
+        citation: {
+          timeline_command: "moryn timeline --record-id rec_capture_evidence --project-id moryn",
+          recall_command: "moryn recall --record-id rec_capture_evidence --project-id moryn"
+        }
+      });
+
+      const html = renderDashboardHtml(data);
+      const itemStart = html.indexOf(`data-capture-inbox-record="${capture.record.id}"`);
+      expect(itemStart).toBeGreaterThan(-1);
+      const itemHtml = html.slice(itemStart, html.indexOf("</details>", itemStart));
+      expect(itemHtml).toContain("dashboard review approval");
+      expect(itemHtml).toContain("src/observability/dashboard.ts");
+      expect(itemHtml).toContain("review_risk_marker");
+      expect(itemHtml).toContain("manual_review");
+      expect(itemHtml).toContain("moryn timeline --record-id rec_capture_evidence --project-id moryn");
+    });
+  });
+
   it("surfaces policy-archived autocaptures without putting them back in the Capture Inbox", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
