@@ -495,6 +495,11 @@ Installed packages expose the direct bin:
 moryn-agent-smoke
 ```
 
+Package smoke also installs the packed artifact with `--omit=dev` and runs the
+installed `moryn setup`, `moryn health check`, and `moryn context pack` commands,
+so setup trust is checked outside the source checkout and without dev
+dependencies.
+
 To test a real private remote, use a dedicated test repository:
 
 ```bash

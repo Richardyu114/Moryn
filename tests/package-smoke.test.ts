@@ -865,6 +865,109 @@ describe("published package smoke", () => {
     });
   }, 120000);
 
+  it("runs setup health check and context pack from the installed package without dev dependencies", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      const project = join(dir, "project");
+      const pack = await exec("npm", ["pack", "--silent"], { cwd: process.cwd() });
+      const tarball = join(process.cwd(), pack.stdout.trim().split(/\s+/).at(-1) ?? "");
+
+      try {
+        await exec("npm", ["init", "-y"], { cwd: dir });
+        await exec("npm", ["install", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--silent", tarball], { cwd: dir });
+
+        const moryn = join(dir, "node_modules", ".bin", "moryn");
+        const dryRun = await exec(moryn, ["--store", store, "setup", "--host", "codex", "--project", project], { cwd: dir });
+        const dryPlan = JSON.parse(dryRun.stdout) as {
+          mode: string;
+          status: string;
+          planned_writes_by_id: Record<string, { path: string; action_source: string; requires_apply: boolean }>;
+          next: { recommended_action: string; safe_to_run: boolean };
+        };
+        expect(dryPlan).toMatchObject({
+          mode: "dry_run",
+          status: "needs_setup",
+          next: {
+            recommended_action: "apply_setup",
+            safe_to_run: false
+          }
+        });
+        expect(dryPlan.planned_writes_by_id.store_config).toMatchObject({
+          path: join(store, "config.json"),
+          action_source: "actions_by_id.initialize_store",
+          requires_apply: true
+        });
+        expect(dryPlan.planned_writes_by_id.project_config).toMatchObject({
+          path: join(project, ".moryn.json"),
+          action_source: "actions_by_id.initialize_project",
+          requires_apply: true
+        });
+
+        const applied = await exec(moryn, ["--store", store, "setup", "--host", "codex", "--project", project, "--apply"], { cwd: dir });
+        const appliedPlan = JSON.parse(applied.stdout) as {
+          mode: string;
+          status: string;
+          apply_result: { host_config_writes: string };
+        };
+        expect(appliedPlan).toMatchObject({
+          mode: "apply",
+          status: "ready",
+          apply_result: {
+            host_config_writes: "none"
+          }
+        });
+
+        const health = await exec(moryn, ["--store", store, "health", "check", "--project", project, "--host", "codex", "--limit", "20"], { cwd: dir });
+        const healthReport = JSON.parse(health.stdout) as {
+          read_only: boolean;
+          setup_readiness: { host: string; context_pack_command: string; capture_command: string };
+          suggested_actions_by_id: Record<string, { tool: string; command: string; safe_to_run: boolean }>;
+        };
+        expect(healthReport).toMatchObject({
+          read_only: true,
+          setup_readiness: {
+            host: "codex"
+          }
+        });
+        expect(healthReport.setup_readiness.context_pack_command).toContain("moryn context pack");
+        expect(healthReport.setup_readiness.capture_command).toContain("moryn capture session");
+        expect(healthReport.suggested_actions_by_id.run_context_pack).toMatchObject({
+          tool: "context_pack",
+          safe_to_run: true
+        });
+
+        const context = await exec(moryn, [
+          "--store", store,
+          "context", "pack",
+          "--project", project,
+          "--agent", "codex",
+          "--current-task", "package setup smoke",
+          "--no-pull"
+        ], { cwd: dir });
+        const contextPack = JSON.parse(context.stdout) as {
+          kind: string;
+          handoff_pack: { quality_gate: { status: string } };
+          next: { required_end_action_id: string; actions_by_id: Record<string, { tool: string; required_fields: string[] }> };
+        };
+        expect(contextPack).toMatchObject({
+          kind: "context_pack",
+          next: {
+            required_end_action_id: "capture_session"
+          }
+        });
+        expect(contextPack.handoff_pack.quality_gate.status).toBe("ready");
+        expect(contextPack.next.actions_by_id.capture_session).toMatchObject({
+          tool: "capture_session",
+          required_fields: ["summary"]
+        });
+      } finally {
+        if (tarball) {
+          await rm(tarball, { force: true });
+        }
+      }
+    });
+  }, 120000);
+
   it("installs the packed package and runs the dogfood demo smoke without dev dependencies", async () => {
     await withTempDir(async (dir) => {
       const pack = await exec("npm", ["pack", "--silent"], { cwd: process.cwd() });

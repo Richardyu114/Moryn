@@ -865,6 +865,7 @@ describe("documentation contracts", () => {
     expectText(contracts, "Planned writes include the local path, action id, action source, reason, and `requires_apply: true`");
     expectText(readme, "planned local writes with exact paths");
     expectText(workflow, "`planned_writes_by_id` with exact local paths");
+    expectText(workflow, "Package smoke also installs the packed artifact with `--omit=dev` and runs the installed `moryn setup`, `moryn health check`, and `moryn context pack` commands");
     expect(contracts).toContain("apply_result");
     expect(contracts).toContain("host_config_writes");
     expect(roadmap).toContain("Setup wizard / one-command local setup");
