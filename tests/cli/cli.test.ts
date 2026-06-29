@@ -3292,6 +3292,7 @@ describe("moryn CLI", () => {
               capture: {
                 host: string;
                 current_task: string;
+                project_path: string;
                 files: string[];
                 policy: { id: string; decision: string; route: string; dashboard_surface: string };
               };
@@ -3324,6 +3325,7 @@ describe("moryn CLI", () => {
         expect(parsed.record.content.capture).toMatchObject({
           host: hostCase.normalized,
           current_task: `design host adapter ${hostCase.normalized}`,
+          project_path: project,
           files: touchedFiles,
           policy: {
             id: "default_autocapture_policy",

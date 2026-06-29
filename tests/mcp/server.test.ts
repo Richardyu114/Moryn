@@ -3080,7 +3080,7 @@ describe("MCP stdio server", () => {
         })) as {
           mode: string;
           policy_decision: { policy_id: string; decision: string; route: string; review_required: boolean; user_action_required: boolean; auto_canonical: boolean; dashboard_surface: string };
-          record: { source: { client: string; session_id: string }; tags: string[]; content: { text: string; capture?: { files?: string[]; policy?: { id: string; decision: string; route: string } } } };
+          record: { source: { client: string; session_id: string }; tags: string[]; content: { text: string; capture?: { project_path?: string; files?: string[]; policy?: { id: string; decision: string; route: string } } } };
         };
         expect(capture.mode).toBe("capture_session");
         expect(capture.policy_decision).toMatchObject({
@@ -3095,6 +3095,7 @@ describe("MCP stdio server", () => {
         expect(capture.record.source).toMatchObject({ client: "claude", session_id: "mcp-host" });
         expect(capture.record.tags).toContain("host:claude");
         expect(capture.record.content.text).toBe("Decision: MCP host finished the setup path and approval flow needs review.");
+        expect(capture.record.content.capture?.project_path).toBe(projectPath);
         expect(capture.record.content.capture?.files).toEqual(["src/mcp/server.ts", "docs/contracts.md"]);
         expect(capture.record.content.capture?.policy).toMatchObject({
           id: "default_autocapture_policy",

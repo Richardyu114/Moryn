@@ -360,6 +360,7 @@ export async function captureSession(input: CaptureSessionInput): Promise<Captur
         host: adapter.normalized_client,
         adapter: adapter.id,
         session_id: input.agent?.session_id,
+        project_path: project.project_path,
         current_task: input.currentTask,
         ...(files.length ? { files } : {}),
         policy: {
