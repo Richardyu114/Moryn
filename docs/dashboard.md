@@ -208,10 +208,11 @@ fold inside `Item review`. `Item review` opens to the trace details and
 collapsed candidate rows instead of raw group internals.
 
 Group cards and candidate detail rows start with a compact `Approval brief`
-using the same `Change`, `Scope`, `Guard`, and `Writes` rows as Review Queue.
-The brief shows the candidate count or review reason, says the server rechecks
-active candidate records before writing, and keeps the append-only
-approve/reject boundary visible before trace details.
+using the same `Change`, `Scope`, `Guard`, `Writes`, `Evidence`, and `Trace`
+rows as Review Queue and Candidate Triage. The brief shows the candidate count
+or review reason, says the server rechecks active candidate records before
+writing, keeps the append-only approve/reject boundary visible, and points to
+the detail fold that carries the evidence and timeline/recall trail.
 
 The same card still shows:
 
@@ -363,10 +364,11 @@ default behind a short confirmation summary that reads `Approval required`
 instead of repeating decision and record counts. Counts remain in Pending
 Decisions, the expanded decision card, and `/api/dashboard.maintenance.plans`.
 Review Queue plan cards open with an `Approval brief`. The brief uses
-`Change`, `Scope`, `Guard`, and `Writes` rows. The brief says the server
-rechecks the plan hash before writing and shows the append-only event type in
-user-facing terms, while private-record scope remains a short sentence below
-the rows.
+`Change`, `Scope`, `Guard`, `Writes`, `Evidence`, and `Trace` rows. The brief
+says the server rechecks the plan hash before writing, shows the append-only
+event type in user-facing terms, and points to the decision details that carry
+the plan hash, command, record ids, and later timeline inspection. Private-record
+scope remains a short sentence below the rows.
 
 The individual plan card does not repeat the full issue sentence or render a
 second decision-summary fold. The first expanded queue view stays focused on
@@ -522,8 +524,8 @@ candidate group, so the expanded group stays focused on review path, audit
 notes, promotion drafts when present, and samples instead of raw audit fields.
 Promotable groups may include a collapsed `Promotion draft`
 row. Draft rows open with the same `Approval brief` pattern used by Capture
-Inbox and Review Queue: `Change`, `Scope`, `Guard`, and `Writes`. The exact
-`moryn promote ... --confirm` command and
+Inbox and Review Queue: `Change`, `Scope`, `Guard`, `Writes`, `Evidence`, and
+`Trace`. The exact `moryn promote ... --confirm` command and
 `candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.<record_id>`
 source path stay behind a nested `Draft evidence` fold. The only Candidate
 Triage write control is the draft-row `Approve Memory` action, and pending

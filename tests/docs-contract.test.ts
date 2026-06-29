@@ -365,7 +365,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The collapsed `Page Shortcuts` summary does not repeat active counts");
     expectText(dashboard, "Counts remain in the expanded shortcut cards and `/api/dashboard.action_board`");
     expectText(dashboard, "Review Queue plan cards open with an `Approval brief`");
-    expectText(dashboard, "`Change`, `Scope`, `Guard`, and `Writes`");
+    expectText(dashboard, "`Change`, `Scope`, `Guard`, `Writes`, `Evidence`, and `Trace`");
     expectText(dashboard, "The brief says the server rechecks the plan hash before writing");
     expectText(dashboard, "raw `plan_hash`, equivalent CLI command, rollback path, and record ids stay inside `Decision details`");
     expect(dashboard).toContain("Evidence Library");
@@ -537,7 +537,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "group write-boundary and evidence fields stay behind the nested `Audit boundary` row whose folded");
     expectText(dashboard, "Promotable groups may include a collapsed `Promotion draft` row");
     expectText(dashboard, "Draft rows open with the same `Approval brief` pattern used by Capture Inbox and Review Queue");
-    expectText(dashboard, "`Change`, `Scope`, `Guard`, and `Writes`");
+    expectText(dashboard, "`Change`, `Scope`, `Guard`, `Writes`, `Evidence`, and");
+    expectText(dashboard, "`Trace`. The exact `moryn promote ... --confirm` command");
     expectText(dashboard, "exact `moryn promote ... --confirm` command");
     expectText(dashboard, "`candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.<record_id>` source path");
     expectText(dashboard, "source path stay behind a nested `Draft evidence` fold");
@@ -591,9 +592,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Group id, record ids, rules, and noise evidence stay behind a `Trace details` fold inside `Item review`");
     expectText(dashboard, "`Item review` opens to the trace details and collapsed candidate rows instead of raw group internals");
     expectText(dashboard, "Group cards and candidate detail rows start with a compact `Approval brief`");
-    expectText(dashboard, "using the same `Change`, `Scope`, `Guard`, and `Writes` rows as Review Queue");
+    expectText(dashboard, "using the same `Change`, `Scope`, `Guard`, `Writes`, `Evidence`, and `Trace`");
     expectText(dashboard, "server rechecks active candidate records before writing");
-    expectText(dashboard, "append-only approve/reject boundary visible before trace details");
+    expectText(dashboard, "append-only approve/reject boundary visible, and points to");
     expectText(dashboard, "Queue summary uses one guidance line: review groups first, open item details only when needed, and canonical memory still requires approval");
     expectText(dashboard, "visible first-screen copy refers to the remote as the `Shared copy`");
     expectText(dashboard, "Sync-only pending warnings do not open the visible `Needs a look` review path");
@@ -755,9 +756,9 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("short confirmation summary that reads `Approval required`");
     expectText(dashboard, "Counts remain in Pending Decisions, the expanded decision card, and `/api/dashboard.maintenance.plans`");
     expectText(dashboard, "Review Queue plan cards open with an `Approval brief`");
-    expectText(dashboard, "The brief uses `Change`, `Scope`, `Guard`, and `Writes` rows");
+    expectText(dashboard, "The brief uses `Change`, `Scope`, `Guard`, `Writes`, `Evidence`, and `Trace` rows");
     expectText(dashboard, "The brief says the server rechecks the plan hash before writing");
-    expectText(dashboard, "private-record scope remains a short sentence below the rows");
+    expectText(dashboard, "Private-record scope remains a short sentence below the rows");
     expect(dashboard).toContain("does not repeat the full issue sentence or render a");
     expect(dashboard).toContain("second decision-summary fold");
     expectText(dashboard, "the title, the short approval brief, and explicit controls");

@@ -4902,11 +4902,17 @@ function renderCandidateTriageAuditBoundary(group: DashboardCandidateTriageGroup
         <span>Audit boundary</span>
         <small>${escapeHtml(`${group.label} audit boundary`)}</small>
       </summary>
-      <dl>
-        <div><dt>Write boundary</dt><dd>Draft approve appends promotion events only</dd></div>
-        <div><dt>Confirmation</dt><dd>User approval required for promotion drafts</dd></div>
-        <div><dt>Evidence</dt><dd><code>${escapeHtml(group.evidence_path)}</code></dd></div>
-      </dl>
+      <div class="candidate-triage-approval-brief" data-candidate-triage-audit-brief>
+        <h4>Approval brief</h4>
+        <dl class="candidate-triage-brief-list" aria-label="Approval brief">
+          <div><dt>Change</dt><dd>Review candidate group boundary</dd></div>
+          <div><dt>Scope</dt><dd>${escapeHtml(group.label)}</dd></div>
+          <div><dt>Guard</dt><dd>Promotion drafts recheck active candidates before writing</dd></div>
+          <div><dt>Writes</dt><dd>Group review is read-only; draft approve appends promotion events only</dd></div>
+          <div><dt>Evidence</dt><dd><code>${escapeHtml(group.evidence_path)}</code></dd></div>
+          <div><dt>Trace</dt><dd>Record samples keep timeline and recall commands</dd></div>
+        </dl>
+      </div>
     </details>
   `;
 }
@@ -4923,15 +4929,19 @@ function renderCandidateTriagePromotionDrafts(group: DashboardCandidateTriageGro
       <div class="candidate-triage-promotion-list">
         ${drafts.map((draft) => `
           <article class="candidate-triage-promotion-draft" data-candidate-triage-promotion-draft="${escapeHtml(draft.record_id)}">
-            <div class="candidate-triage-approval-brief" data-candidate-triage-approval-brief>
-              <h4>Approval brief</h4>
-              <dl class="candidate-triage-brief-list" aria-label="Approval brief">
-                <div><dt>Change</dt><dd>Promote 1 candidate</dd></div>
-                <div><dt>Scope</dt><dd>${escapeHtml(`${recordLabel(draft.record_id)} to ${draft.target_state}`)}</dd></div>
-                <div><dt>Guard</dt><dd>Server rechecks active candidate before writing</dd></div>
-                <div><dt>Writes</dt><dd>Approve Memory appends an append-only promotion event</dd></div>
-              </dl>
-            </div>
+            ${approvalBriefHtml({
+              className: "candidate-triage-approval-brief",
+              dataAttribute: "data-candidate-triage-approval-brief",
+              listClassName: "candidate-triage-brief-list",
+              rows: [
+                { label: "Change", value: "Promote 1 candidate" },
+                { label: "Scope", value: `${recordLabel(draft.record_id)} to ${draft.target_state}` },
+                { label: "Guard", value: "Server rechecks active candidate before writing" },
+                { label: "Writes", value: "Approve Memory appends an append-only promotion event" },
+                { label: "Evidence", value: "Command and source path stay in Draft evidence" },
+                { label: "Trace", value: "Promotion event remains inspectable through timeline" }
+              ]
+            })}
             <details class="candidate-triage-promotion-evidence" data-dashboard-detail="candidate-triage-promotion-evidence:${escapeHtml(draft.record_id)}">
               <summary class="dashboard-fold-summary">
                 <span>Draft evidence</span>
@@ -5163,18 +5173,20 @@ function maintenanceReviewBrief(plan: DashboardMaintenancePlan): string {
   const change = maintenanceMoveSummary(plan);
   const scope = plan.type === "candidate_noise_archive" ? "Marker noise" : maintenanceChangeDetail(plan);
   const eventName = maintenanceApprovalEventName(plan);
-  return `
-    <div class="maintenance-brief" data-maintenance-brief>
-      <h4>Approval brief</h4>
-      <dl class="maintenance-brief-list" aria-label="Approval brief">
-        <div><dt>Change</dt><dd>${escapeHtml(change)}</dd></div>
-        <div><dt>Scope</dt><dd>${escapeHtml(scope)}</dd></div>
-        <div><dt>Guard</dt><dd>Server rechecks plan hash before writing</dd></div>
-        <div><dt>Writes</dt><dd>${escapeHtml(`append-only ${eventName} events`)}</dd></div>
-      </dl>
-      <p>${escapeHtml(`${maintenancePrivateSummary(plan)}.`)}</p>
-    </div>
-  `;
+  return approvalBriefHtml({
+    className: "maintenance-brief",
+    dataAttribute: "data-maintenance-brief",
+    listClassName: "maintenance-brief-list",
+    rows: [
+      { label: "Change", value: change },
+      { label: "Scope", value: scope },
+      { label: "Guard", value: "Server rechecks plan hash before writing" },
+      { label: "Writes", value: `append-only ${eventName} events` },
+      { label: "Evidence", value: "Plan hash, command, and record ids stay in Decision details" },
+      { label: "Trace", value: "Written events remain inspectable through timeline" }
+    ],
+    footerHtml: `<p>${escapeHtml(`${maintenancePrivateSummary(plan)}.`)}</p>`
+  });
 }
 
 function maintenanceReviewWhy(plan: DashboardMaintenancePlan): string {
@@ -5640,6 +5652,50 @@ function citationCommands(citation: DashboardRecordCitation | DashboardEventCita
   `;
 }
 
+type ApprovalBriefLabel = "Change" | "Scope" | "Guard" | "Writes" | "Evidence" | "Trace";
+
+interface ApprovalBriefRow {
+  label: ApprovalBriefLabel;
+  value: string;
+  valueZh?: string;
+}
+
+function approvalBriefLabelZh(label: ApprovalBriefLabel): string {
+  if (label === "Change") return "变化";
+  if (label === "Scope") return "范围";
+  if (label === "Guard") return "保护";
+  if (label === "Writes") return "写入";
+  if (label === "Evidence") return "证据";
+  return "追踪";
+}
+
+function approvalBriefHtml(input: {
+  className: string;
+  dataAttribute: string;
+  listClassName: string;
+  rows: ApprovalBriefRow[];
+  translated?: boolean;
+  footerHtml?: string;
+}): string {
+  const title = input.translated ? i18nText("Approval brief", "确认摘要", "h4") : "<h4>Approval brief</h4>";
+  const rows = input.rows.map((row) => {
+    if (input.translated) {
+      const valueZh = row.valueZh ?? row.value;
+      return `<div>${i18nText(row.label, approvalBriefLabelZh(row.label), "dt")}<dd ${i18nAttribute(row.value, valueZh)}>${escapeHtml(row.value)}</dd></div>`;
+    }
+    return `<div><dt>${escapeHtml(row.label)}</dt><dd>${escapeHtml(row.value)}</dd></div>`;
+  }).join("\n        ");
+  return `
+    <div class="${escapeHtml(input.className)}" ${input.dataAttribute}>
+      ${title}
+      <dl class="${escapeHtml(input.listClassName)}" aria-label="Approval brief">
+        ${rows}
+      </dl>
+      ${input.footerHtml ?? ""}
+    </div>
+  `;
+}
+
 function captureInboxAuditSummary(items: DashboardCaptureInbox): string {
   return [
     "manual review",
@@ -5739,17 +5795,36 @@ function captureInboxDecisionBrief(item: DashboardCaptureInboxItem): string {
     : reason === "Candidate memory is waiting for review."
       ? "候选记忆正在等待查看。"
       : reason;
-  return `
-    <div class="capture-inbox-brief" data-capture-inbox-brief>
-      ${i18nText("Approval brief", "确认摘要", "h4")}
-      <dl class="capture-inbox-brief-list" aria-label="Approval brief">
-        <div>${i18nText("Change", "变化", "dt")}<dd ${i18nAttribute("Review 1 candidate", "查看 1 条候选内容")}>Review 1 candidate</dd></div>
-        <div>${i18nText("Scope", "范围", "dt")}<dd ${i18nAttribute(reason, reasonZh)}>${escapeHtml(reason)}</dd></div>
-        <div>${i18nText("Guard", "保护", "dt")}<dd ${i18nAttribute("Server rechecks active candidate before writing", "写入前服务器会重新检查当前候选内容")}>Server rechecks active candidate before writing</dd></div>
-        <div>${i18nText("Writes", "写入", "dt")}<dd ${i18nAttribute("Approve appends memory; Reject appends archive", "批准会追加记忆；拒绝会追加归档")}>Approve appends memory; Reject appends archive</dd></div>
-      </dl>
-    </div>
-  `;
+  return approvalBriefHtml({
+    className: "capture-inbox-brief",
+    dataAttribute: "data-capture-inbox-brief",
+    listClassName: "capture-inbox-brief-list",
+    translated: true,
+    rows: [
+      { label: "Change", value: "Review 1 candidate", valueZh: "查看 1 条候选内容" },
+      { label: "Scope", value: reason, valueZh: reasonZh },
+      {
+        label: "Guard",
+        value: "Server rechecks active candidate before writing",
+        valueZh: "写入前服务器会重新检查当前候选内容"
+      },
+      {
+        label: "Writes",
+        value: "Approve appends memory; Reject appends archive",
+        valueZh: "批准会追加记忆；拒绝会追加归档"
+      },
+      {
+        label: "Evidence",
+        value: "Candidate text and policy details stay in Item review",
+        valueZh: "候选文本和策略细节保留在逐条查看中"
+      },
+      {
+        label: "Trace",
+        value: "Timeline and recall commands stay below",
+        valueZh: "时间线和召回命令保留在下方"
+      }
+    ]
+  });
 }
 
 function captureInboxGroupBrief(group: DashboardCaptureInboxGroup): string {
@@ -5757,17 +5832,36 @@ function captureInboxGroupBrief(group: DashboardCaptureInboxGroup): string {
   const scopeZh = group.noise.level === "likely_noise" ? "可能是噪音" : "正常查看";
   const change = `Review ${pluralize(group.total, "candidate")}`;
   const changeZh = `查看 ${group.total} 条候选内容`;
-  return `
-    <div class="capture-inbox-brief" data-capture-inbox-group-brief>
-      ${i18nText("Approval brief", "确认摘要", "h4")}
-      <dl class="capture-inbox-brief-list" aria-label="Approval brief">
-        <div>${i18nText("Change", "变化", "dt")}<dd ${i18nAttribute(change, changeZh)}>${escapeHtml(change)}</dd></div>
-        <div>${i18nText("Scope", "范围", "dt")}<dd ${i18nAttribute(scope, scopeZh)}>${escapeHtml(scope)}</dd></div>
-        <div>${i18nText("Guard", "保护", "dt")}<dd ${i18nAttribute("Server rechecks selected group records before writing", "写入前服务器会重新检查所选分组记录")}>Server rechecks selected group records before writing</dd></div>
-        <div>${i18nText("Writes", "写入", "dt")}<dd ${i18nAttribute("Approve Group appends memory; Reject Group appends archive", "批准分组会追加记忆；拒绝分组会追加归档")}>Approve Group appends memory; Reject Group appends archive</dd></div>
-      </dl>
-    </div>
-  `;
+  return approvalBriefHtml({
+    className: "capture-inbox-brief",
+    dataAttribute: "data-capture-inbox-group-brief",
+    listClassName: "capture-inbox-brief-list",
+    translated: true,
+    rows: [
+      { label: "Change", value: change, valueZh: changeZh },
+      { label: "Scope", value: scope, valueZh: scopeZh },
+      {
+        label: "Guard",
+        value: "Server rechecks selected group records before writing",
+        valueZh: "写入前服务器会重新检查所选分组记录"
+      },
+      {
+        label: "Writes",
+        value: "Approve Group appends memory; Reject Group appends archive",
+        valueZh: "批准分组会追加记忆；拒绝分组会追加归档"
+      },
+      {
+        label: "Evidence",
+        value: "Group ids, records, rules, and noise stay in Trace details",
+        valueZh: "分组、记录、规则和噪音证据保留在追踪详情中"
+      },
+      {
+        label: "Trace",
+        value: "Timeline and recall commands stay with each item",
+        valueZh: "每条内容都保留时间线和召回命令"
+      }
+    ]
+  });
 }
 
 function captureInboxNoiseRuleLabel(ruleId: DashboardCaptureNoiseRule["id"]): string {

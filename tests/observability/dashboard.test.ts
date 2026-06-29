@@ -85,6 +85,16 @@ function supportingEvidenceSummaryRowHtml(html: string, row: "audit-reports" | "
   return html.slice(rowStart, rowEnd);
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function expectApprovalBriefRows(html: string, labels: string[]): void {
+  for (const label of labels) {
+    expect(html).toMatch(new RegExp(`<dt(?:\\s[^>]*)?>${escapeRegExp(label)}</dt><dd(?:\\s[^>]*)?>`));
+  }
+}
+
 describe("observability dashboard", () => {
   it("reuses an in-flight dashboard data build for concurrent server reads", async () => {
     let calls = 0;
@@ -3102,6 +3112,7 @@ describe("observability dashboard", () => {
       const promotionDraftHtml = html.slice(promotionDraftStart, promotionActionsStart);
       expect(promotionDraftHtml).toContain("data-candidate-triage-approval-brief");
       expect(promotionDraftHtml).toContain("<h4>Approval brief</h4>");
+      expectApprovalBriefRows(promotionDraftHtml, ["Change", "Scope", "Guard", "Writes", "Evidence", "Trace"]);
       expect(promotionDraftHtml).toContain("<dt>Change</dt><dd>Promote 1 candidate</dd>");
       expect(promotionDraftHtml).toContain("<dt>Scope</dt><dd>rec_candidate_triage_3 to canonical</dd>");
       expect(promotionDraftHtml).toContain("<dt>Guard</dt><dd>Server rechecks active candidate before writing</dd>");
@@ -3126,8 +3137,13 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span>Audit boundary</span>");
       expect(html).toContain("<small>Likely noise audit boundary</small>");
       expect(html).toContain("<small>Promotable candidates audit boundary</small>");
-      expect(html).toContain("<dt>Write boundary</dt><dd>Draft approve appends promotion events only</dd>");
-      expect(html).toContain("<dt>Confirmation</dt><dd>User approval required for promotion drafts</dd>");
+      const candidateAuditBoundaryStart = html.indexOf("<details class=\"candidate-triage-audit-boundary\" data-dashboard-detail=\"candidate-triage-audit:promotable\">");
+      const candidateAuditBoundaryEnd = html.indexOf("</dl>", candidateAuditBoundaryStart) + "</dl>".length;
+      expect(candidateAuditBoundaryStart).toBeGreaterThan(-1);
+      const candidateAuditBoundaryHtml = html.slice(candidateAuditBoundaryStart, candidateAuditBoundaryEnd);
+      expectApprovalBriefRows(candidateAuditBoundaryHtml, ["Change", "Scope", "Guard", "Writes", "Evidence", "Trace"]);
+      expect(html).not.toContain("<dt>Write boundary</dt><dd>Draft approve appends promotion events only</dd>");
+      expect(html).not.toContain("<dt>Confirmation</dt><dd>User approval required for promotion drafts</dd>");
       expect(html).not.toContain("<dt>Write boundary</dt><dd>No memory writes</dd>");
       expect(html).not.toContain("<dt>Confirmation</dt><dd>Inspection only</dd>");
       expect(html).not.toContain("<small>Read-only evidence and confirmation</small>");
@@ -6188,6 +6204,7 @@ describe("observability dashboard", () => {
       const noiseBriefHtml = html.slice(noiseBriefStart, noiseBriefEnd);
       expect(noiseBriefHtml).toContain("<h4>Approval brief</h4>");
       expect(noiseBriefHtml).not.toContain("<h4>Approval summary</h4>");
+      expectApprovalBriefRows(noiseBriefHtml, ["Change", "Scope", "Guard", "Writes", "Evidence", "Trace"]);
       expect(noiseBriefHtml).toContain("<dt>Change</dt><dd>Archive 3 candidates</dd>");
       expect(noiseBriefHtml).toContain("<dt>Scope</dt><dd>Marker noise</dd>");
       expect(noiseBriefHtml).toContain("<dt>Guard</dt><dd>Server rechecks plan hash before writing</dd>");
@@ -6439,6 +6456,10 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<small>Why, change, safety, action</small>");
       expect(html).toContain("data-maintenance-brief");
       expect(html).toContain("<h4>Approval brief</h4>");
+      const repairBriefStart = html.indexOf("<div class=\"maintenance-brief\" data-maintenance-brief>");
+      const repairBriefEnd = html.indexOf("</p>", repairBriefStart) + "</p>".length;
+      const repairBriefHtml = html.slice(repairBriefStart, repairBriefEnd);
+      expectApprovalBriefRows(repairBriefHtml, ["Change", "Scope", "Guard", "Writes", "Evidence", "Trace"]);
       expect(html).toContain("<dt>Change</dt><dd>Move 1 record</dd>");
       expect(html).toContain("<dt>Scope</dt><dd>repo-e6f0166fd942 to moryn</dd>");
       expect(html).toContain("<dt>Guard</dt><dd>Server rechecks plan hash before writing</dd>");
@@ -6450,9 +6471,6 @@ describe("observability dashboard", () => {
         next_action_label: "Open checks"
       });
       expect(data.action_board.items_by_id.review.next_action_label).not.toBe("Review warnings");
-      const repairBriefStart = html.indexOf("<div class=\"maintenance-brief\" data-maintenance-brief>");
-      const repairBriefEnd = html.indexOf("</p>", repairBriefStart) + "</p>".length;
-      const repairBriefHtml = html.slice(repairBriefStart, repairBriefEnd);
       expect(repairBriefHtml).not.toContain("<h4>Decision brief</h4>");
       expect(repairBriefHtml).not.toContain("<h4>Approval summary</h4>");
       expect(repairBriefHtml).not.toContain("This repair would relink 1 record from <code>repo-e6f0166fd942</code> to <code>moryn</code>.");
@@ -7362,6 +7380,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("1 candidate");
       expect(html).toContain("Codex finished Capture Inbox planning.");
       expect(html).toContain("data-capture-inbox-brief");
+      const captureItemBriefStart = html.indexOf("<div class=\"capture-inbox-brief\" data-capture-inbox-brief>");
+      const captureItemBriefEnd = html.indexOf("</dl>", captureItemBriefStart) + "</dl>".length;
+      expect(captureItemBriefStart).toBeGreaterThan(-1);
+      const captureItemBriefHtml = html.slice(captureItemBriefStart, captureItemBriefEnd);
+      expectApprovalBriefRows(captureItemBriefHtml, ["Change", "Scope", "Guard", "Writes", "Evidence", "Trace"]);
       expect(html).toContain("<h4 data-i18n-en=\"Approval brief\" data-i18n-zh=\"确认摘要\">Approval brief</h4>");
       expect(html).toContain("<dt data-i18n-en=\"Change\" data-i18n-zh=\"变化\">Change</dt><dd data-i18n-en=\"Review 1 candidate\" data-i18n-zh=\"查看 1 条候选内容\">Review 1 candidate</dd>");
       expect(html).toContain("<dt data-i18n-en=\"Scope\" data-i18n-zh=\"范围\">Scope</dt><dd data-i18n-en=\"Captured through Moryn host adapter autocapture.\" data-i18n-zh=\"由 Moryn 主机适配器自动捕获。\">Captured through Moryn host adapter autocapture.</dd>");
@@ -7372,6 +7395,11 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<span>Approve appends memory</span>");
       expect(html).not.toContain("<span>Reject appends archive</span>");
       expect(html).toContain("data-capture-inbox-group-brief");
+      const captureGroupBriefStart = html.indexOf("<div class=\"capture-inbox-brief\" data-capture-inbox-group-brief>");
+      const captureGroupBriefEnd = html.indexOf("</dl>", captureGroupBriefStart) + "</dl>".length;
+      expect(captureGroupBriefStart).toBeGreaterThan(-1);
+      const captureGroupBriefHtml = html.slice(captureGroupBriefStart, captureGroupBriefEnd);
+      expectApprovalBriefRows(captureGroupBriefHtml, ["Change", "Scope", "Guard", "Writes", "Evidence", "Trace"]);
       expect(html).toContain("<dt data-i18n-en=\"Scope\" data-i18n-zh=\"范围\">Scope</dt><dd data-i18n-en=\"Normal review\" data-i18n-zh=\"正常查看\">Normal review</dd>");
       expect(html).toContain("<dt data-i18n-en=\"Guard\" data-i18n-zh=\"保护\">Guard</dt><dd data-i18n-en=\"Server rechecks selected group records before writing\" data-i18n-zh=\"写入前服务器会重新检查所选分组记录\">Server rechecks selected group records before writing</dd>");
       expect(html).toContain("<dt data-i18n-en=\"Writes\" data-i18n-zh=\"写入\">Writes</dt><dd data-i18n-en=\"Approve Group appends memory; Reject Group appends archive\" data-i18n-zh=\"批准分组会追加记忆；拒绝分组会追加归档\">Approve Group appends memory; Reject Group appends archive</dd>");
