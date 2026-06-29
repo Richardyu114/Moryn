@@ -21,6 +21,7 @@ The short version:
 For normal host sessions, the low-friction path is:
 
 ```bash
+moryn setup --host codex --project .
 moryn setup --host codex --project . --apply
 moryn install --host codex --project . --apply
 moryn context pack --project . --agent codex --current-task "current task"
@@ -75,11 +76,13 @@ or detailed lifecycle action templates.
 
 `moryn setup` is the auditable one-command setup wizard. The default dry-run
 lists `checks_by_id`, `planned_writes_by_id` with exact local paths, planned
-local actions, and the next command without writing anything. Each planned write
-points back to its action source so blocked setup can be recovered without
-guessing from prose. `--apply` initializes the local Moryn store and optional
-project config only; host configuration files remain manual and are represented
-as printed registration commands.
+local actions, and the next command without writing anything. Run setup once
+without `--apply` first so the agent or user can inspect checks and planned
+local writes before any file changes. Each planned write points back to its
+action source so blocked setup can be recovered without guessing from prose.
+`--apply` initializes the local Moryn store and optional project config only;
+host configuration files remain manual and are represented as printed
+registration commands.
 
 ## Startup
 

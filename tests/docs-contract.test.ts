@@ -854,9 +854,15 @@ describe("documentation contracts", () => {
       expect(document).toContain("dry-run");
       expect(document).toContain("host configuration files");
     }
+    expect(readme).toContain("moryn setup --host codex --project .");
     expect(readme).toContain("moryn setup --host codex --project . --apply");
-    expect(installPrompt).toContain("Run `moryn setup --project . --host \"<host client name>\" --apply`.");
+    expectText(readme, "Run setup once without `--apply` first; it prints checks and planned local writes without changing files.");
+    expectText(readme, "Apply only after the dry-run looks right.");
+    expect(installPrompt).toContain("Run `moryn setup --project . --host \"<host client name>\"`.");
+    expect(installPrompt).toContain("Then run `moryn setup --project . --host \"<host client name>\" --apply` only after the dry-run looks right.");
+    expect(workflow).toContain("moryn setup --host codex --project .");
     expect(workflow).toContain("moryn setup --host codex --project . --apply");
+    expectText(workflow, "Run setup once without `--apply` first so the agent or user can inspect checks and planned local writes before any file changes.");
     expect(contracts).toContain("moryn contracts operations --operation setup");
     expect(contracts).toContain('"tool": "setup"');
     expect(contracts).toContain("SETUP_WIZARD_SELECTION_SOURCES");

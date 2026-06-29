@@ -27,16 +27,18 @@ First, inspect the environment:
      `https://github.com/Richardyu114/Moryn.git`, build it, and link it;
    - if none of those paths are possible, ask me for a source path or install
      permission.
-3. Run `moryn setup --project . --host "<host client name>" --apply`.
-   This local setup wizard runs as a dry-run unless `--apply` is present. The
-   apply form initializes only Moryn-local state and project config; it must not
-   mutate host configuration files. It also prints safe MCP, context, and
-   autocapture commands.
-4. If `moryn setup` reports missing project context, run
+3. Run `moryn setup --project . --host "<host client name>"`.
+   This local setup wizard is a dry-run unless `--apply` is present. It prints
+   readiness checks, planned local writes, and safe MCP, context, and
+   autocapture commands without changing files.
+4. Then run `moryn setup --project . --host "<host client name>" --apply` only after the dry-run looks right.
+   The apply form initializes only Moryn-local state and project config; it must
+   not mutate host configuration files.
+5. If `moryn setup` reports missing project context, run
    `moryn project init --path . --project-id <repo-name>`. Infer
    `<repo-name>` from the Git repository or current directory. Ask me only if
    the project id is ambiguous or changing an existing config would be required.
-5. If this host supports MCP, configure it to run `moryn mcp`. For example:
+6. If this host supports MCP, configure it to run `moryn mcp`. For example:
    `codex mcp add moryn -- moryn mcp` or
    `gemini mcp add moryn moryn mcp --scope project`.
 
