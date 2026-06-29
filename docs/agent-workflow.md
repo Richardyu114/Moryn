@@ -483,7 +483,11 @@ npm run smoke:dogfood-demo
 
 This uses a temporary local store to run setup, context pack, low-risk
 autocapture, review-routed handoff, and dashboard snapshot checks without
-touching user data.
+touching user data. A passing public demo includes the summary:
+
+```text
+setup applied -> context pack ready -> low-risk handoff auto-captured -> review handoff routed to Capture Inbox -> dashboard snapshot generated
+```
 
 Validate the lifecycle path locally:
 

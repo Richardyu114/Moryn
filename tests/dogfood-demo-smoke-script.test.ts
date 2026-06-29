@@ -20,5 +20,6 @@ describe("dogfood demo smoke script", () => {
     expect(result.stdout).toContain("low-risk handoff auto-captured");
     expect(result.stdout).toContain("review handoff routed to Capture Inbox");
     expect(result.stdout).toContain("dashboard snapshot generated");
+    expect(result.stdout).toContain("setup applied -> context pack ready -> low-risk handoff auto-captured -> review handoff routed to Capture Inbox -> dashboard snapshot generated");
   }, 60000);
 });

@@ -7,22 +7,55 @@ for multi-agent, multi-device AI work.
 
 It gives Codex, Claude, Cursor, Gemini, shell agents, and scripts one durable
 context store without making memory belong to any single agent. The user owns
-the store. Agents read, write, revise, promote, and hand off context through the
-CLI or a real stdio MCP server.
+the store. Agents can remember useful context, hand work to another agent, sync
+through a user-owned private Git repository, and show exactly where each saved
+item came from.
 
-Moryn is not an agent platform, not a vector-memory SDK, and
-not a hosted cloud service. It is the memory bus between agents: simple on the
-default path, and fully
-traceable when a user or agent needs review, provenance, sync, or handoff
+Moryn is not an agent platform, not a vector-memory SDK, and not a hosted cloud service.
+It is the memory bus between agents: simple on the default path, and
+fully traceable when a user or agent needs review, provenance, sync, or handoff
 history.
 
-> Status: first-version MVP. Local memory operations, Git sync, lifecycle
-> handoffs, package smoke tests, and MCP stdio access are implemented.
+> Status: first-version MVP. Local memory operations, Git sync, handoffs,
+> package smoke tests, and MCP stdio access are implemented.
+
+## Default path
+
+```text
+setup -> context pack -> capture -> review -> approve -> sync
+```
+
+The normal flow is intentionally small: initialize a local store, let an agent
+read the current project context, capture a handoff, review only the notes that
+need a real decision, approve useful long-term memory, and sync through a
+private repository you control.
+
+Most users should ask an agent to operate Moryn instead of learning every
+command. The deeper surfaces stay available when needed:
+[Agent Workflow](docs/agent-workflow.md), [Dashboard](docs/dashboard.md), and
+[Contracts](docs/contracts.md).
+
+## Try the demo
+
+From a source checkout, run:
+
+```bash
+npm run smoke:dogfood-demo
+```
+
+The demo exercises the default path on a temporary local store and should print:
+
+```text
+setup applied -> context pack ready -> low-risk handoff auto-captured -> review handoff routed to Capture Inbox -> dashboard snapshot generated
+```
+
+It proves the main shape without touching your real Moryn store: setup, context
+pack, low-risk autocapture, review-routed capture, and a dashboard snapshot.
 
 ## Use With An Agent
 
-Moryn is primarily meant to be operated by agents. Most users should not need to
-learn the command catalog. Copy this prompt into an agent with shell access:
+Most users should ask an agent to operate Moryn. Copy this prompt into an agent
+with shell access:
 
 ```text
 Install and use Moryn for this project.
@@ -39,12 +72,23 @@ when configured, and final handoff.
 
 Ask me only for decisions that require my authority or private information:
 sync remote URL, credentials, overwriting or repairing configs, ambiguous
-project identity, sensitive memory, sync conflicts, or high-risk canonical
-promotion. Never store secrets.
+project identity, sensitive memory, sync conflicts, or making high-risk memory
+long term. Never store secrets.
 ```
 
 For a longer copy-paste prompt and setup expectations, see
 [Agent Install Prompt](docs/agent-install-prompt.md).
+
+## What It Stores
+
+- `memory`: project facts, decisions, warnings, preferences, and active state.
+- `skill`: reusable workflows, procedures, and command knowledge.
+- `soul`: long-term user preferences, collaboration style, and principles.
+- `session_summary`: final handoff notes from one agent session to another.
+- `agent_note`: raw agent observations that can later be promoted.
+
+The first version is local-first. `~/.moryn` is the runtime store; a
+user-owned private Git repository is the first sync backend.
 
 ## Fast Host Adapter Path
 
@@ -83,17 +127,6 @@ permissions, or approval enter the dashboard Capture Inbox as review
 candidates; obvious smoke/test or
 duplicate captures are archived with policy evidence. Nothing becomes canonical
 memory without user approval.
-
-## What It Stores
-
-- `memory`: project facts, decisions, warnings, preferences, and active state.
-- `skill`: reusable workflows, procedures, and command knowledge.
-- `soul`: long-term user preferences, collaboration style, and principles.
-- `session_summary`: final handoff notes from one agent session to another.
-- `agent_note`: raw agent observations that can later be promoted.
-
-The first version is local-first. `~/.moryn` is the runtime store; a
-user-owned private Git repository is the first sync backend.
 
 ## Architecture
 

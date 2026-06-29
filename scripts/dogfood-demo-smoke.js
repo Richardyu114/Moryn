@@ -210,6 +210,7 @@ async function main() {
       throw new Error("final context pack did not retain the low-risk handoff");
     }
 
+    log("setup applied -> context pack ready -> low-risk handoff auto-captured -> review handoff routed to Capture Inbox -> dashboard snapshot generated");
     log("dogfood demo smoke passed");
   } finally {
     if (options.keepTemp) {

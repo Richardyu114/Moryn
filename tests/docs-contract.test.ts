@@ -817,11 +817,11 @@ describe("documentation contracts", () => {
     expect(readme).toContain("moryn context pack --project . --agent codex");
     expect(readme).toContain("moryn capture session --project . --agent codex --summary");
     expect(readme).toContain("`--file <path>` flags preserve touched-file evidence");
-    expect(readme).toContain("moryn capture policy --project . --limit 20");
     expect(readme).toContain("npm run smoke:dogfood-demo");
     expect(readme).toContain("low-risk autocapture");
     expect(workflow).toContain("npm run smoke:dogfood-demo");
     expect(workflow).toContain("dashboard snapshot checks");
+    expectText(workflow, "setup applied -> context pack ready -> low-risk handoff auto-captured -> review handoff routed to Capture Inbox -> dashboard snapshot generated");
     expect(readme).toContain("Handoff Pack v0.2");
     expect(readme).toContain("recent decisions");
     expect(workflow).toContain("handoff_pack");
@@ -840,6 +840,27 @@ describe("documentation contracts", () => {
     expectText(readme, "Nothing becomes canonical memory without user approval");
     expect(design).toContain("Host Adapter / Autocapture Layer");
     expect(roadmap).toContain("Host adapter registry and autocapture");
+  });
+
+  it("keeps the README first minute focused on promise, path, and demo", async () => {
+    const readme = await readFile("README.md", "utf8");
+    const firstMinute = readme.slice(0, readme.indexOf("## What It Stores"));
+
+    expectText(firstMinute, "Moryn is a local-first, user-owned, auditable context store and handoff layer");
+    expectText(firstMinute, "Default path");
+    expectText(firstMinute, "setup -> context pack -> capture -> review -> approve -> sync");
+    expectText(firstMinute, "Try the demo");
+    expect(firstMinute).toContain("npm run smoke:dogfood-demo");
+    expectText(firstMinute, "setup applied -> context pack ready -> low-risk handoff auto-captured -> review handoff routed to Capture Inbox -> dashboard snapshot generated");
+    expectText(firstMinute, "Most users should ask an agent to operate Moryn");
+    expect(firstMinute).toContain("[Agent Workflow](docs/agent-workflow.md)");
+    expect(firstMinute).toContain("[Dashboard](docs/dashboard.md)");
+    expect(firstMinute).toContain("[Contracts](docs/contracts.md)");
+    expect(firstMinute).not.toContain("memory doctor");
+    expect(firstMinute).not.toContain("memory lifecycle");
+    expect(firstMinute).not.toContain("dogfood report");
+    expect(firstMinute).not.toContain("canonical");
+    expect(firstMinute).not.toContain("quarantined");
   });
 
   it("documents the setup wizard as a local auditable one-command path", async () => {
@@ -967,13 +988,12 @@ describe("documentation contracts", () => {
   });
 
   it("documents the read-only memory doctor governance surface", async () => {
-    const [readme, workflow, contracts] = await Promise.all([
-      readFile("README.md", "utf8"),
+    const [workflow, contracts] = await Promise.all([
       readFile("docs/agent-workflow.md", "utf8"),
       readFile("docs/contracts.md", "utf8")
     ]);
 
-    for (const document of [readme, workflow, contracts]) {
+    for (const document of [workflow, contracts]) {
       expect(document).toContain("moryn memory doctor");
       expect(document).toContain("memory_doctor");
       expect(document).toContain("read-only");
@@ -983,7 +1003,7 @@ describe("documentation contracts", () => {
     expect(contracts).toContain('"tool": "memory_doctor"');
     expect(contracts).toContain("memory_doctor.findings_by_id.<finding_id>");
     expect(contracts).toContain("memory_doctor.suggested_actions_by_id.<action_id>");
-    for (const document of [readme, workflow, contracts]) {
+    for (const document of [workflow, contracts]) {
       expect(document).toContain("moryn project migrate --from");
       expect(document).toContain("--apply --confirm");
       expect(document).toContain("project_migrate");
@@ -992,15 +1012,14 @@ describe("documentation contracts", () => {
   });
 
   it("documents the read-only dogfood report surface", async () => {
-    const [readme, workflow, contracts, roadmap, dashboard] = await Promise.all([
-      readFile("README.md", "utf8"),
+    const [workflow, contracts, roadmap, dashboard] = await Promise.all([
       readFile("docs/agent-workflow.md", "utf8"),
       readFile("docs/contracts.md", "utf8"),
       readFile("docs/implementation-roadmap.md", "utf8"),
       readFile("docs/dashboard.md", "utf8")
     ]);
 
-    for (const document of [readme, workflow, contracts]) {
+    for (const document of [workflow, contracts]) {
       expect(document).toContain("moryn dogfood report");
       expect(document).toContain("dogfood_report");
       expect(document).toContain("read-only");
@@ -1095,14 +1114,13 @@ describe("documentation contracts", () => {
   });
 
   it("documents the read-only memory lifecycle surface", async () => {
-    const [readme, workflow, contracts, roadmap] = await Promise.all([
-      readFile("README.md", "utf8"),
+    const [workflow, contracts, roadmap] = await Promise.all([
       readFile("docs/agent-workflow.md", "utf8"),
       readFile("docs/contracts.md", "utf8"),
       readFile("docs/implementation-roadmap.md", "utf8")
     ]);
 
-    for (const document of [readme, workflow, contracts]) {
+    for (const document of [workflow, contracts]) {
       expect(document).toContain("moryn memory lifecycle");
       expect(document).toContain("memory_lifecycle");
       expect(document).toContain("read-only");
