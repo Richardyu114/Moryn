@@ -1,4 +1,4 @@
-import type { RecordKind, RecordScope, RecordState } from "./types.js";
+import type { MorynRecord, RecordKind, RecordScope, RecordState } from "./types.js";
 
 export const RECALL_EVAL_SELECTION_SOURCES = {
   case: "cases_by_id.<case_id>",
@@ -32,6 +32,7 @@ export interface RecallEvalCaseInput {
 
 export interface RecallEvalRecallInput {
   query?: string;
+  record_ids?: string[];
   project_id?: string;
   kinds?: RecordKind[];
   scopes?: RecordScope[];
@@ -62,6 +63,8 @@ export interface RecallEvalCaseResult {
   expected_record_ids: string[];
   matched_record_ids: string[];
   missing_record_ids: string[];
+  hidden_record_ids: string[];
+  hidden_records_by_id: Record<string, RecallEvalHiddenRecord>;
   top_record_id?: string;
   recall: RecallEvalRecallInput;
   results: Array<{
@@ -73,14 +76,44 @@ export interface RecallEvalCaseResult {
   }>;
 }
 
-export interface RecallEvalSuggestedAction {
-  action_id: string;
-  recommended_action: "revise_golden_case_or_memory";
-  tool: "recall";
-  command: string;
-  case_id: string;
-  missing_record_ids: string[];
+export type RecallEvalHiddenReason =
+  | "state_filter"
+  | "private_filter"
+  | "project_filter"
+  | "kind_filter"
+  | "scope_filter"
+  | "type_filter"
+  | "tag_filter"
+  | "file_filter";
+
+export interface RecallEvalHiddenRecord {
+  record_id: string;
+  reason: RecallEvalHiddenReason;
+  state: RecordState;
+  kind: RecordKind;
+  scope: RecordScope;
+  type: string;
+  project_id?: string;
+  tags: string[];
 }
+
+export type RecallEvalSuggestedAction =
+  | {
+    action_id: string;
+    recommended_action: "revise_golden_case_or_memory";
+    tool: "recall";
+    command: string;
+    case_id: string;
+    missing_record_ids: string[];
+  }
+  | {
+    action_id: string;
+    recommended_action: "inspect_hidden_expected_records";
+    tool: "recall";
+    command: string;
+    case_id: string;
+    hidden_record_ids: string[];
+  };
 
 export interface RecallEvalReport {
   summary: {
@@ -103,6 +136,7 @@ export interface RecallEvalReport {
 }
 
 type RecallFunction = (input: RecallEvalRecallInput) => Promise<RecallEvalRecallResult>;
+type ExpectedRecordResolver = (recordIds: string[]) => Promise<Record<string, MorynRecord | undefined>>;
 
 function requireObject(value: unknown, label: string): asserts value is Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -173,7 +207,9 @@ function parseCase(value: unknown, index: number): RecallEvalCaseInput & {
 }
 
 function commandForRecall(input: RecallEvalRecallInput): string {
-  const parts = ["moryn", "recall", JSON.stringify(input.query ?? "")];
+  const parts = ["moryn", "recall"];
+  if (input.query) parts.push(JSON.stringify(input.query));
+  for (const recordId of input.record_ids ?? []) parts.push("--record-id", recordId);
   if (input.project_id) parts.push("--project-id", input.project_id);
   for (const kind of input.kinds ?? []) parts.push("--kind", kind);
   for (const scope of input.scopes ?? []) parts.push("--scope", scope);
@@ -186,9 +222,55 @@ function commandForRecall(input: RecallEvalRecallInput): string {
   return parts.join(" ");
 }
 
+function isPrivateRecord(record: MorynRecord): boolean {
+  return record.tags.some((tag) => ["private", "secret", "sensitive"].includes(tag.toLowerCase()));
+}
+
+function expectedRecordHiddenReason(record: MorynRecord, input: RecallEvalRecallInput): RecallEvalHiddenReason | undefined {
+  if (input.project_id && record.scope !== "global" && record.project_id !== input.project_id) return "project_filter";
+  if (!input.include_private && isPrivateRecord(record)) return "private_filter";
+  if (input.states?.length) {
+    if (!input.states.includes(record.state)) return "state_filter";
+  } else if (record.state === "raw" || record.state === "archived" || record.state === "quarantined") {
+    return "state_filter";
+  }
+  if (input.kinds?.length && !input.kinds.includes(record.kind)) return "kind_filter";
+  if (input.scopes?.length && !input.scopes.includes(record.scope)) return "scope_filter";
+  if (input.types?.length && !input.types.includes(record.type)) return "type_filter";
+  if (input.tags?.length && !input.tags.some((tag) => record.tags.includes(tag))) return "tag_filter";
+  if (input.files?.length) {
+    const haystack = `${record.content.text ?? ""} ${record.tags.join(" ")}`.toLowerCase();
+    if (!input.files.some((file) => haystack.includes(file.toLowerCase()))) return "file_filter";
+  }
+  return undefined;
+}
+
+function hiddenRecord(record: MorynRecord, reason: RecallEvalHiddenReason): RecallEvalHiddenRecord {
+  return {
+    record_id: record.id,
+    reason,
+    state: record.state,
+    kind: record.kind,
+    scope: record.scope,
+    type: record.type,
+    ...(record.project_id ? { project_id: record.project_id } : {}),
+    tags: record.tags
+  };
+}
+
+function recallInputForHiddenRecords(hiddenRecords: RecallEvalHiddenRecord[]): RecallEvalRecallInput {
+  const states = [...new Set(hiddenRecords.map((record) => record.state))];
+  return {
+    record_ids: hiddenRecords.map((record) => record.record_id),
+    states,
+    ...(hiddenRecords.some((record) => record.reason === "private_filter") ? { include_private: true } : {})
+  };
+}
+
 export async function evaluateRecall(
   input: RecallEvalInput,
-  recall: RecallFunction
+  recall: RecallFunction,
+  resolveExpectedRecords?: ExpectedRecordResolver
 ): Promise<RecallEvalReport> {
   requireObject(input, "recall_eval input");
   const projectId = optionalString(input.project_id, "project_id");
@@ -225,14 +307,25 @@ export async function evaluateRecall(
       };
     });
     const matched = testCase.expected_record_ids.filter((recordId) => ranked.some((result) => result.record_id === recordId));
-    const missing = testCase.expected_record_ids.filter((recordId) => !matched.includes(recordId));
+    const unmatched = testCase.expected_record_ids.filter((recordId) => !matched.includes(recordId));
+    const expectedRecords = resolveExpectedRecords ? await resolveExpectedRecords(unmatched) : {};
+    const hiddenRecords = unmatched.flatMap((recordId) => {
+      const record = expectedRecords[recordId];
+      if (!record) return [];
+      const reason = expectedRecordHiddenReason(record, recallInput);
+      return reason ? [hiddenRecord(record, reason)] : [];
+    });
+    const hiddenRecordIds = hiddenRecords.map((record) => record.record_id);
+    const missing = unmatched.filter((recordId) => !hiddenRecordIds.includes(recordId));
     results.push({
       case_id: testCase.case_id,
-      status: missing.length ? "fail" : "pass",
+      status: missing.length || hiddenRecordIds.length ? "fail" : "pass",
       query: testCase.query,
       expected_record_ids: testCase.expected_record_ids,
       matched_record_ids: matched,
       missing_record_ids: missing,
+      hidden_record_ids: hiddenRecordIds,
+      hidden_records_by_id: Object.fromEntries(hiddenRecords.map((record) => [record.record_id, record])),
       ...(ranked[0] ? { top_record_id: ranked[0].record_id } : {}),
       recall: recallInput,
       results: ranked
@@ -240,14 +333,28 @@ export async function evaluateRecall(
   }
 
   const failedCases = results.filter((result) => result.status === "fail");
-  const suggestedActions = failedCases.map((result) => ({
-    action_id: `revise-golden-case:${result.case_id}`,
-    recommended_action: "revise_golden_case_or_memory" as const,
-    tool: "recall" as const,
-    command: commandForRecall(result.recall),
-    case_id: result.case_id,
-    missing_record_ids: result.missing_record_ids
-  }));
+  const suggestedActions = failedCases.flatMap((result): RecallEvalSuggestedAction[] => [
+    ...(result.missing_record_ids.length
+      ? [{
+        action_id: `revise-golden-case:${result.case_id}`,
+        recommended_action: "revise_golden_case_or_memory" as const,
+        tool: "recall" as const,
+        command: commandForRecall(result.recall),
+        case_id: result.case_id,
+        missing_record_ids: result.missing_record_ids
+      }]
+      : []),
+    ...(result.hidden_record_ids.length
+      ? [{
+        action_id: `inspect-hidden-records:${result.case_id}`,
+        recommended_action: "inspect_hidden_expected_records" as const,
+        tool: "recall" as const,
+        command: commandForRecall(recallInputForHiddenRecords(Object.values(result.hidden_records_by_id))),
+        case_id: result.case_id,
+        hidden_record_ids: result.hidden_record_ids
+      }]
+      : [])
+  ]);
 
   return {
     summary: {

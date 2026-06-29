@@ -3431,7 +3431,15 @@ export function createEngine(deps: EngineDeps) {
         ...input,
         include_private: input.include_private === true
       } as ValidatedRecallEvalInput;
-      return evaluateRecall(resolvedInput, (recallInput) => this.recall(recallInput));
+      return evaluateRecall(
+        resolvedInput,
+        (recallInput) => this.recall(recallInput),
+        async (recordIds) => {
+          const records = await currentRecords();
+          const recordsById = new Map(records.map((record) => [record.id, record]));
+          return Object.fromEntries(recordIds.map((recordId) => [recordId, recordsById.get(recordId)]));
+        }
+      );
     },
 
     async migrateProject(input: ProjectMigrateInput = {}) {

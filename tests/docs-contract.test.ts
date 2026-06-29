@@ -728,8 +728,11 @@ describe("documentation contracts", () => {
     expect(contracts).toContain("Safe Action Registry");
     expect(contracts).toContain("recall_eval.generated_from.writes");
     expect(contracts).toContain('source: "recall_eval"');
+    expect(contracts).toContain("hidden_record_ids");
+    expect(contracts).toContain("inspect_hidden_expected_records");
+    expect(contracts.replace(/\s+/g, " ")).toContain("state, privacy, project, and explicit filter boundaries");
     expect(contracts).toContain('category:\n"recall_quality"');
-    expect(contracts).toContain("Recall Eval approval endpoint");
+    expect(contracts.replace(/\s+/g, " ")).toContain("Recall Eval approval endpoint");
     expect(contracts).toContain("context_pack_review");
     expect(contracts).toContain("CONTEXT_PACK_REVIEW_SELECTION_SOURCES");
     expect(contracts).toContain("Open the dashboard with --project-id or --project");

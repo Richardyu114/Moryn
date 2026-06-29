@@ -4138,6 +4138,18 @@ describe("observability dashboard", () => {
         source: { client: "user" },
         provenance: { method: "user-confirmed", reason: "Recall eval target" }
       });
+      const hiddenPrivateMemory = await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["private"],
+        content: { text: "Private dashboard recall eval token should stay hidden by default.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" },
+        provenance: { method: "user-confirmed", reason: "Recall eval hidden target" }
+      });
       await engine.write({
         kind: "agent_note",
         type: "recall_eval_case",
@@ -4158,6 +4170,12 @@ describe("observability dashboard", () => {
               case_id: "missing-dashboard-memory",
               query: "dashboard memory that does not exist",
               expected_record_ids: ["rec_missing_dashboard_memory"],
+              limit: 5
+            },
+            {
+              case_id: "hidden-dashboard-memory",
+              query: "private dashboard recall eval token",
+              expected_record_ids: [hiddenPrivateMemory.record.id],
               limit: 5
             }
           ]
@@ -4193,7 +4211,7 @@ describe("observability dashboard", () => {
                 failed_cases: number;
                 privacy_leaks: number;
               };
-              cases_by_id: Record<string, { status: string; missing_record_ids: string[] }>;
+              cases_by_id: Record<string, { status: string; missing_record_ids: string[]; hidden_record_ids: string[] }>;
             } | null;
           };
         };
@@ -4214,15 +4232,15 @@ describe("observability dashboard", () => {
           },
           case_sources: [
             {
-              record_id: "rec_recall_eval_2",
-              case_count: 2
+              record_id: "rec_recall_eval_3",
+              case_count: 3
             }
           ],
           report: {
             summary: {
-              total_cases: 2,
+              total_cases: 3,
               passed_cases: 1,
-              failed_cases: 1,
+              failed_cases: 2,
               privacy_leaks: 0
             }
           }
@@ -4230,6 +4248,11 @@ describe("observability dashboard", () => {
         expect(data.recall_eval.report?.cases_by_id["missing-dashboard-memory"]).toMatchObject({
           status: "fail",
           missing_record_ids: ["rec_missing_dashboard_memory"]
+        });
+        expect(data.recall_eval.report?.cases_by_id["hidden-dashboard-memory"]).toMatchObject({
+          status: "fail",
+          missing_record_ids: [],
+          hidden_record_ids: [hiddenPrivateMemory.record.id]
         });
         expect(data.governance.items_by_id["recall_eval:missing-dashboard-memory"]).toMatchObject({
           source: "recall_eval",
@@ -4242,11 +4265,22 @@ describe("observability dashboard", () => {
           requires_user_confirmation: false,
           writes: "none"
         });
+        expect(data.governance.items_by_id["recall_eval:hidden-dashboard-memory"]).toMatchObject({
+          source: "recall_eval",
+          category: "recall_quality",
+          severity: "warning",
+          record_ids: [hiddenPrivateMemory.record.id],
+          evidence_path: "recall_eval.report.cases_by_id.hidden-dashboard-memory",
+          action_label: "inspect_hidden_expected_records",
+          safe_to_run: true,
+          requires_user_confirmation: false,
+          writes: "none"
+        });
         expect(data.governance.summary).toMatchObject({
           needs_user_action: 0,
-          safe_inspections: 1
+          safe_inspections: 2
         });
-        expect(data.action_board.items_by_id.inspect.value).toBe(1);
+        expect(data.action_board.items_by_id.inspect.value).toBe(2);
         expect(data.dashboard_overview).toMatchObject({
           status: "good",
           headline: "All clear",
@@ -4259,7 +4293,7 @@ describe("observability dashboard", () => {
         });
         expect(data.dashboard_overview.cards_by_id.action).toMatchObject({
           value: "All clear",
-          summary: "1 safe check available",
+          summary: "2 safe checks available",
           severity: "good",
           target: "governance-hub",
           target_label: "Inspect checks",
@@ -4268,6 +4302,8 @@ describe("observability dashboard", () => {
 
         const html = renderDashboardHtml(data);
         expect(html).toContain("Recall Eval");
+        expect(html).toContain(`Hidden ${hiddenPrivateMemory.record.id}`);
+        expect(html).not.toContain("Private dashboard recall eval token should stay hidden by default.");
         expect(html).not.toContain("<section class=\"dashboard-overview");
         expect(html).not.toContain("data-dashboard-overview");
         expect(html).not.toContain("<p data-i18n-en=\"No work needs attention.\" data-i18n-zh=\"No work needs attention.\">No work needs attention.</p>");
@@ -4310,7 +4346,7 @@ describe("observability dashboard", () => {
         expect(data.action_board.items.map((item) => item.id)).toEqual(["confirm", "review", "inspect", "sync"]);
         expect(data.action_board.items_by_id.inspect).toMatchObject({
           label: "Inspect",
-          value: 1,
+          value: 2,
           next_action_label: "Open governance",
           target: "governance-hub"
         });
@@ -4353,25 +4389,28 @@ describe("observability dashboard", () => {
         expect(html).not.toContain("<small>4 quiet targets</small>");
         expect(html).not.toContain("data-action-board-quiet-item=\"inspect\"");
         expect(html).not.toContain("data-action-board-item=\"inspect\"");
-        expect(html).not.toContain("data-governance-item=\"recall_eval:missing-dashboard-memory\"");
-        expect(html).not.toContain("data-governance-safe-item=\"recall_eval:missing-dashboard-memory\"");
-        expect(html).not.toContain("recall_eval.report.cases_by_id.missing-dashboard-memory");
-        expect(html).not.toContain("<small>Revise Golden Case Or Memory | Read-only</small>");
+        expect(html).toContain("data-governance-safe-item=\"recall_eval:missing-dashboard-memory\"");
+        expect(html).toContain("data-governance-safe-item=\"recall_eval:hidden-dashboard-memory\"");
+        expect(html).toContain("recall_eval.report.cases_by_id.missing-dashboard-memory");
+        expect(html).toContain("recall_eval.report.cases_by_id.hidden-dashboard-memory");
+        expect(html).toContain("<small>Revise Golden Case Or Memory | Read-only</small>");
+        expect(html).toContain("<small>Inspect Hidden Expected Records | Read-only</small>");
         expect(html).not.toContain("<small>revise_golden_case_or_memory | Read-only</small>");
         expect(JSON.stringify(data.governance)).toContain("revise_golden_case_or_memory");
+        expect(JSON.stringify(data.governance)).toContain("inspect_hidden_expected_records");
         expect(JSON.stringify(data.governance)).toContain("recall_eval.report.cases_by_id.missing-dashboard-memory");
-        expect(html).toContain("<span data-i18n-en=\"Read-only Governance\" data-i18n-zh=\"只读治理\">Read-only Governance</span>");
-        expect(html).toContain("<small data-i18n-en=\"Reference checks\" data-i18n-zh=\"参考检查\">Reference checks</small>");
-        expect(html).not.toContain("<span>Read-only Governance</span>");
-        expect(html).not.toContain("<small>Reference checks</small>");
-        expect(html).toContain("<article class=\"governance-reference\" data-dashboard-detail=\"governance:index\" data-governance-reference>");
-        expect(html).toContain("<strong data-i18n-en=\"Governance Index\" data-i18n-zh=\"治理索引\">Governance Index</strong>");
-        expect(html).toContain("<span data-i18n-en=\"1 read-only check indexed\" data-i18n-zh=\"1 项只读检查已建立索引\">1 read-only check indexed</span>");
-        expect(html).toContain("Open <code>/api/dashboard</code> for governance items, evidence paths, review logs, and safe inspection commands.");
-        expect(html).not.toContain("<small>1 safe check</small>");
-        expect(html).not.toContain("<span>1 safe check</span>");
-        expect(html).not.toContain("<details class=\"governance-safe-group\" data-dashboard-detail=\"governance-safe-inspections\">");
-        expect(html).not.toContain("<details class=\"governance-reference-audit\" data-dashboard-detail=\"governance-reference-audit\">");
+        expect(html).toContain("data-i18n-en=\"Governance Hub\"");
+        expect(html).toContain("2 safe checks");
+        expect(html).toContain("1 private hidden");
+        expect(html).not.toContain("<span>Governance Hub</span>");
+        expect(html).not.toContain("<small>2 safe checks | 1 private hidden</small>");
+        expect(html).not.toContain("<article class=\"governance-reference\" data-dashboard-detail=\"governance:index\" data-governance-reference>");
+        expect(html).not.toContain("<strong data-i18n-en=\"Governance Index\" data-i18n-zh=\"治理索引\">Governance Index</strong>");
+        expect(html).not.toContain("<span data-i18n-en=\"2 read-only checks indexed\" data-i18n-zh=\"2 项只读检查已建立索引\">2 read-only checks indexed</span>");
+        expect(html).not.toContain("Open <code>/api/dashboard</code> for governance items, evidence paths, review logs, and safe inspection commands.");
+        expect(html).toContain("<span>2 safe checks</span>");
+        expect(html).toContain("<details class=\"governance-safe-group\" data-dashboard-detail=\"governance-safe-inspections\">");
+        expect(html).toContain("<details class=\"governance-reference-audit\" data-dashboard-detail=\"governance-reference-audit\">");
         expect(html).not.toContain("<section class=\"dashboard-work-lanes\" data-dashboard-work-lanes aria-label=\"Dashboard Work Lanes\">");
         expect(html).not.toContain("<details class=\"dashboard-work-lanes-quiet\" data-dashboard-detail=\"dashboard-work-lanes-background\">");
         expect(html).not.toContain("<span>Background Lanes</span>");

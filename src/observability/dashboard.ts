@@ -2768,17 +2768,19 @@ function governanceFromRecallEval(review: DashboardRecallEval): DashboardGoverna
   const report = review.report;
   if (!report) return [];
   return report.cases.filter((testCase) => testCase.status === "fail").map((testCase): DashboardGovernanceItem => {
-    const action = report.suggested_actions_by_id[`revise-golden-case:${testCase.case_id}`];
+    const action = report.suggested_actions_by_id[`revise-golden-case:${testCase.case_id}`]
+      ?? report.suggested_actions_by_id[`inspect-hidden-records:${testCase.case_id}`];
     const evidencePath = `recall_eval.report.cases_by_id.${testCase.case_id}`;
     const actionLabel = action?.recommended_action ?? "Inspect recall eval case";
+    const recordIds = recallEvalCaseRecordIds(testCase);
     return {
       id: governanceItemId("recall_eval", testCase.case_id),
       source: "recall_eval",
       category: "recall_quality",
       severity: "warning",
       title: `Recall eval missed ${testCase.case_id}`,
-      summary: `Query "${testCase.query}" missed ${pluralize(testCase.missing_record_ids.length, "expected record")}.`,
-      record_ids: testCase.missing_record_ids,
+      summary: `Query "${testCase.query}" ${recallEvalCaseFindingText(testCase)}.`,
+      record_ids: recordIds,
       evidence_path: evidencePath,
       action_label: actionLabel,
       safe_to_run: true,
@@ -2794,6 +2796,18 @@ function governanceFromRecallEval(review: DashboardRecallEval): DashboardGoverna
       })
     };
   });
+}
+
+function recallEvalCaseRecordIds(testCase: RecallEvalReport["cases"][number]): string[] {
+  return [...new Set([...testCase.missing_record_ids, ...testCase.hidden_record_ids])];
+}
+
+function recallEvalCaseFindingText(testCase: RecallEvalReport["cases"][number]): string {
+  const parts = [
+    testCase.missing_record_ids.length ? `missed ${pluralize(testCase.missing_record_ids.length, "expected record")}` : "",
+    testCase.hidden_record_ids.length ? `hid ${pluralize(testCase.hidden_record_ids.length, "expected record")}` : ""
+  ].filter(Boolean);
+  return parts.length ? parts.join(" and ") : "failed without listed missing or hidden records";
 }
 
 function isCandidateTriageNoise(record: MorynRecord): boolean {
@@ -4319,7 +4333,10 @@ function recallEvalPanel(review: DashboardRecallEval): string {
                 <span>Miss</span>
                 <strong>${escapeHtml(testCase.case_id)}</strong>
                 <p>${escapeHtml(testCase.query)}</p>
-                <small>${escapeHtml(testCase.missing_record_ids.length ? `Missing ${testCase.missing_record_ids.join(", ")}` : "No missing records listed")}</small>
+                <small>${escapeHtml([
+                  testCase.missing_record_ids.length ? `Missing ${testCase.missing_record_ids.join(", ")}` : "",
+                  testCase.hidden_record_ids.length ? `Hidden ${testCase.hidden_record_ids.join(", ")}` : ""
+                ].filter(Boolean).join(" | ") || "No missing or hidden records listed")}</small>
               </article>
             `).join("")}
           </div>
@@ -4778,7 +4795,7 @@ function governanceHubBody(governance: DashboardGovernance): string {
         ${primaryItems.map(governanceItem).join("")}
         ${safeOnly ? governanceReferenceIndex(safeInspections) : ""}
         ${safeInspections.length === 0 ? "" : `
-          ${safeOnly ? "" : `<details class="governance-safe-group" data-dashboard-detail="governance-safe-inspections">
+          <details class="governance-safe-group" data-dashboard-detail="governance-safe-inspections">
             <summary class="dashboard-fold-summary">
               <span ${i18nAttribute(safeGroupTitle, safeGroupTitleZh)}>${escapeHtml(safeGroupTitle)}</span>
               <small ${i18nAttribute(safeGroupSummary, safeGroupSummaryZh)}>${escapeHtml(safeGroupSummary)}</small>
@@ -4787,7 +4804,7 @@ function governanceHubBody(governance: DashboardGovernance): string {
               ${safeInspections.map(governanceSafeRow).join("")}
             </div>
             ${governanceReferenceAudit(safeInspections)}
-          </details>`}
+          </details>
         `}
       </div>
     </div>

@@ -326,8 +326,12 @@ The MCP equivalent is:
 
 `recall_eval` runs golden queries through normal recall and returns keyed cases
 under `recall_eval.cases_by_id.<case_id>`, privacy checks, ranking reasons,
-provenance method, and read-only suggested recall commands. It does not mutate
-records, create indexes, or bypass the private boundary.
+provenance method, and read-only suggested recall commands. Cases distinguish
+true misses from expected records that exist but are hidden by state, privacy,
+project, and explicit filter boundaries. Hidden expected records appear under
+`hidden_record_ids` and `hidden_records_by_id`; the suggested action is
+`inspect_hidden_expected_records`, a read-only recall inspection command. It
+does not mutate records, create indexes, or bypass the private boundary.
 
 Project identity migration is the explicit repair operation for confirmed
 splits:
@@ -534,8 +538,11 @@ returns `recall_eval.generated_from.store: "local_event_history"`,
 Governance Hub inspections with `source: "recall_eval"`, `category:
 "recall_quality"`, evidence paths such as
 `recall_eval.report.cases_by_id.<case_id>`, and `writes: "none"`. The dashboard
-does not invent golden cases, mutate memory, create an eval index, or expose a
-Recall Eval approval endpoint.
+preserves `hidden_record_ids` evidence for expected records blocked by state,
+privacy, project, and explicit filter boundaries. Hidden-record suggestions use
+`inspect_hidden_expected_records` and remain read-only. The dashboard does not
+invent golden cases, mutate memory, create an eval index, or expose a Recall
+Eval approval endpoint.
 
 Dashboard maintenance approval uses one separate local endpoint:
 
