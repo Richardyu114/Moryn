@@ -861,6 +861,10 @@ describe("documentation contracts", () => {
     expect(contracts).toContain('"tool": "setup"');
     expect(contracts).toContain("SETUP_WIZARD_SELECTION_SOURCES");
     expect(contracts).toContain("checks_by_id.<check>");
+    expect(contracts).toContain("planned_writes_by_id.<planned_write>");
+    expectText(contracts, "Planned writes include the local path, action id, action source, reason, and `requires_apply: true`");
+    expectText(readme, "planned local writes with exact paths");
+    expectText(workflow, "`planned_writes_by_id` with exact local paths");
     expect(contracts).toContain("apply_result");
     expect(contracts).toContain("host_config_writes");
     expect(roadmap).toContain("Setup wizard / one-command local setup");

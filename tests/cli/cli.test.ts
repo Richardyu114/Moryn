@@ -3139,6 +3139,8 @@ describe("moryn CLI", () => {
         mode: string;
         status: string;
         generated_from: { writes: string; host_config_writes: string };
+        planned_writes: Array<{ id: string; path: string; action_id: string; action_source: string; reason: string; requires_apply: boolean }>;
+        planned_writes_by_id: Record<string, { id: string; path: string; action_id: string; action_source: string; reason: string; requires_apply: boolean }>;
         checks_by_id: Record<string, { status: string; message: string }>;
         actions_by_id: Record<string, { action: string; command: string; writes: string; safe_to_auto_run: boolean }>;
         next: { recommended_action: string; command: string; safe_to_run: boolean };
@@ -3156,6 +3158,26 @@ describe("moryn CLI", () => {
       });
       expect(dryPlan.checks_by_id.store.status).toBe("missing");
       expect(dryPlan.checks_by_id.project.status).toBe("missing");
+      expect(dryPlan.planned_writes).toEqual([
+        {
+          id: "store_config",
+          path: join(store, "config.json"),
+          action_id: "initialize_store",
+          action_source: "actions_by_id.initialize_store",
+          reason: "Create the local Moryn store config and supporting store directories.",
+          requires_apply: true
+        },
+        {
+          id: "project_config",
+          path: join(project, ".moryn.json"),
+          action_id: "initialize_project",
+          action_source: "actions_by_id.initialize_project",
+          reason: "Attach this project to Moryn with a local .moryn.json config.",
+          requires_apply: true
+        }
+      ]);
+      expect(dryPlan.planned_writes_by_id.store_config).toEqual(dryPlan.planned_writes[0]);
+      expect(dryPlan.planned_writes_by_id.project_config).toEqual(dryPlan.planned_writes[1]);
       expect(dryPlan.actions_by_id.initialize_store).toMatchObject({
         action: "initialize_store",
         command: "moryn init",

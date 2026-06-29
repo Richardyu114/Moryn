@@ -74,8 +74,10 @@ needs fuller setup diagnosis, status checkpoints, explicit sync push behavior,
 or detailed lifecycle action templates.
 
 `moryn setup` is the auditable one-command setup wizard. The default dry-run
-lists `checks_by_id`, planned local actions, and the next command without
-writing anything. `--apply` initializes the local Moryn store and optional
+lists `checks_by_id`, `planned_writes_by_id` with exact local paths, planned
+local actions, and the next command without writing anything. Each planned write
+points back to its action source so blocked setup can be recovered without
+guessing from prose. `--apply` initializes the local Moryn store and optional
 project config only; host configuration files remain manual and are represented
 as printed registration commands.
 

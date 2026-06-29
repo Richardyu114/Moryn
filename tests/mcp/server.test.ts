@@ -3037,6 +3037,7 @@ describe("MCP stdio server", () => {
           mode: string;
           status: string;
           generated_from: { writes: string; host_config_writes: string };
+          planned_writes_by_id: Record<string, { path: string; action_id: string; action_source: string; reason: string; requires_apply: boolean }>;
           actions_by_id: Record<string, { action: string; safe_to_auto_run: boolean; writes: string }>;
           next: { recommended_action: string; safe_to_run: boolean };
         };
@@ -3047,6 +3048,13 @@ describe("MCP stdio server", () => {
             writes: "none",
             host_config_writes: "none"
           }
+        });
+        expect(setupPlan.planned_writes_by_id).not.toHaveProperty("store_config");
+        expect(setupPlan.planned_writes_by_id.project_config).toMatchObject({
+          path: `${projectPath}/.moryn.json`,
+          action_id: "initialize_project",
+          action_source: "actions_by_id.initialize_project",
+          requires_apply: true
         });
         expect(setupPlan.actions_by_id.initialize_store).toMatchObject({
           action: "initialize_store",

@@ -60,11 +60,11 @@ moryn capture session --project . --agent codex --summary "Finished the task and
 ```
 
 `moryn setup` is the one-command local setup wizard. Without `--apply` it is a
-dry-run that lists readiness checks and planned actions without writing
-anything. With `--apply` it initializes only the Moryn-local store and project
-config; it still does not edit host configuration files. `moryn install` remains
-the lower-level host adapter plan for MCP registration hints and startup
-commands. `moryn context pack` returns Handoff Pack v0.2: a
+dry-run that lists readiness checks, planned local writes with exact paths, and
+planned actions without writing anything. With `--apply` it initializes only the
+Moryn-local store and project config; it still does not edit host configuration files.
+`moryn install` remains the lower-level host adapter plan for MCP registration
+hints and startup commands. `moryn context pack` returns Handoff Pack v0.2: a
 small handoff index with the current goal, recent decisions, open threads,
 risks, user preferences, important files, and next actions, plus the raw boot,
 refresh, and handoff evidence it came from. Its read-only `quality_gate`

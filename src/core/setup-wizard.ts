@@ -1,3 +1,4 @@
+import { join, resolve } from "node:path";
 import { readStoreConfig, initializeStore } from "./config.js";
 import { readProjectConfig, initializeProjectConfig } from "./project.js";
 import { normalizeHostId, planInstall, type HostAdapterId, type InstallPlanAction } from "./host-adapters.js";
@@ -19,6 +20,15 @@ export type SetupWizardApplyResult = {
   host_config_writes: "none";
 };
 
+export type SetupWizardPlannedWrite = {
+  id: "store_config" | "project_config";
+  path: string;
+  action_id: "initialize_store" | "initialize_project";
+  action_source: string;
+  reason: string;
+  requires_apply: true;
+};
+
 export type SetupWizardPlan = {
   ok: true;
   mode: SetupWizardMode;
@@ -33,6 +43,8 @@ export type SetupWizardPlan = {
   sync_remote?: string;
   checks: SetupWizardCheck[];
   checks_by_id: Record<SetupWizardCheckId, SetupWizardCheck>;
+  planned_writes: SetupWizardPlannedWrite[];
+  planned_writes_by_id: Partial<Record<SetupWizardPlannedWrite["id"], SetupWizardPlannedWrite>>;
   actions: InstallPlanAction[];
   actions_by_id: Record<string, InstallPlanAction>;
   warnings: string[];
@@ -59,6 +71,8 @@ export const SETUP_WIZARD_SELECTION_SOURCES = {
   ordered_check: "checks[]",
   action: "actions_by_id.<action>",
   ordered_action: "actions[]",
+  planned_write: "planned_writes_by_id.<planned_write>",
+  ordered_planned_write: "planned_writes[]",
   next: "next",
   apply_result: "apply_result",
   warning: "warnings[]"
@@ -140,6 +154,31 @@ function checksById(checks: SetupWizardCheck[]): Record<SetupWizardCheckId, Setu
   return Object.fromEntries(checks.map((check) => [check.id, check])) as Record<SetupWizardCheckId, SetupWizardCheck>;
 }
 
+function plannedWrites(input: SetupWizardInput, checks: Record<SetupWizardCheckId, SetupWizardCheck>): SetupWizardPlannedWrite[] {
+  const writes: SetupWizardPlannedWrite[] = [];
+  if (checks.store.status === "missing") {
+    writes.push({
+      id: "store_config",
+      path: join(input.storePath, "config.json"),
+      action_id: "initialize_store",
+      action_source: "actions_by_id.initialize_store",
+      reason: "Create the local Moryn store config and supporting store directories.",
+      requires_apply: true
+    });
+  }
+  if (input.projectPath && checks.project.status === "missing") {
+    writes.push({
+      id: "project_config",
+      path: resolve(input.projectPath, ".moryn.json"),
+      action_id: "initialize_project",
+      action_source: "actions_by_id.initialize_project",
+      reason: "Attach this project to Moryn with a local .moryn.json config.",
+      requires_apply: true
+    });
+  }
+  return writes;
+}
+
 function setupStatus(checks: SetupWizardCheck[]): SetupWizardStatus {
   return checks.some((check) => check.status === "missing") ? "needs_setup" : "ready";
 }
@@ -190,6 +229,8 @@ export async function setupWizard(input: SetupWizardInput): Promise<SetupWizardP
     syncCheck(input.syncRemote),
     hostAdapterCheck(input.host)
   ];
+  const checksByIdValue = checksById(checks);
+  const writes = plannedWrites(input, checksByIdValue);
   const status = setupStatus(checks);
   const actions = installPlan.actions;
   const next = input.apply || status === "ready"
@@ -217,7 +258,9 @@ export async function setupWizard(input: SetupWizardInput): Promise<SetupWizardP
     project_path: input.projectPath,
     sync_remote: input.syncRemote,
     checks,
-    checks_by_id: checksById(checks),
+    checks_by_id: checksByIdValue,
+    planned_writes: writes,
+    planned_writes_by_id: Object.fromEntries(writes.map((write) => [write.id, write])),
     actions,
     actions_by_id: installPlan.actions_by_id,
     warnings: [
