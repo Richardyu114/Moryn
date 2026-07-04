@@ -848,7 +848,7 @@ describe("documentation contracts", () => {
 
     expectText(firstMinute, "Moryn is a local-first, user-owned, auditable context store and handoff layer");
     expectText(firstMinute, "Default path");
-    expectText(firstMinute, "setup -> context pack -> capture -> review -> approve -> sync");
+    expectText(firstMinute, "setup -> context pack -> capture -> dashboard review -> approve -> sync");
     expectText(firstMinute, "Try the demo");
     expect(firstMinute).toContain("npm run smoke:dogfood-demo");
     expectText(firstMinute, "setup applied -> context pack ready -> low-risk handoff auto-captured -> review handoff routed to Capture Inbox -> dashboard snapshot generated");
@@ -929,7 +929,7 @@ describe("documentation contracts", () => {
     expect(roadmap).toContain("Phase 5: Public Polish");
     expect(roadmap).toContain("Phase 6: Release Gate");
     expect(roadmap).toContain("v0.2.0 Acceptance Matrix");
-    expect(roadmap).toContain("setup -> context pack -> capture -> review -> approve -> sync");
+    expect(roadmap).toContain("setup -> context pack -> capture -> dashboard review -> approve -> sync");
     expect(roadmap).toContain("No silent canonical writes");
     expect(roadmap).toContain("Dashboard first screen answers whether the user needs to act");
     expect(roadmap).toContain("Default copy is English with a Chinese language switch");
@@ -946,6 +946,32 @@ describe("documentation contracts", () => {
     expect(roadmap).toContain("npm run smoke:agent-lifecycle");
     expect(roadmap).toContain("npm pack --dry-run --json");
     expect(roadmap).toContain("Final v0.2.0 Definition of Done");
+  });
+
+  it("documents the v0.2.0 release closeout in public-facing docs", async () => {
+    const [readme, changelog, development] = await Promise.all([
+      readFile("README.md", "utf8"),
+      readFile("CHANGELOG.md", "utf8"),
+      readFile("docs/development.md", "utf8")
+    ]);
+
+    expect(changelog).toContain("# Changelog");
+    expect(changelog).toContain("## 0.2.0");
+    expectText(changelog, "setup -> context pack -> capture -> dashboard review -> approve -> sync");
+    expectText(changelog, "No silent canonical memory writes");
+    expectText(changelog, "local-first, user-owned, auditable context store and handoff layer");
+    expect(changelog).not.toContain("docs/superpowers");
+    expect(changelog).not.toContain("v0.2-phase-plan.md");
+
+    expect(readme).toContain("Status: v0.2.0 release candidate");
+    expect(readme).toContain("DashboardReview[\"Dashboard review");
+    expect(readme).toContain("MemorySearch[\"Find what Moryn saved");
+    expect(readme).toContain("SharedCopy[\"Shared copy");
+    expect(readme).toContain("DashboardReview --> Approve");
+    expect(readme).toContain("Views --> Dashboard");
+    expect(readme).toContain("[Changelog](CHANGELOG.md)");
+
+    expect(development).toContain("npm publish --dry-run --access public --registry https://registry.npmjs.org");
   });
 
   it("documents plain-language Recall Eval interpretation", async () => {

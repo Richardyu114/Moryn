@@ -136,23 +136,25 @@ Implementation history and future work belong in:
 
 Before publishing:
 
-1. Run `npm run release:check`.
-2. Run `npm run smoke:dogfood-demo`.
-3. Run `npm run smoke:agent-lifecycle`.
-4. Inspect `npm pack --dry-run --json`.
-5. Confirm no private memory store data is included.
-6. Confirm README and docs describe the current public interface.
-7. Publish only to the official npm registry:
+1. Confirm `package.json`, `package-lock.json`, `src/index.ts`, and
+   `CHANGELOG.md` describe the same release version.
+2. Run `npm run release:check`.
+3. Run `npm run smoke:dogfood-demo`.
+4. Run `npm run smoke:agent-lifecycle`.
+5. Inspect `npm pack --dry-run --json`.
+6. Confirm no private memory store data is included.
+7. Confirm README, CHANGELOG, and docs describe the current public interface.
+8. Publish only to the official npm registry:
 
    ```bash
    npm publish --dry-run --access public --registry https://registry.npmjs.org
    npm publish --access public --registry https://registry.npmjs.org
    ```
 
-7. If npm requires two-factor auth for publishing, use a granular access token
+9. If npm requires two-factor auth for publishing, use a granular access token
    with publish permission and bypass-2FA enabled, or publish from a session
    that can satisfy the account's configured 2FA policy.
-8. After publishing, verify the public package and both bins:
+10. After publishing, verify the public package and both bins:
 
    ```bash
    npm view @richardyu114/moryn version --registry https://registry.npmjs.org

@@ -4463,7 +4463,7 @@ describe("observability dashboard", () => {
         source: { client: "codex" }
       });
 
-      const data = await buildDashboardData(storePath, { limit: 10 });
+      const data = await buildDashboardData(storePath, { limit: 10, now: "2026-06-01T00:02:00.000Z" });
       const quarantined = data.recent_records.find((record) => record.state === "quarantined");
       expect(quarantined?.text).toBe("[quarantined]");
       expect(JSON.stringify(data)).not.toContain("sk-test_1234567890abcdefghijklmnopqrstuvwxyz");
@@ -8470,7 +8470,7 @@ describe("observability dashboard", () => {
         source: { client: "user", session_id: "policy-handled" }
       });
 
-      const data = await buildDashboardData(storePath, { limit: 10, project_id: "moryn" });
+      const data = await buildDashboardData(storePath, { limit: 10, project_id: "moryn", now: "2026-06-01T10:02:00.000Z" });
       const html = renderDashboardHtml(data);
 
       expect(data.capture_inbox.total).toBe(0);

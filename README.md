@@ -16,19 +16,20 @@ It is the memory bus between agents: simple on the default path, and
 fully traceable when a user or agent needs review, provenance, sync, or handoff
 history.
 
-> Status: first-version MVP. Local memory operations, Git sync, handoffs,
-> package smoke tests, and MCP stdio access are implemented.
+> Status: v0.2.0 release candidate. Local memory operations, Git sync,
+> handoffs, dashboard review, package smoke tests, and MCP stdio access are
+> implemented.
 
 ## Default path
 
 ```text
-setup -> context pack -> capture -> review -> approve -> sync
+setup -> context pack -> capture -> dashboard review -> approve -> sync
 ```
 
 The normal flow is intentionally small: initialize a local store, let an agent
 read the current project context, capture a handoff, review only the notes that
-need a real decision, approve useful long-term memory, and sync through a
-private repository you control.
+need a real decision in the dashboard, approve useful long-term memory, and sync
+through a private repository you control.
 
 Most users should ask an agent to operate Moryn instead of learning every
 command. The deeper surfaces stay available when needed:
@@ -153,8 +154,16 @@ flowchart LR
     Views["Rebuildable snapshots and indexes"]
   end
 
+  subgraph ReviewLayer["Dashboard and review"]
+    Dashboard["Local dashboard"]
+    DashboardReview["Dashboard review: act or all clear"]
+    MemorySearch["Find what Moryn saved"]
+    Approve["Approve long-term memory"]
+  end
+
   subgraph Sync["Sync"]
     Git["Git adapter"]
+    SharedCopy["Shared copy"]
     Remote["User-owned private repo"]
   end
 
@@ -166,7 +175,15 @@ flowchart LR
   MCP --> Engine
   Engine --> Events
   Events --> Views
+  Views --> Dashboard
+  Dashboard --> DashboardReview
+  Dashboard --> MemorySearch
+  DashboardReview --> Approve
+  MemorySearch --> DashboardReview
+  Approve --> Events
   Events --> Git
+  Git --> SharedCopy
+  SharedCopy --> Git
   Git <--> Remote
 ```
 
@@ -470,6 +487,7 @@ confirmation.
 ## Documentation
 
 - [Agent Install Prompt](docs/agent-install-prompt.md)
+- [Changelog](CHANGELOG.md)
 - [Agent Workflow](docs/agent-workflow.md)
 - [Contracts](docs/contracts.md)
 - [Dashboard](docs/dashboard.md)

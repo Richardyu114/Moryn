@@ -68,8 +68,8 @@ Recommended package name:
 7. Raw session material is useful but should not pollute boot context.
 8. Private-tagged records require explicit read intent.
 9. The first version must work without semantic embeddings.
-10. Default path: setup, context pack, capture, and recall should stay fast and
-    simple.
+10. Default path: setup, context pack, capture, dashboard review, approve,
+    sync, and recall should stay fast and simple.
 11. Power path: review, timeline, memory doctor, eval, sync repair, and
     dashboard should stay optional and auditable.
 12. Core boundary: append-only events, recall, state transitions, sync, project

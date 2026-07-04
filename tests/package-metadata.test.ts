@@ -30,6 +30,7 @@ describe("package metadata", () => {
 
     expect(packageJson.name).toBe("@richardyu114/moryn");
     expect(packageJson.version).toBe(version);
+    expect(packageJson.version).toBe("0.2.0");
     expect(packageJson.main).toBe("./dist/index.js");
     expect(packageJson.types).toBe("./dist/index.d.ts");
     expect(packageJson.exports?.["."]).toEqual({
@@ -56,8 +57,10 @@ describe("package metadata", () => {
     const files = packs[0]?.files.map((file) => file.path) ?? [];
 
     expect(files).toContain("README.md");
+    expect(files).toContain("CHANGELOG.md");
     expect(files).toContain("docs/implementation-roadmap.md");
     expect(files).not.toContain("docs/v0.2-phase-plan.md");
+    expect(files.some((file) => file.startsWith("docs/superpowers/"))).toBe(false);
     expect(files.some((file) => file.startsWith("state/"))).toBe(false);
     expect(files.some((file) => file.includes(".moryn"))).toBe(false);
     expect(files.some((file) => file.endsWith(".tgz"))).toBe(false);

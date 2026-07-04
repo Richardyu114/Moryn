@@ -45,7 +45,7 @@ v0.2.0 is release-ready only when the default dogfood path is simple and the
 power surfaces stay optional. The release narrative is:
 
 ```text
-setup -> context pack -> capture -> review -> approve -> sync
+setup -> context pack -> capture -> dashboard review -> approve -> sync
   |          |             |          |          |       |
 local     useful      automatic   grouped    explicit  portable
 dry-run   handoff     evidence    decision   append    user-owned
