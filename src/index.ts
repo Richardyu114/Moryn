@@ -55,6 +55,8 @@ export { activateClaudeSettings, mergeClaudeSettings } from "./core/claude-activ
 export type { ClaudeActivationResult, ClaudeSettingsMergeResult } from "./core/claude-activation.js";
 export { activationReceiptIdentity, recordActivationReceipt } from "./core/activation-receipts.js";
 export type { ActivationHost, ActivationReceipt, ActivationReceiptEvent, ActivationReceiptInput } from "./core/activation-receipts.js";
+export { inspectHostActivation } from "./core/host-activation.js";
+export type { ActivationStatus, ActivationSuggestedAction, HostActivationStatus } from "./core/host-activation.js";
 import { CAPTURE_SESSION_SELECTION_SOURCES, HANDOFF_PACK_SELECTION_SOURCES, HANDOFF_QUALITY_GATE_SELECTION_SOURCES } from "./core/host-adapters.js";
 export { setupWizard } from "./core/setup-wizard.js";
 import { SETUP_WIZARD_SELECTION_SOURCES } from "./core/setup-wizard.js";
