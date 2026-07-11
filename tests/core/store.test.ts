@@ -122,7 +122,7 @@ describe("event store", () => {
       });
 
       expect(directorySynced).toBe(true);
-      expect(result).toMatchObject({ created: true, durable: true });
+      expect(result).toMatchObject({ created: true, durability: "confirmed" });
     });
   });
 
@@ -134,8 +134,8 @@ describe("event store", () => {
 
       expect(result).toMatchObject({
         created: true,
-        durable: true,
-        warnings: [{ code: "IDEMPOTENT_EVENT_TEMP_CLEANUP_FAILED", reason: "cleanup failed" }]
+        durability: "confirmed",
+        warnings: [{ code: "IDEMPOTENT_EVENT_TEMP_CLEANUP_FAILED", reason: "temporary event cleanup failed" }]
       });
       expect(await readEvents(storePath)).toHaveLength(1);
     });
@@ -167,9 +167,65 @@ describe("event store", () => {
 
       expect(result).toMatchObject({
         created: true,
-        durable: false,
+        durability: "failed",
         warnings: [{ code: "IDEMPOTENT_EVENT_DIRECTORY_SYNC_FAILED", reason: "directory sync failed" }]
       });
+    });
+  });
+
+  it.each(["EINVAL", "ENOTSUP"])("reports best-effort durability when directory fsync is unsupported with %s", async (code) => {
+    await withInitializedTempStore(async (storePath) => {
+      const result = await appendEventIfAbsent(storePath, checkpointStoreEvent(`evt_checkpoint_dirsync_${code.toLowerCase()}`), {
+        fs: {
+          open: async (path, flags) => {
+            if (flags === "r" && path.endsWith(join("events", "idempotent"))) {
+              const error = new Error("unsupported") as NodeJS.ErrnoException;
+              error.code = code;
+              throw error;
+            }
+            const { open } = await import("node:fs/promises");
+            return open(path, flags);
+          }
+        }
+      });
+
+      expect(result).toMatchObject({
+        created: true,
+        durability: "best_effort",
+        warnings: [{ code: "IDEMPOTENT_EVENT_DIRECTORY_SYNC_UNSUPPORTED", reason: `directory sync unsupported: ${code}` }]
+      });
+    });
+  });
+
+  it("reports directory close failure without replacing the published result", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const result = await appendEventIfAbsent(storePath, checkpointStoreEvent("evt_checkpoint_dirclose"), {
+        fs: {
+          open: async (path, flags) => {
+            if (flags === "r" && path.endsWith(join("events", "idempotent"))) {
+              return { sync: async () => undefined, close: async () => { throw new Error("close failed"); } };
+            }
+            const { open } = await import("node:fs/promises");
+            return open(path, flags);
+          }
+        }
+      });
+
+      expect(result).toMatchObject({
+        created: true,
+        durability: "failed",
+        warnings: [{ code: "IDEMPOTENT_EVENT_DIRECTORY_CLOSE_FAILED", reason: "directory close failed" }]
+      });
+    });
+  });
+
+  it("reports replay durability as best effort", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const event = checkpointStoreEvent("evt_checkpoint_replay_durability");
+      await appendEventIfAbsent(storePath, event);
+      const replay = await appendEventIfAbsent(storePath, event);
+
+      expect(replay).toMatchObject({ created: false, durability: "best_effort" });
     });
   });
   async function expectInvalidStorePath(action: () => Promise<unknown>, value: unknown): Promise<void> {

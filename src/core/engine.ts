@@ -2912,19 +2912,19 @@ export function createEngine(deps: EngineDeps) {
         if (appended.event.op !== "upsert_record" || !matchesCheckpoint(appended.event.record, normalized) || !matchesCheckpointPayload(appended.event.record, normalized) || appended.event.record.id !== identity.record_id) {
           throw new Error(`Checkpoint idempotency collision: ${identity.event_id}`);
         }
-        return { record: appended.event.record, idempotent_replay: !appended.created, durable: appended.durable, append_warnings: appended.warnings ?? [] };
+        return { record: appended.event.record, idempotent_replay: !appended.created, durability: appended.durability, append_warnings: appended.warnings ?? [] };
       })();
       const warnings: NonNullable<CheckpointResult["warnings"]> = [...outcome.append_warnings];
       try {
         await checkpointRebuild(deps.storePath);
-        return { record: outcome.record, idempotent_replay: outcome.idempotent_replay, committed: true, durable: outcome.durable, derived_views_refreshed: true, ...(warnings.length ? { warnings } : {}), recovery_pack: recoveryPack(outcome.record, normalized.include_private) };
+        return { record: outcome.record, idempotent_replay: outcome.idempotent_replay, committed: true, durability: outcome.durability, derived_views_refreshed: true, ...(warnings.length ? { warnings } : {}), recovery_pack: recoveryPack(outcome.record, normalized.include_private) };
       } catch (error) {
         warnings.push({ code: "DERIVED_VIEW_REBUILD_FAILED", reason: error instanceof Error ? error.message : String(error) });
         return {
           record: outcome.record,
           idempotent_replay: outcome.idempotent_replay,
           committed: true,
-          durable: outcome.durable,
+          durability: outcome.durability,
           derived_views_refreshed: false,
           warnings,
           recovery_pack: recoveryPack(outcome.record, normalized.include_private)

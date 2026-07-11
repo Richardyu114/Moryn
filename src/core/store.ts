@@ -121,15 +121,17 @@ export interface AppendEventIfAbsentOptions {
 }
 
 export interface AppendEventIfAbsentWarning {
-  code: "IDEMPOTENT_EVENT_DIRECTORY_SYNC_FAILED" | "IDEMPOTENT_EVENT_TEMP_CLEANUP_FAILED";
+  code: "IDEMPOTENT_EVENT_DIRECTORY_SYNC_UNSUPPORTED" | "IDEMPOTENT_EVENT_DIRECTORY_SYNC_FAILED" | "IDEMPOTENT_EVENT_DIRECTORY_CLOSE_FAILED" | "IDEMPOTENT_EVENT_TEMP_CLEANUP_FAILED";
   reason: string;
 }
+
+export type EventDurability = "confirmed" | "best_effort" | "failed";
 
 export interface AppendEventIfAbsentResult {
   created: boolean;
   event: MorynEvent;
   path: string;
-  durable: boolean;
+  durability: EventDurability;
   warnings?: AppendEventIfAbsentWarning[];
 }
 
@@ -159,23 +161,30 @@ export async function appendEventIfAbsent(storePath: string, event: MorynEvent, 
     await options.before_publish?.(tempPath, path);
     try {
       await fsLink(tempPath, path);
-      let durable = true;
+      let durability: EventDurability = "confirmed";
       const warnings: AppendEventIfAbsentWarning[] = [];
       let directoryHandle;
       try {
         directoryHandle = await fsOpen(dirname(path), "r");
         await directoryHandle.sync();
       } catch (error) {
-        const code = error instanceof Error && "code" in error ? error.code : undefined;
-        // Some platforms do not support directory fsync; these codes mean link publication remains the strongest available guarantee.
-        if (code !== "EINVAL" && code !== "ENOTSUP") {
-          durable = false;
+        const code = error instanceof Error && "code" in error ? String(error.code) : undefined;
+        if (code === "EINVAL" || code === "ENOTSUP") {
+          durability = "best_effort";
+          warnings.push({ code: "IDEMPOTENT_EVENT_DIRECTORY_SYNC_UNSUPPORTED", reason: `directory sync unsupported: ${code}` });
+        } else {
+          durability = "failed";
           warnings.push({ code: "IDEMPOTENT_EVENT_DIRECTORY_SYNC_FAILED", reason: error instanceof Error ? error.message : String(error) });
         }
       } finally {
-        await directoryHandle?.close();
+        try {
+          await directoryHandle?.close();
+        } catch {
+          durability = "failed";
+          warnings.push({ code: "IDEMPOTENT_EVENT_DIRECTORY_CLOSE_FAILED", reason: "directory close failed" });
+        }
       }
-      result = { created: true, event: parsed, path, durable, ...(warnings.length ? { warnings } : {}) };
+      result = { created: true, event: parsed, path, durability, ...(warnings.length ? { warnings } : {}) };
     } catch (error) {
       const code = error instanceof Error && "code" in error ? String(error.code) : undefined;
       if (code && ["EPERM", "EACCES", "ENOTSUP", "EXDEV"].includes(code)) {
@@ -183,7 +192,7 @@ export async function appendEventIfAbsent(storePath: string, event: MorynEvent, 
       }
       if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
       try {
-        result = { created: false, event: parseEvent(JSON.parse(await readFile(path, "utf8"))), path, durable: true };
+        result = { created: false, event: parseEvent(JSON.parse(await readFile(path, "utf8"))), path, durability: "best_effort" };
       } catch {
         throw new Error(`Corrupt idempotent event: ${parsed.event_id}`);
       }
@@ -199,7 +208,7 @@ export async function appendEventIfAbsent(storePath: string, event: MorynEvent, 
           ...result,
           warnings: [
             ...(result.warnings ?? []),
-            { code: "IDEMPOTENT_EVENT_TEMP_CLEANUP_FAILED", reason: error instanceof Error ? error.message : String(error) }
+            { code: "IDEMPOTENT_EVENT_TEMP_CLEANUP_FAILED", reason: "temporary event cleanup failed" }
           ]
         };
       } else if (!(error instanceof Error && "code" in error && error.code === "ENOENT") && !operationError) {

@@ -28,9 +28,9 @@ export interface CheckpointResult {
   record: MorynRecord;
   idempotent_replay: boolean;
   committed: true;
-  durable: boolean;
+  durability: "confirmed" | "best_effort" | "failed";
   derived_views_refreshed: boolean;
-  warnings?: Array<{ code: "DERIVED_VIEW_REBUILD_FAILED" | "IDEMPOTENT_EVENT_DIRECTORY_SYNC_FAILED" | "IDEMPOTENT_EVENT_TEMP_CLEANUP_FAILED"; reason: string }>;
+  warnings?: Array<{ code: "DERIVED_VIEW_REBUILD_FAILED" | "IDEMPOTENT_EVENT_DIRECTORY_SYNC_UNSUPPORTED" | "IDEMPOTENT_EVENT_DIRECTORY_SYNC_FAILED" | "IDEMPOTENT_EVENT_DIRECTORY_CLOSE_FAILED" | "IDEMPOTENT_EVENT_TEMP_CLEANUP_FAILED"; reason: string }>;
   recovery_pack: RecoveryPack;
 }
 
@@ -48,10 +48,14 @@ function canonicalValue(value: unknown): unknown {
   if (value && typeof value === "object") {
     return Object.fromEntries(Object.entries(value as Record<string, unknown>)
       .filter(([, nested]) => nested !== undefined)
-      .sort(([left], [right]) => left.localeCompare(right))
+      .sort(([left], [right]) => compareCodeUnits(left, right))
       .map(([key, nested]) => [key, canonicalValue(nested)]));
   }
   return value;
+}
+
+function compareCodeUnits(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function sha256(value: unknown): string {
@@ -114,7 +118,7 @@ export function normalizeCheckpointInput(input: CheckpointInput): NormalizedChec
   for (const tag of ["checkpoint", `session:${delta.session_id}`, `checkpoint:${delta.checkpoint_id}`]) {
     if (!tags.includes(tag)) tags.push(tag);
   }
-  tags.sort((left, right) => left.localeCompare(right));
+  tags.sort(compareCodeUnits);
   return { project_id: projectId, source, occurred_at: occurredAt, delta, tags, include_private: input.include_private === true };
 }
 

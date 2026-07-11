@@ -117,6 +117,30 @@ describe("engine.checkpoint", () => {
     expect(outputs[0]).toBe(outputs[1]);
   });
 
+  it("uses code-unit ordering for non-ASCII tags and canonical learning objects", async () => {
+    const tags = ["é", "z", "ä", "A"];
+    const delta = {
+      ...baseDelta,
+      learnings: [{
+        question: "问题", conclusion: "结论", evidence_type: "source_code" as const, scope: "project" as const,
+        confidence: 0.8, recommended_kind: "memory" as const, recommended_type: "事实"
+      }]
+    };
+    const outputs: string[] = [];
+    for (let index = 0; index < 2; index += 1) {
+      await withInitializedTempStore(async (storePath) => {
+        const input = { project_id: "project-a", ...authored, delta, tags: index ? [...tags].reverse() : tags };
+        const engine = createTestEngine(storePath);
+        const result = await engine.checkpoint(input);
+        const identity = checkpointIdentity(normalizeCheckpointInput(input));
+        outputs.push(await readFile(join(storePath, "events", "idempotent", `${identity.event_id}.json`), "utf8"));
+
+        expect(result.record.tags).toEqual(["A", "checkpoint", "checkpoint:checkpoint-1", "session:session-1", "z", "ä", "é"]);
+      });
+    }
+    expect(outputs[0]).toBe(outputs[1]);
+  });
+
   it("does not confuse distinct idempotency keys", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createTestEngine(storePath);
