@@ -11,7 +11,7 @@ import { actionExecution, actionSafety, type ActionExecution, type ActionSafety 
 import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js";
 import { requiredFieldsByName, withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
 import { operationArgumentsByTool, type OperationArgumentMetadata } from "../operation-contracts.js";
-import type { LearningDeltaInput } from "./context-delta.js";
+import type { LearningDeltaInput, SemanticConsolidationProposalInput } from "./context-delta.js";
 
 interface AgentIdentity {
   client: string;
@@ -40,6 +40,7 @@ export interface AgentFinishInput extends AgentLifecycleInput {
   summary: unknown;
   push?: boolean;
   learnings?: LearningDeltaInput[];
+  semanticConsolidationProposals?: SemanticConsolidationProposalInput[];
 }
 
 export interface AgentStatusInput extends AgentLifecycleInput {
@@ -49,6 +50,7 @@ export interface AgentStatusInput extends AgentLifecycleInput {
 
 export interface AgentLifecycleDeps {
   now?: () => string;
+  createEngine?: typeof createEngine;
 }
 
 type DoctorSeverity = "ok" | "notice" | "warning";
@@ -2738,7 +2740,8 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
   const actionInput = portableLifecycleInput(input, project);
   const projectInfo = projectEnvelope(project);
   await assertSyncNotConflicted(input.storePath);
-  const engine = createEngine({ storePath: input.storePath });
+  const lifecycleNow = deps.now?.() ?? new Date().toISOString();
+  const engine = (deps.createEngine ?? createEngine)({ storePath: input.storePath, now: () => lifecycleNow });
   const record = await engine.write({
     kind: "session_summary",
     type: "summary",
@@ -2751,9 +2754,15 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
   const learningIngestion = await engine.ingestLearnings({
     project_id: project.project_id,
     learnings: input.learnings ?? [],
-    occurred_at: deps.now?.() ?? new Date().toISOString(),
+    occurred_at: lifecycleNow,
     source: sourceFromAgent(input.agent),
     origin_record_id: record.record.id
+  });
+  const semanticConsolidation = await engine.consolidateLearningProposals({
+    proposals: input.semanticConsolidationProposals ?? [],
+    source_record_ids: learningIngestion.dispositions.map((disposition) => disposition.record_id),
+    project_id: project.project_id,
+    source: sourceFromAgent(input.agent)
   });
   const shouldPush = input.push ?? projectInfo.sync_mode !== "manual";
   const sync: {
@@ -2783,6 +2792,7 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     record: record.record,
     warning: record.warning,
     learning_ingestion: learningIngestion,
+    semantic_consolidation: semanticConsolidation,
     sync,
     next: {
       recommended_start_command: "moryn agent start --project <path> --current-task <task>",

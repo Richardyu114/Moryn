@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { runHostHook } from "../../src/core/host-hook-runner.js";
+import { createEngine } from "../../src/core/engine.js";
+import { learningRecordIdentity } from "../../src/core/learning-ingestion.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
 const base = {
@@ -29,6 +31,25 @@ describe("host hook runner", () => {
       expect(replay).toMatchObject({ checkpoint: { idempotent_replay: true } });
       expect(restored).toMatchObject({ action: "resume_from_checkpoint" });
       expect(restored.hook_output.additional_context).toContain("Implemented parser; next run tests.");
+    });
+  });
+
+  it("consolidates authored pre-compact learnings without mutating post-compact restore", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath });
+      const target = await engine.write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Compact checkpoints preserve task context." }, state: "canonical", confirmed: true, source: { client: "user" } });
+      const learning = { question: "What survives compact?", conclusion: "Compact checkpoints preserve the current task context.", evidence_type: "source_code" as const, scope: "project" as const, confidence: 0.9, recommended_kind: "memory" as const, recommended_type: "fact", related_record_ids: [] };
+      const sourceRecordId = learningRecordIdentity({ project_id: "moryn", learning }).record_id;
+      const proposal = { proposal_id: "compact-proposal", source_record_id: sourceRecordId, target_record_id: target.record.id, relationship: "duplicate_of" as const, confidence: 0.99, rationale: "Equivalent compact behavior.", semantic_equivalence: "equivalent" as const, material_differences: [], evidence_record_ids: [] };
+
+      const preCompact = await runHostHook({ storePath, hook: { ...base, event: "pre_compact", trigger: "auto", compact_summary: "Compact lifecycle implemented." }, project_id: "moryn", current_task: "Implement hooks", learnings: [learning], semantic_consolidation_proposals: [proposal], pull: false });
+      const eventsBeforeRestore = (await engine.listRecent({ project_id: "moryn", limit: 20 })).records;
+      const restored = await runHostHook({ storePath, hook: { ...base, event: "post_compact" }, project_id: "moryn", current_task: "Implement hooks", pull: false });
+      const eventsAfterRestore = (await engine.listRecent({ project_id: "moryn", limit: 20 })).records;
+
+      expect(preCompact).toMatchObject({ checkpoint: { semantic_consolidation: { proposals_received: 1, proposals_accepted: 1, links_created: 1 } } });
+      expect(restored).toMatchObject({ action: "resume_from_checkpoint" });
+      expect(eventsAfterRestore).toEqual(eventsBeforeRestore);
     });
   });
 

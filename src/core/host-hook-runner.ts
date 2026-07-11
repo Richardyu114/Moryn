@@ -3,6 +3,7 @@ import { agentFinish, agentStart, agentStatus } from "./agent-lifecycle.js";
 import { createEngine } from "./engine.js";
 import { getHostCapabilities } from "./host-capabilities.js";
 import type { NormalizedHostHookEvent } from "./host-hooks.js";
+import type { LearningDeltaInput, SemanticConsolidationProposalInput } from "./context-delta.js";
 import { resolveProjectContext } from "./project.js";
 
 export interface RunHostHookInput {
@@ -13,6 +14,8 @@ export interface RunHostHookInput {
   current_task?: string;
   pull?: boolean;
   push?: boolean;
+  learnings?: LearningDeltaInput[];
+  semantic_consolidation_proposals?: SemanticConsolidationProposalInput[];
 }
 
 export interface HostHookRunResult {
@@ -74,13 +77,15 @@ export async function runHostHook(input: RunHostHookInput): Promise<HostHookRunR
         session_id: input.hook.session_id,
         checkpoint_id: checkpointId(input.hook),
         current_task: input.current_task,
-        progress: [summary]
+        progress: [summary],
+        learnings: input.learnings ?? [],
+        semantic_consolidation_proposals: input.semantic_consolidation_proposals ?? []
       }
     });
     return { ok: true, event: input.hook.event, action: "checkpoint_before_compaction", degradation, checkpoint, hook_output: { additional_context: `Moryn checkpoint saved: ${checkpoint.record.id}` } };
   }
   if (input.hook.event === "session_end") {
-    const result = await agentFinish({ ...common, summary: input.hook.compact_summary ?? "Host session ended.", push: input.push });
+    const result = await agentFinish({ ...common, summary: input.hook.compact_summary ?? "Host session ended.", push: input.push, learnings: input.learnings, semanticConsolidationProposals: input.semantic_consolidation_proposals });
     return { ok: true, event: input.hook.event, action: "agent_finish", degradation, details: result, hook_output: { additional_context: `Moryn handoff saved: ${result.record.id}` } };
   }
   const result = await agentStatus({ ...common, status: input.hook.compact_summary ?? "Host stop hook reached.", push: input.push });

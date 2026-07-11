@@ -35,7 +35,7 @@ export interface SemanticConsolidationValidationResult {
 
 export type SemanticConsolidationProposalResult = Omit<SemanticConsolidationValidationResult, "status" | "reason"> & {
   status: "accepted" | "rejected" | "idempotent" | "failed";
-  reason: SemanticConsolidationValidationReason | "persistence_failed";
+  reason: SemanticConsolidationValidationReason | "candidate_not_bounded" | "persistence_failed" | "pipeline_failed";
   event_id?: string;
 };
 

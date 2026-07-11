@@ -11,6 +11,8 @@ import { initializeProjectConfig } from "../../src/core/project.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "../../src/core/agent-lifecycle.js";
 import { initializeGitSync, pullGitSync, pushGitSync } from "../../src/sync/git.js";
 import { runHostHook } from "../../src/core/host-hook-runner.js";
+import { learningRecordIdentity } from "../../src/core/learning-ingestion.js";
+import { appendEventIfAbsent } from "../../src/core/store.js";
 
 const exec = promisify(execFile);
 const LIFECYCLE_ACTION_SELECTION_SOURCES = {
@@ -1076,6 +1078,68 @@ describe("agent lifecycle", () => {
         kinds: ["session_summary"]
       });
       expect(recall.results[0]?.record.id).toBe(finish.record.id);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("consolidates finish learnings before pushing the handoff", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-finish-consolidation-"));
+    const storePath = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(storePath, { id: () => "device-codex" });
+      const engine = createEngine({ storePath });
+      const target = await engine.write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Moryn pulls on agent enter." }, state: "canonical", confirmed: true, source: { client: "user" } });
+      const learning = {
+        question: "When does Moryn pull?",
+        conclusion: "Moryn pulls when an agent enters.",
+        evidence_type: "source_code" as const,
+        scope: "project" as const,
+        confidence: 0.9,
+        recommended_kind: "memory" as const,
+        recommended_type: "fact",
+        related_record_ids: []
+      };
+      const sourceRecordId = learningRecordIdentity({ project_id: "moryn", learning }).record_id;
+
+      const result = await agentFinish({
+        storePath,
+        projectPath: project,
+        agent: { client: "codex", device_id: "device-codex", session_id: "codex-finish" },
+        summary: "Lifecycle consolidation complete.",
+        learnings: [learning],
+        semanticConsolidationProposals: [{ proposal_id: "finish-proposal", source_record_id: sourceRecordId, target_record_id: target.record.id, relationship: "duplicate_of", confidence: 0.99, rationale: "Equivalent lifecycle fact.", semantic_equivalence: "equivalent", material_differences: [], evidence_record_ids: [] }],
+        push: false
+      }, { now: () => "2026-07-12T00:00:00.000Z" });
+
+      expect(result.semantic_consolidation.proposal_results).toEqual([expect.objectContaining({ status: "accepted" })]);
+      expect(result).toMatchObject({ learning_ingestion: { records_created: 1 }, semantic_consolidation: { proposals_received: 1, proposals_accepted: 1, links_created: 1 } });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps finish handoff durable when semantic consolidation persistence fails", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-finish-consolidation-failure-"));
+    const storePath = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(storePath, { id: () => "device-codex" });
+      const target = await createEngine({ storePath }).write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Moryn pulls on agent enter." }, state: "canonical", confirmed: true, source: { client: "user" } });
+      const learning = { question: "When does Moryn pull?", conclusion: "Moryn pulls when an agent enters.", evidence_type: "source_code" as const, scope: "project" as const, confidence: 0.9, recommended_kind: "memory" as const, recommended_type: "fact", related_record_ids: [] };
+      const sourceRecordId = learningRecordIdentity({ project_id: "moryn", learning }).record_id;
+      const result = await agentFinish({ storePath, projectPath: project, agent: { client: "codex", session_id: "codex-failure" }, summary: "Handoff remains durable.", learnings: [learning], semanticConsolidationProposals: [{ proposal_id: "finish-failure", source_record_id: sourceRecordId, target_record_id: target.record.id, relationship: "duplicate_of", confidence: 0.99, rationale: "Equivalent lifecycle fact.", semantic_equivalence: "equivalent", material_differences: [], evidence_record_ids: [] }], push: false }, {
+        now: () => "2026-07-12T00:00:00.000Z",
+        createEngine: (deps) => createEngine({ ...deps, appendEventIfAbsent: async (path, event) => {
+          if (event.event_id.startsWith("evt_semantic_consolidation_")) throw new Error("semantic disk failure");
+          return appendEventIfAbsent(path, event);
+        } })
+      });
+
+      expect(result).toMatchObject({ ok: true, record: { content: { text: "Handoff remains durable." } }, learning_ingestion: { records_created: 1 }, semantic_consolidation: { proposals_received: 1, proposals_rejected: 1, rejected_by_reason: { persistence_failed: 1 } } });
     } finally {
       await rm(root, { recursive: true, force: true });
     }

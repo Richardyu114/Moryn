@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { validateContextDelta, type ContextDelta, type ContextDeltaInput } from "./context-delta.js";
 import { isPrivateTags } from "./sensitive.js";
 import type { MorynRecord, RecordSource } from "./types.js";
+import type { SemanticConsolidationReceipt } from "./semantic-consolidation.js";
 
 export interface CheckpointInput {
   project_id: string;
@@ -62,6 +63,7 @@ export interface CheckpointResult {
       policy_reason: string;
     }>;
   };
+  semantic_consolidation: SemanticConsolidationReceipt;
   selection_sources: typeof CHECKPOINT_SELECTION_SOURCES;
 }
 
@@ -73,7 +75,8 @@ export const CHECKPOINT_SELECTION_SOURCES = {
   derived_views_refreshed: "derived_views_refreshed",
   warning: "warnings[]",
   recovery_pack: "recovery_pack",
-  learning_ingestion: "learning_ingestion"
+  learning_ingestion: "learning_ingestion",
+  semantic_consolidation: "semantic_consolidation"
 } as const;
 
 export interface NormalizedCheckpointInput {

@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createEngine } from "../../src/core/engine.js";
 import { buildCheckpointRecoveryPack, checkpointIdentity, normalizeCheckpointInput, recoveryPack } from "../../src/core/checkpoint.js";
+import { learningRecordIdentity } from "../../src/core/learning-ingestion.js";
 import { appendEvent, appendEventIfAbsent, readEvents } from "../../src/core/store.js";
 import type { MorynRecord } from "../../src/core/types.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
@@ -168,6 +169,93 @@ describe("buildCheckpointRecoveryPack", () => {
 });
 
 describe("engine.checkpoint", () => {
+  it("consolidates authored proposals after durable learning ingestion", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createTestEngine(storePath);
+      const target = await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "project-a",
+        content: { text: "Moryn pulls on agent enter." },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const learning = {
+        question: "When does Moryn pull?",
+        conclusion: "Moryn pulls when an agent enters.",
+        evidence_type: "source_code" as const,
+        scope: "project" as const,
+        confidence: 0.9,
+        recommended_kind: "memory" as const,
+        recommended_type: "fact",
+        related_record_ids: []
+      };
+      const sourceRecordId = learningRecordIdentity({ project_id: "project-a", learning }).record_id;
+      const input = {
+        project_id: "project-a",
+        ...authored,
+        delta: {
+          ...baseDelta,
+          checkpoint_id: "semantic-consolidation",
+          learnings: [learning],
+          semantic_consolidation_proposals: [{
+            proposal_id: "proposal-1",
+            source_record_id: sourceRecordId,
+            target_record_id: target.record.id,
+            relationship: "duplicate_of" as const,
+            confidence: 0.99,
+            rationale: "Equivalent lifecycle fact.",
+            semantic_equivalence: "equivalent" as const,
+            material_differences: [],
+            evidence_record_ids: []
+          }]
+        }
+      };
+
+      const first = await engine.checkpoint(input);
+      const replay = await engine.checkpoint(input);
+
+      expect(first.committed).toBe(true);
+      expect(first.learning_ingestion).toMatchObject({ records_created: 1, dispositions: [{ record_id: sourceRecordId }] });
+      expect(first.semantic_consolidation).toMatchObject({ proposals_received: 1, links_created: 1, proposals_accepted: 1 });
+      expect(replay.semantic_consolidation).toMatchObject({ proposals_received: 1, links_created: 0, idempotent_replays: 1 });
+      const events = await readEvents(storePath);
+      expect(events.findIndex((event) => event.op === "upsert_record" && event.record.id === sourceRecordId)).toBeLessThan(events.findIndex((event) => event.op === "link_records" && event.link_type === "duplicate_of"));
+    });
+  });
+
+  it("keeps checkpoint durable when semantic consolidation persistence fails", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const targetWriter = createTestEngine(storePath);
+      const target = await targetWriter.write({ kind: "memory", type: "fact", scope: "project", project_id: "project-a", content: { text: "Moryn pulls on agent enter." }, state: "canonical", confirmed: true, source: { client: "user" } });
+      const learning = { question: "When does Moryn pull?", conclusion: "Moryn pulls when an agent enters.", evidence_type: "source_code" as const, scope: "project" as const, confidence: 0.9, recommended_kind: "memory" as const, recommended_type: "fact", related_record_ids: [] };
+      const sourceRecordId = learningRecordIdentity({ project_id: "project-a", learning }).record_id;
+      const engine = createEngine({
+        storePath,
+        id: (prefix) => `${prefix}_semantic_failure`,
+        appendEventIfAbsent: async (path, event) => {
+          if (event.event_id.startsWith("evt_semantic_consolidation_")) throw new Error("semantic disk failure");
+          return appendEventIfAbsent(path, event);
+        }
+      });
+      const result = await engine.checkpoint({
+        project_id: "project-a",
+        ...authored,
+        delta: {
+          ...baseDelta,
+          checkpoint_id: "semantic-failure",
+          learnings: [learning],
+          semantic_consolidation_proposals: [{ proposal_id: "proposal-failure", source_record_id: sourceRecordId, target_record_id: target.record.id, relationship: "duplicate_of", confidence: 0.99, rationale: "Equivalent lifecycle fact.", semantic_equivalence: "equivalent", material_differences: [], evidence_record_ids: [] }]
+        }
+      });
+
+      expect(result).toMatchObject({ committed: true, recovery_pack: { available: true }, semantic_consolidation: { proposals_received: 1, proposals_rejected: 1, rejected_by_reason: { persistence_failed: 1 } } });
+      expect(await engine.recall({ record_ids: [result.record.id], project_id: "project-a" })).toMatchObject({ results: [{ record: { id: result.record.id } }] });
+    });
+  });
+
   it("preserves semantic consolidation proposals in checkpoint recovery", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createTestEngine(storePath);

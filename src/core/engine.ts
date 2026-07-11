@@ -24,7 +24,8 @@ import { assessRecallOutcome } from "./recall-outcome.js";
 import { learningDeltaSchema, semanticConsolidationProposalSchema, type LearningDelta, type SemanticConsolidationProposal } from "./context-delta.js";
 import { learningStatePolicy } from "./learning-policy.js";
 import { learningRecordIdentity, normalizeLearningRecord } from "./learning-ingestion.js";
-import { SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES, validateSemanticConsolidationProposal, type SemanticConsolidationProposalResult, type SemanticConsolidationReceipt } from "./semantic-consolidation.js";
+import { SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES, semanticConsolidationProposalDigest, validateSemanticConsolidationProposal, type SemanticConsolidationProposalResult, type SemanticConsolidationReceipt } from "./semantic-consolidation.js";
+import { retrieveSemanticConsolidationCandidates } from "./semantic-consolidation-candidates.js";
 
 interface EngineDeps {
   storePath: string;
@@ -162,6 +163,10 @@ interface ConsolidateSemanticProposalsInput {
   source?: RecordSource;
 }
 
+interface ConsolidateLearningProposalsInput extends ConsolidateSemanticProposalsInput {
+  source_record_ids: string[];
+}
+
 type ValidatedMemoryDoctorInput = MemoryDoctorInput & {
   include_private?: boolean;
 };
@@ -190,6 +195,38 @@ function duplicateLinkEventId(recordId: string, targetRecordId: string): string 
 
 function semanticConsolidationEventId(sourceRecordId: string, targetRecordId: string, relationship: string): string {
   return `evt_semantic_consolidation_${createHash("sha256").update(JSON.stringify({ sourceRecordId, targetRecordId, relationship })).digest("hex")}`;
+}
+
+function semanticConsolidationReceipt(proposalResults: SemanticConsolidationProposalResult[]): SemanticConsolidationReceipt {
+  const acceptedByRelationship: SemanticConsolidationReceipt["accepted_by_relationship"] = {};
+  const rejectedByReason: Record<string, number> = {};
+  let proposalsAccepted = 0;
+  let proposalsRejected = 0;
+  let linksCreated = 0;
+  let idempotentReplays = 0;
+  for (const item of proposalResults) {
+    if (item.status === "accepted") {
+      proposalsAccepted += 1;
+      linksCreated += 1;
+      acceptedByRelationship[item.relationship] = (acceptedByRelationship[item.relationship] ?? 0) + 1;
+    } else if (item.status === "idempotent") {
+      idempotentReplays += 1;
+    } else {
+      proposalsRejected += 1;
+      rejectedByReason[item.reason] = (rejectedByReason[item.reason] ?? 0) + 1;
+    }
+  }
+  return {
+    proposals_received: proposalResults.length,
+    proposals_accepted: proposalsAccepted,
+    proposals_rejected: proposalsRejected,
+    links_created: linksCreated,
+    idempotent_replays: idempotentReplays,
+    accepted_by_relationship: acceptedByRelationship,
+    rejected_by_reason: rejectedByReason,
+    proposal_results: proposalResults,
+    selection_sources: SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES
+  };
 }
 
 type ValidatedMemoryLifecycleInput = MemoryLifecycleInput & {
@@ -3040,13 +3077,20 @@ export function createEngine(deps: EngineDeps) {
         source: normalized.source,
         origin_record_id: outcome.record.id
       });
+      const semanticConsolidation = await engine.consolidateLearningProposals({
+        proposals: normalized.delta.semantic_consolidation_proposals,
+        source_record_ids: learningIngestion.dispositions.map((disposition) => disposition.record_id),
+        project_id: normalized.project_id,
+        include_private: normalized.include_private,
+        source: normalized.source
+      });
       const recoveryPack = buildCheckpointRecoveryPack(
         [...replayEvents(await readEvents(deps.storePath)).values()],
         { project_id: normalized.project_id, session_id: normalized.delta.session_id, include_private: normalized.include_private }
       );
       try {
         await checkpointRebuild(deps.storePath);
-        return { record: outcome.record, idempotent_replay: outcome.idempotent_replay, committed: true, durability: outcome.durability, derived_views_refreshed: true, ...(warnings.length ? { warnings } : {}), recovery_pack: recoveryPack, learning_ingestion: learningIngestion, selection_sources: CHECKPOINT_SELECTION_SOURCES };
+        return { record: outcome.record, idempotent_replay: outcome.idempotent_replay, committed: true, durability: outcome.durability, derived_views_refreshed: true, ...(warnings.length ? { warnings } : {}), recovery_pack: recoveryPack, learning_ingestion: learningIngestion, semantic_consolidation: semanticConsolidation, selection_sources: CHECKPOINT_SELECTION_SOURCES };
       } catch (error) {
         warnings.push({ code: "DERIVED_VIEW_REBUILD_FAILED", reason: error instanceof Error ? error.message : String(error) });
         return {
@@ -3058,6 +3102,7 @@ export function createEngine(deps: EngineDeps) {
           warnings,
           recovery_pack: recoveryPack,
           learning_ingestion: learningIngestion,
+          semantic_consolidation: semanticConsolidation,
           selection_sources: CHECKPOINT_SELECTION_SOURCES
         };
       }
@@ -3277,6 +3322,35 @@ export function createEngine(deps: EngineDeps) {
         proposal_results: proposalResults,
         selection_sources: SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES
       };
+    },
+
+    async consolidateLearningProposals(input: ConsolidateLearningProposalsInput): Promise<SemanticConsolidationReceipt> {
+      if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Invalid argument: learning consolidation input must be an object");
+      if (!Array.isArray(input.proposals)) throw new Error("Invalid argument: semantic consolidation proposals must be an array");
+      if (!Array.isArray(input.source_record_ids) || input.source_record_ids.some((recordId) => typeof recordId !== "string" || !recordId.trim())) throw new Error("Invalid argument: semantic consolidation source_record_ids must be non-empty strings");
+      const proposals = input.proposals.map((proposal) => semanticConsolidationProposalSchema.parse(proposal)) as SemanticConsolidationProposal[];
+      if (!proposals.length) return semanticConsolidationReceipt([]);
+      try {
+        const sourceRecordIds = [...new Set(input.source_record_ids.map((recordId) => recordId.trim()))];
+        const records = await currentRecords();
+        const recordsById = new Map(records.map((record) => [record.id, record]));
+        const candidates = retrieveSemanticConsolidationCandidates(records, { source_record_ids: sourceRecordIds, include_private: input.include_private === true, per_source_limit: 8, total_limit: 24 });
+        const allowedTargetsBySource = new Map(Object.entries(candidates.candidates_by_source_record_id).map(([sourceRecordId, items]) => [sourceRecordId, new Set(items.map((item) => item.record_id))]));
+        const bounded: SemanticConsolidationProposal[] = [];
+        const rejected: SemanticConsolidationProposalResult[] = [];
+        for (const proposal of proposals) {
+          const existingLink = recordsById.get(proposal.source_record_id)?.links?.some((link) => link.record_id === proposal.target_record_id && link.link_type === proposal.relationship);
+          if (!sourceRecordIds.includes(proposal.source_record_id) || (!existingLink && !allowedTargetsBySource.get(proposal.source_record_id)?.has(proposal.target_record_id))) {
+            rejected.push({ status: "rejected", reason: "candidate_not_bounded", source_record_id: proposal.source_record_id, target_record_id: proposal.target_record_id, relationship: proposal.relationship, proposal_digest: semanticConsolidationProposalDigest(proposal) });
+          } else {
+            bounded.push(proposal);
+          }
+        }
+        const persisted = bounded.length ? await engine.consolidateSemanticProposals({ proposals: bounded, project_id: input.project_id, include_private: input.include_private, source: input.source }) : semanticConsolidationReceipt([]);
+        return semanticConsolidationReceipt([...persisted.proposal_results, ...rejected]);
+      } catch {
+        return semanticConsolidationReceipt(proposals.map((proposal) => ({ status: "failed", reason: "pipeline_failed", source_record_id: proposal.source_record_id, target_record_id: proposal.target_record_id, relationship: proposal.relationship, proposal_digest: semanticConsolidationProposalDigest(proposal) })));
+      }
     },
 
     async revise(input: RevisionInput) {
