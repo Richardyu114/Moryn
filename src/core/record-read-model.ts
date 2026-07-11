@@ -25,7 +25,7 @@ export function eventManifest(events: MorynEvent[]): EventManifest {
   };
 }
 
-export function buildRecordReadModel(events: MorynEvent[], records: MorynRecord[], manifest = eventManifest(events)): RecordReadModelV1 {
+export function buildRecordReadModel(events: MorynEvent[], records: MorynRecord[], manifest: EventManifest): RecordReadModelV1 {
   return {
     version: 1,
     generated_at: [...events].sort((left, right) => right.created_at.localeCompare(left.created_at) || right.event_id.localeCompare(left.event_id))[0]?.created_at ?? "1970-01-01T00:00:00.000Z",

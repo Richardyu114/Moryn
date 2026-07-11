@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { access, link, mkdir, open, readdir, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";
+import { access, link, mkdir, open, readdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import type { MorynEvent } from "./types.js";
 import { parseEvent } from "./schema.js";
@@ -253,9 +253,10 @@ export async function readEventFileManifest(storePath: string): Promise<EventFil
   const files = (await walkJsonFiles(eventsPath)).sort();
   const hash = createHash("sha256");
   for (const file of files) {
+    const metadata = await stat(file);
     hash.update(relative(eventsPath, file));
     hash.update("\u0000");
-    hash.update(await readFile(file));
+    hash.update(`${metadata.size}\u0000${metadata.mtimeMs}\u0000${metadata.ctimeMs}`);
     hash.update("\u0000");
   }
   return { count: files.length, digest: hash.digest("hex") };
