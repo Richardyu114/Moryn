@@ -16,6 +16,7 @@ import { commandForPromoteContext } from "../core/errors.js";
 import { diagnoseHealthCheck, type HealthCheckReport } from "../core/health-check.js";
 import { diagnoseMemoryLifecycle, type MemoryLifecycleResult } from "../core/memory-lifecycle.js";
 import { diagnoseMemory, type MemoryDoctorResult } from "../core/memory-doctor.js";
+import { buildActiveLogicalMemoryView } from "../core/logical-memory.js";
 import type { RecallEvalReport } from "../core/recall-eval.js";
 import { replayEvents } from "../core/replay.js";
 import { readEvents } from "../core/store.js";
@@ -811,6 +812,13 @@ export interface DashboardData {
     records: number;
     active_records: number;
     quarantined_records: number;
+  };
+  logical_memory: {
+    store_records: number;
+    active_working_set_records: number;
+    hidden_logical_records: number;
+    conflict_records: number;
+    cycle_findings: number;
   };
   actions: DashboardAction[];
   actions_by_id: Record<string, DashboardAction>;
@@ -3160,6 +3168,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
   const allRecordsById = replayEvents(events);
   const allRecords = [...allRecordsById.values()];
   const records = allRecords.filter((record) => isVisibleForDashboard(record, options.include_private));
+  const logicalView = buildActiveLogicalMemoryView(records);
   const recordsById = new Map(records.map((record) => [record.id, record]));
   const visibleRecordIds = new Set(records.map((record) => record.id));
   const visibleEvents = events.filter((event) => {
@@ -3310,6 +3319,13 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
       records: records.length,
       active_records: records.filter((record) => record.visibility === "active").length,
       quarantined_records: records.filter((record) => record.visibility === "quarantined").length
+    },
+    logical_memory: {
+      store_records: records.length,
+      active_working_set_records: logicalView.active_records.length,
+      hidden_logical_records: Object.keys(logicalView.hidden_by_record_id).length,
+      conflict_records: logicalView.conflict_record_ids.length,
+      cycle_findings: logicalView.findings.length
     },
     actions,
     actions_by_id: actionsById(actions),

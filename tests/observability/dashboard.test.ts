@@ -9684,3 +9684,19 @@ describe("observability dashboard", () => {
     });
   });
 });
+
+describe("logical memory capacity telemetry", () => {
+  it("reports a bounded active working set without deleting store history", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      let nextId = 0;
+      const engine = createEngine({ storePath, id: (prefix) => `${prefix}_${++nextId}` });
+      const base = { kind: "memory", type: "decision", scope: "project", project_id: "moryn", source: { client: "codex" } } as const;
+      const first = await engine.write({ ...base, content: { text: "Autonomous sync" } });
+      const duplicate = await engine.write({ ...base, content: { text: "Autonomous sync" } });
+      await engine.logicalLink({ record_id: duplicate.record.id, linked_record_id: first.record.id, relationship: "duplicate_of", reason: "Exact duplicate" });
+      const data = await buildDashboardData(storePath, { project_id: "moryn" });
+      expect(data.logical_memory).toEqual({ store_records: 2, active_working_set_records: 1, hidden_logical_records: 1, conflict_records: 0, cycle_findings: 0 });
+    });
+  });
+});
