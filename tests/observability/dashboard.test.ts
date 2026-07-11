@@ -1830,7 +1830,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("writeStoredContentState({ searchStateFilter: target.value, searchOpen: true });");
       expect(html).toContain("writeStoredContentState({ searchSourceFilter: target.value, searchOpen: true });");
       expect(html).toContain("window.shouldPauseStoredContentRefresh = () => {");
-      expect(html).toContain("return state.searchOpen === true && (String(state.searchQuery || \"\").trim().length > 0 || hasSearchFocus);");
+      expect(html).toContain("const hasActiveMemorySearchInteraction = Date.now() < memorySearchInteractionUntil;");
+      expect(html).toContain("return state.searchOpen === true && (String(state.searchQuery || \"\").trim().length > 0 || hasSearchFocus || hasActiveMemorySearchInteraction);");
       expect(html).toContain("data-memory-search-status");
       expect(html).toContain(".primary-memory-search {");
       expect(html).toContain("border-color: rgba(69, 185, 255, 0.42);");
@@ -1847,14 +1848,73 @@ describe("observability dashboard", () => {
       expect(html).toContain(".memory-search-result.selected {");
       expect(html).toContain(".memory-search-result:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }");
       expect(html).toContain(".stored-content-item:hover,");
-      expect(html).toContain(".memory-search-result:hover,");
+      expect(html).toContain(".memory-search-result:hover {");
+      expect(html).not.toContain(".memory-search-result:hover,\n    .glance-summary-strip button:hover,");
       expect(html).toContain(".glance-summary-strip button:hover,");
       expect(html).toContain(".evidence-library-route:hover,");
       expect(html).toContain(".reference-library-index-row:hover,");
       expect(html).toContain(".routine-diagnostics-route:hover {");
       expect(html).toContain("height: clamp(320px, 46vh, 520px);");
       expect(html).toContain("scrollbar-gutter: stable both-edges;");
-      expect(html).toContain("transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;");
+      expect(html).toContain("transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;");
+    });
+  });
+
+  it("keeps memory search scrolling stable with compact result cards", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          let timestamp = 0;
+          return () => `2026-06-01T00:${String(++timestamp).padStart(2, "0")}:00.000Z`;
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_memory_perf_${++record}` : `evt_memory_perf_${++event}`;
+        })()
+      });
+      const longText = Array.from({ length: 36 }, (_, index) => `long dashboard memory paragraph ${index + 1}`).join(" ");
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: longText, format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex" }
+      });
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      });
+      const html = renderDashboardHtml(data, { showStoredContent: true });
+      const serverHtml = renderDashboardServerHtml(data, 2000, { showStoredContent: true });
+
+      expect(html).toContain(`data-memory-explorer-full-text="${longText}"`);
+      expect(html).not.toContain(`<p>${longText}</p>`);
+      expect(html).toContain("<p class=\"memory-search-result-preview\" data-memory-search-preview>");
+      expect(html).toContain("Full text opens in the detail pane.");
+      expect(html).toContain(".memory-search-result {");
+      expect(html).toContain("grid-template-rows: auto auto minmax(3.9em, 3.9em) auto;");
+      expect(html).toContain("min-height: 148px;");
+      expect(html).toContain("contain: content;");
+      expect(html).not.toContain(".memory-search-result:hover {\n      border-color: rgba(69, 185, 255, 0.34);\n      background: linear-gradient(180deg, rgba(69, 185, 255, 0.05), rgba(255, 255, 255, 0.008)), rgba(10, 12, 16, 0.96);\n      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.045);\n      transform: translateY(-1px);\n    }");
+
+      expect(serverHtml).toContain("const captureMemorySearchScrollState = () => {");
+      expect(serverHtml).toContain("const restoreMemorySearchScrollState = (scrollState) => {");
+      expect(serverHtml).toContain("const memorySearchScrollState = window.captureMemorySearchScrollState?.();");
+      expect(serverHtml).toContain("window.restoreMemorySearchScrollState?.(memorySearchScrollState);");
+      expect(serverHtml).toContain("let memorySearchInputTimer = 0;");
+      expect(serverHtml).toContain("window.clearTimeout(memorySearchInputTimer);");
+      expect(serverHtml).toContain("memorySearchInputTimer = window.setTimeout(() => {");
     });
   });
 

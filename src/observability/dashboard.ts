@@ -3566,6 +3566,14 @@ function textExcerptBlock(text: string, truncatedAttribute = "data-full-text-hid
   `;
 }
 
+function memorySearchPreviewBlock(text: string): string {
+  const excerpt = textExcerpt(text, 170);
+  return `
+            <p class="memory-search-result-preview" data-memory-search-preview>${escapeHtml(excerpt.text)}</p>
+            ${excerpt.truncated ? `<small class="memory-search-result-full-hint" data-i18n-en="Full text opens in the detail pane." data-i18n-zh="全文可在右侧详情中打开。">Full text opens in the detail pane.</small>` : ""}
+  `;
+}
+
 function recordLabel(recordId: string): string {
   const generated = recordId.match(/^rec_[0-9a-f]{16,}$/i);
   if (!generated) return recordId;
@@ -7805,7 +7813,7 @@ function memorySearchRecordEntry(record: DashboardRecordSummary, generatedAt: st
           <article class="memory-search-result record" data-memory-search-entry="record:${escapeHtml(record.id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="${escapeHtml(record.state)}" data-memory-search-source="${escapeHtml(source)}" data-memory-search-kind="${escapeHtml(record.kind)}" data-memory-search-record-type="${escapeHtml(record.type)}" data-memory-search-updated-at="${escapeHtml(record.updated_at)}" data-memory-explorer-item-id="record:${escapeHtml(record.id)}" data-memory-explorer-title="${escapeHtml(title.en)}" data-memory-explorer-title-zh="${escapeHtml(title.zh)}" data-memory-explorer-full-text="${escapeHtml(record.text)}" data-memory-explorer-state="${escapeHtml(stateLabel.en)}" data-memory-explorer-state-en="${escapeHtml(stateLabel.en)}" data-memory-explorer-state-zh="${escapeHtml(stateLabel.zh)}" data-memory-explorer-source="${escapeHtml(sourceDisplay.en)}" data-memory-explorer-source-zh="${escapeHtml(sourceDisplay.zh)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" ${guidanceAttributes} data-memory-explorer-timeline="${escapeHtml(record.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(record.citation.recall_command)}" tabindex="0">
             <span ${i18nAttribute("Memory", "记忆")}>Memory</span>
             <strong ${i18nAttribute(title.en, title.zh)}>${escapeHtml(title.en)}</strong>
-            <p>${escapeHtml(record.text)}</p>
+            ${memorySearchPreviewBlock(record.text)}
             <small ${i18nAttribute(metaEn, metaZh)}>${escapeHtml(metaEn)}</small>
           </article>
   `;
@@ -8325,12 +8333,14 @@ function dashboardRefreshScript(refreshIntervalMs: number | undefined): string {
         try {
           if (window.shouldPauseStoredContentRefresh?.()) return;
           const hadStoredContentSearchFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.matches("[data-memory-search-input]");
+          const memorySearchScrollState = window.captureMemorySearchScrollState?.();
           const response = await fetch("fragment", { cache: "no-store" });
           if (!response.ok) return;
           main.innerHTML = await response.text();
           restoreDetailState(detailState);
           window.applyDashboardLanguage?.();
           window.restoreStoredContentState?.({ focusSearch: hadStoredContentSearchFocus });
+          window.restoreMemorySearchScrollState?.(memorySearchScrollState);
           window.restoreActionReceipt?.();
         } catch {
           // Keep the last successful render visible if a refresh fails.
@@ -8597,6 +8607,8 @@ function dashboardStoredContentScript(): string {
         selectedItemId: null
       });
       let fallbackStoredContentState = defaultStoredContentState();
+      let memorySearchInputTimer = 0;
+      let memorySearchInteractionUntil = 0;
       const normalizeStoredContentState = (value) => ({
         overflowOpen: value?.overflowOpen === true,
         searchOpen: value?.searchOpen !== false,
@@ -8628,6 +8640,40 @@ function dashboardStoredContentScript(): string {
       };
       const cssEscape = (value) => window.CSS?.escape ? window.CSS.escape(value) : value.replaceAll("\\\\", "\\\\\\\\").replaceAll('"', '\\"');
       const selectedLanguage = () => document.documentElement.lang === "zh" ? "zh" : "en";
+      const markMemorySearchInteraction = () => {
+        memorySearchInteractionUntil = Date.now() + 1400;
+      };
+      const memorySearchResultPanels = () => Array.from(document.querySelectorAll("[data-memory-search-results]")).filter((node) => node instanceof HTMLElement);
+      const captureMemorySearchScrollState = () => {
+        return memorySearchResultPanels().map((panel, index) => {
+          const searchPanel = panel.closest("[data-memory-search-panel]");
+          return {
+            id: searchPanel instanceof HTMLElement ? searchPanel.id || "" : "",
+            index,
+            top: panel.scrollTop,
+            left: panel.scrollLeft
+          };
+        });
+      };
+      const restoreMemorySearchScrollState = (scrollState) => {
+        if (!Array.isArray(scrollState)) return;
+        window.requestAnimationFrame(() => {
+          const panels = memorySearchResultPanels();
+          for (const item of scrollState) {
+            if (!item || typeof item !== "object") continue;
+            const id = typeof item.id === "string" ? item.id : "";
+            const index = Number.isInteger(item.index) ? item.index : 0;
+            const panel = id
+              ? document.querySelector("#" + cssEscape(id) + " [data-memory-search-results]")
+              : panels[index];
+            if (!(panel instanceof HTMLElement)) continue;
+            panel.scrollTop = Number.isFinite(item.top) ? item.top : 0;
+            panel.scrollLeft = Number.isFinite(item.left) ? item.left : 0;
+          }
+        });
+      };
+      window.captureMemorySearchScrollState = captureMemorySearchScrollState;
+      window.restoreMemorySearchScrollState = restoreMemorySearchScrollState;
       const labelFor = (button, expanded) => {
         const language = selectedLanguage();
         if (expanded) return language === "zh" ? button.dataset.storedContentExpandedZh || "收起" : button.dataset.storedContentExpandedEn || "Show fewer";
@@ -9038,8 +9084,19 @@ function dashboardStoredContentScript(): string {
         const state = readStoredContentState();
         const active = document.activeElement;
         const hasSearchFocus = active instanceof HTMLInputElement && active.matches("[data-memory-search-input]");
-        return state.searchOpen === true && (String(state.searchQuery || "").trim().length > 0 || hasSearchFocus);
+        const hasActiveMemorySearchInteraction = Date.now() < memorySearchInteractionUntil;
+        return state.searchOpen === true && (String(state.searchQuery || "").trim().length > 0 || hasSearchFocus || hasActiveMemorySearchInteraction);
       };
+      document.addEventListener("scroll", (event) => {
+        if (event.target instanceof HTMLElement && event.target.matches("[data-memory-search-results]")) {
+          markMemorySearchInteraction();
+        }
+      }, true);
+      document.addEventListener("wheel", (event) => {
+        if (event.target instanceof HTMLElement && event.target.closest("[data-memory-search-results]")) {
+          markMemorySearchInteraction();
+        }
+      }, { passive: true });
       document.addEventListener("click", (event) => {
         const target = event.target;
         if (!(target instanceof HTMLElement)) return;
@@ -9118,7 +9175,10 @@ function dashboardStoredContentScript(): string {
         if (!(panel instanceof HTMLElement)) return;
         const query = target.value.trim().toLowerCase();
         writeStoredContentState({ searchQuery: query, searchOpen: true });
-        filterMemorySearch(panel, currentSearchFilters(readStoredContentState()));
+        window.clearTimeout(memorySearchInputTimer);
+        memorySearchInputTimer = window.setTimeout(() => {
+          filterMemorySearch(panel, currentSearchFilters(readStoredContentState()));
+        }, 90);
       });
       document.addEventListener("change", (event) => {
         const target = event.target;
@@ -9290,12 +9350,14 @@ function dashboardMaintenanceScript(): string {
       };
       const refreshFragment = async () => {
         const hadStoredContentSearchFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.matches("[data-memory-search-input]");
+        const memorySearchScrollState = window.captureMemorySearchScrollState?.();
         const response = await fetch("fragment", { cache: "no-store" });
         if (!response.ok) return;
         main.innerHTML = await response.text();
         hideRejectedPlans();
         window.applyDashboardLanguage?.();
         window.restoreStoredContentState?.({ focusSearch: hadStoredContentSearchFocus });
+        window.restoreMemorySearchScrollState?.(memorySearchScrollState);
         window.restoreActionReceipt?.();
       };
       const responseJson = async (response) => {
@@ -9364,11 +9426,13 @@ function dashboardCaptureInboxScript(): string {
       if (!main) return;
       const refreshFragment = async () => {
         const hadStoredContentSearchFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.matches("[data-memory-search-input]");
+        const memorySearchScrollState = window.captureMemorySearchScrollState?.();
         const response = await fetch("fragment", { cache: "no-store" });
         if (!response.ok) return;
         main.innerHTML = await response.text();
         window.applyDashboardLanguage?.();
         window.restoreStoredContentState?.({ focusSearch: hadStoredContentSearchFocus });
+        window.restoreMemorySearchScrollState?.(memorySearchScrollState);
         window.restoreActionReceipt?.();
       };
       const responseJson = async (response) => {
@@ -9454,11 +9518,13 @@ function dashboardCandidateTriageScript(): string {
       if (!main) return;
       const refreshFragment = async () => {
         const hadStoredContentSearchFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.matches("[data-memory-search-input]");
+        const memorySearchScrollState = window.captureMemorySearchScrollState?.();
         const response = await fetch("fragment", { cache: "no-store" });
         if (!response.ok) return;
         main.innerHTML = await response.text();
         window.applyDashboardLanguage?.();
         window.restoreStoredContentState?.({ focusSearch: hadStoredContentSearchFocus });
+        window.restoreMemorySearchScrollState?.(memorySearchScrollState);
         window.restoreActionReceipt?.();
       };
       const responseJson = async (response) => {
@@ -10582,20 +10648,22 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     }
     .memory-search-result {
       display: grid;
+      grid-template-rows: auto auto minmax(3.9em, 3.9em) auto;
       gap: 6px;
       min-width: 0;
+      min-height: 148px;
       border: 1px solid rgba(112, 129, 149, 0.22);
       border-radius: 8px;
       padding: 12px;
       background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.006)), rgba(8, 10, 13, 0.92);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
-      transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+      contain: content;
+      transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
     }
     .memory-search-result:hover {
       border-color: rgba(69, 185, 255, 0.34);
       background: linear-gradient(180deg, rgba(69, 185, 255, 0.05), rgba(255, 255, 255, 0.008)), rgba(10, 12, 16, 0.96);
-      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.045);
-      transform: translateY(-1px);
+      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.045);
     }
     .memory-search-result.selected {
       border-color: rgba(116, 242, 145, 0.56);
@@ -10620,6 +10688,21 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       margin: 0;
       color: var(--ink-2);
       overflow-wrap: anywhere;
+    }
+    .memory-search-result-preview {
+      display: -webkit-box;
+      min-height: 3.9em;
+      max-height: 3.9em;
+      overflow: hidden;
+      line-height: 1.3;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
+    }
+    .memory-search-result-full-hint {
+      min-height: 1.35em;
+      color: var(--muted);
+      font-size: 11.5px;
+      line-height: 1.25;
     }
     .stored-content-filterbar {
       display: flex;
@@ -10758,7 +10841,6 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .stored-content-open:focus-visible,
     .stored-content-item:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .stored-content-item:hover,
-    .memory-search-result:hover,
     .glance-summary-strip button:hover,
     .memory-state-filter:hover,
     .memory-state-guide-card:hover,
