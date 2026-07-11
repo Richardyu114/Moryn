@@ -5,6 +5,7 @@ import { replayEvents } from "./replay.js";
 import { readEvents } from "./store.js";
 import type { MorynRecord } from "./types.js";
 import { displayRecordText, searchableRecordText } from "./content-text.js";
+import { buildRecordReadModel } from "./record-read-model.js";
 
 export const REBUILD_SELECTION_SOURCES = {
   record_count: "records",
@@ -12,6 +13,7 @@ export const REBUILD_SELECTION_SOURCES = {
   skill_count: "skills",
   artifacts: "artifacts",
   user_snapshot: "artifacts.snapshots.user",
+  records_snapshot: "artifacts.snapshots.records",
   project_snapshots: "artifacts.snapshots.projects_by_id",
   skills_snapshot: "artifacts.snapshots.skills",
   recall_index: "artifacts.indexes.recall",
@@ -26,6 +28,7 @@ export interface RebuildResult {
   artifacts: {
     snapshots: {
       user: string;
+      records: string;
       projects_by_id: Record<string, string>;
       skills: string;
     };
@@ -173,6 +176,7 @@ function rebuildArtifacts(projectIds: string[]): RebuildResult["artifacts"] {
   return {
     snapshots: {
       user: "snapshots/user.json",
+      records: "snapshots/records.json",
       projects_by_id: Object.fromEntries(
         projectIds.map((projectId) => [projectId, `snapshots/projects/${projectId}.json`])
       ),
@@ -190,7 +194,8 @@ export async function rebuildDerivedViews(storePath: string): Promise<RebuildRes
 }
 
 async function rebuildDerivedViewsUnlocked(storePath: string): Promise<RebuildResult> {
-  const records = [...replayEvents(await readEvents(storePath)).values()];
+  const events = await readEvents(storePath);
+  const records = [...replayEvents(events).values()];
   const trusted = canonical(records);
   const activeRecords = active(records);
   const snapshotPath = join(storePath, "snapshots");
@@ -216,6 +221,7 @@ async function rebuildDerivedViewsUnlocked(storePath: string): Promise<RebuildRe
     rules: trusted.filter((record) => record.scope === "global" && record.type === "rule")
   };
   await writeJson(join(snapshotPath, "user.json"), user);
+  await writeJson(join(snapshotPath, "records.json"), buildRecordReadModel(events, records));
 
   const projectIds = [...new Set(activeRecords
     .filter((record) => record.scope === "project")

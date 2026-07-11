@@ -11,6 +11,7 @@ const REBUILD_SELECTION_SOURCES = {
   skill_count: "skills",
   artifacts: "artifacts",
   user_snapshot: "artifacts.snapshots.user",
+  records_snapshot: "artifacts.snapshots.records",
   project_snapshots: "artifacts.snapshots.projects_by_id",
   skills_snapshot: "artifacts.snapshots.skills",
   recall_index: "artifacts.indexes.recall",
@@ -141,6 +142,7 @@ describe("derived views", () => {
       expect(result.skills).toBe(1);
       expect(result.selection_sources).toEqual(REBUILD_SELECTION_SOURCES);
       expect(result.artifacts.snapshots.user).toBe("snapshots/user.json");
+      expect(result.artifacts.snapshots.records).toBe("snapshots/records.json");
       expect(result.artifacts.snapshots.projects_by_id.moryn).toBe("snapshots/projects/moryn.json");
       expect(result.artifacts.snapshots.projects_by_id.other).toBe("snapshots/projects/other.json");
       expect(result.artifacts.snapshots.skills).toBe("snapshots/skills/index.json");
@@ -149,6 +151,12 @@ describe("derived views", () => {
 
       const user = JSON.parse(await readFile(join(storePath, "snapshots", "user.json"), "utf8")) as { soul: unknown[] };
       expect(user.soul).toHaveLength(1);
+
+      const firstRecordsRaw = await readFile(join(storePath, "snapshots", "records.json"), "utf8");
+      const recordReadModel = JSON.parse(firstRecordsRaw) as { version: number; event_manifest: { count: number; digest: string }; records: Array<{ id: string; state: string; links?: unknown[] }> };
+      expect(recordReadModel.version).toBe(1);
+      expect(recordReadModel.event_manifest).toMatchObject({ count: 11, digest: expect.stringMatching(/^[a-f0-9]{64}$/) });
+      expect(recordReadModel.records).toHaveLength(11);
 
       const project = JSON.parse(await readFile(join(storePath, "snapshots", "projects", "moryn.json"), "utf8")) as { summary: string; decisions: Array<{ content: { text: string } }> };
       expect(project.summary).toBe("Moryn is a local-first agent memory layer.");
@@ -159,6 +167,7 @@ describe("derived views", () => {
 
       const firstRecallRaw = await readFile(join(storePath, "indexes", "recall.json"), "utf8");
       const recall = JSON.parse(firstRecallRaw) as { records: Array<{ id: string; text: string; tags: string[] }> };
+      expect(recordReadModel.records.map((record) => record.id).sort()).toEqual(recall.records.map((record) => record.id).sort());
       expect(recall.records.map((record) => record.text)).toContain("Use Git sync.");
       expect(recall.records.map((record) => record.text)).toContain("Structured derived index content. src/derived.ts mcp-parity");
 
@@ -166,6 +175,7 @@ describe("derived views", () => {
       await rm(join(storePath, "indexes"), { recursive: true, force: true });
       const rebuilt = await rebuildDerivedViews(storePath);
       const rebuiltRecallRaw = await readFile(join(storePath, "indexes", "recall.json"), "utf8");
+      const rebuiltRecordsRaw = await readFile(join(storePath, "snapshots", "records.json"), "utf8");
       const rebuiltRecall = JSON.parse(rebuiltRecallRaw) as { records: Array<{ id: string }> };
 
       expect(rebuilt.records).toBe(11);
@@ -173,6 +183,7 @@ describe("derived views", () => {
       expect(rebuilt.selection_sources).toEqual(REBUILD_SELECTION_SOURCES);
       expect(rebuiltRecall.records).toHaveLength(11);
       expect(rebuiltRecallRaw).toBe(firstRecallRaw);
+      expect(rebuiltRecordsRaw).toBe(firstRecordsRaw);
     });
   });
 
