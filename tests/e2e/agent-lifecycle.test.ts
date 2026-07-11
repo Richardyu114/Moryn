@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { access, mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -3119,6 +3119,45 @@ describe("agent lifecycle", () => {
         expect(result.knowledge_protocol?.rules_by_id.recall_first.action).toBe("call_moryn_recall_before_broad_external_exploration");
         expect(result.knowledge_protocol?.rules_by_id.compact_safety.action).toBe("checkpoint_resolved_learning_and_unresolved_investigation_before_host_compaction");
       }
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("self-heals Claude activation once during agent enter", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-enter-activation-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(store);
+      const entered = await agentEnter({ storePath: store, projectPath: project, currentTask: "Start with active hooks", agent: { client: "claude-code", session_id: "claude-enter", device_id: "device-1" }, pull: false });
+
+      expect(entered.mode).toBe("start_session");
+      expect(entered.activation).toMatchObject({ attempted_repair: true, repair_succeeded: true, before: { status: "not_installed" }, after: { status: "configured_unverified" } });
+      expect(entered.start.activation_status).toMatchObject({ status: "configured_unverified", host: "claude" });
+      expect(JSON.parse(await readFile(join(project, ".claude", "settings.local.json"), "utf8")).hooks.PreCompact).toBeDefined();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("continues Claude enter with degraded activation when safe repair is impossible", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-enter-activation-invalid-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(store);
+      await mkdir(join(project, ".claude"), { recursive: true });
+      await writeFile(join(project, ".claude", "settings.local.json"), '{"hooks":', "utf8");
+
+      const entered = await agentEnter({ storePath: store, projectPath: project, currentTask: "Continue despite activation issue", agent: { client: "claude-code", session_id: "claude-invalid", device_id: "device-1" }, pull: false });
+
+      expect(entered.mode).toBe("start_session");
+      expect(entered.activation).toMatchObject({ attempted_repair: false, repair_succeeded: false, before: { status: "invalid_config" }, after: { status: "invalid_config" } });
+      expect(entered.start.activation_status).toMatchObject({ status: "invalid_config", host: "claude" });
+      expect(await readFile(join(project, ".claude", "settings.local.json"), "utf8")).toBe('{"hooks":');
     } finally {
       await rm(root, { recursive: true, force: true });
     }

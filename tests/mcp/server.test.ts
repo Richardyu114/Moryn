@@ -3115,6 +3115,8 @@ describe("MCP stdio server", () => {
       await withMcpClient(store, async (client) => {
         const tools = await client.listTools();
         expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
+          "activation_apply",
+          "activation_status",
           "agent_doctor",
           "agent_enter",
           "agent_finish",

@@ -2153,7 +2153,10 @@ program.command("install")
           const projectId = projectConfig.config.project_id;
           if (!projectId) throw new Error("Invalid project config: missing project_id after initialization");
           const artifact = await writeHostIntegrationArtifact({ host, project_id: projectId, project_path: projectPath, store_path: storePath() });
-          printJson({ ...plan, integration_artifact: artifact });
+          const normalizedHost = host === "claude-code" ? "claude" : host;
+          const activation = normalizedHost === "claude" ? await activateClaudeSettings({ project_path: projectPath, artifact: artifact.artifact }) : undefined;
+          const activationStatus = await inspectHostActivation({ store_path: storePath(), project_path: projectPath, project_id: projectId, host: normalizedHost });
+          printJson({ ...plan, integration_artifact: artifact, ...(activation ? { activation } : {}), activation_status: activationStatus });
           return;
         }
       }

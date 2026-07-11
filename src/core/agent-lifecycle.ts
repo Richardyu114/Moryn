@@ -14,6 +14,9 @@ import { operationArgumentsByTool, type OperationArgumentMetadata } from "../ope
 import type { LearningDeltaInput, SemanticConsolidationProposalInput } from "./context-delta.js";
 import { normalizeHostId } from "./host-adapter-registry.js";
 import { knowledgeProtocolForHost, type KnowledgeProtocol } from "./knowledge-protocol.js";
+import { inspectHostActivation, type HostActivationStatus } from "./host-activation.js";
+import { writeHostIntegrationArtifact } from "./host-integration-artifacts.js";
+import { activateClaudeSettings } from "./claude-activation.js";
 
 interface AgentIdentity {
   client: string;
@@ -757,6 +760,74 @@ function lifecycleKnowledgeProtocol(input: AgentLifecycleInput): KnowledgeProtoc
   if (!client) return undefined;
   const host = normalizeHostId(client);
   return host === "codex" || host === "claude" ? knowledgeProtocolForHost(host) : undefined;
+}
+
+interface AgentEnterActivation {
+  attempted_repair: boolean;
+  repair_succeeded: boolean;
+  before: HostActivationStatus;
+  after: HostActivationStatus;
+  error?: string;
+}
+
+async function lifecycleActivationStatus(input: AgentLifecycleInput, project: ProjectContext): Promise<HostActivationStatus | undefined> {
+  const client = agentIdentityFromInput(input)?.client;
+  if (!client) return undefined;
+  const host = normalizeHostId(client);
+  if (host !== "codex" && host !== "claude") return undefined;
+  try {
+    return await inspectHostActivation({
+      store_path: input.storePath,
+      project_path: project.project_path,
+      project_id: project.project_id,
+      host
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+async function prepareAgentEnterActivation(input: AgentEnterInput): Promise<AgentEnterActivation | undefined> {
+  const client = agentIdentityFromInput(input)?.client;
+  if (!client) return undefined;
+  const host = normalizeHostId(client);
+  if (host !== "codex" && host !== "claude") return undefined;
+
+  const project = await resolveLifecycleProjectContext(input);
+  const activationInput = {
+    store_path: input.storePath,
+    project_path: project.project_path,
+    project_id: project.project_id,
+    host
+  };
+  const before = await inspectHostActivation(activationInput);
+  if (host !== "claude" || !before.repairable_automatically) {
+    return { attempted_repair: false, repair_succeeded: false, before, after: before };
+  }
+
+  try {
+    const generated = await writeHostIntegrationArtifact(activationInput);
+    await activateClaudeSettings({ project_path: project.project_path, artifact: generated.artifact });
+    const after = await inspectHostActivation(activationInput);
+    return {
+      attempted_repair: true,
+      repair_succeeded: after.status === "active" || after.status === "configured_unverified",
+      before,
+      after
+    };
+  } catch (error) {
+    let after = before;
+    try {
+      after = await inspectHostActivation(activationInput);
+    } catch {}
+    return {
+      attempted_repair: true,
+      repair_succeeded: false,
+      before,
+      after,
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
 }
 
 function validateAgentIdentity(agent: unknown, operation: LifecycleOperation): void {
@@ -2584,6 +2655,10 @@ export async function agentEnter(input: AgentEnterInput, deps: AgentLifecycleDep
   }
 
   if (doctor.next.tool === "agent_start") {
+    let activation: AgentEnterActivation | undefined;
+    try {
+      activation = await prepareAgentEnterActivation(input);
+    } catch {}
     const start = await agentStart(input, deps);
     const actions = start.next.actions;
     return {
@@ -2593,6 +2668,7 @@ export async function agentEnter(input: AgentEnterInput, deps: AgentLifecycleDep
       bootstrap,
       doctor,
       project: start.project,
+      ...(activation ? { activation } : {}),
       startup_overview: start.startup_overview,
       start,
       next: {
@@ -2663,6 +2739,7 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
   const now = new Date(nowIso);
   const bootstrap = await ensureLifecycleBootstrap(input);
   const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
+  const activationStatus = await lifecycleActivationStatus(input, project);
   const actionInput = portableLifecycleInput(input, project);
   const projectInfo = projectEnvelope(project);
   const shouldPull = input.pull ?? projectInfo.sync_mode !== "manual";
@@ -2726,6 +2803,7 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
     boot,
     refresh,
     handoff,
+    ...(activationStatus ? { activation_status: activationStatus } : {}),
     ...(knowledgeProtocol ? { knowledge_protocol: knowledgeProtocol } : {}),
     next: {
       required_end_action: "call agent_finish with a session_summary",

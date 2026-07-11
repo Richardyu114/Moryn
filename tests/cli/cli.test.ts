@@ -10726,7 +10726,7 @@ describe("host hook CLI", () => {
 });
 
 describe("official host integration install", () => {
-  it("writes an idempotent Claude Code hook fragment on apply", async () => {
+  it("writes and activates Claude Code hooks idempotently on apply", async () => {
     await withTempDir(async (store) => {
       await withTempDir(async (project) => {
         const args = ["--import", tsxLoader, cliPath, "--store", store, "install", "--host", "claude", "--project", project, "--apply"];
@@ -10734,7 +10734,23 @@ describe("official host integration install", () => {
         const second = JSON.parse((await exec("node", args)).stdout);
         expect(first.integration_artifact).toMatchObject({ created: true, artifact: { path: ".claude/moryn-settings.json", merge_target: ".claude/settings.local.json" } });
         expect(second.integration_artifact).toMatchObject({ created: false, updated: false });
+        expect(first.activation).toMatchObject({ changed: true, created: true, backup_created: false });
+        expect(second.activation).toMatchObject({ changed: false, backup_created: false });
+        expect(first.activation_status).toMatchObject({ status: "configured_unverified" });
         expect(JSON.parse(await readFile(join(project, ".claude", "moryn-settings.json"), "utf8")).hooks.PreCompact).toBeDefined();
+        expect(JSON.parse(await readFile(join(project, ".claude", "settings.local.json"), "utf8")).hooks.PreCompact[0].hooks[0].command).toContain("--activation-id");
+      });
+    });
+  });
+
+  it("keeps Codex config untouched and reports schema unknown", async () => {
+    await withTempDir(async (store) => {
+      await withTempDir(async (project) => {
+        await mkdir(join(project, ".codex"), { recursive: true });
+        await writeFile(join(project, ".codex", "config.toml"), "model = \"gpt-5\"\n", "utf8");
+        const parsed = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "install", "--host", "codex", "--project", project, "--apply"])).stdout);
+        expect(parsed.activation_status).toMatchObject({ status: "host_schema_unknown", repairable_automatically: false });
+        expect(await readFile(join(project, ".codex", "config.toml"), "utf8")).toBe("model = \"gpt-5\"\n");
       });
     });
   });
