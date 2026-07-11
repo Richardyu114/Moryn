@@ -17,6 +17,8 @@ import { DOGFOOD_REPORT_SELECTION_SOURCES } from "./core/dogfood-report.js";
 import { HEALTH_CHECK_SELECTION_SOURCES } from "./core/health-check.js";
 import { MEMORY_LIFECYCLE_SELECTION_SOURCES } from "./core/memory-lifecycle.js";
 export { createEngine } from "./core/engine.js";
+export { contextDeltaSchema, learningDeltaSchema, validateContextDelta } from "./core/context-delta.js";
+export type { ContextDelta, ContextDeltaInput, LearningDelta, LearningDeltaInput } from "./core/context-delta.js";
 export { captureSession, contextPack, getHostAdapter, getHostAdapters, normalizeHostId, planInstall } from "./core/host-adapters.js";
 import { CAPTURE_SESSION_SELECTION_SOURCES, HANDOFF_PACK_SELECTION_SOURCES, HANDOFF_QUALITY_GATE_SELECTION_SOURCES } from "./core/host-adapters.js";
 export { setupWizard } from "./core/setup-wizard.js";
