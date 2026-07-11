@@ -1811,6 +1811,48 @@ describe("core engine", () => {
     });
   });
 
+  it("ingests reliable learning idempotently across agents", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const codex = createEngine({ storePath });
+      const claude = createEngine({ storePath });
+      const learning = {
+        question: "When does Moryn pull?",
+        conclusion: "Moryn pulls on agent enter.",
+        evidence_type: "source_code",
+        scope: "project",
+        confidence: 0.9,
+        recommended_kind: "memory",
+        recommended_type: "fact",
+        related_record_ids: []
+      } as const;
+
+      const [first, second] = await Promise.all([
+        codex.ingestLearnings({ project_id: "moryn", learnings: [learning], occurred_at: "2026-07-11T00:00:00.000Z", source: { client: "codex", session_id: "codex-a", device_id: "device-a" } }),
+        claude.ingestLearnings({ project_id: "moryn", learnings: [{ ...learning, question: "What happens when an agent starts?" }], occurred_at: "2026-07-11T00:00:00.000Z", source: { client: "claude-code", session_id: "claude-a", device_id: "device-b" } })
+      ]);
+      const events = await readEvents(storePath);
+      const learningEvents = events.filter((event) => event.op === "upsert_record" && event.record.tags.includes("learning"));
+
+      expect(first.dispositions[0]?.record_id).toBe(second.dispositions[0]?.record_id);
+      expect([first.dispositions[0]?.created, second.dispositions[0]?.created].sort()).toEqual([false, true]);
+      expect(learningEvents).toHaveLength(1);
+      expect(learningEvents[0]?.op === "upsert_record" ? learningEvents[0].record.state : undefined).toBe("canonical");
+    });
+  });
+
+  it("keeps risky learning as a confirmation-required candidate", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath });
+      const result = await engine.ingestLearnings({
+        project_id: "moryn",
+        occurred_at: "2026-07-11T00:00:00.000Z",
+        source: { client: "codex", session_id: "session-a", device_id: "device-a" },
+        learnings: [{ question: "What is the sync config?", conclusion: "Use origin main", evidence_type: "user_confirmed", scope: "project", confidence: 1, recommended_kind: "memory", recommended_type: "sync_configuration", related_record_ids: [] }]
+      });
+      expect(result.dispositions[0]).toMatchObject({ state: "candidate", requires_confirmation: true, policy_reason: "high_risk_learning_requires_confirmation" });
+    });
+  });
+
   it("lists project activity for agent project discovery", async () => {
     await withInitializedTempStore(async (storePath) => {
       const timestamps = [

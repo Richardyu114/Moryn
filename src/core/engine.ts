@@ -20,6 +20,9 @@ import { evaluateRecall, RECALL_EVAL_SELECTION_SOURCES, type RecallEvalInput } f
 import { buildCheckpointRecoveryPack, CHECKPOINT_SELECTION_SOURCES, checkpointIdentity, checkpointPayloadDigest, checkpointSummary, matchesCheckpoint, matchesCheckpointPayload, normalizeCheckpointInput, parseCheckpointContent, type CheckpointInput, type CheckpointResult } from "./checkpoint.js";
 import { buildActiveLogicalMemoryView, logicalMemoryFingerprint, validateLogicalRelationship, type LogicalRelationshipType } from "./logical-memory.js";
 import { assessRecallOutcome } from "./recall-outcome.js";
+import { learningDeltaSchema, type LearningDelta } from "./context-delta.js";
+import { learningStatePolicy } from "./learning-policy.js";
+import { learningRecordIdentity, normalizeLearningRecord } from "./learning-ingestion.js";
 
 interface EngineDeps {
   storePath: string;
@@ -139,6 +142,13 @@ interface ConsolidateExactDuplicatesInput {
   project_id?: string;
   include_private?: unknown;
   source?: RecordSource;
+}
+
+interface IngestLearningsInput {
+  project_id?: string;
+  learnings: unknown;
+  occurred_at: unknown;
+  source: RecordSource;
 }
 
 type ValidatedMemoryDoctorInput = MemoryDoctorInput & {
@@ -2943,6 +2953,37 @@ export function createEngine(deps: EngineDeps) {
   }
 
   const engine = {
+    async ingestLearnings(input: IngestLearningsInput) {
+      if (!Array.isArray(input.learnings)) throw new Error("Invalid argument: learnings must be an array");
+      if (typeof input.occurred_at !== "string" || !Number.isFinite(Date.parse(input.occurred_at)) || new Date(Date.parse(input.occurred_at)).toISOString() !== input.occurred_at) {
+        throw new Error("Invalid argument: occurred_at must be a canonical ISO timestamp");
+      }
+      const learnings = input.learnings.map((learning) => learningDeltaSchema.parse(learning)) as LearningDelta[];
+      const dispositions = [];
+      let createdCount = 0;
+      for (const learning of learnings) {
+        if (learning.scope === "project" && !input.project_id) throw new Error("Invalid argument: project learning requires project_id");
+        const policy = learningStatePolicy(learning, { now: input.occurred_at });
+        const record = normalizeLearningRecord({ project_id: input.project_id, learning, source: input.source, occurred_at: input.occurred_at, policy });
+        const identity = learningRecordIdentity({ project_id: input.project_id, learning });
+        const event: MorynEvent = { event_id: identity.event_id, op: "upsert_record", record, created_at: input.occurred_at, source: input.source };
+        const appended = await appendEventIfAbsent(deps.storePath, event);
+        if (appended.event.op !== "upsert_record" || logicalMemoryFingerprint(appended.event.record) !== logicalMemoryFingerprint(record)) {
+          throw new Error(`Learning idempotency collision: ${identity.event_id}`);
+        }
+        if (appended.created) createdCount += 1;
+        dispositions.push({
+          record_id: appended.event.record.id,
+          created: appended.created,
+          state: appended.event.record.state,
+          requires_confirmation: policy.requires_confirmation,
+          policy_reason: policy.reason
+        });
+      }
+      if (createdCount > 0) await rebuildDerivedViews(deps.storePath);
+      return { learnings_received: learnings.length, records_created: createdCount, dispositions };
+    },
+
     async checkpoint(input: CheckpointInput): Promise<CheckpointResult> {
       const normalized = normalizeCheckpointInput(input);
       const identity = checkpointIdentity(normalized);
