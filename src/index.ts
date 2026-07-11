@@ -51,6 +51,8 @@ export { runHostHook } from "./core/host-hook-runner.js";
 export type { HostHookRunResult, RunHostHookInput } from "./core/host-hook-runner.js";
 export { activationId, buildHostIntegrationArtifact, writeHostIntegrationArtifact } from "./core/host-integration-artifacts.js";
 export type { HostIntegrationArtifact } from "./core/host-integration-artifacts.js";
+export { activateClaudeSettings, mergeClaudeSettings } from "./core/claude-activation.js";
+export type { ClaudeActivationResult, ClaudeSettingsMergeResult } from "./core/claude-activation.js";
 import { CAPTURE_SESSION_SELECTION_SOURCES, HANDOFF_PACK_SELECTION_SOURCES, HANDOFF_QUALITY_GATE_SELECTION_SOURCES } from "./core/host-adapters.js";
 export { setupWizard } from "./core/setup-wizard.js";
 import { SETUP_WIZARD_SELECTION_SOURCES } from "./core/setup-wizard.js";
