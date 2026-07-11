@@ -111,23 +111,43 @@ describe("buildCheckpointRecoveryPack", () => {
     expect(buildCheckpointRecoveryPack([validA, ...excluded, validB], { project_id: "project-a", session_id: "session-1" }).source_record_ids).toEqual(["a", "b"]);
   });
 
-  it("enforces private boundaries while retaining audit ids and canonical learning dedup", () => {
+  it("enforces private boundaries without leaking ids or counts and preserves canonical learning dedup", () => {
     const learning = { question: "Q", conclusion: "A", evidence_type: "source_code", scope: "project", confidence: 0.8, recommended_kind: "memory", recommended_type: "fact", related_record_ids: ["b", "a"] };
     const publicRecord = checkpointRecord({ id: "public", checkpoint_id: "public", occurred_at: "2026-07-11T00:00:00.000Z", delta: { progress: ["public progress"], learnings: [learning] } });
     const privateRecord = checkpointRecord({ id: "private", checkpoint_id: "private", occurred_at: "2026-07-11T00:01:00.000Z", tags: ["private"], delta: { progress: ["secret progress"], learnings: [{ ...learning, related_record_ids: ["a", "b"] }] } });
 
     const mixed = buildCheckpointRecoveryPack([privateRecord, publicRecord], { project_id: "project-a", session_id: "session-1" });
-    expect(mixed.source_record_ids).toEqual(["public", "private"]);
+    expect(mixed.source_record_ids).toEqual(["public"]);
+    expect(mixed.checkpoint_count).toBe(1);
     expect(mixed.progress).toEqual(["public progress"]);
     expect(mixed.learnings).toHaveLength(1);
     const hidden = buildCheckpointRecoveryPack([privateRecord], { project_id: "project-a", session_id: "session-1" });
-    expect(hidden).toMatchObject({ available: false, checkpoint_count: 1, source_record_ids: ["private"] });
+    expect(hidden).toMatchObject({ available: false, checkpoint_count: 0, source_record_ids: [] });
     expect(hidden).not.toHaveProperty("progress");
     expect(hidden).not.toHaveProperty("latest_checkpoint_id");
     expect(hidden).not.toHaveProperty("latest_occurred_at");
     const included = buildCheckpointRecoveryPack([privateRecord, publicRecord], { project_id: "project-a", session_id: "session-1", include_private: true });
     expect(included.progress).toEqual(["public progress", "secret progress"]);
+    expect(included.source_record_ids).toEqual(["public", "private"]);
+    expect(included.checkpoint_count).toBe(2);
     expect(included.learnings).toHaveLength(1);
+  });
+
+  it("selects the latest five visible checkpoints before private records can consume the limit", () => {
+    const publicRecord = checkpointRecord({ id: "public", checkpoint_id: "public", occurred_at: "2026-07-11T00:00:00.000Z", delta: { progress: ["public progress"] } });
+    const privateRecords = Array.from({ length: 6 }, (_, index) => checkpointRecord({
+      id: `private-${index + 1}`,
+      checkpoint_id: `private-${index + 1}`,
+      occurred_at: `2026-07-11T00:0${index + 1}:00.000Z`,
+      tags: [index % 3 === 0 ? "private" : index % 3 === 1 ? "secret" : "sensitive"],
+      delta: { progress: [`secret-${index + 1}`] }
+    }));
+
+    const hidden = buildCheckpointRecoveryPack([publicRecord, ...privateRecords], { project_id: "project-a", session_id: "session-1" });
+    expect(hidden).toMatchObject({ available: true, checkpoint_count: 1, source_record_ids: ["public"], latest_checkpoint_id: "public", progress: ["public progress"] });
+    const included = buildCheckpointRecoveryPack([publicRecord, ...privateRecords], { project_id: "project-a", session_id: "session-1", include_private: true });
+    expect(included.source_record_ids).toEqual(["private-2", "private-3", "private-4", "private-5", "private-6"]);
+    expect(included.checkpoint_count).toBe(5);
   });
 });
 
@@ -286,7 +306,7 @@ describe("engine.checkpoint", () => {
       const included = await engine.checkpoint({ ...input, include_private: true });
 
       expect(replay.idempotent_replay).toBe(true);
-      expect(replay.recovery_pack).toMatchObject({ available: false, bounded: true, source_record_ids: [first.record.id], checkpoint_count: 1 });
+      expect(replay.recovery_pack).toMatchObject({ available: false, bounded: true, source_record_ids: [], checkpoint_count: 0 });
       expect(replay.recovery_pack).not.toHaveProperty("checkpoint");
       expect(included.idempotent_replay).toBe(true);
       expect(included.recovery_pack).toMatchObject({ available: true, current_task: "Persist checkpoints", progress: ["wrote tests"] });

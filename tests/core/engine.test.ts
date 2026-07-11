@@ -417,7 +417,7 @@ describe("core engine", () => {
       expect(withoutSession).not.toHaveProperty("checkpoint_recovery_pack");
       const boot = await engine.boot({ project_id: "moryn", agent_session_id: "boot-session" });
       expect(boot.active_checkpoint).toEqual(first.record);
-      expect(boot.checkpoint_recovery_pack).toMatchObject({ available: true, checkpoint_count: 2, progress: ["public"] });
+      expect(boot.checkpoint_recovery_pack).toMatchObject({ available: true, checkpoint_count: 1, source_record_ids: [first.record.id], progress: ["public"] });
       expect(boot.selection_sources).toMatchObject({ active_checkpoint: "active_checkpoint", checkpoint_recovery_pack: "checkpoint_recovery_pack" });
       const privateBoot = await engine.boot({ project_id: "moryn", agent_session_id: "boot-session", include_private: true });
       expect(privateBoot.active_checkpoint.content.checkpoint.checkpoint_id).toBe("two");
