@@ -18,7 +18,7 @@ import { diagnoseHealthCheck, HEALTH_CHECK_SELECTION_SOURCES, type HealthCheckIn
 import { diagnoseMemory, MEMORY_DOCTOR_SELECTION_SOURCES } from "./memory-doctor.js";
 import { evaluateRecall, RECALL_EVAL_SELECTION_SOURCES, type RecallEvalInput } from "./recall-eval.js";
 import { buildCheckpointRecoveryPack, CHECKPOINT_SELECTION_SOURCES, checkpointIdentity, checkpointPayloadDigest, checkpointSummary, matchesCheckpoint, matchesCheckpointPayload, normalizeCheckpointInput, parseCheckpointContent, type CheckpointInput, type CheckpointResult } from "./checkpoint.js";
-import { logicalMemoryFingerprint } from "./logical-memory.js";
+import { logicalMemoryFingerprint, validateLogicalRelationship, type LogicalRelationshipType } from "./logical-memory.js";
 
 interface EngineDeps {
   storePath: string;
@@ -637,6 +637,14 @@ interface LinkInput {
   record_id: unknown;
   linked_record_id: unknown;
   link_type: unknown;
+  source?: RecordSource;
+}
+
+interface LogicalLinkInput {
+  record_id: unknown;
+  linked_record_id: unknown;
+  relationship: unknown;
+  reason: unknown;
   source?: RecordSource;
 }
 
@@ -3259,6 +3267,29 @@ export function createEngine(deps: EngineDeps) {
       };
       await appendEventAndRebuild(event);
       return { event, selection_sources: LINK_EVENT_SELECTION_SOURCES };
+    },
+
+    async logicalLink(input: LogicalLinkInput) {
+      const records = await currentRecords();
+      const validated = validateLogicalRelationship(records, {
+        record_id: input.record_id as string,
+        linked_record_id: input.linked_record_id as string,
+        relationship: input.relationship as LogicalRelationshipType,
+        reason: input.reason as string
+      });
+      const createdAt = nextMutationTimestamp(validated.record, now());
+      const event: MorynEvent = {
+        event_id: id("evt"),
+        op: "link_records",
+        record_id: validated.record.id,
+        linked_record_id: validated.linked_record.id,
+        link_type: validated.relationship,
+        reason: validated.reason,
+        created_at: createdAt,
+        source: input.source ?? { client: "moryn" }
+      };
+      await appendEventAndRebuild(event);
+      return { event, relationship: validated.relationship, direction: validated.direction, reason: validated.reason, selection_sources: LINK_EVENT_SELECTION_SOURCES };
     },
 
     async recall(input: RecallInput) {

@@ -155,6 +155,7 @@ export function replayEvents(events: MorynEvent[]): Map<string, MorynRecord> {
           {
             record_id: event.linked_record_id,
             link_type: event.link_type,
+            reason: event.reason,
             created_at: event.created_at
           }
         ],

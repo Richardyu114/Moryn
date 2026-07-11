@@ -1738,6 +1738,32 @@ describe("core engine", () => {
     });
   });
 
+  it("persists validated agent-proposed logical relationships with reasons", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, id: (prefix) => `${prefix}_${++nextId}` });
+      const base = { kind: "memory", type: "decision", scope: "project", project_id: "moryn", source: { client: "codex" } } as const;
+      const source = await engine.write({ ...base, content: { text: "Use checkpoint before compact" } });
+      const target = await engine.write({ ...base, content: { text: "Checkpoint long-running tasks" } });
+
+      const result = await engine.logicalLink({
+        record_id: source.record.id,
+        linked_record_id: target.record.id,
+        relationship: "supports",
+        reason: "The first decision supports the broader lifecycle rule",
+        source: { client: "codex" }
+      });
+      const recalled = await engine.recall({ record_ids: [source.record.id] });
+
+      expect(result).toMatchObject({ relationship: "supports", direction: "directed", reason: "The first decision supports the broader lifecycle rule" });
+      expect(recalled.results[0]?.record.links).toContainEqual(expect.objectContaining({
+        record_id: target.record.id,
+        link_type: "supports",
+        reason: "The first decision supports the broader lifecycle rule"
+      }));
+    });
+  });
+
   it("lists project activity for agent project discovery", async () => {
     await withInitializedTempStore(async (storePath) => {
       const timestamps = [

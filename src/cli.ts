@@ -27,6 +27,7 @@ import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStat
 import { commandLineForCliInterface } from "./core/cli-command-line.js";
 import { initializeStore } from "./core/config.js";
 import type { ContextDeltaInput, LearningDeltaInput } from "./core/context-delta.js";
+import { LOGICAL_RELATIONSHIP_TYPES, type LogicalRelationshipType } from "./core/logical-memory.js";
 import { rebuildDerivedViews } from "./core/derived.js";
 import { createEngine } from "./core/engine.js";
 import {
@@ -2583,6 +2584,28 @@ program.command("link")
       }));
     } catch (error) {
       printError(error, context);
+      process.exitCode = 1;
+    }
+  });
+
+program.command("logical-link")
+  .argument("<record-id>")
+  .argument("<linked-record-id>")
+  .requiredOption("--relationship <relationship>")
+  .requiredOption("--reason <reason>")
+  .action(async (recordId, linkedRecordId, options) => {
+    const engine = createCliEngine();
+    try {
+      const relationship = parseEnum(options.relationship, LOGICAL_RELATIONSHIP_TYPES, "--relationship") as LogicalRelationshipType;
+      printJson(await engine.logicalLink({
+        record_id: parseNonEmptyCliPositional(recordId, "record-id"),
+        linked_record_id: parseNonEmptyCliPositional(linkedRecordId, "linked-record-id"),
+        relationship,
+        reason: parseNonEmptyCliString(options.reason, "--reason")!,
+        source: { client: "cli" }
+      }));
+    } catch (error) {
+      printError(error);
       process.exitCode = 1;
     }
   });

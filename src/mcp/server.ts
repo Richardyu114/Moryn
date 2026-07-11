@@ -27,6 +27,7 @@ import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStat
 import { mcpArgumentsForAction } from "../core/action-interfaces.js";
 import { initializeStore } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
+import { LOGICAL_RELATIONSHIP_TYPES } from "../core/logical-memory.js";
 import type { createEngine } from "../core/engine.js";
 import { openDashboard, writeDashboardSnapshot } from "../observability/dashboard.js";
 import {
@@ -1805,6 +1806,28 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
           ...(normalizedInput.source !== undefined ? { source: normalizedInput.source } : {})
         }
       }))
+  );
+
+  server.registerTool(
+    "logical_link",
+    {
+      title: "Link Logical Memories",
+      description: "Append an agent-proposed, Core-validated logical relationship between compatible active records.",
+      inputSchema: mcpInputSchema({
+        record_id: z.string().min(1),
+        linked_record_id: z.string().min(1),
+        relationship: z.enum(LOGICAL_RELATIONSHIP_TYPES),
+        reason: z.string().min(1),
+        source: z.unknown().optional()
+      })
+    },
+    async (input) => toolResult(() => engine.logicalLink({
+      record_id: input.record_id,
+      linked_record_id: input.linked_record_id,
+      relationship: input.relationship,
+      reason: input.reason,
+      source: withDefaultSource(input.source) as RecordSource
+    }))
   );
 
   server.registerTool(

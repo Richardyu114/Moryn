@@ -47,6 +47,7 @@ export function isValidPatchPath(path: string): boolean {
 export const recordLinkSchema = z.object({
   record_id: z.string().min(1),
   link_type: z.string().min(1),
+  reason: nonEmptyStringSchema.optional(),
   created_at: isoDateTimeSchema
 });
 
@@ -141,6 +142,7 @@ export const eventSchema = z.discriminatedUnion("op", [
     record_id: z.string().min(1),
     linked_record_id: z.string().min(1),
     link_type: z.string().min(1),
+    reason: nonEmptyStringSchema.optional(),
     created_at: isoDateTimeSchema,
     source: recordSourceSchema
   })

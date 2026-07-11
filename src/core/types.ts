@@ -27,6 +27,7 @@ export interface RecordProvenance {
 export interface RecordLink {
   record_id: string;
   link_type: string;
+  reason?: string;
   created_at: string;
 }
 
@@ -92,6 +93,7 @@ export type MorynEvent =
       record_id: string;
       linked_record_id: string;
       link_type: string;
+      reason?: string;
       created_at: string;
       source: RecordSource;
     };
