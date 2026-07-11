@@ -1739,6 +1739,24 @@ describe("core engine", () => {
     });
   });
 
+  it("routes current-state recall reads through the verified record model", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const seed = createEngine({ storePath, now: () => "2026-07-12T00:00:00.000Z", id: (prefix) => `${prefix}_verified` });
+      const written = await seed.write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Verified current state." }, state: "canonical", source: { client: "test" } });
+      const calls: string[] = [];
+      const engine = createEngine({
+        storePath,
+        readCurrentRecords: async () => {
+          calls.push("read_model");
+          return { records: [written.record], source: "read_model", repaired: false, event_manifest: { count: 1, digest: "digest" } };
+        }
+      });
+
+      expect((await engine.recall({ record_ids: [written.record.id] })).results[0]?.record.id).toBe(written.record.id);
+      expect(calls).toEqual(["read_model", "read_model"]);
+    });
+  });
+
   it("persists validated agent-proposed logical relationships with reasons", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;

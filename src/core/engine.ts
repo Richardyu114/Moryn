@@ -29,6 +29,7 @@ import { learningStatePolicy } from "./learning-policy.js";
 import { learningRecordIdentity, normalizeLearningRecord } from "./learning-ingestion.js";
 import { SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES, semanticConsolidationProposalDigest, validateSemanticConsolidationProposal, type SemanticConsolidationProposalResult, type SemanticConsolidationReceipt } from "./semantic-consolidation.js";
 import { retrieveSemanticConsolidationCandidates } from "./semantic-consolidation-candidates.js";
+import { readCurrentRecords, type CurrentRecordReadResult } from "./record-read-model.js";
 
 interface EngineDeps {
   storePath: string;
@@ -37,6 +38,7 @@ interface EngineDeps {
   syncStatus?: () => Promise<{ behind?: number; remote_has_updates?: boolean }>;
   rebuild?: (storePath: string) => Promise<unknown>;
   appendEventIfAbsent?: (storePath: string, event: MorynEvent) => Promise<AppendEventIfAbsentResult>;
+  readCurrentRecords?: (storePath: string) => Promise<CurrentRecordReadResult>;
 }
 
 interface WriteInput {
@@ -2972,13 +2974,14 @@ export function createEngine(deps: EngineDeps) {
   const id = deps.id ?? createId;
   const checkpointRebuild = deps.rebuild ?? rebuildDerivedViews;
   const appendIdempotentEvent = deps.appendEventIfAbsent ?? appendEventIfAbsent;
+  const readRecords = deps.readCurrentRecords ?? readCurrentRecords;
 
   async function currentRecords(): Promise<MorynRecord[]> {
-    return [...replayEvents(await readEvents(deps.storePath)).values()];
+    return (await readRecords(deps.storePath)).records;
   }
 
   async function requireRecord(recordId: string): Promise<MorynRecord> {
-    const record = replayEvents(await readEvents(deps.storePath)).get(recordId);
+    const record = (await currentRecords()).find((candidate) => candidate.id === recordId);
     if (!record) {
       throw new Error(`Record not found: ${recordId}`);
     }
