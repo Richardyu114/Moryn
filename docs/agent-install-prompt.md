@@ -32,8 +32,11 @@ First, inspect the environment:
    readiness checks, planned local writes, and safe MCP, context, and
    autocapture commands without changing files.
 4. Then run `moryn setup --project . --host "<host client name>" --apply` only after the dry-run looks right.
-   The apply form initializes only Moryn-local state and project config; it must
-   not mutate host configuration files.
+   The apply form initializes only Moryn-local state and project config. Then run
+   `moryn install --host "<host client name>" --project . --apply` for host
+   activation. Claude Code activation may safely merge Moryn-owned hooks into
+   `.claude/settings.local.json`; Codex activation generates a fragment and must
+   not edit `.codex/config.toml` while its runtime hook schema is unverified.
 5. If `moryn setup` reports missing project context, run
    `moryn project init --path . --project-id <repo-name>`. Infer
    `<repo-name>` from the Git repository or current directory. Ask me only if
@@ -56,6 +59,9 @@ During agent work:
   `moryn capture session --project . --agent "<host client name>" --summary "<handoff summary>"`.
 - Start a session with
   `moryn agent enter --project . --current-task "<current task>" --agent "<host client name>"`.
+- Let `agent enter` diagnose activation and perform one safe Claude repair when
+  possible. Continue working with degraded evidence when repair is unsafe; do
+  not ask the user to intervene for routine activation.
 - Use your actual host/client name for `--agent` and Moryn `source.client`
   metadata, for example `codex`, `claude`, `kimi`, or `gemini`. Do not use
   generic values such as `agent`, `cli`, or `mcp` when the real host identity is
@@ -65,6 +71,9 @@ During agent work:
   reusable procedures, or handoff context.
 - Promote only material that is stable enough to become canonical shared memory.
 - Use `moryn agent status` during long work when it helps future handoffs.
+- Before host compaction or when context pressure is visible, checkpoint current
+  progress, durable learning, and unresolved knowledge investigations so the
+  next compacted context can restore them.
 - End with `moryn agent finish` and a concise handoff summary.
 - Use `moryn dashboard --serve --host 127.0.0.1 --port 8765` when a human needs
   live browser monitoring of sync state, records, recent events, or agent

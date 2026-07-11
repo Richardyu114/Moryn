@@ -21,5 +21,8 @@ describe("agent lifecycle smoke script", () => {
     expect(result.stdout).toContain('"checkpoint_idempotent_replay":true');
     expect(result.stdout).toContain('"semantic_links_created":1');
     expect(result.stdout).toContain('"protected_rejections":1');
+    expect(result.stdout).toContain('"claude_activation_status":"configured_unverified"');
+    expect(result.stdout).toContain('"claude_activation_receipt_created":true');
+    expect(result.stdout).toContain('"codex_activation_status":"host_schema_unknown"');
   }, 60000);
 });

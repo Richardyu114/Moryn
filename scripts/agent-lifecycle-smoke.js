@@ -120,6 +120,12 @@ async function main() {
     }
 
     await run(command, [...argsPrefix, "project", "init", "--path", project, "--project-id", "moryn-smoke", "--tag", "typescript"]);
+    const codexInstall = await runJson(command, [...argsPrefix, "--store", storeCodex, "install", "--host", "codex", "--project", project, "--apply"]);
+    if (codexInstall.activation_status?.status !== "host_schema_unknown") throw new Error("Codex activation must remain schema-unknown before runtime receipt evidence");
+    const claudeInstall = await runJson(command, [...argsPrefix, "--store", storeClaude, "install", "--host", "claude", "--project", project, "--apply"]);
+    if (claudeInstall.activation_status?.status !== "configured_unverified") throw new Error("Claude install did not safely activate lifecycle hooks");
+    const claudeActivationId = claudeInstall.integration_artifact?.artifact?.activation_id;
+    if (typeof claudeActivationId !== "string") throw new Error("Claude install did not return an activation id");
 
     const statusSummary = "Codex smoke status reached Gemini";
     const status = await runJson(command, [
@@ -216,6 +222,8 @@ async function main() {
       project,
       "--device-id",
       "device-claude-smoke",
+      "--activation-id",
+      claudeActivationId,
       "--occurred-at",
       "2026-07-11T10:35:00.000Z",
       "--current-task",
@@ -225,6 +233,7 @@ async function main() {
     ]);
     if (!claudeRestore.hook_output?.additional_context?.includes("Checkpoint smoke persisted with semantic consolidation")) throw new Error("Claude PostCompact did not restore the Codex checkpoint");
     if (!claudeRestore.hook_output?.additional_context?.includes(unresolvedInvestigation.next_step)) throw new Error("Claude PostCompact did not restore the unresolved knowledge next step");
+    if (claudeRestore.activation_receipt?.created !== true) throw new Error("Claude PostCompact did not record activation receipt evidence");
     const finishSummary = "Claude smoke finish reached second Codex";
     const finish = await runJson(command, [
       ...argsPrefix,
@@ -238,6 +247,8 @@ async function main() {
       project,
       "--device-id",
       "device-claude-smoke",
+      "--activation-id",
+      claudeActivationId,
       "--occurred-at",
       "2026-07-11T10:40:00.000Z",
       "--current-task",
@@ -279,7 +290,10 @@ async function main() {
       checkpoint_idempotent_replay: checkpointReplay.checkpoint.idempotent_replay,
       semantic_links_created: checkpoint.checkpoint.semantic_consolidation.links_created,
       protected_rejections: checkpoint.checkpoint.semantic_consolidation.rejected_by_reason.protected_signal_difference,
-      unresolved_knowledge_next_step: unresolvedInvestigation.next_step
+      unresolved_knowledge_next_step: unresolvedInvestigation.next_step,
+      claude_activation_status: claudeInstall.activation_status.status,
+      claude_activation_receipt_created: claudeRestore.activation_receipt.created,
+      codex_activation_status: codexInstall.activation_status.status
     }));
   } finally {
     if (options.keepTemp) {

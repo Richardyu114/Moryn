@@ -80,9 +80,12 @@ local actions, and the next command without writing anything. Run setup once
 without `--apply` first so the agent or user can inspect checks and planned
 local writes before any file changes. Each planned write points back to its
 action source so blocked setup can be recovered without guessing from prose.
-`--apply` initializes the local Moryn store and optional project config only;
-host configuration files remain manual and are represented as printed
-registration commands.
+`--apply` initializes the local Moryn store and optional project config only.
+Host activation is handled separately by `moryn install --apply`: Claude Code
+hooks are merged into `.claude/settings.local.json` with Moryn-owned entries,
+content-addressed backup, and atomic replacement; unrelated settings remain
+untouched. Codex receives `.codex/moryn-hooks.toml`, but Moryn does not edit
+`.codex/config.toml` while the installed Codex hook schema is not authoritative.
 
 ## Startup
 
@@ -110,6 +113,19 @@ starts the session by pulling sync, booting context, refreshing recent changes,
 and returning handoff data. If project context is unclear but the store contains
 known projects, it returns project discovery results with executable
 `agent_start` actions for each project.
+
+For Claude Code, `agent enter` also performs at most one automatic activation
+repair when the inspector proves the change is reversible and Moryn-owned. An
+invalid, symlinked, non-regular, or otherwise unsafe settings target is never
+overwritten; startup continues with degraded activation evidence instead of
+blocking recall and recovery. Codex activation stays read-only until a real hook
+receipt proves the runtime integration is active.
+
+Before host compaction, lifecycle hooks checkpoint durable learning, current
+progress, and unresolved knowledge investigations with explicit next steps.
+After compaction, Moryn restores that recovery context. Agents should also call
+the same checkpoint path proactively when context pressure is visible rather
+than waiting for the host to discard conversation state.
 
 When `agent enter` starts a known project, read `startup_overview` first. It is
 the compact startup path for agents: readiness status, project id, the primary
