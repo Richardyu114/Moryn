@@ -16,7 +16,8 @@ describe("agent lifecycle smoke script", () => {
 
     expect(result.stdout).toContain("agent lifecycle smoke passed");
     expect(result.stdout).toContain("Codex smoke status reached Gemini");
-    expect(result.stdout).toContain("Claude smoke finish reached second Codex");
+    expect(result.stdout).toContain("Task: verify checkpoint lifecycle smoke");
+    expect(result.stdout).toContain("Next: Run the rollback integration smoke");
     expect(result.stdout).toContain('"checkpoint_record_id":"rec_checkpoint_');
     expect(result.stdout).toContain('"checkpoint_idempotent_replay":true');
     expect(result.stdout).toContain('"semantic_links_created":1');
@@ -25,5 +26,6 @@ describe("agent lifecycle smoke script", () => {
     expect(result.stdout).toContain('"claude_activation_receipt_created":true');
     expect(result.stdout).toContain('"codex_activation_status":"host_schema_unknown"');
     expect(result.stdout).toContain('"record_read_model_status":"fresh"');
+    expect(result.stdout).toContain('"session_synthesis_mode":"evidence_synthesized"');
   }, 60000);
 });

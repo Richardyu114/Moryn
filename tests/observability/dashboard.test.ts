@@ -9834,6 +9834,34 @@ describe("quiet dashboard first screen", () => {
     });
   });
 
+  it("monitors session synthesis quality without surfacing routine automation", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath });
+      for (const [mode, text] of [["host_authored", "Host summary"], ["evidence_synthesized", "Evidence summary"]] as const) {
+        await engine.write({ kind: "session_summary", type: "summary", scope: "project", project_id: "moryn", content: { text, synthesis_mode: mode }, source: { client: "codex" } });
+      }
+
+      const data = await buildDashboardData(storePath, { project_id: "moryn" });
+      expect(data.quiet_dashboard.session_synthesis).toEqual({ host_authored: 1, evidence_synthesized: 1, minimal_fallback: 0 });
+      expect(data.quiet_dashboard.attention_needed).toEqual([]);
+    });
+  });
+
+  it("surfaces repeated minimal session fallbacks as exceptional attention", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath });
+      for (const text of ["Fallback one", "Fallback two"]) {
+        await engine.write({ kind: "session_summary", type: "summary", scope: "project", project_id: "moryn", content: { text, synthesis_mode: "minimal_fallback" }, source: { client: "codex" } });
+      }
+
+      const data = await buildDashboardData(storePath, { project_id: "moryn" });
+      expect(data.quiet_dashboard.session_synthesis).toEqual({ host_authored: 0, evidence_synthesized: 0, minimal_fallback: 2 });
+      expect(data.quiet_dashboard.attention_needed).toEqual(expect.arrayContaining([expect.objectContaining({ title: "Session summaries lack durable evidence", severity: "warning" })]));
+    });
+  });
+
   it("raises attention only for current-task material semantic conflicts", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device-test" });

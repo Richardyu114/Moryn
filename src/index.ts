@@ -48,6 +48,8 @@ export type { HostCapabilities, HostLifecycleEvent } from "./core/host-capabilit
 export { normalizeHostHookEvent } from "./core/host-hooks.js";
 export type { NormalizedHostHookEvent } from "./core/host-hooks.js";
 export { runHostHook } from "./core/host-hook-runner.js";
+export { synthesizeSession } from "./core/session-synthesis.js";
+export type { SessionSynthesis } from "./core/session-synthesis.js";
 export type { HostHookRunResult, RunHostHookInput } from "./core/host-hook-runner.js";
 export { activationId, buildHostIntegrationArtifact, writeHostIntegrationArtifact } from "./core/host-integration-artifacts.js";
 export type { HostIntegrationArtifact } from "./core/host-integration-artifacts.js";

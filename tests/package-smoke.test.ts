@@ -860,9 +860,11 @@ describe("published package smoke", () => {
 
         expect(result.stdout).toContain("agent lifecycle smoke passed");
         expect(result.stdout).toContain("Codex smoke status reached Gemini");
-        expect(result.stdout).toContain("Claude smoke finish reached second Codex");
+        expect(result.stdout).toContain("Task: verify checkpoint lifecycle smoke");
+        expect(result.stdout).toContain("Next: Run the rollback integration smoke");
         expect(result.stdout).toContain('"semantic_links_created":1');
         expect(result.stdout).toContain('"protected_rejections":1');
+        expect(result.stdout).toContain('"session_synthesis_mode":"evidence_synthesized"');
       } finally {
         if (tarball) {
           await rm(tarball, { force: true });

@@ -2990,14 +2990,23 @@ describe("agent lifecycle", () => {
         project_path: project,
         current_task: "Verify Claude restore",
         push: true,
-        hook: { host: "claude", event: "session_end", session_id: "claude-finish", device_id: "device-claude", cwd: project, occurred_at: "2026-07-11T00:10:00.000Z", compact_summary: "Claude restored the Codex checkpoint and completed verification." }
+        hook: { host: "claude", event: "session_end", session_id: "codex-compact", device_id: "device-claude", cwd: project, occurred_at: "2026-07-11T00:10:00.000Z" }
       });
-      expect(claudeEnd).toMatchObject({ action: "agent_finish", degradation: { mode: "native" } });
+      expect(claudeEnd).toMatchObject({ action: "agent_finish", degradation: { mode: "native" }, details: { record: { content: { synthesis_mode: "evidence_synthesized" } } } });
+
+      const replayedEnd = await runHostHook({
+        storePath: claudeStore,
+        project_path: project,
+        current_task: "Verify Claude restore",
+        push: false,
+        hook: { host: "claude", event: "session_end", session_id: "codex-compact", device_id: "device-claude", cwd: project, occurred_at: "2026-07-11T00:10:00.000Z" }
+      });
+      expect(replayedEnd).toMatchObject({ details: { record: { content: { text: (claudeEnd.details as { record: { content: { text: string } } }).record.content.text } } } });
 
       expect((await pullGitSync(codexStore)).pulled).toBe(true);
       const codexEngine = createEngine({ storePath: codexStore });
-      const handoff = await codexEngine.recall({ project_id: "moryn", query: "Claude restored Codex checkpoint completed verification" });
-      expect(handoff.results.some((result) => result.record.content.text === "Claude restored the Codex checkpoint and completed verification.")).toBe(true);
+      const handoff = await codexEngine.recall({ project_id: "moryn", query: "Hook runner implemented verify Claude restore rollback integration test" });
+      expect(handoff.results.some((result) => result.record.content.synthesis_mode === "evidence_synthesized" && result.record.content.text.includes("Hook runner implemented; next verify Claude restore.") && result.record.content.text.includes("Run rollback integration test"))).toBe(true);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -3025,6 +3034,47 @@ describe("agent lifecycle", () => {
       expect(first.activation_receipt).toMatchObject({ created: true, receipt: { activation_id: "moryn-v03-moryn-claude", event: "pre_compact" } });
       expect(replay.activation_receipt).toMatchObject({ created: false, record: { id: first.activation_receipt?.record.id } });
       expect(receiptEvents).toHaveLength(1);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("synthesizes a useful SessionEnd handoff from same-session checkpoint evidence", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-host-synthesized-finish-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(store);
+      const base = { host: "claude" as const, session_id: "claude-synthesis", device_id: "device-claude", cwd: project };
+      await runHostHook({ storePath: store, project_path: project, current_task: "Implement autonomous summaries", hook: { ...base, event: "pre_compact", occurred_at: "2026-07-12T01:00:00.000Z", trigger: "auto", compact_summary: "Added checkpoint-backed synthesis." }, knowledge_investigations: [{ resolution_id: "synthesis-smoke", question: "Does compact preserve the handoff?", recall_status: "knowledge_gap", recalled_record_ids: [], evidence: [], status: "unresolved", next_step: "Run synthesized handoff smoke" }] });
+
+      const ended = await runHostHook({ storePath: store, project_path: project, current_task: "Implement autonomous summaries", push: false, hook: { ...base, event: "session_end", occurred_at: "2026-07-12T01:05:00.000Z" } });
+      expect(ended).toMatchObject({ action: "agent_finish", details: { record: { content: { synthesis_mode: "evidence_synthesized", synthesis_source_record_ids: [expect.stringMatching(/^rec_checkpoint_/)] } } } });
+      const endedText = (ended.details as { record: { content: { text: string } } }).record.content.text;
+      expect(endedText).toContain("Task: Implement autonomous summaries");
+      expect(endedText).toContain("Progress: Added checkpoint-backed synthesis.");
+      expect(endedText).toContain("Next: Run synthesized handoff smoke");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("synthesizes in-progress Stop status from same-session checkpoint evidence", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-host-synthesized-stop-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(store);
+      const base = { host: "codex" as const, session_id: "codex-synthesis", device_id: "device-codex", cwd: project };
+      await runHostHook({ storePath: store, project_path: project, current_task: "Continue autonomous work", hook: { ...base, event: "pre_compact", occurred_at: "2026-07-12T02:00:00.000Z", trigger: "auto", compact_summary: "Implemented evidence synthesis." } });
+
+      const stopped = await runHostHook({ storePath: store, project_path: project, current_task: "Continue autonomous work", push: false, hook: { ...base, event: "stop", occurred_at: "2026-07-12T02:05:00.000Z" } });
+      expect(stopped).toMatchObject({ action: "agent_status", details: { record: { content: { synthesis_mode: "evidence_synthesized", synthesis_progress: ["Implemented evidence synthesis."] } } } });
+      const stoppedText = (stopped.details as { record: { content: { text: string } } }).record.content.text;
+      expect(stoppedText).toContain("Task: Continue autonomous work");
+      expect(stoppedText).toContain("Progress: Implemented evidence synthesis.");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

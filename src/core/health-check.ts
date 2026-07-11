@@ -87,6 +87,9 @@ export interface HealthCheckStats {
   project_records: number;
   capture_review_candidates: number;
   canonical_records: number;
+  session_synthesis_host_authored: number;
+  session_synthesis_evidence_synthesized: number;
+  session_synthesis_minimal_fallback: number;
 }
 
 export interface HealthCheckSummary {
@@ -409,7 +412,10 @@ function stats(input: HealthCheckDiagnoseInput, projectRecords: MorynRecord[], r
     total_events: input.events.length,
     project_records: projectRecords.length,
     capture_review_candidates: reviewCandidates.length,
-    canonical_records: input.records.filter((record) => record.state === "canonical").length
+    canonical_records: input.records.filter((record) => record.state === "canonical").length,
+    session_synthesis_host_authored: projectRecords.filter((record) => record.kind === "session_summary" && record.content.synthesis_mode === "host_authored").length,
+    session_synthesis_evidence_synthesized: projectRecords.filter((record) => record.kind === "session_summary" && record.content.synthesis_mode === "evidence_synthesized").length,
+    session_synthesis_minimal_fallback: projectRecords.filter((record) => record.kind === "session_summary" && record.content.synthesis_mode === "minimal_fallback").length
   };
 }
 

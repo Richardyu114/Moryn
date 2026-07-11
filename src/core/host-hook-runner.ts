@@ -7,6 +7,7 @@ import type { KnowledgeInvestigationInput, LearningDeltaInput, SemanticConsolida
 import { resolveProjectContext } from "./project.js";
 import { recordActivationReceipt, type ActivationReceiptInput } from "./activation-receipts.js";
 import { buildHostIntegrationArtifact } from "./host-integration-artifacts.js";
+import { synthesizeSession, type SessionSynthesis } from "./session-synthesis.js";
 
 export interface RunHostHookInput {
   storePath: string;
@@ -52,6 +53,16 @@ function lifecycleInput(input: RunHostHookInput) {
 
 function contextText(value: unknown): string {
   return JSON.stringify(value, null, 2);
+}
+
+async function sessionSynthesis(input: RunHostHookInput, projectId: string): Promise<SessionSynthesis> {
+  try {
+    const engine = createEngine({ storePath: input.storePath });
+    const boot = await engine.boot({ project_id: projectId, agent_session_id: input.hook.session_id });
+    return synthesizeSession({ host_summary: input.hook.compact_summary, current_task: input.current_task, recovery_pack: boot.checkpoint_recovery_pack });
+  } catch {
+    return synthesizeSession({ host_summary: input.hook.compact_summary, current_task: input.current_task });
+  }
 }
 
 export async function runHostHook(input: RunHostHookInput): Promise<HostHookRunResult> {
@@ -118,9 +129,11 @@ export async function runHostHook(input: RunHostHookInput): Promise<HostHookRunR
     return { ok: true, event: input.hook.event, action: "checkpoint_before_compaction", degradation, checkpoint, hook_output: { additional_context: `Moryn checkpoint saved: ${checkpoint.record.id}` }, ...activationEvidence };
   }
   if (input.hook.event === "session_end") {
-    const result = await agentFinish({ ...common, summary: input.hook.compact_summary ?? "Host session ended.", push: input.push, learnings: input.learnings, semanticConsolidationProposals: input.semantic_consolidation_proposals });
+    const synthesis = await sessionSynthesis(input, project.project_id);
+    const result = await agentFinish({ ...common, summary: synthesis.summary, synthesis, push: input.push, learnings: input.learnings, semanticConsolidationProposals: input.semantic_consolidation_proposals });
     return { ok: true, event: input.hook.event, action: "agent_finish", degradation, details: result, hook_output: { additional_context: `Moryn handoff saved: ${result.record.id}` }, ...activationEvidence };
   }
-  const result = await agentStatus({ ...common, status: input.hook.compact_summary ?? "Host stop hook reached.", push: input.push });
+  const synthesis = await sessionSynthesis(input, project.project_id);
+  const result = await agentStatus({ ...common, status: synthesis.summary, synthesis, push: input.push });
   return { ok: true, event: input.hook.event, action: "agent_status", degradation, details: result, hook_output: { additional_context: `Moryn status saved: ${result.record.id}` }, ...activationEvidence };
 }

@@ -234,7 +234,6 @@ async function main() {
     if (!claudeRestore.hook_output?.additional_context?.includes("Checkpoint smoke persisted with semantic consolidation")) throw new Error("Claude PostCompact did not restore the Codex checkpoint");
     if (!claudeRestore.hook_output?.additional_context?.includes(unresolvedInvestigation.next_step)) throw new Error("Claude PostCompact did not restore the unresolved knowledge next step");
     if (claudeRestore.activation_receipt?.created !== true) throw new Error("Claude PostCompact did not record activation receipt evidence");
-    const finishSummary = "Claude smoke finish reached second Codex";
     const finish = await runJson(command, [
       ...argsPrefix,
       "--store",
@@ -254,9 +253,11 @@ async function main() {
       "--current-task",
       "continue cross device lifecycle smoke",
       "--input-json",
-      JSON.stringify({ hook_event_name: "SessionEnd", session_id: "claude-smoke", cwd: project, compact_summary: finishSummary })
+      JSON.stringify({ hook_event_name: "SessionEnd", session_id: "codex-smoke", cwd: project })
     ]);
     if (finish.details?.sync?.push?.pushed !== true) throw new Error("Claude finish did not push to sync remote");
+    if (finish.details?.record?.content?.synthesis_mode !== "evidence_synthesized") throw new Error("Claude finish did not synthesize from checkpoint evidence");
+    const finishSummary = finish.details.record.content.text;
     await runJson(command, [...argsPrefix, "--store", storeCodexSecond, "init"]);
     await runJson(command, [...argsPrefix, "--store", storeCodexSecond, "sync", "init", remote]);
     const codexStart = await runJson(command, [
@@ -296,7 +297,8 @@ async function main() {
       claude_activation_status: claudeInstall.activation_status.status,
       claude_activation_receipt_created: claudeRestore.activation_receipt.created,
       codex_activation_status: codexInstall.activation_status.status,
-      record_read_model_status: readModelHealth.record_read_model.status
+      record_read_model_status: readModelHealth.record_read_model.status,
+      session_synthesis_mode: finish.details.record.content.synthesis_mode
     }));
   } finally {
     if (options.keepTemp) {

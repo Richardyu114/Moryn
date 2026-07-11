@@ -534,6 +534,14 @@ describe("core engine", () => {
         source: { client: "codex", session_id: "health-check" }
       });
       await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Synthesized from durable evidence.", synthesis_mode: "evidence_synthesized" },
+        source: { client: "codex", session_id: "health-check" }
+      });
+      await engine.write({
         kind: "memory",
         type: "warning",
         scope: "project",
@@ -560,13 +568,16 @@ describe("core engine", () => {
           warning_checks: 1
         }
       });
-      expect(report.record_read_model).toMatchObject({ status: "fresh", source: "read_model", repaired: false, record_count: 2, event_count: 2 });
+      expect(report.record_read_model).toMatchObject({ status: "fresh", source: "read_model", repaired: false, record_count: 3, event_count: 3 });
       expect(report.selection_sources).toEqual(HEALTH_CHECK_SELECTION_SOURCES);
       expect(report.stats).toMatchObject({
-        visible_records: 1,
+        visible_records: 2,
         excluded_private_records: 1,
         total_events: beforeEvents.length,
-        capture_review_candidates: 1
+        capture_review_candidates: 1,
+        session_synthesis_host_authored: 0,
+        session_synthesis_evidence_synthesized: 1,
+        session_synthesis_minimal_fallback: 0
       });
       expect(report.checks_by_id.store_readable).toMatchObject({ status: "pass", category: "store" });
       expect(report.checks_by_id.event_log_replayable).toMatchObject({ status: "pass", category: "store" });

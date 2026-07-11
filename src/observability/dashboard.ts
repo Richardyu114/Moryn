@@ -882,6 +882,11 @@ export interface DashboardData {
       unresolved_investigations: number;
       preserved_before_compact: number;
     };
+    session_synthesis: {
+      host_authored: number;
+      evidence_synthesized: number;
+      minimal_fallback: number;
+    };
     attention_needed: DashboardAttentionItem[];
   };
   actions: DashboardAction[];
@@ -3407,6 +3412,11 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
   const checkpointTask = checkpointContent && typeof checkpointContent === "object" && checkpointContent !== null && typeof (checkpointContent as Record<string, unknown>).current_task === "string"
     ? (checkpointContent as Record<string, unknown>).current_task as string
     : undefined;
+  const sessionSynthesis = {
+    host_authored: records.filter((record) => record.kind === "session_summary" && record.content.synthesis_mode === "host_authored").length,
+    evidence_synthesized: records.filter((record) => record.kind === "session_summary" && record.content.synthesis_mode === "evidence_synthesized").length,
+    minimal_fallback: records.filter((record) => record.kind === "session_summary" && record.content.synthesis_mode === "minimal_fallback").length
+  };
   const exceptionalAttention: DashboardAttentionItem[] = [
     ...attentionItems.filter((item) => item.severity === "warning" || item.severity === "critical"),
     ...decisionSummaryData.items.map((item) => ({
@@ -3416,6 +3426,13 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
       action_label: item.target_label
     }))
   ];
+  if (sessionSynthesis.minimal_fallback >= 2) {
+    exceptionalAttention.push({
+      severity: "warning",
+      title: "Session summaries lack durable evidence",
+      description: `${sessionSynthesis.minimal_fallback} session summaries used minimal fallback because no durable checkpoint evidence was available.`
+    });
+  }
   const currentTaskTokens = new Set((checkpointTask ?? "").toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []);
   const materialSemanticConflicts = semanticLinkEvents.filter((event) => {
     if (event.op !== "link_records" || event.link_type !== "conflicts_with" || !currentTaskTokens.size) return false;
@@ -3511,6 +3528,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
         unresolved_investigations: knowledgeInvestigations.filter((investigation) => investigation.status === "unresolved").length,
         preserved_before_compact: knowledgeInvestigations.filter((investigation) => investigation.status === "unresolved" && typeof investigation.next_step === "string").length
       },
+      session_synthesis: sessionSynthesis,
       attention_needed: exceptionalAttention
     },
     actions,

@@ -17,6 +17,7 @@ import { knowledgeProtocolForHost, type KnowledgeProtocol } from "./knowledge-pr
 import { inspectHostActivation, type HostActivationStatus } from "./host-activation.js";
 import { writeHostIntegrationArtifact } from "./host-integration-artifacts.js";
 import { activateClaudeSettings } from "./claude-activation.js";
+import type { SessionSynthesis } from "./session-synthesis.js";
 
 interface AgentIdentity {
   client: string;
@@ -46,11 +47,13 @@ export interface AgentFinishInput extends AgentLifecycleInput {
   push?: boolean;
   learnings?: LearningDeltaInput[];
   semanticConsolidationProposals?: SemanticConsolidationProposalInput[];
+  synthesis?: SessionSynthesis;
 }
 
 export interface AgentStatusInput extends AgentLifecycleInput {
   status: unknown;
   push?: boolean;
+  synthesis?: SessionSynthesis;
 }
 
 export interface AgentLifecycleDeps {
@@ -2848,7 +2851,22 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     scope: "project",
     project_id: project.project_id,
     tags: projectInfo.tags,
-    content: { text: input.summary, format: "text" },
+    content: {
+      text: input.summary,
+      format: "text",
+      ...(input.synthesis ? {
+        synthesis_version: input.synthesis.version,
+        synthesis_mode: input.synthesis.mode,
+        synthesis_current_task: input.synthesis.current_task,
+        synthesis_progress: input.synthesis.progress,
+        synthesis_decisions: input.synthesis.decisions,
+        synthesis_blockers: input.synthesis.blockers,
+        synthesis_next_steps: input.synthesis.next_steps,
+        synthesis_learning_conclusions: input.synthesis.learning_conclusions,
+        synthesis_unresolved_investigations: input.synthesis.unresolved_investigations,
+        synthesis_source_record_ids: input.synthesis.source_record_ids
+      } : {})
+    },
     source: sourceFromAgent(input.agent)
   });
   const learningIngestion = await engine.ingestLearnings({
@@ -2929,7 +2947,19 @@ export async function agentStatus(input: AgentStatusInput) {
       text: input.status,
       format: "json",
       current_task: input.currentTask,
-      status: input.status
+      status: input.status,
+      ...(input.synthesis ? {
+        synthesis_version: input.synthesis.version,
+        synthesis_mode: input.synthesis.mode,
+        synthesis_current_task: input.synthesis.current_task,
+        synthesis_progress: input.synthesis.progress,
+        synthesis_decisions: input.synthesis.decisions,
+        synthesis_blockers: input.synthesis.blockers,
+        synthesis_next_steps: input.synthesis.next_steps,
+        synthesis_learning_conclusions: input.synthesis.learning_conclusions,
+        synthesis_unresolved_investigations: input.synthesis.unresolved_investigations,
+        synthesis_source_record_ids: input.synthesis.source_record_ids
+      } : {})
     },
     source: sourceFromAgent(input.agent)
   });
