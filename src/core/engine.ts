@@ -318,10 +318,7 @@ export const BOOT_SELECTION_SOURCES = {
   warning: "project.warnings_by_id.<record_id>",
   skill: "skills_by_id.<record_id>",
   task_relevant: "task_relevant_by_id.<record_id>",
-  recent_change: "recent_changes_by_id.<record_id>"
-};
-
-const BOOT_CHECKPOINT_SELECTION_SOURCES = {
+  recent_change: "recent_changes_by_id.<record_id>",
   active_checkpoint: "active_checkpoint",
   checkpoint_recovery_pack: "checkpoint_recovery_pack"
 };
@@ -3287,8 +3284,9 @@ export function createEngine(deps: EngineDeps) {
           include_private: bootInput.include_private
         })
         : undefined;
+      const currentRecordsById = new Map(allCurrentRecords.map((record) => [record.id, record]));
       const activeCheckpoint = checkpointRecoveryPack?.source_record_ids
-        .map((recordId) => allCurrentRecords.find((record) => record.id === recordId))
+        .map((recordId) => currentRecordsById.get(recordId))
         .filter((record): record is MorynRecord => Boolean(record))
         .filter((record) => bootInput.include_private || !isPrivateTags(record.tags))
         .filter((record) => Boolean(parseCheckpointContent(record.content)))
@@ -3318,9 +3316,7 @@ export function createEngine(deps: EngineDeps) {
         recent_changes: recentChanges,
         recent_changes_by_id: recordsById(recentChanges),
         ...(bootInput.agent_session_id ? { active_checkpoint: activeCheckpoint, checkpoint_recovery_pack: checkpointRecoveryPack } : {}),
-        selection_sources: bootInput.agent_session_id
-          ? { ...BOOT_SELECTION_SOURCES, ...BOOT_CHECKPOINT_SELECTION_SOURCES }
-          : BOOT_SELECTION_SOURCES,
+        selection_sources: BOOT_SELECTION_SOURCES,
         records_by_id: recordsById([
           ...userPreferences,
           ...soul,

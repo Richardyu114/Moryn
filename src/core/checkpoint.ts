@@ -178,10 +178,14 @@ export function checkpointSummary(delta: ContextDelta): string {
   return parts.filter(Boolean).join(" | ");
 }
 
-function appendExactBounded(target: string[], values: string[], limit = 10): void {
-  for (const value of values) {
-    if (!target.includes(value) && target.length < limit) target.push(value);
+function newestPriorityExactValues(checkpoints: readonly ContextDelta[], field: keyof Pick<ContextDelta, "progress" | "decisions" | "changed_facts" | "files" | "candidate_memories" | "candidate_skills">): string[] {
+  const selected = new Set<string>();
+  for (const checkpoint of [...checkpoints].reverse()) {
+    for (const value of checkpoint[field]) {
+      if (selected.size < 10) selected.add(value);
+    }
   }
+  return checkpoints.flatMap((checkpoint) => checkpoint[field]).filter((value, index, values) => selected.has(value) && values.indexOf(value) === index);
 }
 
 function checkpointOrder(left: MorynRecord, right: MorynRecord): number {
@@ -194,8 +198,27 @@ function canonicalLearning(learning: ContextDelta["learnings"][number]): unknown
   return canonicalValue({ ...learning, related_record_ids: [...learning.related_record_ids].sort(compareCodeUnits) });
 }
 
+function newestPriorityLearnings(checkpoints: readonly ContextDelta[]): ContextDelta["learnings"] {
+  const selectedKeys = new Set<string>();
+  for (const checkpoint of [...checkpoints].reverse()) {
+    for (const learning of checkpoint.learnings) {
+      if (selectedKeys.size < 10) selectedKeys.add(JSON.stringify(canonicalLearning(learning)));
+    }
+  }
+  const displayedKeys = new Set<string>();
+  return checkpoints.flatMap((checkpoint) => checkpoint.learnings).filter((learning) => {
+    const key = JSON.stringify(canonicalLearning(learning));
+    if (!selectedKeys.has(key) || displayedKeys.has(key)) return false;
+    displayedKeys.add(key);
+    return true;
+  });
+}
+
 export function buildCheckpointRecoveryPack(records: readonly MorynRecord[], input: CheckpointRecoveryPackInput): RecoveryPack {
-  const limit = Number.isInteger(input.limit) && (input.limit as number) > 0 ? input.limit as number : 5;
+  if (input.limit !== undefined && (!Number.isInteger(input.limit) || input.limit < 1 || input.limit > 5)) {
+    throw new Error("Invalid argument: limit must be an integer between 1 and 5");
+  }
+  const limit = input.limit ?? 5;
   const selected = records
     .filter((record) => record.visibility === "active" && record.state !== "archived" && record.state !== "quarantined")
     .filter((record) => record.kind === "session_summary" && record.type === "checkpoint" && record.scope === "project")
@@ -219,43 +242,21 @@ export function buildCheckpointRecoveryPack(records: readonly MorynRecord[], inp
   };
   if (!selected.length) return base;
 
-  const progress: string[] = [];
-  const decisions: string[] = [];
-  const changedFacts: string[] = [];
-  const files: string[] = [];
-  const candidateMemories: string[] = [];
-  const candidateSkills: string[] = [];
-  const learnings: ContextDelta["learnings"] = [];
-  const learningKeys = new Set<string>();
-  for (const { checkpoint } of selected) {
-    appendExactBounded(progress, checkpoint.progress);
-    appendExactBounded(decisions, checkpoint.decisions);
-    appendExactBounded(changedFacts, checkpoint.changed_facts);
-    appendExactBounded(files, checkpoint.files);
-    appendExactBounded(candidateMemories, checkpoint.candidate_memories);
-    appendExactBounded(candidateSkills, checkpoint.candidate_skills);
-    for (const learning of checkpoint.learnings) {
-      const key = JSON.stringify(canonicalLearning(learning));
-      if (!learningKeys.has(key) && learnings.length < 10) {
-        learningKeys.add(key);
-        learnings.push(learning);
-      }
-    }
-  }
+  const checkpoints = selected.map(({ checkpoint }) => checkpoint);
   const latestVisible = selected.at(-1)?.checkpoint;
   const currentTask = [...selected].reverse().find(({ checkpoint }) => checkpoint.current_task)?.checkpoint.current_task;
   return {
     ...base,
     ...(currentTask ? { current_task: currentTask } : {}),
-    progress,
-    decisions,
-    changed_facts: changedFacts,
+    progress: newestPriorityExactValues(checkpoints, "progress"),
+    decisions: newestPriorityExactValues(checkpoints, "decisions"),
+    changed_facts: newestPriorityExactValues(checkpoints, "changed_facts"),
     blockers: latestVisible?.blockers ?? [],
     next_steps: latestVisible?.next_steps ?? [],
-    files,
-    candidate_memories: candidateMemories,
-    candidate_skills: candidateSkills,
-    learnings
+    files: newestPriorityExactValues(checkpoints, "files"),
+    candidate_memories: newestPriorityExactValues(checkpoints, "candidate_memories"),
+    candidate_skills: newestPriorityExactValues(checkpoints, "candidate_skills"),
+    learnings: newestPriorityLearnings(checkpoints)
   };
 }
 

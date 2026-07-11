@@ -4,12 +4,17 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 import { readEvents } from "../../src/core/store.js";
+import { createEngine } from "../../src/core/engine.js";
+import { withInitializedTempStore } from "../helpers/temp-store.js";
 
 const exec = promisify(execFile);
 const repoRoot = process.cwd();
-const tsxLoader = join(repoRoot, "node_modules/tsx/dist/loader.mjs");
+const require = createRequire(import.meta.url);
+const tsxCliPath = require.resolve("tsx/cli");
+const tsxLoader = require.resolve("tsx/esm");
 const cliPath = join(repoRoot, "src/cli.ts");
 
 async function execInTty(command: string, args: string[], options: { cwd?: string; env?: NodeJS.ProcessEnv } = {}): Promise<{ stdout: string; stderr: string }> {
@@ -1064,12 +1069,26 @@ describe("moryn CLI", () => {
     expect(parsed.selection_sources).toEqual(SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES);
     expect(parsed.contracts.setup.store_init.config_file).toBe("artifacts.config");
     expect(parsed.contracts.core.boot.skill).toBe("skills_by_id.<record_id>");
+    expect(parsed.contracts.core.boot.active_checkpoint).toBe("active_checkpoint");
+    expect(parsed.contracts.core.boot.checkpoint_recovery_pack).toBe("checkpoint_recovery_pack");
     expect(parsed.contracts.core.dogfood_report.finding).toBe("findings_by_id.<finding_id>");
     expect(parsed.contracts.core.memory_lifecycle.assessment).toBe("assessments_by_record_id.<record_id>");
     expect(parsed.contracts.core.recall_eval.case).toBe("cases_by_id.<case_id>");
     expect(parsed.contracts.sync.result.pushed).toBe("pushed");
     expect(parsed.contracts.lifecycle.guide.guardrail).toBe("guardrails_by_id.<guardrail_id>");
     expect(parsed.contracts.recovery.next_action.error_next_action).toBe("error.next_action");
+  });
+
+  it("passes --session-id through CLI boot without changing boot without the option", async () => {
+    await withInitializedTempStore(async (store) => {
+      const engine = createEngine({ storePath: store });
+      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "cli-session", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: { session_id: "cli-session", checkpoint_id: "cli-checkpoint", current_task: "CLI recovery", progress: ["ready"], decisions: [], changed_facts: [], blockers: [], next_steps: [], files: [], candidate_memories: [], candidate_skills: [], learnings: [] } });
+
+      const without = JSON.parse((await exec(process.execPath, [tsxCliPath, cliPath, "--store", store, "boot", "--project-id", "moryn"])).stdout);
+      expect(without).not.toHaveProperty("checkpoint_recovery_pack");
+      const withSession = JSON.parse((await exec(process.execPath, [tsxCliPath, cliPath, "--store", store, "boot", "--project-id", "moryn", "--session-id", "cli-session"])).stdout);
+      expect(withSession.checkpoint_recovery_pack).toMatchObject({ available: true, latest_checkpoint_id: "cli-checkpoint" });
+    });
   });
 
   it("returns operation contracts from the CLI", async () => {

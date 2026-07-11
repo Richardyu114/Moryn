@@ -67,6 +67,8 @@ describe("package smoke test", () => {
     expect(WRITE_SELECTION_SOURCES.record_id).toBe("record.id");
     expect(RECALL_SELECTION_SOURCES.result).toBe("results_by_id.<record_id>");
     expect(BOOT_SELECTION_SOURCES.skill).toBe("skills_by_id.<record_id>");
+    expect(BOOT_SELECTION_SOURCES.active_checkpoint).toBe("active_checkpoint");
+    expect(BOOT_SELECTION_SOURCES.checkpoint_recovery_pack).toBe("checkpoint_recovery_pack");
     expect(REFRESH_SELECTION_SOURCES.next_action).toBe("changes_by_record_id.<record_id>.next_action");
     expect(LIST_RECENT_SELECTION_SOURCES.record).toBe("records_by_id.<record_id>");
     expect(PROJECT_LIST_SELECTION_SOURCES.project).toBe("projects_by_id.<project_id>");
@@ -176,6 +178,11 @@ describe("package smoke test", () => {
     expect(SELECTION_SOURCE_CONTRACTS.lifecycle.handoff_pack).toBe(HANDOFF_PACK_SELECTION_SOURCES);
     expect(SELECTION_SOURCE_CONTRACTS.lifecycle.handoff_quality_gate).toBe(HANDOFF_QUALITY_GATE_SELECTION_SOURCES);
     expect(SELECTION_SOURCE_CONTRACTS.recovery.next_action).toBe(NEXT_ACTION_SELECTION_SOURCES);
+  });
+
+  it("documents checkpoint recovery session input in the boot operation contract", () => {
+    const boot = getOperationContract("boot");
+    expect(boot?.operation.arguments_by_name.agent_session_id).toMatchObject({ cli: { flag: "--session-id" }, mcp: { argument: "agent_session_id" } });
   });
 
   it("exports a self-describing selection source contract response", () => {

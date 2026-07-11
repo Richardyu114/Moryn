@@ -149,6 +149,22 @@ describe("buildCheckpointRecoveryPack", () => {
     expect(included.source_record_ids).toEqual(["private-2", "private-3", "private-4", "private-5", "private-6"]);
     expect(included.checkpoint_count).toBe(5);
   });
+
+  it("prioritizes newest unique values within caps while displaying selected values chronologically", () => {
+    const learning = (value: number) => ({ question: `Q${value}`, conclusion: `A${value}`, evidence_type: "source_code" as const, scope: "project" as const, confidence: 0.8, recommended_kind: "memory" as const, recommended_type: "fact", related_record_ids: [] });
+    const older = checkpointRecord({ id: "older", checkpoint_id: "older", occurred_at: "2026-07-11T00:00:00.000Z", delta: { progress: Array.from({ length: 10 }, (_, index) => `old-${index}`), learnings: Array.from({ length: 10 }, (_, index) => learning(index)) } });
+    const latest = checkpointRecord({ id: "latest", checkpoint_id: "latest", occurred_at: "2026-07-11T00:01:00.000Z", delta: { progress: ["latest-a", "old-9", "latest-b"], learnings: [learning(10), learning(9), learning(11)] } });
+
+    const pack = buildCheckpointRecoveryPack([latest, older], { project_id: "project-a", session_id: "session-1" });
+
+    expect(pack.progress).toEqual(["old-0", "old-1", "old-2", "old-3", "old-4", "old-5", "old-6", "old-9", "latest-a", "latest-b"]);
+    expect(pack.progress).toHaveLength(10);
+    expect(pack.learnings?.map((item) => item.question)).toEqual(["Q0", "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q9", "Q10", "Q11"]);
+  });
+
+  it.each([0, -1, 1.5, 6, Number.NaN])("rejects invalid checkpoint recovery limit %s", (limit) => {
+    expect(() => buildCheckpointRecoveryPack([], { project_id: "project-a", session_id: "session-1", limit })).toThrow("Invalid argument: limit must be an integer between 1 and 5");
+  });
 });
 
 describe("engine.checkpoint", () => {

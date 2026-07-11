@@ -2415,6 +2415,7 @@ program.command("boot")
   .option("--project-id <id>")
   .option("--project <path>")
   .option("--current-task <task>")
+  .option("--session-id <id>")
   .option("--include-private", "Include private-tagged records")
   .action(async (options) => {
     const engine = createCliEngine();
@@ -2423,6 +2424,7 @@ program.command("boot")
       project_id: project.project_id,
       default_skills: project.default_skills,
       current_task: parseNonEmptyCliString(options.currentTask, "--current-task", { operation: "boot", argument: "current_task" }),
+      agent_session_id: parseNonEmptyCliString(options.sessionId, "--session-id", { operation: "boot", argument: "agent_session_id" }),
       include_private: options.includePrivate
     }));
   });

@@ -4036,7 +4036,9 @@ describe("core engine", () => {
         warning: "project.warnings_by_id.<record_id>",
         skill: "skills_by_id.<record_id>",
         task_relevant: "task_relevant_by_id.<record_id>",
-        recent_change: "recent_changes_by_id.<record_id>"
+        recent_change: "recent_changes_by_id.<record_id>",
+        active_checkpoint: "active_checkpoint",
+        checkpoint_recovery_pack: "checkpoint_recovery_pack"
       });
       expect(boot.profile.soul.map((record) => record.content.text)).toEqual(["Prefer concise engineering updates."]);
       expect(boot.project.important_decisions.map((record) => record.content.text)).toEqual(["Use append-only events."]);

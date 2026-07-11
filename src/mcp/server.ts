@@ -181,6 +181,15 @@ function syncRemoteObjectPathAliases(): McpObjectPathAlias[] {
 }
 
 const explicitMcpAliasesByTool: Record<string, McpExplicitAlias[]> = {
+  boot: [
+    {
+      alias: "session_id",
+      target: "agent_session_id",
+      contractArgument: "agent_session_id",
+      conflictKind: "multiple_aliases",
+      normalize: (value) => value
+    }
+  ],
   recall: [
     recallRepeatableAlias("record_id", "record_ids"),
     recallRepeatableAlias("recordId", "record_ids"),
@@ -1398,6 +1407,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_path: coreValidatedStringSchema.optional(),
         sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
+        agent_session_id: coreValidatedStringSchema.optional(),
         default_skills: z.unknown().optional(),
         include_private: coreValidatedBooleanSchema.optional(),
         ...objectPathAliasInputSchema("boot"),
@@ -1410,6 +1420,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_id: project.project_id,
         default_skills: normalizedInput.default_skills ?? project.default_skills,
         current_task: normalizedInput.current_task as string | undefined,
+        agent_session_id: normalizedInput.agent_session_id,
         sync_remote: normalizedInput.sync_remote,
         include_private: normalizedInput.include_private
       });

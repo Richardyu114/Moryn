@@ -1429,6 +1429,12 @@ export const OPERATION_CONTRACTS = [
         cli: { flag: "--current-task" },
         mcp: { argument: "current_task" }
       },
+      agent_session_id: {
+        type: "string",
+        required: false,
+        cli: { flag: "--session-id" },
+        mcp: { argument: "agent_session_id" }
+      },
       default_skills: {
         type: "string[]",
         required: false,

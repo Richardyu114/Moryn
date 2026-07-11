@@ -9,6 +9,8 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { describe, expect, it } from "vitest";
 import { readEvents } from "../../src/core/store.js";
 import { initializeProjectConfig } from "../../src/core/project.js";
+import { createEngine } from "../../src/core/engine.js";
+import { withInitializedTempStore } from "../helpers/temp-store.js";
 
 const exec = promisify(execFile);
 const repoRoot = process.cwd();
@@ -1002,6 +1004,16 @@ async function expectInvalidMcpArguments(action: () => Promise<Awaited<ReturnTyp
 }
 
 describe("MCP stdio server", () => {
+  it.each(["agent_session_id", "session_id", "agentSessionId"])("normalizes boot session alias %s", async (alias) => {
+    await withInitializedTempStore(async (store) => {
+      const engine = createEngine({ storePath: store });
+      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "mcp-session", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: { session_id: "mcp-session", checkpoint_id: "mcp-checkpoint", current_task: "MCP recovery", progress: ["ready"], decisions: [], changed_facts: [], blockers: [], next_steps: [], files: [], candidate_memories: [], candidate_skills: [], learnings: [] } });
+      await withMcpClient(store, async (client) => {
+        const boot = parseTextContent(await client.callTool({ name: "boot", arguments: { project_id: "moryn", [alias]: "mcp-session" } })) as { checkpoint_recovery_pack?: { latest_checkpoint_id?: string } };
+        expect(boot.checkpoint_recovery_pack?.latest_checkpoint_id).toBe("mcp-checkpoint");
+      });
+    });
+  });
   it("returns selection source contracts through MCP", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-contracts-"));
     try {
