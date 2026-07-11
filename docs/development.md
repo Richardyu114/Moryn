@@ -31,6 +31,9 @@ and optional private Git remote validation.
 `npm run smoke:dogfood-demo` validates the v0.2 default path on a temporary
 local store: setup, context pack, low-risk autocapture, review-routed handoff,
 and dashboard snapshot evidence.
+`npm run smoke:agent-lifecycle` also validates the v0.3 checkpoint path on a
+temporary store: authored local checkpoint, idempotent replay, bounded boot
+recovery by session id, and the existing cross-store Git handoff flow.
 
 To validate with a real remote, use a dedicated test repository:
 

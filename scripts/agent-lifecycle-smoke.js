@@ -145,6 +145,56 @@ async function main() {
       throw new Error("Status finish_session action must require summary");
     }
 
+    const checkpointArgs = [
+      ...argsPrefix,
+      "--store",
+      storeCodex,
+      "agent",
+      "checkpoint",
+      "--project",
+      project,
+      "--agent",
+      "codex",
+      "--session-id",
+      "codex-smoke",
+      "--device-id",
+      "device-codex-smoke",
+      "--occurred-at",
+      "2026-07-11T10:30:00.000Z",
+      "--checkpoint-id",
+      "compact-smoke-1",
+      "--current-task",
+      "verify checkpoint lifecycle smoke",
+      "--progress",
+      "Checkpoint smoke persisted",
+      "--next-step",
+      "Resume checkpoint smoke"
+    ];
+    const checkpoint = await runJson(command, checkpointArgs);
+    const checkpointReplay = await runJson(command, checkpointArgs);
+    if (checkpoint.idempotent_replay !== false || checkpointReplay.idempotent_replay !== true) {
+      throw new Error("Checkpoint smoke did not preserve idempotent replay semantics");
+    }
+    if (checkpoint.record.id !== checkpointReplay.record.id) {
+      throw new Error("Checkpoint replay returned a different record id");
+    }
+    const checkpointBoot = await runJson(command, [
+      ...argsPrefix,
+      "--store",
+      storeCodex,
+      "boot",
+      "--project",
+      project,
+      "--session-id",
+      "codex-smoke"
+    ]);
+    if (checkpointBoot.checkpoint_recovery_pack?.latest_checkpoint_id !== "compact-smoke-1") {
+      throw new Error("Checkpoint boot did not return the latest checkpoint");
+    }
+    if (!checkpointBoot.checkpoint_recovery_pack?.next_steps?.includes("Resume checkpoint smoke")) {
+      throw new Error("Checkpoint boot did not return the checkpoint next step");
+    }
+
     const geminiStart = await runJson(command, [
       ...argsPrefix,
       "--store",
@@ -223,6 +273,12 @@ async function main() {
     log(`agent lifecycle smoke passed (${options.remote ? "remote" : "local"} Git remote)`);
     log(statusSummary);
     log(finishSummary);
+    log(JSON.stringify({
+      checkpoint_record_id: checkpoint.record.id,
+      checkpoint_idempotent_replay: checkpointReplay.idempotent_replay,
+      resume_checkpoint_id: checkpointBoot.checkpoint_recovery_pack.latest_checkpoint_id,
+      resume_next_steps: checkpointBoot.checkpoint_recovery_pack.next_steps
+    }));
   } finally {
     if (options.keepTemp) {
       log(`kept smoke directory: ${root}`);
