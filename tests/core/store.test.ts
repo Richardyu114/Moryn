@@ -6,6 +6,16 @@ import { appendEvent, appendEventIfAbsent, readEvents } from "../../src/core/sto
 import { withInitializedTempStore, withTempStore } from "../helpers/temp-store.js";
 
 describe("event store", () => {
+  function checkpointStoreEvent(eventId: string) {
+    return {
+      event_id: eventId, op: "upsert_record" as const, created_at: "2026-05-27T00:00:00.000Z",
+      source: { client: "test", device_id: "device_a" },
+      record: { id: eventId.replace("evt_", "rec_"), kind: "session_summary" as const, type: "checkpoint", scope: "project" as const,
+        project_id: "project-a", tags: [], content: { text: "complete", format: "json" as const }, state: "candidate" as const,
+        confidence: 0.5, priority: "normal" as const, visibility: "active" as const, created_at: "2026-05-27T00:00:00.000Z",
+        updated_at: "2026-05-27T00:00:00.000Z", source: { client: "test", device_id: "device_a" } }
+    };
+  }
   it("atomically appends a global event once and returns the persisted event to losers", async () => {
     await withInitializedTempStore(async (storePath) => {
       const event = {
@@ -92,6 +102,74 @@ describe("event store", () => {
       };
 
       await expect(appendEventIfAbsent(storePath, event)).rejects.toThrow("Corrupt idempotent event: evt_checkpoint_corrupt");
+    });
+  });
+
+  it("reports durable publication after syncing the final directory", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let directorySynced = false;
+      const event = checkpointStoreEvent("evt_checkpoint_durable");
+      const result = await appendEventIfAbsent(storePath, event, {
+        fs: {
+          open: async (path, flags) => {
+            if (flags === "r" && path.endsWith(join("events", "idempotent"))) {
+              return { sync: async () => { directorySynced = true; }, close: async () => undefined };
+            }
+            const { open } = await import("node:fs/promises");
+            return open(path, flags);
+          }
+        }
+      });
+
+      expect(directorySynced).toBe(true);
+      expect(result).toMatchObject({ created: true, durable: true });
+    });
+  });
+
+  it("preserves a published result when temp cleanup fails", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const result = await appendEventIfAbsent(storePath, checkpointStoreEvent("evt_checkpoint_cleanup"), {
+        fs: { unlink: async () => { const error = new Error("cleanup failed") as NodeJS.ErrnoException; error.code = "EIO"; throw error; } }
+      });
+
+      expect(result).toMatchObject({
+        created: true,
+        durable: true,
+        warnings: [{ code: "IDEMPOTENT_EVENT_TEMP_CLEANUP_FAILED", reason: "cleanup failed" }]
+      });
+      expect(await readEvents(storePath)).toHaveLength(1);
+    });
+  });
+
+  it.each(["EPERM", "EACCES", "ENOTSUP", "EXDEV"])("rejects unsupported atomic publish with %s", async (code) => {
+    await withInitializedTempStore(async (storePath) => {
+      const error = new Error("link unsupported") as NodeJS.ErrnoException;
+      error.code = code;
+      await expect(appendEventIfAbsent(storePath, checkpointStoreEvent(`evt_checkpoint_${code.toLowerCase()}`), {
+        fs: { link: async () => { throw error; } }
+      })).rejects.toThrow(`Atomic idempotent event publish unsupported: ${code}`);
+    });
+  });
+
+  it("reports non-durable publication when final directory sync fails", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const result = await appendEventIfAbsent(storePath, checkpointStoreEvent("evt_checkpoint_dirsync"), {
+        fs: {
+          open: async (path, flags) => {
+            if (flags === "r" && path.endsWith(join("events", "idempotent"))) {
+              return { sync: async () => { throw new Error("directory sync failed"); }, close: async () => undefined };
+            }
+            const { open } = await import("node:fs/promises");
+            return open(path, flags);
+          }
+        }
+      });
+
+      expect(result).toMatchObject({
+        created: true,
+        durable: false,
+        warnings: [{ code: "IDEMPOTENT_EVENT_DIRECTORY_SYNC_FAILED", reason: "directory sync failed" }]
+      });
     });
   });
   async function expectInvalidStorePath(action: () => Promise<unknown>, value: unknown): Promise<void> {

@@ -79,10 +79,10 @@ describe("engine.checkpoint", () => {
       });
       expect(first.record.content.text).toContain("Persist checkpoints");
       expect(first.record.tags).toEqual([
-        "custom",
         "checkpoint",
+        "checkpoint:checkpoint-1",
+        "custom",
         "session:session-1",
-        "checkpoint:checkpoint-1"
       ]);
       expect(first.recovery_pack).toMatchObject({
         version: 1,
@@ -96,6 +96,25 @@ describe("engine.checkpoint", () => {
         checkpoint: first.record.content.checkpoint
       });
     });
+  });
+
+  it("canonicalizes tag order and duplicates for replay and deterministic bytes", async () => {
+    const outputs: string[] = [];
+    const tagVariants = [[" zeta ", "alpha", "alpha", ""], ["alpha", "zeta"]];
+    for (const tags of tagVariants) {
+      await withInitializedTempStore(async (storePath) => {
+        const engine = createTestEngine(storePath);
+        const input = { project_id: "project-a", ...authored, delta: baseDelta, tags };
+        const first = await engine.checkpoint(input);
+        const replay = await engine.checkpoint({ ...input, tags: [...tags].reverse() });
+        const identity = checkpointIdentity(normalizeCheckpointInput(input));
+        outputs.push(await readFile(join(storePath, "events", "idempotent", `${identity.event_id}.json`), "utf8"));
+
+        expect(first.record.tags).toEqual(["alpha", "checkpoint", "checkpoint:checkpoint-1", "session:session-1", "zeta"]);
+        expect(replay.idempotent_replay).toBe(true);
+      });
+    }
+    expect(outputs[0]).toBe(outputs[1]);
   });
 
   it("does not confuse distinct idempotency keys", async () => {
@@ -392,8 +411,8 @@ describe("engine.checkpoint", () => {
       const first = await engine.checkpoint(input);
       const replay = await engine.checkpoint(input);
 
-      expect(first).toMatchObject({ committed: true, derived_views_refreshed: false, warning: { code: "DERIVED_VIEW_REBUILD_FAILED" } });
-      expect(replay).toMatchObject({ committed: true, idempotent_replay: true, derived_views_refreshed: false, warning: { code: "DERIVED_VIEW_REBUILD_FAILED" } });
+      expect(first).toMatchObject({ committed: true, derived_views_refreshed: false, warnings: [{ code: "DERIVED_VIEW_REBUILD_FAILED" }] });
+      expect(replay).toMatchObject({ committed: true, idempotent_replay: true, derived_views_refreshed: false, warnings: [{ code: "DERIVED_VIEW_REBUILD_FAILED" }] });
       expect(replay.record.id).toBe(first.record.id);
       expect(await readEvents(storePath)).toHaveLength(1);
     });

@@ -28,8 +28,9 @@ export interface CheckpointResult {
   record: MorynRecord;
   idempotent_replay: boolean;
   committed: true;
+  durable: boolean;
   derived_views_refreshed: boolean;
-  warning?: { code: "DERIVED_VIEW_REBUILD_FAILED"; reason: string };
+  warnings?: Array<{ code: "DERIVED_VIEW_REBUILD_FAILED" | "IDEMPOTENT_EVENT_DIRECTORY_SYNC_FAILED" | "IDEMPOTENT_EVENT_TEMP_CLEANUP_FAILED"; reason: string }>;
   recovery_pack: RecoveryPack;
 }
 
@@ -113,6 +114,7 @@ export function normalizeCheckpointInput(input: CheckpointInput): NormalizedChec
   for (const tag of ["checkpoint", `session:${delta.session_id}`, `checkpoint:${delta.checkpoint_id}`]) {
     if (!tags.includes(tag)) tags.push(tag);
   }
+  tags.sort((left, right) => left.localeCompare(right));
   return { project_id: projectId, source, occurred_at: occurredAt, delta, tags, include_private: input.include_private === true };
 }
 

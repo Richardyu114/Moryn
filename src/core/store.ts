@@ -113,9 +113,27 @@ export async function appendEvent(storePath: string, event: MorynEvent): Promise
 
 export interface AppendEventIfAbsentOptions {
   before_publish?: (tempPath: string, finalPath: string) => Promise<void>;
+  fs?: Partial<{
+    open: typeof open;
+    link: typeof link;
+    unlink: typeof unlink;
+  }>;
 }
 
-export async function appendEventIfAbsent(storePath: string, event: MorynEvent, options: AppendEventIfAbsentOptions = {}): Promise<{ created: boolean; event: MorynEvent; path: string }> {
+export interface AppendEventIfAbsentWarning {
+  code: "IDEMPOTENT_EVENT_DIRECTORY_SYNC_FAILED" | "IDEMPOTENT_EVENT_TEMP_CLEANUP_FAILED";
+  reason: string;
+}
+
+export interface AppendEventIfAbsentResult {
+  created: boolean;
+  event: MorynEvent;
+  path: string;
+  durable: boolean;
+  warnings?: AppendEventIfAbsentWarning[];
+}
+
+export async function appendEventIfAbsent(storePath: string, event: MorynEvent, options: AppendEventIfAbsentOptions = {}): Promise<AppendEventIfAbsentResult> {
   await ensureStoreInitialized(storePath);
   const config = await readStoreConfig(storePath);
   const parsed = parseEvent(withDefaultDeviceId(event, config.device_id));
@@ -125,8 +143,13 @@ export async function appendEventIfAbsent(storePath: string, event: MorynEvent, 
   await mkdir(dirname(path), { recursive: true });
   await mkdir(tempDir, { recursive: true });
   const tempPath = join(tempDir, `${parsed.event_id}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  const fsOpen = options.fs?.open ?? open;
+  const fsLink = options.fs?.link ?? link;
+  const fsUnlink = options.fs?.unlink ?? unlink;
+  let result: AppendEventIfAbsentResult | undefined;
+  let operationError: unknown;
   try {
-    const handle = await open(tempPath, "wx");
+    const handle = await fsOpen(tempPath, "wx");
     try {
       await handle.writeFile(`${JSON.stringify(parsed, null, 2)}\n`, "utf8");
       await handle.sync();
@@ -135,23 +158,58 @@ export async function appendEventIfAbsent(storePath: string, event: MorynEvent, 
     }
     await options.before_publish?.(tempPath, path);
     try {
-      await link(tempPath, path);
-      return { created: true, event: parsed, path };
+      await fsLink(tempPath, path);
+      let durable = true;
+      const warnings: AppendEventIfAbsentWarning[] = [];
+      let directoryHandle;
+      try {
+        directoryHandle = await fsOpen(dirname(path), "r");
+        await directoryHandle.sync();
+      } catch (error) {
+        const code = error instanceof Error && "code" in error ? error.code : undefined;
+        // Some platforms do not support directory fsync; these codes mean link publication remains the strongest available guarantee.
+        if (code !== "EINVAL" && code !== "ENOTSUP") {
+          durable = false;
+          warnings.push({ code: "IDEMPOTENT_EVENT_DIRECTORY_SYNC_FAILED", reason: error instanceof Error ? error.message : String(error) });
+        }
+      } finally {
+        await directoryHandle?.close();
+      }
+      result = { created: true, event: parsed, path, durable, ...(warnings.length ? { warnings } : {}) };
     } catch (error) {
+      const code = error instanceof Error && "code" in error ? String(error.code) : undefined;
+      if (code && ["EPERM", "EACCES", "ENOTSUP", "EXDEV"].includes(code)) {
+        throw new Error(`Atomic idempotent event publish unsupported: ${code}`);
+      }
       if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
       try {
-        return { created: false, event: parseEvent(JSON.parse(await readFile(path, "utf8"))), path };
+        result = { created: false, event: parseEvent(JSON.parse(await readFile(path, "utf8"))), path, durable: true };
       } catch {
         throw new Error(`Corrupt idempotent event: ${parsed.event_id}`);
       }
     }
   } catch (error) {
-    throw error;
+    operationError = error;
   } finally {
-    await unlink(tempPath).catch((error) => {
-      if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
-    });
+    try {
+      await fsUnlink(tempPath);
+    } catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === "ENOENT") && result) {
+        result = {
+          ...result,
+          warnings: [
+            ...(result.warnings ?? []),
+            { code: "IDEMPOTENT_EVENT_TEMP_CLEANUP_FAILED", reason: error instanceof Error ? error.message : String(error) }
+          ]
+        };
+      } else if (!(error instanceof Error && "code" in error && error.code === "ENOENT") && !operationError) {
+        operationError = error;
+      }
+    }
   }
+  if (operationError) throw operationError;
+  if (!result) throw new Error(`Idempotent event append failed: ${parsed.event_id}`);
+  return result;
 }
 
 async function walkJsonFiles(dir: string): Promise<string[]> {
