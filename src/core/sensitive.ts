@@ -17,6 +17,12 @@ export interface SensitiveCheckResult {
   reason?: string;
 }
 
+const PRIVATE_TAGS = new Set(["private", "secret", "sensitive"]);
+
+export function isPrivateTags(tags: readonly string[]): boolean {
+  return tags.some((tag) => PRIVATE_TAGS.has(tag.trim().toLowerCase()));
+}
+
 function hasLargeEnvBlock(text: string): boolean {
   const envLines = text.split(/\r?\n/).filter((line) => ENV_ASSIGNMENT_PATTERN.test(line));
   return envLines.length >= 5;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createEngine } from "../../src/core/engine.js";
-import { readEvents } from "../../src/core/store.js";
+import { recoveryPack } from "../../src/core/checkpoint.js";
+import { appendEvent, readEvents } from "../../src/core/store.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
 const baseDelta = {
@@ -152,6 +153,125 @@ describe("engine.checkpoint", () => {
       expect([first.idempotent_replay, second.idempotent_replay].sort()).toEqual([false, true]);
       expect(first.record.id).toBe(second.record.id);
       expect(await readEvents(storePath)).toHaveLength(1);
+    });
+  });
+
+  it("serializes duplicate calls across engine instances", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const firstEngine = createTestEngine(storePath);
+      const secondEngine = createTestEngine(storePath);
+      const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1" }, delta: baseDelta };
+
+      const [first, second] = await Promise.all([firstEngine.checkpoint(input), secondEngine.checkpoint(input)]);
+
+      expect([first.idempotent_replay, second.idempotent_replay].sort()).toEqual([false, true]);
+      expect(first.record.id).toBe(second.record.id);
+      expect(await readEvents(storePath)).toHaveLength(1);
+    });
+  });
+
+  it.each(["private", "PRIVATE", "Secret", "sEnSiTiVe"])("hides %s checkpoint recovery by default", async (privateTag) => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createTestEngine(storePath);
+      const result = await engine.checkpoint({
+        project_id: "project-a",
+        source: { client: "codex", session_id: "session-1" },
+        delta: baseDelta,
+        tags: [privateTag]
+      });
+
+      expect(result.recovery_pack.available).toBe(false);
+      expect(result.recovery_pack).not.toHaveProperty("checkpoint");
+    });
+  });
+
+  it("versions checkpoint content and ignores malformed manual checkpoint records", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      await appendEvent(storePath, {
+        event_id: "evt_manual",
+        op: "upsert_record",
+        created_at: "2026-07-10T00:00:00.000Z",
+        source: { client: "codex", session_id: "session-1" },
+        record: {
+          id: "rec_manual",
+          kind: "session_summary",
+          type: "checkpoint",
+          scope: "project",
+          project_id: "project-a",
+          tags: ["checkpoint", "session:session-1", "checkpoint:checkpoint-1"],
+          content: { format: "json", text: "manual", checkpoint_version: 1, checkpoint: { session_id: "session-1", checkpoint_id: "checkpoint-1" } },
+          state: "candidate",
+          confidence: 0.5,
+          priority: "normal",
+          visibility: "active",
+          created_at: "2026-07-10T00:00:00.000Z",
+          updated_at: "2026-07-10T00:00:00.000Z",
+          source: { client: "codex", session_id: "session-1" },
+          provenance: { method: "agent-proposed" }
+        }
+      });
+      const engine = createTestEngine(storePath);
+
+      const result = await engine.checkpoint({ project_id: "project-a", source: { client: "codex", session_id: "session-1" }, delta: baseDelta });
+
+      expect(result.idempotent_replay).toBe(false);
+      expect(result.record.id).not.toBe("rec_manual");
+      expect(result.record.content.checkpoint_version).toBe(1);
+      expect(result.recovery_pack.available).toBe(true);
+      expect(await readEvents(storePath)).toHaveLength(2);
+    });
+  });
+
+  it("returns unavailable recovery for malformed checkpoint content", () => {
+    const pack = recoveryPack({
+      id: "rec_bad",
+      kind: "session_summary",
+      type: "checkpoint",
+      scope: "project",
+      project_id: "project-a",
+      tags: [],
+      content: { format: "json", checkpoint_version: 1, checkpoint: { session_id: "session-1" } },
+      state: "candidate",
+      confidence: 0.5,
+      priority: "normal",
+      visibility: "active",
+      created_at: "2026-07-11T00:00:00.000Z",
+      updated_at: "2026-07-11T00:00:00.000Z",
+      source: { client: "codex", session_id: "session-1" },
+      provenance: { method: "agent-proposed" }
+    }, true);
+
+    expect(pack).toMatchObject({ available: false, session_id: "session-1", checkpoint_id: "", record_ids: ["rec_bad"] });
+    expect(pack).not.toHaveProperty("checkpoint");
+  });
+
+  it("returns committed checkpoint when derived view rebuild fails", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-07-11T00:00:00.000Z",
+        id: (() => { let sequence = 0; return (prefix: string) => `${prefix}_${++sequence}`; })(),
+        rebuild: async () => { throw new Error("rebuild failed"); }
+      });
+      const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1" }, delta: baseDelta };
+
+      const first = await engine.checkpoint(input);
+      const replay = await engine.checkpoint(input);
+
+      expect(first).toMatchObject({ committed: true, derived_views_refreshed: false, warning: { code: "DERIVED_VIEW_REBUILD_FAILED" } });
+      expect(replay).toMatchObject({ committed: true, idempotent_replay: true, derived_views_refreshed: false, warning: { code: "DERIVED_VIEW_REBUILD_FAILED" } });
+      expect(replay.record.id).toBe(first.record.id);
+      expect(await readEvents(storePath)).toHaveLength(1);
+    });
+  });
+
+  it("rejects sensitive checkpoint content without appending an event", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createTestEngine(storePath);
+      const delta = { ...baseDelta, current_task: "Use api_key=abcdefghijklmnop" };
+
+      await expect(engine.checkpoint({ project_id: "project-a", source: { client: "codex", session_id: "session-1" }, delta })).rejects.toThrow(/Sensitive content detected/i);
+      expect(await readEvents(storePath)).toHaveLength(0);
     });
   });
 

@@ -1,4 +1,5 @@
 import { validateContextDelta, type ContextDelta, type ContextDeltaInput } from "./context-delta.js";
+import { isPrivateTags } from "./sensitive.js";
 import type { MorynRecord, RecordSource } from "./types.js";
 
 export interface CheckpointInput {
@@ -24,6 +25,9 @@ export interface RecoveryPack {
 export interface CheckpointResult {
   record: MorynRecord;
   idempotent_replay: boolean;
+  committed: true;
+  derived_views_refreshed: boolean;
+  warning?: { code: "DERIVED_VIEW_REBUILD_FAILED"; reason: string };
   recovery_pack: RecoveryPack;
 }
 
@@ -67,7 +71,7 @@ export function normalizeCheckpointInput(input: CheckpointInput): NormalizedChec
 }
 
 export function matchesCheckpoint(record: MorynRecord, input: NormalizedCheckpointInput): boolean {
-  const checkpoint = record.content.checkpoint as ContextDelta | undefined;
+  const checkpoint = parseCheckpointContent(record.content);
   return record.visibility === "active"
     && record.state !== "archived"
     && record.state !== "quarantined"
@@ -81,23 +85,32 @@ export function matchesCheckpoint(record: MorynRecord, input: NormalizedCheckpoi
     && checkpoint.session_id === input.delta.session_id;
 }
 
+export function parseCheckpointContent(content: MorynRecord["content"]): ContextDelta | undefined {
+  if (content.checkpoint_version !== 1) return undefined;
+  try {
+    return validateContextDelta(content.checkpoint);
+  } catch {
+    return undefined;
+  }
+}
+
 export function checkpointSummary(delta: ContextDelta): string {
   const parts = [delta.current_task ? `Task: ${delta.current_task}` : undefined, delta.progress.length ? `Progress: ${delta.progress.join("; ")}` : undefined];
   return parts.filter(Boolean).join(" | ");
 }
 
 export function recoveryPack(record: MorynRecord, includePrivate: boolean): RecoveryPack {
-  const checkpoint = record.content.checkpoint as ContextDelta;
-  const available = includePrivate || !record.tags.includes("private");
+  const checkpoint = parseCheckpointContent(record.content);
+  const available = Boolean(checkpoint) && (includePrivate || !isPrivateTags(record.tags));
   return {
     version: 1,
     available,
     bounded: true,
     project_id: record.project_id as string,
-    session_id: checkpoint.session_id,
-    checkpoint_id: checkpoint.checkpoint_id,
+    session_id: checkpoint?.session_id ?? record.source.session_id ?? "",
+    checkpoint_id: checkpoint?.checkpoint_id ?? "",
     source: record.source,
     record_ids: [record.id],
-    ...(available ? { checkpoint } : {})
+    ...(available && checkpoint ? { checkpoint } : {})
   };
 }

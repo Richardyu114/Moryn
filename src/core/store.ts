@@ -1,4 +1,4 @@
-import { access, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { MorynEvent } from "./types.js";
 import { parseEvent } from "./schema.js";
@@ -43,6 +43,55 @@ class EventPathComponentArgumentError extends Error {
 function assertSafeEventPathComponent(value: string, name: string): void {
   if (value === "." || value === ".." || /[/\\\0]/.test(value)) {
     throw new EventPathComponentArgumentError(name, value);
+  }
+}
+
+export interface StoreLockOptions {
+  timeout_ms?: number;
+  poll_ms?: number;
+  stale_ms?: number;
+}
+
+function sleep(durationMs: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, durationMs));
+}
+
+export async function withStoreLock<T>(storePath: string, lockName: string, fn: () => Promise<T>, options: StoreLockOptions = {}): Promise<T> {
+  await ensureStoreInitialized(storePath);
+  assertSafeEventPathComponent(lockName, "lock_name");
+  const timeoutMs = options.timeout_ms ?? 5_000;
+  const pollMs = options.poll_ms ?? 20;
+  const staleMs = options.stale_ms ?? 30_000;
+  const lockPath = join(storePath, "state", "locks", lockName);
+  const startedAt = Date.now();
+  await mkdir(dirname(lockPath), { recursive: true });
+
+  while (true) {
+    try {
+      await mkdir(lockPath);
+      await writeFile(join(lockPath, "owner.json"), JSON.stringify({ pid: process.pid, acquired_at: new Date().toISOString() }), "utf8");
+      break;
+    } catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
+      try {
+        const lockStat = await stat(lockPath);
+        if (Date.now() - lockStat.mtimeMs > staleMs) {
+          await rm(lockPath, { recursive: true, force: true });
+          continue;
+        }
+      } catch (statError) {
+        if (statError instanceof Error && "code" in statError && statError.code === "ENOENT") continue;
+        throw statError;
+      }
+      if (Date.now() - startedAt >= timeoutMs) throw new Error(`Store lock timeout: ${lockName}`);
+      await sleep(pollMs);
+    }
+  }
+
+  try {
+    return await fn();
+  } finally {
+    await rm(lockPath, { recursive: true, force: true });
   }
 }
 

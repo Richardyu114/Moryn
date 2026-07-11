@@ -1,11 +1,30 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { toErrorEnvelope } from "../../src/core/errors.js";
-import { appendEvent, readEvents } from "../../src/core/store.js";
+import { appendEvent, readEvents, withStoreLock } from "../../src/core/store.js";
 import { withInitializedTempStore, withTempStore } from "../helpers/temp-store.js";
 
 describe("event store", () => {
+  it("releases store locks after the protected function throws", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      await expect(withStoreLock(storePath, "checkpoint", async () => {
+        throw new Error("boom");
+      })).rejects.toThrow("boom");
+
+      await expect(withStoreLock(storePath, "checkpoint", async () => "recovered")).resolves.toBe("recovered");
+    });
+  });
+
+  it("removes an obviously stale store lock", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const lockPath = join(storePath, "state", "locks", "checkpoint");
+      await mkdir(lockPath, { recursive: true });
+      await utimes(lockPath, new Date(0), new Date(0));
+
+      await expect(withStoreLock(storePath, "checkpoint", async () => "acquired", { stale_ms: 10 })).resolves.toBe("acquired");
+    });
+  });
   async function expectInvalidStorePath(action: () => Promise<unknown>, value: unknown): Promise<void> {
     let caught: unknown;
     try {

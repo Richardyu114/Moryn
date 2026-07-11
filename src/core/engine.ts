@@ -1,8 +1,8 @@
-import { appendEvent, readEvents } from "./store.js";
+import { appendEvent, readEvents, withStoreLock } from "./store.js";
 import { rebuildDerivedViews } from "./derived.js";
 import { applyRecordPatch, replayEvents } from "./replay.js";
 import { PROVENANCE_METHODS, RECORD_KINDS, RECORD_PRIORITIES, RECORD_SCOPES, RECORD_STATES, isoDateTimeSchema, isValidPatchPath, recordKindSchema, recordPrioritySchema, recordScopeSchema, recordSourceSchema, recordStateSchema, parseRecord } from "./schema.js";
-import { detectSensitiveContent, redactSensitiveContent, sensitiveScanText } from "./sensitive.js";
+import { detectSensitiveContent, isPrivateTags, redactSensitiveContent, sensitiveScanText } from "./sensitive.js";
 import type { MorynEvent, MorynRecord, RecordKind, RecordPriority, RecordProvenance, RecordScope, RecordSource, RecordState } from "./types.js";
 import { commandForPromoteContext, InvalidRefreshCursorError, PROMOTE_CANDIDATE_WHEN, withNextActionMetadata, type MorynErrorNextAction } from "./errors.js";
 import { createId } from "./id.js";
@@ -25,6 +25,7 @@ interface EngineDeps {
   now?: () => string;
   id?: (prefix: string) => string;
   syncStatus?: () => Promise<{ behind?: number; remote_has_updates?: boolean }>;
+  rebuild?: (storePath: string) => Promise<unknown>;
 }
 
 interface WriteInput {
@@ -2268,10 +2269,8 @@ function isVisibleByDefault(record: MorynRecord): boolean {
   return record.state !== "archived" && record.state !== "quarantined";
 }
 
-const PRIVATE_RECORD_TAGS = new Set(["private", "secret", "sensitive"]);
-
 function isPrivateRecord(record: MorynRecord): boolean {
-  return record.tags.some((tag) => PRIVATE_RECORD_TAGS.has(tag.toLowerCase()));
+  return isPrivateTags(record.tags);
 }
 
 function isAllowedByPrivateBoundary(record: MorynRecord, includePrivate: boolean | undefined): boolean {
@@ -2856,7 +2855,7 @@ function semanticConflicts(records: MorynRecord[], input: {
 export function createEngine(deps: EngineDeps) {
   const now = deps.now ?? (() => new Date().toISOString());
   const id = deps.id ?? createId;
-  let checkpointQueue = Promise.resolve();
+  const checkpointRebuild = deps.rebuild ?? rebuildDerivedViews;
 
   async function currentRecords(): Promise<MorynRecord[]> {
     return [...replayEvents(await readEvents(deps.storePath)).values()];
@@ -2887,11 +2886,23 @@ export function createEngine(deps: EngineDeps) {
 
   const engine = {
     async checkpoint(input: CheckpointInput): Promise<CheckpointResult> {
-      const run = checkpointQueue.then(async () => {
-        const normalized = normalizeCheckpointInput(input);
+      const normalized = normalizeCheckpointInput(input);
+      return withStoreLock(deps.storePath, "checkpoint", async () => {
         const existing = (await currentRecords()).find((record) => matchesCheckpoint(record, normalized));
         if (existing) {
-          return { record: existing, idempotent_replay: true, recovery_pack: recoveryPack(existing, normalized.include_private) };
+          try {
+            await checkpointRebuild(deps.storePath);
+            return { record: existing, idempotent_replay: true, committed: true, derived_views_refreshed: true, recovery_pack: recoveryPack(existing, normalized.include_private) };
+          } catch (error) {
+            return {
+              record: existing,
+              idempotent_replay: true,
+              committed: true,
+              derived_views_refreshed: false,
+              warning: { code: "DERIVED_VIEW_REBUILD_FAILED", reason: error instanceof Error ? error.message : String(error) },
+              recovery_pack: recoveryPack(existing, normalized.include_private)
+            };
+          }
         }
         const config = await readStoreConfig(deps.storePath);
         const source = normalized.source.device_id ? normalized.source : { ...normalized.source, device_id: config.device_id };
@@ -2903,7 +2914,7 @@ export function createEngine(deps: EngineDeps) {
           scope: "project",
           project_id: normalized.project_id,
           tags: normalized.tags,
-          content: { format: "json", text: checkpointSummary(normalized.delta), checkpoint: normalized.delta },
+          content: { format: "json", text: checkpointSummary(normalized.delta), checkpoint_version: 1, checkpoint: normalized.delta },
           state: "candidate",
           confidence: 0.5,
           priority: "normal",
@@ -2914,11 +2925,21 @@ export function createEngine(deps: EngineDeps) {
           provenance: { method: "agent-proposed" }
         };
         const event: MorynEvent = { event_id: id("evt"), op: "upsert_record", record, created_at: createdAt, source };
-        await appendEventAndRebuild(event);
-        return { record, idempotent_replay: false, recovery_pack: recoveryPack(record, normalized.include_private) };
+        await appendEvent(deps.storePath, event);
+        try {
+          await checkpointRebuild(deps.storePath);
+          return { record, idempotent_replay: false, committed: true, derived_views_refreshed: true, recovery_pack: recoveryPack(record, normalized.include_private) };
+        } catch (error) {
+          return {
+            record,
+            idempotent_replay: false,
+            committed: true,
+            derived_views_refreshed: false,
+            warning: { code: "DERIVED_VIEW_REBUILD_FAILED", reason: error instanceof Error ? error.message : String(error) },
+            recovery_pack: recoveryPack(record, normalized.include_private)
+          };
+        }
       });
-      checkpointQueue = run.then(() => undefined, () => undefined);
-      return run;
     },
 
     async write(input: WriteInput) {
