@@ -10667,3 +10667,18 @@ describe("host hook CLI", () => {
     });
   });
 });
+
+describe("official host integration install", () => {
+  it("writes an idempotent Claude Code hook fragment on apply", async () => {
+    await withTempDir(async (store) => {
+      await withTempDir(async (project) => {
+        const args = ["--import", tsxLoader, cliPath, "--store", store, "install", "--host", "claude", "--project", project, "--apply"];
+        const first = JSON.parse((await exec("node", args)).stdout);
+        const second = JSON.parse((await exec("node", args)).stdout);
+        expect(first.integration_artifact).toMatchObject({ created: true, artifact: { path: ".claude/moryn-settings.json", merge_target: ".claude/settings.local.json" } });
+        expect(second.integration_artifact).toMatchObject({ created: false, updated: false });
+        expect(JSON.parse(await readFile(join(project, ".claude", "moryn-settings.json"), "utf8")).hooks.PreCompact).toBeDefined();
+      });
+    });
+  });
+});

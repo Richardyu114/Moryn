@@ -8,7 +8,7 @@ import type { MorynRecord, RecordSource } from "./types.js";
 export { getHostAdapter, getHostAdapters, normalizeHostId, type HostAdapter, type HostAdapterId };
 
 export type InstallPlanAction = {
-  action: "initialize_store" | "initialize_project" | "register_mcp" | "context_pack" | "capture_session";
+  action: "initialize_store" | "initialize_project" | "register_mcp" | "configure_lifecycle_hooks" | "context_pack" | "capture_session";
   title: string;
   command: string;
   safe_to_auto_run: boolean;
@@ -272,6 +272,16 @@ export function planInstall(input: InstallPlanInput = {}): InstallPlan {
       adapter: adapter.id
     });
     actions.push({
+      action: "configure_lifecycle_hooks",
+      title: `Generate Moryn lifecycle hooks for ${adapter.display_name}`,
+      command: projectPath && (adapter.id === "codex" || adapter.id === "claude")
+        ? `moryn install --host ${adapter.id} --project ${quoteCli(projectPath)} --apply`
+        : adapter.lifecycle_prompt,
+      safe_to_auto_run: Boolean(projectPath && (adapter.id === "codex" || adapter.id === "claude")),
+      writes: projectPath && (adapter.id === "codex" || adapter.id === "claude") ? "project_config" : "none",
+      adapter: adapter.id
+    });
+    actions.push({
       action: "context_pack",
       title: `Start ${adapter.display_name} with Moryn context`,
       command: `moryn context pack${projectArgs}${syncArgs} --current-task ${quoteCli(currentTask)} --agent ${adapter.normalized_client}`,
@@ -291,7 +301,7 @@ export function planInstall(input: InstallPlanInput = {}): InstallPlan {
 
   const actionsById = Object.fromEntries(actions.map((action) => [action.action, action]));
   const warnings = [
-    "MVP install planning does not mutate host configuration files.",
+    "Moryn writes only project-local Moryn-owned hook fragments; merge into the host main configuration explicitly.",
     "Git sync is configured only when a sync remote is supplied by the user."
   ];
   const nextCommand = `moryn context pack${projectArgs}${syncArgs} --current-task ${quoteCli(currentTask)} --agent ${agent}`;

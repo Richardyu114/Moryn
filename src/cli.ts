@@ -14,7 +14,8 @@ import {
   contextPack,
   planInstall,
   setupWizard,
-  version
+  version,
+  writeHostIntegrationArtifact
 } from "./index.js";
 import {
   OperationContractLookupConflictError,
@@ -2143,6 +2144,11 @@ program.command("install")
       await initializeStore(storePath());
       if (projectPath) {
         await initializeProjectConfig(projectPath, {});
+        if (host === "codex" || host === "claude" || host === "claude-code") {
+          const artifact = await writeHostIntegrationArtifact({ host, project_path: projectPath, store_path: storePath() });
+          printJson({ ...plan, integration_artifact: artifact });
+          return;
+        }
       }
     }
     printJson(plan);

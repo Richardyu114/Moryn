@@ -44,6 +44,7 @@ describe("host adapters", () => {
     expect(plan.mode).toBe("dry_run");
     expect(plan.adapters.map((adapter) => adapter.id)).toEqual(["codex"]);
     expect(plan.actions.map((action) => action.action)).toContain("register_mcp");
+    expect(plan.actions).toContainEqual(expect.objectContaining({ action: "configure_lifecycle_hooks", adapter: "codex", safe_to_auto_run: true, writes: "project_config" }));
     expect(plan.actions.map((action) => action.action)).toContain("capture_session");
     expect(plan.next.command).toContain("moryn context pack");
     expect(plan.next.command).toContain("--agent codex");
