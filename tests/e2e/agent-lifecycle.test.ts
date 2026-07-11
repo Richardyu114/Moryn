@@ -3003,6 +3003,33 @@ describe("agent lifecycle", () => {
     }
   });
 
+  it("records one activation receipt for repeated host hook dispatch", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-host-activation-receipt-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(store, { id: () => "device-claude" });
+      const input = {
+        storePath: store,
+        project_path: project,
+        activation_id: "moryn-v03-moryn-claude",
+        command_digest: "b".repeat(64),
+        hook: { host: "claude" as const, event: "pre_compact" as const, session_id: "activation-session", device_id: "device-claude", cwd: project, occurred_at: "2026-07-12T00:00:00.000Z", compact_summary: "Activation receipt checkpoint" }
+      };
+
+      const first = await runHostHook(input);
+      const replay = await runHostHook(input);
+      const receiptEvents = (await readEvents(store)).filter((event) => event.event_id.startsWith("evt_activation_"));
+
+      expect(first.activation_receipt).toMatchObject({ created: true, receipt: { activation_id: "moryn-v03-moryn-claude", event: "pre_compact" } });
+      expect(replay.activation_receipt).toMatchObject({ created: false, record: { id: first.activation_receipt?.record.id } });
+      expect(receiptEvents).toHaveLength(1);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("replays bounded semantic consolidation across Codex and Claude Code without routine approval", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-cross-host-semantic-"));
     const remote = join(root, "remote.git");

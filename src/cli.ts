@@ -2173,6 +2173,7 @@ host.command("hook")
   .option("--current-task <task>")
   .option("--device-id <id>", "Stable device identity", process.env.MORYN_DEVICE_ID)
   .option("--occurred-at <timestamp>")
+  .option("--activation-id <id>", "Moryn-owned host activation identity")
   .option("--input-json <json>", "Hook input JSON; defaults to stdin")
   .option("--learning <json>", "Learning Delta JSON", collectNonEmptyOption("--learning"))
   .option("--knowledge-investigation <json>", "Knowledge investigation JSON", collectNonEmptyOption("--knowledge-investigation"))
@@ -2193,6 +2194,7 @@ host.command("hook")
         project_id: options.projectId,
         project_path: options.project,
         current_task: options.currentTask,
+        activation_id: options.activationId,
         learnings: (options.learning ?? []).map((value: string) => parseCheckpointJson(value, "--learning") as LearningDeltaInput),
         knowledge_investigations: (options.knowledgeInvestigation ?? []).map((value: string) => parseCheckpointJson(value, "--knowledge-investigation") as KnowledgeInvestigationInput),
         semantic_consolidation_proposals: (options.semanticConsolidationProposal ?? []).map((value: string) => parseCheckpointJson(value, "--semantic-consolidation-proposal") as SemanticConsolidationProposalInput),

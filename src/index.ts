@@ -53,6 +53,8 @@ export { activationId, buildHostIntegrationArtifact, writeHostIntegrationArtifac
 export type { HostIntegrationArtifact } from "./core/host-integration-artifacts.js";
 export { activateClaudeSettings, mergeClaudeSettings } from "./core/claude-activation.js";
 export type { ClaudeActivationResult, ClaudeSettingsMergeResult } from "./core/claude-activation.js";
+export { activationReceiptIdentity, recordActivationReceipt } from "./core/activation-receipts.js";
+export type { ActivationHost, ActivationReceipt, ActivationReceiptEvent, ActivationReceiptInput } from "./core/activation-receipts.js";
 import { CAPTURE_SESSION_SELECTION_SOURCES, HANDOFF_PACK_SELECTION_SOURCES, HANDOFF_QUALITY_GATE_SELECTION_SOURCES } from "./core/host-adapters.js";
 export { setupWizard } from "./core/setup-wizard.js";
 import { SETUP_WIZARD_SELECTION_SOURCES } from "./core/setup-wizard.js";
