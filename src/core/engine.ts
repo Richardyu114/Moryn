@@ -19,6 +19,7 @@ import { diagnoseMemory, MEMORY_DOCTOR_SELECTION_SOURCES } from "./memory-doctor
 import { evaluateRecall, RECALL_EVAL_SELECTION_SOURCES, type RecallEvalInput } from "./recall-eval.js";
 import { buildCheckpointRecoveryPack, CHECKPOINT_SELECTION_SOURCES, checkpointIdentity, checkpointPayloadDigest, checkpointSummary, matchesCheckpoint, matchesCheckpointPayload, normalizeCheckpointInput, parseCheckpointContent, type CheckpointInput, type CheckpointResult } from "./checkpoint.js";
 import { buildActiveLogicalMemoryView, logicalMemoryFingerprint, validateLogicalRelationship, type LogicalRelationshipType } from "./logical-memory.js";
+import { assessRecallOutcome } from "./recall-outcome.js";
 
 interface EngineDeps {
   storePath: string;
@@ -3313,7 +3314,7 @@ export function createEngine(deps: EngineDeps) {
       const logicalRecords = recallInput.record_ids?.length || includesHiddenState(recallInput)
         ? allRecallRecords
         : buildActiveLogicalMemoryView(allRecallRecords).active_records;
-      const records = logicalRecords
+      const rankedRecords = logicalRecords
         .filter((record) => includesHiddenState(recallInput) || includesRawState(recallInput) || isVisibleInDefaultRecall(record))
         .filter((record) => isAllowedByPrivateBoundary(record, recallInput.include_private))
         .filter((record) => recordProjectMatchesRecall(record, recallInput))
@@ -3329,8 +3330,13 @@ export function createEngine(deps: EngineDeps) {
         .filter((result) => result.score > 0 || (!recallInput.query && !recallInput.record_ids?.length))
         .sort((a, b) => (b.score - a.score) || b.record.updated_at.localeCompare(a.record.updated_at) || a.record.id.localeCompare(b.record.id))
         .slice(0, limit);
+      const outcome = recallInput.query
+        ? assessRecallOutcome({ query: recallInput.query, results: rankedRecords, now: now() })
+        : undefined;
+      const records = outcome?.status === "knowledge_gap" ? [] : rankedRecords;
       return {
         results: records,
+        ...(outcome ? { outcome } : {}),
         selection_sources: RECALL_SELECTION_SOURCES,
         results_by_id: Object.fromEntries(records.map((result) => [result.record.id, result]))
       };

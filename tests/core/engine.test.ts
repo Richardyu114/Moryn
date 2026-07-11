@@ -1785,6 +1785,32 @@ describe("core engine", () => {
     });
   });
 
+  it("returns explicit recall outcomes and does not pad knowledge gaps", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, id: (prefix) => `${prefix}_${++nextId}` });
+      await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Moryn uses an append-only database" },
+        state: "canonical",
+        confidence: 0.9,
+        confirmed: true,
+        source: { client: "user" }
+      });
+
+      const gap = await engine.recall({ query: "deployment rollback policy", project_id: "moryn" });
+      const match = await engine.recall({ query: "moryn append-only database", project_id: "moryn" });
+
+      expect(gap.outcome).toMatchObject({ status: "knowledge_gap", recommended_action: "explore_then_capture_learning" });
+      expect(gap.results).toEqual([]);
+      expect(match.outcome).toMatchObject({ status: "trusted_match", trust: "trusted", recommended_action: "use_recalled_knowledge" });
+      expect(match.results).toHaveLength(1);
+    });
+  });
+
   it("lists project activity for agent project discovery", async () => {
     await withInitializedTempStore(async (storePath) => {
       const timestamps = [
