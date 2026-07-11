@@ -2887,22 +2887,10 @@ export function createEngine(deps: EngineDeps) {
   const engine = {
     async checkpoint(input: CheckpointInput): Promise<CheckpointResult> {
       const normalized = normalizeCheckpointInput(input);
-      return withStoreLock(deps.storePath, "checkpoint", async () => {
+      const outcome = await withStoreLock(deps.storePath, "checkpoint", async () => {
         const existing = (await currentRecords()).find((record) => matchesCheckpoint(record, normalized));
         if (existing) {
-          try {
-            await checkpointRebuild(deps.storePath);
-            return { record: existing, idempotent_replay: true, committed: true, derived_views_refreshed: true, recovery_pack: recoveryPack(existing, normalized.include_private) };
-          } catch (error) {
-            return {
-              record: existing,
-              idempotent_replay: true,
-              committed: true,
-              derived_views_refreshed: false,
-              warning: { code: "DERIVED_VIEW_REBUILD_FAILED", reason: error instanceof Error ? error.message : String(error) },
-              recovery_pack: recoveryPack(existing, normalized.include_private)
-            };
-          }
+          return { record: existing, idempotent_replay: true };
         }
         const config = await readStoreConfig(deps.storePath);
         const source = normalized.source.device_id ? normalized.source : { ...normalized.source, device_id: config.device_id };
@@ -2926,20 +2914,23 @@ export function createEngine(deps: EngineDeps) {
         };
         const event: MorynEvent = { event_id: id("evt"), op: "upsert_record", record, created_at: createdAt, source };
         await appendEvent(deps.storePath, event);
-        try {
-          await checkpointRebuild(deps.storePath);
-          return { record, idempotent_replay: false, committed: true, derived_views_refreshed: true, recovery_pack: recoveryPack(record, normalized.include_private) };
-        } catch (error) {
-          return {
-            record,
-            idempotent_replay: false,
-            committed: true,
-            derived_views_refreshed: false,
-            warning: { code: "DERIVED_VIEW_REBUILD_FAILED", reason: error instanceof Error ? error.message : String(error) },
-            recovery_pack: recoveryPack(record, normalized.include_private)
-          };
-        }
+        return { record, idempotent_replay: false };
       });
+      if (outcome.idempotent_replay) {
+        return { ...outcome, committed: true, derived_views_refreshed: true, recovery_pack: recoveryPack(outcome.record, normalized.include_private) };
+      }
+      try {
+        await checkpointRebuild(deps.storePath);
+        return { ...outcome, committed: true, derived_views_refreshed: true, recovery_pack: recoveryPack(outcome.record, normalized.include_private) };
+      } catch (error) {
+        return {
+          ...outcome,
+          committed: true,
+          derived_views_refreshed: false,
+          warning: { code: "DERIVED_VIEW_REBUILD_FAILED", reason: error instanceof Error ? error.message : String(error) },
+          recovery_pack: recoveryPack(outcome.record, normalized.include_private)
+        };
+      }
     },
 
     async write(input: WriteInput) {

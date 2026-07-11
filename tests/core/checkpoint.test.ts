@@ -259,7 +259,8 @@ describe("engine.checkpoint", () => {
       const replay = await engine.checkpoint(input);
 
       expect(first).toMatchObject({ committed: true, derived_views_refreshed: false, warning: { code: "DERIVED_VIEW_REBUILD_FAILED" } });
-      expect(replay).toMatchObject({ committed: true, idempotent_replay: true, derived_views_refreshed: false, warning: { code: "DERIVED_VIEW_REBUILD_FAILED" } });
+      expect(replay).toMatchObject({ committed: true, idempotent_replay: true, derived_views_refreshed: true });
+      expect(replay).not.toHaveProperty("warning");
       expect(replay.record.id).toBe(first.record.id);
       expect(await readEvents(storePath)).toHaveLength(1);
     });
