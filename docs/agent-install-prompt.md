@@ -34,7 +34,8 @@ First, inspect the environment:
 4. Then run `moryn setup --project . --host "<host client name>" --apply` only after the dry-run looks right.
    The apply form initializes only Moryn-local state and project config. Then run
    `moryn install --host "<host client name>" --project . --apply` for host
-   activation. Claude Code activation may safely merge Moryn-owned hooks into
+   activation. Existing host configuration files are changed only under the host-specific
+   safety policy: Claude Code activation may safely merge Moryn-owned hooks into
    `.claude/settings.local.json`; Codex activation generates a fragment and must
    not edit `.codex/config.toml` while its runtime hook schema is unverified.
 5. If `moryn setup` reports missing project context, run

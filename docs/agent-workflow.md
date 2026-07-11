@@ -82,7 +82,8 @@ local writes before any file changes. Each planned write points back to its
 action source so blocked setup can be recovered without guessing from prose.
 `--apply` initializes the local Moryn store and optional project config only.
 Host activation is handled separately by `moryn install --apply`: Claude Code
-hooks are merged into `.claude/settings.local.json` with Moryn-owned entries,
+host configuration files are changed only under host-specific safety rules.
+Claude Code hooks are merged into `.claude/settings.local.json` with Moryn-owned entries,
 content-addressed backup, and atomic replacement; unrelated settings remain
 untouched. Codex receives `.codex/moryn-hooks.toml`, but Moryn does not edit
 `.codex/config.toml` while the installed Codex hook schema is not authoritative.
