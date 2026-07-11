@@ -18,7 +18,7 @@ import { diagnoseHealthCheck, HEALTH_CHECK_SELECTION_SOURCES, type HealthCheckIn
 import { diagnoseMemory, MEMORY_DOCTOR_SELECTION_SOURCES } from "./memory-doctor.js";
 import { evaluateRecall, RECALL_EVAL_SELECTION_SOURCES, type RecallEvalInput } from "./recall-eval.js";
 import { buildCheckpointRecoveryPack, CHECKPOINT_SELECTION_SOURCES, checkpointIdentity, checkpointPayloadDigest, checkpointSummary, matchesCheckpoint, matchesCheckpointPayload, normalizeCheckpointInput, parseCheckpointContent, type CheckpointInput, type CheckpointResult } from "./checkpoint.js";
-import { buildActiveLogicalMemoryView, logicalMemoryFingerprint, validateLogicalRelationship, type LogicalRelationshipType } from "./logical-memory.js";
+import { buildActiveLogicalMemoryView, compareLogicalMemoryTargets, logicalMemoryFingerprint, validateLogicalRelationship, type LogicalRelationshipType } from "./logical-memory.js";
 import { assessRecallOutcome } from "./recall-outcome.js";
 import { learningDeltaSchema, type LearningDelta } from "./context-delta.js";
 import { learningStatePolicy } from "./learning-policy.js";
@@ -156,25 +156,8 @@ type ValidatedMemoryDoctorInput = MemoryDoctorInput & {
   include_private?: boolean;
 };
 
-const stateTrustRank: Record<RecordState, number> = {
-  canonical: 3,
-  candidate: 2,
-  raw: 1,
-  archived: 0,
-  quarantined: 0
-};
-
-const priorityRank: Record<RecordPriority, number> = { high: 3, normal: 2, low: 1 };
-
 function compareCodeUnits(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
-}
-
-function compareConsolidationTargets(left: MorynRecord, right: MorynRecord): number {
-  return stateTrustRank[right.state] - stateTrustRank[left.state]
-    || priorityRank[right.priority] - priorityRank[left.priority]
-    || compareCodeUnits(right.updated_at, left.updated_at)
-    || compareCodeUnits(left.id, right.id);
 }
 
 function duplicateLinkEventId(recordId: string, targetRecordId: string): string {
@@ -3145,7 +3128,7 @@ export function createEngine(deps: EngineDeps) {
       const groups = [...recordsByFingerprint.values()]
         .filter((group) => group.length > 1)
         .map((group) => {
-          const ordered = [...group].sort(compareConsolidationTargets);
+          const ordered = [...group].sort(compareLogicalMemoryTargets);
           const target = ordered[0] as MorynRecord;
           const duplicates = ordered.slice(1).sort((left, right) => compareCodeUnits(left.id, right.id));
           return { target, duplicates };

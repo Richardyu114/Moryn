@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { MorynRecord } from "./types.js";
+import type { MorynRecord, RecordPriority, RecordState } from "./types.js";
 
 export const LOGICAL_RELATIONSHIP_TYPES = [
   "duplicate_of",
@@ -28,6 +28,23 @@ export interface ValidatedLogicalRelationship {
 
 function compareCodeUnits(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
+}
+
+const stateTrustRank: Record<RecordState, number> = {
+  canonical: 3,
+  candidate: 2,
+  raw: 1,
+  archived: 0,
+  quarantined: 0
+};
+
+const priorityRank: Record<RecordPriority, number> = { high: 3, normal: 2, low: 1 };
+
+export function compareLogicalMemoryTargets(left: MorynRecord, right: MorynRecord): number {
+  return stateTrustRank[right.state] - stateTrustRank[left.state]
+    || priorityRank[right.priority] - priorityRank[left.priority]
+    || compareCodeUnits(right.updated_at, left.updated_at)
+    || compareCodeUnits(left.id, right.id);
 }
 
 function normalizeContentValue(value: unknown, key?: string): unknown {
