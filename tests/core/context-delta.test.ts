@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { describe, expect, it } from "vitest";
 import {
   validateContextDelta,
@@ -96,6 +97,45 @@ describe("validateContextDelta", () => {
     })).toThrow();
   });
 
+  it("reports semantic-empty deltas with a stable issue message and path", () => {
+    try {
+      validateContextDelta({
+        session_id: "session-1",
+        checkpoint_id: "checkpoint-1"
+      });
+      expect.fail("expected validation to fail");
+    } catch (error) {
+      expect(error).toBeInstanceOf(z.ZodError);
+      expect((error as z.ZodError).issues).toContainEqual(expect.objectContaining({
+        message: "context delta requires semantic content",
+        path: ["semantic_content"]
+      }));
+    }
+  });
+
+  it("rejects unknown keys on context and learning objects", () => {
+    expect(() => validateContextDelta({
+      session_id: "session-1",
+      checkpoint_id: "checkpoint-1",
+      next_step: ["ship it"]
+    })).toThrow(z.ZodError);
+
+    expect(() => validateContextDelta({
+      session_id: "session-1",
+      checkpoint_id: "checkpoint-1",
+      learnings: [{
+        question: "What is stable?",
+        conclusion: "The contract shape.",
+        evidence_type: "source_code",
+        scope: "project",
+        confidence: 0.9,
+        confidence_score: 0.9,
+        recommended_kind: "memory",
+        recommended_type: "contract"
+      }]
+    })).toThrow(z.ZodError);
+  });
+
   it("validates learning enums, confidence, and required strings", () => {
     const base: LearningDeltaInput = {
       question: "What is stable?",
@@ -170,5 +210,22 @@ describe("validateContextDelta", () => {
         }]
       })).toThrow();
     }
+  });
+
+  it("reports extreme ISO years as ZodError without leaking RangeError", () => {
+    expect(() => validateContextDelta({
+      session_id: "session-1",
+      checkpoint_id: "checkpoint-1",
+      learnings: [{
+        question: "How long is it valid?",
+        conclusion: "Until the release.",
+        evidence_type: "inference",
+        scope: "global",
+        confidence: 0.5,
+        valid_until: "+999999-01-01T00:00:00.000Z",
+        recommended_kind: "memory",
+        recommended_type: "release_fact"
+      }]
+    })).toThrow(z.ZodError);
   });
 });

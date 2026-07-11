@@ -9,8 +9,12 @@ const stringListSchema = z.array(z.string()).optional().transform((values) => {
 });
 
 const canonicalIsoTimestampSchema = z.string().refine((value) => {
-  const timestamp = Date.parse(value);
-  return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === value;
+  try {
+    const timestamp = Date.parse(value);
+    return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === value;
+  } catch {
+    return false;
+  }
 }, "Expected a canonical ISO timestamp");
 
 export const learningDeltaSchema = z.object({
@@ -23,7 +27,7 @@ export const learningDeltaSchema = z.object({
   recommended_kind: z.enum(["memory", "skill"]),
   recommended_type: nonEmptyStringSchema,
   related_record_ids: stringListSchema
-});
+}).strict();
 
 export type LearningDeltaInput = z.input<typeof learningDeltaSchema>;
 export type LearningDelta = z.output<typeof learningDeltaSchema>;
@@ -41,8 +45,8 @@ export const contextDeltaSchema = z.object({
   candidate_memories: stringListSchema,
   candidate_skills: stringListSchema,
   learnings: z.array(learningDeltaSchema).optional().default([])
-}).refine((delta) => {
-  return Boolean(delta.current_task)
+}).strict().superRefine((delta, context) => {
+  const hasSemanticContent = Boolean(delta.current_task)
     || delta.progress.length > 0
     || delta.decisions.length > 0
     || delta.changed_facts.length > 0
@@ -52,7 +56,14 @@ export const contextDeltaSchema = z.object({
     || delta.candidate_memories.length > 0
     || delta.candidate_skills.length > 0
     || delta.learnings.length > 0;
-}, "Context delta requires semantic content");
+  if (!hasSemanticContent) {
+    context.addIssue({
+      code: "custom",
+      message: "context delta requires semantic content",
+      path: ["semantic_content"]
+    });
+  }
+});
 
 export type ContextDeltaInput = z.input<typeof contextDeltaSchema>;
 export type ContextDelta = z.output<typeof contextDeltaSchema>;
