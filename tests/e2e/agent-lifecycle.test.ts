@@ -2995,4 +2995,31 @@ describe("agent lifecycle", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it.each(["codex", "claude-code"])("returns the autonomous knowledge protocol from guide and start for %s", async (client) => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-knowledge-protocol-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(store, { now: () => "2026-07-12T00:00:00.000Z", id: () => `device_${client}` });
+      const agent = { client, session_id: `session-${client}` };
+
+      const guide = agentGuide({ storePath: store, projectPath: project, currentTask: "Resolve unknown project knowledge", agent });
+      const start = await agentStart({ storePath: store, projectPath: project, currentTask: "Resolve unknown project knowledge", agent, pull: false });
+
+      for (const result of [guide, start]) {
+        expect(result.knowledge_protocol?.phases.map((phase) => phase.id)).toEqual([
+          "recall_before_external_exploration",
+          "follow_recall_actions",
+          "capture_confirmed_learning",
+          "preserve_before_compaction"
+        ]);
+        expect(result.knowledge_protocol?.rules_by_id.recall_first.action).toBe("call_moryn_recall_before_broad_external_exploration");
+        expect(result.knowledge_protocol?.rules_by_id.compact_safety.action).toBe("checkpoint_resolved_learning_and_unresolved_investigation_before_host_compaction");
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });

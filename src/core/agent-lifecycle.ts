@@ -12,6 +12,8 @@ import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js"
 import { requiredFieldsByName, withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
 import { operationArgumentsByTool, type OperationArgumentMetadata } from "../operation-contracts.js";
 import type { LearningDeltaInput, SemanticConsolidationProposalInput } from "./context-delta.js";
+import { normalizeHostId } from "./host-adapter-registry.js";
+import { knowledgeProtocolForHost, type KnowledgeProtocol } from "./knowledge-protocol.js";
 
 interface AgentIdentity {
   client: string;
@@ -748,6 +750,13 @@ function sourceFromAgent(agent: unknown): RecordSource {
 
 function agentIdentityFromInput(input: AgentLifecycleInput): AgentIdentity | undefined {
   return input.agent as AgentIdentity | undefined;
+}
+
+function lifecycleKnowledgeProtocol(input: AgentLifecycleInput): KnowledgeProtocol | undefined {
+  const client = agentIdentityFromInput(input)?.client;
+  if (!client) return undefined;
+  const host = normalizeHostId(client);
+  return host === "codex" || host === "claude" ? knowledgeProtocolForHost(host) : undefined;
 }
 
 function validateAgentIdentity(agent: unknown, operation: LifecycleOperation): void {
@@ -2622,6 +2631,7 @@ export function agentGuide(input: AgentGuideInput) {
   const lifecycle = agentGuideLifecycle(input);
   const guardrails = agentGuideGuardrails(startup);
   const rules = agentGuideRules();
+  const knowledgeProtocol = lifecycleKnowledgeProtocol(input);
   return {
     ok: true,
     recommended_entrypoint: "agent_enter",
@@ -2633,6 +2643,7 @@ export function agentGuide(input: AgentGuideInput) {
     rules_by_id: rulesById(rules),
     guardrails,
     guardrails_by_id: guardrailsById(guardrails),
+    ...(knowledgeProtocol ? { knowledge_protocol: knowledgeProtocol } : {}),
     workflow: agentGuideWorkflow(lifecycle),
     next: {
       recommended_action: "call_agent_enter",
@@ -2703,6 +2714,7 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
     handoff,
     actions
   });
+  const knowledgeProtocol = lifecycleKnowledgeProtocol(input);
 
   return {
     ok: true,
@@ -2714,6 +2726,7 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
     boot,
     refresh,
     handoff,
+    ...(knowledgeProtocol ? { knowledge_protocol: knowledgeProtocol } : {}),
     next: {
       required_end_action: "call agent_finish with a session_summary",
       required_end_action_id: "finish_session",

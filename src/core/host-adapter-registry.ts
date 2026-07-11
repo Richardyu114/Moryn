@@ -12,6 +12,7 @@ export type HostAdapter = {
     notes: string[];
   };
   lifecycle_prompt: string;
+  knowledge_protocol?: KnowledgeProtocol;
   capture_strategy: {
     default_command: string;
     records: string[];
@@ -31,7 +32,8 @@ const HOST_ADAPTERS: HostAdapter[] = [
       command: "claude mcp add moryn -- moryn mcp",
       notes: ["Use the host-specific MCP registration command when Claude Code exposes MCP configuration."]
     },
-    lifecycle_prompt: "Use moryn context pack at session start and moryn capture session before handoff.",
+    lifecycle_prompt: knowledgeProtocolForHost("claude").prompt,
+    knowledge_protocol: knowledgeProtocolForHost("claude"),
     capture_strategy: {
       default_command: "moryn capture session --agent claude --summary <summary>",
       records: ["session_summary", "agent_note", "memory(candidate)", "skill(candidate)"]
@@ -49,7 +51,8 @@ const HOST_ADAPTERS: HostAdapter[] = [
       command: "codex mcp add moryn -- moryn mcp",
       notes: ["Use project scope when the host supports per-project MCP config."]
     },
-    lifecycle_prompt: "Use moryn context pack at session start and moryn capture session before final response.",
+    lifecycle_prompt: knowledgeProtocolForHost("codex").prompt,
+    knowledge_protocol: knowledgeProtocolForHost("codex"),
     capture_strategy: {
       default_command: "moryn capture session --agent codex --summary <summary>",
       records: ["session_summary", "agent_note", "memory(candidate)", "skill(candidate)"]
@@ -131,6 +134,7 @@ function cloneHostAdapter(adapter: HostAdapter): HostAdapter {
       command: adapter.mcp_registration.command,
       notes: [...adapter.mcp_registration.notes]
     },
+    ...(adapter.knowledge_protocol ? { knowledge_protocol: structuredClone(adapter.knowledge_protocol) } : {}),
     capture_strategy: {
       default_command: adapter.capture_strategy.default_command,
       records: [...adapter.capture_strategy.records]
@@ -154,3 +158,4 @@ export function getHostAdapter(host?: string): HostAdapter | undefined {
   const adapter = HOST_ADAPTERS.find((candidate) => candidate.id === normalized);
   return adapter ? cloneHostAdapter(adapter) : undefined;
 }
+import { knowledgeProtocolForHost, type KnowledgeProtocol } from "./knowledge-protocol.js";

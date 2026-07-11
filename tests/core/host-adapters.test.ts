@@ -33,6 +33,21 @@ describe("host adapters", () => {
     expect(claude?.capture_strategy.default_command).toContain("moryn capture session");
   });
 
+  it.each(["codex", "claude"] as const)("includes the autonomous knowledge protocol for %s", (host) => {
+    const adapter = getHostAdapter(host);
+
+    expect(adapter?.lifecycle_prompt).toContain("Moryn recall");
+    expect(adapter?.lifecycle_prompt).toContain("before broad external exploration");
+    expect(adapter?.lifecycle_prompt).toContain("Learning Delta");
+    expect(adapter?.lifecycle_prompt).toContain("before compaction");
+    expect(adapter?.knowledge_protocol?.phases.map((phase) => phase.id)).toEqual([
+      "recall_before_external_exploration",
+      "follow_recall_actions",
+      "capture_confirmed_learning",
+      "preserve_before_compaction"
+    ]);
+  });
+
   it("plans a safe dry-run install for a selected host", () => {
     const plan = planInstall({
       host: "codex",
