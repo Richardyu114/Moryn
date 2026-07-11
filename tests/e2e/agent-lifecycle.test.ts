@@ -10,6 +10,7 @@ import { toErrorEnvelope } from "../../src/core/errors.js";
 import { initializeProjectConfig } from "../../src/core/project.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "../../src/core/agent-lifecycle.js";
 import { initializeGitSync, pullGitSync, pushGitSync } from "../../src/sync/git.js";
+import { runHostHook } from "../../src/core/host-hook-runner.js";
 
 const exec = promisify(execFile);
 const LIFECYCLE_ACTION_SELECTION_SOURCES = {
@@ -2811,6 +2812,52 @@ describe("agent lifecycle", () => {
         source: { client: "claude-code", session_id: "claude-1", device_id: "device-claude" }
       });
       expect(repeated).toMatchObject({ records_created: 0, dispositions: [{ created: false, record_id: codexFinish.learning_ingestion.dispositions[0]?.record_id }] });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("preserves checkpoint and handoff across Codex and Claude Code compaction hooks", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-cross-host-hooks-"));
+    const remote = join(root, "remote.git");
+    const codexStore = join(root, "codex-store");
+    const claudeStore = join(root, "claude-store");
+    const project = join(root, "project");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(codexStore, { id: () => "device-codex" });
+      await initializeStore(claudeStore, { id: () => "device-claude" });
+      await initializeGitSync(codexStore, remote);
+      await initializeGitSync(claudeStore, remote);
+      const codexBase = { host: "codex" as const, session_id: "codex-compact", device_id: "device-codex", cwd: project, occurred_at: "2026-07-11T00:00:00.000Z" };
+      await runHostHook({ storePath: codexStore, project_path: project, current_task: "Implement host hooks", pull: true, hook: { ...codexBase, event: "session_start", trigger: "startup" } });
+      const checkpoint = await runHostHook({ storePath: codexStore, project_path: project, current_task: "Implement host hooks", hook: { ...codexBase, event: "pre_compact", trigger: "auto", compact_summary: "Hook runner implemented; next verify Claude restore." } });
+      expect(checkpoint).toMatchObject({ action: "checkpoint_before_compaction", checkpoint: { idempotent_replay: false } });
+      expect((await pushGitSync(codexStore, { message: "codex precompact" })).pushed).toBe(true);
+
+      const claudeRestore = await runHostHook({
+        storePath: claudeStore,
+        project_path: project,
+        current_task: "Verify Claude restore",
+        pull: true,
+        hook: { host: "claude", event: "post_compact", session_id: "codex-compact", device_id: "device-claude", cwd: project, occurred_at: "2026-07-11T00:05:00.000Z" }
+      });
+      expect(claudeRestore).toMatchObject({ action: "resume_from_checkpoint", degradation: { mode: "native" } });
+      expect(claudeRestore.hook_output.additional_context).toContain("Hook runner implemented; next verify Claude restore.");
+      const claudeEnd = await runHostHook({
+        storePath: claudeStore,
+        project_path: project,
+        current_task: "Verify Claude restore",
+        push: true,
+        hook: { host: "claude", event: "session_end", session_id: "claude-finish", device_id: "device-claude", cwd: project, occurred_at: "2026-07-11T00:10:00.000Z", compact_summary: "Claude restored the Codex checkpoint and completed verification." }
+      });
+      expect(claudeEnd).toMatchObject({ action: "agent_finish", degradation: { mode: "native" } });
+
+      expect((await pullGitSync(codexStore)).pulled).toBe(true);
+      const codexEngine = createEngine({ storePath: codexStore });
+      const handoff = await codexEngine.recall({ project_id: "moryn", query: "Claude restored Codex checkpoint completed verification" });
+      expect(handoff.results.some((result) => result.record.content.text === "Claude restored the Codex checkpoint and completed verification.")).toBe(true);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
