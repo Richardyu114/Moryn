@@ -2684,6 +2684,44 @@ describe("agent lifecycle", () => {
     }
   });
 
+  it("uses one injected lifecycle clock for checkpoint fallback boundaries", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-checkpoint-clock-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    const now = "2030-01-01T01:00:00.000Z";
+    try {
+      await mkdir(project, { recursive: true });
+      await initializeStore(store);
+      await initializeProjectConfig(project, { project_id: "checkpoint-project" });
+      const engine = createEngine({ storePath: store });
+      for (const [sessionId, checkpointId, occurredAt] of [
+        ["session-2959", "checkpoint-2959", "2030-01-01T00:30:01.000Z"],
+        ["session-3000", "checkpoint-3000", "2030-01-01T00:30:00.000Z"],
+        ["session-future", "checkpoint-future", "2030-01-01T01:00:01.000Z"]
+      ] as const) {
+        await engine.checkpoint({
+          project_id: "checkpoint-project",
+          source: { client: "codex", session_id: sessionId, device_id: "device-1" },
+          occurred_at: occurredAt,
+          delta: { session_id: sessionId, checkpoint_id: checkpointId, current_task: "Continue", progress: ["saved"], decisions: [], changed_facts: [], blockers: [], next_steps: [], files: [], candidate_memories: [], candidate_skills: [], learnings: [] }
+        });
+      }
+
+      const startFor = (sessionId: string) => agentStart({
+        storePath: store,
+        projectPath: project,
+        currentTask: "Continue",
+        agent: { client: "codex", session_id: sessionId, device_id: "device-1" },
+        pull: false
+      }, { now: () => now });
+      expect((await startFor("session-2959")).next.actions_by_id).not.toHaveProperty("checkpoint_long_task");
+      expect((await startFor("session-3000")).next.actions_by_id).toHaveProperty("checkpoint_long_task");
+      expect((await startFor("session-future")).next.actions_by_id).not.toHaveProperty("checkpoint_long_task");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("omits checkpoint action noise without stable session and device identity", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-agent-checkpoint-identity-"));
     const store = join(root, "store");

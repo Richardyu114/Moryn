@@ -45,6 +45,10 @@ export interface AgentStatusInput extends AgentLifecycleInput {
   push?: boolean;
 }
 
+export interface AgentLifecycleDeps {
+  now?: () => string;
+}
+
 type DoctorSeverity = "ok" | "notice" | "warning";
 type DoctorCheck = { name: string; ok: boolean; severity: DoctorSeverity; message: string };
 export type LifecycleActionSelectionSources = {
@@ -1425,7 +1429,7 @@ function checkpointAction(input: AgentLifecycleInput, projectId: string, identit
   }));
 }
 
-function checkpointLifecycleActions(input: AgentLifecycleInput, projectId: string, recovery?: RecoveryPack): LifecycleActionTemplate[] {
+function checkpointLifecycleActions(input: AgentLifecycleInput, projectId: string, now: number, recovery?: RecoveryPack): LifecycleActionTemplate[] {
   const identity = checkpointIdentity(input);
   if (!identity) return [];
   const actions: LifecycleActionTemplate[] = [];
@@ -1450,7 +1454,7 @@ function checkpointLifecycleActions(input: AgentLifecycleInput, projectId: strin
     "When the host is about to compact the active session, author a delta and append it before compaction begins."
   ));
   const latestAt = recovery?.latest_occurred_at ? Date.parse(recovery.latest_occurred_at) : Number.NaN;
-  const isStale = !Number.isFinite(latestAt) || Date.now() - latestAt > CHECKPOINT_FALLBACK_INTERVAL_MS;
+  const isStale = !Number.isFinite(latestAt) || now - latestAt >= CHECKPOINT_FALLBACK_INTERVAL_MS;
   if (input.currentTask && isStale) {
     actions.push(checkpointAction(
       input,
@@ -1463,7 +1467,7 @@ function checkpointLifecycleActions(input: AgentLifecycleInput, projectId: strin
   return actions;
 }
 
-function nextActions(input: AgentLifecycleInput, cursor?: string, recovery?: RecoveryPack, projectId?: string): LifecycleActionTemplate[] {
+function nextActions(input: AgentLifecycleInput, now: number, cursor?: string, recovery?: RecoveryPack, projectId?: string): LifecycleActionTemplate[] {
   const actions: LifecycleActionTemplate[] = [
     withLifecycleActionSelectionSources(withActionInterfaces({
       action: "publish_status",
@@ -1500,7 +1504,7 @@ function nextActions(input: AgentLifecycleInput, cursor?: string, recovery?: Rec
       }
     })));
   }
-  if (projectId) actions.push(...checkpointLifecycleActions(input, projectId, recovery));
+  if (projectId) actions.push(...checkpointLifecycleActions(input, projectId, now, recovery));
   return actions;
 }
 
@@ -2329,7 +2333,7 @@ function buildHandoff(records: MorynRecord[], projectId: string, input: AgentLif
   };
 }
 
-async function agentHandoff(engine: ReturnType<typeof createEngine>, projectId: string, input: AgentLifecycleInput & { includePrivate?: boolean }) {
+async function agentHandoff(engine: ReturnType<typeof createEngine>, projectId: string, input: AgentLifecycleInput & { includePrivate?: boolean }, now: Date) {
   const summaries = await engine.recall({
     project_id: projectId,
     kinds: ["session_summary"],
@@ -2337,7 +2341,7 @@ async function agentHandoff(engine: ReturnType<typeof createEngine>, projectId: 
     limit: 100,
     include_private: input.includePrivate
   });
-  return buildHandoff(summaries.results.map((result) => result.record), projectId, input);
+  return buildHandoff(summaries.results.map((result) => result.record), projectId, input, now);
 }
 
 async function initializeLifecycleSync(storePath: string, syncRemote: string | undefined, result: BootstrapResult): Promise<void> {
@@ -2516,7 +2520,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
   };
 }
 
-export async function agentEnter(input: AgentEnterInput) {
+export async function agentEnter(input: AgentEnterInput, deps: AgentLifecycleDeps = {}) {
   validateAgentIdentity(input.agent, "agent_enter");
   validateLifecycleCurrentTask(input.currentTask, "agent_enter");
   validateLifecycleSyncRemote(input.syncRemote, "agent_enter");
@@ -2567,7 +2571,7 @@ export async function agentEnter(input: AgentEnterInput) {
   }
 
   if (doctor.next.tool === "agent_start") {
-    const start = await agentStart(input);
+    const start = await agentStart(input, deps);
     const actions = start.next.actions;
     return {
       ok: true,
@@ -2635,11 +2639,13 @@ export function agentGuide(input: AgentGuideInput) {
   };
 }
 
-export async function agentStart(input: AgentStartInput) {
+export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDeps = {}) {
   validateAgentIdentity(input.agent, "agent_start");
   validateLifecycleCurrentTask(input.currentTask, "agent_start");
   validateLifecycleSyncRemote(input.syncRemote, "agent_start");
   validateLifecycleBoolean(input.pull, "pull", "agent_start");
+  const nowIso = deps.now?.() ?? new Date().toISOString();
+  const now = new Date(nowIso);
   const bootstrap = await ensureLifecycleBootstrap(input);
   const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
   const actionInput = portableLifecycleInput(input, project);
@@ -2667,6 +2673,7 @@ export async function agentStart(input: AgentStartInput) {
 
   const engine = createEngine({
     storePath: input.storePath,
+    now: () => nowIso,
     syncStatus: () => getGitSyncStatus(input.storePath)
   });
   const boot = await engine.boot({
@@ -2683,8 +2690,8 @@ export async function agentStart(input: AgentStartInput) {
     limit: input.limit,
     include_private: input.includePrivate
   });
-  const handoff = await agentHandoff(engine, project.project_id, input);
-  const actions = nextActions(actionInput, refresh.cursor, boot.checkpoint_recovery_pack, project.project_id);
+  const handoff = await agentHandoff(engine, project.project_id, input, now);
+  const actions = nextActions(actionInput, now.getTime(), refresh.cursor, boot.checkpoint_recovery_pack, project.project_id);
   const startupOverview = buildStartupOverview({
     project: projectInfo,
     boot,
