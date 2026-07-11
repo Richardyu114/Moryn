@@ -1209,6 +1209,12 @@ export const OPERATION_CONTRACTS = [
         cli: { flag: "--summary" },
         mcp: { argument: "summary" }
       },
+      learnings: {
+        type: "object",
+        required: false,
+        cli: { flag: "--learning", repeatable: true },
+        mcp: { argument: "learnings" }
+      },
       ...publishSessionArguments
     },
     interfaces: {

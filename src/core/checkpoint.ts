@@ -49,6 +49,18 @@ export interface CheckpointResult {
   derived_views_refreshed: boolean;
   warnings?: Array<{ code: "DERIVED_VIEW_REBUILD_FAILED" | "IDEMPOTENT_EVENT_DIRECTORY_SYNC_UNSUPPORTED" | "IDEMPOTENT_EVENT_DIRECTORY_SYNC_FAILED" | "IDEMPOTENT_EVENT_DIRECTORY_CLOSE_FAILED" | "IDEMPOTENT_EVENT_TEMP_CLEANUP_FAILED"; reason: string }>;
   recovery_pack: RecoveryPack;
+  learning_ingestion: {
+    learnings_received: number;
+    records_created: number;
+    evidence_links_created: number;
+    dispositions: Array<{
+      record_id: string;
+      created: boolean;
+      state: "canonical" | "candidate";
+      requires_confirmation: boolean;
+      policy_reason: string;
+    }>;
+  };
   selection_sources: typeof CHECKPOINT_SELECTION_SOURCES;
 }
 
@@ -59,7 +71,8 @@ export const CHECKPOINT_SELECTION_SOURCES = {
   durability: "durability",
   derived_views_refreshed: "derived_views_refreshed",
   warning: "warnings[]",
-  recovery_pack: "recovery_pack"
+  recovery_pack: "recovery_pack",
+  learning_ingestion: "learning_ingestion"
 } as const;
 
 export interface NormalizedCheckpointInput {

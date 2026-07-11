@@ -168,6 +168,36 @@ describe("buildCheckpointRecoveryPack", () => {
 });
 
 describe("engine.checkpoint", () => {
+  it("materializes checkpoint learnings idempotently before compaction", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createTestEngine(storePath);
+      const input = {
+        project_id: "project-a",
+        ...authored,
+        delta: {
+          ...baseDelta,
+          learnings: [{
+            question: "When does Moryn pull?",
+            conclusion: "Moryn pulls on agent enter.",
+            evidence_type: "source_code" as const,
+            scope: "project" as const,
+            confidence: 0.9,
+            recommended_kind: "memory" as const,
+            recommended_type: "fact",
+            related_record_ids: []
+          }]
+        }
+      };
+      const first = await engine.checkpoint(input);
+      const replay = await engine.checkpoint(input);
+      expect(first.learning_ingestion).toMatchObject({ learnings_received: 1, records_created: 1, dispositions: [{ state: "canonical", created: true }] });
+      expect(replay.learning_ingestion).toMatchObject({ learnings_received: 1, records_created: 0, dispositions: [{ state: "canonical", created: false }] });
+      expect(await readEvents(storePath)).toHaveLength(3);
+      const recall = await engine.recall({ project_id: "project-a", query: "moryn pull agent enter" });
+      expect(recall.outcome).toMatchObject({ status: "trusted_match" });
+    });
+  });
+
   it("persists one normalized checkpoint event and replays idempotently", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createTestEngine(storePath);

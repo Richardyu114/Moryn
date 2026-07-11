@@ -3116,6 +3116,7 @@ agent.command("finish")
   .option("--session-id <id>")
   .option("--model <model>")
   .option("--device-id <id>")
+  .option("--learning <json>", "Learning Delta JSON", collectNonEmptyOption("--learning"))
   .action(async (options) => {
     const operation = "agent_finish";
     const push = parseBooleanDefault(options.push, true);
@@ -3128,7 +3129,8 @@ agent.command("finish")
       current_task: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
       summary,
       ...(push === false ? { push } : {}),
-      agent: agentOptions
+      agent: agentOptions,
+      learnings: (options.learning ?? []).map((value: string) => parseCheckpointJson(value, "--learning") as LearningDeltaInput)
     };
     const contextArguments = compactUndefined(contextInput);
     const context = {
@@ -3145,7 +3147,8 @@ agent.command("finish")
         currentTask: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
         summary,
         push,
-        agent: agentOptions
+        agent: agentOptions,
+        learnings: (options.learning ?? []).map((value: string) => parseCheckpointJson(value, "--learning") as LearningDeltaInput)
       });
       printJson(await withDashboard(result, { open: options.open }));
     } catch (error) {

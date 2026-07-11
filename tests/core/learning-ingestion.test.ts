@@ -21,6 +21,7 @@ describe("learning ingestion identity", () => {
     expect(first.record_id).toMatch(/^rec_learning_/);
     expect(first.event_id).toMatch(/^evt_learning_/);
     expect(learningRecordIdentity({ project_id: "moryn", learning: { ...learning, question: "What happens at agent startup?" } })).toEqual(first);
+    expect(learningRecordIdentity({ project_id: "moryn", learning: { ...learning, evidence_type: "documentation", confidence: 0.95 } })).toEqual(first);
   });
 
   it("normalizes learning into an auditable policy-controlled record", () => {

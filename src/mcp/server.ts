@@ -1158,6 +1158,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         current_task: z.unknown().optional(),
         sync_remote: z.unknown().optional(),
         agent: coreValidatedAgentSchema.optional(),
+        learnings: z.array(z.unknown()).optional(),
         ...objectPathAliasInputSchema("project_list"),
         ...agentAliasInputSchema,
         ...camelCaseAliasInputSchema("project_list")
@@ -2196,7 +2197,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         currentTask: normalizedInput.current_task as string | undefined,
         summary: normalizedInput.summary,
         push: coreValidatedPush,
-        agent: lifecycleAgent
+        agent: lifecycleAgent,
+        learnings: normalizedInput.learnings as never[] | undefined
       });
       return withOptionalMcpDashboard(options.storePath, result, normalizedInput.open);
     }, (normalizedInput) => {
@@ -2209,7 +2211,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         sync_remote: normalizedInput.sync_remote,
         current_task: normalizedInput.current_task,
         push: coreValidatedPush,
-        agent: lifecycleAgent
+        agent: lifecycleAgent,
+        learnings: normalizedInput.learnings
       };
       const contextArguments = compactUndefined(contextInput);
       return {

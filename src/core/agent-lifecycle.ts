@@ -11,6 +11,7 @@ import { actionExecution, actionSafety, type ActionExecution, type ActionSafety 
 import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js";
 import { requiredFieldsByName, withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
 import { operationArgumentsByTool, type OperationArgumentMetadata } from "../operation-contracts.js";
+import type { LearningDeltaInput } from "./context-delta.js";
 
 interface AgentIdentity {
   client: string;
@@ -38,6 +39,7 @@ export interface AgentStartInput extends AgentLifecycleInput {
 export interface AgentFinishInput extends AgentLifecycleInput {
   summary: unknown;
   push?: boolean;
+  learnings?: LearningDeltaInput[];
 }
 
 export interface AgentStatusInput extends AgentLifecycleInput {
@@ -2725,7 +2727,7 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
   };
 }
 
-export async function agentFinish(input: AgentFinishInput) {
+export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleDeps = {}) {
   validateLifecycleText(input.summary, "summary", "agent_finish");
   validateAgentIdentity(input.agent, "agent_finish");
   validateLifecycleCurrentTask(input.currentTask, "agent_finish");
@@ -2745,6 +2747,13 @@ export async function agentFinish(input: AgentFinishInput) {
     tags: projectInfo.tags,
     content: { text: input.summary, format: "text" },
     source: sourceFromAgent(input.agent)
+  });
+  const learningIngestion = await engine.ingestLearnings({
+    project_id: project.project_id,
+    learnings: input.learnings ?? [],
+    occurred_at: deps.now?.() ?? new Date().toISOString(),
+    source: sourceFromAgent(input.agent),
+    origin_record_id: record.record.id
   });
   const shouldPush = input.push ?? projectInfo.sync_mode !== "manual";
   const sync: {
@@ -2773,6 +2782,7 @@ export async function agentFinish(input: AgentFinishInput) {
     bootstrap,
     record: record.record,
     warning: record.warning,
+    learning_ingestion: learningIngestion,
     sync,
     next: {
       recommended_start_command: "moryn agent start --project <path> --current-task <task>",

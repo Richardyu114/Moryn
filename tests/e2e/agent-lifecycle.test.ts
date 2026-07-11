@@ -715,11 +715,22 @@ describe("agent lifecycle", () => {
         projectPath: project,
         agent: { client: "codex", device_id: "device_codex", session_id: "codex-1" },
         summary: "Codex finished lifecycle wiring and left a Gemini handoff.",
+        learnings: [{
+          question: "When does Moryn pull?",
+          conclusion: "Moryn pulls on agent enter.",
+          evidence_type: "source_code",
+          scope: "project",
+          confidence: 0.9,
+          recommended_kind: "memory",
+          recommended_type: "fact",
+          related_record_ids: []
+        }],
         push: true
-      });
+      }, { now: () => "2026-07-11T00:00:00.000Z" });
 
       expect(codexFinish.project.project_id).toBe("moryn");
       expect(codexFinish.record.content.text).toBe("Codex finished lifecycle wiring and left a Gemini handoff.");
+      expect(codexFinish.learning_ingestion).toMatchObject({ records_created: 1, dispositions: [{ state: "canonical" }] });
       expect(codexFinish.sync.push?.pushed).toBe(true);
       expect(codexFinish.next.recommended_start_command).toBe("moryn agent start --project <path> --current-task <task>");
       expect(codexFinish.next.recommended_start_action_id).toBe("start_next_session");
@@ -785,22 +796,27 @@ describe("agent lifecycle", () => {
       expect(geminiStart.boot.recent_changes_by_id[codexFinish.record.id]).toEqual(
         geminiStart.boot.recent_changes.find((record) => record.id === codexFinish.record.id)
       );
-      expect(geminiStart.refresh.changes).toEqual([
-        expect.objectContaining({
-          importance: "notice",
-          summary: "Codex finished lifecycle wiring and left a Gemini handoff.",
-          recommended_action: "call recall with record_id",
-          next_action: expect.any(Object)
-        })
-      ]);
-      expect(geminiStart.refresh.changes_by_record_id[codexFinish.record.id]).toEqual(geminiStart.refresh.changes[0]);
+      expect(geminiStart.refresh.changes).toContainEqual(expect.objectContaining({
+        importance: "notice",
+        summary: "Codex finished lifecycle wiring and left a Gemini handoff.",
+        recommended_action: "call recall with record_id",
+        next_action: expect.any(Object)
+      }));
+      expect(geminiStart.refresh.changes).toContainEqual(expect.objectContaining({
+        importance: "notice",
+        summary: "Moryn pulls on agent enter.",
+        recommended_action: "call recall with record_id",
+        next_action: expect.any(Object)
+      }));
+      const handoffChange = geminiStart.refresh.changes_by_record_id[codexFinish.record.id]!;
+      expect(handoffChange).toEqual(geminiStart.refresh.changes.find((change) => change.record_id === codexFinish.record.id));
       expect(geminiStart.refresh.selection_sources).toEqual({
         change: "changes_by_record_id.<record_id>",
         record_id: "changes_by_record_id.<record_id>.record_id",
         next_action: "changes_by_record_id.<record_id>.next_action"
       });
-      expectRefreshChangeNextAction(geminiStart.refresh.changes[0]!.next_action, codexFinish.record.id, "moryn");
-      expect(geminiStart.refresh.changes_by_record_id[codexFinish.record.id]!.next_action).toEqual(geminiStart.refresh.changes[0]!.next_action);
+      expectRefreshChangeNextAction(handoffChange.next_action, codexFinish.record.id, "moryn");
+      expect(geminiStart.refresh.changes_by_record_id[codexFinish.record.id]!.next_action).toEqual(handoffChange.next_action);
       expect(geminiStart.handoff).toMatchObject({
         inbox: [
           {

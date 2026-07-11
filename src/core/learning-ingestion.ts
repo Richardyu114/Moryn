@@ -11,13 +11,9 @@ function canonicalLearning(input: { project_id?: string; learning: LearningDelta
   return JSON.stringify({
     project_id: input.project_id ?? null,
     conclusion: input.learning.conclusion,
-    evidence_type: input.learning.evidence_type,
     scope: input.learning.scope,
-    confidence: input.learning.confidence,
-    valid_until: input.learning.valid_until ?? null,
     recommended_kind: input.learning.recommended_kind,
-    recommended_type: input.learning.recommended_type,
-    related_record_ids: [...input.learning.related_record_ids].sort(compareCodeUnits)
+    recommended_type: input.learning.recommended_type
   });
 }
 

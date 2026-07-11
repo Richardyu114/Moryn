@@ -149,6 +149,7 @@ interface IngestLearningsInput {
   learnings: unknown;
   occurred_at: unknown;
   source: RecordSource;
+  origin_record_id?: string;
 }
 
 type ValidatedMemoryDoctorInput = MemoryDoctorInput & {
@@ -2961,6 +2962,7 @@ export function createEngine(deps: EngineDeps) {
       const learnings = input.learnings.map((learning) => learningDeltaSchema.parse(learning)) as LearningDelta[];
       const dispositions = [];
       let createdCount = 0;
+      let evidenceLinksCreated = 0;
       for (const learning of learnings) {
         if (learning.scope === "project" && !input.project_id) throw new Error("Invalid argument: project learning requires project_id");
         const policy = learningStatePolicy(learning, { now: input.occurred_at });
@@ -2972,16 +2974,34 @@ export function createEngine(deps: EngineDeps) {
           throw new Error(`Learning idempotency collision: ${identity.event_id}`);
         }
         if (appended.created) createdCount += 1;
+        if (input.origin_record_id) {
+          const originRecord = await requireRecord(input.origin_record_id);
+          const evidenceBaseTimestamp = originRecord.updated_at > appended.event.record.updated_at
+            ? originRecord.updated_at
+            : appended.event.record.updated_at;
+          const evidenceEvent: MorynEvent = {
+            event_id: duplicateLinkEventId(input.origin_record_id, appended.event.record.id),
+            op: "link_records",
+            record_id: input.origin_record_id,
+            linked_record_id: appended.event.record.id,
+            link_type: "supports",
+            reason: `Learning evidence: ${learning.evidence_type}`,
+            created_at: nextMutationTimestamp({ ...appended.event.record, updated_at: evidenceBaseTimestamp }, input.occurred_at),
+            source: input.source
+          };
+          const evidenceAppended = await appendEventIfAbsent(deps.storePath, evidenceEvent);
+          if (evidenceAppended.created) evidenceLinksCreated += 1;
+        }
         dispositions.push({
           record_id: appended.event.record.id,
           created: appended.created,
-          state: appended.event.record.state,
+          state: policy.state,
           requires_confirmation: policy.requires_confirmation,
           policy_reason: policy.reason
         });
       }
-      if (createdCount > 0) await rebuildDerivedViews(deps.storePath);
-      return { learnings_received: learnings.length, records_created: createdCount, dispositions };
+      if (createdCount > 0 || evidenceLinksCreated > 0) await rebuildDerivedViews(deps.storePath);
+      return { learnings_received: learnings.length, records_created: createdCount, evidence_links_created: evidenceLinksCreated, dispositions };
     },
 
     async checkpoint(input: CheckpointInput): Promise<CheckpointResult> {
@@ -3015,13 +3035,20 @@ export function createEngine(deps: EngineDeps) {
         return { record: appended.event.record, idempotent_replay: !appended.created, durability: appended.durability, append_warnings: appended.warnings ?? [] };
       })();
       const warnings: NonNullable<CheckpointResult["warnings"]> = [...outcome.append_warnings];
+      const learningIngestion = await engine.ingestLearnings({
+        project_id: normalized.project_id,
+        learnings: normalized.delta.learnings,
+        occurred_at: normalized.occurred_at,
+        source: normalized.source,
+        origin_record_id: outcome.record.id
+      });
       const recoveryPack = buildCheckpointRecoveryPack(
         [...replayEvents(await readEvents(deps.storePath)).values()],
         { project_id: normalized.project_id, session_id: normalized.delta.session_id, include_private: normalized.include_private }
       );
       try {
         await checkpointRebuild(deps.storePath);
-        return { record: outcome.record, idempotent_replay: outcome.idempotent_replay, committed: true, durability: outcome.durability, derived_views_refreshed: true, ...(warnings.length ? { warnings } : {}), recovery_pack: recoveryPack, selection_sources: CHECKPOINT_SELECTION_SOURCES };
+        return { record: outcome.record, idempotent_replay: outcome.idempotent_replay, committed: true, durability: outcome.durability, derived_views_refreshed: true, ...(warnings.length ? { warnings } : {}), recovery_pack: recoveryPack, learning_ingestion: learningIngestion, selection_sources: CHECKPOINT_SELECTION_SOURCES };
       } catch (error) {
         warnings.push({ code: "DERIVED_VIEW_REBUILD_FAILED", reason: error instanceof Error ? error.message : String(error) });
         return {
@@ -3032,6 +3059,7 @@ export function createEngine(deps: EngineDeps) {
           derived_views_refreshed: false,
           warnings,
           recovery_pack: recoveryPack,
+          learning_ingestion: learningIngestion,
           selection_sources: CHECKPOINT_SELECTION_SOURCES
         };
       }
