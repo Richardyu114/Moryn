@@ -4,8 +4,9 @@ import { promisify } from "node:util";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createEngine } from "../../src/core/engine.js";
-import { checkpointIdentity, normalizeCheckpointInput, recoveryPack } from "../../src/core/checkpoint.js";
+import { buildCheckpointRecoveryPack, checkpointIdentity, normalizeCheckpointInput, recoveryPack } from "../../src/core/checkpoint.js";
 import { appendEvent, appendEventIfAbsent, readEvents } from "../../src/core/store.js";
+import type { MorynRecord } from "../../src/core/types.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
 const baseDelta = {
@@ -36,6 +37,99 @@ function createTestEngine(storePath: string) {
     id: (prefix) => `${prefix}_${++sequence}`
   });
 }
+
+function checkpointRecord(overrides: Partial<MorynRecord> & { id: string; checkpoint_id: string; occurred_at: string; session_id?: string; project_id?: string; delta?: Record<string, unknown> }): MorynRecord {
+  const sessionId = overrides.session_id ?? "session-1";
+  return {
+    ...overrides,
+    id: overrides.id,
+    kind: "session_summary",
+    type: "checkpoint",
+    scope: "project",
+    project_id: overrides.project_id ?? "project-a",
+    tags: overrides.tags ?? ["checkpoint", `session:${sessionId}`],
+    content: overrides.content ?? {
+      format: "json",
+      text: overrides.id,
+      checkpoint_version: 1,
+      checkpoint: {
+        session_id: sessionId,
+        checkpoint_id: overrides.checkpoint_id,
+        progress: [overrides.id], decisions: [], changed_facts: [], blockers: [], next_steps: [], files: [], candidate_memories: [], candidate_skills: [], learnings: [],
+        ...overrides.delta
+      }
+    },
+    state: "candidate",
+    confidence: 0.5,
+    priority: "normal",
+    visibility: overrides.visibility ?? "active",
+    created_at: overrides.occurred_at,
+    updated_at: overrides.updated_at ?? overrides.occurred_at,
+    source: overrides.source ?? { client: "codex", session_id: sessionId },
+    provenance: { method: "agent-proposed" }
+  } as MorynRecord;
+}
+
+describe("buildCheckpointRecoveryPack", () => {
+  it("aggregates the latest five valid checkpoints in chronological order with bounded exact dedup", () => {
+    const records = Array.from({ length: 7 }, (_, index) => checkpointRecord({
+      id: `record-${index + 1}`,
+      checkpoint_id: `checkpoint-${index + 1}`,
+      occurred_at: `2026-07-11T00:0${index}:00.000Z`,
+      delta: {
+        current_task: index === 5 ? "older task" : index === 6 ? "latest task" : undefined,
+        progress: [`progress-${index + 1}`, "shared"],
+        decisions: Array.from({ length: 3 }, (__, item) => `decision-${index}-${item}`),
+        blockers: index === 5 ? ["resolved blocker"] : index === 6 ? [] : ["old blocker"],
+        next_steps: index === 6 ? ["ship it"] : ["obsolete step"]
+      }
+    }));
+
+    const pack = buildCheckpointRecoveryPack(records, { project_id: "project-a", session_id: "session-1" });
+
+    expect(pack).toMatchObject({
+      version: 1, available: true, bounded: true, project_id: "project-a", session_id: "session-1",
+      latest_checkpoint_id: "checkpoint-7", latest_occurred_at: "2026-07-11T00:06:00.000Z",
+      source_record_ids: ["record-3", "record-4", "record-5", "record-6", "record-7"], checkpoint_count: 5,
+      current_task: "latest task", blockers: [], next_steps: ["ship it"]
+    });
+    expect(pack.progress).toEqual(["progress-3", "shared", "progress-4", "progress-5", "progress-6", "progress-7"]);
+    expect(pack.decisions).toHaveLength(10);
+  });
+
+  it("filters invalid records and deterministically orders timestamp ties by updated_at then record id", () => {
+    const validA = checkpointRecord({ id: "b", checkpoint_id: "b", occurred_at: "2026-07-11T00:00:00.000Z", updated_at: "2026-07-11T00:01:00.000Z" });
+    const validB = checkpointRecord({ id: "a", checkpoint_id: "a", occurred_at: "2026-07-11T00:00:00.000Z", updated_at: "2026-07-11T00:01:00.000Z" });
+    const excluded = [
+      checkpointRecord({ id: "other-session", checkpoint_id: "x", occurred_at: "2026-07-11T00:02:00.000Z", session_id: "other" }),
+      checkpointRecord({ id: "other-project", checkpoint_id: "x", occurred_at: "2026-07-11T00:02:00.000Z", project_id: "other" }),
+      checkpointRecord({ id: "archived", checkpoint_id: "x", occurred_at: "2026-07-11T00:02:00.000Z", visibility: "archived" }),
+      checkpointRecord({ id: "quarantined", checkpoint_id: "x", occurred_at: "2026-07-11T00:02:00.000Z", visibility: "quarantined" }),
+      checkpointRecord({ id: "malformed", checkpoint_id: "x", occurred_at: "2026-07-11T00:02:00.000Z", content: { format: "json", text: "bad", checkpoint_version: 1, checkpoint: { nope: true } } })
+    ];
+
+    expect(buildCheckpointRecoveryPack([validA, ...excluded, validB], { project_id: "project-a", session_id: "session-1" }).source_record_ids).toEqual(["a", "b"]);
+  });
+
+  it("enforces private boundaries while retaining audit ids and canonical learning dedup", () => {
+    const learning = { question: "Q", conclusion: "A", evidence_type: "source_code", scope: "project", confidence: 0.8, recommended_kind: "memory", recommended_type: "fact", related_record_ids: ["b", "a"] };
+    const publicRecord = checkpointRecord({ id: "public", checkpoint_id: "public", occurred_at: "2026-07-11T00:00:00.000Z", delta: { progress: ["public progress"], learnings: [learning] } });
+    const privateRecord = checkpointRecord({ id: "private", checkpoint_id: "private", occurred_at: "2026-07-11T00:01:00.000Z", tags: ["private"], delta: { progress: ["secret progress"], learnings: [{ ...learning, related_record_ids: ["a", "b"] }] } });
+
+    const mixed = buildCheckpointRecoveryPack([privateRecord, publicRecord], { project_id: "project-a", session_id: "session-1" });
+    expect(mixed.source_record_ids).toEqual(["public", "private"]);
+    expect(mixed.progress).toEqual(["public progress"]);
+    expect(mixed.learnings).toHaveLength(1);
+    const hidden = buildCheckpointRecoveryPack([privateRecord], { project_id: "project-a", session_id: "session-1" });
+    expect(hidden).toMatchObject({ available: false, checkpoint_count: 1, source_record_ids: ["private"] });
+    expect(hidden).not.toHaveProperty("progress");
+    expect(hidden).not.toHaveProperty("latest_checkpoint_id");
+    expect(hidden).not.toHaveProperty("latest_occurred_at");
+    const included = buildCheckpointRecoveryPack([privateRecord, publicRecord], { project_id: "project-a", session_id: "session-1", include_private: true });
+    expect(included.progress).toEqual(["public progress", "secret progress"]);
+    expect(included.learnings).toHaveLength(1);
+  });
+});
 
 describe("engine.checkpoint", () => {
   it("persists one normalized checkpoint event and replays idempotently", async () => {
@@ -90,10 +184,12 @@ describe("engine.checkpoint", () => {
         bounded: true,
         project_id: "project-a",
         session_id: "session-1",
-        checkpoint_id: "checkpoint-1",
-        source: { client: "codex", session_id: "session-1" },
-        record_ids: [first.record.id],
-        checkpoint: first.record.content.checkpoint
+        latest_checkpoint_id: "checkpoint-1",
+        latest_occurred_at: authored.occurred_at,
+        source_record_ids: [first.record.id],
+        checkpoint_count: 1,
+        current_task: "Persist checkpoints",
+        progress: ["wrote tests"]
       });
     });
   });
@@ -190,10 +286,10 @@ describe("engine.checkpoint", () => {
       const included = await engine.checkpoint({ ...input, include_private: true });
 
       expect(replay.idempotent_replay).toBe(true);
-      expect(replay.recovery_pack).toMatchObject({ available: false, bounded: true, record_ids: [first.record.id] });
+      expect(replay.recovery_pack).toMatchObject({ available: false, bounded: true, source_record_ids: [first.record.id], checkpoint_count: 1 });
       expect(replay.recovery_pack).not.toHaveProperty("checkpoint");
       expect(included.idempotent_replay).toBe(true);
-      expect(included.recovery_pack).toMatchObject({ available: true, checkpoint: first.record.content.checkpoint });
+      expect(included.recovery_pack).toMatchObject({ available: true, current_task: "Persist checkpoints", progress: ["wrote tests"] });
       expect(await readEvents(storePath)).toHaveLength(1);
     });
   });
@@ -418,7 +514,7 @@ describe("engine.checkpoint", () => {
       provenance: { method: "agent-proposed" }
     }, true);
 
-    expect(pack).toMatchObject({ available: false, session_id: "session-1", checkpoint_id: "", record_ids: ["rec_bad"] });
+    expect(pack).toMatchObject({ available: false, session_id: "session-1", source_record_ids: [], checkpoint_count: 0 });
     expect(pack).not.toHaveProperty("checkpoint");
   });
 
@@ -439,6 +535,24 @@ describe("engine.checkpoint", () => {
       expect(replay).toMatchObject({ committed: true, idempotent_replay: true, derived_views_refreshed: false, warnings: [{ code: "DERIVED_VIEW_REBUILD_FAILED" }] });
       expect(replay.record.id).toBe(first.record.id);
       expect(await readEvents(storePath)).toHaveLength(1);
+    });
+  });
+
+  it("returns the immediately aggregated recovery pack from replayed events even when rebuild fails", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath, rebuild: async () => { throw new Error("rebuild failed"); } });
+      const source = { client: "codex", session_id: "session-1", device_id: "device-test" };
+      await engine.checkpoint({ project_id: "project-a", source, occurred_at: "2026-07-11T00:00:00.000Z", delta: { ...baseDelta, checkpoint_id: "checkpoint-1", progress: ["first"] } });
+      const second = await engine.checkpoint({ project_id: "project-a", source, occurred_at: "2026-07-11T00:01:00.000Z", delta: { ...baseDelta, checkpoint_id: "checkpoint-2", current_task: "Latest task", progress: ["second"] } });
+
+      expect(second.recovery_pack).toMatchObject({
+        available: true,
+        checkpoint_count: 2,
+        latest_checkpoint_id: "checkpoint-2",
+        source_record_ids: expect.arrayContaining([second.record.id]),
+        current_task: "Latest task",
+        progress: ["first", "second"]
+      });
     });
   });
 

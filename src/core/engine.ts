@@ -17,7 +17,7 @@ import { diagnoseCapturePolicy, type CapturePolicyInput } from "./capture-policy
 import { diagnoseHealthCheck, HEALTH_CHECK_SELECTION_SOURCES, type HealthCheckInput } from "./health-check.js";
 import { diagnoseMemory, MEMORY_DOCTOR_SELECTION_SOURCES } from "./memory-doctor.js";
 import { evaluateRecall, RECALL_EVAL_SELECTION_SOURCES, type RecallEvalInput } from "./recall-eval.js";
-import { checkpointIdentity, checkpointPayloadDigest, checkpointSummary, matchesCheckpoint, matchesCheckpointPayload, normalizeCheckpointInput, recoveryPack, type CheckpointInput, type CheckpointResult } from "./checkpoint.js";
+import { buildCheckpointRecoveryPack, checkpointIdentity, checkpointPayloadDigest, checkpointSummary, matchesCheckpoint, matchesCheckpointPayload, normalizeCheckpointInput, parseCheckpointContent, type CheckpointInput, type CheckpointResult } from "./checkpoint.js";
 
 interface EngineDeps {
   storePath: string;
@@ -104,13 +104,14 @@ type ValidatedTimelineInput = TimelineInput & {
 
 interface BootInput {
   project_id?: string;
+  agent_session_id?: unknown;
   default_skills?: unknown;
   current_task?: unknown;
   sync_remote?: unknown;
   include_private?: unknown;
 }
 
-type ValidatedBootInput = BootInput & { default_skills?: string[]; current_task?: string; sync_remote?: string; include_private?: boolean };
+type ValidatedBootInput = BootInput & { agent_session_id?: string; default_skills?: string[]; current_task?: string; sync_remote?: string; include_private?: boolean };
 
 interface ListRecentInput {
   limit?: unknown;
@@ -318,6 +319,11 @@ export const BOOT_SELECTION_SOURCES = {
   skill: "skills_by_id.<record_id>",
   task_relevant: "task_relevant_by_id.<record_id>",
   recent_change: "recent_changes_by_id.<record_id>"
+};
+
+const BOOT_CHECKPOINT_SELECTION_SOURCES = {
+  active_checkpoint: "active_checkpoint",
+  checkpoint_recovery_pack: "checkpoint_recovery_pack"
 };
 
 export const REFRESH_SELECTION_SOURCES = {
@@ -2058,6 +2064,7 @@ function validateRecallInput(input: RecallInput): void {
 function validateBootInput(input: BootInput): void {
   assertPlainObject(input, "boot input");
   validateOptionalString("boot", input.project_id, "project_id");
+  validateOptionalString("boot", input.agent_session_id, "agent_session_id");
   validateOptionalStringArray("boot", input.default_skills, "default_skills");
   validateOptionalString("boot", input.current_task, "current_task");
   validateOptionalString("boot", input.sync_remote, "sync_remote");
@@ -2915,9 +2922,13 @@ export function createEngine(deps: EngineDeps) {
         return { record: appended.event.record, idempotent_replay: !appended.created, durability: appended.durability, append_warnings: appended.warnings ?? [] };
       })();
       const warnings: NonNullable<CheckpointResult["warnings"]> = [...outcome.append_warnings];
+      const recoveryPack = buildCheckpointRecoveryPack(
+        [...replayEvents(await readEvents(deps.storePath)).values()],
+        { project_id: normalized.project_id, session_id: normalized.delta.session_id, include_private: normalized.include_private }
+      );
       try {
         await checkpointRebuild(deps.storePath);
-        return { record: outcome.record, idempotent_replay: outcome.idempotent_replay, committed: true, durability: outcome.durability, derived_views_refreshed: true, ...(warnings.length ? { warnings } : {}), recovery_pack: recoveryPack(outcome.record, normalized.include_private) };
+        return { record: outcome.record, idempotent_replay: outcome.idempotent_replay, committed: true, durability: outcome.durability, derived_views_refreshed: true, ...(warnings.length ? { warnings } : {}), recovery_pack: recoveryPack };
       } catch (error) {
         warnings.push({ code: "DERIVED_VIEW_REBUILD_FAILED", reason: error instanceof Error ? error.message : String(error) });
         return {
@@ -2927,7 +2938,7 @@ export function createEngine(deps: EngineDeps) {
           durability: outcome.durability,
           derived_views_refreshed: false,
           warnings,
-          recovery_pack: recoveryPack(outcome.record, normalized.include_private)
+          recovery_pack: recoveryPack
         };
       }
     },
@@ -3242,7 +3253,8 @@ export function createEngine(deps: EngineDeps) {
         default_skills: Array.isArray(input.default_skills) ? input.default_skills : undefined,
         include_private: input.include_private === true
       } as ValidatedBootInput;
-      const visibleRecords = (await currentRecords())
+      const allCurrentRecords = await currentRecords();
+      const visibleRecords = allCurrentRecords
         .filter(isVisibleByDefault)
         .filter((record) => isAllowedByPrivateBoundary(record, bootInput.include_private))
         .filter((record) => recordBootContextMatches(record, bootInput.project_id));
@@ -3268,6 +3280,19 @@ export function createEngine(deps: EngineDeps) {
       const recentChanges = compactRecords(recent.filter((record) => record.kind !== "soul").slice(0, 5));
       const cursor = [...visibleRecords].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]?.updated_at ?? new Date().toISOString();
       const remoteUpdates = await remoteHasUpdates();
+      const checkpointRecoveryPack = bootInput.project_id && bootInput.agent_session_id
+        ? buildCheckpointRecoveryPack(allCurrentRecords, {
+          project_id: bootInput.project_id,
+          session_id: bootInput.agent_session_id,
+          include_private: bootInput.include_private
+        })
+        : undefined;
+      const activeCheckpoint = checkpointRecoveryPack?.source_record_ids
+        .map((recordId) => allCurrentRecords.find((record) => record.id === recordId))
+        .filter((record): record is MorynRecord => Boolean(record))
+        .filter((record) => bootInput.include_private || !isPrivateTags(record.tags))
+        .filter((record) => Boolean(parseCheckpointContent(record.content)))
+        .at(-1);
       return {
         profile: {
           user_preferences: userPreferences,
@@ -3292,7 +3317,10 @@ export function createEngine(deps: EngineDeps) {
         task_relevant_by_id: recordsById(compactTaskRelevant),
         recent_changes: recentChanges,
         recent_changes_by_id: recordsById(recentChanges),
-        selection_sources: BOOT_SELECTION_SOURCES,
+        ...(bootInput.agent_session_id ? { active_checkpoint: activeCheckpoint, checkpoint_recovery_pack: checkpointRecoveryPack } : {}),
+        selection_sources: bootInput.agent_session_id
+          ? { ...BOOT_SELECTION_SOURCES, ...BOOT_CHECKPOINT_SELECTION_SOURCES }
+          : BOOT_SELECTION_SOURCES,
         records_by_id: recordsById([
           ...userPreferences,
           ...soul,

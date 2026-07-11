@@ -18,10 +18,27 @@ export interface RecoveryPack {
   bounded: true;
   project_id: string;
   session_id: string;
-  checkpoint_id: string;
-  source: RecordSource;
-  record_ids: string[];
-  checkpoint?: ContextDelta;
+  latest_checkpoint_id?: string;
+  latest_occurred_at?: string;
+  source_record_ids: string[];
+  checkpoint_count: number;
+  current_task?: string;
+  progress?: string[];
+  decisions?: string[];
+  changed_facts?: string[];
+  blockers?: string[];
+  next_steps?: string[];
+  files?: string[];
+  candidate_memories?: string[];
+  candidate_skills?: string[];
+  learnings?: ContextDelta["learnings"];
+}
+
+export interface CheckpointRecoveryPackInput {
+  project_id: string;
+  session_id: string;
+  include_private?: boolean;
+  limit?: number;
 }
 
 export interface CheckpointResult {
@@ -161,18 +178,91 @@ export function checkpointSummary(delta: ContextDelta): string {
   return parts.filter(Boolean).join(" | ");
 }
 
-export function recoveryPack(record: MorynRecord, includePrivate: boolean): RecoveryPack {
-  const checkpoint = parseCheckpointContent(record.content);
-  const available = Boolean(checkpoint) && (includePrivate || !isPrivateTags(record.tags));
-  return {
+function appendExactBounded(target: string[], values: string[], limit = 10): void {
+  for (const value of values) {
+    if (!target.includes(value) && target.length < limit) target.push(value);
+  }
+}
+
+function checkpointOrder(left: MorynRecord, right: MorynRecord): number {
+  return compareCodeUnits(left.created_at, right.created_at)
+    || compareCodeUnits(left.updated_at, right.updated_at)
+    || compareCodeUnits(left.id, right.id);
+}
+
+function canonicalLearning(learning: ContextDelta["learnings"][number]): unknown {
+  return canonicalValue({ ...learning, related_record_ids: [...learning.related_record_ids].sort(compareCodeUnits) });
+}
+
+export function buildCheckpointRecoveryPack(records: readonly MorynRecord[], input: CheckpointRecoveryPackInput): RecoveryPack {
+  const limit = Number.isInteger(input.limit) && (input.limit as number) > 0 ? input.limit as number : 5;
+  const candidates = records
+    .filter((record) => record.visibility === "active" && record.state !== "archived" && record.state !== "quarantined")
+    .filter((record) => record.kind === "session_summary" && record.type === "checkpoint" && record.scope === "project")
+    .filter((record) => record.project_id === input.project_id)
+    .map((record) => ({ record, checkpoint: parseCheckpointContent(record.content) }))
+    .filter((candidate): candidate is { record: MorynRecord; checkpoint: ContextDelta } => Boolean(candidate.checkpoint))
+    .filter(({ checkpoint }) => checkpoint.session_id === input.session_id)
+    .sort((left, right) => checkpointOrder(left.record, right.record))
+    .slice(-limit);
+  const visible = candidates.filter(({ record }) => input.include_private === true || !isPrivateTags(record.tags));
+  const latest = visible.at(-1);
+  const base: RecoveryPack = {
     version: 1,
-    available,
+    available: visible.length > 0,
     bounded: true,
-    project_id: record.project_id as string,
-    session_id: checkpoint?.session_id ?? record.source.session_id ?? "",
-    checkpoint_id: checkpoint?.checkpoint_id ?? "",
-    source: record.source,
-    record_ids: [record.id],
-    ...(available && checkpoint ? { checkpoint } : {})
+    project_id: input.project_id,
+    session_id: input.session_id,
+    ...(latest ? { latest_checkpoint_id: latest.checkpoint.checkpoint_id, latest_occurred_at: latest.record.created_at } : {}),
+    source_record_ids: candidates.map(({ record }) => record.id),
+    checkpoint_count: candidates.length
   };
+  if (!visible.length) return base;
+
+  const progress: string[] = [];
+  const decisions: string[] = [];
+  const changedFacts: string[] = [];
+  const files: string[] = [];
+  const candidateMemories: string[] = [];
+  const candidateSkills: string[] = [];
+  const learnings: ContextDelta["learnings"] = [];
+  const learningKeys = new Set<string>();
+  for (const { checkpoint } of visible) {
+    appendExactBounded(progress, checkpoint.progress);
+    appendExactBounded(decisions, checkpoint.decisions);
+    appendExactBounded(changedFacts, checkpoint.changed_facts);
+    appendExactBounded(files, checkpoint.files);
+    appendExactBounded(candidateMemories, checkpoint.candidate_memories);
+    appendExactBounded(candidateSkills, checkpoint.candidate_skills);
+    for (const learning of checkpoint.learnings) {
+      const key = JSON.stringify(canonicalLearning(learning));
+      if (!learningKeys.has(key) && learnings.length < 10) {
+        learningKeys.add(key);
+        learnings.push(learning);
+      }
+    }
+  }
+  const latestVisible = visible.at(-1)?.checkpoint;
+  const currentTask = [...visible].reverse().find(({ checkpoint }) => checkpoint.current_task)?.checkpoint.current_task;
+  return {
+    ...base,
+    ...(currentTask ? { current_task: currentTask } : {}),
+    progress,
+    decisions,
+    changed_facts: changedFacts,
+    blockers: latestVisible?.blockers ?? [],
+    next_steps: latestVisible?.next_steps ?? [],
+    files,
+    candidate_memories: candidateMemories,
+    candidate_skills: candidateSkills,
+    learnings
+  };
+}
+
+export function recoveryPack(record: MorynRecord, includePrivate: boolean): RecoveryPack {
+  return buildCheckpointRecoveryPack([record], {
+    project_id: record.project_id ?? "",
+    session_id: parseCheckpointContent(record.content)?.session_id ?? record.source.session_id ?? "",
+    include_private: includePrivate
+  });
 }
