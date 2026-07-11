@@ -33,6 +33,33 @@ export interface SemanticConsolidationValidationResult {
   proposal_digest: string;
 }
 
+export type SemanticConsolidationProposalResult = Omit<SemanticConsolidationValidationResult, "status" | "reason"> & {
+  status: "accepted" | "rejected" | "idempotent" | "failed";
+  reason: SemanticConsolidationValidationReason | "persistence_failed";
+  event_id?: string;
+};
+
+export interface SemanticConsolidationReceipt {
+  proposals_received: number;
+  proposals_accepted: number;
+  proposals_rejected: number;
+  links_created: number;
+  idempotent_replays: number;
+  accepted_by_relationship: Partial<Record<SemanticConsolidationProposal["relationship"], number>>;
+  rejected_by_reason: Record<string, number>;
+  proposal_results: SemanticConsolidationProposalResult[];
+  selection_sources: typeof SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES;
+}
+
+export const SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES = {
+  proposal_result: "proposal_results[]",
+  proposal_status: "proposal_results[].status",
+  proposal_reason: "proposal_results[].reason",
+  proposal_event_id: "proposal_results[].event_id",
+  accepted_relationship_count: "accepted_by_relationship.<relationship>",
+  rejected_reason_count: "rejected_by_reason.<reason>"
+} as const;
+
 const thresholds: Record<SemanticConsolidationProposal["relationship"], number> = {
   duplicate_of: 0.98,
   revises: 0.97,
@@ -171,17 +198,21 @@ export function validateSemanticConsolidationProposal(
   let target = records.find((record) => record.id === proposal.target_record_id);
   if (!source || !target) return result(proposal, "rejected", "missing_record");
   if (!active(source) || !active(target)) return result(proposal, "rejected", "inactive_record");
-  const logicalView = buildActiveLogicalMemoryView([...records]);
-  if (logicalView.hidden_by_record_id[source.id] || logicalView.hidden_by_record_id[target.id]) return result(proposal, "rejected", "inactive_record");
   if (!sameDomain(source, target)) return result(proposal, "rejected", "incompatible_domain");
   const sourcePrivate = isPrivateTags(source.tags);
   const targetPrivate = isPrivateTags(target.tags);
   if (sourcePrivate !== targetPrivate || ((sourcePrivate || targetPrivate) && options.include_private !== true)) return result(proposal, "rejected", "private_boundary");
+  if (hasExistingRelationship(source, target, proposal.relationship)) return result(proposal, "idempotent", "existing_relationship", source.id, target.id);
   if (proposal.relationship === "duplicate_of" && compareLogicalMemoryTargets(source, target) < 0) {
     [source, target] = [target, source];
   }
   if (hasExistingRelationship(source, target, proposal.relationship)) return result(proposal, "idempotent", "existing_relationship", source.id, target.id);
   if (hasContradictoryDirection(source, target, proposal.relationship)) return result(proposal, "rejected", "contradictory_relationship", source.id, target.id);
+  if ((proposal.relationship === "revises" || proposal.relationship === "supersedes") && wouldCreateReplacementCycle(records, source, target)) {
+    return result(proposal, "rejected", "replacement_cycle", source.id, target.id);
+  }
+  const logicalView = buildActiveLogicalMemoryView([...records]);
+  if (logicalView.hidden_by_record_id[source.id] || logicalView.hidden_by_record_id[target.id]) return result(proposal, "rejected", "inactive_record", source.id, target.id);
   if (proposal.confidence < thresholds[proposal.relationship]) return result(proposal, "rejected", "below_confidence_threshold", source.id, target.id);
   const evidence = proposal.evidence_record_ids.map((recordId) => records.find((record) => record.id === recordId));
   if (evidence.some((record) => !record)) return result(proposal, "rejected", "missing_evidence", source.id, target.id);
@@ -194,9 +225,6 @@ export function validateSemanticConsolidationProposal(
   if ((proposal.relationship === "duplicate_of" || proposal.relationship === "revises") && hasProtectedDifference) return result(proposal, "rejected", "protected_signal_difference", source.id, target.id);
   if (proposal.relationship === "supersedes" && protectedReplacement(source, target, proposal) && !evidence.some((record) => record?.provenance?.method === "user-confirmed")) {
     return result(proposal, "rejected", "protected_replacement_requires_user_evidence", source.id, target.id);
-  }
-  if ((proposal.relationship === "revises" || proposal.relationship === "supersedes") && wouldCreateReplacementCycle(records, source, target)) {
-    return result(proposal, "rejected", "replacement_cycle", source.id, target.id);
   }
   return result(proposal, "accepted", "accepted", source.id, target.id);
 }

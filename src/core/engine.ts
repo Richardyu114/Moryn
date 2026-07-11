@@ -1,4 +1,5 @@
-import { appendEvent, appendEventIfAbsent, readEvents } from "./store.js";
+import { createHash } from "node:crypto";
+import { appendEvent, appendEventIfAbsent, readEvents, type AppendEventIfAbsentResult } from "./store.js";
 import { rebuildDerivedViews } from "./derived.js";
 import { applyRecordPatch, replayEvents } from "./replay.js";
 import { PROVENANCE_METHODS, RECORD_KINDS, RECORD_PRIORITIES, RECORD_SCOPES, RECORD_STATES, isoDateTimeSchema, isValidPatchPath, recordKindSchema, recordPrioritySchema, recordScopeSchema, recordSourceSchema, recordStateSchema, parseRecord } from "./schema.js";
@@ -20,9 +21,10 @@ import { evaluateRecall, RECALL_EVAL_SELECTION_SOURCES, type RecallEvalInput } f
 import { buildCheckpointRecoveryPack, CHECKPOINT_SELECTION_SOURCES, checkpointIdentity, checkpointPayloadDigest, checkpointSummary, matchesCheckpoint, matchesCheckpointPayload, normalizeCheckpointInput, parseCheckpointContent, type CheckpointInput, type CheckpointResult } from "./checkpoint.js";
 import { buildActiveLogicalMemoryView, compareLogicalMemoryTargets, logicalMemoryFingerprint, validateLogicalRelationship, type LogicalRelationshipType } from "./logical-memory.js";
 import { assessRecallOutcome } from "./recall-outcome.js";
-import { learningDeltaSchema, type LearningDelta } from "./context-delta.js";
+import { learningDeltaSchema, semanticConsolidationProposalSchema, type LearningDelta, type SemanticConsolidationProposal } from "./context-delta.js";
 import { learningStatePolicy } from "./learning-policy.js";
 import { learningRecordIdentity, normalizeLearningRecord } from "./learning-ingestion.js";
+import { SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES, validateSemanticConsolidationProposal, type SemanticConsolidationProposalResult, type SemanticConsolidationReceipt } from "./semantic-consolidation.js";
 
 interface EngineDeps {
   storePath: string;
@@ -30,6 +32,7 @@ interface EngineDeps {
   id?: (prefix: string) => string;
   syncStatus?: () => Promise<{ behind?: number; remote_has_updates?: boolean }>;
   rebuild?: (storePath: string) => Promise<unknown>;
+  appendEventIfAbsent?: (storePath: string, event: MorynEvent) => Promise<AppendEventIfAbsentResult>;
 }
 
 interface WriteInput {
@@ -152,6 +155,13 @@ interface IngestLearningsInput {
   origin_record_id?: string;
 }
 
+interface ConsolidateSemanticProposalsInput {
+  proposals: unknown;
+  project_id?: string;
+  include_private?: unknown;
+  source?: RecordSource;
+}
+
 type ValidatedMemoryDoctorInput = MemoryDoctorInput & {
   include_private?: boolean;
 };
@@ -176,6 +186,10 @@ function duplicateLinkEventId(recordId: string, targetRecordId: string): string 
     updated_at: "",
     source: { client: "moryn" }
   }).slice(0, 32)}`;
+}
+
+function semanticConsolidationEventId(sourceRecordId: string, targetRecordId: string, relationship: string): string {
+  return `evt_semantic_consolidation_${createHash("sha256").update(JSON.stringify({ sourceRecordId, targetRecordId, relationship })).digest("hex")}`;
 }
 
 type ValidatedMemoryLifecycleInput = MemoryLifecycleInput & {
@@ -2908,6 +2922,7 @@ export function createEngine(deps: EngineDeps) {
   const now = deps.now ?? (() => new Date().toISOString());
   const id = deps.id ?? createId;
   const checkpointRebuild = deps.rebuild ?? rebuildDerivedViews;
+  const appendIdempotentEvent = deps.appendEventIfAbsent ?? appendEventIfAbsent;
 
   async function currentRecords(): Promise<MorynRecord[]> {
     return [...replayEvents(await readEvents(deps.storePath)).values()];
@@ -2952,7 +2967,7 @@ export function createEngine(deps: EngineDeps) {
         const record = normalizeLearningRecord({ project_id: input.project_id, learning, source: input.source, occurred_at: input.occurred_at, policy });
         const identity = learningRecordIdentity({ project_id: input.project_id, learning });
         const event: MorynEvent = { event_id: identity.event_id, op: "upsert_record", record, created_at: input.occurred_at, source: input.source };
-        const appended = await appendEventIfAbsent(deps.storePath, event);
+        const appended = await appendIdempotentEvent(deps.storePath, event);
         if (appended.event.op !== "upsert_record" || logicalMemoryFingerprint(appended.event.record) !== logicalMemoryFingerprint(record)) {
           throw new Error(`Learning idempotency collision: ${identity.event_id}`);
         }
@@ -2972,7 +2987,7 @@ export function createEngine(deps: EngineDeps) {
             created_at: nextMutationTimestamp({ ...appended.event.record, updated_at: evidenceBaseTimestamp }, input.occurred_at),
             source: input.source
           };
-          const evidenceAppended = await appendEventIfAbsent(deps.storePath, evidenceEvent);
+          const evidenceAppended = await appendIdempotentEvent(deps.storePath, evidenceEvent);
           if (evidenceAppended.created) evidenceLinksCreated += 1;
         }
         dispositions.push({
@@ -3167,6 +3182,100 @@ export function createEngine(deps: EngineDeps) {
           target_record_id: group.target.id,
           duplicate_record_ids: group.duplicates.map((record) => record.id)
         }))
+      };
+    },
+
+    async consolidateSemanticProposals(input: ConsolidateSemanticProposalsInput): Promise<SemanticConsolidationReceipt> {
+      if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Invalid argument: semantic consolidation input must be an object");
+      if (!Array.isArray(input.proposals)) throw new Error("Invalid argument: semantic consolidation proposals must be an array");
+      if (input.proposals.length > 24) throw new Error("Invalid argument: semantic consolidation proposals must contain at most 24 items");
+      if (input.include_private !== undefined && typeof input.include_private !== "boolean") throw new Error("Invalid argument: semantic consolidation include_private must be a boolean");
+      const proposals = input.proposals.map((proposal) => semanticConsolidationProposalSchema.parse(proposal)) as SemanticConsolidationProposal[];
+      const proposalResults: SemanticConsolidationProposalResult[] = [];
+      const acceptedByRelationship: SemanticConsolidationReceipt["accepted_by_relationship"] = {};
+      const rejectedByReason: Record<string, number> = {};
+      let proposalsAccepted = 0;
+      let proposalsRejected = 0;
+      let linksCreated = 0;
+      let idempotentReplays = 0;
+      const source = input.source ?? { client: "moryn" };
+
+      for (const proposal of proposals) {
+        const records = await currentRecords();
+        const validation = validateSemanticConsolidationProposal(records, proposal, { include_private: input.include_private === true });
+        if (input.project_id) {
+          const sourceRecord = records.find((record) => record.id === validation.source_record_id);
+          const targetRecord = records.find((record) => record.id === validation.target_record_id);
+          if ((sourceRecord?.scope === "project" && sourceRecord.project_id !== input.project_id) || (targetRecord?.scope === "project" && targetRecord.project_id !== input.project_id)) {
+            proposalResults.push({ ...validation, status: "rejected", reason: "incompatible_domain" });
+            proposalsRejected += 1;
+            rejectedByReason.incompatible_domain = (rejectedByReason.incompatible_domain ?? 0) + 1;
+            continue;
+          }
+        }
+        if (validation.status === "rejected") {
+          proposalResults.push(validation);
+          proposalsRejected += 1;
+          rejectedByReason[validation.reason] = (rejectedByReason[validation.reason] ?? 0) + 1;
+          continue;
+        }
+        const eventId = semanticConsolidationEventId(validation.source_record_id, validation.target_record_id, validation.relationship);
+        if (validation.status === "idempotent") {
+          proposalResults.push({ ...validation, event_id: eventId });
+          idempotentReplays += 1;
+          continue;
+        }
+        const sourceRecord = records.find((record) => record.id === validation.source_record_id);
+        if (!sourceRecord) {
+          proposalResults.push({ ...validation, status: "rejected", reason: "missing_record" });
+          proposalsRejected += 1;
+          rejectedByReason.missing_record = (rejectedByReason.missing_record ?? 0) + 1;
+          continue;
+        }
+        const event: MorynEvent = {
+          event_id: eventId,
+          op: "link_records",
+          record_id: validation.source_record_id,
+          linked_record_id: validation.target_record_id,
+          link_type: validation.relationship,
+          reason: proposal.rationale,
+          created_at: nextMutationTimestamp(sourceRecord, now()),
+          source
+        };
+        try {
+          const appended = await appendIdempotentEvent(deps.storePath, event);
+          if (appended.event.op !== "link_records"
+            || appended.event.record_id !== event.record_id
+            || appended.event.linked_record_id !== event.linked_record_id
+            || appended.event.link_type !== event.link_type) {
+            throw new Error("semantic consolidation idempotency collision");
+          }
+          if (appended.created) {
+            linksCreated += 1;
+            proposalsAccepted += 1;
+            acceptedByRelationship[validation.relationship] = (acceptedByRelationship[validation.relationship] ?? 0) + 1;
+            proposalResults.push({ ...validation, event_id: eventId });
+          } else {
+            idempotentReplays += 1;
+            proposalResults.push({ ...validation, status: "idempotent", reason: "existing_relationship", event_id: eventId });
+          }
+        } catch {
+          proposalsRejected += 1;
+          rejectedByReason.persistence_failed = (rejectedByReason.persistence_failed ?? 0) + 1;
+          proposalResults.push({ ...validation, status: "failed", reason: "persistence_failed", event_id: eventId });
+        }
+      }
+      if (linksCreated > 0) await rebuildDerivedViews(deps.storePath);
+      return {
+        proposals_received: proposals.length,
+        proposals_accepted: proposalsAccepted,
+        proposals_rejected: proposalsRejected,
+        links_created: linksCreated,
+        idempotent_replays: idempotentReplays,
+        accepted_by_relationship: acceptedByRelationship,
+        rejected_by_reason: rejectedByReason,
+        proposal_results: proposalResults,
+        selection_sources: SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES
       };
     },
 

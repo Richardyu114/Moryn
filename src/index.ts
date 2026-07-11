@@ -26,8 +26,8 @@ export { buildCheckpointRecoveryPack, CHECKPOINT_SELECTION_SOURCES } from "./cor
 export type { CheckpointInput, CheckpointRecoveryPackInput, CheckpointResult, RecoveryPack } from "./core/checkpoint.js";
 import { CHECKPOINT_SELECTION_SOURCES } from "./core/checkpoint.js";
 export { buildActiveLogicalMemoryView, compareLogicalMemoryTargets, logicalMemoryFingerprint, LOGICAL_RELATIONSHIP_TYPES, validateLogicalRelationship } from "./core/logical-memory.js";
-export { semanticConsolidationProposalDigest, validateSemanticConsolidationProposal } from "./core/semantic-consolidation.js";
-export type { SemanticConsolidationValidationOptions, SemanticConsolidationValidationReason, SemanticConsolidationValidationResult } from "./core/semantic-consolidation.js";
+export { SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES, semanticConsolidationProposalDigest, validateSemanticConsolidationProposal } from "./core/semantic-consolidation.js";
+export type { SemanticConsolidationProposalResult, SemanticConsolidationReceipt, SemanticConsolidationValidationOptions, SemanticConsolidationValidationReason, SemanticConsolidationValidationResult } from "./core/semantic-consolidation.js";
 export { retrieveSemanticConsolidationCandidates, SEMANTIC_CONSOLIDATION_CANDIDATE_SELECTION_SOURCES } from "./core/semantic-consolidation-candidates.js";
 export type { SemanticConsolidationCandidate, SemanticConsolidationCandidateOptions } from "./core/semantic-consolidation-candidates.js";
 export { assessRecallOutcome, queryTokenCoverage } from "./core/recall-outcome.js";

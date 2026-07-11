@@ -137,15 +137,16 @@ describe("validateSemanticConsolidationProposal", () => {
     }))).toMatchObject({ status: "rejected", reason: "contradictory_relationship" });
 
     const first = record({ id: "first", links: [{ record_id: "second", link_type: "supersedes", created_at: "2026-07-12T00:00:00.000Z" }] });
-    const second = record({ id: "second" });
-    expect(validateSemanticConsolidationProposal([first, second], proposal({
-      source_record_id: second.id,
+    const second = record({ id: "second", links: [{ record_id: "third", link_type: "supersedes", created_at: "2026-07-12T00:01:00.000Z" }] });
+    const third = record({ id: "third" });
+    expect(validateSemanticConsolidationProposal([first, second, third], proposal({
+      source_record_id: third.id,
       target_record_id: first.id,
       relationship: "supersedes",
       semantic_equivalence: "replacement",
       confidence: 0.99,
       material_differences: [{ field: "policy", significance: "material" }],
-      evidence_record_ids: [second.id]
+      evidence_record_ids: [third.id]
     }))).toMatchObject({ status: "rejected", reason: "replacement_cycle" });
   });
 
