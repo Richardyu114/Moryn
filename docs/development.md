@@ -177,3 +177,30 @@ The dogfood smoke writes 100 duplicate records, links them to one canonical reco
 ```bash
 npm run smoke:dogfood-demo
 ```
+
+## Semantic Consolidation Acceptance
+
+Before releasing the semantic consolidation lifecycle, run the focused Phase 7
+suite plus both source-mode smoke scripts:
+
+```bash
+npx vitest run \
+  tests/core/context-delta.test.ts \
+  tests/core/semantic-consolidation-candidates.test.ts \
+  tests/core/semantic-consolidation.test.ts \
+  tests/core/semantic-consolidation-engine.test.ts \
+  tests/core/checkpoint.test.ts \
+  tests/e2e/agent-lifecycle.test.ts \
+  tests/observability/dashboard.test.ts \
+  tests/core/working-set-report.test.ts
+npm run smoke:dogfood-demo
+npm run smoke:agent-lifecycle
+```
+
+The dogfood smoke creates one hundred paraphrased candidate records, submits
+bounded agent-authored `duplicate_of` proposals, and requires the active logical
+working set and default boot set to remain bounded. The lifecycle smoke verifies
+Codex `PreCompact` capture, one accepted semantic link, one protected-signal
+rejection, Claude Code `PostCompact` restore and finish/push, and a second Codex
+device pull. These paths are automatic and must not introduce routine dashboard
+approval work.

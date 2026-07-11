@@ -13,6 +13,8 @@ import { initializeGitSync, pullGitSync, pushGitSync } from "../../src/sync/git.
 import { runHostHook } from "../../src/core/host-hook-runner.js";
 import { learningRecordIdentity } from "../../src/core/learning-ingestion.js";
 import { appendEventIfAbsent } from "../../src/core/store.js";
+import { readEvents } from "../../src/core/store.js";
+import { buildDashboardData } from "../../src/observability/dashboard.js";
 
 const exec = promisify(execFile);
 const LIFECYCLE_ACTION_SELECTION_SOURCES = {
@@ -2922,6 +2924,73 @@ describe("agent lifecycle", () => {
       const codexEngine = createEngine({ storePath: codexStore });
       const handoff = await codexEngine.recall({ project_id: "moryn", query: "Claude restored Codex checkpoint completed verification" });
       expect(handoff.results.some((result) => result.record.content.text === "Claude restored the Codex checkpoint and completed verification.")).toBe(true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("replays bounded semantic consolidation across Codex and Claude Code without routine approval", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-cross-host-semantic-"));
+    const remote = join(root, "remote.git");
+    const codexStore = join(root, "codex-store");
+    const claudeStore = join(root, "claude-store");
+    const secondCodexStore = join(root, "second-codex-store");
+    const project = join(root, "project");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      for (const [storePath, deviceId] of [[codexStore, "device-codex"], [claudeStore, "device-claude"], [secondCodexStore, "device-codex-2"]] as const) {
+        await initializeStore(storePath, { id: () => deviceId });
+        await initializeGitSync(storePath, remote);
+      }
+      const codexEngine = createEngine({ storePath: codexStore, now: () => "2026-07-12T00:00:00.000Z" });
+      const targets = await Promise.all([
+        codexEngine.write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Agents pull memory on project enter." }, state: "canonical", confirmed: true, source: { client: "user" } }),
+        codexEngine.write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Checkpoint before compact preserves context." }, source: { client: "codex" } }),
+        codexEngine.write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Finish sync is manually triggered." }, source: { client: "codex" } }),
+        codexEngine.write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Retry 3 times." }, source: { client: "codex" } })
+      ]);
+      const evidence = await codexEngine.write({ kind: "memory", type: "evidence", scope: "project", project_id: "moryn", content: { text: "Lifecycle source code confirms automatic finish sync." }, state: "canonical", confirmed: true, source: { client: "user" } });
+      const learnings = [
+        { question: "When do agents pull?", conclusion: "Agents pull memories when entering a project.", evidence_type: "source_code" as const, scope: "project" as const, confidence: 0.99, recommended_kind: "memory" as const, recommended_type: "fact", related_record_ids: [] },
+        { question: "What protects compact?", conclusion: "A checkpoint immediately before compact preserves task context.", evidence_type: "source_code" as const, scope: "project" as const, confidence: 0.99, recommended_kind: "memory" as const, recommended_type: "fact", related_record_ids: [] },
+        { question: "How does finish sync?", conclusion: "Finish now triggers sync automatically.", evidence_type: "source_code" as const, scope: "project" as const, confidence: 0.99, recommended_kind: "memory" as const, recommended_type: "fact", related_record_ids: [] },
+        { question: "How many retries?", conclusion: "Retry 4 times.", evidence_type: "source_code" as const, scope: "project" as const, confidence: 0.99, recommended_kind: "memory" as const, recommended_type: "fact", related_record_ids: [] }
+      ];
+      const sourceIds = learnings.map((learning) => learningRecordIdentity({ project_id: "moryn", learning }).record_id);
+      const proposals = [
+        { proposal_id: "cross-duplicate", source_record_id: sourceIds[0], target_record_id: targets[0].record.id, relationship: "duplicate_of" as const, confidence: 0.99, rationale: "Equivalent enter behavior.", semantic_equivalence: "equivalent" as const, material_differences: [], evidence_record_ids: [] },
+        { proposal_id: "cross-revision", source_record_id: sourceIds[1], target_record_id: targets[1].record.id, relationship: "revises" as const, confidence: 0.98, rationale: "Refines compact timing.", semantic_equivalence: "refinement" as const, material_differences: [{ field: "timing", before: "before compact", after: "immediately before compact", significance: "minor" as const }], evidence_record_ids: [evidence.record.id] },
+        { proposal_id: "cross-replacement", source_record_id: sourceIds[2], target_record_id: targets[2].record.id, relationship: "supersedes" as const, confidence: 0.99, rationale: "Replaces manual finish sync behavior.", semantic_equivalence: "replacement" as const, material_differences: [{ field: "trigger", before: "manual", after: "automatic", significance: "material" as const }], evidence_record_ids: [evidence.record.id] },
+        { proposal_id: "cross-protected", source_record_id: sourceIds[3], target_record_id: targets[3].record.id, relationship: "duplicate_of" as const, confidence: 0.99, rationale: "Incorrectly treats retry count as equivalent.", semantic_equivalence: "equivalent" as const, material_differences: [{ field: "retry count", before: "3", after: "4", significance: "minor" as const }], evidence_record_ids: [] }
+      ];
+      const checkpoint = await codexEngine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "codex-semantic", device_id: "device-codex" }, occurred_at: "2026-07-12T00:05:00.000Z", delta: { session_id: "codex-semantic", checkpoint_id: "semantic-cross-host", current_task: "Verify semantic lifecycle", progress: ["Codex authored bounded proposals"], learnings, semantic_consolidation_proposals: proposals } });
+      expect(checkpoint.semantic_consolidation).toMatchObject({ proposals_received: 4, proposals_accepted: 3, proposals_rejected: 1, rejected_by_reason: { protected_signal_difference: 1 } });
+      expect((await pushGitSync(codexStore, { message: "codex semantic checkpoint" })).pushed).toBe(true);
+
+      const claudeRestore = await runHostHook({ storePath: claudeStore, project_path: project, current_task: "Verify semantic lifecycle", pull: true, hook: { host: "claude", event: "post_compact", session_id: "codex-semantic", device_id: "device-claude", cwd: project, occurred_at: "2026-07-12T00:10:00.000Z" } });
+      expect(claudeRestore.hook_output.additional_context).toContain("Codex authored bounded proposals");
+      const claudeEngine = createEngine({ storePath: claudeStore, now: () => "2026-07-12T00:11:00.000Z" });
+      const repeated = await Promise.all([
+        claudeEngine.consolidateSemanticProposals({ proposals: proposals.slice(0, 3), project_id: "moryn", source: { client: "claude-code", session_id: "claude-semantic" } }),
+        claudeEngine.consolidateSemanticProposals({ proposals: proposals.slice(0, 3), project_id: "moryn", source: { client: "codex", session_id: "codex-replay" } })
+      ]);
+      expect(repeated).toEqual(repeated.map((receipt) => expect.objectContaining({ idempotent_replays: 3 })));
+      const finish = await agentFinish({ storePath: claudeStore, projectPath: project, currentTask: "Verify semantic lifecycle", agent: { client: "claude-code", session_id: "claude-semantic", device_id: "device-claude" }, summary: "Claude verified semantic links and protected rejection.", push: true });
+      expect(finish.sync.push?.pushed).toBe(true);
+
+      expect((await pullGitSync(secondCodexStore)).pulled).toBe(true);
+      const secondEngine = createEngine({ storePath: secondCodexStore });
+      const active = await secondEngine.recall({ project_id: "moryn", record_ids: [sourceIds[3], targets[3].record.id] });
+      expect(active.results.map((result) => result.record.id).sort()).toEqual([sourceIds[3], targets[3].record.id].sort());
+      const semanticEvents = (await readEvents(secondCodexStore)).filter((event) => event.event_id.startsWith("evt_semantic_consolidation_"));
+      expect(semanticEvents).toHaveLength(3);
+      expect(new Set(semanticEvents.map((event) => event.event_id)).size).toBe(3);
+      const dashboard = await buildDashboardData(secondCodexStore, { project_id: "moryn" });
+      expect(dashboard.quiet_dashboard.attention_needed).toEqual([]);
+      expect(dashboard.decision_summary.items).toEqual([]);
+      const handoff = await secondEngine.recall({ project_id: "moryn", query: "Claude verified semantic links protected rejection" });
+      expect(handoff.results.some((result) => result.record.content.text === "Claude verified semantic links and protected rejection.")).toBe(true);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

@@ -65,4 +65,23 @@ describe("working set report", () => {
       expect(privateReport).toMatchObject({ total_records: 2, active_logical_records: 2, default_boot_records: 2, excluded_private_records: 0 });
     });
   });
+
+  it("reports semantic relationships and rejected proposals across the privacy boundary", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath, now: () => "2026-07-12T00:00:00.000Z" });
+      const publicSource = await engine.write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Agents sync at finish." }, source: { client: "codex" } });
+      const publicTarget = await engine.write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Agent finish triggers sync." }, source: { client: "codex" } });
+      await engine.consolidateSemanticProposals({ proposals: [{ proposal_id: "public-semantic", source_record_id: publicSource.record.id, target_record_id: publicTarget.record.id, relationship: "duplicate_of", confidence: 0.99, rationale: "Equivalent finish behavior.", semantic_equivalence: "equivalent", material_differences: [], evidence_record_ids: [] }], project_id: "moryn", source: { client: "codex" } });
+      const privateSource = await engine.write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", tags: ["private"], content: { text: "Private agent sync fact." }, source: { client: "codex" } });
+      const privateTarget = await engine.write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", tags: ["private"], content: { text: "Private finish sync fact." }, source: { client: "codex" } });
+      await engine.consolidateSemanticProposals({ proposals: [{ proposal_id: "private-semantic", source_record_id: privateSource.record.id, target_record_id: privateTarget.record.id, relationship: "duplicate_of", confidence: 0.99, rationale: "Equivalent private behavior.", semantic_equivalence: "equivalent", material_differences: [], evidence_record_ids: [] }], project_id: "moryn", include_private: true, source: { client: "codex" } });
+      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "working-set", device_id: "device-test" }, occurred_at: "2026-07-12T00:05:00.000Z", delta: { session_id: "working-set", checkpoint_id: "working-set-rejected", progress: ["Capacity audit"], semantic_consolidation_proposals: [{ proposal_id: "rejected-public", source_record_id: "rec-unbounded", target_record_id: publicTarget.record.id, relationship: "duplicate_of", confidence: 0.5, rationale: "Rejected public proposal.", semantic_equivalence: "equivalent", material_differences: [], evidence_record_ids: [] }, { proposal_id: "rejected-private", source_record_id: "rec-private-unbounded", target_record_id: privateTarget.record.id, relationship: "duplicate_of", confidence: 0.5, rationale: "Rejected private proposal.", semantic_equivalence: "equivalent", material_differences: [], evidence_record_ids: [] }] } });
+
+      const safe = await buildWorkingSetReport(storePath, { project_id: "moryn" });
+      const privateReport = await buildWorkingSetReport(storePath, { project_id: "moryn", include_private: true });
+      expect(safe).toMatchObject({ semantic_equivalent_links: 1, semantic_revision_links: 0, semantic_superseded_links: 0, semantic_conflict_links: 0, semantic_rejected_proposals: 1 });
+      expect(privateReport).toMatchObject({ semantic_equivalent_links: 2, semantic_rejected_proposals: 2 });
+    });
+  });
 });

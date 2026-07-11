@@ -150,6 +150,12 @@ describe("validateSemanticConsolidationProposal", () => {
     }))).toMatchObject({ status: "rejected", reason: "replacement_cycle" });
   });
 
+  it("replays an existing duplicate link after canonical target timestamps change", () => {
+    const originalSource = record({ id: "new", updated_at: "2026-07-12T00:02:00.000Z", links: [{ record_id: "old", link_type: "duplicate_of", created_at: "2026-07-12T00:02:00.000Z" }] });
+    const originalTarget = record({ id: "old", updated_at: "2026-07-12T00:01:00.000Z", provenance: { method: "user-confirmed" } });
+    expect(validateSemanticConsolidationProposal([originalSource, originalTarget], proposal())).toMatchObject({ status: "idempotent", reason: "existing_relationship", source_record_id: "new", target_record_id: "old" });
+  });
+
   it.each([
     ["negation", "Pull on enter", "Never pull on enter"],
     ["number", "Retry 3 times", "Retry 4 times"],

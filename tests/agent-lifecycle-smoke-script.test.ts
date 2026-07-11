@@ -16,10 +16,10 @@ describe("agent lifecycle smoke script", () => {
 
     expect(result.stdout).toContain("agent lifecycle smoke passed");
     expect(result.stdout).toContain("Codex smoke status reached Gemini");
-    expect(result.stdout).toContain("Gemini smoke finish reached Codex");
+    expect(result.stdout).toContain("Claude smoke finish reached second Codex");
     expect(result.stdout).toContain('"checkpoint_record_id":"rec_checkpoint_');
     expect(result.stdout).toContain('"checkpoint_idempotent_replay":true');
-    expect(result.stdout).toContain('"resume_checkpoint_id":"compact-smoke-1"');
-    expect(result.stdout).toContain('"resume_next_steps":["Resume checkpoint smoke"]');
+    expect(result.stdout).toContain('"semantic_links_created":1');
+    expect(result.stdout).toContain('"protected_rejections":1');
   }, 60000);
 });

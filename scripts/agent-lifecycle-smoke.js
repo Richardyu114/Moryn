@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import { access, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -76,6 +77,11 @@ function requireRecentChange(output, summary) {
   }
 }
 
+function learningRecordId(projectId, learning) {
+  const canonical = JSON.stringify({ project_id: projectId, conclusion: learning.conclusion, scope: learning.scope, recommended_kind: learning.recommended_kind, recommended_type: learning.recommended_type });
+  return `rec_learning_${createHash("sha256").update(canonical).digest("hex").slice(0, 32)}`;
+}
+
 async function resolveMorynCommand(useSource) {
   if (useSource) {
     const sourceCli = join(packageRoot, "src", "cli.ts");
@@ -102,7 +108,8 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   const root = await mkdtemp(join(tmpdir(), "moryn-agent-lifecycle-smoke-"));
   const storeCodex = join(root, "store-codex");
-  const storeGemini = join(root, "store-gemini");
+  const storeClaude = join(root, "store-claude");
+  const storeCodexSecond = join(root, "store-codex-second");
   const project = join(root, "project");
   const remote = options.remote ?? join(root, "remote.git");
   const { command, argsPrefix } = await resolveMorynCommand(options.useSource ?? false);
@@ -145,112 +152,101 @@ async function main() {
       throw new Error("Status finish_session action must require summary");
     }
 
+    const target = await runJson(command, [...argsPrefix, "--store", storeCodex, "write", "--kind", "memory", "--type", "fact", "--scope", "project", "--project", project, "--text", "Agents pull memory on project enter.", "--state", "canonical", "--confirm"]);
+    const protectedTarget = await runJson(command, [...argsPrefix, "--store", storeCodex, "write", "--kind", "memory", "--type", "fact", "--scope", "project", "--project", project, "--text", "Retry 3 times."]);
+    const semanticLearning = { question: "When do agents pull?", conclusion: "Agents pull memories when entering a project.", evidence_type: "source_code", scope: "project", confidence: 0.99, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] };
+    const protectedLearning = { question: "How many retries?", conclusion: "Retry 4 times.", evidence_type: "source_code", scope: "project", confidence: 0.99, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] };
+    const semanticProposal = { proposal_id: "smoke-semantic", source_record_id: learningRecordId("moryn-smoke", semanticLearning), target_record_id: target.record.id, relationship: "duplicate_of", confidence: 0.99, rationale: "Equivalent enter behavior.", semantic_equivalence: "equivalent", material_differences: [], evidence_record_ids: [] };
+    const protectedProposal = { proposal_id: "smoke-protected", source_record_id: learningRecordId("moryn-smoke", protectedLearning), target_record_id: protectedTarget.record.id, relationship: "duplicate_of", confidence: 0.99, rationale: "Protected retry difference.", semantic_equivalence: "equivalent", material_differences: [{ field: "retry count", before: "3", after: "4", significance: "minor" }], evidence_record_ids: [] };
+    const preCompactPayload = JSON.stringify({ hook_event_name: "PreCompact", session_id: "codex-smoke", cwd: project, trigger: "auto", compact_summary: "Checkpoint smoke persisted with semantic consolidation." });
     const checkpointArgs = [
       ...argsPrefix,
       "--store",
       storeCodex,
-      "agent",
-      "checkpoint",
+      "host",
+      "hook",
+      "--host",
+      "codex",
       "--project",
       project,
-      "--agent",
-      "codex",
-      "--session-id",
-      "codex-smoke",
       "--device-id",
       "device-codex-smoke",
       "--occurred-at",
       "2026-07-11T10:30:00.000Z",
-      "--checkpoint-id",
-      "compact-smoke-1",
       "--current-task",
       "verify checkpoint lifecycle smoke",
-      "--progress",
-      "Checkpoint smoke persisted",
-      "--next-step",
-      "Resume checkpoint smoke"
+      "--input-json",
+      preCompactPayload,
+      "--learning",
+      JSON.stringify(semanticLearning),
+      "--learning",
+      JSON.stringify(protectedLearning),
+      "--semantic-consolidation-proposal",
+      JSON.stringify(semanticProposal),
+      "--semantic-consolidation-proposal",
+      JSON.stringify(protectedProposal),
+      "--no-pull",
+      "--no-push"
     ];
     const checkpoint = await runJson(command, checkpointArgs);
     const checkpointReplay = await runJson(command, checkpointArgs);
-    if (checkpoint.idempotent_replay !== false || checkpointReplay.idempotent_replay !== true) {
+    if (checkpoint.checkpoint?.idempotent_replay !== false || checkpointReplay.checkpoint?.idempotent_replay !== true) {
       throw new Error("Checkpoint smoke did not preserve idempotent replay semantics");
     }
-    if (checkpoint.record.id !== checkpointReplay.record.id) {
+    if (checkpoint.checkpoint.record.id !== checkpointReplay.checkpoint.record.id) {
       throw new Error("Checkpoint replay returned a different record id");
     }
-    const checkpointBoot = await runJson(command, [
+    if (checkpoint.checkpoint.semantic_consolidation?.proposals_accepted !== 1 || checkpoint.checkpoint.semantic_consolidation?.rejected_by_reason?.protected_signal_difference !== 1) throw new Error("PreCompact semantic receipt did not contain one accepted and one protected rejection");
+    await runJson(command, [...argsPrefix, "--store", storeCodex, "sync", "--push", "--message", "codex precompact semantic"]);
+    await runJson(command, [...argsPrefix, "--store", storeClaude, "init"]);
+    await runJson(command, [...argsPrefix, "--store", storeClaude, "sync", "init", remote]);
+    const claudeRestore = await runJson(command, [
       ...argsPrefix,
       "--store",
-      storeCodex,
-      "boot",
+      storeClaude,
+      "host",
+      "hook",
+      "--host",
+      "claude",
       "--project",
       project,
-      "--session-id",
-      "codex-smoke"
-    ]);
-    if (checkpointBoot.checkpoint_recovery_pack?.latest_checkpoint_id !== "compact-smoke-1") {
-      throw new Error("Checkpoint boot did not return the latest checkpoint");
-    }
-    if (!checkpointBoot.checkpoint_recovery_pack?.next_steps?.includes("Resume checkpoint smoke")) {
-      throw new Error("Checkpoint boot did not return the checkpoint next step");
-    }
-
-    const geminiStart = await runJson(command, [
-      ...argsPrefix,
-      "--store",
-      storeGemini,
-      "agent",
-      "start",
-      "--project",
-      project,
-      "--sync-remote",
-      remote,
-      "--agent",
-      "gemini",
-      "--session-id",
-      "gemini-smoke",
+      "--device-id",
+      "device-claude-smoke",
+      "--occurred-at",
+      "2026-07-11T10:35:00.000Z",
       "--current-task",
       "continue cross device lifecycle smoke",
-      "--refresh-since",
-      "2000-01-01T00:00:00.000Z"
+      "--input-json",
+      JSON.stringify({ hook_event_name: "PostCompact", session_id: "codex-smoke", cwd: project })
     ]);
-
-    if (geminiStart.sync.pull?.pulled !== true) throw new Error("Gemini start did not pull from sync remote");
-    requireChange(geminiStart, statusSummary);
-    requireRecentChange(geminiStart, statusSummary);
-    requireAction(geminiStart.next.actions, "publish_status", "agent_status");
-    requireAction(geminiStart.next.actions, "finish_session", "agent_finish");
-    requireAction(geminiStart.next.actions, "refresh_context", "agent_start");
-
-    const finishSummary = "Gemini smoke finish reached Codex";
+    if (!claudeRestore.hook_output?.additional_context?.includes("Checkpoint smoke persisted with semantic consolidation")) throw new Error("Claude PostCompact did not restore the Codex checkpoint");
+    const finishSummary = "Claude smoke finish reached second Codex";
     const finish = await runJson(command, [
       ...argsPrefix,
       "--store",
-      storeGemini,
-      "agent",
-      "finish",
+      storeClaude,
+      "host",
+      "hook",
+      "--host",
+      "claude",
       "--project",
       project,
-      "--sync-remote",
-      remote,
-      "--agent",
-      "gemini",
-      "--session-id",
-      "gemini-smoke",
-      "--summary",
-      finishSummary
+      "--device-id",
+      "device-claude-smoke",
+      "--occurred-at",
+      "2026-07-11T10:40:00.000Z",
+      "--current-task",
+      "continue cross device lifecycle smoke",
+      "--input-json",
+      JSON.stringify({ hook_event_name: "SessionEnd", session_id: "claude-smoke", cwd: project, compact_summary: finishSummary })
     ]);
-
-    if (finish.sync.push?.pushed !== true) throw new Error("Gemini finish did not push to sync remote");
-    const startNextSession = requireAction(finish.next.actions, "start_next_session", "agent_start");
-    if (!startNextSession.command.includes("--current-task <current_task>")) {
-      throw new Error("Finish start_next_session action must include a current_task placeholder");
-    }
-
+    if (finish.details?.sync?.push?.pushed !== true) throw new Error("Claude finish did not push to sync remote");
+    await runJson(command, [...argsPrefix, "--store", storeCodexSecond, "init"]);
+    await runJson(command, [...argsPrefix, "--store", storeCodexSecond, "sync", "init", remote]);
     const codexStart = await runJson(command, [
       ...argsPrefix,
       "--store",
-      storeCodex,
+      storeCodexSecond,
       "agent",
       "start",
       "--project",
@@ -260,24 +256,24 @@ async function main() {
       "--agent",
       "codex",
       "--session-id",
-      "codex-smoke-2",
+      "codex-smoke-second",
       "--current-task",
-      "verify Gemini handoff",
+      "verify Claude handoff",
       "--refresh-since",
       status.record.updated_at
     ]);
 
-    if (codexStart.sync.pull?.pulled !== true) throw new Error("Codex start did not pull Gemini handoff");
+    if (codexStart.sync.pull?.pulled !== true) throw new Error("Second Codex did not pull Claude handoff");
     requireChange(codexStart, finishSummary);
 
     log(`agent lifecycle smoke passed (${options.remote ? "remote" : "local"} Git remote)`);
     log(statusSummary);
     log(finishSummary);
     log(JSON.stringify({
-      checkpoint_record_id: checkpoint.record.id,
-      checkpoint_idempotent_replay: checkpointReplay.idempotent_replay,
-      resume_checkpoint_id: checkpointBoot.checkpoint_recovery_pack.latest_checkpoint_id,
-      resume_next_steps: checkpointBoot.checkpoint_recovery_pack.next_steps
+      checkpoint_record_id: checkpoint.checkpoint.record.id,
+      checkpoint_idempotent_replay: checkpointReplay.checkpoint.idempotent_replay,
+      semantic_links_created: checkpoint.checkpoint.semantic_consolidation.links_created,
+      protected_rejections: checkpoint.checkpoint.semantic_consolidation.rejected_by_reason.protected_signal_difference
     }));
   } finally {
     if (options.keepTemp) {

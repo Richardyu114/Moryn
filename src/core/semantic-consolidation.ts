@@ -162,6 +162,12 @@ function hasExistingRelationship(source: MorynRecord, target: MorynRecord, relat
     || (relationship === "conflicts_with" && target.links?.some((link) => link.record_id === source.id && link.link_type === relationship) === true);
 }
 
+function existingDuplicateDirection(source: MorynRecord, target: MorynRecord): { source: MorynRecord; target: MorynRecord } | undefined {
+  if (source.links?.some((link) => link.record_id === target.id && link.link_type === "duplicate_of")) return { source, target };
+  if (target.links?.some((link) => link.record_id === source.id && link.link_type === "duplicate_of")) return { source: target, target: source };
+  return undefined;
+}
+
 function hasContradictoryDirection(source: MorynRecord, target: MorynRecord, relationship: string): boolean {
   if (relationship === "conflicts_with") return false;
   return target.links?.some((link) => link.record_id === source.id && link.link_type === relationship) === true;
@@ -202,7 +208,12 @@ export function validateSemanticConsolidationProposal(
   const sourcePrivate = isPrivateTags(source.tags);
   const targetPrivate = isPrivateTags(target.tags);
   if (sourcePrivate !== targetPrivate || ((sourcePrivate || targetPrivate) && options.include_private !== true)) return result(proposal, "rejected", "private_boundary");
-  if (hasExistingRelationship(source, target, proposal.relationship)) return result(proposal, "idempotent", "existing_relationship", source.id, target.id);
+  if (proposal.relationship === "duplicate_of") {
+    const existing = existingDuplicateDirection(source, target);
+    if (existing) return result(proposal, "idempotent", "existing_relationship", existing.source.id, existing.target.id);
+  } else if (hasExistingRelationship(source, target, proposal.relationship)) {
+    return result(proposal, "idempotent", "existing_relationship", source.id, target.id);
+  }
   if (proposal.relationship === "duplicate_of" && compareLogicalMemoryTargets(source, target) < 0) {
     [source, target] = [target, source];
   }

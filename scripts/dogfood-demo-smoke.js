@@ -184,9 +184,17 @@ async function main() {
       const engine = createEngine({ storePath: ${JSON.stringify(store)}, id: (prefix) => prefix + "_dogfood_" + (++duplicateId) });
       const base = { kind: "memory", type: "decision", scope: "project", project_id: "moryn", source: { client: "dogfood-smoke" } };
       const canonical = await engine.write({ ...base, content: { text: "Use autonomous sync for healthy lifecycle paths." }, state: "canonical", confirmed: true });
+      const paraphrases = [
+        "Healthy lifecycle paths use autonomous synchronization.",
+        "Autonomous sync supports healthy lifecycle flows.",
+        "For healthy lifecycle operation, use autonomous synchronization.",
+        "Use automatic synchronization across healthy lifecycle paths.",
+        "Healthy agent lifecycle flows rely on autonomous sync."
+      ];
       for (let index = 0; index < 100; index += 1) {
-        const duplicate = await engine.write({ ...base, content: { text: "Use autonomous sync for healthy lifecycle paths." } });
-        await engine.logicalLink({ record_id: duplicate.record.id, linked_record_id: canonical.record.id, relationship: "duplicate_of", reason: "Dogfood duplicate consolidation" });
+        const duplicate = await engine.write({ ...base, content: { text: paraphrases[index % paraphrases.length] } });
+        const receipt = await engine.consolidateSemanticProposals({ proposals: [{ proposal_id: "dogfood-semantic-" + index, source_record_id: duplicate.record.id, target_record_id: canonical.record.id, relationship: "duplicate_of", confidence: 0.99, rationale: "Agent-authored paraphrase equivalence.", semantic_equivalence: "equivalent", material_differences: [], evidence_record_ids: [] }], project_id: "moryn", source: { client: "dogfood-smoke", session_id: "semantic-capacity" } });
+        if (receipt.proposals_accepted !== 1) throw new Error("semantic proposal was not accepted at index " + index + ": " + JSON.stringify(receipt));
       }
       process.stdout.write(JSON.stringify(await buildWorkingSetReport(${JSON.stringify(store)}, { project_id: "moryn" })));
     `;
@@ -198,7 +206,8 @@ async function main() {
     if (workingSet.active_logical_records > 4 || workingSet.default_boot_records > 5) {
       throw new Error(`logical working set was not bounded: active=${workingSet.active_logical_records}, boot=${workingSet.default_boot_records}`);
     }
-    log("100 duplicate records consolidated to a bounded working set");
+    requireMatch(workingSet.semantic_equivalent_links, 100, "semantic equivalent links");
+    log("100 paraphrased semantic proposals consolidated to a bounded working set");
 
     const dashboard = await runJson(command, [
       ...argsPrefix,

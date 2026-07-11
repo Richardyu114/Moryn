@@ -21,12 +21,18 @@ export const WORKING_SET_REPORT_SELECTION_SOURCES = {
   conflict_records: "logical_memory.conflict_record_ids",
   cycle_findings: "logical_memory.findings",
   default_boot_records: "boot.records_by_id",
-  compaction_ratio: "logical_memory.hidden_records/store.records"
+  compaction_ratio: "logical_memory.hidden_records/store.records",
+  semantic_equivalent_links: "store.events.link_records.duplicate_of",
+  semantic_revision_links: "store.events.link_records.revises",
+  semantic_superseded_links: "store.events.link_records.supersedes",
+  semantic_conflict_links: "store.events.link_records.conflicts_with",
+  semantic_rejected_proposals: "checkpoint.semantic_consolidation_proposals - store.events.semantic_links"
 } as const;
 
 export interface WorkingSetSummaryOptions {
   default_boot_records?: number;
   excluded_private_records?: number;
+  excluded_private_record_ids?: string[];
 }
 
 function eventRecordIds(event: MorynEvent): string[] {
@@ -39,6 +45,16 @@ export function summarizeWorkingSet(records: MorynRecord[], events: MorynEvent[]
   const logicalView = buildActiveLogicalMemoryView(records);
   const hiddenRelationships = Object.values(logicalView.hidden_by_record_id);
   const hiddenRecords = hiddenRelationships.length;
+  const semanticLinks = events.filter((event) => event.op === "link_records" && event.event_id.startsWith("evt_semantic_consolidation_"));
+  const semanticLinkKeys = new Set(semanticLinks.map((event) => event.op === "link_records" ? `${event.record_id}\u0000${event.linked_record_id}\u0000${event.link_type}` : ""));
+  const excludedPrivateRecordIds = new Set(options.excluded_private_record_ids ?? []);
+  const semanticRejectedProposals = records.flatMap((record) => {
+    const checkpoint = record.content.checkpoint;
+    if (!checkpoint || typeof checkpoint !== "object" || Array.isArray(checkpoint)) return [];
+    const proposals = (checkpoint as Record<string, unknown>).semantic_consolidation_proposals;
+    return Array.isArray(proposals) ? proposals.filter((proposal): proposal is Record<string, unknown> => Boolean(proposal && typeof proposal === "object" && !Array.isArray(proposal))) : [];
+  }).filter((proposal) => !excludedPrivateRecordIds.has(String(proposal.source_record_id)) && !excludedPrivateRecordIds.has(String(proposal.target_record_id)))
+    .filter((proposal) => !semanticLinkKeys.has(`${proposal.source_record_id}\u0000${proposal.target_record_id}\u0000${proposal.relationship}`)).length;
 
   return {
     total_events: events.length,
@@ -51,6 +67,11 @@ export function summarizeWorkingSet(records: MorynRecord[], events: MorynEvent[]
     cycle_findings: logicalView.findings.length,
     ...(options.default_boot_records !== undefined ? { default_boot_records: options.default_boot_records } : {}),
     compaction_ratio: records.length === 0 ? 0 : Number((hiddenRecords / records.length).toFixed(4)),
+    semantic_equivalent_links: semanticLinks.filter((event) => event.op === "link_records" && event.link_type === "duplicate_of").length,
+    semantic_revision_links: semanticLinks.filter((event) => event.op === "link_records" && event.link_type === "revises").length,
+    semantic_superseded_links: semanticLinks.filter((event) => event.op === "link_records" && event.link_type === "supersedes").length,
+    semantic_conflict_links: semanticLinks.filter((event) => event.op === "link_records" && event.link_type === "conflicts_with").length,
+    semantic_rejected_proposals: semanticRejectedProposals,
     excluded_private_records: options.excluded_private_records ?? 0,
     selection_sources: WORKING_SET_REPORT_SELECTION_SOURCES
   };
@@ -66,6 +87,7 @@ export async function buildWorkingSetReport(storePath: string, options: WorkingS
   const boot = await createEngine({ storePath }).boot({ project_id: options.project_id, current_task: options.current_task, include_private: options.include_private === true });
   return summarizeWorkingSet(records, visibleEvents, {
     default_boot_records: Object.keys(boot.records_by_id).length,
-    excluded_private_records: excludedPrivateRecords
+    excluded_private_records: excludedPrivateRecords,
+    excluded_private_record_ids: options.include_private === true ? [] : allRecords.filter((record) => isPrivateTags(record.tags)).map((record) => record.id)
   });
 }

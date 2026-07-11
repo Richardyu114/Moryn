@@ -3,9 +3,13 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 const exec = promisify(execFile);
+
+beforeAll(async () => {
+  await exec("npm", ["run", "build"], { cwd: process.cwd() });
+});
 
 async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), "moryn-package-smoke-"));
@@ -856,7 +860,9 @@ describe("published package smoke", () => {
 
         expect(result.stdout).toContain("agent lifecycle smoke passed");
         expect(result.stdout).toContain("Codex smoke status reached Gemini");
-        expect(result.stdout).toContain("Gemini smoke finish reached Codex");
+        expect(result.stdout).toContain("Claude smoke finish reached second Codex");
+        expect(result.stdout).toContain('"semantic_links_created":1');
+        expect(result.stdout).toContain('"protected_rejections":1');
       } finally {
         if (tarball) {
           await rm(tarball, { force: true });

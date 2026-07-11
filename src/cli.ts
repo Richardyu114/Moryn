@@ -2172,6 +2172,8 @@ host.command("hook")
   .option("--device-id <id>", "Stable device identity", process.env.MORYN_DEVICE_ID)
   .option("--occurred-at <timestamp>")
   .option("--input-json <json>", "Hook input JSON; defaults to stdin")
+  .option("--learning <json>", "Learning Delta JSON", collectNonEmptyOption("--learning"))
+  .option("--semantic-consolidation-proposal <json>", "Semantic consolidation proposal JSON", collectNonEmptyOption("--semantic-consolidation-proposal"))
   .option("--no-pull")
   .option("--no-push")
   .action(async (options) => {
@@ -2188,6 +2190,8 @@ host.command("hook")
         project_id: options.projectId,
         project_path: options.project,
         current_task: options.currentTask,
+        learnings: (options.learning ?? []).map((value: string) => parseCheckpointJson(value, "--learning") as LearningDeltaInput),
+        semantic_consolidation_proposals: (options.semanticConsolidationProposal ?? []).map((value: string) => parseCheckpointJson(value, "--semantic-consolidation-proposal") as SemanticConsolidationProposalInput),
         pull: options.pull,
         push: options.push
       }));
