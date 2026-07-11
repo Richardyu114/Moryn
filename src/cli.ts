@@ -2145,9 +2145,11 @@ program.command("install")
     if (options.apply) {
       await initializeStore(storePath());
       if (projectPath) {
-        await initializeProjectConfig(projectPath, {});
+        const projectConfig = await initializeProjectConfig(projectPath, {});
         if (host === "codex" || host === "claude" || host === "claude-code") {
-          const artifact = await writeHostIntegrationArtifact({ host, project_path: projectPath, store_path: storePath() });
+          const projectId = projectConfig.config.project_id;
+          if (!projectId) throw new Error("Invalid project config: missing project_id after initialization");
+          const artifact = await writeHostIntegrationArtifact({ host, project_id: projectId, project_path: projectPath, store_path: storePath() });
           printJson({ ...plan, integration_artifact: artifact });
           return;
         }
