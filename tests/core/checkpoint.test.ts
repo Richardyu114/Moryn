@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { createEngine } from "../../src/core/engine.js";
 import { checkpointIdentity, normalizeCheckpointInput, recoveryPack } from "../../src/core/checkpoint.js";
 import { appendEvent, appendEventIfAbsent, readEvents } from "../../src/core/store.js";
@@ -21,6 +23,10 @@ const baseDelta = {
   learnings: []
 };
 const execFileAsync = promisify(execFile);
+const authored = {
+  occurred_at: "2026-07-11T00:00:00.000Z",
+  source: { client: "codex", session_id: "session-1", device_id: "device-test" }
+};
 
 function createTestEngine(storePath: string) {
   let sequence = 0;
@@ -37,7 +43,8 @@ describe("engine.checkpoint", () => {
       const engine = createTestEngine(storePath);
       const input = {
         project_id: " project-a ",
-        source: { client: " codex ", session_id: "session-1", model: "gpt" },
+        source: { client: " codex ", session_id: "session-1", model: "gpt", device_id: "device-test" },
+        occurred_at: "2026-07-11T00:00:00.000Z",
         delta: baseDelta,
         tags: [" custom ", "custom", "checkpoint", "session:session-1"]
       };
@@ -95,11 +102,11 @@ describe("engine.checkpoint", () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createTestEngine(storePath);
       const variants = [
-        { project_id: "project-a", source: { client: "codex", session_id: "session-1" }, delta: baseDelta },
-        { project_id: "project-b", source: { client: "codex", session_id: "session-1" }, delta: baseDelta },
-        { project_id: "project-a", source: { client: "claude", session_id: "session-1" }, delta: baseDelta },
-        { project_id: "project-a", source: { client: "codex", session_id: "session-2" }, delta: { ...baseDelta, session_id: "session-2" } },
-        { project_id: "project-a", source: { client: "codex", session_id: "session-1" }, delta: { ...baseDelta, checkpoint_id: "checkpoint-2" } }
+        { project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta },
+        { project_id: "project-b", source: { client: "codex", session_id: "session-1", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta },
+        { project_id: "project-a", source: { client: "claude", session_id: "session-1", device_id: "device-test" }, occurred_at: authored.occurred_at, delta: baseDelta },
+        { project_id: "project-a", source: { client: "codex", session_id: "session-2", device_id: "device-test" }, occurred_at: authored.occurred_at, delta: { ...baseDelta, session_id: "session-2" } },
+        { project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: { ...baseDelta, checkpoint_id: "checkpoint-2" } }
       ];
 
       const results = [];
@@ -115,10 +122,12 @@ describe("engine.checkpoint", () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createTestEngine(storePath);
 
-      await expect(engine.checkpoint({ project_id: " ", source: { client: "codex", session_id: "session-1" }, delta: baseDelta })).rejects.toThrow();
-      await expect(engine.checkpoint({ project_id: "project-a", source: { client: " ", session_id: "session-1" }, delta: baseDelta })).rejects.toThrow();
-      await expect(engine.checkpoint({ project_id: "project-a", source: { client: "codex", session_id: " " }, delta: baseDelta })).rejects.toThrow();
-      await expect(engine.checkpoint({ project_id: "project-a", source: { client: "codex", session_id: "other" }, delta: baseDelta })).rejects.toThrow(/session_id/i);
+      await expect(engine.checkpoint({ project_id: " ", source: { client: "codex", session_id: "session-1", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta })).rejects.toThrow();
+      await expect(engine.checkpoint({ project_id: "project-a", source: { client: " ", session_id: "session-1", device_id: "device-test" }, occurred_at: authored.occurred_at, delta: baseDelta })).rejects.toThrow();
+      await expect(engine.checkpoint({ project_id: "project-a", source: { client: "codex", session_id: " ", device_id: "device-test" }, occurred_at: authored.occurred_at, delta: baseDelta })).rejects.toThrow();
+      await expect(engine.checkpoint({ project_id: "project-a", source: { client: "codex", session_id: "other", device_id: "device-test" }, occurred_at: authored.occurred_at, delta: baseDelta })).rejects.toThrow(/session_id/i);
+      await expect(engine.checkpoint({ project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "" }, occurred_at: authored.occurred_at, delta: baseDelta })).rejects.toThrow(/device_id/i);
+      await expect(engine.checkpoint({ project_id: "project-a", source: authored.source, occurred_at: "2026-07-11", delta: baseDelta })).rejects.toThrow(/occurred_at/i);
       expect(await readEvents(storePath)).toHaveLength(0);
     });
   });
@@ -128,7 +137,7 @@ describe("engine.checkpoint", () => {
       const engine = createTestEngine(storePath);
       const input = {
         project_id: "project-a",
-        source: { client: "codex", session_id: "session-1" },
+        ...authored,
         delta: baseDelta,
         tags: ["private"]
       };
@@ -149,7 +158,7 @@ describe("engine.checkpoint", () => {
   it("serializes concurrent duplicate calls into one event", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createTestEngine(storePath);
-      const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1" }, delta: baseDelta };
+      const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta };
 
       const [first, second] = await Promise.all([engine.checkpoint(input), engine.checkpoint(input)]);
 
@@ -163,7 +172,7 @@ describe("engine.checkpoint", () => {
     await withInitializedTempStore(async (storePath) => {
       const firstEngine = createTestEngine(storePath);
       const secondEngine = createTestEngine(storePath);
-      const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1" }, delta: baseDelta };
+      const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta };
 
       const [first, second] = await Promise.all([firstEngine.checkpoint(input), secondEngine.checkpoint(input)]);
 
@@ -173,12 +182,12 @@ describe("engine.checkpoint", () => {
     });
   });
 
-  it("uses deterministic event and record ids across devices", async () => {
+  it("uses deterministic event and record ids for the same authored input", async () => {
     await withInitializedTempStore(async (storePath) => {
       const firstEngine = createEngine({ storePath, now: () => "2026-07-11T00:00:00.000Z", id: () => "random_a" });
       const secondEngine = createEngine({ storePath, now: () => "2026-07-12T00:00:00.000Z", id: () => "random_b" });
-      const firstInput = { project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "device-a" }, delta: baseDelta };
-      const secondInput = { ...firstInput, source: { ...firstInput.source, device_id: "device-b" } };
+      const firstInput = { project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "device-a" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta };
+      const secondInput = { ...firstInput };
 
       const [first, second] = await Promise.all([firstEngine.checkpoint(firstInput), secondEngine.checkpoint(secondInput)]);
 
@@ -190,10 +199,53 @@ describe("engine.checkpoint", () => {
     });
   });
 
+  it.each([
+    { field: "progress", delta: { ...baseDelta, progress: ["different progress"] } },
+    { field: "current_task", delta: { ...baseDelta, current_task: "Different task" } },
+    { field: "learnings", delta: { ...baseDelta, learnings: [{ question: "Q", conclusion: "C", evidence_type: "source_code", scope: "project", confidence: 0.8, recommended_kind: "memory", recommended_type: "fact" }] } }
+  ])("rejects same-key payload collision for $field", async ({ delta }) => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createTestEngine(storePath);
+      const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta };
+      await engine.checkpoint(input);
+
+      await expect(engine.checkpoint({ ...input, delta })).rejects.toThrow("Checkpoint idempotency collision");
+      expect(await readEvents(storePath)).toHaveLength(1);
+    });
+  });
+
+  it.each([
+    { field: "occurred_at", change: { occurred_at: "2026-07-11T00:00:01.000Z" } },
+    { field: "device_id", change: { source: { ...authored.source, device_id: "different-device" } } }
+  ])("rejects same-key authored payload collision for $field", async ({ change }) => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createTestEngine(storePath);
+      const input = { project_id: "project-a", ...authored, delta: baseDelta };
+      await engine.checkpoint(input);
+
+      await expect(engine.checkpoint({ ...input, ...change })).rejects.toThrow("Checkpoint idempotency collision");
+    });
+  });
+
+  it("writes byte-identical events for identical authored input in independent stores", async () => {
+    const outputs: string[] = [];
+    for (let index = 0; index < 2; index += 1) {
+      await withInitializedTempStore(async (storePath) => {
+        const engine = createEngine({ storePath, now: () => index ? "2030-01-01T00:00:00.000Z" : "2020-01-01T00:00:00.000Z" });
+        const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "authored-device" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta };
+        const result = await engine.checkpoint(input);
+        const identity = checkpointIdentity(normalizeCheckpointInput(input));
+        outputs.push(await readFile(join(storePath, "events", "idempotent", `${identity.event_id}.json`), "utf8"));
+        expect(result.record.created_at).toBe(input.occurred_at);
+      });
+    }
+    expect(outputs[0]).toBe(outputs[1]);
+  });
+
   it("rejects deterministic event collisions with mismatched checkpoint content", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createTestEngine(storePath);
-      const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1" }, delta: baseDelta };
+      const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta };
       const normalized = normalizeCheckpointInput(input);
       const identity = checkpointIdentity(normalized);
       await appendEventIfAbsent(storePath, {
@@ -234,14 +286,15 @@ describe("engine.checkpoint", () => {
         const result = await engine.checkpoint({
           project_id: 'project-a',
           source: { client: 'codex', session_id: 'session-1', device_id: deviceId },
+          occurred_at: '2026-07-11T00:00:00.000Z',
           delta: ${JSON.stringify(baseDelta)}
         });
         process.stdout.write(JSON.stringify({ id: result.record.id, replay: result.idempotent_replay }));
       `;
       const options = { cwd: process.cwd(), maxBuffer: 1024 * 1024 };
       const [first, second] = await Promise.all([
-        execFileAsync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script, storePath, "device-a"], options),
-        execFileAsync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script, storePath, "device-b"], options)
+        execFileAsync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script, storePath, "shared-device"], options),
+        execFileAsync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script, storePath, "shared-device"], options)
       ]);
       const results = [JSON.parse(first.stdout), JSON.parse(second.stdout)] as Array<{ id: string; replay: boolean }>;
 
@@ -256,7 +309,7 @@ describe("engine.checkpoint", () => {
       const engine = createTestEngine(storePath);
       const result = await engine.checkpoint({
         project_id: "project-a",
-        source: { client: "codex", session_id: "session-1" },
+        ...authored,
         delta: baseDelta,
         tags: [privateTag]
       });
@@ -287,13 +340,13 @@ describe("engine.checkpoint", () => {
           visibility: "active",
           created_at: "2026-07-10T00:00:00.000Z",
           updated_at: "2026-07-10T00:00:00.000Z",
-          source: { client: "codex", session_id: "session-1" },
+          ...authored,
           provenance: { method: "agent-proposed" }
         }
       });
       const engine = createTestEngine(storePath);
 
-      const result = await engine.checkpoint({ project_id: "project-a", source: { client: "codex", session_id: "session-1" }, delta: baseDelta });
+      const result = await engine.checkpoint({ project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta });
 
       expect(result.idempotent_replay).toBe(false);
       expect(result.record.id).not.toBe("rec_manual");
@@ -334,7 +387,7 @@ describe("engine.checkpoint", () => {
         id: (() => { let sequence = 0; return (prefix: string) => `${prefix}_${++sequence}`; })(),
         rebuild: async () => { throw new Error("rebuild failed"); }
       });
-      const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1" }, delta: baseDelta };
+      const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta };
 
       const first = await engine.checkpoint(input);
       const replay = await engine.checkpoint(input);
@@ -351,7 +404,7 @@ describe("engine.checkpoint", () => {
       const engine = createTestEngine(storePath);
       const delta = { ...baseDelta, current_task: "Use api_key=abcdefghijklmnop" };
 
-      await expect(engine.checkpoint({ project_id: "project-a", source: { client: "codex", session_id: "session-1" }, delta })).rejects.toThrow(/Sensitive content detected/i);
+      await expect(engine.checkpoint({ project_id: "project-a", ...authored, delta })).rejects.toThrow(/Sensitive content detected/i);
       expect(await readEvents(storePath)).toHaveLength(0);
     });
   });
@@ -359,7 +412,7 @@ describe("engine.checkpoint", () => {
   it("keeps the deterministic idempotency key after archive or quarantine", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createTestEngine(storePath);
-      const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1" }, delta: baseDelta };
+      const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta };
 
       const archived = await engine.checkpoint(input);
       await engine.archive({ record_id: archived.record.id, source: input.source });

@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { toErrorEnvelope } from "../../src/core/errors.js";
@@ -39,6 +39,59 @@ describe("event store", () => {
       expect([first.created, second.created].sort()).toEqual([false, true]);
       expect(first.event).toEqual(second.event);
       expect(await readEvents(storePath)).toHaveLength(1);
+    });
+  });
+
+  it("publishes only complete temp files and ignores orphan temps", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const event = {
+        event_id: "evt_checkpoint_publish",
+        op: "upsert_record" as const,
+        created_at: "2026-05-27T00:00:00.000Z",
+        source: { client: "test", device_id: "device_a" },
+        record: {
+          id: "rec_checkpoint_publish", kind: "session_summary" as const, type: "checkpoint", scope: "project" as const,
+          project_id: "project-a", tags: ["checkpoint"], content: { text: "complete", format: "json" as const },
+          state: "candidate" as const, confidence: 0.5, priority: "normal" as const, visibility: "active" as const,
+          created_at: "2026-05-27T00:00:00.000Z", updated_at: "2026-05-27T00:00:00.000Z", source: { client: "test", device_id: "device_a" }
+        }
+      };
+      const tempDir = join(storePath, "state", "event-writes");
+      await mkdir(tempDir, { recursive: true });
+      await writeFile(join(tempDir, "orphan.tmp"), "{partial", "utf8");
+      let releasePublish!: () => void;
+      const publishGate = new Promise<void>((resolve) => { releasePublish = resolve; });
+      let tempReady!: () => void;
+      const tempReadyPromise = new Promise<void>((resolve) => { tempReady = resolve; });
+
+      const paused = appendEventIfAbsent(storePath, event, { before_publish: async () => { tempReady(); await publishGate; } });
+      await tempReadyPromise;
+      const competitor = appendEventIfAbsent(storePath, event);
+      releasePublish();
+      const results = await Promise.all([paused, competitor]);
+
+      expect(results.map((result) => result.created).sort()).toEqual([false, true]);
+      expect(results[0]?.event).toEqual(results[1]?.event);
+      expect((await readdir(tempDir)).filter((name) => name !== "orphan.tmp")).toEqual([]);
+      expect(await readEvents(storePath)).toHaveLength(1);
+    });
+  });
+
+  it("reports a stable error for corrupt existing idempotent events", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const finalDir = join(storePath, "events", "idempotent");
+      await mkdir(finalDir, { recursive: true });
+      await writeFile(join(finalDir, "evt_checkpoint_corrupt.json"), "{partial", "utf8");
+      const event = {
+        event_id: "evt_checkpoint_corrupt", op: "upsert_record" as const, created_at: "2026-05-27T00:00:00.000Z",
+        source: { client: "test", device_id: "device_a" },
+        record: { id: "rec_checkpoint_corrupt", kind: "session_summary" as const, type: "checkpoint", scope: "project" as const,
+          project_id: "project-a", tags: [], content: { text: "complete", format: "json" as const }, state: "candidate" as const,
+          confidence: 0.5, priority: "normal" as const, visibility: "active" as const, created_at: "2026-05-27T00:00:00.000Z",
+          updated_at: "2026-05-27T00:00:00.000Z", source: { client: "test", device_id: "device_a" } }
+      };
+
+      await expect(appendEventIfAbsent(storePath, event)).rejects.toThrow("Corrupt idempotent event: evt_checkpoint_corrupt");
     });
   });
   async function expectInvalidStorePath(action: () => Promise<unknown>, value: unknown): Promise<void> {

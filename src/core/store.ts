@@ -1,4 +1,4 @@
-import { access, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { access, link, mkdir, open, readdir, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { MorynEvent } from "./types.js";
 import { parseEvent } from "./schema.js";
@@ -111,19 +111,46 @@ export async function appendEvent(storePath: string, event: MorynEvent): Promise
   return path;
 }
 
-export async function appendEventIfAbsent(storePath: string, event: MorynEvent): Promise<{ created: boolean; event: MorynEvent; path: string }> {
+export interface AppendEventIfAbsentOptions {
+  before_publish?: (tempPath: string, finalPath: string) => Promise<void>;
+}
+
+export async function appendEventIfAbsent(storePath: string, event: MorynEvent, options: AppendEventIfAbsentOptions = {}): Promise<{ created: boolean; event: MorynEvent; path: string }> {
   await ensureStoreInitialized(storePath);
   const config = await readStoreConfig(storePath);
   const parsed = parseEvent(withDefaultDeviceId(event, config.device_id));
   assertNoUnredactedSensitiveContent(parsed);
   const path = idempotentEventPath(storePath, parsed.event_id);
+  const tempDir = join(storePath, "state", "event-writes");
   await mkdir(dirname(path), { recursive: true });
+  await mkdir(tempDir, { recursive: true });
+  const tempPath = join(tempDir, `${parsed.event_id}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`);
   try {
-    await writeFile(path, `${JSON.stringify(parsed, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
-    return { created: true, event: parsed, path };
+    const handle = await open(tempPath, "wx");
+    try {
+      await handle.writeFile(`${JSON.stringify(parsed, null, 2)}\n`, "utf8");
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    await options.before_publish?.(tempPath, path);
+    try {
+      await link(tempPath, path);
+      return { created: true, event: parsed, path };
+    } catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
+      try {
+        return { created: false, event: parseEvent(JSON.parse(await readFile(path, "utf8"))), path };
+      } catch {
+        throw new Error(`Corrupt idempotent event: ${parsed.event_id}`);
+      }
+    }
   } catch (error) {
-    if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
-    return { created: false, event: parseEvent(JSON.parse(await readFile(path, "utf8"))), path };
+    throw error;
+  } finally {
+    await unlink(tempPath).catch((error) => {
+      if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+    });
   }
 }
 

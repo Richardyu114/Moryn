@@ -17,8 +17,7 @@ import { diagnoseCapturePolicy, type CapturePolicyInput } from "./capture-policy
 import { diagnoseHealthCheck, HEALTH_CHECK_SELECTION_SOURCES, type HealthCheckInput } from "./health-check.js";
 import { diagnoseMemory, MEMORY_DOCTOR_SELECTION_SOURCES } from "./memory-doctor.js";
 import { evaluateRecall, RECALL_EVAL_SELECTION_SOURCES, type RecallEvalInput } from "./recall-eval.js";
-import { checkpointIdentity, checkpointSummary, matchesCheckpoint, normalizeCheckpointInput, recoveryPack, type CheckpointInput, type CheckpointResult } from "./checkpoint.js";
-import { readStoreConfig } from "./config.js";
+import { checkpointIdentity, checkpointPayloadDigest, checkpointSummary, matchesCheckpoint, matchesCheckpointPayload, normalizeCheckpointInput, recoveryPack, type CheckpointInput, type CheckpointResult } from "./checkpoint.js";
 
 interface EngineDeps {
   storePath: string;
@@ -2889,9 +2888,8 @@ export function createEngine(deps: EngineDeps) {
       const normalized = normalizeCheckpointInput(input);
       const identity = checkpointIdentity(normalized);
       const outcome = await (async () => {
-        const config = await readStoreConfig(deps.storePath);
-        const source = normalized.source.device_id ? normalized.source : { ...normalized.source, device_id: config.device_id };
-        const createdAt = now();
+        const source = normalized.source;
+        const createdAt = normalized.occurred_at;
         const record: MorynRecord = {
           id: identity.record_id,
           kind: "session_summary",
@@ -2899,7 +2897,7 @@ export function createEngine(deps: EngineDeps) {
           scope: "project",
           project_id: normalized.project_id,
           tags: normalized.tags,
-          content: { format: "json", text: checkpointSummary(normalized.delta), checkpoint_version: 1, checkpoint: normalized.delta },
+          content: { format: "json", text: checkpointSummary(normalized.delta), checkpoint_version: 1, checkpoint_payload_digest: checkpointPayloadDigest(normalized), checkpoint: normalized.delta },
           state: "candidate",
           confidence: 0.5,
           priority: "normal",
@@ -2911,7 +2909,7 @@ export function createEngine(deps: EngineDeps) {
         };
         const event: MorynEvent = { event_id: identity.event_id, op: "upsert_record", record, created_at: createdAt, source };
         const appended = await appendEventIfAbsent(deps.storePath, event);
-        if (appended.event.op !== "upsert_record" || !matchesCheckpoint(appended.event.record, normalized) || appended.event.record.id !== identity.record_id) {
+        if (appended.event.op !== "upsert_record" || !matchesCheckpoint(appended.event.record, normalized) || !matchesCheckpointPayload(appended.event.record, normalized) || appended.event.record.id !== identity.record_id) {
           throw new Error(`Checkpoint idempotency collision: ${identity.event_id}`);
         }
         return { record: appended.event.record, idempotent_replay: !appended.created };
