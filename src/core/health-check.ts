@@ -5,6 +5,7 @@ import { isCaptureReviewCandidate } from "./capture-review.js";
 import { displayRecordText } from "./content-text.js";
 import { getHostAdapter, type HostAdapterId } from "./host-adapter-registry.js";
 import type { MorynEvent, MorynRecord } from "./types.js";
+import type { HostActivationStatus } from "./host-activation.js";
 import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
 
 export type HealthCheckStatus = "healthy" | "needs_attention" | "unhealthy";
@@ -13,6 +14,7 @@ export type HealthCheckCategory = "store" | "project" | "capture" | "privacy" | 
 
 export interface HealthCheckInput {
   project_id?: string;
+  project_path?: string;
   limit?: number;
   include_private?: boolean;
   host?: string;
@@ -23,6 +25,7 @@ export interface HealthCheckDiagnoseInput extends HealthCheckInput {
   records: MorynRecord[];
   events: MorynEvent[];
   excluded_private_records?: number;
+  activation_status?: HostActivationStatus;
 }
 
 export interface HealthCheckItem {
@@ -100,6 +103,7 @@ export interface HealthCheckReport {
   scope: "local_store";
   status: HealthCheckStatus;
   project_id?: string;
+  activation_status?: HostActivationStatus;
   setup_readiness: HealthCheckSetupReadiness;
   summary: HealthCheckSummary;
   stats: HealthCheckStats;
@@ -116,7 +120,8 @@ export const HEALTH_CHECK_SELECTION_SOURCES = {
   action: "suggested_actions_by_id.<action_id>",
   action_id: "suggested_actions_by_id.<action_id>.action_id",
   stat: "stats.<field>",
-  setup_readiness: "setup_readiness"
+  setup_readiness: "setup_readiness",
+  activation_status: "activation_status"
 } as const;
 
 function isPrivateRecord(record: MorynRecord): boolean {
@@ -529,6 +534,7 @@ export function diagnoseHealthCheck(input: HealthCheckDiagnoseInput): HealthChec
     scope: "local_store",
     status,
     ...(input.project_id ? { project_id: input.project_id } : {}),
+    ...(input.activation_status ? { activation_status: input.activation_status } : {}),
     setup_readiness: readiness,
     summary: healthSummary(status, checks, actions),
     stats: stats(input, projectRecords, reviewCandidates),

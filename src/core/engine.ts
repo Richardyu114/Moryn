@@ -16,6 +16,8 @@ import { diagnoseDogfood, type DogfoodReportInput } from "./dogfood-report.js";
 import { diagnoseMemoryLifecycle, type MemoryLifecycleInput } from "./memory-lifecycle.js";
 import { diagnoseCapturePolicy, type CapturePolicyInput } from "./capture-policy-report.js";
 import { diagnoseHealthCheck, HEALTH_CHECK_SELECTION_SOURCES, type HealthCheckInput } from "./health-check.js";
+import { inspectHostActivation } from "./host-activation.js";
+import { normalizeHostId } from "./host-adapter-registry.js";
 import { diagnoseMemory, MEMORY_DOCTOR_SELECTION_SOURCES } from "./memory-doctor.js";
 import { evaluateRecall, RECALL_EVAL_SELECTION_SOURCES, type RecallEvalInput } from "./recall-eval.js";
 import { buildCheckpointRecoveryPack, CHECKPOINT_SELECTION_SOURCES, checkpointIdentity, checkpointPayloadDigest, checkpointSummary, matchesCheckpoint, matchesCheckpointPayload, normalizeCheckpointInput, parseCheckpointContent, type CheckpointInput, type CheckpointResult } from "./checkpoint.js";
@@ -2240,6 +2242,7 @@ function validateDogfoodReportInput(input: DogfoodReportInput): void {
 function validateHealthCheckInput(input: HealthCheckInput): void {
   assertPlainObject(input, "health check input");
   validateOptionalString("health_check", input.project_id, "project_id");
+  validateOptionalString("health_check", input.project_path, "project_path");
   validateOptionalString("health_check", input.host, "host");
   validateOptionalString("health_check", input.sync_remote, "sync_remote");
   validateOptionalBoolean("health_check", input.include_private, "include_private");
@@ -3884,15 +3887,21 @@ export function createEngine(deps: EngineDeps) {
       const allRecords = [...replayEvents(events).values()];
       const visibleRecords = allRecords
         .filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private));
+      const normalizedHost = resolvedInput.host ? normalizeHostId(resolvedInput.host) : undefined;
+      const activationStatus = resolvedInput.project_id && resolvedInput.project_path && (normalizedHost === "codex" || normalizedHost === "claude")
+        ? await inspectHostActivation({ store_path: deps.storePath, project_path: resolvedInput.project_path, project_id: resolvedInput.project_id, host: normalizedHost }).catch(() => undefined)
+        : undefined;
       return diagnoseHealthCheck({
         records: visibleRecords,
         events,
         project_id: resolvedInput.project_id,
+        project_path: resolvedInput.project_path,
         host: resolvedInput.host,
         sync_remote: resolvedInput.sync_remote,
         limit,
         include_private: resolvedInput.include_private,
-        excluded_private_records: allRecords.length - visibleRecords.length
+        excluded_private_records: allRecords.length - visibleRecords.length,
+        ...(activationStatus ? { activation_status: activationStatus } : {})
       });
     },
 

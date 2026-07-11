@@ -3,6 +3,7 @@ import { stat } from "node:fs/promises";
 import { readStoreConfig, initializeStore } from "./config.js";
 import { readProjectConfig, initializeProjectConfig } from "./project.js";
 import { normalizeHostId, planInstall, type HostAdapterId, type InstallPlanAction } from "./host-adapters.js";
+import { inspectHostActivation, type HostActivationStatus } from "./host-activation.js";
 
 export type SetupWizardCheckId = "store" | "project" | "sync" | "host_adapter";
 export type SetupWizardCheckStatus = "ready" | "missing" | "manual" | "skipped";
@@ -56,6 +57,7 @@ export type SetupWizardPlan = {
   };
   apply_result?: SetupWizardApplyResult;
   selection_sources: typeof SETUP_WIZARD_SELECTION_SOURCES;
+  activation_status?: HostActivationStatus;
 };
 
 export type SetupWizardInput = {
@@ -105,6 +107,7 @@ export const SETUP_WIZARD_SELECTION_SOURCES = {
   ordered_planned_write: "planned_writes[]",
   next: "next",
   apply_result: "apply_result",
+  activation_status: "activation_status",
   warning: "warnings[]"
 } as const;
 
@@ -283,6 +286,21 @@ export async function setupWizard(input: SetupWizardInput): Promise<SetupWizardP
   const checksByIdValue = checksById(checks);
   const writes = plannedWrites(input, checksByIdValue);
   const status = setupStatus(checks);
+  let activationStatus: HostActivationStatus | undefined;
+  const normalizedHost = input.host ? normalizeHostId(input.host) : undefined;
+  if (input.projectPath && (normalizedHost === "codex" || normalizedHost === "claude")) {
+    const projectConfig = await readProjectConfig(input.projectPath);
+    if (projectConfig?.project_id) {
+      try {
+        activationStatus = await inspectHostActivation({
+          store_path: input.storePath,
+          project_path: input.projectPath,
+          project_id: projectConfig.project_id,
+          host: normalizedHost
+        });
+      } catch {}
+    }
+  }
   const actions = installPlan.actions;
   const next = input.apply || status === "ready"
     ? {
@@ -320,6 +338,7 @@ export async function setupWizard(input: SetupWizardInput): Promise<SetupWizardP
     ],
     next,
     ...(applyResult ? { apply_result: applyResult } : {}),
+    ...(activationStatus ? { activation_status: activationStatus } : {}),
     selection_sources: SETUP_WIZARD_SELECTION_SOURCES
   };
 }

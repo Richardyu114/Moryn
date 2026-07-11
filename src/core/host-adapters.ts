@@ -1,4 +1,5 @@
 import { agentStart } from "./agent-lifecycle.js";
+import type { HostActivationStatus } from "./host-activation.js";
 import { evaluateAutocapturePolicy, type AutocapturePolicyResult } from "./autocapture-policy.js";
 import { createEngine } from "./engine.js";
 import { getHostAdapter, getHostAdapters, normalizeHostId, type HostAdapter, type HostAdapterId } from "./host-adapter-registry.js";
@@ -83,6 +84,7 @@ export type ContextPackResult = {
   adapter: HostAdapter;
   agent: RecordSource;
   project: Record<string, unknown>;
+  activation_status?: HostActivationStatus;
   handoff_pack: HandoffPackV2;
   sections: {
     boot: unknown;
@@ -197,6 +199,7 @@ export const CONTEXT_PACK_SELECTION_SOURCES = {
   context_pack: "context_pack",
   handoff_pack: "handoff_pack",
   project: "project",
+  activation_status: "activation_status",
   boot: "sections.boot",
   refresh: "sections.refresh",
   handoff: "sections.handoff",
@@ -494,6 +497,7 @@ export async function contextPack(input: ContextPackInput): Promise<ContextPackR
     adapter,
     agent,
     project: started.project as unknown as Record<string, unknown>,
+    ...(started.activation_status ? { activation_status: started.activation_status } : {}),
     handoff_pack: buildHandoffPackV2({
       currentTask: input.currentTask,
       sections,

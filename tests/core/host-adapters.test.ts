@@ -452,6 +452,7 @@ describe("host adapters", () => {
       });
 
       expect(pack.kind).toBe("context_pack");
+      expect(pack.activation_status).toBeUndefined();
       expect(pack.agent.client).toBe("gemini");
       expect(pack.project.project_id).toBe("moryn");
       expect(pack.handoff_pack).toMatchObject({
@@ -619,6 +620,7 @@ describe("host adapters", () => {
 
       expect(defaultPack.sections.handoff.inbox.map((entry) => entry.text)).not.toContain("Private handoff details.");
       expect(privatePack.sections.handoff.inbox.map((entry) => entry.text)).toContain("Private handoff details.");
+      expect(defaultPack.activation_status).toMatchObject({ host: "codex", status: "not_installed" });
     });
   });
 });

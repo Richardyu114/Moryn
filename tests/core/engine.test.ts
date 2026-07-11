@@ -47,7 +47,8 @@ const HEALTH_CHECK_SELECTION_SOURCES = {
   action: "suggested_actions_by_id.<action_id>",
   action_id: "suggested_actions_by_id.<action_id>.action_id",
   stat: "stats.<field>",
-  setup_readiness: "setup_readiness"
+  setup_readiness: "setup_readiness",
+  activation_status: "activation_status"
 };
 const CAPTURE_POLICY_SELECTION_SOURCES = {
   decision: "decisions_by_record_id.<record_id>",

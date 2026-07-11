@@ -3106,8 +3106,11 @@ describe("agent lifecycle", () => {
       await initializeStore(store, { now: () => "2026-07-12T00:00:00.000Z", id: () => `device_${client}` });
       const agent = { client, session_id: `session-${client}` };
 
-      const guide = agentGuide({ storePath: store, projectPath: project, currentTask: "Resolve unknown project knowledge", agent });
+      const guide = await agentGuide({ storePath: store, projectPath: project, currentTask: "Resolve unknown project knowledge", agent });
       const start = await agentStart({ storePath: store, projectPath: project, currentTask: "Resolve unknown project knowledge", agent, pull: false });
+
+      expect(guide.activation_status?.host).toBe(client === "codex" ? "codex" : "claude");
+      expect(guide.activation_status?.status).toBe("not_installed");
 
       for (const result of [guide, start]) {
         expect(result.knowledge_protocol?.phases.map((phase) => phase.id)).toEqual([

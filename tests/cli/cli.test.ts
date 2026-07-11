@@ -2708,7 +2708,8 @@ describe("moryn CLI", () => {
         startup: "startup",
         lifecycle_action: "lifecycle_by_step.<step>",
         rule: "rules_by_id.<rule_id>",
-        guardrail: "guardrails_by_id.<guardrail_id>"
+        guardrail: "guardrails_by_id.<guardrail_id>",
+        activation_status: "activation_status"
       });
       expect(parsed.startup).toMatchObject({
         tool: "agent_enter",
@@ -3234,6 +3235,7 @@ describe("moryn CLI", () => {
         mode: string;
         status: string;
         apply_result: { applied_action_ids: string[]; skipped_action_ids: string[]; host_config_writes: string };
+        activation_status: { host: string; status: string };
       };
       expect(appliedPlan.mode).toBe("apply");
       expect(appliedPlan.status).toBe("ready");
@@ -3242,6 +3244,7 @@ describe("moryn CLI", () => {
         skipped_action_ids: expect.arrayContaining(["register_mcp"]),
         host_config_writes: "none"
       });
+      expect(appliedPlan.activation_status).toMatchObject({ host: "codex", status: "not_installed" });
       await expect(readFile(join(store, "config.json"), "utf8")).resolves.toContain("store_version");
       await expect(readFile(join(project, ".moryn.json"), "utf8")).resolves.toContain("project_id");
 
@@ -3258,6 +3261,7 @@ describe("moryn CLI", () => {
         generated_from: { writes: string; host_config_writes: string };
         next: { recommended_action: string; command: string; safe_to_run: boolean };
         apply_result?: unknown;
+        activation_status: { host: string; status: string };
       };
       expect(readyPlan).toMatchObject({
         mode: "dry_run",
@@ -3272,6 +3276,7 @@ describe("moryn CLI", () => {
         }
       });
       expect(readyPlan.next.command).toContain("moryn context pack");
+      expect(readyPlan.activation_status).toMatchObject({ host: "codex", status: "not_installed" });
       expect(readyPlan).not.toHaveProperty("apply_result");
     });
   });
@@ -4263,6 +4268,17 @@ describe("moryn CLI", () => {
         safe_to_run: false,
         required_fields: ["summary"]
       });
+    });
+  });
+
+  it("includes read-only host activation evidence in project health", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      const project = join(dir, "project");
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "project", "init", "--path", project, "--project-id", "moryn"]);
+      const result = await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "health", "check", "--project", project, "--host", "claude"]);
+      expect(JSON.parse(result.stdout).activation_status).toMatchObject({ host: "claude", status: "not_installed", repairable_automatically: true });
     });
   });
 

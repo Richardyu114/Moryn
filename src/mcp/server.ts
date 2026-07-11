@@ -616,7 +616,7 @@ function lifecycleProjectContextInput(
 async function resolveProjectInput(
   operation: McpProjectContextOperation,
   input: { project_id?: unknown; project_path?: unknown }
-): Promise<{ project_id?: string; tags: string[]; default_skills: string[] }> {
+): Promise<{ project_id?: string; project_path?: string; tags: string[]; default_skills: string[] }> {
   const projectInput = validateProjectContextInput(operation, input);
   if (projectInput.project_id === undefined && projectInput.project_path === undefined) {
     return { tags: [], default_skills: [] };
@@ -624,6 +624,7 @@ async function resolveProjectInput(
   const project = await resolveProjectContext({ projectPath: projectInput.project_path, projectId: projectInput.project_id });
   return {
     project_id: project.project_id,
+    project_path: project.project_path,
     tags: project.config?.tags ?? [],
     default_skills: project.config?.default_skills ?? []
   };
@@ -1976,6 +1977,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       const project = await resolveProjectInput("health_check", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
       return engine.healthCheck({
         project_id: project.project_id,
+        project_path: project.project_path,
         host: normalizedInput.host as string | undefined,
         sync_remote: normalizedInput.sync_remote as string | undefined,
         limit: normalizedInput.limit as number | undefined,

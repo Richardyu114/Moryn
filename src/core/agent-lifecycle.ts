@@ -599,7 +599,8 @@ export const GUIDE_SELECTION_SOURCES = {
   startup: "startup",
   lifecycle_action: "lifecycle_by_step.<step>",
   rule: "rules_by_id.<rule_id>",
-  guardrail: "guardrails_by_id.<guardrail_id>"
+  guardrail: "guardrails_by_id.<guardrail_id>",
+  activation_status: "activation_status"
 };
 export const GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES = {
   lifecycle_action: "lifecycle_by_step.<step>",
@@ -2697,7 +2698,7 @@ export async function agentEnter(input: AgentEnterInput, deps: AgentLifecycleDep
   };
 }
 
-export function agentGuide(input: AgentGuideInput) {
+export async function agentGuide(input: AgentGuideInput) {
   validateAgentIdentity(input.agent, "agent_guide");
   validateLifecycleCurrentTask(input.currentTask, "agent_guide");
   validateLifecycleSyncRemote(input.syncRemote, "agent_guide");
@@ -2708,6 +2709,13 @@ export function agentGuide(input: AgentGuideInput) {
   const guardrails = agentGuideGuardrails(startup);
   const rules = agentGuideRules();
   const knowledgeProtocol = lifecycleKnowledgeProtocol(input);
+  let activationStatus: HostActivationStatus | undefined;
+  if (input.projectPath || input.projectId) {
+    try {
+      const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
+      activationStatus = await lifecycleActivationStatus(input, project);
+    } catch {}
+  }
   return {
     ok: true,
     recommended_entrypoint: "agent_enter",
@@ -2719,6 +2727,7 @@ export function agentGuide(input: AgentGuideInput) {
     rules_by_id: rulesById(rules),
     guardrails,
     guardrails_by_id: guardrailsById(guardrails),
+    ...(activationStatus ? { activation_status: activationStatus } : {}),
     ...(knowledgeProtocol ? { knowledge_protocol: knowledgeProtocol } : {}),
     workflow: agentGuideWorkflow(lifecycle),
     next: {

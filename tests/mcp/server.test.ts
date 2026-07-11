@@ -2750,7 +2750,8 @@ describe("MCP stdio server", () => {
           startup: "startup",
           lifecycle_action: "lifecycle_by_step.<step>",
           rule: "rules_by_id.<rule_id>",
-          guardrail: "guardrails_by_id.<guardrail_id>"
+          guardrail: "guardrails_by_id.<guardrail_id>",
+          activation_status: "activation_status"
         });
         expect(guide.startup).toMatchObject({
           tool: "agent_enter",

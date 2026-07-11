@@ -2777,9 +2777,12 @@ health.command("check")
   .option("--include-private", "Include private-tagged records")
   .action(async (options) => {
     const engine = createCliEngine();
-    const projectId = await resolveOptionalProject(options, "health_check");
+    const projectPath = parseNonEmptyCliString(options.project, "--project", { operation: "health_check", argument: "project_path" });
+    const projectIdInput = parseNonEmptyCliString(options.projectId, "--project-id", { operation: "health_check", argument: "project_id" });
+    const project = projectPath || projectIdInput ? await resolveProjectContext({ projectPath, projectId: projectIdInput }) : undefined;
     printJson(await engine.healthCheck({
-      project_id: projectId,
+      project_id: project?.project_id,
+      project_path: project?.project_path,
       host: parseNonEmptyString(options.host, "--host"),
       sync_remote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
       limit: parseLimit(options.limit, "health_check"),
@@ -3036,7 +3039,7 @@ agent.command("guide")
   .option("--device-id <id>")
   .action(async (options) => {
     const operation = "agent_guide";
-    printJson(agentGuide({
+    printJson(await agentGuide({
       storePath: storePath(),
       projectPath: parseNonEmptyCliString(options.project, "--project", lifecycleStringSource(operation, "project_path")),
       projectId: parseNonEmptyCliString(options.projectId, "--project-id", lifecycleStringSource(operation, "project_id")),
