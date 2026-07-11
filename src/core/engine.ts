@@ -161,6 +161,7 @@ interface ConsolidateSemanticProposalsInput {
   project_id?: string;
   include_private?: unknown;
   source?: RecordSource;
+  occurred_at?: string;
 }
 
 interface ConsolidateLearningProposalsInput extends ConsolidateSemanticProposalsInput {
@@ -2682,6 +2683,11 @@ function nextMutationTimestamp(record: MorynRecord, candidate: string): string {
   return new Date(previousTime + 1).toISOString();
 }
 
+function nextRelationshipTimestamp(source: MorynRecord, target: MorynRecord, candidate: string): string {
+  const latestEndpoint = source.updated_at >= target.updated_at ? source : target;
+  return nextMutationTimestamp(latestEndpoint, candidate);
+}
+
 function refreshImportance(record: MorynRecord, currentTask: string | undefined): { importance: "silent" | "notice" | "interrupt"; reason?: string } {
   if (record.state === "raw" || record.kind === "agent_note") return { importance: "silent" };
   if (record.kind === "session_summary") return { importance: "notice" };
@@ -3082,7 +3088,8 @@ export function createEngine(deps: EngineDeps) {
         source_record_ids: learningIngestion.dispositions.map((disposition) => disposition.record_id),
         project_id: normalized.project_id,
         include_private: normalized.include_private,
-        source: normalized.source
+        source: normalized.source,
+        occurred_at: normalized.occurred_at
       });
       const recoveryPack = buildCheckpointRecoveryPack(
         [...replayEvents(await readEvents(deps.storePath)).values()],
@@ -3271,7 +3278,8 @@ export function createEngine(deps: EngineDeps) {
           continue;
         }
         const sourceRecord = records.find((record) => record.id === validation.source_record_id);
-        if (!sourceRecord) {
+        const targetRecord = records.find((record) => record.id === validation.target_record_id);
+        if (!sourceRecord || !targetRecord) {
           proposalResults.push({ ...validation, status: "rejected", reason: "missing_record" });
           proposalsRejected += 1;
           rejectedByReason.missing_record = (rejectedByReason.missing_record ?? 0) + 1;
@@ -3284,7 +3292,7 @@ export function createEngine(deps: EngineDeps) {
           linked_record_id: validation.target_record_id,
           link_type: validation.relationship,
           reason: proposal.rationale,
-          created_at: nextMutationTimestamp(sourceRecord, now()),
+          created_at: nextRelationshipTimestamp(sourceRecord, targetRecord, input.occurred_at ?? now()),
           source
         };
         try {
@@ -3346,7 +3354,7 @@ export function createEngine(deps: EngineDeps) {
             bounded.push(proposal);
           }
         }
-        const persisted = bounded.length ? await engine.consolidateSemanticProposals({ proposals: bounded, project_id: input.project_id, include_private: input.include_private, source: input.source }) : semanticConsolidationReceipt([]);
+        const persisted = bounded.length ? await engine.consolidateSemanticProposals({ proposals: bounded, project_id: input.project_id, include_private: input.include_private, source: input.source, occurred_at: input.occurred_at }) : semanticConsolidationReceipt([]);
         return semanticConsolidationReceipt([...persisted.proposal_results, ...rejected]);
       } catch {
         return semanticConsolidationReceipt(proposals.map((proposal) => ({ status: "failed", reason: "pipeline_failed", source_record_id: proposal.source_record_id, target_record_id: proposal.target_record_id, relationship: proposal.relationship, proposal_digest: semanticConsolidationProposalDigest(proposal) })));

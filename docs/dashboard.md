@@ -1610,3 +1610,23 @@ paths to the local server. For example, `/moryn-dashboard/`, `/moryn-dashboard/f
 the same local dashboard server. A shared Moryn deployment should document its
 canonical human-facing URL outside the public source tree, for example as
 `<dashboard-url>`.
+
+## Semantic Consolidation Monitoring
+
+`Memory Flow` includes read-only semantic relationship totals:
+
+- `semantic_equivalent_links`
+- `semantic_revision_links`
+- `semantic_superseded_links`
+- `semantic_conflict_links`
+- `semantic_rejected_proposals`
+
+The first screen treats ordinary consolidation as background autopilot work. It
+shows compact relationship counts and does not add an approval button or routine
+review CTA. Rejected authored checkpoint proposals remain in `Audit Details` so
+operators can inspect pipeline quality without being asked to maintain the store.
+
+Only a persisted `conflicts_with` relationship whose record text overlaps the
+current checkpoint task adds `Semantic memory conflict` to `Attention Needed`.
+This warning is read-only; resolving or revising memory remains an explicit agent
+or CLI/MCP operation. Dashboard refresh never creates consolidation events.

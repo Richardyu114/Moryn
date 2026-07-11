@@ -27,7 +27,7 @@ import {
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "./core/agent-lifecycle.js";
 import { commandLineForCliInterface } from "./core/cli-command-line.js";
 import { initializeStore } from "./core/config.js";
-import type { ContextDeltaInput, LearningDeltaInput } from "./core/context-delta.js";
+import type { ContextDeltaInput, LearningDeltaInput, SemanticConsolidationProposalInput } from "./core/context-delta.js";
 import { LOGICAL_RELATIONSHIP_TYPES, type LogicalRelationshipType } from "./core/logical-memory.js";
 import { rebuildDerivedViews } from "./core/derived.js";
 import { createEngine } from "./core/engine.js";
@@ -120,6 +120,7 @@ type CliRequiredOperation =
   | "capture_session"
   | "agent_status"
   | "agent_finish"
+  | "consolidate_semantic"
   | "checkpoint"
   | "project_migrate"
   | "sync_init";
@@ -161,6 +162,7 @@ type CliParserOperation =
   | "agent_status"
   | "agent_finish"
   | "checkpoint"
+  | "consolidate_semantic"
   | "project_init"
   | "project_list"
   | "project_migrate"
@@ -1973,7 +1975,7 @@ function parseBooleanDefault(value: unknown, fallback: boolean): boolean {
   return value === undefined ? fallback : Boolean(value);
 }
 
-function parseCheckpointJson(value: string, option: "--delta" | "--learning"): unknown {
+function parseCheckpointJson(value: string, option: "--delta" | "--learning" | "--proposal-json" | "--semantic-consolidation-proposal"): unknown {
   try {
     return JSON.parse(value) as unknown;
   } catch (error) {
@@ -2899,6 +2901,27 @@ program.command("mcp").action(async () => {
 
 const agent = program.command("agent");
 
+const consolidate = program.command("consolidate");
+
+consolidate.command("semantic")
+  .requiredOption("--proposal-json <json>", "Semantic consolidation proposal JSON", collectNonEmptyOption("--proposal-json"))
+  .option("--project-id <id>")
+  .option("--project <path>")
+  .option("--include-private")
+  .option("--source-client <client>", "Authored source client", "cli")
+  .option("--session-id <id>")
+  .action(async (options) => {
+    const project = await resolveProjectOptions(options, "consolidate_semantic");
+    const proposals = (options.proposalJson ?? []).map((value: string) => parseCheckpointJson(value, "--proposal-json") as SemanticConsolidationProposalInput);
+    const result = await createCliEngine().consolidateSemanticProposals({
+      proposals,
+      project_id: project.project_id,
+      include_private: Boolean(options.includePrivate),
+      source: { client: options.sourceClient, session_id: options.sessionId }
+    });
+    printJson(result);
+  });
+
 agent.command("checkpoint")
   .option("--project-id <id>")
   .option("--project <path>")
@@ -2919,12 +2942,13 @@ agent.command("checkpoint")
   .option("--candidate-memory <text>", "Candidate memory", collectNonEmptyOption("--candidate-memory"))
   .option("--candidate-skill <text>", "Candidate skill", collectNonEmptyOption("--candidate-skill"))
   .option("--learning <json>", "Learning Delta JSON", collectNonEmptyOption("--learning"))
+  .option("--semantic-consolidation-proposal <json>", "Semantic consolidation proposal JSON", collectNonEmptyOption("--semantic-consolidation-proposal"))
   .option("--tag <tag>", "Checkpoint tag", collectNonEmptyOption("--tag"))
   .option("--include-private")
   .action(async (options) => {
     const operation = "checkpoint";
     const project = await resolveProjectOptions(options, operation);
-    const semanticFlags = ["checkpointId", "currentTask", "progress", "decision", "changedFact", "blocker", "nextStep", "file", "candidateMemory", "candidateSkill", "learning"];
+    const semanticFlags = ["checkpointId", "currentTask", "progress", "decision", "changedFact", "blocker", "nextStep", "file", "candidateMemory", "candidateSkill", "learning", "semanticConsolidationProposal"];
     if (options.delta !== undefined && semanticFlags.some((flag) => options[flag] !== undefined)) {
       throw new Error("Invalid argument: --delta cannot be combined with checkpoint semantic flags");
     }
@@ -2937,7 +2961,8 @@ agent.command("checkpoint")
           current_task: options.currentTask,
           progress: options.progress ?? [], decisions: options.decision ?? [], changed_facts: options.changedFact ?? [], blockers: options.blocker ?? [],
           next_steps: options.nextStep ?? [], files: options.file ?? [], candidate_memories: options.candidateMemory ?? [], candidate_skills: options.candidateSkill ?? [],
-          learnings: (options.learning ?? []).map((value: string) => parseCheckpointJson(value, "--learning") as LearningDeltaInput)
+          learnings: (options.learning ?? []).map((value: string) => parseCheckpointJson(value, "--learning") as LearningDeltaInput),
+          semantic_consolidation_proposals: (options.semanticConsolidationProposal ?? []).map((value: string) => parseCheckpointJson(value, "--semantic-consolidation-proposal") as SemanticConsolidationProposalInput)
         };
     const result = await createCliEngine().checkpoint({
       project_id: project.project_id ?? "",
@@ -3166,12 +3191,14 @@ agent.command("finish")
   .option("--model <model>")
   .option("--device-id <id>")
   .option("--learning <json>", "Learning Delta JSON", collectNonEmptyOption("--learning"))
+  .option("--semantic-consolidation-proposal <json>", "Semantic consolidation proposal JSON", collectNonEmptyOption("--semantic-consolidation-proposal"))
   .action(async (options) => {
     const operation = "agent_finish";
     const push = parseBooleanDefault(options.push, true);
     const agentOptions = parseAgentOptions(options, operation);
     const summary = parseNonEmptyCliString(options.summary, "--summary", lifecycleStringSource(operation, "summary"))!;
     const learnings = (options.learning ?? []).map((value: string) => parseCheckpointJson(value, "--learning") as LearningDeltaInput);
+    const semanticConsolidationProposals = (options.semanticConsolidationProposal ?? []).map((value: string) => parseCheckpointJson(value, "--semantic-consolidation-proposal") as SemanticConsolidationProposalInput);
     const contextInput = {
       project_id: parseNonEmptyCliString(options.projectId, "--project-id", lifecycleStringSource(operation, "project_id")),
       project_path: parseNonEmptyCliString(options.project, "--project", lifecycleStringSource(operation, "project_path")),
@@ -3180,7 +3207,8 @@ agent.command("finish")
       summary,
       ...(push === false ? { push } : {}),
       agent: agentOptions,
-      ...(learnings.length ? { learnings } : {})
+      ...(learnings.length ? { learnings } : {}),
+      ...(semanticConsolidationProposals.length ? { semantic_consolidation_proposals: semanticConsolidationProposals } : {})
     };
     const contextArguments = compactUndefined(contextInput);
     const context = {
@@ -3198,7 +3226,8 @@ agent.command("finish")
         summary,
         push,
         agent: agentOptions,
-        learnings
+        learnings,
+        semanticConsolidationProposals
       });
       printJson(await withDashboard(result, { open: options.open }));
     } catch (error) {

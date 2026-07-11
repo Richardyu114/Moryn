@@ -379,7 +379,7 @@ export type OperationContractIndexResponse = {
       by_cli_command_arguments: { cli_command: string };
     };
   };
-  operations: OperationContractIndexEntry[];
+  operations: Array<Pick<OperationContractIndexEntry, "operation" | "mcp_tool" | "cli_command" | "next_step">>;
   operations_by_id: Record<string, OperationContractIndexEntry>;
   operations_by_mcp_tool: Record<string, string>;
   operations_by_cli_command: Record<string, string>;
@@ -1147,6 +1147,22 @@ export const OPERATION_CONTRACTS = [
     }
   }),
   operationContract({
+    operation: "consolidate_semantic",
+    category: "maintenance",
+    summary: "Validate and persist authored semantic memory relationships without exposing record content.",
+    safe_to_run: false,
+    required_when: "Only when an agent has bounded candidate records and an authored semantic proposal.",
+    required_fields: ["proposals"],
+    argument_sources: userInputSources(["proposals"]),
+    arguments_by_name: {
+      ...projectContextArguments,
+      proposals: { type: "object", required: true, cli: { flag: "--proposal-json", repeatable: true }, mcp: { argument: "proposals" } },
+      include_private: { type: "boolean", required: false, default: false, cli: { flag: "--include-private" }, mcp: { argument: "include_private" } },
+      source: { type: "object", required: false, mcp: { argument: "source" } }
+    },
+    interfaces: { cli: { command: "moryn consolidate semantic --proposal-json <proposal>", argv: ["consolidate", "semantic", "--proposal-json", "<proposal>"] }, mcp: { tool: "consolidate_semantic", arguments: { proposals: ["<proposal>"] } } }
+  }),
+  operationContract({
     operation: "checkpoint",
     category: "lifecycle",
     summary: "Append an authored local session checkpoint for compaction recovery and long-task continuity.",
@@ -1215,6 +1231,7 @@ export const OPERATION_CONTRACTS = [
         cli: { flag: "--learning", repeatable: true },
         mcp: { argument: "learnings" }
       },
+      semantic_consolidation_proposals: { type: "object", required: false, cli: { flag: "--semantic-consolidation-proposal", repeatable: true }, mcp: { argument: "semantic_consolidation_proposals" } },
       ...publishSessionArguments
     },
     interfaces: {
@@ -2438,7 +2455,8 @@ function operationsByCliCommandId(operations: readonly OperationContract[]): Rec
 }
 
 export function getOperationContractIndex(): OperationContractIndexResponse {
-  const operations = OPERATION_CONTRACTS.map(operationContractIndexEntry);
+  const operationEntries = OPERATION_CONTRACTS.map(operationContractIndexEntry);
+  const operations = operationEntries.map(({ operation, mcp_tool, cli_command, next_step }) => ({ operation, mcp_tool, cli_command, next_step }));
   return {
     recommended_entrypoint: "agent_enter",
     index_use: "Use an operation id, MCP tool, or CLI command from this compact index to fetch one operation contract.",
@@ -2461,7 +2479,7 @@ export function getOperationContractIndex(): OperationContractIndexResponse {
       }
     },
     operations,
-    operations_by_id: Object.fromEntries(operations.map((operation) => [operation.operation, operation])),
+    operations_by_id: Object.fromEntries(operationEntries.map((operation) => [operation.operation, operation])),
     operations_by_mcp_tool: operationsByMcpToolId(OPERATION_CONTRACTS),
     operations_by_cli_command: operationsByCliCommandId(OPERATION_CONTRACTS),
     operation_source_lookup: {

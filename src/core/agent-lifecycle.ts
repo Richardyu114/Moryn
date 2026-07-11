@@ -2762,7 +2762,8 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     proposals: input.semanticConsolidationProposals ?? [],
     source_record_ids: learningIngestion.dispositions.map((disposition) => disposition.record_id),
     project_id: project.project_id,
-    source: sourceFromAgent(input.agent)
+    source: sourceFromAgent(input.agent),
+    occurred_at: lifecycleNow
   });
   const shouldPush = input.push ?? projectInfo.sync_mode !== "manual";
   const sync: {

@@ -521,7 +521,8 @@ type McpProjectContextOperation =
   | "agent_start"
   | "agent_status"
   | "agent_finish"
-  | "checkpoint";
+  | "checkpoint"
+  | "consolidate_semantic";
 
 function projectContextArgumentError(
   operation: McpProjectContextOperation,
@@ -2169,6 +2170,25 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
   );
 
   server.registerTool(
+    "consolidate_semantic",
+    {
+      title: "Consolidate Semantic Memory",
+      description: "Validate and persist bounded authored semantic memory relationships.",
+      inputSchema: mcpInputSchema({
+        proposals: z.array(z.unknown()).max(24),
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
+        include_private: coreValidatedBooleanSchema.optional(),
+        source: z.unknown().optional()
+      })
+    },
+    async (input) => toolResultWithNormalizedInput("consolidate_semantic", input, async (normalizedInput) => {
+      const project = await resolveProjectInput("consolidate_semantic", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
+      return engine.consolidateSemanticProposals({ proposals: normalizedInput.proposals, project_id: project.project_id, include_private: normalizedInput.include_private, source: withDefaultSource(normalizedInput.source) as never });
+    })
+  );
+
+  server.registerTool(
     "agent_finish",
     {
       title: "Finish Moryn Agent Session",
@@ -2180,6 +2200,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         push: coreValidatedBooleanSchema.optional(),
+        learnings: z.array(z.unknown()).optional(),
+        semantic_consolidation_proposals: z.array(z.unknown()).max(24).optional(),
         open: coreValidatedBooleanSchema.optional(),
         agent: coreValidatedAgentSchema.optional(),
         ...objectPathAliasInputSchema("agent_finish"),
@@ -2198,7 +2220,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         summary: normalizedInput.summary,
         push: coreValidatedPush,
         agent: lifecycleAgent,
-        learnings: normalizedInput.learnings as never[] | undefined
+        learnings: normalizedInput.learnings as never[] | undefined,
+        semanticConsolidationProposals: normalizedInput.semantic_consolidation_proposals as never[] | undefined
       });
       return withOptionalMcpDashboard(options.storePath, result, normalizedInput.open);
     }, (normalizedInput) => {

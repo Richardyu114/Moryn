@@ -9753,6 +9753,40 @@ describe("quiet dashboard model", () => {
 });
 
 describe("quiet dashboard first screen", () => {
+  it("reports semantic consolidation telemetry without adding routine attention", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath, now: () => "2026-07-12T00:00:00.000Z" });
+      const source = await engine.write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Moryn syncs when an agent finishes." }, source: { client: "codex" } });
+      const target = await engine.write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Moryn syncs at agent finish." }, source: { client: "codex" } });
+      await engine.consolidateSemanticProposals({ proposals: [{ proposal_id: "dashboard-duplicate", source_record_id: source.record.id, target_record_id: target.record.id, relationship: "duplicate_of", confidence: 0.99, rationale: "Equivalent finish behavior.", semantic_equivalence: "equivalent", material_differences: [], evidence_record_ids: [] }], project_id: "moryn", source: { client: "codex" } });
+      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "dashboard-session", device_id: "device-test" }, occurred_at: "2026-07-12T00:05:00.000Z", delta: { session_id: "dashboard-session", checkpoint_id: "dashboard-rejected", current_task: "Polish dashboard", progress: ["Telemetry ready"], semantic_consolidation_proposals: [{ proposal_id: "dashboard-rejected", source_record_id: "rec-unbounded", target_record_id: target.record.id, relationship: "duplicate_of", confidence: 0.5, rationale: "Unbounded proposal.", semantic_equivalence: "equivalent", material_differences: [], evidence_record_ids: [] }] } });
+
+      const data = await buildDashboardData(storePath, { project_id: "moryn" });
+      expect(data.quiet_dashboard.memory_flow).toMatchObject({ semantic_equivalent_links: 1, semantic_revision_links: 0, semantic_superseded_links: 0, semantic_conflict_links: 0, semantic_rejected_proposals: 1 });
+      expect(data.quiet_dashboard.attention_needed).toEqual([]);
+      const html = renderDashboardHtml(data);
+      expect(quietFirstScreenHtml(html)).toContain("1 equivalent");
+      expect(quietFirstScreenHtml(html)).not.toContain("Review semantic consolidation");
+      expect(auditDetailsHtml(html)).toContain("1 rejected semantic proposal");
+    });
+  });
+
+  it("raises attention only for current-task material semantic conflicts", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath, now: () => "2026-07-12T00:00:00.000Z" });
+      const source = await engine.write({ kind: "memory", type: "decision", scope: "project", project_id: "moryn", content: { text: "Dashboard refresh must remain read-only." }, source: { client: "codex" } });
+      const target = await engine.write({ kind: "memory", type: "decision", scope: "project", project_id: "moryn", content: { text: "Dashboard refresh may write maintenance events." }, source: { client: "codex" } });
+      await engine.consolidateSemanticProposals({ proposals: [{ proposal_id: "dashboard-conflict", source_record_id: source.record.id, target_record_id: target.record.id, relationship: "conflicts_with", confidence: 0.99, rationale: "Material dashboard refresh conflict.", semantic_equivalence: "conflict", material_differences: [{ field: "write behavior", before: "must remain read-only", after: "may write", significance: "material" }], evidence_record_ids: [] }], project_id: "moryn", source: { client: "codex" } });
+      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "dashboard-task", device_id: "device-test" }, occurred_at: "2026-07-12T00:05:00.000Z", delta: { session_id: "dashboard-task", checkpoint_id: "dashboard-task", current_task: "Keep dashboard refresh read-only", progress: ["Conflict detected"] } });
+
+      const data = await buildDashboardData(storePath, { project_id: "moryn" });
+      expect(data.quiet_dashboard.memory_flow.semantic_conflict_links).toBe(1);
+      expect(data.quiet_dashboard.attention_needed).toEqual(expect.arrayContaining([expect.objectContaining({ title: "Semantic memory conflict" })]));
+    });
+  });
+
   it("renders quiet monitoring sections and moves legacy detail panels below audit details", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device-test" });

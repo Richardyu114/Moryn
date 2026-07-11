@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import { CHECKPOINT_SELECTION_SOURCES } from "../../src/core/checkpoint.js";
 import { readEvents } from "../../src/core/store.js";
 import { initializeProjectConfig } from "../../src/core/project.js";
+import { SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES } from "../../src/core/semantic-consolidation.js";
 import { BOOT_SELECTION_SOURCES, createEngine } from "../../src/core/engine.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
@@ -1068,6 +1069,26 @@ describe("MCP stdio server", () => {
       });
     } finally { await rm(store, { recursive: true, force: true }); }
   });
+
+  it("registers consolidate_semantic and persists proposals idempotently", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-semantic-consolidation-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        await client.callTool({ name: "init", arguments: {} });
+        const tools = await client.listTools();
+        expect(tools.tools.some((tool) => tool.name === "consolidate_semantic")).toBe(true);
+        const source = parseTextContent(await client.callTool({ name: "write", arguments: { kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Moryn syncs when an agent finishes." }, source: { client: "codex" } } })) as any;
+        const target = parseTextContent(await client.callTool({ name: "write", arguments: { kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Moryn syncs at agent finish." }, source: { client: "codex" } } })) as any;
+        const proposal = { proposal_id: "explicit-mcp", source_record_id: source.record.id, target_record_id: target.record.id, relationship: "duplicate_of", confidence: 0.99, rationale: "Equivalent finish behavior.", semantic_equivalence: "equivalent", material_differences: [], evidence_record_ids: [] };
+        const args = { project_id: "moryn", proposals: [proposal], source: { client: "codex", session_id: "mcp-semantic" } };
+        const first = parseTextContent(await client.callTool({ name: "consolidate_semantic", arguments: args })) as any;
+        const replay = parseTextContent(await client.callTool({ name: "consolidate_semantic", arguments: args })) as any;
+        expect(first).toMatchObject({ proposals_received: 1, proposals_accepted: 1, links_created: 1, selection_sources: SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES });
+        expect(replay).toMatchObject({ proposals_received: 1, idempotent_replays: 1 });
+        expect(parseTextContent(await client.callTool({ name: "consolidate_semantic", arguments: { ...args, unknown: true } }))).toMatchObject({ ok: false, error: { code: "INVALID_ARGUMENT", message: expect.stringContaining("Unknown argument") } });
+      });
+    } finally { await rm(store, { recursive: true, force: true }); }
+  });
   it.each(["agent_session_id", "session_id", "agentSessionId"])("normalizes boot session alias %s", async (alias) => {
     await withInitializedTempStore(async (store) => {
       const engine = createEngine({ storePath: store });
@@ -2109,7 +2130,8 @@ describe("MCP stdio server", () => {
             operation_source: "operations_by_id.<operation>.operation_source"
           }
         });
-        expect(parsed.operations.find((operation) => operation.operation === "agent_finish")).toEqual(parsed.operations_by_id.agent_finish);
+        expect(parsed.operations.find((operation) => operation.operation === "agent_finish")).toEqual({ operation: "agent_finish", mcp_tool: "agent_finish", cli_command: "moryn agent finish --summary <summary>", next_step: "collect_required_fields" });
+        expect(parsed.operations_by_id.agent_finish.full_contract_lookup.mcp).toMatchObject({ tool: "operation_contracts", arguments: { operation: "agent_finish" } });
         expect(parsed.operations_by_id.setup.cli_command).toBe("moryn setup");
         expect(parsed.operations_by_mcp_tool.setup).toBe("setup");
         expect(parsed.operations_by_cli_command["moryn setup"]).toBe("setup");
@@ -3077,6 +3099,7 @@ describe("MCP stdio server", () => {
           "capture_policy",
           "capture_session",
           "checkpoint",
+          "consolidate_semantic",
           "context_pack",
           "dashboard",
           "dogfood_report",

@@ -802,3 +802,57 @@ reuse the complete authored payload for idempotent retry. `durability` is
 `confirmed` when the event and directory entry were synced, `best_effort` when
 the event is complete but the platform cannot confirm directory durability, and
 `failed` when durability confirmation failed after atomic publication.
+
+## Semantic Consolidation Contract
+
+Semantic consolidation is an authored, bounded relationship proposal. Moryn never
+uses an external model to decide the relationship and never merges or deletes
+record content. Accepted proposals append the existing `link_records` event with
+one of `duplicate_of`, `revises`, `supersedes`, or `conflicts_with`.
+
+A proposal is strict JSON:
+
+```json
+{
+  "proposal_id": "proposal-1",
+  "source_record_id": "rec-new",
+  "target_record_id": "rec-existing",
+  "relationship": "duplicate_of",
+  "confidence": 0.99,
+  "rationale": "Equivalent lifecycle fact.",
+  "semantic_equivalence": "equivalent",
+  "material_differences": [],
+  "evidence_record_ids": []
+}
+```
+
+Relationship and equivalence must match: `duplicate_of/equivalent`,
+`revises/refinement`, `supersedes/replacement`, and
+`conflicts_with/conflict`. Confidence thresholds are `0.98`, `0.97`, `0.99`,
+and `0.95` respectively. Moryn rejects protected changes involving negation,
+numbers, dates, versions, paths, commands, permissions, security, status,
+outcomes, or preference direction unless the relationship and evidence satisfy
+the stricter replacement/conflict rules.
+
+Checkpoint accepts proposals inside `delta.semantic_consolidation_proposals` or
+through repeatable CLI `--semantic-consolidation-proposal` flags. Agent finish
+accepts `semantic_consolidation_proposals` through MCP or the same repeatable CLI
+flag. Lifecycle ordering is durable checkpoint/handoff -> learning ingestion ->
+bounded consolidation -> optional sync. Consolidation failure is returned in the
+receipt and does not invalidate the durable checkpoint or handoff.
+
+Agents should normally let checkpoint, pre-compact, and finish perform this
+pipeline automatically. Explicit inspection or replay is available with:
+
+```bash
+moryn consolidate semantic \
+  --project-id moryn \
+  --proposal-json '<proposal-json>'
+```
+
+The equivalent MCP tool is `consolidate_semantic` with `proposals`, optional
+project context, optional `include_private`, and an optional authored `source`.
+Unknown arguments are rejected. Private records require `include_private: true`,
+and public receipts expose IDs, status, reason, relationship, event ID, digest,
+and aggregate counts without record text. Repeating an accepted proposal is
+idempotent.

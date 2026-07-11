@@ -7,6 +7,8 @@ import { promisify } from "node:util";
 import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 import { readEvents } from "../../src/core/store.js";
+import { learningRecordIdentity } from "../../src/core/learning-ingestion.js";
+import { SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES } from "../../src/core/semantic-consolidation.js";
 import { BOOT_SELECTION_SOURCES, createEngine } from "../../src/core/engine.js";
 import { CHECKPOINT_SELECTION_SOURCES } from "../../src/core/checkpoint.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
@@ -2065,7 +2067,8 @@ describe("moryn CLI", () => {
         operation_source: "operations_by_id.<operation>.operation_source"
       }
     });
-    expect(parsed.operations.find((operation) => operation.operation === "agent_finish")).toEqual(parsed.operations_by_id.agent_finish);
+    expect(parsed.operations.find((operation) => operation.operation === "agent_finish")).toEqual({ operation: "agent_finish", mcp_tool: "agent_finish", cli_command: "moryn agent finish --summary <summary>", next_step: "collect_required_fields" });
+    expect(parsed.operations_by_id.agent_finish.full_contract_lookup.mcp).toMatchObject({ tool: "operation_contracts", arguments: { operation: "agent_finish" } });
     expect(parsed.operations_by_id.setup.cli_command).toBe("moryn setup");
     expect(parsed.operations_by_mcp_tool.setup).toBe("setup");
     expect(parsed.operations_by_cli_command["moryn setup"]).toBe("setup");
@@ -10650,6 +10653,42 @@ describe("agent checkpoint CLI", () => {
         "--learning", learning
       ])).stdout);
       expect(parsed).toMatchObject({ ok: true, learning_ingestion: { records_created: 1, dispositions: [{ state: "canonical" }] } });
+    });
+  });
+
+  it("accepts semantic consolidation proposals in checkpoint and finish", async () => {
+    await withTempDir(async (store) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      const target = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "write", "--kind", "memory", "--type", "fact", "--scope", "project", "--project-id", "project-a", "--text", "Moryn pulls on agent enter.", "--state", "canonical", "--confirm"])).stdout);
+      const learning = { question: "When does Moryn pull?", conclusion: "Moryn pulls when an agent enters.", evidence_type: "source_code", scope: "project", confidence: 0.9, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] };
+      const sourceRecordId = learningRecordIdentity({ project_id: "project-a", learning }).record_id;
+      const proposal = { proposal_id: "cli-proposal", source_record_id: sourceRecordId, target_record_id: target.record.id, relationship: "duplicate_of", confidence: 0.99, rationale: "Equivalent lifecycle fact.", semantic_equivalence: "equivalent", material_differences: [], evidence_record_ids: [] };
+      const checkpoint = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "agent", "checkpoint", "--project-id", "project-a", "--agent", "codex", "--session-id", "session-checkpoint", "--device-id", "device-a", "--occurred-at", "2026-07-12T00:00:00.000Z", "--checkpoint-id", "checkpoint-semantic", "--learning", JSON.stringify(learning), "--semantic-consolidation-proposal", JSON.stringify(proposal)])).stdout);
+      expect(checkpoint).toMatchObject({ semantic_consolidation: { proposals_received: 1, proposals_accepted: 1 } });
+
+      const finishTarget = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "write", "--kind", "memory", "--type", "fact", "--scope", "project", "--project-id", "project-a", "--text", "Moryn pushes when an agent finishes."])).stdout);
+      const finishLearning = { ...learning, question: "When does Moryn push?", conclusion: "Moryn pushes at agent finish." };
+      const finishSourceId = learningRecordIdentity({ project_id: "project-a", learning: finishLearning }).record_id;
+      const finishProposal = { ...proposal, proposal_id: "cli-finish-proposal", source_record_id: finishSourceId, target_record_id: finishTarget.record.id, rationale: "Equivalent finish sync fact." };
+      const finish = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "agent", "finish", "--project-id", "project-a", "--summary", "Finished semantic lifecycle.", "--no-push", "--agent", "codex", "--session-id", "session-finish", "--device-id", "device-a", "--learning", JSON.stringify(finishLearning), "--semantic-consolidation-proposal", JSON.stringify(finishProposal)])).stdout);
+      expect(finish).toMatchObject({ semantic_consolidation: { proposals_received: 1, proposals_accepted: 1 } });
+    });
+  });
+});
+
+describe("semantic consolidation CLI", () => {
+  it("persists an explicit proposal idempotently with strict JSON input", async () => {
+    await withTempDir(async (store) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      const source = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "write", "--kind", "memory", "--type", "fact", "--scope", "project", "--project-id", "moryn", "--text", "Moryn syncs when an agent finishes."])).stdout);
+      const target = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "write", "--kind", "memory", "--type", "fact", "--scope", "project", "--project-id", "moryn", "--text", "Moryn syncs at agent finish."])).stdout);
+      const proposal = { proposal_id: "explicit-cli", source_record_id: source.record.id, target_record_id: target.record.id, relationship: "duplicate_of", confidence: 0.99, rationale: "Equivalent finish behavior.", semantic_equivalence: "equivalent", material_differences: [], evidence_record_ids: [] };
+      const args = ["--import", tsxLoader, cliPath, "--store", store, "consolidate", "semantic", "--project-id", "moryn", "--proposal-json", JSON.stringify(proposal)];
+      const first = JSON.parse((await exec("node", args)).stdout);
+      const replay = JSON.parse((await exec("node", args)).stdout);
+      expect(first).toMatchObject({ proposals_received: 1, proposals_accepted: 1, links_created: 1, selection_sources: SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES });
+      expect(replay).toMatchObject({ proposals_received: 1, idempotent_replays: 1, links_created: 0 });
+      await expect(exec("node", [...args, "--unknown"])).rejects.toMatchObject({ stderr: expect.stringContaining("unknown option") });
     });
   });
 });

@@ -857,6 +857,11 @@ export interface DashboardData {
       default_boot_records?: number;
       compaction_ratio: number;
       learned_records: number;
+      semantic_equivalent_links: number;
+      semantic_revision_links: number;
+      semantic_superseded_links: number;
+      semantic_conflict_links: number;
+      semantic_rejected_proposals: number;
       recent_records: number;
       recent_events: number;
       sync_state: string;
@@ -3226,6 +3231,15 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     .sort((left, right) => right.created_at.localeCompare(left.created_at) || left.event_id.localeCompare(right.event_id))
     .slice(0, limit);
   const generatedAt = options.now ?? new Date().toISOString();
+  const semanticLinkEvents = visibleEvents.filter((event) => event.op === "link_records" && event.event_id.startsWith("evt_semantic_consolidation_"));
+  const semanticLinkKeys = new Set(semanticLinkEvents.map((event) => event.op === "link_records" ? `${event.record_id}\u0000${event.linked_record_id}\u0000${event.link_type}` : ""));
+  const checkpointProposals = records.flatMap((record) => {
+    const checkpoint = record.content.checkpoint;
+    if (!checkpoint || typeof checkpoint !== "object" || Array.isArray(checkpoint)) return [];
+    const proposals = (checkpoint as Record<string, unknown>).semantic_consolidation_proposals;
+    return Array.isArray(proposals) ? proposals.filter((proposal): proposal is Record<string, unknown> => Boolean(proposal && typeof proposal === "object" && !Array.isArray(proposal))) : [];
+  });
+  const semanticRejectedProposals = checkpointProposals.filter((proposal) => !semanticLinkKeys.has(`${proposal.source_record_id}\u0000${proposal.target_record_id}\u0000${proposal.relationship}`)).length;
   const sync = await getGitSyncStatus(storePath);
   const agentActivity = summarizeAgentActivity(visibleEvents, records, recordsById, eventsByRecord);
   const lifecycleAllRecords = allRecords.filter((record) => recordProjectMatchesDashboard(record, options.project_id));
@@ -3354,6 +3368,13 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
       action_label: item.target_label
     }))
   ];
+  const currentTaskTokens = new Set((checkpointTask ?? "").toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []);
+  const materialSemanticConflicts = semanticLinkEvents.filter((event) => {
+    if (event.op !== "link_records" || event.link_type !== "conflicts_with" || !currentTaskTokens.size) return false;
+    const text = `${allRecordsById.get(event.record_id)?.content.text ?? ""} ${allRecordsById.get(event.linked_record_id)?.content.text ?? ""}`.toLocaleLowerCase();
+    return [...currentTaskTokens].some((token) => token.length > 3 && text.includes(token));
+  });
+  exceptionalAttention.push(...materialSemanticConflicts.map(() => ({ severity: "warning" as const, title: "Semantic memory conflict", description: "A material memory conflict overlaps the current task. Inspect the conflicting records in Audit Details." })));
 
   return {
     generated_at: generatedAt,
@@ -3423,6 +3444,11 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
         default_boot_records: workingSetReport.default_boot_records,
         compaction_ratio: workingSetReport.compaction_ratio,
         learned_records: records.filter((record) => record.tags.includes("learning")).length,
+        semantic_equivalent_links: semanticLinkEvents.filter((event) => event.op === "link_records" && event.link_type === "duplicate_of").length,
+        semantic_revision_links: semanticLinkEvents.filter((event) => event.op === "link_records" && event.link_type === "revises").length,
+        semantic_superseded_links: semanticLinkEvents.filter((event) => event.op === "link_records" && event.link_type === "supersedes").length,
+        semantic_conflict_links: semanticLinkEvents.filter((event) => event.op === "link_records" && event.link_type === "conflicts_with").length,
+        semantic_rejected_proposals: semanticRejectedProposals,
         recent_records: recentRecords.length,
         recent_events: recentEvents.length,
         sync_state: sync.sync_state ?? (sync.configured ? "unknown" : "local_only")
@@ -8398,7 +8424,13 @@ function quietMemoryFlow(data: DashboardData): string {
       </div>
       <small>${escapeHtml(`${flow.recent_records} recent records · ${flow.recent_events} recent events · sync ${flow.sync_state.replaceAll("_", " ")}`)}</small>
       <small>${escapeHtml(`${Math.round(flow.compaction_ratio * 100)}% consolidated · ${flow.store_events} events`)}</small>
+      <small>${escapeHtml(`${flow.semantic_equivalent_links} equivalent · ${flow.semantic_revision_links} revised · ${flow.semantic_superseded_links} superseded · ${flow.semantic_conflict_links} conflicts`)}</small>
     </section>`;
+}
+
+function semanticConsolidationAudit(data: DashboardData): string {
+  const flow = data.quiet_dashboard.memory_flow;
+  return `<section class="panel" data-dashboard-detail="semantic-consolidation-audit"><h2>Semantic consolidation</h2><p>${flow.semantic_rejected_proposals} rejected semantic proposal${flow.semantic_rejected_proposals === 1 ? "" : "s"} · ${flow.semantic_conflict_links} conflict link${flow.semantic_conflict_links === 1 ? "" : "s"}</p></section>`;
 }
 
 function quietAttention(data: DashboardData): string {
@@ -8454,6 +8486,7 @@ function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderO
     <details class="audit-details" data-dashboard-detail="audit-details">
       <summary>${i18nText("Audit Details", "审计细节", "span")}${i18nText("Records, events, diagnostics, and maintenance", "记录、事件、诊断和维护", "small")}</summary>
       <div class="audit-details-content">
+        ${semanticConsolidationAudit(data)}
         ${shouldRenderOverview ? dashboardOverview(data.dashboard_overview, { showBackgroundStatus, showSafety: true }) : ""}
         ${dashboardDecisionPanel(data)}
         ${statusBoard(data)}
