@@ -399,6 +399,97 @@ function expectRefreshChangeRecallAction(action: {
 }
 
 describe("core engine", () => {
+  it("consolidates exact duplicates into deterministic idempotent links", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      let tick = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => `2026-07-11T00:00:0${tick++}.000Z`,
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
+      const base = {
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["architecture"],
+        content: { text: "Use append-only events" },
+        source: { client: "codex" }
+      } as const;
+      const candidate = await engine.write({ ...base, state: "candidate", priority: "high" });
+      const canonical = await engine.write({ ...base, state: "canonical", priority: "low", confirmed: true, source: { client: "user" } });
+      const raw = await engine.write({ ...base, state: "raw", priority: "high" });
+
+      const first = await engine.consolidateExactDuplicates({ project_id: "moryn" });
+      const second = await engine.consolidateExactDuplicates({ project_id: "moryn" });
+      const events = await readEvents(storePath);
+      const duplicateLinks = events.filter((event) => event.op === "link_records" && event.link_type === "duplicate_of");
+
+      expect(first).toMatchObject({
+        groups_found: 1,
+        links_created: 2,
+        groups: [{ target_record_id: canonical.record.id, duplicate_record_ids: [candidate.record.id, raw.record.id].sort() }]
+      });
+      expect(second).toMatchObject({ groups_found: 1, links_created: 0, links_existing: 2 });
+      expect(duplicateLinks).toHaveLength(2);
+      expect(duplicateLinks.map((event) => event.op === "link_records" ? [event.record_id, event.linked_record_id] : [])).toEqual([
+        [candidate.record.id, canonical.record.id],
+        [raw.record.id, canonical.record.id]
+      ].sort(([left], [right]) => left.localeCompare(right)));
+    });
+  });
+
+  it("does not expose or consolidate private duplicates by default", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, id: (prefix) => `${prefix}_${++nextId}` });
+      const base = {
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["private"],
+        content: { text: "Private preference" },
+        source: { client: "codex" }
+      } as const;
+      await engine.write(base);
+      await engine.write(base);
+
+      expect(await engine.consolidateExactDuplicates({ project_id: "moryn" })).toMatchObject({ groups_found: 0, links_created: 0 });
+      expect(await engine.consolidateExactDuplicates({ project_id: "moryn", include_private: true })).toMatchObject({ groups_found: 1, links_created: 1 });
+    });
+  });
+
+  it("consolidates exact duplicates once across concurrent agents", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const writer = createEngine({ storePath, id: (prefix) => `${prefix}_${++nextId}` });
+      const base = {
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["sync"],
+        content: { text: "Pull on enter and push on finish" },
+        source: { client: "codex" }
+      } as const;
+      await writer.write(base);
+      await writer.write(base);
+      const codex = createEngine({ storePath });
+      const claude = createEngine({ storePath });
+
+      const results = await Promise.all([
+        codex.consolidateExactDuplicates({ project_id: "moryn", source: { client: "codex" } }),
+        claude.consolidateExactDuplicates({ project_id: "moryn", source: { client: "claude-code" } })
+      ]);
+      const duplicateLinks = (await readEvents(storePath)).filter((event) => event.op === "link_records" && event.link_type === "duplicate_of");
+
+      expect(results.reduce((sum, result) => sum + result.links_created, 0)).toBe(1);
+      expect(duplicateLinks).toHaveLength(1);
+    });
+  });
+
   it("adds checkpoint recovery to boot only when an agent session id is provided", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createEngine({ storePath });

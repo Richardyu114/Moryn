@@ -18,6 +18,7 @@ import { diagnoseHealthCheck, HEALTH_CHECK_SELECTION_SOURCES, type HealthCheckIn
 import { diagnoseMemory, MEMORY_DOCTOR_SELECTION_SOURCES } from "./memory-doctor.js";
 import { evaluateRecall, RECALL_EVAL_SELECTION_SOURCES, type RecallEvalInput } from "./recall-eval.js";
 import { buildCheckpointRecoveryPack, CHECKPOINT_SELECTION_SOURCES, checkpointIdentity, checkpointPayloadDigest, checkpointSummary, matchesCheckpoint, matchesCheckpointPayload, normalizeCheckpointInput, parseCheckpointContent, type CheckpointInput, type CheckpointResult } from "./checkpoint.js";
+import { logicalMemoryFingerprint } from "./logical-memory.js";
 
 interface EngineDeps {
   storePath: string;
@@ -133,9 +134,54 @@ interface MemoryDoctorInput {
   include_private?: unknown;
 }
 
+interface ConsolidateExactDuplicatesInput {
+  project_id?: string;
+  include_private?: unknown;
+  source?: RecordSource;
+}
+
 type ValidatedMemoryDoctorInput = MemoryDoctorInput & {
   include_private?: boolean;
 };
+
+const stateTrustRank: Record<RecordState, number> = {
+  canonical: 3,
+  candidate: 2,
+  raw: 1,
+  archived: 0,
+  quarantined: 0
+};
+
+const priorityRank: Record<RecordPriority, number> = { high: 3, normal: 2, low: 1 };
+
+function compareCodeUnits(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function compareConsolidationTargets(left: MorynRecord, right: MorynRecord): number {
+  return stateTrustRank[right.state] - stateTrustRank[left.state]
+    || priorityRank[right.priority] - priorityRank[left.priority]
+    || compareCodeUnits(right.updated_at, left.updated_at)
+    || compareCodeUnits(left.id, right.id);
+}
+
+function duplicateLinkEventId(recordId: string, targetRecordId: string): string {
+  return `evt_duplicate_${logicalMemoryFingerprint({
+    id: recordId,
+    kind: "agent_note",
+    type: "duplicate-link",
+    scope: "artifact",
+    tags: [],
+    content: { text: `${recordId}\u0000${targetRecordId}` },
+    state: "raw",
+    confidence: 0,
+    priority: "low",
+    visibility: "active",
+    created_at: "",
+    updated_at: "",
+    source: { client: "moryn" }
+  }).slice(0, 32)}`;
+}
 
 type ValidatedMemoryLifecycleInput = MemoryLifecycleInput & {
   include_private?: boolean;
@@ -3001,6 +3047,65 @@ export function createEngine(deps: EngineDeps) {
         record,
         selection_sources: WRITE_SELECTION_SOURCES,
         warning
+      };
+    },
+
+    async consolidateExactDuplicates(input: ConsolidateExactDuplicatesInput = {}) {
+      if (input.include_private !== undefined && typeof input.include_private !== "boolean") {
+        throw new Error("Invalid argument: consolidate exact duplicates include_private must be a boolean");
+      }
+      const includePrivate = input.include_private === true;
+      const records = (await currentRecords())
+        .filter((record) => record.visibility === "active" && record.state !== "archived" && record.state !== "quarantined")
+        .filter((record) => !input.project_id || record.project_id === input.project_id)
+        .filter((record) => includePrivate || !isPrivateTags(record.tags));
+      const recordsByFingerprint = new Map<string, MorynRecord[]>();
+      for (const record of records) {
+        const fingerprint = logicalMemoryFingerprint(record);
+        recordsByFingerprint.set(fingerprint, [...(recordsByFingerprint.get(fingerprint) ?? []), record]);
+      }
+      const groups = [...recordsByFingerprint.values()]
+        .filter((group) => group.length > 1)
+        .map((group) => {
+          const ordered = [...group].sort(compareConsolidationTargets);
+          const target = ordered[0] as MorynRecord;
+          const duplicates = ordered.slice(1).sort((left, right) => compareCodeUnits(left.id, right.id));
+          return { target, duplicates };
+        })
+        .sort((left, right) => compareCodeUnits(left.target.id, right.target.id));
+      let linksCreated = 0;
+      let linksExisting = 0;
+      const source = input.source ?? { client: "moryn" };
+      for (const group of groups) {
+        for (const duplicate of group.duplicates) {
+          const exists = duplicate.links?.some((link) => link.link_type === "duplicate_of" && link.record_id === group.target.id) ?? false;
+          if (exists) {
+            linksExisting += 1;
+            continue;
+          }
+          const event: MorynEvent = {
+            event_id: duplicateLinkEventId(duplicate.id, group.target.id),
+            op: "link_records",
+            record_id: duplicate.id,
+            linked_record_id: group.target.id,
+            link_type: "duplicate_of",
+            created_at: now(),
+            source
+          };
+          const appended = await appendEventIfAbsent(deps.storePath, event);
+          if (appended.created) linksCreated += 1;
+          else linksExisting += 1;
+        }
+      }
+      if (linksCreated > 0) await rebuildDerivedViews(deps.storePath);
+      return {
+        groups_found: groups.length,
+        links_created: linksCreated,
+        links_existing: linksExisting,
+        groups: groups.map((group) => ({
+          target_record_id: group.target.id,
+          duplicate_record_ids: group.duplicates.map((record) => record.id)
+        }))
       };
     },
 
