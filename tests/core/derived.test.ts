@@ -12,6 +12,7 @@ const REBUILD_SELECTION_SOURCES = {
   artifacts: "artifacts",
   user_snapshot: "artifacts.snapshots.user",
   records_snapshot: "artifacts.snapshots.records",
+  retrieval_snapshot: "artifacts.snapshots.retrieval",
   project_snapshots: "artifacts.snapshots.projects_by_id",
   skills_snapshot: "artifacts.snapshots.skills",
   recall_index: "artifacts.indexes.recall",
@@ -143,6 +144,7 @@ describe("derived views", () => {
       expect(result.selection_sources).toEqual(REBUILD_SELECTION_SOURCES);
       expect(result.artifacts.snapshots.user).toBe("snapshots/user.json");
       expect(result.artifacts.snapshots.records).toBe("snapshots/records.json");
+      expect(result.artifacts.snapshots.retrieval).toBe("snapshots/retrieval/metadata.json");
       expect(result.artifacts.snapshots.projects_by_id.moryn).toBe("snapshots/projects/moryn.json");
       expect(result.artifacts.snapshots.projects_by_id.other).toBe("snapshots/projects/other.json");
       expect(result.artifacts.snapshots.skills).toBe("snapshots/skills/index.json");
@@ -157,6 +159,8 @@ describe("derived views", () => {
       expect(recordReadModel.version).toBe(1);
       expect(recordReadModel.event_manifest).toMatchObject({ count: 11, digest: expect.stringMatching(/^[a-f0-9]{64}$/) });
       expect(recordReadModel.records).toHaveLength(11);
+      const retrievalMetadata = JSON.parse(await readFile(join(storePath, "snapshots", "retrieval", "metadata.json"), "utf8")) as { event_manifest: { count: number }; active_records: number; project_buckets: number };
+      expect(retrievalMetadata).toMatchObject({ event_manifest: { count: 11 }, active_records: 11, project_buckets: 2 });
 
       const project = JSON.parse(await readFile(join(storePath, "snapshots", "projects", "moryn.json"), "utf8")) as { summary: string; decisions: Array<{ content: { text: string } }> };
       expect(project.summary).toBe("Moryn is a local-first agent memory layer.");

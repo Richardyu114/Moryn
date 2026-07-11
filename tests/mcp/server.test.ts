@@ -152,6 +152,7 @@ const REBUILD_SELECTION_SOURCES = {
   artifacts: "artifacts",
   user_snapshot: "artifacts.snapshots.user",
   records_snapshot: "artifacts.snapshots.records",
+  retrieval_snapshot: "artifacts.snapshots.retrieval",
   project_snapshots: "artifacts.snapshots.projects_by_id",
   skills_snapshot: "artifacts.snapshots.skills",
   recall_index: "artifacts.indexes.recall",
@@ -4001,7 +4002,7 @@ describe("MCP stdio server", () => {
             ok: boolean;
             records: number;
             artifacts: {
-              snapshots: { projects_by_id: Record<string, string> };
+              snapshots: { projects_by_id: Record<string, string>; retrieval: string };
               indexes: { recall: string };
             };
             selection_sources: Record<string, string>;
@@ -4010,6 +4011,7 @@ describe("MCP stdio server", () => {
           expect(rebuild.records).toBe(1);
           expect(rebuild.selection_sources).toEqual(REBUILD_SELECTION_SOURCES);
           expect(rebuild.artifacts.snapshots.projects_by_id.moryn).toBe("snapshots/projects/moryn.json");
+          expect(rebuild.artifacts.snapshots.retrieval).toBe("snapshots/retrieval/metadata.json");
           expect(rebuild.artifacts.indexes.recall).toBe("indexes/recall.json");
 
           const recallIndex = JSON.parse(await readFile(join(storeB, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };

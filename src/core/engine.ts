@@ -30,6 +30,7 @@ import { learningRecordIdentity, normalizeLearningRecord } from "./learning-inge
 import { SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES, semanticConsolidationProposalDigest, validateSemanticConsolidationProposal, type SemanticConsolidationProposalResult, type SemanticConsolidationReceipt } from "./semantic-consolidation.js";
 import { retrieveSemanticConsolidationCandidates } from "./semantic-consolidation-candidates.js";
 import { readCurrentRecords, type CurrentRecordReadResult } from "./record-read-model.js";
+import { readRetrievalCandidates, type ReadRetrievalCandidatesInput, type RetrievalCandidateReadResult } from "./retrieval-index.js";
 
 interface EngineDeps {
   storePath: string;
@@ -39,6 +40,7 @@ interface EngineDeps {
   rebuild?: (storePath: string) => Promise<unknown>;
   appendEventIfAbsent?: (storePath: string, event: MorynEvent) => Promise<AppendEventIfAbsentResult>;
   readCurrentRecords?: (storePath: string) => Promise<CurrentRecordReadResult>;
+  readRetrievalCandidates?: (storePath: string, input: ReadRetrievalCandidatesInput) => Promise<RetrievalCandidateReadResult>;
 }
 
 interface WriteInput {
@@ -2975,6 +2977,7 @@ export function createEngine(deps: EngineDeps) {
   const checkpointRebuild = deps.rebuild ?? rebuildDerivedViews;
   const appendIdempotentEvent = deps.appendEventIfAbsent ?? appendEventIfAbsent;
   const readRecords = deps.readCurrentRecords ?? readCurrentRecords;
+  const readCandidates = deps.readRetrievalCandidates ?? readRetrievalCandidates;
 
   async function currentRecords(): Promise<MorynRecord[]> {
     return (await readRecords(deps.storePath)).records;
@@ -3562,10 +3565,14 @@ export function createEngine(deps: EngineDeps) {
         await requireRecord(recordId);
       }
       const limit = validateLimit(recallInput.limit, 10, "recall");
-      const allRecallRecords = await currentRecords();
-      const logicalRecords = recallInput.record_ids?.length || includesHiddenState(recallInput)
-        ? allRecallRecords
-        : buildActiveLogicalMemoryView(allRecallRecords).active_records;
+      const useRetrievalIndex = Boolean(recallInput.project_id && !recallInput.record_ids?.length && !includesHiddenState(recallInput));
+      const retrieval = useRetrievalIndex
+        ? await readCandidates(deps.storePath, { project_id: recallInput.project_id!, read_current_records: readRecords })
+        : undefined;
+      const current = retrieval ? undefined : await readRecords(deps.storePath);
+      const logicalRecords = retrieval?.records ?? (recallInput.record_ids?.length || includesHiddenState(recallInput)
+        ? current!.records
+        : buildActiveLogicalMemoryView(current!.records).active_records);
       const rankedRecords = logicalRecords
         .filter((record) => includesHiddenState(recallInput) || includesRawState(recallInput) || isVisibleInDefaultRecall(record))
         .filter((record) => isAllowedByPrivateBoundary(record, recallInput.include_private))
@@ -3591,6 +3598,7 @@ export function createEngine(deps: EngineDeps) {
         : undefined;
       return {
         results: records,
+        ...(retrieval ? { retrieval } : {}),
         ...(outcome ? { outcome } : {}),
         ...(actionContract ? actionContract : {}),
         selection_sources: RECALL_SELECTION_SOURCES,
@@ -3653,8 +3661,12 @@ export function createEngine(deps: EngineDeps) {
         default_skills: Array.isArray(input.default_skills) ? input.default_skills : undefined,
         include_private: input.include_private === true
       } as ValidatedBootInput;
-      const allCurrentRecords = await currentRecords();
-      const activeCurrentRecords = buildActiveLogicalMemoryView(allCurrentRecords).active_records;
+      const retrieval = bootInput.project_id
+        ? await readCandidates(deps.storePath, { project_id: bootInput.project_id, read_current_records: readRecords })
+        : undefined;
+      const current = retrieval ? undefined : await readRecords(deps.storePath);
+      const allCurrentRecords = retrieval?.records ?? current!.records;
+      const activeCurrentRecords = retrieval?.records ?? buildActiveLogicalMemoryView(allCurrentRecords).active_records;
       const visibleRecords = activeCurrentRecords
         .filter(isVisibleByDefault)
         .filter((record) => isAllowedByPrivateBoundary(record, bootInput.include_private))
@@ -3696,6 +3708,7 @@ export function createEngine(deps: EngineDeps) {
         .filter((record) => Boolean(parseCheckpointContent(record.content)))
         .at(-1);
       return {
+        ...(retrieval ? { retrieval } : {}),
         profile: {
           user_preferences: userPreferences,
           user_preferences_by_id: recordsById(userPreferences),
@@ -3888,6 +3901,9 @@ export function createEngine(deps: EngineDeps) {
       const limit = validateLimit(resolvedInput.limit, 20, "health_check");
       const events = await readEvents(deps.storePath);
       const recordReadModel = await readRecords(deps.storePath);
+      const retrievalIndex = resolvedInput.project_id
+        ? await readCandidates(deps.storePath, { project_id: resolvedInput.project_id, read_current_records: readRecords })
+        : undefined;
       const allRecords = recordReadModel.records;
       const visibleRecords = allRecords
         .filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private));
@@ -3906,6 +3922,7 @@ export function createEngine(deps: EngineDeps) {
         include_private: resolvedInput.include_private,
         excluded_private_records: allRecords.length - visibleRecords.length,
         record_read_model: recordReadModel,
+        ...(retrievalIndex ? { retrieval_index: retrievalIndex } : {}),
         ...(activationStatus ? { activation_status: activationStatus } : {})
       });
     },

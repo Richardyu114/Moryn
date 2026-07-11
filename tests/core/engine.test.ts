@@ -569,6 +569,7 @@ describe("core engine", () => {
         }
       });
       expect(report.record_read_model).toMatchObject({ status: "fresh", source: "read_model", repaired: false, record_count: 3, event_count: 3 });
+      expect(report.retrieval_index).toMatchObject({ status: "fresh", source: "retrieval_index", repaired: false, total_active_records: 3, candidate_count: 3 });
       expect(report.selection_sources).toEqual(HEALTH_CHECK_SELECTION_SOURCES);
       expect(report.stats).toMatchObject({
         visible_records: 2,
@@ -1767,6 +1768,61 @@ describe("core engine", () => {
 
       expect((await engine.recall({ record_ids: [written.record.id] })).results[0]?.record.id).toBe(written.record.id);
       expect(calls).toEqual(["read_model", "read_model"]);
+    });
+  });
+
+  it("uses bounded retrieval candidates for default project recall and boot", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const alpha = { id: "rec-alpha", kind: "memory", type: "fact", scope: "project", project_id: "alpha", tags: [], content: { text: "Alpha bounded retrieval", format: "text" }, state: "canonical", confidence: 1, priority: "normal", visibility: "active", created_at: "2026-07-12T00:00:00.000Z", updated_at: "2026-07-12T00:00:00.000Z", source: { client: "test" } } as const;
+      const calls: string[] = [];
+      const engine = createEngine({
+        storePath,
+        readCurrentRecords: async () => ({ records: [alpha], source: "read_model", repaired: false, event_manifest: { count: 1001, digest: "digest" } }),
+        readRetrievalCandidates: async (_storePath, input) => {
+          calls.push(input.project_id);
+          return { records: [alpha], source: "retrieval_index", repaired: false, event_manifest: { count: 1001, digest: "digest" }, total_active_records: 1000, global_records: 0, project_buckets: 20, candidate_count: 1 };
+        }
+      });
+
+      const recall = await engine.recall({ project_id: "alpha", query: "bounded retrieval" });
+      const boot = await engine.boot({ project_id: "alpha", current_task: "bounded retrieval" });
+      expect(recall.results.map((result) => result.record.id)).toEqual(["rec-alpha"]);
+      expect(recall.retrieval).toMatchObject({ source: "retrieval_index", total_active_records: 1000, candidate_count: 1 });
+      expect(boot.task_relevant.map((record) => record.id)).toEqual(["rec-alpha"]);
+      expect(boot.retrieval).toMatchObject({ source: "retrieval_index", total_active_records: 1000, candidate_count: 1 });
+      expect(calls).toEqual(["alpha", "alpha"]);
+    });
+  });
+
+  it("keeps explicit hidden-state recall on the complete record model", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const archived = { id: "rec-archived", kind: "memory", type: "fact", scope: "project", project_id: "alpha", tags: [], content: { text: "Archived history", format: "text" }, state: "archived", confidence: 1, priority: "normal", visibility: "archived", created_at: "2026-07-12T00:00:00.000Z", updated_at: "2026-07-12T00:00:00.000Z", source: { client: "test" } } as const;
+      let retrievalCalls = 0;
+      const engine = createEngine({
+        storePath,
+        readCurrentRecords: async () => ({ records: [archived], source: "read_model", repaired: false, event_manifest: { count: 1, digest: "digest" } }),
+        readRetrievalCandidates: async () => { retrievalCalls += 1; throw new Error("unexpected retrieval index read"); }
+      });
+
+      const recall = await engine.recall({ project_id: "alpha", record_ids: [archived.id], states: ["archived"] });
+      expect(recall.results[0]?.record.id).toBe(archived.id);
+      expect(retrievalCalls).toBe(0);
+    });
+  });
+
+  it("keeps real project recall candidates bounded when unrelated projects grow", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, id: (prefix) => `${prefix}_${++nextId}`, now: () => `2026-07-12T00:00:${String(nextId).padStart(2, "0")}.000Z` });
+      await engine.write({ kind: "memory", type: "rule", scope: "global", content: { text: "Global retrieval rule" }, state: "canonical", source: { client: "test" } });
+      await engine.write({ kind: "memory", type: "fact", scope: "project", project_id: "alpha", content: { text: "Alpha retrieval fact" }, state: "canonical", source: { client: "test" } });
+      for (let index = 0; index < 20; index += 1) {
+        await engine.write({ kind: "memory", type: "fact", scope: "project", project_id: `unrelated-${index}`, content: { text: `Unrelated fact ${index}` }, state: "canonical", source: { client: "test" } });
+      }
+
+      const recall = await engine.recall({ project_id: "alpha", query: "Alpha retrieval" });
+      expect(recall.results[0]?.record.content.text).toBe("Alpha retrieval fact");
+      expect(recall.retrieval).toMatchObject({ source: "retrieval_index", total_active_records: 22, global_records: 1, project_buckets: 21, candidate_count: 2 });
     });
   });
 

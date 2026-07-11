@@ -2206,6 +2206,7 @@ describe("observability dashboard", () => {
       expect(data.health_check).toMatchObject({
         read_only: true,
         status: "needs_attention",
+        retrieval_index: { status: "fresh", source: "retrieval_index", repaired: false },
         summary: {
           warning_checks: 1,
           failing_checks: 0

@@ -18,6 +18,7 @@ import { diagnoseMemoryLifecycle, type MemoryLifecycleResult } from "../core/mem
 import { diagnoseMemory, type MemoryDoctorResult } from "../core/memory-doctor.js";
 import { buildActiveLogicalMemoryView } from "../core/logical-memory.js";
 import { readCurrentRecords } from "../core/record-read-model.js";
+import { readRetrievalCandidates } from "../core/retrieval-index.js";
 import type { RecallEvalReport } from "../core/recall-eval.js";
 import { replayEvents } from "../core/replay.js";
 import { readEvents } from "../core/store.js";
@@ -3234,7 +3235,8 @@ function buildDashboardGovernance(input: {
 export async function buildDashboardData(storePath: string, options: DashboardOptions = {}): Promise<DashboardData> {
   const limit = dashboardLimit(options.limit);
   const events = await readEvents(storePath);
-  const allRecordsById = new Map((await readCurrentRecords(storePath)).records.map((record) => [record.id, record]));
+  const currentRecordRead = await readCurrentRecords(storePath);
+  const allRecordsById = new Map(currentRecordRead.records.map((record) => [record.id, record]));
   const allRecords = [...allRecordsById.values()];
   const records = allRecords.filter((record) => isVisibleForDashboard(record, options.include_private));
   const logicalView = buildActiveLogicalMemoryView(records);
@@ -3364,7 +3366,9 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     sync_remote: options.sync_remote,
     limit,
     include_private: options.include_private === true,
-    excluded_private_records: healthCheckAllRecords.length - healthCheckRecords.length
+    excluded_private_records: healthCheckAllRecords.length - healthCheckRecords.length,
+    record_read_model: currentRecordRead,
+    ...(options.project_id ? { retrieval_index: await readRetrievalCandidates(storePath, { project_id: options.project_id, read_current_records: async () => currentRecordRead }) } : {})
   });
   const recallEvalData = await buildDashboardRecallEval(storePath, records, options);
   const workingSetReport = summarizeWorkingSet(records, visibleEvents);

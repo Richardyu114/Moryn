@@ -7,6 +7,7 @@ import { getHostAdapter, type HostAdapterId } from "./host-adapter-registry.js";
 import type { MorynEvent, MorynRecord } from "./types.js";
 import type { HostActivationStatus } from "./host-activation.js";
 import type { CurrentRecordReadResult, RecordReadFallbackReason } from "./record-read-model.js";
+import type { RetrievalCandidateReadResult, RetrievalIndexFallbackReason } from "./retrieval-index.js";
 import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
 
 export type HealthCheckStatus = "healthy" | "needs_attention" | "unhealthy";
@@ -28,6 +29,7 @@ export interface HealthCheckDiagnoseInput extends HealthCheckInput {
   excluded_private_records?: number;
   activation_status?: HostActivationStatus;
   record_read_model?: CurrentRecordReadResult;
+  retrieval_index?: RetrievalCandidateReadResult;
 }
 
 export interface HealthCheckRecordReadModel {
@@ -37,6 +39,17 @@ export interface HealthCheckRecordReadModel {
   record_count: number;
   event_count: number;
   fallback_reason?: RecordReadFallbackReason;
+}
+
+export interface HealthCheckRetrievalIndex {
+  status: "fresh" | "repaired" | "degraded";
+  source: RetrievalCandidateReadResult["source"];
+  repaired: boolean;
+  total_active_records: number;
+  global_records: number;
+  project_buckets: number;
+  candidate_count: number;
+  fallback_reason?: RetrievalIndexFallbackReason;
 }
 
 export interface HealthCheckItem {
@@ -119,6 +132,7 @@ export interface HealthCheckReport {
   project_id?: string;
   activation_status?: HostActivationStatus;
   record_read_model?: HealthCheckRecordReadModel;
+  retrieval_index?: HealthCheckRetrievalIndex;
   setup_readiness: HealthCheckSetupReadiness;
   summary: HealthCheckSummary;
   stats: HealthCheckStats;
@@ -555,6 +569,16 @@ export function diagnoseHealthCheck(input: HealthCheckDiagnoseInput): HealthChec
     event_count: input.record_read_model.event_manifest.count,
     ...(input.record_read_model.fallback_reason ? { fallback_reason: input.record_read_model.fallback_reason } : {})
   } : undefined;
+  const retrievalIndex = input.retrieval_index ? {
+    status: input.retrieval_index.source === "retrieval_index" ? "fresh" as const : input.retrieval_index.repaired ? "repaired" as const : "degraded" as const,
+    source: input.retrieval_index.source,
+    repaired: input.retrieval_index.repaired,
+    total_active_records: input.retrieval_index.total_active_records,
+    global_records: input.retrieval_index.global_records,
+    project_buckets: input.retrieval_index.project_buckets,
+    candidate_count: input.retrieval_index.candidate_count,
+    ...(input.retrieval_index.fallback_reason ? { fallback_reason: input.retrieval_index.fallback_reason } : {})
+  } : undefined;
   return nonPrivateTextLeakGuard({
     read_only: true,
     version: 1,
@@ -563,6 +587,7 @@ export function diagnoseHealthCheck(input: HealthCheckDiagnoseInput): HealthChec
     ...(input.project_id ? { project_id: input.project_id } : {}),
     ...(input.activation_status ? { activation_status: input.activation_status } : {}),
     ...(recordReadModel ? { record_read_model: recordReadModel } : {}),
+    ...(retrievalIndex ? { retrieval_index: retrievalIndex } : {}),
     setup_readiness: readiness,
     summary: healthSummary(status, checks, actions),
     stats: stats(input, projectRecords, reviewCandidates),

@@ -6,6 +6,7 @@ import { readEventFileManifest, readEvents } from "./store.js";
 import type { MorynRecord } from "./types.js";
 import { displayRecordText, searchableRecordText } from "./content-text.js";
 import { buildRecordReadModel } from "./record-read-model.js";
+import { buildRetrievalIndex, writeRetrievalIndex } from "./retrieval-index.js";
 
 export const REBUILD_SELECTION_SOURCES = {
   record_count: "records",
@@ -14,6 +15,7 @@ export const REBUILD_SELECTION_SOURCES = {
   artifacts: "artifacts",
   user_snapshot: "artifacts.snapshots.user",
   records_snapshot: "artifacts.snapshots.records",
+  retrieval_snapshot: "artifacts.snapshots.retrieval",
   project_snapshots: "artifacts.snapshots.projects_by_id",
   skills_snapshot: "artifacts.snapshots.skills",
   recall_index: "artifacts.indexes.recall",
@@ -29,6 +31,7 @@ export interface RebuildResult {
     snapshots: {
       user: string;
       records: string;
+      retrieval: string;
       projects_by_id: Record<string, string>;
       skills: string;
     };
@@ -177,6 +180,7 @@ function rebuildArtifacts(projectIds: string[]): RebuildResult["artifacts"] {
     snapshots: {
       user: "snapshots/user.json",
       records: "snapshots/records.json",
+      retrieval: "snapshots/retrieval/metadata.json",
       projects_by_id: Object.fromEntries(
         projectIds.map((projectId) => [projectId, `snapshots/projects/${projectId}.json`])
       ),
@@ -223,6 +227,7 @@ async function rebuildDerivedViewsUnlocked(storePath: string): Promise<RebuildRe
   };
   await writeJson(join(snapshotPath, "user.json"), user);
   await writeJson(join(snapshotPath, "records.json"), buildRecordReadModel(events, records, eventFileManifest));
+  await writeRetrievalIndex(storePath, buildRetrievalIndex(records, eventFileManifest));
 
   const projectIds = [...new Set(activeRecords
     .filter((record) => record.scope === "project")

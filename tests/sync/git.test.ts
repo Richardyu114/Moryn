@@ -287,6 +287,9 @@ describe("git sync adapter", () => {
       const engineB = createEngine({ storePath: storeB });
       const recall = await engineB.recall({ query: "Git", project_id: "moryn" });
       expect(recall.results[0]?.record.content.text).toBe("Sync events through Git.");
+      expect(recall.retrieval).toMatchObject({ source: "retrieval_index", repaired: false, candidate_count: 1 });
+      const retrievalMetadata = JSON.parse(await readFile(join(storeB, "snapshots", "retrieval", "metadata.json"), "utf8")) as { event_manifest: { count: number }; active_records: number };
+      expect(retrievalMetadata).toMatchObject({ event_manifest: { count: 1 }, active_records: 1 });
 
       const status = await getGitSyncStatus(storeB);
       expect(status.configured).toBe(true);

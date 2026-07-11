@@ -241,6 +241,7 @@ const REBUILD_SELECTION_SOURCES = {
   artifacts: "artifacts",
   user_snapshot: "artifacts.snapshots.user",
   records_snapshot: "artifacts.snapshots.records",
+  retrieval_snapshot: "artifacts.snapshots.retrieval",
   project_snapshots: "artifacts.snapshots.projects_by_id",
   skills_snapshot: "artifacts.snapshots.skills",
   recall_index: "artifacts.indexes.recall",
@@ -6690,7 +6691,7 @@ describe("moryn CLI", () => {
       const rebuild = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "rebuild"]);
       const parsedRebuild = JSON.parse(rebuild.stdout) as {
         artifacts: {
-          snapshots: { projects_by_id: Record<string, string>; user: string; skills: string };
+          snapshots: { projects_by_id: Record<string, string>; user: string; skills: string; retrieval: string };
           indexes: { recall: string; sync_cursors: string };
         };
         selection_sources: Record<string, string>;
@@ -6698,6 +6699,7 @@ describe("moryn CLI", () => {
       expect(rebuild.stdout).toContain("\"records\": 1");
       expect(parsedRebuild.selection_sources).toEqual(REBUILD_SELECTION_SOURCES);
       expect(parsedRebuild.artifacts.snapshots.projects_by_id.moryn).toBe("snapshots/projects/moryn.json");
+      expect(parsedRebuild.artifacts.snapshots.retrieval).toBe("snapshots/retrieval/metadata.json");
       expect(parsedRebuild.artifacts.indexes.recall).toBe("indexes/recall.json");
 
       const recallIndex = JSON.parse(await readFile(join(dir, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };
