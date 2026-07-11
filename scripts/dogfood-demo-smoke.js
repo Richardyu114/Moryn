@@ -83,7 +83,16 @@ async function main() {
   const root = await mkdtemp(join(tmpdir(), "moryn-dogfood-demo-smoke-"));
   const store = join(root, "store");
   const project = join(root, "project");
-  const { command, argsPrefix } = await resolveMorynCommand(options.useSource ?? false);
+  const sourceEngine = join(packageRoot, "src", "core", "engine.ts");
+  let useSource = options.useSource ?? false;
+  if (useSource) {
+    try {
+      await access(sourceEngine);
+    } catch {
+      useSource = false;
+    }
+  }
+  const { command, argsPrefix } = await resolveMorynCommand(useSource);
 
   try {
     const setup = await runJson(command, [
@@ -166,6 +175,31 @@ async function main() {
     requireMatch(review.policy_decision?.user_action_required, true, "review user action");
     log("review handoff routed to Capture Inbox");
 
+    const coreExtension = useSource ? "ts" : "js";
+    const coreRoot = useSource ? "src" : "dist";
+    const duplicateScript = `
+      import { createEngine } from ${JSON.stringify(pathToFileURL(join(packageRoot, coreRoot, "core", `engine.${coreExtension}`)).href)};
+      import { buildWorkingSetReport } from ${JSON.stringify(pathToFileURL(join(packageRoot, coreRoot, "core", `working-set-report.${coreExtension}`)).href)};
+      let duplicateId = 0;
+      const engine = createEngine({ storePath: ${JSON.stringify(store)}, id: (prefix) => prefix + "_dogfood_" + (++duplicateId) });
+      const base = { kind: "memory", type: "decision", scope: "project", project_id: "moryn", source: { client: "dogfood-smoke" } };
+      const canonical = await engine.write({ ...base, content: { text: "Use autonomous sync for healthy lifecycle paths." }, state: "canonical", confirmed: true });
+      for (let index = 0; index < 100; index += 1) {
+        const duplicate = await engine.write({ ...base, content: { text: "Use autonomous sync for healthy lifecycle paths." } });
+        await engine.logicalLink({ record_id: duplicate.record.id, linked_record_id: canonical.record.id, relationship: "duplicate_of", reason: "Dogfood duplicate consolidation" });
+      }
+      process.stdout.write(JSON.stringify(await buildWorkingSetReport(${JSON.stringify(store)}, { project_id: "moryn" })));
+    `;
+    const duplicateArgs = useSource
+      ? ["--import", "tsx", "--input-type=module", "--eval", duplicateScript]
+      : ["--input-type=module", "--eval", duplicateScript];
+    const workingSet = JSON.parse(await run("node", duplicateArgs, { cwd: packageRoot }));
+    requireMatch(workingSet.hidden_duplicate_records, 100, "hidden duplicate records");
+    if (workingSet.active_logical_records > 4 || workingSet.default_boot_records > 5) {
+      throw new Error(`logical working set was not bounded: active=${workingSet.active_logical_records}, boot=${workingSet.default_boot_records}`);
+    }
+    log("100 duplicate records consolidated to a bounded working set");
+
     const dashboard = await runJson(command, [
       ...argsPrefix,
       "--store",
@@ -188,6 +222,9 @@ async function main() {
     if (!dashboardHtml.includes("Reference Library")) {
       throw new Error("dashboard snapshot did not keep evidence in the read-only layer");
     }
+    if (!dashboardHtml.includes("events") || !dashboardHtml.includes("consolidated")) {
+      throw new Error("dashboard snapshot did not expose logical working-set capacity telemetry");
+    }
     log("dashboard snapshot generated");
 
     const finalPack = await runJson(command, [
@@ -208,6 +245,10 @@ async function main() {
     ]);
     if (!JSON.stringify(finalPack).includes("Finished the dogfood walkthrough")) {
       throw new Error("final context pack did not retain the low-risk handoff");
+    }
+
+    if (Object.keys(finalPack.boot?.records_by_id ?? finalPack.records_by_id ?? {}).length > 5) {
+      throw new Error("final context pack exceeded the bounded default boot record limit");
     }
 
     log("setup applied -> context pack ready -> low-risk handoff auto-captured -> review handoff routed to Capture Inbox -> dashboard snapshot generated");

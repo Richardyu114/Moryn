@@ -165,3 +165,15 @@ Before publishing:
    moryn --version
    moryn-agent-smoke --dist
    ```
+
+## Logical Working-Set Capacity
+
+`buildWorkingSetReport(storePath, options)` is a read-only capacity diagnostic for store growth. It reports visible event and record counts, active logical records, hidden duplicate/superseded/revised records, conflicts, cycles, the number of records selected by default boot, and the logical compaction ratio.
+
+Private-tagged records are excluded by default. Pass `include_private: true` only inside an explicitly authorized private read path. The dashboard uses this report for the quiet Memory Flow summary; it does not create approval queues or maintenance actions.
+
+The dogfood smoke writes 100 duplicate records, links them to one canonical record, and verifies that the active logical set and default boot context remain bounded:
+
+```bash
+npm run smoke:dogfood-demo
+```

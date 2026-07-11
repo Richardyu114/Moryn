@@ -21,6 +21,7 @@ import type { RecallEvalReport } from "../core/recall-eval.js";
 import { replayEvents } from "../core/replay.js";
 import { readEvents } from "../core/store.js";
 import type { MorynEvent, MorynRecord, RecordKind, RecordSource } from "../core/types.js";
+import { summarizeWorkingSet } from "../core/working-set-report.js";
 import { getGitSyncStatus, type GitSyncStatus } from "../sync/git.js";
 import { approveMaintenancePlan, buildDashboardMaintenance, type DashboardMaintenanceData, type DashboardMaintenancePlan } from "./dashboard-maintenance.js";
 
@@ -844,9 +845,17 @@ export interface DashboardData {
       handoff_record_id?: string;
     };
     memory_flow: {
+      store_events: number;
       store_records: number;
       active_working_set_records: number;
       hidden_logical_records: number;
+      hidden_duplicate_records: number;
+      hidden_superseded_records: number;
+      hidden_revised_records: number;
+      conflict_records: number;
+      cycle_findings: number;
+      default_boot_records?: number;
+      compaction_ratio: number;
       learned_records: number;
       recent_records: number;
       recent_events: number;
@@ -3291,6 +3300,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     excluded_private_records: healthCheckAllRecords.length - healthCheckRecords.length
   });
   const recallEvalData = await buildDashboardRecallEval(storePath, records, options);
+  const workingSetReport = summarizeWorkingSet(records, visibleEvents);
   const actions = dashboardActions({
     captureInbox: captureInboxData,
     capturePolicy: capturePolicyData,
@@ -3401,9 +3411,17 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
         handoff_record_id: latestHandoff?.id
       },
       memory_flow: {
-        store_records: records.length,
-        active_working_set_records: logicalView.active_records.length,
-        hidden_logical_records: Object.keys(logicalView.hidden_by_record_id).length,
+        store_events: workingSetReport.total_events,
+        store_records: workingSetReport.total_records,
+        active_working_set_records: workingSetReport.active_logical_records,
+        hidden_logical_records: workingSetReport.hidden_duplicate_records + workingSetReport.hidden_superseded_records + workingSetReport.hidden_revised_records,
+        hidden_duplicate_records: workingSetReport.hidden_duplicate_records,
+        hidden_superseded_records: workingSetReport.hidden_superseded_records,
+        hidden_revised_records: workingSetReport.hidden_revised_records,
+        conflict_records: workingSetReport.conflict_records,
+        cycle_findings: workingSetReport.cycle_findings,
+        default_boot_records: workingSetReport.default_boot_records,
+        compaction_ratio: workingSetReport.compaction_ratio,
         learned_records: records.filter((record) => record.tags.includes("learning")).length,
         recent_records: recentRecords.length,
         recent_events: recentEvents.length,
@@ -8379,6 +8397,7 @@ function quietMemoryFlow(data: DashboardData): string {
         <div><span>Learned</span><strong>${flow.learned_records}</strong></div>
       </div>
       <small>${escapeHtml(`${flow.recent_records} recent records · ${flow.recent_events} recent events · sync ${flow.sync_state.replaceAll("_", " ")}`)}</small>
+      <small>${escapeHtml(`${Math.round(flow.compaction_ratio * 100)}% consolidated · ${flow.store_events} events`)}</small>
     </section>`;
 }
 

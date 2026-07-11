@@ -16,7 +16,10 @@ import { CAPTURE_POLICY_SELECTION_SOURCES } from "./core/capture-policy-report.j
 import { DOGFOOD_REPORT_SELECTION_SOURCES } from "./core/dogfood-report.js";
 import { HEALTH_CHECK_SELECTION_SOURCES } from "./core/health-check.js";
 import { MEMORY_LIFECYCLE_SELECTION_SOURCES } from "./core/memory-lifecycle.js";
+import { WORKING_SET_REPORT_SELECTION_SOURCES } from "./core/working-set-report.js";
 export { createEngine } from "./core/engine.js";
+export { buildWorkingSetReport, summarizeWorkingSet } from "./core/working-set-report.js";
+export type { WorkingSetReportOptions, WorkingSetSummaryOptions } from "./core/working-set-report.js";
 export { contextDeltaSchema, learningDeltaSchema, validateContextDelta } from "./core/context-delta.js";
 export type { ContextDelta, ContextDeltaInput, LearningDelta, LearningDeltaInput } from "./core/context-delta.js";
 export { buildCheckpointRecoveryPack, CHECKPOINT_SELECTION_SOURCES } from "./core/checkpoint.js";
@@ -130,6 +133,7 @@ export {
   DOGFOOD_REPORT_SELECTION_SOURCES,
   HEALTH_CHECK_SELECTION_SOURCES,
   MEMORY_LIFECYCLE_SELECTION_SOURCES,
+  WORKING_SET_REPORT_SELECTION_SOURCES,
   SETUP_WIZARD_SELECTION_SOURCES
 };
 
@@ -158,6 +162,7 @@ export const SELECTION_SOURCE_CONTRACTS = {
     project_migrate: PROJECT_MIGRATE_SELECTION_SOURCES,
     memory_doctor: MEMORY_DOCTOR_SELECTION_SOURCES,
     memory_lifecycle: MEMORY_LIFECYCLE_SELECTION_SOURCES,
+    working_set_report: WORKING_SET_REPORT_SELECTION_SOURCES,
     capture_policy: CAPTURE_POLICY_SELECTION_SOURCES,
     dogfood_report: DOGFOOD_REPORT_SELECTION_SOURCES,
     health_check: HEALTH_CHECK_SELECTION_SOURCES,

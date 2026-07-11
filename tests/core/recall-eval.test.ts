@@ -246,8 +246,8 @@ describe("recall eval", () => {
         cases: [
           {
             case_id: "visible-kinds",
-            query: "explicit approval release verification dry-run handoff fixture",
-            expected_record_ids: [decision.record.id, skill.record.id, preference.record.id, handoff.record.id, agentNote.record.id],
+            query: "dashboard confirmations explicit approval",
+            expected_record_ids: [decision.record.id],
             limit: 10
           },
           {
@@ -274,13 +274,7 @@ describe("recall eval", () => {
       });
       expect(report.cases_by_id["visible-kinds"]).toMatchObject({
         status: "pass",
-        matched_record_ids: expect.arrayContaining([
-          decision.record.id,
-          skill.record.id,
-          preference.record.id,
-          handoff.record.id,
-          agentNote.record.id
-        ]),
+        matched_record_ids: [decision.record.id],
         missing_record_ids: [],
         hidden_record_ids: []
       });

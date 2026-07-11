@@ -9709,6 +9709,19 @@ describe("logical memory capacity telemetry", () => {
       await engine.logicalLink({ record_id: duplicate.record.id, linked_record_id: first.record.id, relationship: "duplicate_of", reason: "Exact duplicate" });
       const data = await buildDashboardData(storePath, { project_id: "moryn" });
       expect(data.logical_memory).toEqual({ store_records: 2, active_working_set_records: 1, hidden_logical_records: 1, conflict_records: 0, cycle_findings: 0, learned_records: 0, learned_canonical_records: 0, learned_candidate_records: 0, learning_evidence_links: 0 });
+      expect(data.quiet_dashboard.memory_flow).toMatchObject({
+        store_events: 3,
+        store_records: 2,
+        active_working_set_records: 1,
+        hidden_duplicate_records: 1,
+        hidden_superseded_records: 0,
+        hidden_revised_records: 0,
+        compaction_ratio: 0.5
+      });
+      expect(data.maintenance.plans).toEqual([]);
+      const firstScreen = quietFirstScreenHtml(renderDashboardHtml(data));
+      expect(firstScreen).toContain("50% consolidated");
+      expect(firstScreen).toContain("3 events");
     });
   });
 });
