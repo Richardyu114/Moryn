@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { createRequire } from "node:module";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,7 +12,8 @@ import { initializeProjectConfig } from "../../src/core/project.js";
 
 const exec = promisify(execFile);
 const repoRoot = process.cwd();
-const tsxLoader = join(repoRoot, "node_modules/tsx/dist/loader.mjs");
+const require = createRequire(import.meta.url);
+const tsxCliPath = require.resolve("tsx/cli");
 const cliPath = join(repoRoot, "src/cli.ts");
 const LIST_PROJECTS_WHEN = "When the shared store has projects but this agent has no explicit project context.";
 const FIX_PROJECT_CONFIG_WHEN = "Before starting lifecycle work when project context is invalid or missing.";
@@ -922,8 +924,8 @@ function expectHandoffEntryNextAction(action: {
 
 async function withMcpClient<T>(storePath: string, fn: (client: Client) => Promise<T>, cwd = repoRoot): Promise<T> {
   const transport = new StdioClientTransport({
-    command: "node",
-    args: ["--import", tsxLoader, cliPath, "--store", storePath, "mcp"],
+    command: process.execPath,
+    args: [tsxCliPath, cliPath, "--store", storePath, "mcp"],
     cwd,
     stderr: "pipe"
   });
