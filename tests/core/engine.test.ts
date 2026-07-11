@@ -1764,6 +1764,27 @@ describe("core engine", () => {
     });
   });
 
+  it("uses the active logical view for default recall and boot while preserving direct audit lookup", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, id: (prefix) => `${prefix}_${++nextId}` });
+      const base = { kind: "memory", type: "decision", scope: "project", project_id: "moryn", state: "canonical", confirmed: true, source: { client: "user" } } as const;
+      const old = await engine.write({ ...base, content: { text: "Use manual sync" } });
+      const current = await engine.write({ ...base, content: { text: "Use autonomous sync" } });
+      await engine.logicalLink({ record_id: current.record.id, linked_record_id: old.record.id, relationship: "supersedes", reason: "Autopilot replaces manual sync" });
+
+      const defaultRecall = await engine.recall({ project_id: "moryn" });
+      const directRecall = await engine.recall({ record_ids: [old.record.id] });
+      const boot = await engine.boot({ project_id: "moryn" });
+
+      expect(defaultRecall.results.map((result) => result.record.id)).toContain(current.record.id);
+      expect(defaultRecall.results.map((result) => result.record.id)).not.toContain(old.record.id);
+      expect(directRecall.results[0]?.record.id).toBe(old.record.id);
+      expect(boot.project.important_decisions.map((record: { id: string }) => record.id)).toContain(current.record.id);
+      expect(boot.project.important_decisions.map((record: { id: string }) => record.id)).not.toContain(old.record.id);
+    });
+  });
+
   it("lists project activity for agent project discovery", async () => {
     await withInitializedTempStore(async (storePath) => {
       const timestamps = [

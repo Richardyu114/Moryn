@@ -18,7 +18,7 @@ import { diagnoseHealthCheck, HEALTH_CHECK_SELECTION_SOURCES, type HealthCheckIn
 import { diagnoseMemory, MEMORY_DOCTOR_SELECTION_SOURCES } from "./memory-doctor.js";
 import { evaluateRecall, RECALL_EVAL_SELECTION_SOURCES, type RecallEvalInput } from "./recall-eval.js";
 import { buildCheckpointRecoveryPack, CHECKPOINT_SELECTION_SOURCES, checkpointIdentity, checkpointPayloadDigest, checkpointSummary, matchesCheckpoint, matchesCheckpointPayload, normalizeCheckpointInput, parseCheckpointContent, type CheckpointInput, type CheckpointResult } from "./checkpoint.js";
-import { logicalMemoryFingerprint, validateLogicalRelationship, type LogicalRelationshipType } from "./logical-memory.js";
+import { buildActiveLogicalMemoryView, logicalMemoryFingerprint, validateLogicalRelationship, type LogicalRelationshipType } from "./logical-memory.js";
 
 interface EngineDeps {
   storePath: string;
@@ -3309,7 +3309,11 @@ export function createEngine(deps: EngineDeps) {
         await requireRecord(recordId);
       }
       const limit = validateLimit(recallInput.limit, 10, "recall");
-      const records = (await currentRecords())
+      const allRecallRecords = await currentRecords();
+      const logicalRecords = recallInput.record_ids?.length || includesHiddenState(recallInput)
+        ? allRecallRecords
+        : buildActiveLogicalMemoryView(allRecallRecords).active_records;
+      const records = logicalRecords
         .filter((record) => includesHiddenState(recallInput) || includesRawState(recallInput) || isVisibleInDefaultRecall(record))
         .filter((record) => isAllowedByPrivateBoundary(record, recallInput.include_private))
         .filter((record) => recordProjectMatchesRecall(record, recallInput))
@@ -3388,7 +3392,8 @@ export function createEngine(deps: EngineDeps) {
         include_private: input.include_private === true
       } as ValidatedBootInput;
       const allCurrentRecords = await currentRecords();
-      const visibleRecords = allCurrentRecords
+      const activeCurrentRecords = buildActiveLogicalMemoryView(allCurrentRecords).active_records;
+      const visibleRecords = activeCurrentRecords
         .filter(isVisibleByDefault)
         .filter((record) => isAllowedByPrivateBoundary(record, bootInput.include_private))
         .filter((record) => recordBootContextMatches(record, bootInput.project_id));
