@@ -2,7 +2,7 @@ import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { replayEvents } from "./replay.js";
-import { readEvents } from "./store.js";
+import { readEventFileManifest, readEvents } from "./store.js";
 import type { MorynRecord } from "./types.js";
 import { displayRecordText, searchableRecordText } from "./content-text.js";
 import { buildRecordReadModel } from "./record-read-model.js";
@@ -195,6 +195,7 @@ export async function rebuildDerivedViews(storePath: string): Promise<RebuildRes
 
 async function rebuildDerivedViewsUnlocked(storePath: string): Promise<RebuildResult> {
   const events = await readEvents(storePath);
+  const eventFileManifest = await readEventFileManifest(storePath);
   const records = [...replayEvents(events).values()];
   const trusted = canonical(records);
   const activeRecords = active(records);
@@ -221,7 +222,7 @@ async function rebuildDerivedViewsUnlocked(storePath: string): Promise<RebuildRe
     rules: trusted.filter((record) => record.scope === "global" && record.type === "rule")
   };
   await writeJson(join(snapshotPath, "user.json"), user);
-  await writeJson(join(snapshotPath, "records.json"), buildRecordReadModel(events, records));
+  await writeJson(join(snapshotPath, "records.json"), buildRecordReadModel(events, records, eventFileManifest));
 
   const projectIds = [...new Set(activeRecords
     .filter((record) => record.scope === "project")
