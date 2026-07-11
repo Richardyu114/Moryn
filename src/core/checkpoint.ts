@@ -49,7 +49,18 @@ export interface CheckpointResult {
   derived_views_refreshed: boolean;
   warnings?: Array<{ code: "DERIVED_VIEW_REBUILD_FAILED" | "IDEMPOTENT_EVENT_DIRECTORY_SYNC_UNSUPPORTED" | "IDEMPOTENT_EVENT_DIRECTORY_SYNC_FAILED" | "IDEMPOTENT_EVENT_DIRECTORY_CLOSE_FAILED" | "IDEMPOTENT_EVENT_TEMP_CLEANUP_FAILED"; reason: string }>;
   recovery_pack: RecoveryPack;
+  selection_sources: typeof CHECKPOINT_SELECTION_SOURCES;
 }
+
+export const CHECKPOINT_SELECTION_SOURCES = {
+  record: "record",
+  idempotent_replay: "idempotent_replay",
+  committed: "committed",
+  durability: "durability",
+  derived_views_refreshed: "derived_views_refreshed",
+  warning: "warnings[]",
+  recovery_pack: "recovery_pack"
+} as const;
 
 export interface NormalizedCheckpointInput {
   project_id: string;

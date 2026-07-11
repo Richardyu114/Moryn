@@ -520,3 +520,33 @@ MORYN_AGENT_LIFECYCLE_REMOTE=git@github.com:yourname/moryn-store-smoke.git npm r
 ```
 
 Do not point smoke or release checks at a production Moryn data repo.
+
+## Checkpoint Before Compaction
+
+Long-running agents should write a local checkpoint before host context
+compaction. The checkpoint is an authored Context Delta: it records only the
+progress, decisions, changed facts, blockers, next steps, files, candidate
+memory or skill, and learnings added since the previous checkpoint.
+
+```bash
+moryn agent checkpoint \
+  --project . \
+  --agent codex \
+  --session-id session-123 \
+  --device-id device-a \
+  --occurred-at 2026-07-11T10:30:00.000Z \
+  --checkpoint-id compact-2 \
+  --current-task "Implement checkpoint recovery" \
+  --progress "Added the checkpoint contract" \
+  --next-step "Resume after compaction"
+```
+
+The write is local-first and does not push the sync remote. A repeated hook must
+reuse the same project, source identity, `occurred_at`, checkpoint id, tags, and
+semantic delta. Identical retries return the existing checkpoint; reusing the
+same idempotency key with different authored content returns a collision error.
+
+`committed: true` means the event was atomically published. `durability` reports
+`confirmed`, `best_effort`, or `failed` separately from derived-view refresh
+status. After compaction, use `moryn boot --project . --session-id session-123`
+or the normal agent start flow to receive the bounded checkpoint recovery pack.

@@ -1169,6 +1169,19 @@ export const OPERATION_CONTRACTS = [
         cli: { flag: "--delta" },
         mcp: { argument: "delta" }
       },
+      tags: {
+        type: "string[]",
+        required: false,
+        cli: { flag: "--tag", repeatable: true },
+        mcp: { argument: "tags" }
+      },
+      include_private: {
+        type: "boolean",
+        required: false,
+        default: false,
+        cli: { flag: "--include-private" },
+        mcp: { argument: "include_private" }
+      },
       current_task: {
         type: "string",
         required: false,

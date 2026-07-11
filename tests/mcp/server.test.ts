@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { describe, expect, it } from "vitest";
+import { CHECKPOINT_SELECTION_SOURCES } from "../../src/core/checkpoint.js";
 import { readEvents } from "../../src/core/store.js";
 import { initializeProjectConfig } from "../../src/core/project.js";
 import { BOOT_SELECTION_SOURCES, createEngine } from "../../src/core/engine.js";
@@ -1004,6 +1005,40 @@ async function expectInvalidMcpArguments(action: () => Promise<Awaited<ReturnTyp
 }
 
 describe("MCP stdio server", () => {
+  it("registers checkpoint and enforces authored identity with camelCase aliases", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-checkpoint-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        await client.callTool({ name: "init", arguments: {} });
+        const tools = await client.listTools();
+        expect(tools.tools.some((tool) => tool.name === "checkpoint")).toBe(true);
+        const args = {
+          projectId: "project-a", occurredAt: "2026-07-11T00:00:00.000Z", includePrivate: true,
+          source: { client: "codex", sessionId: "session-1", deviceId: "device-a", model: "gpt-5" },
+          delta: { session_id: "session-1", checkpoint_id: "checkpoint-1", progress: ["MCP RED"] }, tags: ["private"]
+        };
+        const first = parseTextContent(await client.callTool({ name: "checkpoint", arguments: args })) as any;
+        const replay = parseTextContent(await client.callTool({ name: "checkpoint", arguments: args })) as any;
+        expect(first).toMatchObject({ idempotent_replay: false, committed: true, selection_sources: CHECKPOINT_SELECTION_SOURCES, recovery_pack: { progress: ["MCP RED"] } });
+        expect(replay).toMatchObject({ idempotent_replay: true, record: { id: first.record.id }, selection_sources: CHECKPOINT_SELECTION_SOURCES });
+      });
+    } finally { await rm(store, { recursive: true, force: true }); }
+  });
+
+  it("rejects checkpoint unknown arguments, generic identity, mismatch, and collision", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-checkpoint-errors-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        await client.callTool({ name: "init", arguments: {} });
+        const base = { project_id: "project-a", occurred_at: "2026-07-11T00:00:00.000Z", source: { client: "codex", session_id: "session-1", device_id: "device-a" }, delta: { session_id: "session-1", checkpoint_id: "checkpoint-1", progress: ["one"] } };
+        expect(parseTextContent(await client.callTool({ name: "checkpoint", arguments: { ...base, unknown: true } }))).toMatchObject({ ok: false, error: { code: "INVALID_ARGUMENT", message: expect.stringContaining("Unknown argument") } });
+        expect(parseTextContent(await client.callTool({ name: "checkpoint", arguments: { ...base, source: { session_id: "session-1", device_id: "device-a" } } }))).toMatchObject({ ok: false, error: { code: "INVALID_ARGUMENT" } });
+        expect(parseTextContent(await client.callTool({ name: "checkpoint", arguments: { ...base, source: { client: "codex", session_id: "other", device_id: "device-a" } } }))).toMatchObject({ ok: false, error: { message: expect.stringContaining("session_id") } });
+        await client.callTool({ name: "checkpoint", arguments: base });
+        expect(parseTextContent(await client.callTool({ name: "checkpoint", arguments: { ...base, delta: { ...base.delta, progress: ["two"] } } }))).toMatchObject({ ok: false, error: { message: expect.stringContaining("idempotency collision") } });
+      });
+    } finally { await rm(store, { recursive: true, force: true }); }
+  });
   it.each(["agent_session_id", "session_id", "agentSessionId"])("normalizes boot session alias %s", async (alias) => {
     await withInitializedTempStore(async (store) => {
       const engine = createEngine({ storePath: store });
@@ -3012,6 +3047,7 @@ describe("MCP stdio server", () => {
           "boot",
           "capture_policy",
           "capture_session",
+          "checkpoint",
           "context_pack",
           "dashboard",
           "dogfood_report",

@@ -26,6 +26,7 @@ import {
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "./core/agent-lifecycle.js";
 import { commandLineForCliInterface } from "./core/cli-command-line.js";
 import { initializeStore } from "./core/config.js";
+import type { ContextDeltaInput, LearningDeltaInput } from "./core/context-delta.js";
 import { rebuildDerivedViews } from "./core/derived.js";
 import { createEngine } from "./core/engine.js";
 import {
@@ -115,6 +116,7 @@ type CliRequiredOperation =
   | "capture_session"
   | "agent_status"
   | "agent_finish"
+  | "checkpoint"
   | "project_migrate"
   | "sync_init";
 type CliRequiredArgumentSource = `operations_by_id.${CliRequiredOperation}.arguments_by_name.${string}`;
@@ -154,6 +156,7 @@ type CliParserOperation =
   | "agent_start"
   | "agent_status"
   | "agent_finish"
+  | "checkpoint"
   | "project_init"
   | "project_list"
   | "project_migrate"
@@ -1966,6 +1969,15 @@ function parseBooleanDefault(value: unknown, fallback: boolean): boolean {
   return value === undefined ? fallback : Boolean(value);
 }
 
+function parseCheckpointJson(value: string, option: "--delta" | "--learning"): unknown {
+  try {
+    return JSON.parse(value) as unknown;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Invalid argument: Invalid ${option} JSON: ${message}`);
+  }
+}
+
 type DashboardCliOptions = {
   open?: boolean;
   limit?: string;
@@ -2814,6 +2826,62 @@ program.command("mcp").action(async () => {
 });
 
 const agent = program.command("agent");
+
+agent.command("checkpoint")
+  .option("--project-id <id>")
+  .option("--project <path>")
+  .requiredOption("--agent <client>")
+  .requiredOption("--session-id <id>")
+  .option("--model <model>")
+  .requiredOption("--device-id <id>")
+  .requiredOption("--occurred-at <timestamp>")
+  .option("--delta <json>")
+  .option("--checkpoint-id <id>")
+  .option("--current-task <task>")
+  .option("--progress <text>", "Progress item", collectNonEmptyOption("--progress"))
+  .option("--decision <text>", "Decision item", collectNonEmptyOption("--decision"))
+  .option("--changed-fact <text>", "Changed project fact", collectNonEmptyOption("--changed-fact"))
+  .option("--blocker <text>", "Current blocker", collectNonEmptyOption("--blocker"))
+  .option("--next-step <text>", "Next step", collectNonEmptyOption("--next-step"))
+  .option("--file <path>", "Touched file", collectNonEmptyOption("--file"))
+  .option("--candidate-memory <text>", "Candidate memory", collectNonEmptyOption("--candidate-memory"))
+  .option("--candidate-skill <text>", "Candidate skill", collectNonEmptyOption("--candidate-skill"))
+  .option("--learning <json>", "Learning Delta JSON", collectNonEmptyOption("--learning"))
+  .option("--tag <tag>", "Checkpoint tag", collectNonEmptyOption("--tag"))
+  .option("--include-private")
+  .action(async (options) => {
+    const operation = "checkpoint";
+    const project = await resolveProjectOptions(options, operation);
+    const semanticFlags = ["checkpointId", "currentTask", "progress", "decision", "changedFact", "blocker", "nextStep", "file", "candidateMemory", "candidateSkill", "learning"];
+    if (options.delta !== undefined && semanticFlags.some((flag) => options[flag] !== undefined)) {
+      throw new Error("Invalid argument: --delta cannot be combined with checkpoint semantic flags");
+    }
+    const sessionId = parseNonEmptyCliString(options.sessionId, "--session-id", { operation, argument: "source_session_id" })!;
+    const delta = options.delta !== undefined
+      ? parseCheckpointJson(options.delta, "--delta") as ContextDeltaInput
+      : {
+          session_id: sessionId,
+          checkpoint_id: options.checkpointId,
+          current_task: options.currentTask,
+          progress: options.progress ?? [], decisions: options.decision ?? [], changed_facts: options.changedFact ?? [], blockers: options.blocker ?? [],
+          next_steps: options.nextStep ?? [], files: options.file ?? [], candidate_memories: options.candidateMemory ?? [], candidate_skills: options.candidateSkill ?? [],
+          learnings: (options.learning ?? []).map((value: string) => parseCheckpointJson(value, "--learning") as LearningDeltaInput)
+        };
+    const result = await createCliEngine().checkpoint({
+      project_id: project.project_id ?? "",
+      source: {
+        client: parseNonEmptyCliString(options.agent, "--agent", { operation, argument: "source_client" })!,
+        session_id: sessionId,
+        model: parseNonEmptyCliString(options.model, "--model", { operation, argument: "source_model" }),
+        device_id: parseNonEmptyCliString(options.deviceId, "--device-id", { operation, argument: "source_device_id" })!
+      },
+      occurred_at: parseNonEmptyCliString(options.occurredAt, "--occurred-at", { operation, argument: "occurred_at" })!,
+      delta,
+      tags: options.tag ?? [],
+      include_private: Boolean(options.includePrivate)
+    });
+    printJson(result);
+  });
 
 agent.command("guide")
   .option("--project-id <id>")

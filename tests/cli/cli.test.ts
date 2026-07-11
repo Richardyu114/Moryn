@@ -8,6 +8,7 @@ import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 import { readEvents } from "../../src/core/store.js";
 import { BOOT_SELECTION_SOURCES, createEngine } from "../../src/core/engine.js";
+import { CHECKPOINT_SELECTION_SOURCES } from "../../src/core/checkpoint.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
 const exec = promisify(execFile);
@@ -10604,6 +10605,37 @@ describe("moryn CLI", () => {
           safe_to_run: false
         }
       });
+    });
+  });
+});
+
+describe("agent checkpoint CLI", () => {
+  it("writes semantic flags and replays the identical checkpoint", async () => {
+    await withTempDir(async (store) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      const args = [
+        "--import", tsxLoader, cliPath, "--store", store, "agent", "checkpoint",
+        "--project-id", "project-a", "--agent", "codex", "--session-id", "session-1",
+        "--device-id", "device-a", "--model", "gpt-5", "--occurred-at", "2026-07-11T00:00:00.000Z",
+        "--checkpoint-id", "checkpoint-1", "--current-task", "Expose checkpoint", "--progress", "CLI RED",
+        "--decision", "Reject ambiguous input", "--file", "src/cli.ts", "--tag", "private", "--include-private",
+        "--learning", JSON.stringify({ question: "How?", conclusion: "TDD", evidence_type: "source_code", scope: "project", confidence: 0.9, recommended_kind: "skill", recommended_type: "workflow" })
+      ];
+      const first = JSON.parse((await exec("node", args)).stdout);
+      const replay = JSON.parse((await exec("node", args)).stdout);
+      expect(first).toMatchObject({ idempotent_replay: false, committed: true, durability: "confirmed", derived_views_refreshed: true, selection_sources: CHECKPOINT_SELECTION_SOURCES });
+      expect(first.record.source).toEqual({ client: "codex", session_id: "session-1", model: "gpt-5", device_id: "device-a" });
+      expect(first.recovery_pack).toMatchObject({ session_id: "session-1", latest_checkpoint_id: "checkpoint-1", progress: ["CLI RED"] });
+      expect(replay).toMatchObject({ idempotent_replay: true, record: { id: first.record.id }, selection_sources: CHECKPOINT_SELECTION_SOURCES });
+    });
+  });
+
+  it("rejects ambiguous delta and semantic flags plus invalid learning JSON", async () => {
+    await withTempDir(async (store) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      const base = ["--import", tsxLoader, cliPath, "--store", store, "agent", "checkpoint", "--project-id", "project-a", "--agent", "codex", "--session-id", "session-1", "--device-id", "device-a", "--occurred-at", "2026-07-11T00:00:00.000Z"];
+      await expect(exec("node", [...base, "--delta", JSON.stringify({ session_id: "session-1", checkpoint_id: "checkpoint-1", progress: ["one"] }), "--progress", "two"])).rejects.toMatchObject({ stderr: expect.stringContaining("Invalid argument") });
+      await expect(exec("node", [...base, "--checkpoint-id", "checkpoint-1", "--progress", "one", "--learning", "{"])).rejects.toMatchObject({ stderr: expect.stringContaining("Invalid argument: Invalid --learning JSON") });
     });
   });
 });

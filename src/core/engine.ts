@@ -17,7 +17,7 @@ import { diagnoseCapturePolicy, type CapturePolicyInput } from "./capture-policy
 import { diagnoseHealthCheck, HEALTH_CHECK_SELECTION_SOURCES, type HealthCheckInput } from "./health-check.js";
 import { diagnoseMemory, MEMORY_DOCTOR_SELECTION_SOURCES } from "./memory-doctor.js";
 import { evaluateRecall, RECALL_EVAL_SELECTION_SOURCES, type RecallEvalInput } from "./recall-eval.js";
-import { buildCheckpointRecoveryPack, checkpointIdentity, checkpointPayloadDigest, checkpointSummary, matchesCheckpoint, matchesCheckpointPayload, normalizeCheckpointInput, parseCheckpointContent, type CheckpointInput, type CheckpointResult } from "./checkpoint.js";
+import { buildCheckpointRecoveryPack, CHECKPOINT_SELECTION_SOURCES, checkpointIdentity, checkpointPayloadDigest, checkpointSummary, matchesCheckpoint, matchesCheckpointPayload, normalizeCheckpointInput, parseCheckpointContent, type CheckpointInput, type CheckpointResult } from "./checkpoint.js";
 
 interface EngineDeps {
   storePath: string;
@@ -2925,7 +2925,7 @@ export function createEngine(deps: EngineDeps) {
       );
       try {
         await checkpointRebuild(deps.storePath);
-        return { record: outcome.record, idempotent_replay: outcome.idempotent_replay, committed: true, durability: outcome.durability, derived_views_refreshed: true, ...(warnings.length ? { warnings } : {}), recovery_pack: recoveryPack };
+        return { record: outcome.record, idempotent_replay: outcome.idempotent_replay, committed: true, durability: outcome.durability, derived_views_refreshed: true, ...(warnings.length ? { warnings } : {}), recovery_pack: recoveryPack, selection_sources: CHECKPOINT_SELECTION_SOURCES };
       } catch (error) {
         warnings.push({ code: "DERIVED_VIEW_REBUILD_FAILED", reason: error instanceof Error ? error.message : String(error) });
         return {
@@ -2935,7 +2935,8 @@ export function createEngine(deps: EngineDeps) {
           durability: outcome.durability,
           derived_views_refreshed: false,
           warnings,
-          recovery_pack: recoveryPack
+          recovery_pack: recoveryPack,
+          selection_sources: CHECKPOINT_SELECTION_SOURCES
         };
       }
     },

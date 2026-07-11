@@ -779,3 +779,26 @@ import {
 
 Use package helpers when embedding Moryn in a JS host. Use CLI or MCP contracts
 when the host is not running inside Node.js.
+
+## Checkpoint Contract
+
+The `checkpoint` MCP tool and `moryn agent checkpoint` CLI command append an
+authored, project-scoped session checkpoint. Required authored fields are:
+
+- explicit project context;
+- `source.client`, `source.session_id`, and `source.device_id`;
+- canonical ISO `occurred_at`;
+- a Context Delta containing `session_id`, `checkpoint_id`, and semantic
+  content.
+
+MCP accepts `projectId`, `occurredAt`, `includePrivate`, `source.sessionId`, and
+`source.deviceId` aliases. Unknown or conflicting aliases are rejected. The
+result contains `record`, `idempotent_replay`, `committed`, `durability`,
+`derived_views_refreshed`, optional `warnings`, `recovery_pack`, and stable
+`selection_sources`.
+
+Checkpoint is a local operation. It does not implicitly pull or push. Hosts must
+reuse the complete authored payload for idempotent retry. `durability` is
+`confirmed` when the event and directory entry were synced, `best_effort` when
+the event is complete but the platform cannot confirm directory durability, and
+`failed` when durability confirmation failed after atomic publication.

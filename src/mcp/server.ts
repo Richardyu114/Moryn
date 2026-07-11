@@ -519,7 +519,8 @@ type McpProjectContextOperation =
   | "agent_enter"
   | "agent_start"
   | "agent_status"
-  | "agent_finish";
+  | "agent_finish"
+  | "checkpoint";
 
 function projectContextArgumentError(
   operation: McpProjectContextOperation,
@@ -1065,6 +1066,36 @@ function doNotForAliasConflict(conflict: McpAliasConflict): [McpAliasConflictDoN
 
 function lifecycleAgentInput(agent: unknown): RecordSource | undefined {
   return agent as RecordSource | undefined;
+}
+
+function checkpointSource(value: unknown): RecordSource {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Invalid argument: source must be an object");
+  }
+  const input = value as Record<string, unknown>;
+  const known = new Set(["client", "session_id", "sessionId", "model", "device_id", "deviceId"]);
+  const unknown = Object.keys(input).find((key) => !known.has(key));
+  if (unknown) throw new Error(`Invalid argument: Unknown source argument: ${unknown}`);
+  if (input.session_id !== undefined && input.sessionId !== undefined && input.session_id !== input.sessionId) {
+    throw new Error("Invalid argument: Conflicting source.session_id aliases");
+  }
+  if (input.device_id !== undefined && input.deviceId !== undefined && input.device_id !== input.deviceId) {
+    throw new Error("Invalid argument: Conflicting source.device_id aliases");
+  }
+  const required = (name: string, nested: unknown): string => {
+    if (typeof nested !== "string" || !nested.trim()) throw new Error(`Invalid argument: source.${name} must be a non-empty string`);
+    return nested.trim();
+  };
+  const optional = (name: string, nested: unknown): string | undefined => {
+    if (nested === undefined) return undefined;
+    return required(name, nested);
+  };
+  return {
+    client: required("client", input.client),
+    session_id: required("session_id", input.session_id ?? input.sessionId),
+    device_id: required("device_id", input.device_id ?? input.deviceId),
+    model: optional("model", input.model)
+  };
 }
 
 export async function runMcpServer(engine: Engine, options: { storePath: string }): Promise<void> {
@@ -2163,6 +2194,44 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         command: commandForAgentFinishContext(contextInput),
         arguments: contextArguments
       };
+    })
+  );
+
+  server.registerTool(
+    "checkpoint",
+    {
+      title: "Checkpoint Agent Context",
+      description: "Append an authored local session checkpoint for compaction recovery and long-task continuity.",
+      inputSchema: mcpInputSchema({
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
+        source: z.object({
+          client: z.unknown().optional(),
+          session_id: z.unknown().optional(),
+          sessionId: z.unknown().optional(),
+          model: z.unknown().optional(),
+          device_id: z.unknown().optional(),
+          deviceId: z.unknown().optional()
+        }).passthrough(),
+        occurred_at: z.unknown().optional(),
+        delta: z.unknown(),
+        tags: z.unknown().optional(),
+        include_private: z.unknown().optional(),
+        ...sourceAliasInputSchema,
+        ...camelCaseAliasInputSchema("checkpoint")
+      })
+    },
+    async (input) => toolResultWithNormalizedInput("checkpoint", input, async (normalizedInput) => {
+      const project = await resolveProjectInput("checkpoint", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
+      if (normalizedInput.include_private !== undefined && typeof normalizedInput.include_private !== "boolean") throw new Error("Invalid argument: include_private must be boolean");
+      return engine.checkpoint({
+        project_id: project.project_id ?? "",
+        source: checkpointSource(normalizedInput.source),
+        occurred_at: normalizedInput.occurred_at as string,
+        delta: normalizedInput.delta as never,
+        tags: normalizedInput.tags as string[] | undefined,
+        include_private: normalizedInput.include_private as boolean | undefined
+      });
     })
   );
 

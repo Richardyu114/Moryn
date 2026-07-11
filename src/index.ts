@@ -19,8 +19,9 @@ import { MEMORY_LIFECYCLE_SELECTION_SOURCES } from "./core/memory-lifecycle.js";
 export { createEngine } from "./core/engine.js";
 export { contextDeltaSchema, learningDeltaSchema, validateContextDelta } from "./core/context-delta.js";
 export type { ContextDelta, ContextDeltaInput, LearningDelta, LearningDeltaInput } from "./core/context-delta.js";
-export { buildCheckpointRecoveryPack } from "./core/checkpoint.js";
-export type { CheckpointRecoveryPackInput, RecoveryPack } from "./core/checkpoint.js";
+export { buildCheckpointRecoveryPack, CHECKPOINT_SELECTION_SOURCES } from "./core/checkpoint.js";
+export type { CheckpointInput, CheckpointRecoveryPackInput, CheckpointResult, RecoveryPack } from "./core/checkpoint.js";
+import { CHECKPOINT_SELECTION_SOURCES } from "./core/checkpoint.js";
 export { captureSession, contextPack, getHostAdapter, getHostAdapters, normalizeHostId, planInstall } from "./core/host-adapters.js";
 import { CAPTURE_SESSION_SELECTION_SOURCES, HANDOFF_PACK_SELECTION_SOURCES, HANDOFF_QUALITY_GATE_SELECTION_SOURCES } from "./core/host-adapters.js";
 export { setupWizard } from "./core/setup-wizard.js";
@@ -125,6 +126,7 @@ export const SELECTION_SOURCE_CONTRACTS = {
     rebuild: REBUILD_SELECTION_SOURCES
   },
   core: {
+    checkpoint: CHECKPOINT_SELECTION_SOURCES,
     write: WRITE_SELECTION_SOURCES,
     mutation_event: MUTATION_EVENT_SELECTION_SOURCES,
     link_event: LINK_EVENT_SELECTION_SOURCES,
