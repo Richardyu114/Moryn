@@ -12,7 +12,11 @@ import {
   contextPack,
   planInstall,
   setupWizard,
-  version
+  version,
+  activateClaudeSettings,
+  buildHostIntegrationArtifact,
+  inspectHostActivation,
+  writeHostIntegrationArtifact
 } from "../index.js";
 import {
   OperationContractLookupConflictError,
@@ -2373,6 +2377,38 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         return { ...snapshot, opened: true };
       }
       return snapshot;
+    })
+  );
+
+  server.registerTool(
+    "activation_status",
+    {
+      title: "Inspect Host Activation",
+      description: "Read-only diagnosis of generated, configured, and runtime-proven Moryn host activation.",
+      inputSchema: mcpInputSchema({ host: coreValidatedStringSchema, project_id: coreValidatedStringSchema.optional(), project_path: coreValidatedStringSchema.optional(), ...objectPathAliasInputSchema("activation_status"), ...camelCaseAliasInputSchema("activation_status") })
+    },
+    async (input) => toolResultWithNormalizedInput("activation_status", input, async (normalizedInput) => {
+      const project = await resolveProjectContext({ projectId: normalizedInput.project_id as string | undefined, projectPath: normalizedInput.project_path as string | undefined });
+      return inspectHostActivation({ store_path: options.storePath, project_path: project.project_path, project_id: project.project_id, host: normalizedInput.host as string });
+    })
+  );
+
+  server.registerTool(
+    "activation_apply",
+    {
+      title: "Apply Safe Host Activation",
+      description: "Safely generate and activate Moryn-owned Claude Code lifecycle hooks.",
+      inputSchema: mcpInputSchema({ host: coreValidatedStringSchema, project_id: coreValidatedStringSchema.optional(), project_path: coreValidatedStringSchema.optional(), ...objectPathAliasInputSchema("activation_apply"), ...camelCaseAliasInputSchema("activation_apply") })
+    },
+    async (input) => toolResultWithNormalizedInput("activation_apply", input, async (normalizedInput) => {
+      const project = await resolveProjectContext({ projectId: normalizedInput.project_id as string | undefined, projectPath: normalizedInput.project_path as string | undefined });
+      const host = normalizedInput.host as string;
+      if (host !== "claude" && host !== "claude-code") throw new Error("host_schema_unknown: activation apply is supported only for Claude Code");
+      const artifact = buildHostIntegrationArtifact({ host: "claude", project_id: project.project_id, project_path: project.project_path, store_path: options.storePath });
+      const fragment = await writeHostIntegrationArtifact({ host: "claude", project_id: project.project_id, project_path: project.project_path, store_path: options.storePath });
+      const activation = await activateClaudeSettings({ project_path: project.project_path, artifact });
+      const status = await inspectHostActivation({ store_path: options.storePath, project_path: project.project_path, project_id: project.project_id, host: "claude" });
+      return { ok: true, fragment, activation, status };
     })
   );
 

@@ -10739,3 +10739,38 @@ describe("official host integration install", () => {
     });
   });
 });
+
+describe("host activation CLI", () => {
+  it("reports and applies Claude activation idempotently", async () => {
+    await withTempDir(async (store) => {
+      await withTempDir(async (project) => {
+        await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+        await exec("node", ["--import", tsxLoader, cliPath, "project", "init", "--path", project, "--project-id", "moryn"]);
+        const base = ["--import", tsxLoader, cliPath, "--store", store, "activation"];
+        const before = JSON.parse((await exec("node", [...base, "status", "--host", "claude", "--project", project])).stdout);
+        const first = JSON.parse((await exec("node", [...base, "apply", "--host", "claude", "--project", project])).stdout);
+        const second = JSON.parse((await exec("node", [...base, "apply", "--host", "claude", "--project", project])).stdout);
+        const after = JSON.parse((await exec("node", [...base, "status", "--host", "claude", "--project", project])).stdout);
+
+        expect(before).toMatchObject({ status: "not_installed", repairable_automatically: true });
+        expect(first).toMatchObject({ activation: { changed: true, created: true }, status: { status: "configured_unverified" } });
+        expect(second).toMatchObject({ activation: { changed: false, backup_created: false }, status: { status: "configured_unverified" } });
+        expect(after).toMatchObject({ status: "configured_unverified", configured_events: ["SessionStart", "PreCompact", "PostCompact", "Stop", "SessionEnd"] });
+      });
+    });
+  });
+
+  it("refuses Codex apply without modifying config", async () => {
+    await withTempDir(async (store) => {
+      await withTempDir(async (project) => {
+        await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+        await exec("node", ["--import", tsxLoader, cliPath, "project", "init", "--path", project, "--project-id", "moryn"]);
+        await mkdir(join(project, ".codex"), { recursive: true });
+        await writeFile(join(project, ".codex", "config.toml"), "model = \"gpt-5\"\n", "utf8");
+
+        await expect(exec("node", ["--import", tsxLoader, cliPath, "--store", store, "activation", "apply", "--host", "codex", "--project", project])).rejects.toMatchObject({ stderr: expect.stringContaining("host_schema_unknown") });
+        expect(await readFile(join(project, ".codex", "config.toml"), "utf8")).toBe("model = \"gpt-5\"\n");
+      });
+    });
+  });
+});

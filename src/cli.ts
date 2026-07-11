@@ -15,7 +15,10 @@ import {
   planInstall,
   setupWizard,
   version,
-  writeHostIntegrationArtifact
+  writeHostIntegrationArtifact,
+  activateClaudeSettings,
+  inspectHostActivation,
+  buildHostIntegrationArtifact
 } from "./index.js";
 import {
   OperationContractLookupConflictError,
@@ -2156,6 +2159,33 @@ program.command("install")
       }
     }
     printJson(plan);
+  });
+
+const activation = program.command("activation").description("Inspect or apply host lifecycle activation");
+
+activation.command("status")
+  .requiredOption("--host <host>", "Host: claude or codex")
+  .requiredOption("--project <path>", "Project path")
+  .action(async (options) => {
+    const host = parseNonEmptyString(options.host, "--host")!;
+    const projectPath = parseNonEmptyString(options.project, "--project")!;
+    const project = await resolveProjectContext({ projectPath });
+    printJson(await inspectHostActivation({ store_path: storePath(), project_path: project.project_path, project_id: project.project_id, host }));
+  });
+
+activation.command("apply")
+  .requiredOption("--host <host>", "Host: claude")
+  .requiredOption("--project <path>", "Project path")
+  .action(async (options) => {
+    const host = parseNonEmptyString(options.host, "--host")!;
+    const projectPath = parseNonEmptyString(options.project, "--project")!;
+    const project = await resolveProjectContext({ projectPath });
+    if (host !== "claude" && host !== "claude-code") throw new Error("host_schema_unknown: activation apply is supported only for Claude Code");
+    const artifact = buildHostIntegrationArtifact({ host: "claude", project_id: project.project_id, project_path: project.project_path, store_path: storePath() });
+    const fragment = await writeHostIntegrationArtifact({ host: "claude", project_id: project.project_id, project_path: project.project_path, store_path: storePath() });
+    const applied = await activateClaudeSettings({ project_path: project.project_path, artifact });
+    const status = await inspectHostActivation({ store_path: storePath(), project_path: project.project_path, project_id: project.project_id, host: "claude" });
+    printJson({ ok: true, fragment, activation: applied, status });
   });
 
 const host = program.command("host").description("Host lifecycle integration commands");

@@ -1061,6 +1061,27 @@ describe("MCP stdio server", () => {
     } finally { await rm(store, { recursive: true, force: true }); }
   });
 
+  it("exposes activation status and Claude-only apply", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-activation-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await withMcpClient(store, async (client) => {
+        await client.callTool({ name: "init", arguments: {} });
+        const before = parseTextContent(await client.callTool({ name: "activation_status", arguments: { host: "claude", project_path: project } })) as any;
+        const applied = parseTextContent(await client.callTool({ name: "activation_apply", arguments: { host: "claude", project_path: project } })) as any;
+        const codex = parseTextContent(await client.callTool({ name: "activation_apply", arguments: { host: "codex", project_path: project } })) as any;
+
+        expect(before).toMatchObject({ status: "not_installed" });
+        expect(applied).toMatchObject({ ok: true, activation: { changed: true }, status: { status: "configured_unverified" } });
+        expect(codex).toMatchObject({ ok: false, error: { message: expect.stringContaining("host_schema_unknown") } });
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("rejects checkpoint unknown arguments, generic identity, mismatch, and collision", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-checkpoint-errors-"));
     try {

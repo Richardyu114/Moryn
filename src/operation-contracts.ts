@@ -2187,6 +2187,28 @@ export const OPERATION_CONTRACTS = [
     }
   }),
   operationContract({
+    operation: "activation_status",
+    category: "core",
+    summary: "Inspect generated, configured, and runtime-proven host activation without mutation.",
+    safe_to_run: true,
+    required_when: "After install, before trusting host hooks, or when lifecycle automation appears inactive.",
+    required_fields: ["host"],
+    argument_sources: userInputSources(["host"]),
+    arguments_by_name: { ...projectContextArguments, host: installArguments.host },
+    interfaces: { cli: { command: "moryn activation status --host <host> --project <path>", argv: ["activation", "status", "--host", "<host>", "--project", "<path>"] }, mcp: { tool: "activation_status", arguments: { host: "<host>" } } }
+  }),
+  operationContract({
+    operation: "activation_apply",
+    category: "lifecycle",
+    summary: "Generate and safely activate Moryn-owned Claude Code lifecycle hooks.",
+    safe_to_run: false,
+    required_when: "Only when Claude activation diagnosis says the local project settings are safely repairable.",
+    required_fields: ["host"],
+    argument_sources: userInputSources(["host"]),
+    arguments_by_name: { ...projectContextArguments, host: installArguments.host },
+    interfaces: { cli: { command: "moryn activation apply --host claude --project <path>", argv: ["activation", "apply", "--host", "claude", "--project", "<path>"] }, mcp: { tool: "activation_apply", arguments: { host: "claude" } } }
+  }),
+  operationContract({
     operation: "health_check",
     category: "core",
     summary: "Read-only installation and store health check for setup trust, project readiness, privacy boundary, and capture review backlog.",
