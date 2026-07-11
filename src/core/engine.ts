@@ -17,6 +17,8 @@ import { diagnoseCapturePolicy, type CapturePolicyInput } from "./capture-policy
 import { diagnoseHealthCheck, HEALTH_CHECK_SELECTION_SOURCES, type HealthCheckInput } from "./health-check.js";
 import { diagnoseMemory, MEMORY_DOCTOR_SELECTION_SOURCES } from "./memory-doctor.js";
 import { evaluateRecall, RECALL_EVAL_SELECTION_SOURCES, type RecallEvalInput } from "./recall-eval.js";
+import { checkpointSummary, matchesCheckpoint, normalizeCheckpointInput, recoveryPack, type CheckpointInput, type CheckpointResult } from "./checkpoint.js";
+import { readStoreConfig } from "./config.js";
 
 interface EngineDeps {
   storePath: string;
@@ -2854,6 +2856,7 @@ function semanticConflicts(records: MorynRecord[], input: {
 export function createEngine(deps: EngineDeps) {
   const now = deps.now ?? (() => new Date().toISOString());
   const id = deps.id ?? createId;
+  let checkpointQueue = Promise.resolve();
 
   async function currentRecords(): Promise<MorynRecord[]> {
     return [...replayEvents(await readEvents(deps.storePath)).values()];
@@ -2883,6 +2886,41 @@ export function createEngine(deps: EngineDeps) {
   }
 
   const engine = {
+    async checkpoint(input: CheckpointInput): Promise<CheckpointResult> {
+      const run = checkpointQueue.then(async () => {
+        const normalized = normalizeCheckpointInput(input);
+        const existing = (await currentRecords()).find((record) => matchesCheckpoint(record, normalized));
+        if (existing) {
+          return { record: existing, idempotent_replay: true, recovery_pack: recoveryPack(existing, normalized.include_private) };
+        }
+        const config = await readStoreConfig(deps.storePath);
+        const source = normalized.source.device_id ? normalized.source : { ...normalized.source, device_id: config.device_id };
+        const createdAt = now();
+        const record: MorynRecord = {
+          id: id("rec"),
+          kind: "session_summary",
+          type: "checkpoint",
+          scope: "project",
+          project_id: normalized.project_id,
+          tags: normalized.tags,
+          content: { format: "json", text: checkpointSummary(normalized.delta), checkpoint: normalized.delta },
+          state: "candidate",
+          confidence: 0.5,
+          priority: "normal",
+          visibility: "active",
+          created_at: createdAt,
+          updated_at: createdAt,
+          source,
+          provenance: { method: "agent-proposed" }
+        };
+        const event: MorynEvent = { event_id: id("evt"), op: "upsert_record", record, created_at: createdAt, source };
+        await appendEventAndRebuild(event);
+        return { record, idempotent_replay: false, recovery_pack: recoveryPack(record, normalized.include_private) };
+      });
+      checkpointQueue = run.then(() => undefined, () => undefined);
+      return run;
+    },
+
     async write(input: WriteInput) {
       validateWriteInput(input);
       const writeInput = input as ValidatedWriteInput;
