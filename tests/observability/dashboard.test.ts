@@ -20,6 +20,20 @@ import { withTempStore } from "../helpers/temp-store.js";
 
 const exec = promisify(execFile);
 
+function quietFirstScreenHtml(html: string): string {
+  const start = html.indexOf('data-quiet-dashboard="first-screen"');
+  const end = html.indexOf('data-dashboard-detail="audit-details"');
+  expect(start).toBeGreaterThan(-1);
+  expect(end).toBeGreaterThan(start);
+  return html.slice(start, end);
+}
+
+function auditDetailsHtml(html: string): string {
+  const start = html.indexOf('data-dashboard-detail="audit-details"');
+  expect(start).toBeGreaterThan(-1);
+  return html.slice(start);
+}
+
 function dashboardDetailBlock(html: string, detail: string): string {
   const marker = `data-dashboard-detail="${detail}"`;
   const start = html.indexOf(marker);
@@ -392,6 +406,8 @@ describe("observability dashboard", () => {
         now: "2026-06-21T00:00:00.000Z"
       });
       const html = renderDashboardHtml(data);
+      const firstScreen = quietFirstScreenHtml(html);
+      const auditDetails = auditDetailsHtml(html);
 
       expect(data.sync).toMatchObject({
         configured: true,
@@ -490,8 +506,9 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("data-action-board-quiet-item=\"review\"");
       expect(html).not.toContain("data-action-board-quiet-item=\"inspect\"");
       expect(html).not.toContain("<em class=\"action-board-next\">Open checks</em>");
-      expect(html).not.toContain("<details class=\"attention warning\" data-dashboard-detail=\"attention:Sync changes not pushed\">");
-      expect(html).not.toContain("Local event history has changes that are not committed or pushed yet.");
+      expect(firstScreen).toContain('data-quiet-section="attention-needed"');
+      expect(firstScreen).toContain("Local event history has changes that are not committed or pushed yet.");
+      expect(auditDetails).toContain("<section class=\"sync-action-brief warning\" data-dashboard-sync-action>");
       expect(html).not.toContain("<section id=\"needs-attention\" class=\"needs-attention-quiet-line\" data-dashboard-section=\"needs-attention\" data-dashboard-detail=\"needs-attention\">");
       expect(html).not.toContain("data-dashboard-detail=\"attention-info-checks\"");
       expect(html).not.toContain("<span>Background checks</span>");
@@ -750,7 +767,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("--ring-soft:");
       expect(html).toContain("--elevation-hover:");
       expect(html).not.toContain("--canvas: #f4f2ee;");
-      expect(html).toContain("<strong data-i18n-en=\"No action needed\" data-i18n-zh=\"无需操作\">No action needed</strong>");
+      expect(quietFirstScreenHtml(html)).toContain("<strong data-i18n-en=\"All systems steady\" data-i18n-zh=\"系统运行平稳\">All systems steady</strong>");
       expect(html).not.toContain("data-dashboard-overview");
       expect(html).not.toContain("aria-label=\"Dashboard Overview\"");
       expect(html).not.toContain("<span data-i18n-en=\"Other status\" data-i18n-zh=\"其他状态\">Other status</span>");
@@ -822,27 +839,21 @@ describe("observability dashboard", () => {
       expect(html).toContain("text-overflow: ellipsis;");
       expect(html).toContain("box-shadow: var(--panel-glow);");
       expect(html).toContain("background: var(--surface-glass);");
-      expect(html).toContain("<section class=\"dashboard-command-flow\" data-dashboard-command-flow aria-label=\"Moryn control flow\">");
-      expect(html).toContain("<div class=\"dashboard-command-flow-head\" data-dashboard-command-flow-head>");
-      expect(html).toContain("<span data-i18n-en=\"Control flow\" data-i18n-zh=\"控制流\">Control flow</span>");
-      expect(html).toContain("<strong data-i18n-en=\"Act, inspect, then search\" data-i18n-zh=\"先看是否要操作，再查看和搜索\">Act, inspect, then search</strong>");
-      expect(html).toContain("<small data-i18n-en=\"No write happens in this flow unless a real confirm button appears.\" data-i18n-zh=\"这里不会写入；只有真正的确认按钮才会改变记忆。\">No write happens in this flow unless a real confirm button appears.</small>");
-      const commandFlowStart = html.indexOf("data-dashboard-command-flow");
+      expect(html).not.toContain("data-dashboard-command-flow");
+      const firstScreenStart = html.indexOf('data-quiet-dashboard="first-screen"');
+      const auditDetailsStart = html.indexOf('data-dashboard-detail="audit-details"');
       const statusBoardStart = html.indexOf("data-status-board");
       const decisionPanelStart = html.indexOf("data-dashboard-decision-panel");
       const glanceStart = html.indexOf("data-dashboard-glance");
       const storedContentStart = html.indexOf("data-stored-content");
       const memoryInventoryStart = html.indexOf("data-memory-inventory");
-      expect(commandFlowStart).toBeLessThan(statusBoardStart);
-      expect(statusBoardStart).toBeLessThan(decisionPanelStart);
+      expect(firstScreenStart).toBeLessThan(auditDetailsStart);
+      expect(auditDetailsStart).toBeLessThan(decisionPanelStart);
+      expect(decisionPanelStart).toBeLessThan(statusBoardStart);
       expect(decisionPanelStart).toBeLessThan(glanceStart);
       expect(glanceStart).toBeLessThan(storedContentStart);
       expect(storedContentStart).toBeLessThan(memoryInventoryStart);
-      expect(html.slice(commandFlowStart, memoryInventoryStart)).toContain("data-stored-content");
-      expect(html).toContain(".dashboard-command-flow {");
-      expect(html).toContain("background: linear-gradient(180deg, rgba(69, 185, 255, 0.075), rgba(116, 242, 145, 0.026) 42%, rgba(255, 255, 255, 0.012)), rgba(8, 10, 13, 0.86);");
-      expect(html).toContain(".dashboard-command-flow > .status-board,");
-      expect(html).toContain("box-shadow: none;");
+      expect(html.slice(auditDetailsStart, memoryInventoryStart)).toContain("data-stored-content");
       expect(html).toContain("<section class=\"glance-board\" data-dashboard-glance aria-label=\"At a glance\">");
       expect(html).toContain("<h2 data-i18n-en=\"At a glance\" data-i18n-zh=\"一眼看懂\">At a glance</h2>");
       expect(html).toContain("<div class=\"glance-summary-strip\" data-glance-summary-strip aria-label=\"Recent activity summary\">");
@@ -1229,7 +1240,7 @@ describe("observability dashboard", () => {
     });
   });
 
-  it("shows a seven-day saved-content trend on the first screen", async () => {
+  it("keeps the seven-day saved-content trend in audit details", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
         now: () => "2026-06-15T00:00:00.000Z",
@@ -1295,7 +1306,8 @@ describe("observability dashboard", () => {
       expect(data.charts.activity_trend.days.map((day) => day.count)).toEqual([1, 0, 1, 0, 0, 1, 2]);
       expect(data.charts.activity_trend.days.map((day) => day.percent)).toEqual([50, 0, 50, 0, 0, 50, 100]);
 
-      expect(html).toContain("<article class=\"glance-chart activity-trend\" data-activity-trend-chart>");
+      expect(quietFirstScreenHtml(html)).not.toContain("data-activity-trend-chart");
+      expect(auditDetailsHtml(html)).toContain("<article class=\"glance-chart activity-trend\" data-activity-trend-chart>");
       expect(html).toContain("<h3 data-i18n-en=\"Saved trend\" data-i18n-zh=\"保存趋势\">Saved trend</h3>");
       expect(html).toContain("<span data-i18n-en=\"Last 7 days\" data-i18n-zh=\"最近 7 天\">Last 7 days</span>");
       expect(html).toContain("<strong data-i18n-en=\"5 saved\" data-i18n-zh=\"5 条保存内容\">5 saved</strong>");
@@ -4626,9 +4638,8 @@ describe("observability dashboard", () => {
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("class=\"health-badge");
-      expect(html).toContain("<section class=\"status-strip");
-      expect(html).toContain("<strong>Dashboard Status</strong>");
-      expect(html).toContain("data-dashboard-status=\"");
+      expect(quietFirstScreenHtml(html)).toContain('data-quiet-section="system-pulse"');
+      expect(quietFirstScreenHtml(html)).toContain('data-quiet-section="attention-needed"');
       expect(html).not.toContain("<section class=\"hero\">");
       expect(html).toContain("<section class=\"dashboard-overview warning\" data-dashboard-overview aria-label=\"Dashboard Overview\">");
       expect(html).not.toContain("<h2>Dashboard Overview</h2>");
@@ -6935,7 +6946,8 @@ describe("observability dashboard", () => {
       });
       expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"decision-summary\" aria-controls=\"decision-summary\" data-i18n-en=\"Review approvals\" data-i18n-zh=\"查看确认项\">Review approvals</button>");
       expect(html).toContain("<strong data-i18n-en=\"Approval needed\" data-i18n-zh=\"需要确认\">Approval needed</strong>");
-      expect(html).toContain("<small data-i18n-en=\"Review approvals\" data-i18n-zh=\"查看确认项\">Review approvals</small>");
+      expect(data.quiet_dashboard.attention_needed.length).toBeGreaterThan(0);
+      expect(quietFirstScreenHtml(html)).toContain('data-quiet-section="attention-needed"');
       expect(html).toContain("data-i18n-en=\"Explicit approvals stay in Capture Inbox, Review Queue, and Candidate Triage.\" data-i18n-zh=\"需要明确确认的操作会保留在 Capture Inbox、Review Queue 和 Candidate Triage 中。\"");
       expect(html).not.toContain("data-dashboard-overview-card=\"action\"");
       expect(html).not.toContain("data-dashboard-overview-quiet-card=\"action\"");
@@ -9697,6 +9709,62 @@ describe("logical memory capacity telemetry", () => {
       await engine.logicalLink({ record_id: duplicate.record.id, linked_record_id: first.record.id, relationship: "duplicate_of", reason: "Exact duplicate" });
       const data = await buildDashboardData(storePath, { project_id: "moryn" });
       expect(data.logical_memory).toEqual({ store_records: 2, active_working_set_records: 1, hidden_logical_records: 1, conflict_records: 0, cycle_findings: 0, learned_records: 0, learned_canonical_records: 0, learned_candidate_records: 0, learning_evidence_links: 0 });
+    });
+  });
+});
+
+describe("quiet dashboard model", () => {
+  it("summarizes a healthy run without exceptional attention", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath });
+      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "session-a", device_id: "device-a" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: { session_id: "session-a", checkpoint_id: "checkpoint-a", current_task: "Polish dashboard", progress: ["First screen ready"] } });
+      const data = await buildDashboardData(storePath, { project_id: "moryn", now: "2026-07-11T00:01:00.000Z" });
+      expect(data.quiet_dashboard.system_pulse).toMatchObject({ healthy: true, context_protected: true });
+      expect(data.quiet_dashboard.current_context).toMatchObject({ project_id: "moryn", task: "Polish dashboard", agent: "codex", device_id: "device-a", checkpoint_available: true });
+      expect(data.quiet_dashboard.memory_flow).toMatchObject({ store_records: 1, active_working_set_records: 1 });
+      expect(data.quiet_dashboard.attention_needed).toEqual([]);
+    });
+  });
+
+  it("includes only exceptional review items in attention needed", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath });
+      await engine.write({ kind: "session_summary", type: "summary", scope: "project", project_id: "moryn", tags: ["autocapture", "review", "host:codex"], content: { text: "User preference requires review" }, state: "candidate", source: { client: "codex" } });
+      const data = await buildDashboardData(storePath, { project_id: "moryn" });
+      expect(data.quiet_dashboard.attention_needed.length).toBeGreaterThan(0);
+      expect(data.quiet_dashboard.attention_needed.every((item) => item.severity !== "info")).toBe(true);
+    });
+  });
+});
+
+describe("quiet dashboard first screen", () => {
+  it("renders quiet monitoring sections and moves legacy detail panels below audit details", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath });
+      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "session-a", device_id: "device-a" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: { session_id: "session-a", checkpoint_id: "checkpoint-a", current_task: "Polish dashboard", progress: ["Ready"] } });
+      const html = renderDashboardHtml(await buildDashboardData(storePath, { project_id: "moryn" }));
+      expect(html).toContain('data-quiet-dashboard="first-screen"');
+      expect(html).toContain('data-quiet-section="system-pulse"');
+      expect(html).toContain('data-quiet-section="current-context"');
+      expect(html).toContain('data-quiet-section="memory-flow"');
+      expect(html).not.toContain('data-quiet-section="attention-needed"');
+      expect(html).toContain('data-dashboard-detail="audit-details"');
+      expect(html.indexOf('data-dashboard-detail="audit-details"')).toBeGreaterThan(html.indexOf('data-quiet-section="memory-flow"'));
+      expect(html).not.toContain('data-dashboard-command-flow');
+    });
+  });
+
+  it("renders Attention Needed only for exceptional review work", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath });
+      await engine.write({ kind: "session_summary", type: "summary", scope: "project", project_id: "moryn", tags: ["autocapture", "review", "host:codex"], content: { text: "User preference requires review" }, state: "candidate", source: { client: "codex" } });
+      const html = renderDashboardHtml(await buildDashboardData(storePath, { project_id: "moryn" }));
+      expect(html).toContain('data-quiet-section="attention-needed"');
+      expect(html).toContain("User preference requires review");
     });
   });
 });

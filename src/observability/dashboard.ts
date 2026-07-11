@@ -824,6 +824,36 @@ export interface DashboardData {
     learned_candidate_records: number;
     learning_evidence_links: number;
   };
+  quiet_dashboard: {
+    system_pulse: {
+      healthy: boolean;
+      status: DashboardHealthStatus;
+      store_ready: boolean;
+      sync_state: string;
+      context_protected: boolean;
+      autopilot_active: boolean;
+    };
+    current_context: {
+      project_id?: string;
+      task?: string;
+      agent?: string;
+      device_id?: string;
+      checkpoint_available: boolean;
+      handoff_available: boolean;
+      checkpoint_record_id?: string;
+      handoff_record_id?: string;
+    };
+    memory_flow: {
+      store_records: number;
+      active_working_set_records: number;
+      hidden_logical_records: number;
+      learned_records: number;
+      recent_records: number;
+      recent_events: number;
+      sync_state: string;
+    };
+    attention_needed: DashboardAttentionItem[];
+  };
   actions: DashboardAction[];
   actions_by_id: Record<string, DashboardAction>;
   context_pack_review: DashboardContextPackReview;
@@ -3298,6 +3328,22 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     memoryInventory,
     captureInbox: captureInboxData
   });
+  const latestCheckpoint = recentRecords.find((record) => record.kind === "session_summary" && record.type === "checkpoint");
+  const latestHandoff = recentRecords.find((record) => record.kind === "session_summary" && record.type === "summary");
+  const activeContextRecord = latestCheckpoint ?? latestHandoff ?? recentRecords[0];
+  const checkpointContent = latestCheckpoint ? allRecordsById.get(latestCheckpoint.id)?.content.checkpoint : undefined;
+  const checkpointTask = checkpointContent && typeof checkpointContent === "object" && checkpointContent !== null && typeof (checkpointContent as Record<string, unknown>).current_task === "string"
+    ? (checkpointContent as Record<string, unknown>).current_task as string
+    : undefined;
+  const exceptionalAttention: DashboardAttentionItem[] = [
+    ...attentionItems.filter((item) => item.severity === "warning" || item.severity === "critical"),
+    ...decisionSummaryData.items.map((item) => ({
+      severity: "warning" as const,
+      title: item.title,
+      description: item.summary,
+      action_label: item.target_label
+    }))
+  ];
 
   return {
     generated_at: generatedAt,
@@ -3334,6 +3380,36 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
       learned_canonical_records: records.filter((record) => record.tags.includes("learning") && record.state === "canonical").length,
       learned_candidate_records: records.filter((record) => record.tags.includes("learning") && record.state === "candidate").length,
       learning_evidence_links: records.reduce((count, record) => count + (record.links?.filter((link) => link.link_type === "supports" && link.reason?.startsWith("Learning evidence:")).length ?? 0), 0)
+    },
+    quiet_dashboard: {
+      system_pulse: {
+        healthy: health.status !== "conflict" && health.status !== "needs_review" && exceptionalAttention.length === 0,
+        status: health.status,
+        store_ready: true,
+        sync_state: sync.sync_state ?? (sync.configured ? "unknown" : "local_only"),
+        context_protected: Boolean(latestCheckpoint || latestHandoff),
+        autopilot_active: agentActivity.some((activity) => activity.client === "codex" || activity.client === "claude")
+      },
+      current_context: {
+        project_id: options.project_id ?? activeContextRecord?.project_id,
+        task: checkpointTask,
+        agent: activeContextRecord?.source.client,
+        device_id: activeContextRecord?.source.device_id,
+        checkpoint_available: Boolean(latestCheckpoint),
+        handoff_available: Boolean(latestHandoff),
+        checkpoint_record_id: latestCheckpoint?.id,
+        handoff_record_id: latestHandoff?.id
+      },
+      memory_flow: {
+        store_records: records.length,
+        active_working_set_records: logicalView.active_records.length,
+        hidden_logical_records: Object.keys(logicalView.hidden_by_record_id).length,
+        learned_records: records.filter((record) => record.tags.includes("learning")).length,
+        recent_records: recentRecords.length,
+        recent_events: recentEvents.length,
+        sync_state: sync.sync_state ?? (sync.configured ? "unknown" : "local_only")
+      },
+      attention_needed: exceptionalAttention
     },
     actions,
     actions_by_id: actionsById(actions),
@@ -8257,6 +8333,74 @@ function dashboardCommandFlow(data: DashboardData, options: {
   `;
 }
 
+function quietSystemPulse(data: DashboardData): string {
+  const pulse = data.quiet_dashboard.system_pulse;
+  return `
+    <section class="quiet-panel quiet-system-pulse ${pulse.healthy ? "healthy" : "attention"}" data-quiet-section="system-pulse">
+      <div class="quiet-panel-heading">
+        ${i18nText("System Pulse", "系统脉搏", "span")}
+        <strong ${i18nAttribute(pulse.healthy ? "All systems steady" : data.health.label, pulse.healthy ? "系统运行平稳" : dashboardHealthZh(data.health.status, data.health.label))}>${escapeHtml(pulse.healthy ? "All systems steady" : data.health.label)}</strong>
+      </div>
+      <div class="quiet-signal-grid">
+        <div><span>Store</span><strong>${pulse.store_ready ? "Ready" : "Unavailable"}</strong></div>
+        <div><span>Sync</span><strong>${escapeHtml(pulse.sync_state.replaceAll("_", " "))}</strong></div>
+        <div><span>Context</span><strong>${pulse.context_protected ? "Protected" : "Waiting"}</strong></div>
+        <div><span>Autopilot</span><strong>${pulse.autopilot_active ? "Active" : "Idle"}</strong></div>
+      </div>
+    </section>`;
+}
+
+function quietCurrentContext(data: DashboardData): string {
+  const context = data.quiet_dashboard.current_context;
+  return `
+    <section class="quiet-panel" data-quiet-section="current-context">
+      <div class="quiet-panel-heading">${i18nText("Current Context", "当前上下文", "span")}<strong>${escapeHtml(context.task ?? "No active task")}</strong></div>
+      <dl class="quiet-context-list">
+        <div><dt>Project</dt><dd>${escapeHtml(context.project_id ?? "Not resolved")}</dd></div>
+        <div><dt>Agent</dt><dd>${escapeHtml(context.agent ?? "No recent agent")}</dd></div>
+        <div><dt>Device</dt><dd>${escapeHtml(context.device_id ?? "Unknown")}</dd></div>
+        <div><dt>Continuity</dt><dd>${context.checkpoint_available ? "Checkpoint protected" : context.handoff_available ? "Handoff available" : "No checkpoint yet"}</dd></div>
+      </dl>
+    </section>`;
+}
+
+function quietMemoryFlow(data: DashboardData): string {
+  const flow = data.quiet_dashboard.memory_flow;
+  return `
+    <section class="quiet-panel" data-quiet-section="memory-flow">
+      <div class="quiet-panel-heading">${i18nText("Memory Flow", "记忆流", "span")}<strong>${flow.active_working_set_records} active</strong></div>
+      <div class="quiet-flow-line" aria-label="Memory flow summary">
+        <div><span>Stored</span><strong>${flow.store_records}</strong></div>
+        <span aria-hidden="true">→</span>
+        <div><span>Consolidated</span><strong>${flow.hidden_logical_records}</strong></div>
+        <span aria-hidden="true">→</span>
+        <div><span>Working set</span><strong>${flow.active_working_set_records}</strong></div>
+        <span aria-hidden="true">→</span>
+        <div><span>Learned</span><strong>${flow.learned_records}</strong></div>
+      </div>
+      <small>${escapeHtml(`${flow.recent_records} recent records · ${flow.recent_events} recent events · sync ${flow.sync_state.replaceAll("_", " ")}`)}</small>
+    </section>`;
+}
+
+function quietAttention(data: DashboardData): string {
+  const items = data.quiet_dashboard.attention_needed;
+  if (!items.length) return "";
+  return `
+    <section class="quiet-panel quiet-attention" data-quiet-section="attention-needed">
+      <div class="quiet-panel-heading">${i18nText("Attention Needed", "需要关注", "span")}<strong>${items.length}</strong></div>
+      <div class="quiet-attention-list">${items.map((item) => `<article><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.description)}</p>${item.action_label ? `<small>${escapeHtml(item.action_label)}</small>` : ""}</article>`).join("")}</div>
+    </section>`;
+}
+
+function quietDashboardFirstScreen(data: DashboardData): string {
+  return `
+    <section class="quiet-dashboard" data-quiet-dashboard="first-screen" aria-label="Moryn monitoring overview">
+      ${quietSystemPulse(data)}
+      <div class="quiet-dashboard-grid">${quietCurrentContext(data)}${quietMemoryFlow(data)}</div>
+      ${quietAttention(data)}
+    </section>`;
+}
+
 function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderOptions, "showStoredContent"> = {}): string {
   const hasActionSignals = data.attention_items.some(isReviewAttentionItem);
   const actionSignalsPanel = hasActionSignals ? needsAttentionPanel(data.attention_items) : "";
@@ -8286,42 +8430,34 @@ function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderO
       </div>
     </header>
 
-    ${dashboardStatusSummary(data, { hideHealthyLine: isAllClearOverview || isSavedForLaterOverview })}
-
     <section id="last-action-receipt" class="panel last-action-receipt" data-action-receipt-anchor aria-live="polite" hidden></section>
-
-    ${dashboardCommandFlow(data, {
-      showOverview: shouldRenderOverview,
-      showBackgroundStatus,
-      showStoredContent: options.showStoredContent === true
-    })}
-
-    ${memoryInventoryPanel(data.memory_inventory)}
-
-    ${recentStatusPanel(data)}
-
-    ${shouldRenderWorkLanes ? dashboardWorkLanes(data, { showBackgroundLanes: !hasPendingDecisions }) : ""}
-
-    ${promotedStoreSignals}
-
-    ${decisionSummary(data.decision_summary)}
-
-    ${actionSignalsPanel}
-
-    ${maintenanceReviewQueue(data.maintenance.plans)}
-
-    ${captureInbox(data.capture_inbox)}
-
-    ${quietInfoPanel}
-
-    ${isSavedForLaterOverview ? "" : shortcutPanel}
-
-    ${evidenceLibrary(data, {
-      includeStoreSignals: !shouldPromoteStoreSignals,
-      showEvidenceIndex: !hasPendingDecisions,
-      compactBackground: shouldPromoteStoreSignals || isAllClearOverview || isSavedForLaterOverview,
-      auditOnly: hasPendingDecisions
-    })}
+    ${quietDashboardFirstScreen(data)}
+    <details class="audit-details" data-dashboard-detail="audit-details">
+      <summary>${i18nText("Audit Details", "审计细节", "span")}${i18nText("Records, events, diagnostics, and maintenance", "记录、事件、诊断和维护", "small")}</summary>
+      <div class="audit-details-content">
+        ${shouldRenderOverview ? dashboardOverview(data.dashboard_overview, { showBackgroundStatus, showSafety: true }) : ""}
+        ${dashboardDecisionPanel(data)}
+        ${statusBoard(data)}
+        ${dashboardGlanceBoard(data)}
+        ${options.showStoredContent === true ? storedContentPanel(data) : ""}
+        ${memoryInventoryPanel(data.memory_inventory)}
+        ${recentStatusPanel(data)}
+        ${shouldRenderWorkLanes ? dashboardWorkLanes(data, { showBackgroundLanes: !hasPendingDecisions }) : ""}
+        ${promotedStoreSignals}
+        ${decisionSummary(data.decision_summary)}
+        ${actionSignalsPanel}
+        ${maintenanceReviewQueue(data.maintenance.plans)}
+        ${captureInbox(data.capture_inbox)}
+        ${quietInfoPanel}
+        ${isSavedForLaterOverview ? "" : shortcutPanel}
+        ${evidenceLibrary(data, {
+          includeStoreSignals: !shouldPromoteStoreSignals,
+          showEvidenceIndex: !hasPendingDecisions,
+          compactBackground: shouldPromoteStoreSignals || isAllClearOverview || isSavedForLaterOverview,
+          auditOnly: hasPendingDecisions
+        })}
+      </div>
+    </details>
   `;
 }
 
@@ -11255,6 +11391,114 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       box-shadow: 0 12px 30px rgba(21, 25, 30, 0.055);
     }
     .panel { padding: 16px; margin-bottom: 14px; background: var(--surface); }
+    .quiet-dashboard {
+      display: grid;
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+    .quiet-dashboard-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+      gap: 14px;
+    }
+    .quiet-panel {
+      min-width: 0;
+      border: 1px solid rgba(143, 156, 173, 0.16);
+      border-radius: 14px;
+      padding: 20px;
+      background: linear-gradient(145deg, rgba(24, 29, 36, 0.86), rgba(13, 17, 22, 0.94));
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
+    }
+    .quiet-panel-heading {
+      display: grid;
+      gap: 5px;
+      margin-bottom: 18px;
+    }
+    .quiet-panel-heading > span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .quiet-panel-heading > strong {
+      color: var(--ink);
+      font-size: 20px;
+      line-height: 1.18;
+      font-weight: 720;
+      overflow-wrap: anywhere;
+    }
+    .quiet-system-pulse {
+      padding: 22px 24px;
+      border-color: rgba(116, 242, 145, 0.16);
+      background: linear-gradient(135deg, rgba(116, 242, 145, 0.055), rgba(15, 19, 24, 0.94) 42%);
+    }
+    .quiet-system-pulse.attention {
+      border-color: rgba(255, 209, 102, 0.28);
+      background: linear-gradient(135deg, rgba(255, 209, 102, 0.08), rgba(18, 20, 24, 0.95) 42%);
+    }
+    .quiet-signal-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .quiet-signal-grid > div,
+    .quiet-flow-line > div {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+      padding: 10px 12px;
+      border-radius: 9px;
+      background: rgba(255, 255, 255, 0.025);
+    }
+    .quiet-signal-grid span,
+    .quiet-flow-line span,
+    .quiet-context-list dt {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .quiet-signal-grid strong,
+    .quiet-flow-line strong { color: var(--ink-2); font-size: 13px; text-transform: capitalize; }
+    .quiet-context-list { gap: 9px; }
+    .quiet-context-list div { grid-template-columns: 78px minmax(0, 1fr); }
+    .quiet-context-list dd { color: var(--ink-2); }
+    .quiet-flow-line {
+      display: grid;
+      grid-template-columns: repeat(7, auto);
+      align-items: center;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .quiet-flow-line > span { color: var(--subtle); }
+    .quiet-panel > small { margin-top: 12px; }
+    .quiet-attention {
+      border-color: rgba(255, 209, 102, 0.3);
+      background: linear-gradient(145deg, rgba(255, 209, 102, 0.08), rgba(20, 19, 17, 0.94));
+    }
+    .quiet-attention-list { display: grid; gap: 8px; }
+    .quiet-attention-list article {
+      padding: 12px 14px;
+      border-left: 2px solid var(--signal-amber);
+      background: rgba(255, 255, 255, 0.025);
+    }
+    .quiet-attention-list p { margin-top: 3px; }
+    .audit-details {
+      border-top: 1px solid rgba(143, 156, 173, 0.18);
+      padding-top: 12px;
+    }
+    .audit-details > summary {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 2px;
+      color: var(--ink-2);
+      cursor: pointer;
+      font-weight: 720;
+    }
+    .audit-details > summary small { display: inline; font-weight: 500; }
+    .audit-details-content { padding-top: 12px; }
     .status-strip {
       display: grid;
       grid-template-columns: auto auto minmax(0, 1fr);
@@ -13754,7 +13998,8 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .truncate { display: inline-block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     details summary { cursor: pointer; }
     @media (max-width: 920px) {
-      header, .status-board-answers, .status-board-rail, .memory-inventory-grid, .recent-status-grid, .recent-change-list, .glance-grid, .memory-explorer-layout, .stored-content-list, .stored-content-explain, .memory-search-controls, .memory-search-summary, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
+      header, .quiet-dashboard-grid, .status-board-answers, .status-board-rail, .memory-inventory-grid, .recent-status-grid, .recent-change-list, .glance-grid, .memory-explorer-layout, .stored-content-list, .stored-content-explain, .memory-search-controls, .memory-search-summary, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
+      .quiet-signal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .memory-state-guide-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
