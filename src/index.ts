@@ -25,6 +25,8 @@ import { CHECKPOINT_SELECTION_SOURCES } from "./core/checkpoint.js";
 export { buildActiveLogicalMemoryView, logicalMemoryFingerprint, LOGICAL_RELATIONSHIP_TYPES, validateLogicalRelationship } from "./core/logical-memory.js";
 export { assessRecallOutcome, queryTokenCoverage } from "./core/recall-outcome.js";
 export type { RecallOutcome, RecallOutcomeStatus, RecallTrust } from "./core/recall-outcome.js";
+export { learningStatePolicy } from "./core/learning-policy.js";
+export type { LearningPolicyReason, LearningStatePolicyResult } from "./core/learning-policy.js";
 export type { LogicalRelationshipInput, LogicalRelationshipType, ValidatedLogicalRelationship } from "./core/logical-memory.js";
 export { captureSession, contextPack, getHostAdapter, getHostAdapters, normalizeHostId, planInstall } from "./core/host-adapters.js";
 import { CAPTURE_SESSION_SELECTION_SOURCES, HANDOFF_PACK_SELECTION_SOURCES, HANDOFF_QUALITY_GATE_SELECTION_SOURCES } from "./core/host-adapters.js";
