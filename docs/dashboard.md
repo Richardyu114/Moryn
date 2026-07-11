@@ -150,6 +150,15 @@ counts are operational monitoring, not a user work queue: they add no approval
 button, mutation endpoint, mandatory inbox, or routine intervention. Private
 checkpoint evidence remains hidden unless `--include-private` is explicit.
 
+The `System Pulse` Autopilot signal is receipt-backed. Recent Codex or Claude
+agent activity alone never marks Autopilot active. A lifecycle activation receipt
+from the selected project within the last 24 hours renders `Active` with the host;
+older receipt evidence renders `Degraded`, and no receipt evidence renders
+`Not installed`. This signal is monitoring only: the first screen does not add an
+activation, repair, merge, or apply button. Agents remain responsible for normal
+activation and self-healing, while users intervene only through explicit setup or
+diagnostic commands when a persistent exceptional failure needs investigation.
+
 Pass `--include-private` only when the user explicitly wants private memory in
 the dashboard. The same flag applies to the server shell, `/fragment`, and
 `/api/dashboard`.

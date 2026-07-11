@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { createEngine } from "../../src/core/engine.js";
 import { initializeStore } from "../../src/core/config.js";
 import { readEvents } from "../../src/core/store.js";
+import { recordActivationReceipt } from "../../src/core/activation-receipts.js";
 import {
   buildDashboardData,
   createDashboardDataLoader,
@@ -9737,6 +9738,34 @@ describe("quiet dashboard model", () => {
       expect(data.quiet_dashboard.current_context).toMatchObject({ project_id: "moryn", task: "Polish dashboard", agent: "codex", device_id: "device-a", checkpoint_available: true });
       expect(data.quiet_dashboard.memory_flow).toMatchObject({ store_records: 1, active_working_set_records: 1 });
       expect(data.quiet_dashboard.attention_needed).toEqual([]);
+    });
+  });
+
+  it("uses activation receipts instead of agent activity for autopilot status", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath });
+      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "session-a", device_id: "device-a" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: { session_id: "session-a", checkpoint_id: "checkpoint-a", current_task: "Observe activation" } });
+
+      const inactive = await buildDashboardData(storePath, { project_id: "moryn", now: "2026-07-11T00:01:00.000Z" });
+      expect(inactive.quiet_dashboard.system_pulse).toMatchObject({ autopilot_active: false, autopilot: { status: "not_installed", host: "unknown" } });
+
+      await recordActivationReceipt(storePath, { activation_id: "moryn-v03-moryn-codex", host: "codex", project_id: "moryn", event: "session_start", session_id: "session-a", device_id: "device-a", occurred_at: "2026-07-11T00:02:00.000Z", command_digest: "digest" });
+      const active = await buildDashboardData(storePath, { project_id: "moryn", now: "2026-07-11T00:03:00.000Z" });
+      expect(active.quiet_dashboard.system_pulse).toMatchObject({ autopilot_active: true, autopilot: { status: "active", host: "codex", last_event: "session_start" } });
+      expect(quietFirstScreenHtml(renderDashboardHtml(active))).toContain("Active · Codex");
+    });
+  });
+
+  it("renders stale activation evidence as degraded without controls", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      await recordActivationReceipt(storePath, { activation_id: "moryn-v03-moryn-claude", host: "claude", project_id: "moryn", event: "pre_compact", session_id: "session-a", device_id: "device-a", occurred_at: "2026-07-10T00:00:00.000Z", command_digest: "digest" });
+      const data = await buildDashboardData(storePath, { project_id: "moryn", now: "2026-07-12T00:01:00.000Z" });
+      expect(data.quiet_dashboard.system_pulse).toMatchObject({ autopilot_active: false, autopilot: { status: "degraded", host: "claude", last_event: "pre_compact" } });
+      const html = quietFirstScreenHtml(renderDashboardHtml(data));
+      expect(html).toContain("Degraded · Claude");
+      expect(html).not.toMatch(/activation apply|repair hooks|merge hooks/i);
     });
   });
 

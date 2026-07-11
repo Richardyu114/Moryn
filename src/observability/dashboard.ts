@@ -833,6 +833,12 @@ export interface DashboardData {
       sync_state: string;
       context_protected: boolean;
       autopilot_active: boolean;
+      autopilot: {
+        status: "active" | "configured" | "degraded" | "not_installed";
+        host: "codex" | "claude" | "unknown";
+        last_event?: string;
+        last_seen_at?: string;
+      };
     };
     current_context: {
       project_id?: string;
@@ -3240,6 +3246,24 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     .sort((left, right) => right.created_at.localeCompare(left.created_at) || left.event_id.localeCompare(right.event_id))
     .slice(0, limit);
   const generatedAt = options.now ?? new Date().toISOString();
+  const activationReceipts = allRecords
+    .filter((record) => record.type === "activation_receipt" && (!options.project_id || record.project_id === options.project_id))
+    .sort((left, right) => right.created_at.localeCompare(left.created_at) || left.id.localeCompare(right.id));
+  const latestActivationReceipt = activationReceipts[0];
+  const activationHost: "codex" | "claude" | "unknown" = latestActivationReceipt?.content.host === "codex" || latestActivationReceipt?.content.host === "claude"
+    ? latestActivationReceipt.content.host
+    : "unknown";
+  const activationFresh = latestActivationReceipt
+    ? Date.parse(generatedAt) - Date.parse(latestActivationReceipt.created_at) <= 24 * 60 * 60 * 1000
+    : false;
+  const autopilot: DashboardData["quiet_dashboard"]["system_pulse"]["autopilot"] = latestActivationReceipt
+    ? {
+        status: activationFresh ? "active" as const : "degraded" as const,
+        host: activationHost,
+        ...(typeof latestActivationReceipt.content.event === "string" ? { last_event: latestActivationReceipt.content.event } : {}),
+        last_seen_at: latestActivationReceipt.created_at
+      }
+    : { status: "not_installed" as const, host: "unknown" as const };
   const semanticLinkEvents = visibleEvents.filter((event) => event.op === "link_records" && event.event_id.startsWith("evt_semantic_consolidation_"));
   const semanticLinkKeys = new Set(semanticLinkEvents.map((event) => event.op === "link_records" ? `${event.record_id}\u0000${event.linked_record_id}\u0000${event.link_type}` : ""));
   const checkpointProposals = records.flatMap((record) => {
@@ -3442,7 +3466,8 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
         store_ready: true,
         sync_state: sync.sync_state ?? (sync.configured ? "unknown" : "local_only"),
         context_protected: Boolean(latestCheckpoint || latestHandoff),
-        autopilot_active: agentActivity.some((activity) => activity.client === "codex" || activity.client === "claude")
+        autopilot_active: autopilot.status === "active",
+        autopilot
       },
       current_context: {
         project_id: options.project_id ?? activeContextRecord?.project_id,
@@ -8411,6 +8436,9 @@ function dashboardCommandFlow(data: DashboardData, options: {
 
 function quietSystemPulse(data: DashboardData): string {
   const pulse = data.quiet_dashboard.system_pulse;
+  const autopilotLabel = pulse.autopilot.status === "not_installed"
+    ? "Not installed"
+    : `${pulse.autopilot.status[0]?.toUpperCase()}${pulse.autopilot.status.slice(1)} · ${pulse.autopilot.host === "claude" ? "Claude" : pulse.autopilot.host === "codex" ? "Codex" : "Unknown"}`;
   return `
     <section class="quiet-panel quiet-system-pulse ${pulse.healthy ? "healthy" : "attention"}" data-quiet-section="system-pulse">
       <div class="quiet-panel-heading">
@@ -8421,7 +8449,7 @@ function quietSystemPulse(data: DashboardData): string {
         <div><span>Store</span><strong>${pulse.store_ready ? "Ready" : "Unavailable"}</strong></div>
         <div><span>Sync</span><strong>${escapeHtml(pulse.sync_state.replaceAll("_", " "))}</strong></div>
         <div><span>Context</span><strong>${pulse.context_protected ? "Protected" : "Waiting"}</strong></div>
-        <div><span>Autopilot</span><strong>${pulse.autopilot_active ? "Active" : "Idle"}</strong></div>
+        <div><span>Autopilot</span><strong>${escapeHtml(autopilotLabel)}</strong></div>
       </div>
     </section>`;
 }
