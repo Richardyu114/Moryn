@@ -604,3 +604,21 @@ same idempotency key with different authored content returns a collision error.
 `confirmed`, `best_effort`, or `failed` separately from derived-view refresh
 status. After compaction, use `moryn boot --project . --session-id session-123`
 or the normal agent start flow to receive the bounded checkpoint recovery pack.
+
+## Verified Current-State Reads
+
+Moryn keeps append-only event files as the authoritative history. To prevent a
+large store from forcing every recall, boot, context pack, activation check, and
+health check to parse and replay the full history, derived rebuilds also write a
+complete `snapshots/records.json` read model.
+
+The snapshot is trusted only when its event-file manifest matches the current
+local event set. Missing, corrupt, incompatible, or stale snapshots fall back to
+an authoritative event replay and are repaired automatically. Git sync pull
+refreshes the snapshot before returning. A successful repair remains internal to
+the agent and does not create a user review task; `health check` exposes bounded
+`record_read_model` evidence for diagnostics.
+
+This optimization does not delete events, compact Git history, weaken private
+record filtering, or change logical duplicate and semantic consolidation rules.
+Timeline and raw audit operations continue to read append-only events directly.

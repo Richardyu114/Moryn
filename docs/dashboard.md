@@ -1647,3 +1647,12 @@ Only a persisted `conflicts_with` relationship whose record text overlaps the
 current checkpoint task adds `Semantic memory conflict` to `Attention Needed`.
 This warning is read-only; resolving or revising memory remains an explicit agent
 or CLI/MCP operation. Dashboard refresh never creates consolidation events.
+
+## Verified Record Read Model
+
+Current record state in the dashboard uses the same verified
+`snapshots/records.json` read model as recall and boot. The dashboard still reads
+raw events where event order and audit evidence are required. A manifest mismatch
+causes authoritative replay and automatic snapshot repair before current-state
+records are displayed. Successful repair is quiet and read-only; it does not add
+an approval or maintenance button.
