@@ -3,7 +3,7 @@ import { agentFinish, agentStart, agentStatus } from "./agent-lifecycle.js";
 import { createEngine } from "./engine.js";
 import { getHostCapabilities } from "./host-capabilities.js";
 import type { NormalizedHostHookEvent } from "./host-hooks.js";
-import type { LearningDeltaInput, SemanticConsolidationProposalInput } from "./context-delta.js";
+import type { KnowledgeInvestigationInput, LearningDeltaInput, SemanticConsolidationProposalInput } from "./context-delta.js";
 import { resolveProjectContext } from "./project.js";
 
 export interface RunHostHookInput {
@@ -15,6 +15,7 @@ export interface RunHostHookInput {
   pull?: boolean;
   push?: boolean;
   learnings?: LearningDeltaInput[];
+  knowledge_investigations?: KnowledgeInvestigationInput[];
   semantic_consolidation_proposals?: SemanticConsolidationProposalInput[];
 }
 
@@ -79,6 +80,7 @@ export async function runHostHook(input: RunHostHookInput): Promise<HostHookRunR
         current_task: input.current_task,
         progress: [summary],
         learnings: input.learnings ?? [],
+        knowledge_investigations: input.knowledge_investigations ?? [],
         semantic_consolidation_proposals: input.semantic_consolidation_proposals ?? []
       }
     });

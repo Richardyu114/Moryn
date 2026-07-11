@@ -208,6 +208,43 @@ Normal refresh reads exclude records tagged `private`, `secret`, or
 the agent to inspect private memory; returned `recall` next actions preserve
 that opt-in.
 
+## Autonomous Knowledge Loop
+
+Codex and Claude Code use the same default protocol when durable project or
+user knowledge is uncertain:
+
+1. Call `moryn recall "<question>" --project .` before broad external
+   exploration.
+2. Follow the returned `next_actions` in order. A trusted match can be used
+   with its record id as evidence. A verification-required result must be
+   checked. A knowledge gap moves exploration to project files, local tools,
+   web sources when needed, or the user when needed.
+3. Queue only a supported, reusable conclusion as a Learning Delta in the next
+   checkpoint or `agent finish`. Unsupported inference, unresolved conflict,
+   transient text, and secrets are not canonicalized.
+4. Before host compaction, write resolved Learning Deltas and preserve every
+   unresolved material question with evidence and an exact next step.
+
+An unresolved investigation can be checkpointed without creating memory:
+
+```bash
+moryn agent checkpoint \
+  --project . \
+  --agent codex \
+  --session-id "$SESSION_ID" \
+  --device-id "$MORYN_DEVICE_ID" \
+  --occurred-at 2026-07-12T00:00:00.000Z \
+  --checkpoint-id precompact-rollback \
+  --knowledge-investigation '{"resolution_id":"rollback-policy","question":"What is the rollback policy?","recall_status":"knowledge_gap","recalled_record_ids":[],"evidence":[{"type":"source_code","reference":"src/release.ts","summary":"Signed tags are validated"}],"status":"unresolved","next_step":"Run the rollback integration test"}'
+```
+
+Post-compact startup restores this investigation through
+`boot.checkpoint_recovery_pack.knowledge_investigations`. Resolved conclusions
+use the existing `--learning` flag instead, so learning policy, idempotency,
+privacy boundaries, and exact or semantic consolidation remain authoritative.
+Moryn supplies the workflow and durable state; it does not perform web or
+repository research itself.
+
 ## Timeline Context
 
 Use `timeline` when a single recalled record is not enough to understand why it

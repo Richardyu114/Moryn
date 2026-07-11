@@ -158,6 +158,7 @@ async function main() {
     const protectedLearning = { question: "How many retries?", conclusion: "Retry 4 times.", evidence_type: "source_code", scope: "project", confidence: 0.99, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] };
     const semanticProposal = { proposal_id: "smoke-semantic", source_record_id: learningRecordId("moryn-smoke", semanticLearning), target_record_id: target.record.id, relationship: "duplicate_of", confidence: 0.99, rationale: "Equivalent enter behavior.", semantic_equivalence: "equivalent", material_differences: [], evidence_record_ids: [] };
     const protectedProposal = { proposal_id: "smoke-protected", source_record_id: learningRecordId("moryn-smoke", protectedLearning), target_record_id: protectedTarget.record.id, relationship: "duplicate_of", confidence: 0.99, rationale: "Protected retry difference.", semantic_equivalence: "equivalent", material_differences: [{ field: "retry count", before: "3", after: "4", significance: "minor" }], evidence_record_ids: [] };
+    const unresolvedInvestigation = { resolution_id: "smoke-release-policy", question: "What is the release rollback policy?", recall_status: "knowledge_gap", recalled_record_ids: [], evidence: [{ type: "source_code", reference: "src/release.ts", summary: "Signed tag validation exists" }], status: "unresolved", next_step: "Run the rollback integration smoke" };
     const preCompactPayload = JSON.stringify({ hook_event_name: "PreCompact", session_id: "codex-smoke", cwd: project, trigger: "auto", compact_summary: "Checkpoint smoke persisted with semantic consolidation." });
     const checkpointArgs = [
       ...argsPrefix,
@@ -181,6 +182,8 @@ async function main() {
       JSON.stringify(semanticLearning),
       "--learning",
       JSON.stringify(protectedLearning),
+      "--knowledge-investigation",
+      JSON.stringify(unresolvedInvestigation),
       "--semantic-consolidation-proposal",
       JSON.stringify(semanticProposal),
       "--semantic-consolidation-proposal",
@@ -196,6 +199,7 @@ async function main() {
     if (checkpoint.checkpoint.record.id !== checkpointReplay.checkpoint.record.id) {
       throw new Error("Checkpoint replay returned a different record id");
     }
+    if (checkpoint.checkpoint.recovery_pack?.knowledge_investigations?.[0]?.next_step !== unresolvedInvestigation.next_step) throw new Error("PreCompact did not preserve unresolved knowledge investigation");
     if (checkpoint.checkpoint.semantic_consolidation?.proposals_accepted !== 1 || checkpoint.checkpoint.semantic_consolidation?.rejected_by_reason?.protected_signal_difference !== 1) throw new Error("PreCompact semantic receipt did not contain one accepted and one protected rejection");
     await runJson(command, [...argsPrefix, "--store", storeCodex, "sync", "--push", "--message", "codex precompact semantic"]);
     await runJson(command, [...argsPrefix, "--store", storeClaude, "init"]);
@@ -220,6 +224,7 @@ async function main() {
       JSON.stringify({ hook_event_name: "PostCompact", session_id: "codex-smoke", cwd: project })
     ]);
     if (!claudeRestore.hook_output?.additional_context?.includes("Checkpoint smoke persisted with semantic consolidation")) throw new Error("Claude PostCompact did not restore the Codex checkpoint");
+    if (!claudeRestore.hook_output?.additional_context?.includes(unresolvedInvestigation.next_step)) throw new Error("Claude PostCompact did not restore the unresolved knowledge next step");
     const finishSummary = "Claude smoke finish reached second Codex";
     const finish = await runJson(command, [
       ...argsPrefix,
@@ -273,7 +278,8 @@ async function main() {
       checkpoint_record_id: checkpoint.checkpoint.record.id,
       checkpoint_idempotent_replay: checkpointReplay.checkpoint.idempotent_replay,
       semantic_links_created: checkpoint.checkpoint.semantic_consolidation.links_created,
-      protected_rejections: checkpoint.checkpoint.semantic_consolidation.rejected_by_reason.protected_signal_difference
+      protected_rejections: checkpoint.checkpoint.semantic_consolidation.rejected_by_reason.protected_signal_difference,
+      unresolved_knowledge_next_step: unresolvedInvestigation.next_step
     }));
   } finally {
     if (options.keepTemp) {

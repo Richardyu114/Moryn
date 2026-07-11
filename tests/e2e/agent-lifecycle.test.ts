@@ -2894,7 +2894,24 @@ describe("agent lifecycle", () => {
       await initializeGitSync(codexStore, remote);
       await initializeGitSync(claudeStore, remote);
       const codexEngine = createEngine({ storePath: codexStore });
-      expect((await codexEngine.recall({ project_id: "moryn", query: "project rollback signed release tag" })).outcome).toMatchObject({ status: "knowledge_gap" });
+      const gap = await codexEngine.recall({ project_id: "moryn", query: "project rollback signed release tag" });
+      expect(gap.outcome).toMatchObject({ status: "knowledge_gap" });
+      expect(gap.next_actions.map((action) => action.id)).toEqual(["explore_external_sources", "capture_confirmed_learning", "preserve_unresolved_investigation"]);
+
+      const checkpoint = await codexEngine.checkpoint({
+        project_id: "moryn",
+        source: { client: "codex", session_id: "codex-1", device_id: "device-codex" },
+        occurred_at: "2026-07-11T00:00:00.000Z",
+        delta: {
+          session_id: "codex-1",
+          checkpoint_id: "rollback-precompact",
+          current_task: "Resolve rollback policy",
+          progress: ["User confirmed rollback behavior"],
+          learnings: [learning],
+          knowledge_investigations: [{ resolution_id: "rollback-policy", question: learning.question, recall_status: "knowledge_gap", recalled_record_ids: [], evidence: [{ type: "user_confirmation", reference: "conversation", summary: "User confirmed signed-tag rollback" }], status: "resolved", conclusion: learning.conclusion }]
+        }
+      });
+      expect(checkpoint.learning_ingestion).toMatchObject({ records_created: 1 });
 
       const codexFinish = await agentFinish({
         storePath: codexStore,
@@ -2904,7 +2921,7 @@ describe("agent lifecycle", () => {
         learnings: [learning],
         push: true
       }, { now: () => "2026-07-11T00:00:00.000Z" });
-      expect(codexFinish.learning_ingestion).toMatchObject({ records_created: 1 });
+      expect(codexFinish.learning_ingestion).toMatchObject({ records_created: 0 });
 
       const claudeStart = await agentStart({
         storePath: claudeStore,
@@ -2914,9 +2931,14 @@ describe("agent lifecycle", () => {
         pull: true
       });
       expect(claudeStart.sync.pull?.pulled).toBe(true);
+      expect(claudeStart.knowledge_protocol?.phases.map((phase) => phase.id)).toContain("recall_before_external_exploration");
       const claudeEngine = createEngine({ storePath: claudeStore });
-      const recalled = await claudeEngine.recall({ project_id: "moryn", query: "project rollback signed release tag" });
+      const broadRecall = await claudeEngine.recall({ project_id: "moryn", query: "project rollback signed release tag" });
+      expect(broadRecall.outcome).toMatchObject({ status: "verification_required" });
+      expect(broadRecall.next_actions.map((action) => action.id)).toEqual(["inspect_recalled_candidate", "verify_with_external_evidence", "capture_confirmed_learning"]);
+      const recalled = await claudeEngine.recall({ project_id: "moryn", query: "project rollback signed release tag", kinds: ["memory"] });
       expect(recalled.outcome).toMatchObject({ status: "trusted_match", trust: "trusted" });
+      expect(recalled.next_actions.map((action) => action.id)).toEqual(["use_recalled_knowledge", "inspect_record_timeline"]);
       expect(recalled.results[0]?.record.content.text).toBe(learning.conclusion);
 
       const repeated = await claudeEngine.ingestLearnings({
@@ -2926,6 +2948,9 @@ describe("agent lifecycle", () => {
         source: { client: "claude-code", session_id: "claude-1", device_id: "device-claude" }
       });
       expect(repeated).toMatchObject({ records_created: 0, dispositions: [{ created: false, record_id: codexFinish.learning_ingestion.dispositions[0]?.record_id }] });
+      const dashboard = await buildDashboardData(claudeStore, { project_id: "moryn" });
+      expect(dashboard.quiet_dashboard.knowledge_loop).toMatchObject({ learned_records: 1, resolved_investigations: 1, unresolved_investigations: 0 });
+      expect(dashboard.quiet_dashboard.attention_needed).toEqual([]);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -2946,7 +2971,7 @@ describe("agent lifecycle", () => {
       await initializeGitSync(claudeStore, remote);
       const codexBase = { host: "codex" as const, session_id: "codex-compact", device_id: "device-codex", cwd: project, occurred_at: "2026-07-11T00:00:00.000Z" };
       await runHostHook({ storePath: codexStore, project_path: project, current_task: "Implement host hooks", pull: true, hook: { ...codexBase, event: "session_start", trigger: "startup" } });
-      const checkpoint = await runHostHook({ storePath: codexStore, project_path: project, current_task: "Implement host hooks", hook: { ...codexBase, event: "pre_compact", trigger: "auto", compact_summary: "Hook runner implemented; next verify Claude restore." } });
+      const checkpoint = await runHostHook({ storePath: codexStore, project_path: project, current_task: "Implement host hooks", knowledge_investigations: [{ resolution_id: "hook-rollback", question: "What is rollback policy?", recall_status: "knowledge_gap", recalled_record_ids: [], evidence: [], status: "unresolved", next_step: "Run rollback integration test" }], hook: { ...codexBase, event: "pre_compact", trigger: "auto", compact_summary: "Hook runner implemented; next verify Claude restore." } });
       expect(checkpoint).toMatchObject({ action: "checkpoint_before_compaction", checkpoint: { idempotent_replay: false } });
       expect((await pushGitSync(codexStore, { message: "codex precompact" })).pushed).toBe(true);
 
@@ -2959,6 +2984,7 @@ describe("agent lifecycle", () => {
       });
       expect(claudeRestore).toMatchObject({ action: "resume_from_checkpoint", degradation: { mode: "native" } });
       expect(claudeRestore.hook_output.additional_context).toContain("Hook runner implemented; next verify Claude restore.");
+      expect(claudeRestore.hook_output.additional_context).toContain("Run rollback integration test");
       const claudeEnd = await runHostHook({
         storePath: claudeStore,
         project_path: project,

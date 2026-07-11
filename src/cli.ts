@@ -2173,6 +2173,7 @@ host.command("hook")
   .option("--occurred-at <timestamp>")
   .option("--input-json <json>", "Hook input JSON; defaults to stdin")
   .option("--learning <json>", "Learning Delta JSON", collectNonEmptyOption("--learning"))
+  .option("--knowledge-investigation <json>", "Knowledge investigation JSON", collectNonEmptyOption("--knowledge-investigation"))
   .option("--semantic-consolidation-proposal <json>", "Semantic consolidation proposal JSON", collectNonEmptyOption("--semantic-consolidation-proposal"))
   .option("--no-pull")
   .option("--no-push")
@@ -2191,6 +2192,7 @@ host.command("hook")
         project_path: options.project,
         current_task: options.currentTask,
         learnings: (options.learning ?? []).map((value: string) => parseCheckpointJson(value, "--learning") as LearningDeltaInput),
+        knowledge_investigations: (options.knowledgeInvestigation ?? []).map((value: string) => parseCheckpointJson(value, "--knowledge-investigation") as KnowledgeInvestigationInput),
         semantic_consolidation_proposals: (options.semanticConsolidationProposal ?? []).map((value: string) => parseCheckpointJson(value, "--semantic-consolidation-proposal") as SemanticConsolidationProposalInput),
         pull: options.pull,
         push: options.push
