@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { validateContextDelta, type ContextDelta, type ContextDeltaInput } from "./context-delta.js";
 import { isPrivateTags } from "./sensitive.js";
 import type { MorynRecord, RecordSource } from "./types.js";
@@ -37,6 +38,18 @@ export interface NormalizedCheckpointInput {
   delta: ContextDelta;
   tags: string[];
   include_private: boolean;
+}
+
+export function checkpointIdentity(input: Pick<NormalizedCheckpointInput, "project_id" | "source" | "delta">): { event_id: string; record_id: string } {
+  const key = JSON.stringify({
+    version: 1,
+    project_id: input.project_id,
+    client: input.source.client,
+    session_id: input.source.session_id,
+    checkpoint_id: input.delta.checkpoint_id
+  });
+  const digest = createHash("sha256").update(key).digest("hex");
+  return { event_id: `evt_checkpoint_${digest}`, record_id: `rec_checkpoint_${digest}` };
 }
 
 function requiredString(value: unknown, name: string): string {

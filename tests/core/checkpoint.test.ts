@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { createEngine } from "../../src/core/engine.js";
-import { recoveryPack } from "../../src/core/checkpoint.js";
-import { appendEvent, readEvents } from "../../src/core/store.js";
+import { checkpointIdentity, normalizeCheckpointInput, recoveryPack } from "../../src/core/checkpoint.js";
+import { appendEvent, appendEventIfAbsent, readEvents } from "../../src/core/store.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
 const baseDelta = {
@@ -18,6 +20,7 @@ const baseDelta = {
   candidate_skills: [],
   learnings: []
 };
+const execFileAsync = promisify(execFile);
 
 function createTestEngine(storePath: string) {
   let sequence = 0;
@@ -170,6 +173,84 @@ describe("engine.checkpoint", () => {
     });
   });
 
+  it("uses deterministic event and record ids across devices", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const firstEngine = createEngine({ storePath, now: () => "2026-07-11T00:00:00.000Z", id: () => "random_a" });
+      const secondEngine = createEngine({ storePath, now: () => "2026-07-12T00:00:00.000Z", id: () => "random_b" });
+      const firstInput = { project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "device-a" }, delta: baseDelta };
+      const secondInput = { ...firstInput, source: { ...firstInput.source, device_id: "device-b" } };
+
+      const [first, second] = await Promise.all([firstEngine.checkpoint(firstInput), secondEngine.checkpoint(secondInput)]);
+
+      expect(first.record.id).toBe(second.record.id);
+      expect(first.record.id).toMatch(/^rec_checkpoint_[a-f0-9]{64}$/);
+      const [event] = await readEvents(storePath);
+      expect(event?.event_id).toMatch(/^evt_checkpoint_[a-f0-9]{64}$/);
+      expect(await readEvents(storePath)).toHaveLength(1);
+    });
+  });
+
+  it("rejects deterministic event collisions with mismatched checkpoint content", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createTestEngine(storePath);
+      const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1" }, delta: baseDelta };
+      const normalized = normalizeCheckpointInput(input);
+      const identity = checkpointIdentity(normalized);
+      await appendEventIfAbsent(storePath, {
+        event_id: identity.event_id,
+        op: "upsert_record",
+        created_at: "2026-07-10T00:00:00.000Z",
+        source: normalized.source,
+        record: {
+          id: identity.record_id,
+          kind: "session_summary",
+          type: "checkpoint",
+          scope: "project",
+          project_id: "other-project",
+          tags: ["checkpoint", "session:session-1", "checkpoint:checkpoint-1"],
+          content: { format: "json", text: "collision", checkpoint_version: 1, checkpoint: normalized.delta },
+          state: "candidate",
+          confidence: 0.5,
+          priority: "normal",
+          visibility: "active",
+          created_at: "2026-07-10T00:00:00.000Z",
+          updated_at: "2026-07-10T00:00:00.000Z",
+          source: normalized.source,
+          provenance: { method: "agent-proposed" }
+        }
+      });
+
+      await expect(engine.checkpoint(input)).rejects.toThrow(/idempotency collision/i);
+      expect(await readEvents(storePath)).toHaveLength(1);
+    });
+  });
+
+  it("deduplicates checkpoint creation across child processes", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const script = `
+        import { createEngine } from './src/core/engine.ts';
+        const [storePath, deviceId] = process.argv.slice(1);
+        const engine = createEngine({ storePath, now: () => '2026-07-11T00:00:00.000Z' });
+        const result = await engine.checkpoint({
+          project_id: 'project-a',
+          source: { client: 'codex', session_id: 'session-1', device_id: deviceId },
+          delta: ${JSON.stringify(baseDelta)}
+        });
+        process.stdout.write(JSON.stringify({ id: result.record.id, replay: result.idempotent_replay }));
+      `;
+      const options = { cwd: process.cwd(), maxBuffer: 1024 * 1024 };
+      const [first, second] = await Promise.all([
+        execFileAsync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script, storePath, "device-a"], options),
+        execFileAsync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script, storePath, "device-b"], options)
+      ]);
+      const results = [JSON.parse(first.stdout), JSON.parse(second.stdout)] as Array<{ id: string; replay: boolean }>;
+
+      expect(new Set(results.map((result) => result.id)).size).toBe(1);
+      expect(results.map((result) => result.replay).sort()).toEqual([false, true]);
+      expect(await readEvents(storePath)).toHaveLength(1);
+    });
+  });
+
   it.each(["private", "PRIVATE", "Secret", "sEnSiTiVe"])("hides %s checkpoint recovery by default", async (privateTag) => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createTestEngine(storePath);
@@ -259,8 +340,7 @@ describe("engine.checkpoint", () => {
       const replay = await engine.checkpoint(input);
 
       expect(first).toMatchObject({ committed: true, derived_views_refreshed: false, warning: { code: "DERIVED_VIEW_REBUILD_FAILED" } });
-      expect(replay).toMatchObject({ committed: true, idempotent_replay: true, derived_views_refreshed: true });
-      expect(replay).not.toHaveProperty("warning");
+      expect(replay).toMatchObject({ committed: true, idempotent_replay: true, derived_views_refreshed: false, warning: { code: "DERIVED_VIEW_REBUILD_FAILED" } });
       expect(replay.record.id).toBe(first.record.id);
       expect(await readEvents(storePath)).toHaveLength(1);
     });
@@ -276,7 +356,7 @@ describe("engine.checkpoint", () => {
     });
   });
 
-  it("does not replay archived or quarantined checkpoints", async () => {
+  it("keeps the deterministic idempotency key after archive or quarantine", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createTestEngine(storePath);
       const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1" }, delta: baseDelta };
@@ -287,9 +367,9 @@ describe("engine.checkpoint", () => {
       await engine.quarantine({ record_id: afterArchive.record.id, source: input.source, reason: "test boundary" });
       const afterQuarantine = await engine.checkpoint(input);
 
-      expect(afterArchive.idempotent_replay).toBe(false);
-      expect(afterQuarantine.idempotent_replay).toBe(false);
-      expect(new Set([archived.record.id, afterArchive.record.id, afterQuarantine.record.id]).size).toBe(3);
+      expect(afterArchive.idempotent_replay).toBe(true);
+      expect(afterQuarantine.idempotent_replay).toBe(true);
+      expect(new Set([archived.record.id, afterArchive.record.id, afterQuarantine.record.id]).size).toBe(1);
     });
   });
 });

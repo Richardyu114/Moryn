@@ -1,4 +1,4 @@
-import { appendEvent, readEvents, withStoreLock } from "./store.js";
+import { appendEvent, appendEventIfAbsent, readEvents } from "./store.js";
 import { rebuildDerivedViews } from "./derived.js";
 import { applyRecordPatch, replayEvents } from "./replay.js";
 import { PROVENANCE_METHODS, RECORD_KINDS, RECORD_PRIORITIES, RECORD_SCOPES, RECORD_STATES, isoDateTimeSchema, isValidPatchPath, recordKindSchema, recordPrioritySchema, recordScopeSchema, recordSourceSchema, recordStateSchema, parseRecord } from "./schema.js";
@@ -17,7 +17,7 @@ import { diagnoseCapturePolicy, type CapturePolicyInput } from "./capture-policy
 import { diagnoseHealthCheck, HEALTH_CHECK_SELECTION_SOURCES, type HealthCheckInput } from "./health-check.js";
 import { diagnoseMemory, MEMORY_DOCTOR_SELECTION_SOURCES } from "./memory-doctor.js";
 import { evaluateRecall, RECALL_EVAL_SELECTION_SOURCES, type RecallEvalInput } from "./recall-eval.js";
-import { checkpointSummary, matchesCheckpoint, normalizeCheckpointInput, recoveryPack, type CheckpointInput, type CheckpointResult } from "./checkpoint.js";
+import { checkpointIdentity, checkpointSummary, matchesCheckpoint, normalizeCheckpointInput, recoveryPack, type CheckpointInput, type CheckpointResult } from "./checkpoint.js";
 import { readStoreConfig } from "./config.js";
 
 interface EngineDeps {
@@ -2887,16 +2887,13 @@ export function createEngine(deps: EngineDeps) {
   const engine = {
     async checkpoint(input: CheckpointInput): Promise<CheckpointResult> {
       const normalized = normalizeCheckpointInput(input);
-      const outcome = await withStoreLock(deps.storePath, "checkpoint", async () => {
-        const existing = (await currentRecords()).find((record) => matchesCheckpoint(record, normalized));
-        if (existing) {
-          return { record: existing, idempotent_replay: true };
-        }
+      const identity = checkpointIdentity(normalized);
+      const outcome = await (async () => {
         const config = await readStoreConfig(deps.storePath);
         const source = normalized.source.device_id ? normalized.source : { ...normalized.source, device_id: config.device_id };
         const createdAt = now();
         const record: MorynRecord = {
-          id: id("rec"),
+          id: identity.record_id,
           kind: "session_summary",
           type: "checkpoint",
           scope: "project",
@@ -2912,13 +2909,13 @@ export function createEngine(deps: EngineDeps) {
           source,
           provenance: { method: "agent-proposed" }
         };
-        const event: MorynEvent = { event_id: id("evt"), op: "upsert_record", record, created_at: createdAt, source };
-        await appendEvent(deps.storePath, event);
-        return { record, idempotent_replay: false };
-      });
-      if (outcome.idempotent_replay) {
-        return { ...outcome, committed: true, derived_views_refreshed: true, recovery_pack: recoveryPack(outcome.record, normalized.include_private) };
-      }
+        const event: MorynEvent = { event_id: identity.event_id, op: "upsert_record", record, created_at: createdAt, source };
+        const appended = await appendEventIfAbsent(deps.storePath, event);
+        if (appended.event.op !== "upsert_record" || !matchesCheckpoint(appended.event.record, normalized) || appended.event.record.id !== identity.record_id) {
+          throw new Error(`Checkpoint idempotency collision: ${identity.event_id}`);
+        }
+        return { record: appended.event.record, idempotent_replay: !appended.created };
+      })();
       try {
         await checkpointRebuild(deps.storePath);
         return { ...outcome, committed: true, derived_views_refreshed: true, recovery_pack: recoveryPack(outcome.record, normalized.include_private) };

@@ -1,6 +1,5 @@
 import { access, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { randomUUID } from "node:crypto";
 import type { MorynEvent } from "./types.js";
 import { parseEvent } from "./schema.js";
 import { detectSensitiveContent, sensitiveScanText } from "./sensitive.js";
@@ -47,157 +46,16 @@ function assertSafeEventPathComponent(value: string, name: string): void {
   }
 }
 
-export interface StoreLockOptions {
-  timeout_ms?: number;
-  poll_ms?: number;
-  stale_ms?: number;
-  heartbeat_ms?: number;
-}
-
-function sleep(durationMs: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, durationMs));
-}
-
-export async function withStoreLock<T>(storePath: string, lockName: string, fn: () => Promise<T>, options: StoreLockOptions = {}): Promise<T> {
-  await ensureStoreInitialized(storePath);
-  if (typeof lockName !== "string" || !lockName.trim()) throw new Error("Invalid argument: lock_name must be a non-empty string");
-  const normalizedLockName = lockName.trim();
-  assertSafeEventPathComponent(normalizedLockName, "lock_name");
-  const timeoutMs = options.timeout_ms ?? 5_000;
-  const pollMs = options.poll_ms ?? 20;
-  const staleMs = options.stale_ms ?? 30_000;
-  const heartbeatMs = options.heartbeat_ms ?? Math.max(5, Math.floor(staleMs / 3));
-  const lockPath = join(storePath, "state", "locks", normalizedLockName);
-  const ownerPath = join(lockPath, "owner.json");
-  const ownerToken = randomUUID();
-  const startedAt = Date.now();
-  await mkdir(dirname(lockPath), { recursive: true });
-
-  async function readOwner(): Promise<{ token: string; heartbeat_at: string } | undefined> {
-    try {
-      const value = JSON.parse(await readFile(ownerPath, "utf8")) as { token?: unknown; heartbeat_at?: unknown };
-      if (typeof value.token !== "string" || typeof value.heartbeat_at !== "string") return undefined;
-      return { token: value.token, heartbeat_at: value.heartbeat_at };
-    } catch (error) {
-      if (error instanceof Error && "code" in error && error.code === "ENOENT") return undefined;
-      return undefined;
-    }
-  }
-
-  async function removeIfOwned(token: string): Promise<boolean> {
-    const owner = await readOwner();
-    if (owner?.token !== token) return false;
-    const tombstonePath = `${lockPath}.remove-${token}`;
-    try {
-      await rename(lockPath, tombstonePath);
-    } catch (error) {
-      if (error instanceof Error && "code" in error && error.code === "ENOENT") return false;
-      throw error;
-    }
-    const movedOwner = await (async () => {
-      try {
-        return JSON.parse(await readFile(join(tombstonePath, "owner.json"), "utf8")) as { token?: unknown };
-      } catch {
-        return undefined;
-      }
-    })();
-    if (movedOwner?.token !== token) {
-      try { await rename(tombstonePath, lockPath); } catch { /* replacement already exists */ }
-      return false;
-    }
-    await rm(tombstonePath, { recursive: true, force: true });
-    return true;
-  }
-
-  async function removeUninitializedOwner(): Promise<void> {
-    if (await readOwner()) return;
-    const tombstonePath = `${lockPath}.init-failed-${ownerToken}`;
-    try {
-      await rename(lockPath, tombstonePath);
-    } catch (error) {
-      if (error instanceof Error && "code" in error && error.code === "ENOENT") return;
-      throw error;
-    }
-    try {
-      const replacement = await (async () => {
-        try {
-          return JSON.parse(await readFile(join(tombstonePath, "owner.json"), "utf8")) as { token?: unknown };
-        } catch {
-          return undefined;
-        }
-      })();
-      if (typeof replacement?.token === "string") {
-        try { await rename(tombstonePath, lockPath); } catch { /* replacement already restored */ }
-        return;
-      }
-      await rm(tombstonePath, { recursive: true, force: true });
-    } catch (error) {
-      try { await rename(tombstonePath, lockPath); } catch { /* preserve current owner */ }
-      throw error;
-    }
-  }
-
-  while (true) {
-    try {
-      await mkdir(lockPath);
-      try {
-        const timestamp = new Date().toISOString();
-        await writeFile(ownerPath, JSON.stringify({ token: ownerToken, pid: process.pid, acquired_at: timestamp, heartbeat_at: timestamp }), { encoding: "utf8", flag: "wx" });
-      } catch (error) {
-        if (!await removeIfOwned(ownerToken)) await removeUninitializedOwner();
-        throw error;
-      }
-      break;
-    } catch (error) {
-      if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
-      const firstOwner = await readOwner();
-      if (firstOwner) {
-        const heartbeatTime = Date.parse(firstOwner.heartbeat_at);
-        if (Number.isFinite(heartbeatTime) && Date.now() - heartbeatTime > staleMs) {
-          const confirmedOwner = await readOwner();
-          if (confirmedOwner?.token === firstOwner.token && confirmedOwner.heartbeat_at === firstOwner.heartbeat_at) {
-            if (await removeIfOwned(firstOwner.token)) continue;
-          }
-        }
-      }
-      if (Date.now() - startedAt >= timeoutMs) throw new Error(`Store lock timeout: ${normalizedLockName}`);
-      await sleep(pollMs);
-    }
-  }
-
-  let heartbeatTimer: ReturnType<typeof setTimeout> | undefined;
-  let stopHeartbeatWait: (() => void) | undefined;
-  let heartbeatStopped = false;
-  const heartbeat = (async () => {
-    while (!heartbeatStopped) {
-      await new Promise<void>((resolve) => {
-        stopHeartbeatWait = resolve;
-        heartbeatTimer = setTimeout(resolve, heartbeatMs);
-      });
-      heartbeatTimer = undefined;
-      stopHeartbeatWait = undefined;
-      if (heartbeatStopped) break;
-      const owner = await readOwner();
-      if (owner?.token !== ownerToken) break;
-      await writeFile(ownerPath, JSON.stringify({ token: ownerToken, pid: process.pid, heartbeat_at: new Date().toISOString() }), "utf8");
-    }
-  })();
-  try {
-    return await fn();
-  } finally {
-    heartbeatStopped = true;
-    if (heartbeatTimer) clearTimeout(heartbeatTimer);
-    stopHeartbeatWait?.();
-    await heartbeat;
-    await removeIfOwned(ownerToken);
-  }
-}
-
 function eventPath(storePath: string, event: MorynEvent): string {
   const deviceId = deviceFromEvent(event);
   assertSafeEventPathComponent(deviceId, "source.device_id");
   assertSafeEventPathComponent(event.event_id, "event_id");
   return join(storePath, "events", deviceId, monthFromIso(event.created_at), `${event.event_id}.json`);
+}
+
+function idempotentEventPath(storePath: string, eventId: string): string {
+  assertSafeEventPathComponent(eventId, "event_id");
+  return join(storePath, "events", "idempotent", `${eventId}.json`);
 }
 
 async function ensureStoreInitialized(storePath: string): Promise<void> {
@@ -251,6 +109,22 @@ export async function appendEvent(storePath: string, event: MorynEvent): Promise
     throw error;
   }
   return path;
+}
+
+export async function appendEventIfAbsent(storePath: string, event: MorynEvent): Promise<{ created: boolean; event: MorynEvent; path: string }> {
+  await ensureStoreInitialized(storePath);
+  const config = await readStoreConfig(storePath);
+  const parsed = parseEvent(withDefaultDeviceId(event, config.device_id));
+  assertNoUnredactedSensitiveContent(parsed);
+  const path = idempotentEventPath(storePath, parsed.event_id);
+  await mkdir(dirname(path), { recursive: true });
+  try {
+    await writeFile(path, `${JSON.stringify(parsed, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
+    return { created: true, event: parsed, path };
+  } catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
+    return { created: false, event: parseEvent(JSON.parse(await readFile(path, "utf8"))), path };
+  }
 }
 
 async function walkJsonFiles(dir: string): Promise<string[]> {

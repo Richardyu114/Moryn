@@ -1,71 +1,44 @@
-import { mkdir, readFile, rm, utimes, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { toErrorEnvelope } from "../../src/core/errors.js";
-import { appendEvent, readEvents, withStoreLock } from "../../src/core/store.js";
+import { appendEvent, appendEventIfAbsent, readEvents } from "../../src/core/store.js";
 import { withInitializedTempStore, withTempStore } from "../helpers/temp-store.js";
 
 describe("event store", () => {
-  it.each(["", "   ", ".", "..", "bad/name", "bad\\name"])("rejects unsafe store lock name %j", async (lockName) => {
+  it("atomically appends a global event once and returns the persisted event to losers", async () => {
     await withInitializedTempStore(async (storePath) => {
-      await expect(withStoreLock(storePath, lockName, async () => undefined)).rejects.toThrow(/lock_name|non-empty/i);
-    });
-  });
+      const event = {
+        event_id: "evt_checkpoint_abc123",
+        op: "upsert_record" as const,
+        created_at: "2026-05-27T00:00:00.000Z",
+        source: { client: "test", device_id: "device_a" },
+        record: {
+          id: "rec_checkpoint_abc123",
+          kind: "session_summary" as const,
+          type: "checkpoint",
+          scope: "project" as const,
+          project_id: "project-a",
+          tags: ["checkpoint"],
+          content: { text: "checkpoint", format: "json" as const },
+          state: "candidate" as const,
+          confidence: 0.5,
+          priority: "normal" as const,
+          visibility: "active" as const,
+          created_at: "2026-05-27T00:00:00.000Z",
+          updated_at: "2026-05-27T00:00:00.000Z",
+          source: { client: "test", device_id: "device_a" }
+        }
+      };
 
-  it("releases store locks after the protected function throws", async () => {
-    await withInitializedTempStore(async (storePath) => {
-      await expect(withStoreLock(storePath, "checkpoint", async () => {
-        throw new Error("boom");
-      })).rejects.toThrow("boom");
+      const [first, second] = await Promise.all([
+        appendEventIfAbsent(storePath, event),
+        appendEventIfAbsent(storePath, { ...event, source: { ...event.source, device_id: "device_b" } })
+      ]);
 
-      await expect(withStoreLock(storePath, "checkpoint", async () => "recovered")).resolves.toBe("recovered");
-    });
-  });
-
-  it("removes an obviously stale store lock", async () => {
-    await withInitializedTempStore(async (storePath) => {
-      const lockPath = join(storePath, "state", "locks", "checkpoint");
-      await mkdir(lockPath, { recursive: true });
-      await writeFile(join(lockPath, "owner.json"), JSON.stringify({ token: "stale-owner", heartbeat_at: new Date(0).toISOString() }), "utf8");
-      await utimes(join(lockPath, "owner.json"), new Date(0), new Date(0));
-
-      await expect(withStoreLock(storePath, "checkpoint", async () => "acquired", { stale_ms: 10 })).resolves.toBe("acquired");
-    });
-  });
-
-  it("heartbeats a slow owner so a waiter cannot enter after stale_ms", async () => {
-    await withInitializedTempStore(async (storePath) => {
-      let firstActive = false;
-      let overlapped = false;
-      const first = withStoreLock(storePath, "checkpoint", async () => {
-        firstActive = true;
-        await new Promise((resolve) => setTimeout(resolve, 120));
-        firstActive = false;
-        return "first";
-      }, { stale_ms: 40, heartbeat_ms: 10, poll_ms: 5, timeout_ms: 500 });
-      await new Promise((resolve) => setTimeout(resolve, 15));
-      const second = withStoreLock(storePath, "checkpoint", async () => {
-        overlapped = firstActive;
-        return "second";
-      }, { stale_ms: 40, heartbeat_ms: 10, poll_ms: 5, timeout_ms: 500 });
-
-      await expect(first).resolves.toBe("first");
-      await expect(second).resolves.toBe("second");
-      expect(overlapped).toBe(false);
-    });
-  });
-
-  it("does not remove a replacement owner during release", async () => {
-    await withInitializedTempStore(async (storePath) => {
-      const lockPath = join(storePath, "state", "locks", "checkpoint");
-      await withStoreLock(storePath, "checkpoint", async () => {
-        await rm(lockPath, { recursive: true, force: true });
-        await mkdir(lockPath, { recursive: true });
-        await writeFile(join(lockPath, "owner.json"), JSON.stringify({ token: "replacement", heartbeat_at: new Date().toISOString() }), "utf8");
-      }, { stale_ms: 1_000, heartbeat_ms: 100 });
-
-      expect(JSON.parse(await readFile(join(lockPath, "owner.json"), "utf8"))).toMatchObject({ token: "replacement" });
-      await rm(lockPath, { recursive: true, force: true });
+      expect([first.created, second.created].sort()).toEqual([false, true]);
+      expect(first.event).toEqual(second.event);
+      expect(await readEvents(storePath)).toHaveLength(1);
     });
   });
   async function expectInvalidStorePath(action: () => Promise<unknown>, value: unknown): Promise<void> {
