@@ -1,8 +1,7 @@
 import { access, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { buildHostIntegrationArtifact } from "./host-integration-artifacts.js";
-import { readEvents } from "./store.js";
-import { replayEvents } from "./replay.js";
+import { readCurrentRecords } from "./record-read-model.js";
 import type { ActivationHost, ActivationReceiptEvent } from "./activation-receipts.js";
 
 export type ActivationStatus = "active" | "configured_unverified" | "generated_not_activated" | "stale_moryn_config" | "invalid_config" | "blocked_by_policy" | "host_schema_unknown" | "not_installed";
@@ -55,7 +54,7 @@ export async function inspectHostActivation(input: { store_path: string; project
   const fragmentPath = join(input.project_path, artifact.path);
   const targetPath = join(input.project_path, artifact.merge_target);
   const fragmentExists = await exists(fragmentPath);
-  const records = [...replayEvents(await readEvents(input.store_path)).values()]
+  const records = (await readCurrentRecords(input.store_path)).records
     .filter((record) => record.type === "activation_receipt" && record.project_id === input.project_id && record.content.activation_id === artifact.activation_id)
     .sort((left, right) => right.created_at.localeCompare(left.created_at) || left.id.localeCompare(right.id));
   const observedEvents = [...new Set(records.map((record) => record.content.event).filter((event): event is ActivationReceiptEvent => typeof event === "string"))];

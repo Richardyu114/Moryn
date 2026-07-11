@@ -17,6 +17,7 @@ import { diagnoseHealthCheck, type HealthCheckReport } from "../core/health-chec
 import { diagnoseMemoryLifecycle, type MemoryLifecycleResult } from "../core/memory-lifecycle.js";
 import { diagnoseMemory, type MemoryDoctorResult } from "../core/memory-doctor.js";
 import { buildActiveLogicalMemoryView } from "../core/logical-memory.js";
+import { readCurrentRecords } from "../core/record-read-model.js";
 import type { RecallEvalReport } from "../core/recall-eval.js";
 import { replayEvents } from "../core/replay.js";
 import { readEvents } from "../core/store.js";
@@ -3228,7 +3229,7 @@ function buildDashboardGovernance(input: {
 export async function buildDashboardData(storePath: string, options: DashboardOptions = {}): Promise<DashboardData> {
   const limit = dashboardLimit(options.limit);
   const events = await readEvents(storePath);
-  const allRecordsById = replayEvents(events);
+  const allRecordsById = new Map((await readCurrentRecords(storePath)).records.map((record) => [record.id, record]));
   const allRecords = [...allRecordsById.values()];
   const records = allRecords.filter((record) => isVisibleForDashboard(record, options.include_private));
   const logicalView = buildActiveLogicalMemoryView(records);
