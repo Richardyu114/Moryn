@@ -2754,4 +2754,65 @@ describe("agent lifecycle", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("learns after a Codex knowledge gap and reuses it in Claude Code without duplication", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-cross-agent-learning-"));
+    const remote = join(root, "remote.git");
+    const codexStore = join(root, "codex-store");
+    const claudeStore = join(root, "claude-store");
+    const project = join(root, "project");
+    const learning = {
+      question: "What is the project rollback policy?",
+      conclusion: "Rollback requires restoring the previous signed release tag.",
+      evidence_type: "user_confirmed" as const,
+      scope: "project" as const,
+      confidence: 1,
+      recommended_kind: "memory" as const,
+      recommended_type: "fact",
+      related_record_ids: []
+    };
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(codexStore, { id: () => "device-codex" });
+      await initializeStore(claudeStore, { id: () => "device-claude" });
+      await initializeGitSync(codexStore, remote);
+      await initializeGitSync(claudeStore, remote);
+      const codexEngine = createEngine({ storePath: codexStore });
+      expect((await codexEngine.recall({ project_id: "moryn", query: "project rollback signed release tag" })).outcome).toMatchObject({ status: "knowledge_gap" });
+
+      const codexFinish = await agentFinish({
+        storePath: codexStore,
+        projectPath: project,
+        agent: { client: "codex", session_id: "codex-1", device_id: "device-codex" },
+        summary: "Codex learned the rollback policy.",
+        learnings: [learning],
+        push: true
+      }, { now: () => "2026-07-11T00:00:00.000Z" });
+      expect(codexFinish.learning_ingestion).toMatchObject({ records_created: 1 });
+
+      const claudeStart = await agentStart({
+        storePath: claudeStore,
+        projectPath: project,
+        currentTask: "Prepare rollback",
+        agent: { client: "claude-code", session_id: "claude-1", device_id: "device-claude" },
+        pull: true
+      });
+      expect(claudeStart.sync.pull?.pulled).toBe(true);
+      const claudeEngine = createEngine({ storePath: claudeStore });
+      const recalled = await claudeEngine.recall({ project_id: "moryn", query: "project rollback signed release tag" });
+      expect(recalled.outcome).toMatchObject({ status: "trusted_match", trust: "trusted" });
+      expect(recalled.results[0]?.record.content.text).toBe(learning.conclusion);
+
+      const repeated = await claudeEngine.ingestLearnings({
+        project_id: "moryn",
+        learnings: [{ ...learning, question: "How should Claude Code roll back?" }],
+        occurred_at: "2026-07-11T00:10:00.000Z",
+        source: { client: "claude-code", session_id: "claude-1", device_id: "device-claude" }
+      });
+      expect(repeated).toMatchObject({ records_created: 0, dispositions: [{ created: false, record_id: codexFinish.learning_ingestion.dispositions[0]?.record_id }] });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });

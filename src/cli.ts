@@ -3122,6 +3122,7 @@ agent.command("finish")
     const push = parseBooleanDefault(options.push, true);
     const agentOptions = parseAgentOptions(options, operation);
     const summary = parseNonEmptyCliString(options.summary, "--summary", lifecycleStringSource(operation, "summary"))!;
+    const learnings = (options.learning ?? []).map((value: string) => parseCheckpointJson(value, "--learning") as LearningDeltaInput);
     const contextInput = {
       project_id: parseNonEmptyCliString(options.projectId, "--project-id", lifecycleStringSource(operation, "project_id")),
       project_path: parseNonEmptyCliString(options.project, "--project", lifecycleStringSource(operation, "project_path")),
@@ -3130,7 +3131,7 @@ agent.command("finish")
       summary,
       ...(push === false ? { push } : {}),
       agent: agentOptions,
-      learnings: (options.learning ?? []).map((value: string) => parseCheckpointJson(value, "--learning") as LearningDeltaInput)
+      ...(learnings.length ? { learnings } : {})
     };
     const contextArguments = compactUndefined(contextInput);
     const context = {
@@ -3148,7 +3149,7 @@ agent.command("finish")
         summary,
         push,
         agent: agentOptions,
-        learnings: (options.learning ?? []).map((value: string) => parseCheckpointJson(value, "--learning") as LearningDeltaInput)
+        learnings
       });
       printJson(await withDashboard(result, { open: options.open }));
     } catch (error) {

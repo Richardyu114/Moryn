@@ -1005,6 +1005,35 @@ async function expectInvalidMcpArguments(action: () => Promise<Awaited<ReturnTyp
 }
 
 describe("MCP stdio server", () => {
+  it("accepts Learning Deltas in agent_finish", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-finish-learning-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        await client.callTool({ name: "init", arguments: {} });
+        const result = parseTextContent(await client.callTool({
+          name: "agent_finish",
+          arguments: {
+            project_id: "moryn",
+            summary: "Finished after learning.",
+            push: false,
+            agent: { client: "claude-code", session_id: "claude-1", device_id: "device-b" },
+            learnings: [{
+              question: "When does Moryn pull?",
+              conclusion: "Moryn pulls on agent enter.",
+              evidence_type: "source_code",
+              scope: "project",
+              confidence: 0.9,
+              recommended_kind: "memory",
+              recommended_type: "fact",
+              related_record_ids: []
+            }]
+          }
+        })) as any;
+        expect(result).toMatchObject({ ok: true, learning_ingestion: { records_created: 1, dispositions: [{ state: "canonical" }] } });
+      });
+    } finally { await rm(store, { recursive: true, force: true }); }
+  });
+
   it("registers checkpoint and enforces authored identity with camelCase aliases", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-checkpoint-"));
     try {
@@ -3056,6 +3085,7 @@ describe("MCP stdio server", () => {
           "install",
           "link",
           "list_recent",
+          "logical_link",
           "memory_doctor",
           "memory_lifecycle",
           "operation_contracts",

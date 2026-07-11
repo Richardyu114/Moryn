@@ -10638,4 +10638,18 @@ describe("agent checkpoint CLI", () => {
       await expect(exec("node", [...base, "--checkpoint-id", "checkpoint-1", "--progress", "one", "--learning", "{"])).rejects.toMatchObject({ stderr: expect.stringContaining("Invalid argument: Invalid --learning JSON") });
     });
   });
+
+  it("accepts Learning Deltas in agent finish", async () => {
+    await withTempDir(async (store) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      const learning = JSON.stringify({ question: "When does Moryn pull?", conclusion: "Moryn pulls on agent enter.", evidence_type: "source_code", scope: "project", confidence: 0.9, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] });
+      const parsed = JSON.parse((await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store, "agent", "finish",
+        "--project-id", "project-a", "--summary", "Finished after learning.", "--no-push",
+        "--agent", "codex", "--session-id", "session-1", "--device-id", "device-a",
+        "--learning", learning
+      ])).stdout);
+      expect(parsed).toMatchObject({ ok: true, learning_ingestion: { records_created: 1, dispositions: [{ state: "canonical" }] } });
+    });
+  });
 });

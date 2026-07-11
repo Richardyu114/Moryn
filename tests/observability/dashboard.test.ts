@@ -9696,7 +9696,7 @@ describe("logical memory capacity telemetry", () => {
       const duplicate = await engine.write({ ...base, content: { text: "Autonomous sync" } });
       await engine.logicalLink({ record_id: duplicate.record.id, linked_record_id: first.record.id, relationship: "duplicate_of", reason: "Exact duplicate" });
       const data = await buildDashboardData(storePath, { project_id: "moryn" });
-      expect(data.logical_memory).toEqual({ store_records: 2, active_working_set_records: 1, hidden_logical_records: 1, conflict_records: 0, cycle_findings: 0 });
+      expect(data.logical_memory).toEqual({ store_records: 2, active_working_set_records: 1, hidden_logical_records: 1, conflict_records: 0, cycle_findings: 0, learned_records: 0, learned_canonical_records: 0, learned_candidate_records: 0, learning_evidence_links: 0 });
     });
   });
 });

@@ -819,6 +819,10 @@ export interface DashboardData {
     hidden_logical_records: number;
     conflict_records: number;
     cycle_findings: number;
+    learned_records: number;
+    learned_canonical_records: number;
+    learned_candidate_records: number;
+    learning_evidence_links: number;
   };
   actions: DashboardAction[];
   actions_by_id: Record<string, DashboardAction>;
@@ -3325,7 +3329,11 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
       active_working_set_records: logicalView.active_records.length,
       hidden_logical_records: Object.keys(logicalView.hidden_by_record_id).length,
       conflict_records: logicalView.conflict_record_ids.length,
-      cycle_findings: logicalView.findings.length
+      cycle_findings: logicalView.findings.length,
+      learned_records: records.filter((record) => record.tags.includes("learning")).length,
+      learned_canonical_records: records.filter((record) => record.tags.includes("learning") && record.state === "canonical").length,
+      learned_candidate_records: records.filter((record) => record.tags.includes("learning") && record.state === "candidate").length,
+      learning_evidence_links: records.reduce((count, record) => count + (record.links?.filter((link) => link.link_type === "supports" && link.reason?.startsWith("Learning evidence:")).length ?? 0), 0)
     },
     actions,
     actions_by_id: actionsById(actions),
