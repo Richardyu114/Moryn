@@ -168,3 +168,37 @@ describe("logical memory fingerprints", () => {
     );
   });
 });
+
+describe("active logical memory view", () => {
+  it("hides duplicate sources and superseded or revised targets", async () => {
+    const { buildActiveLogicalMemoryView } = await import("../../src/core/logical-memory.js");
+    const duplicate = record({ id: "duplicate", links: [{ record_id: "canonical", link_type: "duplicate_of", created_at: "2026-07-11T00:00:00.000Z" }] });
+    const canonical = record({ id: "canonical" });
+    const replacement = record({ id: "replacement", links: [{ record_id: "old", link_type: "supersedes", created_at: "2026-07-11T00:00:00.000Z" }] });
+    const old = record({ id: "old" });
+    const revision = record({ id: "revision", links: [{ record_id: "draft", link_type: "revises", created_at: "2026-07-11T00:00:00.000Z" }] });
+    const draft = record({ id: "draft" });
+    const view = buildActiveLogicalMemoryView([duplicate, canonical, replacement, old, revision, draft]);
+    expect(view.active_records.map((item) => item.id).sort()).toEqual(["canonical", "replacement", "revision"]);
+    expect(view.hidden_by_record_id).toMatchObject({ duplicate: { relationship: "duplicate_of", active_record_id: "canonical" }, old: { relationship: "supersedes", active_record_id: "replacement" }, draft: { relationship: "revises", active_record_id: "revision" } });
+  });
+
+  it("keeps conflicts and supports visible", async () => {
+    const { buildActiveLogicalMemoryView } = await import("../../src/core/logical-memory.js");
+    const first = record({ id: "first", links: [{ record_id: "second", link_type: "conflicts_with", created_at: "2026-07-11T00:00:00.000Z" }] });
+    const second = record({ id: "second", links: [{ record_id: "third", link_type: "supports", created_at: "2026-07-11T00:00:00.000Z" }] });
+    const third = record({ id: "third" });
+    const view = buildActiveLogicalMemoryView([first, second, third]);
+    expect(view.active_records).toHaveLength(3);
+    expect(view.conflict_record_ids).toEqual(["first", "second"]);
+  });
+
+  it("keeps cyclic logical replacements visible and reports them", async () => {
+    const { buildActiveLogicalMemoryView } = await import("../../src/core/logical-memory.js");
+    const first = record({ id: "first", links: [{ record_id: "second", link_type: "supersedes", created_at: "2026-07-11T00:00:00.000Z" }] });
+    const second = record({ id: "second", links: [{ record_id: "first", link_type: "supersedes", created_at: "2026-07-11T00:00:00.000Z" }] });
+    const view = buildActiveLogicalMemoryView([first, second]);
+    expect(view.active_records.map((item) => item.id).sort()).toEqual(["first", "second"]);
+    expect(view.findings).toContainEqual(expect.objectContaining({ code: "LOGICAL_RELATIONSHIP_CYCLE", record_ids: ["first", "second"] }));
+  });
+});
