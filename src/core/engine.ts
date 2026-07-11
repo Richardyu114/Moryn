@@ -21,6 +21,7 @@ import { evaluateRecall, RECALL_EVAL_SELECTION_SOURCES, type RecallEvalInput } f
 import { buildCheckpointRecoveryPack, CHECKPOINT_SELECTION_SOURCES, checkpointIdentity, checkpointPayloadDigest, checkpointSummary, matchesCheckpoint, matchesCheckpointPayload, normalizeCheckpointInput, parseCheckpointContent, type CheckpointInput, type CheckpointResult } from "./checkpoint.js";
 import { buildActiveLogicalMemoryView, compareLogicalMemoryTargets, logicalMemoryFingerprint, validateLogicalRelationship, type LogicalRelationshipType } from "./logical-memory.js";
 import { assessRecallOutcome } from "./recall-outcome.js";
+import { buildRecallNextActions, RECALL_ACTION_SELECTION_SOURCES } from "./recall-actions.js";
 import { learningDeltaSchema, semanticConsolidationProposalSchema, type LearningDelta, type SemanticConsolidationProposal } from "./context-delta.js";
 import { learningStatePolicy } from "./learning-policy.js";
 import { learningRecordIdentity, normalizeLearningRecord } from "./learning-ingestion.js";
@@ -396,7 +397,9 @@ export { HEALTH_CHECK_SELECTION_SOURCES };
 export const RECALL_SELECTION_SOURCES = {
   result: "results_by_id.<record_id>",
   record: "results_by_id.<record_id>.record",
-  record_id: "results_by_id.<record_id>.record.id"
+  record_id: "results_by_id.<record_id>.record.id",
+  next_action: RECALL_ACTION_SELECTION_SOURCES.action,
+  ordered_next_action: RECALL_ACTION_SELECTION_SOURCES.ordered_action
 };
 
 export { RECALL_EVAL_SELECTION_SOURCES };
@@ -3577,9 +3580,13 @@ export function createEngine(deps: EngineDeps) {
         ? assessRecallOutcome({ query: recallInput.query, results: rankedRecords, now: now() })
         : undefined;
       const records = outcome?.status === "knowledge_gap" ? [] : rankedRecords;
+      const actionContract = outcome
+        ? buildRecallNextActions({ query: recallInput.query ?? "", outcome, include_private: recallInput.include_private })
+        : undefined;
       return {
         results: records,
         ...(outcome ? { outcome } : {}),
+        ...(actionContract ? actionContract : {}),
         selection_sources: RECALL_SELECTION_SOURCES,
         results_by_id: Object.fromEntries(records.map((result) => [result.record.id, result]))
       };

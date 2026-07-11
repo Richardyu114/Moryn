@@ -1806,8 +1806,26 @@ describe("core engine", () => {
 
       expect(gap.outcome).toMatchObject({ status: "knowledge_gap", recommended_action: "explore_then_capture_learning" });
       expect(gap.results).toEqual([]);
+      expect(gap.next_actions.map((action) => action.id)).toEqual([
+        "explore_external_sources",
+        "capture_confirmed_learning",
+        "preserve_unresolved_investigation"
+      ]);
+      expect(gap.next_actions_by_id.capture_confirmed_learning.destinations).toEqual([
+        "checkpoint.delta.learnings[]",
+        "finish.learnings[]"
+      ]);
       expect(match.outcome).toMatchObject({ status: "trusted_match", trust: "trusted", recommended_action: "use_recalled_knowledge" });
       expect(match.results).toHaveLength(1);
+      expect(match.next_actions.map((action) => action.id)).toEqual([
+        "use_recalled_knowledge",
+        "inspect_record_timeline"
+      ]);
+      expect(match.next_actions_by_id.inspect_record_timeline.interfaces.mcp).toMatchObject({
+        tool: "timeline",
+        arguments: { record_id: match.results[0]?.record.id, include_private: false }
+      });
+      expect(match.selection_sources.next_action).toBe("next_actions_by_id.<action_id>");
     });
   });
 
@@ -3594,7 +3612,9 @@ describe("core engine", () => {
       expect(recall.selection_sources).toEqual({
         result: "results_by_id.<record_id>",
         record: "results_by_id.<record_id>.record",
-        record_id: "results_by_id.<record_id>.record.id"
+        record_id: "results_by_id.<record_id>.record.id",
+        next_action: "next_actions_by_id.<action_id>",
+        ordered_next_action: "next_actions[]"
       });
       expect(recall.results_by_id[decision.record.id]).toEqual(recall.results[0]);
     });

@@ -32,6 +32,8 @@ export { retrieveSemanticConsolidationCandidates, SEMANTIC_CONSOLIDATION_CANDIDA
 export type { SemanticConsolidationCandidate, SemanticConsolidationCandidateOptions } from "./core/semantic-consolidation-candidates.js";
 export { assessRecallOutcome, queryTokenCoverage } from "./core/recall-outcome.js";
 export type { RecallOutcome, RecallOutcomeStatus, RecallTrust } from "./core/recall-outcome.js";
+export { buildRecallNextActions, RECALL_ACTION_SELECTION_SOURCES } from "./core/recall-actions.js";
+export type { RecallActionContract, RecallNextAction, RecallNextActionId } from "./core/recall-actions.js";
 export { learningStatePolicy } from "./core/learning-policy.js";
 export type { LearningPolicyReason, LearningStatePolicyResult } from "./core/learning-policy.js";
 export { learningRecordIdentity, normalizeLearningRecord } from "./core/learning-ingestion.js";
