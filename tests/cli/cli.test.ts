@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 import { readEvents } from "../../src/core/store.js";
-import { createEngine } from "../../src/core/engine.js";
+import { BOOT_SELECTION_SOURCES, createEngine } from "../../src/core/engine.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
 const exec = promisify(execFile);
@@ -4754,18 +4754,7 @@ describe("moryn CLI", () => {
       };
 
       expect(parsedWrite.record.confidence).toBe(0.9);
-      expect(parsedBoot.selection_sources).toEqual({
-        record: "records_by_id.<record_id>",
-        record_id: "records_by_id.<record_id>.id",
-        user_preference: "profile.user_preferences_by_id.<record_id>",
-        soul: "profile.soul_by_id.<record_id>",
-        global_rule: "profile.global_rules_by_id.<record_id>",
-        important_decision: "project.important_decisions_by_id.<record_id>",
-        warning: "project.warnings_by_id.<record_id>",
-        skill: "skills_by_id.<record_id>",
-        task_relevant: "task_relevant_by_id.<record_id>",
-        recent_change: "recent_changes_by_id.<record_id>"
-      });
+      expect(parsedBoot.selection_sources).toEqual(BOOT_SELECTION_SOURCES);
       expect(parsedBoot.recent_changes.map((record) => record.id)).toContain(parsedWrite.record.id);
       expect(parsedBoot.recent_changes_by_id[parsedWrite.record.id]).toEqual(
         parsedBoot.recent_changes.find((record) => record.id === parsedWrite.record.id)
