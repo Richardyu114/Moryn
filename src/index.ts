@@ -32,6 +32,8 @@ export type { LogicalRelationshipInput, LogicalRelationshipType, ValidatedLogica
 export { captureSession, contextPack, getHostAdapter, getHostAdapters, normalizeHostId, planInstall } from "./core/host-adapters.js";
 export { getHostCapabilities, negotiateHostLifecycle } from "./core/host-capabilities.js";
 export type { HostCapabilities, HostLifecycleEvent } from "./core/host-capabilities.js";
+export { normalizeHostHookEvent } from "./core/host-hooks.js";
+export type { NormalizedHostHookEvent } from "./core/host-hooks.js";
 import { CAPTURE_SESSION_SELECTION_SOURCES, HANDOFF_PACK_SELECTION_SOURCES, HANDOFF_QUALITY_GATE_SELECTION_SOURCES } from "./core/host-adapters.js";
 export { setupWizard } from "./core/setup-wizard.js";
 import { SETUP_WIZARD_SELECTION_SOURCES } from "./core/setup-wizard.js";
