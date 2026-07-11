@@ -5,7 +5,8 @@ import {
   type ContextDelta,
   type ContextDeltaInput,
   type LearningDelta,
-  type LearningDeltaInput
+  type LearningDeltaInput,
+  type SemanticConsolidationProposal
 } from "../../src/index.js";
 
 describe("validateContextDelta", () => {
@@ -45,6 +46,7 @@ describe("validateContextDelta", () => {
       files: ["src/a.ts", "src/b.ts"],
       candidate_memories: [],
       candidate_skills: [],
+      semantic_consolidation_proposals: [],
       learnings: [
         {
           question: "What changed?",
@@ -227,5 +229,68 @@ describe("validateContextDelta", () => {
         recommended_type: "release_fact"
       }]
     })).toThrow(z.ZodError);
+  });
+
+  it("normalizes strict semantic consolidation proposals", () => {
+    const proposal: SemanticConsolidationProposal = validateContextDelta({
+      session_id: " session-1 ",
+      checkpoint_id: " checkpoint-1 ",
+      semantic_consolidation_proposals: [{
+        proposal_id: " proposal-1 ",
+        source_record_id: " rec-new ",
+        target_record_id: " rec-old ",
+        relationship: "revises",
+        confidence: 0.98,
+        rationale: " Clarifies the same retry policy with source-code evidence. ",
+        semantic_equivalence: "refinement",
+        material_differences: [{ field: " retry count ", before: " three retries ", after: " 3 retries ", significance: "minor" }],
+        evidence_record_ids: [" rec-evidence "]
+      }]
+    }).semantic_consolidation_proposals[0];
+
+    expect(proposal).toEqual({
+      proposal_id: "proposal-1",
+      source_record_id: "rec-new",
+      target_record_id: "rec-old",
+      relationship: "revises",
+      confidence: 0.98,
+      rationale: "Clarifies the same retry policy with source-code evidence.",
+      semantic_equivalence: "refinement",
+      material_differences: [{ field: "retry count", before: "three retries", after: "3 retries", significance: "minor" }],
+      evidence_record_ids: ["rec-evidence"]
+    });
+  });
+
+  it("rejects malformed semantic consolidation proposals", () => {
+    const valid = {
+      proposal_id: "proposal-1",
+      source_record_id: "rec-new",
+      target_record_id: "rec-old",
+      relationship: "revises" as const,
+      confidence: 0.98,
+      rationale: "Clarifies the same retry policy.",
+      semantic_equivalence: "refinement" as const,
+      material_differences: [{ field: "wording", significance: "minor" as const }],
+      evidence_record_ids: ["rec-evidence"]
+    };
+    const invalid = [
+      { ...valid, unknown: true },
+      { ...valid, target_record_id: "rec-new" },
+      { ...valid, semantic_equivalence: "equivalent" },
+      { ...valid, confidence: -0.01 },
+      { ...valid, confidence: 1.01 },
+      { ...valid, rationale: " " },
+      { ...valid, evidence_record_ids: ["rec-evidence", " rec-evidence "] },
+      { ...valid, material_differences: [{ field: " ", significance: "minor" }] },
+      { ...valid, material_differences: [{ field: "wording", significance: "major" }] }
+    ];
+
+    for (const proposal of invalid) {
+      expect(() => validateContextDelta({
+        session_id: "session-1",
+        checkpoint_id: "checkpoint-1",
+        semantic_consolidation_proposals: [proposal]
+      })).toThrow(z.ZodError);
+    }
   });
 });

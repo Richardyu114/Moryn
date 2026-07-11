@@ -32,6 +32,7 @@ export interface RecoveryPack {
   candidate_memories?: string[];
   candidate_skills?: string[];
   learnings?: ContextDelta["learnings"];
+  semantic_consolidation_proposals?: ContextDelta["semantic_consolidation_proposals"];
 }
 
 export interface CheckpointRecoveryPackInput {
@@ -198,7 +199,11 @@ export function matchesCheckpointPayload(record: MorynRecord, input: NormalizedC
 }
 
 export function checkpointSummary(delta: ContextDelta): string {
-  const parts = [delta.current_task ? `Task: ${delta.current_task}` : undefined, delta.progress.length ? `Progress: ${delta.progress.join("; ")}` : undefined];
+  const parts = [
+    delta.current_task ? `Task: ${delta.current_task}` : undefined,
+    delta.progress.length ? `Progress: ${delta.progress.join("; ")}` : undefined,
+    delta.semantic_consolidation_proposals.length ? `Semantic consolidation proposals: ${delta.semantic_consolidation_proposals.length}` : undefined
+  ];
   return parts.filter(Boolean).join(" | ");
 }
 
@@ -232,6 +237,30 @@ function newestPriorityLearnings(checkpoints: readonly ContextDelta[]): ContextD
   const displayedKeys = new Set<string>();
   return checkpoints.flatMap((checkpoint) => checkpoint.learnings).filter((learning) => {
     const key = JSON.stringify(canonicalLearning(learning));
+    if (!selectedKeys.has(key) || displayedKeys.has(key)) return false;
+    displayedKeys.add(key);
+    return true;
+  });
+}
+
+function canonicalSemanticConsolidationProposal(proposal: ContextDelta["semantic_consolidation_proposals"][number]): unknown {
+  return canonicalValue({
+    ...proposal,
+    evidence_record_ids: [...proposal.evidence_record_ids].sort(compareCodeUnits),
+    material_differences: proposal.material_differences.map((difference) => canonicalValue(difference))
+  });
+}
+
+function newestPrioritySemanticConsolidationProposals(checkpoints: readonly ContextDelta[]): ContextDelta["semantic_consolidation_proposals"] {
+  const selectedKeys = new Set<string>();
+  for (const checkpoint of [...checkpoints].reverse()) {
+    for (const proposal of checkpoint.semantic_consolidation_proposals) {
+      if (selectedKeys.size < 10) selectedKeys.add(JSON.stringify(canonicalSemanticConsolidationProposal(proposal)));
+    }
+  }
+  const displayedKeys = new Set<string>();
+  return checkpoints.flatMap((checkpoint) => checkpoint.semantic_consolidation_proposals).filter((proposal) => {
+    const key = JSON.stringify(canonicalSemanticConsolidationProposal(proposal));
     if (!selectedKeys.has(key) || displayedKeys.has(key)) return false;
     displayedKeys.add(key);
     return true;
@@ -280,7 +309,8 @@ export function buildCheckpointRecoveryPack(records: readonly MorynRecord[], inp
     files: newestPriorityExactValues(checkpoints, "files"),
     candidate_memories: newestPriorityExactValues(checkpoints, "candidate_memories"),
     candidate_skills: newestPriorityExactValues(checkpoints, "candidate_skills"),
-    learnings: newestPriorityLearnings(checkpoints)
+    learnings: newestPriorityLearnings(checkpoints),
+    semantic_consolidation_proposals: newestPrioritySemanticConsolidationProposals(checkpoints)
   };
 }
 

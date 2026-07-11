@@ -20,8 +20,8 @@ import { WORKING_SET_REPORT_SELECTION_SOURCES } from "./core/working-set-report.
 export { createEngine } from "./core/engine.js";
 export { buildWorkingSetReport, summarizeWorkingSet } from "./core/working-set-report.js";
 export type { WorkingSetReportOptions, WorkingSetSummaryOptions } from "./core/working-set-report.js";
-export { contextDeltaSchema, learningDeltaSchema, validateContextDelta } from "./core/context-delta.js";
-export type { ContextDelta, ContextDeltaInput, LearningDelta, LearningDeltaInput } from "./core/context-delta.js";
+export { contextDeltaSchema, learningDeltaSchema, semanticConsolidationDifferenceSchema, semanticConsolidationProposalSchema, validateContextDelta } from "./core/context-delta.js";
+export type { ContextDelta, ContextDeltaInput, LearningDelta, LearningDeltaInput, SemanticConsolidationDifference, SemanticConsolidationDifferenceInput, SemanticConsolidationProposal, SemanticConsolidationProposalInput } from "./core/context-delta.js";
 export { buildCheckpointRecoveryPack, CHECKPOINT_SELECTION_SOURCES } from "./core/checkpoint.js";
 export type { CheckpointInput, CheckpointRecoveryPackInput, CheckpointResult, RecoveryPack } from "./core/checkpoint.js";
 import { CHECKPOINT_SELECTION_SOURCES } from "./core/checkpoint.js";

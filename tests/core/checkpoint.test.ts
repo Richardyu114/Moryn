@@ -168,6 +168,38 @@ describe("buildCheckpointRecoveryPack", () => {
 });
 
 describe("engine.checkpoint", () => {
+  it("preserves semantic consolidation proposals in checkpoint recovery", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createTestEngine(storePath);
+      const proposal = {
+        proposal_id: "proposal-1",
+        source_record_id: "rec-new",
+        target_record_id: "rec-old",
+        relationship: "duplicate_of" as const,
+        confidence: 0.99,
+        rationale: "Equivalent lifecycle rule.",
+        semantic_equivalence: "equivalent" as const,
+        material_differences: [],
+        evidence_record_ids: ["rec-evidence"]
+      };
+      const result = await engine.checkpoint({
+        project_id: "project-a",
+        ...authored,
+        delta: {
+          session_id: "session-1",
+          checkpoint_id: "semantic-proposal",
+          semantic_consolidation_proposals: [proposal]
+        }
+      });
+
+      expect(result.record.content.checkpoint).toMatchObject({ semantic_consolidation_proposals: [proposal] });
+      expect(result.recovery_pack.semantic_consolidation_proposals).toEqual([proposal]);
+      expect((await engine.boot({ project_id: "project-a", agent_session_id: "session-1" })).checkpoint_recovery_pack).toMatchObject({
+        semantic_consolidation_proposals: [proposal]
+      });
+    });
+  });
+
   it("materializes checkpoint learnings idempotently before compaction", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createTestEngine(storePath);
