@@ -22,6 +22,8 @@ export type { ContextDelta, ContextDeltaInput, LearningDelta, LearningDeltaInput
 export { buildCheckpointRecoveryPack, CHECKPOINT_SELECTION_SOURCES } from "./core/checkpoint.js";
 export type { CheckpointInput, CheckpointRecoveryPackInput, CheckpointResult, RecoveryPack } from "./core/checkpoint.js";
 import { CHECKPOINT_SELECTION_SOURCES } from "./core/checkpoint.js";
+export { LOGICAL_RELATIONSHIP_TYPES, validateLogicalRelationship } from "./core/logical-memory.js";
+export type { LogicalRelationshipInput, LogicalRelationshipType, ValidatedLogicalRelationship } from "./core/logical-memory.js";
 export { captureSession, contextPack, getHostAdapter, getHostAdapters, normalizeHostId, planInstall } from "./core/host-adapters.js";
 import { CAPTURE_SESSION_SELECTION_SOURCES, HANDOFF_PACK_SELECTION_SOURCES, HANDOFF_QUALITY_GATE_SELECTION_SOURCES } from "./core/host-adapters.js";
 export { setupWizard } from "./core/setup-wizard.js";
