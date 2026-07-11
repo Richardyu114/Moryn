@@ -2767,6 +2767,54 @@ describe("agent lifecycle", () => {
     }
   });
 
+  it("recovers unresolved knowledge investigation after precompact without creating memory", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-knowledge-compact-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await mkdir(project, { recursive: true });
+      await initializeStore(store);
+      await initializeProjectConfig(project, { project_id: "knowledge-project" });
+      const engine = createEngine({ storePath: store });
+      await engine.checkpoint({
+        project_id: "knowledge-project",
+        source: { client: "codex", session_id: "knowledge-session", device_id: "device-1" },
+        occurred_at: "2026-07-12T00:00:00.000Z",
+        delta: {
+          session_id: "knowledge-session",
+          checkpoint_id: "precompact-knowledge",
+          current_task: "Resolve rollback policy",
+          progress: ["Inspected signed-tag validation"],
+          blockers: ["Rollback integration behavior remains unverified"],
+          next_steps: ["Run rollback integration test"],
+          files: ["src/release.ts"],
+          knowledge_investigations: [{
+            resolution_id: "rollback-policy",
+            question: "What is the rollback policy?",
+            recall_status: "knowledge_gap",
+            recalled_record_ids: [],
+            evidence: [{ type: "source_code", reference: "src/release.ts", summary: "Signed tags are validated" }],
+            status: "unresolved",
+            next_step: "Run rollback integration test"
+          }]
+        }
+      });
+
+      const resumed = await agentStart({ storePath: store, projectPath: project, currentTask: "Resolve rollback policy", agent: { client: "claude-code", session_id: "knowledge-session", device_id: "device-2" }, pull: false });
+      expect(resumed.boot.checkpoint_recovery_pack).toMatchObject({
+        latest_checkpoint_id: "precompact-knowledge",
+        knowledge_investigations: [{ resolution_id: "rollback-policy", status: "unresolved", next_step: "Run rollback integration test", evidence: [{ reference: "src/release.ts" }] }]
+      });
+      expect(resumed.next.actions_by_id.resume_from_checkpoint).toBeDefined();
+      expect((await engine.recall({ project_id: "knowledge-project", query: "rollback policy" })).outcome).toMatchObject({ status: "verification_required" });
+      const learned = await engine.recall({ project_id: "knowledge-project", query: "rollback policy", kinds: ["memory", "skill"] });
+      expect(learned.results).toEqual([]);
+      expect(learned.outcome).toMatchObject({ status: "knowledge_gap" });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("uses one injected lifecycle clock for checkpoint fallback boundaries", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-agent-checkpoint-clock-"));
     const store = join(root, "store");

@@ -27,7 +27,7 @@ import {
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "./core/agent-lifecycle.js";
 import { commandLineForCliInterface } from "./core/cli-command-line.js";
 import { initializeStore } from "./core/config.js";
-import type { ContextDeltaInput, LearningDeltaInput, SemanticConsolidationProposalInput } from "./core/context-delta.js";
+import type { ContextDeltaInput, KnowledgeInvestigationInput, LearningDeltaInput, SemanticConsolidationProposalInput } from "./core/context-delta.js";
 import { LOGICAL_RELATIONSHIP_TYPES, type LogicalRelationshipType } from "./core/logical-memory.js";
 import { rebuildDerivedViews } from "./core/derived.js";
 import { createEngine } from "./core/engine.js";
@@ -1975,7 +1975,7 @@ function parseBooleanDefault(value: unknown, fallback: boolean): boolean {
   return value === undefined ? fallback : Boolean(value);
 }
 
-function parseCheckpointJson(value: string, option: "--delta" | "--learning" | "--proposal-json" | "--semantic-consolidation-proposal"): unknown {
+function parseCheckpointJson(value: string, option: "--delta" | "--learning" | "--knowledge-investigation" | "--proposal-json" | "--semantic-consolidation-proposal"): unknown {
   try {
     return JSON.parse(value) as unknown;
   } catch (error) {
@@ -2946,13 +2946,14 @@ agent.command("checkpoint")
   .option("--candidate-memory <text>", "Candidate memory", collectNonEmptyOption("--candidate-memory"))
   .option("--candidate-skill <text>", "Candidate skill", collectNonEmptyOption("--candidate-skill"))
   .option("--learning <json>", "Learning Delta JSON", collectNonEmptyOption("--learning"))
+  .option("--knowledge-investigation <json>", "Knowledge investigation JSON", collectNonEmptyOption("--knowledge-investigation"))
   .option("--semantic-consolidation-proposal <json>", "Semantic consolidation proposal JSON", collectNonEmptyOption("--semantic-consolidation-proposal"))
   .option("--tag <tag>", "Checkpoint tag", collectNonEmptyOption("--tag"))
   .option("--include-private")
   .action(async (options) => {
     const operation = "checkpoint";
     const project = await resolveProjectOptions(options, operation);
-    const semanticFlags = ["checkpointId", "currentTask", "progress", "decision", "changedFact", "blocker", "nextStep", "file", "candidateMemory", "candidateSkill", "learning", "semanticConsolidationProposal"];
+    const semanticFlags = ["checkpointId", "currentTask", "progress", "decision", "changedFact", "blocker", "nextStep", "file", "candidateMemory", "candidateSkill", "learning", "knowledgeInvestigation", "semanticConsolidationProposal"];
     if (options.delta !== undefined && semanticFlags.some((flag) => options[flag] !== undefined)) {
       throw new Error("Invalid argument: --delta cannot be combined with checkpoint semantic flags");
     }
@@ -2966,6 +2967,7 @@ agent.command("checkpoint")
           progress: options.progress ?? [], decisions: options.decision ?? [], changed_facts: options.changedFact ?? [], blockers: options.blocker ?? [],
           next_steps: options.nextStep ?? [], files: options.file ?? [], candidate_memories: options.candidateMemory ?? [], candidate_skills: options.candidateSkill ?? [],
           learnings: (options.learning ?? []).map((value: string) => parseCheckpointJson(value, "--learning") as LearningDeltaInput),
+          knowledge_investigations: (options.knowledgeInvestigation ?? []).map((value: string) => parseCheckpointJson(value, "--knowledge-investigation") as KnowledgeInvestigationInput),
           semantic_consolidation_proposals: (options.semanticConsolidationProposal ?? []).map((value: string) => parseCheckpointJson(value, "--semantic-consolidation-proposal") as SemanticConsolidationProposalInput)
         };
     const result = await createCliEngine().checkpoint({

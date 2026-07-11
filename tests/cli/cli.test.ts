@@ -3854,7 +3854,9 @@ describe("moryn CLI", () => {
       expect(parsedRecall.selection_sources).toEqual({
         result: "results_by_id.<record_id>",
         record: "results_by_id.<record_id>.record",
-        record_id: "results_by_id.<record_id>.record.id"
+        record_id: "results_by_id.<record_id>.record.id",
+        next_action: "next_actions_by_id.<action_id>",
+        ordered_next_action: "next_actions[]"
       });
       expect(parsedRecall.results_by_id[recordId]).toEqual(parsedRecall.results[0]);
 
@@ -10639,6 +10641,22 @@ describe("agent checkpoint CLI", () => {
       const base = ["--import", tsxLoader, cliPath, "--store", store, "agent", "checkpoint", "--project-id", "project-a", "--agent", "codex", "--session-id", "session-1", "--device-id", "device-a", "--occurred-at", "2026-07-11T00:00:00.000Z"];
       await expect(exec("node", [...base, "--delta", JSON.stringify({ session_id: "session-1", checkpoint_id: "checkpoint-1", progress: ["one"] }), "--progress", "two"])).rejects.toMatchObject({ stderr: expect.stringContaining("Invalid argument") });
       await expect(exec("node", [...base, "--checkpoint-id", "checkpoint-1", "--progress", "one", "--learning", "{"])).rejects.toMatchObject({ stderr: expect.stringContaining("Invalid argument: Invalid --learning JSON") });
+    });
+  });
+
+  it("preserves unresolved knowledge investigations through checkpoint flags", async () => {
+    await withTempDir(async (store) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      const investigation = { resolution_id: "rollback", question: "What is rollback policy?", recall_status: "knowledge_gap", recalled_record_ids: [], evidence: [{ type: "source_code", reference: "src/release.ts", summary: "Signed tags are validated" }], status: "unresolved", next_step: "Run rollback integration test" };
+      const parsed = JSON.parse((await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store, "agent", "checkpoint",
+        "--project-id", "project-a", "--agent", "codex", "--session-id", "session-knowledge",
+        "--device-id", "device-a", "--occurred-at", "2026-07-12T00:00:00.000Z",
+        "--checkpoint-id", "checkpoint-knowledge", "--knowledge-investigation", JSON.stringify(investigation)
+      ])).stdout);
+
+      expect(parsed.recovery_pack.knowledge_investigations).toEqual([expect.objectContaining({ resolution_id: "rollback", status: "unresolved", next_step: "Run rollback integration test" })]);
+      expect(parsed.learning_ingestion.records_created).toBe(0);
     });
   });
 

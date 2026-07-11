@@ -163,6 +163,25 @@ describe("buildCheckpointRecoveryPack", () => {
     expect(pack.learnings?.map((item) => item.question)).toEqual(["Q0", "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q9", "Q10", "Q11"]);
   });
 
+  it("recovers the latest compact-safe knowledge investigation state", () => {
+    const older = checkpointRecord({ id: "older-investigation", checkpoint_id: "older-investigation", occurred_at: "2026-07-11T00:00:00.000Z", delta: {
+      knowledge_investigations: [{ resolution_id: "rollback", question: "What is rollback policy?", recall_status: "knowledge_gap", recalled_record_ids: [], evidence: [], status: "unresolved", next_step: "Inspect release code" }]
+    } });
+    const latest = checkpointRecord({ id: "latest-investigation", checkpoint_id: "latest-investigation", occurred_at: "2026-07-11T00:01:00.000Z", delta: {
+      knowledge_investigations: [
+        { resolution_id: "rollback", question: "What is rollback policy?", recall_status: "knowledge_gap", recalled_record_ids: [], evidence: [{ type: "source_code", reference: "src/release.ts", summary: "Signed tags are validated" }], status: "unresolved", next_step: "Run rollback integration test" },
+        { resolution_id: "retention", question: "How long are artifacts retained?", recall_status: "verification_required", recalled_record_ids: ["rec-retention"], evidence: [{ type: "documentation", reference: "docs/release.md", summary: "Thirty days" }], status: "resolved", conclusion: "Artifacts are retained for thirty days" }
+      ]
+    } });
+
+    const pack = buildCheckpointRecoveryPack([older, latest], { project_id: "project-a", session_id: "session-1" });
+
+    expect(pack.knowledge_investigations).toEqual([
+      expect.objectContaining({ resolution_id: "rollback", status: "unresolved", next_step: "Run rollback integration test", evidence: [expect.objectContaining({ reference: "src/release.ts" })] }),
+      expect.objectContaining({ resolution_id: "retention", status: "resolved", conclusion: "Artifacts are retained for thirty days" })
+    ]);
+  });
+
   it.each([0, -1, 1.5, 6, Number.NaN])("rejects invalid checkpoint recovery limit %s", (limit) => {
     expect(() => buildCheckpointRecoveryPack([], { project_id: "project-a", session_id: "session-1", limit })).toThrow("Invalid argument: limit must be an integer between 1 and 5");
   });

@@ -1045,11 +1045,17 @@ describe("MCP stdio server", () => {
         const args = {
           projectId: "project-a", occurredAt: "2026-07-11T00:00:00.000Z", includePrivate: true,
           source: { client: "codex", sessionId: "session-1", deviceId: "device-a", model: "gpt-5" },
-          delta: { session_id: "session-1", checkpoint_id: "checkpoint-1", progress: ["MCP RED"] }, tags: ["private"]
+          delta: {
+            session_id: "session-1",
+            checkpoint_id: "checkpoint-1",
+            progress: ["MCP RED"],
+            knowledge_investigations: [{ resolution_id: "rollback", question: "What is rollback policy?", recall_status: "knowledge_gap", recalled_record_ids: [], evidence: [], status: "unresolved", next_step: "Inspect release code" }]
+          },
+          tags: ["private"]
         };
         const first = parseTextContent(await client.callTool({ name: "checkpoint", arguments: args })) as any;
         const replay = parseTextContent(await client.callTool({ name: "checkpoint", arguments: args })) as any;
-        expect(first).toMatchObject({ idempotent_replay: false, committed: true, selection_sources: CHECKPOINT_SELECTION_SOURCES, recovery_pack: { progress: ["MCP RED"] } });
+        expect(first).toMatchObject({ idempotent_replay: false, committed: true, selection_sources: CHECKPOINT_SELECTION_SOURCES, recovery_pack: { progress: ["MCP RED"], knowledge_investigations: [{ resolution_id: "rollback", status: "unresolved", next_step: "Inspect release code" }] }, learning_ingestion: { records_created: 0 } });
         expect(replay).toMatchObject({ idempotent_replay: true, record: { id: first.record.id }, selection_sources: CHECKPOINT_SELECTION_SOURCES });
       });
     } finally { await rm(store, { recursive: true, force: true }); }
@@ -3559,7 +3565,9 @@ describe("MCP stdio server", () => {
         expect(recallResult.selection_sources).toEqual({
           result: "results_by_id.<record_id>",
           record: "results_by_id.<record_id>.record",
-          record_id: "results_by_id.<record_id>.record.id"
+          record_id: "results_by_id.<record_id>.record.id",
+          next_action: "next_actions_by_id.<action_id>",
+          ordered_next_action: "next_actions[]"
         });
         expect(recallResult.results_by_id[writeResult.record.id]).toEqual(recallResult.results[0]);
 

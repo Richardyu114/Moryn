@@ -1203,6 +1203,13 @@ export const OPERATION_CONTRACTS = [
         required: false,
         mcp: { argument: "delta", path: "current_task" },
         parent_argument: "delta"
+      },
+      knowledge_investigations: {
+        type: "object",
+        required: false,
+        cli: { flag: "--knowledge-investigation", repeatable: true },
+        mcp: { argument: "delta", path: "knowledge_investigations" },
+        parent_argument: "delta"
       }
     },
     interfaces: {

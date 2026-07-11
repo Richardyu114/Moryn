@@ -33,6 +33,7 @@ export interface RecoveryPack {
   candidate_memories?: string[];
   candidate_skills?: string[];
   learnings?: ContextDelta["learnings"];
+  knowledge_investigations?: ContextDelta["knowledge_investigations"];
   semantic_consolidation_proposals?: ContextDelta["semantic_consolidation_proposals"];
 }
 
@@ -205,6 +206,7 @@ export function checkpointSummary(delta: ContextDelta): string {
   const parts = [
     delta.current_task ? `Task: ${delta.current_task}` : undefined,
     delta.progress.length ? `Progress: ${delta.progress.join("; ")}` : undefined,
+    delta.knowledge_investigations.length ? `Knowledge investigations: ${delta.knowledge_investigations.length}` : undefined,
     delta.semantic_consolidation_proposals.length ? `Semantic consolidation proposals: ${delta.semantic_consolidation_proposals.length}` : undefined
   ];
   return parts.filter(Boolean).join(" | ");
@@ -244,6 +246,16 @@ function newestPriorityLearnings(checkpoints: readonly ContextDelta[]): ContextD
     displayedKeys.add(key);
     return true;
   });
+}
+
+function latestKnowledgeInvestigations(checkpoints: readonly ContextDelta[]): ContextDelta["knowledge_investigations"] {
+  const latestByResolutionId = new Map<string, ContextDelta["knowledge_investigations"][number]>();
+  for (const checkpoint of checkpoints) {
+    for (const investigation of checkpoint.knowledge_investigations) {
+      latestByResolutionId.set(investigation.resolution_id, investigation);
+    }
+  }
+  return [...latestByResolutionId.values()].slice(-10);
 }
 
 function canonicalSemanticConsolidationProposal(proposal: ContextDelta["semantic_consolidation_proposals"][number]): unknown {
@@ -313,6 +325,7 @@ export function buildCheckpointRecoveryPack(records: readonly MorynRecord[], inp
     candidate_memories: newestPriorityExactValues(checkpoints, "candidate_memories"),
     candidate_skills: newestPriorityExactValues(checkpoints, "candidate_skills"),
     learnings: newestPriorityLearnings(checkpoints),
+    knowledge_investigations: latestKnowledgeInvestigations(checkpoints),
     semantic_consolidation_proposals: newestPrioritySemanticConsolidationProposals(checkpoints)
   };
 }

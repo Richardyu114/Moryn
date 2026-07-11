@@ -46,6 +46,7 @@ describe("validateContextDelta", () => {
       files: ["src/a.ts", "src/b.ts"],
       candidate_memories: [],
       candidate_skills: [],
+      knowledge_investigations: [],
       semantic_consolidation_proposals: [],
       learnings: [
         {
@@ -292,5 +293,43 @@ describe("validateContextDelta", () => {
         semantic_consolidation_proposals: [proposal]
       })).toThrow(z.ZodError);
     }
+  });
+});
+
+describe("knowledge investigations", () => {
+  it("normalizes bounded resolved and unresolved investigation state", () => {
+    const result = validateContextDelta({
+      session_id: "session-knowledge",
+      checkpoint_id: "checkpoint-knowledge",
+      knowledge_investigations: [{
+        resolution_id: " rollback-policy ",
+        question: " What is the rollback policy? ",
+        recall_status: "knowledge_gap",
+        recalled_record_ids: [" rec-b ", "rec-a", "rec-b"],
+        evidence: [{ type: "source_code", reference: " src/release.ts ", summary: " Rollback uses the signed tag. " }],
+        status: "unresolved",
+        next_step: " Run the rollback integration test. "
+      }]
+    });
+
+    expect(result.knowledge_investigations).toEqual([{
+      resolution_id: "rollback-policy",
+      question: "What is the rollback policy?",
+      recall_status: "knowledge_gap",
+      recalled_record_ids: ["rec-b", "rec-a"],
+      evidence: [{ type: "source_code", reference: "src/release.ts", summary: "Rollback uses the signed tag." }],
+      status: "unresolved",
+      next_step: "Run the rollback integration test."
+    }]);
+  });
+
+  it("requires conclusions for resolved items and next steps for unresolved items", () => {
+    const base = { session_id: "session-knowledge", checkpoint_id: "checkpoint-knowledge" };
+    expect(() => validateContextDelta({ ...base, knowledge_investigations: [{ resolution_id: "resolved", question: "Q", recall_status: "knowledge_gap", status: "resolved", evidence: [] }] })).toThrow();
+    expect(() => validateContextDelta({ ...base, knowledge_investigations: [{ resolution_id: "unresolved", question: "Q", recall_status: "knowledge_gap", status: "unresolved", evidence: [] }] })).toThrow();
+    expect(() => validateContextDelta({ ...base, knowledge_investigations: [
+      { resolution_id: "same", question: "Q1", recall_status: "knowledge_gap", status: "unresolved", next_step: "N1", evidence: [] },
+      { resolution_id: "same", question: "Q2", recall_status: "verification_required", status: "unresolved", next_step: "N2", evidence: [] }
+    ] })).toThrow();
   });
 });

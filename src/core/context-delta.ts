@@ -41,6 +41,33 @@ export const learningDeltaSchema = z.object({
 export type LearningDeltaInput = z.input<typeof learningDeltaSchema>;
 export type LearningDelta = z.output<typeof learningDeltaSchema>;
 
+export const knowledgeInvestigationEvidenceSchema = z.object({
+  type: z.enum(["source_code", "tool_output", "test_result", "documentation", "web", "user_confirmation", "agent_inference"]),
+  reference: nonEmptyStringSchema,
+  summary: nonEmptyStringSchema
+}).strict();
+
+export const knowledgeInvestigationSchema = z.object({
+  resolution_id: nonEmptyStringSchema,
+  question: nonEmptyStringSchema,
+  recall_status: z.enum(["trusted_match", "verification_required", "knowledge_gap"]),
+  recalled_record_ids: stringListSchema,
+  evidence: z.array(knowledgeInvestigationEvidenceSchema).max(12).optional().default([]),
+  status: z.enum(["resolved", "unresolved"]),
+  conclusion: optionalStringSchema,
+  next_step: optionalStringSchema
+}).strict().superRefine((investigation, context) => {
+  if (investigation.status === "resolved" && !investigation.conclusion) {
+    context.addIssue({ code: "custom", path: ["conclusion"], message: "resolved investigation requires conclusion" });
+  }
+  if (investigation.status === "unresolved" && !investigation.next_step) {
+    context.addIssue({ code: "custom", path: ["next_step"], message: "unresolved investigation requires next_step" });
+  }
+});
+
+export type KnowledgeInvestigationInput = z.input<typeof knowledgeInvestigationSchema>;
+export type KnowledgeInvestigation = z.output<typeof knowledgeInvestigationSchema>;
+
 export const semanticConsolidationDifferenceSchema = z.object({
   field: nonEmptyStringSchema,
   before: optionalStringSchema,
@@ -86,8 +113,13 @@ export const contextDeltaSchema = z.object({
   candidate_memories: stringListSchema,
   candidate_skills: stringListSchema,
   learnings: z.array(learningDeltaSchema).optional().default([]),
+  knowledge_investigations: z.array(knowledgeInvestigationSchema).max(10).optional().default([]),
   semantic_consolidation_proposals: z.array(semanticConsolidationProposalSchema).max(24).optional().default([])
 }).strict().superRefine((delta, context) => {
+  const resolutionIds = delta.knowledge_investigations.map((investigation) => investigation.resolution_id);
+  if (new Set(resolutionIds).size !== resolutionIds.length) {
+    context.addIssue({ code: "custom", path: ["knowledge_investigations"], message: "Expected unique resolution_id values" });
+  }
   const hasSemanticContent = Boolean(delta.current_task)
     || delta.progress.length > 0
     || delta.decisions.length > 0
@@ -98,6 +130,7 @@ export const contextDeltaSchema = z.object({
     || delta.candidate_memories.length > 0
     || delta.candidate_skills.length > 0
     || delta.learnings.length > 0
+    || delta.knowledge_investigations.length > 0
     || delta.semantic_consolidation_proposals.length > 0;
   if (!hasSemanticContent) {
     context.addIssue({

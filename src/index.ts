@@ -36,6 +36,8 @@ export { buildRecallNextActions, RECALL_ACTION_SELECTION_SOURCES } from "./core/
 export type { RecallActionContract, RecallNextAction, RecallNextActionId } from "./core/recall-actions.js";
 export { knowledgeProtocolForHost, KNOWLEDGE_PROTOCOL_SELECTION_SOURCES } from "./core/knowledge-protocol.js";
 export type { KnowledgeProtocol, KnowledgeProtocolHost, KnowledgeProtocolPhase, KnowledgeProtocolPhaseId, KnowledgeProtocolRule } from "./core/knowledge-protocol.js";
+export { knowledgeInvestigationEvidenceSchema, knowledgeInvestigationSchema } from "./core/context-delta.js";
+export type { KnowledgeInvestigation, KnowledgeInvestigationInput } from "./core/context-delta.js";
 export { learningStatePolicy } from "./core/learning-policy.js";
 export type { LearningPolicyReason, LearningStatePolicyResult } from "./core/learning-policy.js";
 export { learningRecordIdentity, normalizeLearningRecord } from "./core/learning-ingestion.js";
