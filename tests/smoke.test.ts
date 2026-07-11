@@ -185,6 +185,34 @@ describe("package smoke test", () => {
     expect(boot?.operation.arguments_by_name.agent_session_id).toMatchObject({ cli: { flag: "--session-id" }, mcp: { argument: "agent_session_id" } });
   });
 
+  it("exports the authored local checkpoint operation contract", () => {
+    const checkpoint = getOperationContract("checkpoint");
+    expect(checkpoint?.operation).toMatchObject({
+      safe_to_run: true,
+      required_fields: ["occurred_at", "delta"],
+      interfaces: {
+        cli: { command: "moryn agent checkpoint --occurred-at <occurred_at> --delta <json>" },
+        mcp: { tool: "checkpoint" }
+      },
+      safety: {
+        safe_to_auto_run: true,
+        requires_authored_input: true,
+        requires_user_confirmation: false
+      },
+      execution: { ready_to_run: false, next_step: "collect_required_fields" }
+    });
+    expect(checkpoint?.operation.arguments_by_name).toMatchObject({
+      project_id: { mcp: { argument: "project_id" } },
+      project_path: { mcp: { argument: "project_path" } },
+      source: { mcp: { argument: "source" } },
+      source_client: { mcp: { argument: "source", path: "source.client" } },
+      source_session_id: { mcp: { argument: "source", path: "source.session_id" } },
+      source_device_id: { mcp: { argument: "source", path: "source.device_id" } },
+      occurred_at: { required: true },
+      delta: { required: true }
+    });
+  });
+
   it("exports a self-describing selection source contract response", () => {
     const response = getSelectionSourceContracts();
 

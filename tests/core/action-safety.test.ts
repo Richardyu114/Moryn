@@ -1112,4 +1112,21 @@ describe("action execution readiness", () => {
       reason: "Action requires explicit user confirmation before it can run."
     });
   });
+
+  it("keeps safe local checkpoints blocked until authored semantic fields are supplied", () => {
+    const execution = actionExecution({
+      tool: "checkpoint",
+      safe_to_run: true,
+      required_fields: ["occurred_at", "delta"]
+    });
+
+    expect(execution).toMatchObject({
+      ready_to_run: false,
+      next_step: "collect_required_fields",
+      blocked_by: ["required_fields"],
+      missing_required_fields: ["occurred_at", "delta"],
+      requires_user_confirmation: false
+    });
+    expect(execution.runbook.steps.map((step) => step.step)).toEqual(["collect_required_inputs", "call_mcp"]);
+  });
 });

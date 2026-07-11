@@ -4,6 +4,7 @@ import { initializeStore, readStoreConfig } from "./config.js";
 import { resolveProjectContext, type ProjectContext, type SyncMode } from "./project.js";
 import { displayRecordText } from "./content-text.js";
 import type { MorynRecord, RecordSource } from "./types.js";
+import type { RecoveryPack } from "./checkpoint.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync, SYNC_STATUS_SELECTION_SOURCES, type GitSyncResult, type GitSyncStatus } from "../sync/git.js";
 import { toErrorEnvelope, type MorynErrorEnvelope } from "./errors.js";
 import { actionExecution, actionSafety, type ActionExecution, type ActionSafety } from "./action-safety.js";
@@ -143,9 +144,10 @@ type LifecycleActionTemplate = {
   interfaces: ActionInterfaces<Record<string, unknown>>;
   safety: ActionSafety;
   execution: ActionExecution;
+  workflow?: Record<string, unknown>;
 };
 
-type LifecycleOperation = "agent_guide" | "agent_doctor" | "agent_enter" | "agent_start" | "agent_status" | "agent_finish";
+type LifecycleOperation = "agent_guide" | "agent_doctor" | "agent_enter" | "agent_start" | "agent_status" | "agent_finish" | "checkpoint";
 type AgentIdentityField = "client" | "session_id" | "model" | "device_id";
 
 const AGENT_IDENTITY_FIELDS = {
@@ -1370,7 +1372,98 @@ function portableLifecycleInput(input: AgentLifecycleInput, project: ProjectCont
   return { ...input, projectId: project.project_id };
 }
 
-function nextActions(input: AgentLifecycleInput, cursor?: string): LifecycleActionTemplate[] {
+const CHECKPOINT_FALLBACK_INTERVAL_MS = 30 * 60 * 1000;
+
+function checkpointIdentity(input: AgentLifecycleInput): AgentIdentity | undefined {
+  const identity = agentIdentityFromInput(input);
+  return identity?.client && identity.session_id && identity.device_id ? identity : undefined;
+}
+
+function checkpointActionArguments(input: AgentLifecycleInput, projectId: string, identity: AgentIdentity) {
+  return {
+    project_id: projectId,
+    source: sourceFromAgent(identity),
+    current_task: input.currentTask,
+    occurred_at: "<occurred_at>",
+    delta: {
+      session_id: identity.session_id,
+      checkpoint_id: "<checkpoint_id>",
+      ...(input.currentTask ? { current_task: input.currentTask } : {}),
+      progress: ["<authored progress>"],
+      decisions: [],
+      changed_facts: [],
+      blockers: [],
+      next_steps: [],
+      files: [],
+      candidate_memories: [],
+      candidate_skills: [],
+      learnings: []
+    }
+  };
+}
+
+function checkpointAction(input: AgentLifecycleInput, projectId: string, identity: AgentIdentity, action: string, requiredWhen: string) {
+  const argumentsByName = checkpointActionArguments(input, projectId, identity);
+  return withLifecycleActionSelectionSources(withActionInterfaces({
+    action,
+    tool: "checkpoint",
+    safe_to_run: true,
+    command: "moryn agent checkpoint --occurred-at <occurred_at> --delta <json>",
+    required_when: requiredWhen,
+    required_fields: ["occurred_at", "delta"],
+    arguments: argumentsByName,
+    argument_sources: {
+      occurred_at: "authored_checkpoint.occurred_at",
+      delta: "authored_checkpoint.delta"
+    },
+    workflow: {
+      version: 1,
+      collect: ["occurred_at", "delta.checkpoint_id", "delta.semantic_content"],
+      then: "call checkpoint locally",
+      remote_push: false
+    }
+  }));
+}
+
+function checkpointLifecycleActions(input: AgentLifecycleInput, projectId: string, recovery?: RecoveryPack): LifecycleActionTemplate[] {
+  const identity = checkpointIdentity(input);
+  if (!identity) return [];
+  const actions: LifecycleActionTemplate[] = [];
+  if (recovery?.available) {
+    actions.push(withLifecycleActionSelectionSources(withActionInterfaces({
+      action: "resume_from_checkpoint",
+      tool: "agent_start",
+      safe_to_run: true,
+      command: buildAgentStartCommand(input),
+      required_when: "After compaction or when reopening this agent session and boot.checkpoint_recovery_pack.available is true.",
+      required_fields: [],
+      arguments: lifecycleActionArguments(input),
+      argument_sources: { recovery_pack: "boot.checkpoint_recovery_pack" },
+      workflow: { version: 1, consume: "boot.checkpoint_recovery_pack", then: "continue current task" }
+    })));
+  }
+  actions.push(checkpointAction(
+    input,
+    projectId,
+    identity,
+    "checkpoint_before_compaction",
+    "When the host is about to compact the active session, author a delta and append it before compaction begins."
+  ));
+  const latestAt = recovery?.latest_occurred_at ? Date.parse(recovery.latest_occurred_at) : Number.NaN;
+  const isStale = !Number.isFinite(latestAt) || Date.now() - latestAt > CHECKPOINT_FALLBACK_INTERVAL_MS;
+  if (input.currentTask && isStale) {
+    actions.push(checkpointAction(
+      input,
+      projectId,
+      identity,
+      "checkpoint_long_task",
+      "When the latest checkpoint is more than 30 minutes old, or none exists, and the current task is still active."
+    ));
+  }
+  return actions;
+}
+
+function nextActions(input: AgentLifecycleInput, cursor?: string, recovery?: RecoveryPack, projectId?: string): LifecycleActionTemplate[] {
   const actions: LifecycleActionTemplate[] = [
     withLifecycleActionSelectionSources(withActionInterfaces({
       action: "publish_status",
@@ -1407,6 +1500,7 @@ function nextActions(input: AgentLifecycleInput, cursor?: string): LifecycleActi
       }
     })));
   }
+  if (projectId) actions.push(...checkpointLifecycleActions(input, projectId, recovery));
   return actions;
 }
 
@@ -2579,6 +2673,7 @@ export async function agentStart(input: AgentStartInput) {
     project_id: project.project_id,
     default_skills: projectInfo.default_skills,
     current_task: input.currentTask,
+    agent_session_id: agentIdentityFromInput(input)?.session_id,
     include_private: input.includePrivate
   });
   const refresh = await engine.refresh({
@@ -2589,7 +2684,7 @@ export async function agentStart(input: AgentStartInput) {
     include_private: input.includePrivate
   });
   const handoff = await agentHandoff(engine, project.project_id, input);
-  const actions = nextActions(actionInput, refresh.cursor);
+  const actions = nextActions(actionInput, refresh.cursor, boot.checkpoint_recovery_pack, project.project_id);
   const startupOverview = buildStartupOverview({
     project: projectInfo,
     boot,

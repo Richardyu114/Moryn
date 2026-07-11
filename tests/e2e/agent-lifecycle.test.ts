@@ -76,7 +76,9 @@ const BOOT_SELECTION_SOURCES = {
   warning: "project.warnings_by_id.<record_id>",
   skill: "skills_by_id.<record_id>",
   task_relevant: "task_relevant_by_id.<record_id>",
-  recent_change: "recent_changes_by_id.<record_id>"
+  recent_change: "recent_changes_by_id.<record_id>",
+  active_checkpoint: "active_checkpoint",
+  checkpoint_recovery_pack: "checkpoint_recovery_pack"
 };
 
 function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
@@ -2589,6 +2591,112 @@ describe("agent lifecycle", () => {
       })).rejects.toThrow("Project context required");
     } finally {
       process.chdir(previousCwd);
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("returns stable checkpoint actions for identified active sessions", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-checkpoint-actions-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await mkdir(project, { recursive: true });
+      await initializeStore(store);
+      await initializeProjectConfig(project, { project_id: "checkpoint-project" });
+      const start = await agentStart({
+        storePath: store,
+        projectPath: project,
+        currentTask: "Implement lifecycle checkpoints",
+        agent: { client: "codex", session_id: "session-1", device_id: "device-1" },
+        pull: false
+      });
+
+      expect(start.next.actions.map((action) => action.action)).toEqual([
+        "publish_status",
+        "finish_session",
+        "refresh_context",
+        "checkpoint_before_compaction",
+        "checkpoint_long_task"
+      ]);
+      const precompact = start.next.actions_by_id.checkpoint_before_compaction;
+      expect(precompact).toMatchObject({
+        tool: "checkpoint",
+        safe_to_run: true,
+        required_when: expect.stringContaining("host is about to compact"),
+        required_fields: ["occurred_at", "delta"],
+        arguments: {
+          project_id: "checkpoint-project",
+          source: { client: "codex", session_id: "session-1", device_id: "device-1" },
+          current_task: "Implement lifecycle checkpoints",
+          occurred_at: "<occurred_at>",
+          delta: expect.objectContaining({ session_id: "session-1", checkpoint_id: "<checkpoint_id>" })
+        },
+        interfaces: { mcp: { tool: "checkpoint" } },
+        safety: { safe_to_auto_run: true, requires_authored_input: true, requires_user_confirmation: false },
+        execution: { ready_to_run: false, next_step: "collect_required_fields" }
+      });
+      expect(precompact.interfaces.cli.command_line).toContain("moryn agent checkpoint");
+      expect(precompact.workflow).toBeDefined();
+      expectLifecycleActionSelectionSources(precompact);
+
+      const entered = await agentEnter({
+        storePath: store,
+        projectPath: project,
+        currentTask: "Implement lifecycle checkpoints",
+        agent: { client: "codex", session_id: "session-1", device_id: "device-1" },
+        pull: false
+      });
+      expect(entered.mode).toBe("start_session");
+      expect(entered.next.actions_by_id.checkpoint_before_compaction).toEqual(
+        entered.start.next.actions_by_id.checkpoint_before_compaction
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("only returns resume and long-task actions when recovery and checkpoint age require them", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-checkpoint-recovery-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await mkdir(project, { recursive: true });
+      await initializeStore(store);
+      await initializeProjectConfig(project, { project_id: "checkpoint-project" });
+      const engine = createEngine({ storePath: store });
+      await engine.checkpoint({
+        project_id: "checkpoint-project",
+        source: { client: "codex", session_id: "session-1", device_id: "device-1" },
+        occurred_at: "2999-07-11T00:00:00.000Z",
+        delta: { session_id: "session-1", checkpoint_id: "recent", current_task: "Continue", progress: ["saved"], decisions: [], changed_facts: [], blockers: [], next_steps: [], files: [], candidate_memories: [], candidate_skills: [], learnings: [] }
+      });
+      const recovered = await agentStart({ storePath: store, projectPath: project, currentTask: "Continue", agent: { client: "codex", session_id: "session-1", device_id: "device-1" }, pull: false });
+      expect(recovered.boot.checkpoint_recovery_pack.available).toBe(true);
+      expect(recovered.next.actions.map((action) => action.action)).toContain("resume_from_checkpoint");
+      expect(recovered.next.actions.map((action) => action.action)).not.toContain("checkpoint_long_task");
+      expect(recovered.next.actions_by_id.resume_from_checkpoint).toMatchObject({ safe_to_run: true, required_fields: [], execution: { ready_to_run: true } });
+
+      const fresh = await agentStart({ storePath: store, projectPath: project, currentTask: "Other", agent: { client: "codex", session_id: "session-2", device_id: "device-1" }, pull: false });
+      expect(fresh.next.actions.map((action) => action.action)).not.toContain("resume_from_checkpoint");
+      expect(fresh.next.actions.map((action) => action.action)).toContain("checkpoint_long_task");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("omits checkpoint action noise without stable session and device identity", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-checkpoint-identity-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await mkdir(project, { recursive: true });
+      await initializeStore(store);
+      await initializeProjectConfig(project, { project_id: "checkpoint-project" });
+      for (const agent of [{ client: "codex" }, { client: "codex", session_id: "session-1" }]) {
+        const start = await agentStart({ storePath: store, projectPath: project, currentTask: "Continue", agent, pull: false });
+        expect(start.next.actions.map((action) => action.action).filter((action) => action.includes("checkpoint"))).toEqual([]);
+      }
+    } finally {
       await rm(root, { recursive: true, force: true });
     }
   });

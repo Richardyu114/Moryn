@@ -914,6 +914,43 @@ const publishSessionArguments = {
   }
 } as const satisfies Record<string, OperationArgumentMetadataInput>;
 
+const checkpointSourceArguments = {
+  source: {
+    type: "object",
+    required: true,
+    cli: { flags: ["--agent", "--session-id", "--model", "--device-id"] },
+    mcp: { argument: "source" }
+  },
+  source_client: {
+    type: "string",
+    required: true,
+    cli: { flag: "--agent" },
+    mcp: { argument: "source", path: "source.client" },
+    parent_argument: "source"
+  },
+  source_session_id: {
+    type: "string",
+    required: true,
+    cli: { flag: "--session-id" },
+    mcp: { argument: "source", path: "source.session_id" },
+    parent_argument: "source"
+  },
+  source_model: {
+    type: "string",
+    required: false,
+    cli: { flag: "--model" },
+    mcp: { argument: "source", path: "source.model" },
+    parent_argument: "source"
+  },
+  source_device_id: {
+    type: "string",
+    required: true,
+    cli: { flag: "--device-id" },
+    mcp: { argument: "source", path: "source.device_id" },
+    parent_argument: "source"
+  }
+} as const satisfies Record<string, OperationArgumentMetadataInput>;
+
 const hostAdapterIds = ["claude", "codex", "gemini", "cursor", "shell"] as const;
 
 const installArguments = {
@@ -1107,6 +1144,41 @@ export const OPERATION_CONTRACTS = [
     interfaces: {
       cli: { command: "moryn agent status --status <status>", argv: ["agent", "status", "--status", "<status>"] },
       mcp: { tool: "agent_status", arguments: { status: "<status>" } }
+    }
+  }),
+  operationContract({
+    operation: "checkpoint",
+    category: "lifecycle",
+    summary: "Append an authored local session checkpoint for compaction recovery and long-task continuity.",
+    safe_to_run: true,
+    required_when: "Before host compaction, or after more than 30 minutes of active work without a recent checkpoint.",
+    required_fields: ["occurred_at", "delta"],
+    argument_sources: userInputSources(["occurred_at", "delta"]),
+    arguments_by_name: {
+      ...projectContextArguments,
+      ...checkpointSourceArguments,
+      occurred_at: {
+        type: "string",
+        required: true,
+        cli: { flag: "--occurred-at" },
+        mcp: { argument: "occurred_at" }
+      },
+      delta: {
+        type: "object",
+        required: true,
+        cli: { flag: "--delta" },
+        mcp: { argument: "delta" }
+      },
+      current_task: {
+        type: "string",
+        required: false,
+        mcp: { argument: "delta", path: "current_task" },
+        parent_argument: "delta"
+      }
+    },
+    interfaces: {
+      cli: { command: "moryn agent checkpoint --occurred-at <occurred_at> --delta <json>", argv: ["agent", "checkpoint", "--occurred-at", "<occurred_at>", "--delta", "<json>"] },
+      mcp: { tool: "checkpoint", arguments: { occurred_at: "<occurred_at>", delta: "<json>" } }
     }
   }),
   operationContract({

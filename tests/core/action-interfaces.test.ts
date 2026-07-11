@@ -414,4 +414,30 @@ describe("action interfaces", () => {
       has_placeholders: false
     });
   });
+
+  it("maps checkpoint source and authored delta to future CLI and MCP interfaces", () => {
+    const interfaces = actionInterfaces({
+      tool: "checkpoint",
+      command: "moryn agent checkpoint --occurred-at <occurred_at> --delta <json>",
+      arguments: {
+        project_id: "project-a",
+        source: { client: "codex", session_id: "session-1", device_id: "device-1" },
+        occurred_at: "<occurred_at>",
+        delta: { session_id: "session-1", checkpoint_id: "<checkpoint_id>", progress: ["<authored progress>"] }
+      }
+    });
+
+    expect(interfaces.mcp).toEqual({
+      tool: "checkpoint",
+      arguments: {
+        project_id: "project-a",
+        source: { client: "codex", session_id: "session-1", device_id: "device-1" },
+        occurred_at: "<occurred_at>",
+        delta: { session_id: "session-1", checkpoint_id: "<checkpoint_id>", progress: ["<authored progress>"] }
+      }
+    });
+    expect(interfaces.cli.argv).toContain("checkpoint");
+    expect(interfaces.cli.argv).toContain("--device-id");
+    expect(interfaces.cli.command_line).toContain("--delta");
+  });
 });
