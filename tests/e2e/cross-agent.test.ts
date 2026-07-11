@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { initializeStore } from "../../src/core/config.js";
 import { createEngine } from "../../src/core/engine.js";
+import { readCurrentRecords } from "../../src/core/record-read-model.js";
 import { initializeGitSync, pullGitSync, pushGitSync } from "../../src/sync/git.js";
 
 const exec = promisify(execFile);
@@ -38,6 +39,21 @@ async function withTwoAgentStores(fn: (stores: TwoAgentStores) => Promise<void>)
 }
 
 describe("cross-agent workflow", () => {
+  it("refreshes the verified read model during sync pull", async () => {
+    await withTwoAgentStores(async ({ storeA, storeB }) => {
+      expect(await readCurrentRecords(storeB)).toMatchObject({ source: "read_model", repaired: false, records: [] });
+      const agentA = createEngine({ storePath: storeA, now: () => "2026-05-27T00:01:00.000Z", id: (prefix) => `${prefix}_synced` });
+      const written = await agentA.write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Synced records invalidate stale read models." }, state: "canonical", source: { client: "agent-a", device_id: "device_a" } });
+      await pushGitSync(storeA, { message: "add read model invalidation event" });
+      await pullGitSync(storeB);
+
+      const repaired = await readCurrentRecords(storeB);
+      expect(repaired).toMatchObject({ source: "read_model", repaired: false });
+      expect(repaired.records.map((record) => record.id)).toContain(written.record.id);
+      expect(await readCurrentRecords(storeB)).toMatchObject({ source: "read_model", repaired: false });
+    });
+  });
+
   it("shares promoted project memory between two agent stores", async () => {
     await withTwoAgentStores(async ({ storeA, storeB }) => {
       let nextId = 0;

@@ -3887,7 +3887,8 @@ export function createEngine(deps: EngineDeps) {
       } as ValidatedHealthCheckInput;
       const limit = validateLimit(resolvedInput.limit, 20, "health_check");
       const events = await readEvents(deps.storePath);
-      const allRecords = [...replayEvents(events).values()];
+      const recordReadModel = await readRecords(deps.storePath);
+      const allRecords = recordReadModel.records;
       const visibleRecords = allRecords
         .filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private));
       const normalizedHost = resolvedInput.host ? normalizeHostId(resolvedInput.host) : undefined;
@@ -3904,6 +3905,7 @@ export function createEngine(deps: EngineDeps) {
         limit,
         include_private: resolvedInput.include_private,
         excluded_private_records: allRecords.length - visibleRecords.length,
+        record_read_model: recordReadModel,
         ...(activationStatus ? { activation_status: activationStatus } : {})
       });
     },

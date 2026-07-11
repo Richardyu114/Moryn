@@ -240,6 +240,7 @@ const REBUILD_SELECTION_SOURCES = {
   skill_count: "skills",
   artifacts: "artifacts",
   user_snapshot: "artifacts.snapshots.user",
+  records_snapshot: "artifacts.snapshots.records",
   project_snapshots: "artifacts.snapshots.projects_by_id",
   skills_snapshot: "artifacts.snapshots.skills",
   recall_index: "artifacts.indexes.recall",

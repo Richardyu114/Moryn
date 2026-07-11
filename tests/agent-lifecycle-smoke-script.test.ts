@@ -24,5 +24,6 @@ describe("agent lifecycle smoke script", () => {
     expect(result.stdout).toContain('"claude_activation_status":"configured_unverified"');
     expect(result.stdout).toContain('"claude_activation_receipt_created":true');
     expect(result.stdout).toContain('"codex_activation_status":"host_schema_unknown"');
+    expect(result.stdout).toContain('"record_read_model_status":"fresh"');
   }, 60000);
 });

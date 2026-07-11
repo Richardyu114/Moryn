@@ -6,6 +6,7 @@ import { displayRecordText } from "./content-text.js";
 import { getHostAdapter, type HostAdapterId } from "./host-adapter-registry.js";
 import type { MorynEvent, MorynRecord } from "./types.js";
 import type { HostActivationStatus } from "./host-activation.js";
+import type { CurrentRecordReadResult, RecordReadFallbackReason } from "./record-read-model.js";
 import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
 
 export type HealthCheckStatus = "healthy" | "needs_attention" | "unhealthy";
@@ -26,6 +27,16 @@ export interface HealthCheckDiagnoseInput extends HealthCheckInput {
   events: MorynEvent[];
   excluded_private_records?: number;
   activation_status?: HostActivationStatus;
+  record_read_model?: CurrentRecordReadResult;
+}
+
+export interface HealthCheckRecordReadModel {
+  status: "fresh" | "repaired" | "degraded";
+  source: CurrentRecordReadResult["source"];
+  repaired: boolean;
+  record_count: number;
+  event_count: number;
+  fallback_reason?: RecordReadFallbackReason;
 }
 
 export interface HealthCheckItem {
@@ -104,6 +115,7 @@ export interface HealthCheckReport {
   status: HealthCheckStatus;
   project_id?: string;
   activation_status?: HostActivationStatus;
+  record_read_model?: HealthCheckRecordReadModel;
   setup_readiness: HealthCheckSetupReadiness;
   summary: HealthCheckSummary;
   stats: HealthCheckStats;
@@ -121,7 +133,8 @@ export const HEALTH_CHECK_SELECTION_SOURCES = {
   action_id: "suggested_actions_by_id.<action_id>.action_id",
   stat: "stats.<field>",
   setup_readiness: "setup_readiness",
-  activation_status: "activation_status"
+  activation_status: "activation_status",
+  record_read_model: "record_read_model"
 } as const;
 
 function isPrivateRecord(record: MorynRecord): boolean {
@@ -528,6 +541,14 @@ export function diagnoseHealthCheck(input: HealthCheckDiagnoseInput): HealthChec
     ...(!input.sync_remote ? [configureSyncRemoteAction()] : [])
   ].slice(0, limit);
   const status = healthStatus(checks);
+  const recordReadModel = input.record_read_model ? {
+    status: input.record_read_model.source === "read_model" ? "fresh" as const : input.record_read_model.repaired ? "repaired" as const : "degraded" as const,
+    source: input.record_read_model.source,
+    repaired: input.record_read_model.repaired,
+    record_count: input.record_read_model.records.length,
+    event_count: input.record_read_model.event_manifest.count,
+    ...(input.record_read_model.fallback_reason ? { fallback_reason: input.record_read_model.fallback_reason } : {})
+  } : undefined;
   return nonPrivateTextLeakGuard({
     read_only: true,
     version: 1,
@@ -535,6 +556,7 @@ export function diagnoseHealthCheck(input: HealthCheckDiagnoseInput): HealthChec
     status,
     ...(input.project_id ? { project_id: input.project_id } : {}),
     ...(input.activation_status ? { activation_status: input.activation_status } : {}),
+    ...(recordReadModel ? { record_read_model: recordReadModel } : {}),
     setup_readiness: readiness,
     summary: healthSummary(status, checks, actions),
     stats: stats(input, projectRecords, reviewCandidates),

@@ -48,7 +48,8 @@ const HEALTH_CHECK_SELECTION_SOURCES = {
   action_id: "suggested_actions_by_id.<action_id>.action_id",
   stat: "stats.<field>",
   setup_readiness: "setup_readiness",
-  activation_status: "activation_status"
+  activation_status: "activation_status",
+  record_read_model: "record_read_model"
 };
 const CAPTURE_POLICY_SELECTION_SOURCES = {
   decision: "decisions_by_record_id.<record_id>",
@@ -559,6 +560,7 @@ describe("core engine", () => {
           warning_checks: 1
         }
       });
+      expect(report.record_read_model).toMatchObject({ status: "fresh", source: "read_model", repaired: false, record_count: 2, event_count: 2 });
       expect(report.selection_sources).toEqual(HEALTH_CHECK_SELECTION_SOURCES);
       expect(report.stats).toMatchObject({
         visible_records: 1,

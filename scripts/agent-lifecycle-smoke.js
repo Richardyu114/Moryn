@@ -281,6 +281,8 @@ async function main() {
 
     if (codexStart.sync.pull?.pulled !== true) throw new Error("Second Codex did not pull Claude handoff");
     requireChange(codexStart, finishSummary);
+    const readModelHealth = await runJson(command, [...argsPrefix, "--store", storeCodexSecond, "health", "check", "--project", project, "--host", "codex"]);
+    if (readModelHealth.record_read_model?.status !== "fresh" || readModelHealth.record_read_model?.source !== "read_model") throw new Error("Second Codex did not use a fresh verified record read model");
 
     log(`agent lifecycle smoke passed (${options.remote ? "remote" : "local"} Git remote)`);
     log(statusSummary);
@@ -293,7 +295,8 @@ async function main() {
       unresolved_knowledge_next_step: unresolvedInvestigation.next_step,
       claude_activation_status: claudeInstall.activation_status.status,
       claude_activation_receipt_created: claudeRestore.activation_receipt.created,
-      codex_activation_status: codexInstall.activation_status.status
+      codex_activation_status: codexInstall.activation_status.status,
+      record_read_model_status: readModelHealth.record_read_model.status
     }));
   } finally {
     if (options.keepTemp) {
