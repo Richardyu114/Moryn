@@ -9753,6 +9753,39 @@ describe("quiet dashboard model", () => {
 });
 
 describe("quiet dashboard first screen", () => {
+  it("monitors knowledge-loop learning and compact recovery without user controls", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath, now: () => "2026-07-12T00:00:00.000Z" });
+      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "knowledge-dashboard", device_id: "device-test" }, occurred_at: "2026-07-12T00:00:00.000Z", delta: {
+        session_id: "knowledge-dashboard",
+        checkpoint_id: "knowledge-dashboard-1",
+        learnings: [{ question: "When should Moryn recall?", conclusion: "Recall before broad external exploration when durable knowledge is uncertain.", evidence_type: "source_code", scope: "project", confidence: 0.9, recommended_kind: "memory", recommended_type: "fact" }],
+        knowledge_investigations: [
+          { resolution_id: "recall-first", question: "When should Moryn recall?", recall_status: "knowledge_gap", recalled_record_ids: [], evidence: [{ type: "source_code", reference: "src/core/knowledge-protocol.ts", summary: "Recall-first protocol" }], status: "resolved", conclusion: "Recall first" },
+          { resolution_id: "rollback", question: "What is rollback policy?", recall_status: "knowledge_gap", recalled_record_ids: [], evidence: [], status: "unresolved", next_step: "Run rollback integration test" }
+        ]
+      } });
+
+      const data = await buildDashboardData(storePath, { project_id: "moryn" });
+      expect(data.quiet_dashboard.knowledge_loop).toEqual({
+        learned_records: 1,
+        learned_canonical_records: 1,
+        learned_candidate_records: 0,
+        investigations: 2,
+        resolved_investigations: 1,
+        unresolved_investigations: 1,
+        preserved_before_compact: 1
+      });
+      expect(data.quiet_dashboard.attention_needed).toEqual([]);
+      const html = quietFirstScreenHtml(renderDashboardHtml(data));
+      expect(html).toContain("Knowledge loop");
+      expect(html).toContain("1 learned");
+      expect(html).toContain("1 unresolved preserved");
+      expect(html).not.toMatch(/button|form|Approve|Review knowledge/i);
+    });
+  });
+
   it("reports semantic consolidation telemetry without adding routine attention", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device-test" });

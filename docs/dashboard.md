@@ -142,6 +142,14 @@ The browser refreshes from `fragment` on the configured interval. The refresh
 URL is relative so the dashboard can also work behind a reverse proxy path such
 as `/moryn-dashboard/`.
 
+The quiet first screen includes a read-only `Knowledge loop` signal. It counts
+evidence-backed learning records plus the latest resolved and unresolved
+knowledge investigations preserved in checkpoints. An unresolved investigation
+with an explicit next step is reported as preserved before compaction. These
+counts are operational monitoring, not a user work queue: they add no approval
+button, mutation endpoint, mandatory inbox, or routine intervention. Private
+checkpoint evidence remains hidden unless `--include-private` is explicit.
+
 Pass `--include-private` only when the user explicitly wants private memory in
 the dashboard. The same flag applies to the server shell, `/fragment`, and
 `/api/dashboard`.

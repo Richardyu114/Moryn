@@ -866,6 +866,15 @@ export interface DashboardData {
       recent_events: number;
       sync_state: string;
     };
+    knowledge_loop: {
+      learned_records: number;
+      learned_canonical_records: number;
+      learned_candidate_records: number;
+      investigations: number;
+      resolved_investigations: number;
+      unresolved_investigations: number;
+      preserved_before_compact: number;
+    };
     attention_needed: DashboardAttentionItem[];
   };
   actions: DashboardAction[];
@@ -3240,6 +3249,20 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     return Array.isArray(proposals) ? proposals.filter((proposal): proposal is Record<string, unknown> => Boolean(proposal && typeof proposal === "object" && !Array.isArray(proposal))) : [];
   });
   const semanticRejectedProposals = checkpointProposals.filter((proposal) => !semanticLinkKeys.has(`${proposal.source_record_id}\u0000${proposal.target_record_id}\u0000${proposal.relationship}`)).length;
+  const investigationsById = new Map<string, Record<string, unknown>>();
+  for (const record of [...records].sort((left, right) => left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id))) {
+    const checkpoint = record.content.checkpoint;
+    if (!checkpoint || typeof checkpoint !== "object" || Array.isArray(checkpoint)) continue;
+    const investigations = (checkpoint as Record<string, unknown>).knowledge_investigations;
+    if (!Array.isArray(investigations)) continue;
+    for (const investigation of investigations) {
+      if (!investigation || typeof investigation !== "object" || Array.isArray(investigation)) continue;
+      const resolutionId = (investigation as Record<string, unknown>).resolution_id;
+      if (typeof resolutionId === "string") investigationsById.set(resolutionId, investigation as Record<string, unknown>);
+    }
+  }
+  const knowledgeInvestigations = [...investigationsById.values()];
+  const learnedRecords = records.filter((record) => record.tags.includes("learning"));
   const sync = await getGitSyncStatus(storePath);
   const agentActivity = summarizeAgentActivity(visibleEvents, records, recordsById, eventsByRecord);
   const lifecycleAllRecords = allRecords.filter((record) => recordProjectMatchesDashboard(record, options.project_id));
@@ -3452,6 +3475,15 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
         recent_records: recentRecords.length,
         recent_events: recentEvents.length,
         sync_state: sync.sync_state ?? (sync.configured ? "unknown" : "local_only")
+      },
+      knowledge_loop: {
+        learned_records: learnedRecords.length,
+        learned_canonical_records: learnedRecords.filter((record) => record.state === "canonical").length,
+        learned_candidate_records: learnedRecords.filter((record) => record.state === "candidate").length,
+        investigations: knowledgeInvestigations.length,
+        resolved_investigations: knowledgeInvestigations.filter((investigation) => investigation.status === "resolved").length,
+        unresolved_investigations: knowledgeInvestigations.filter((investigation) => investigation.status === "unresolved").length,
+        preserved_before_compact: knowledgeInvestigations.filter((investigation) => investigation.status === "unresolved" && typeof investigation.next_step === "string").length
       },
       attention_needed: exceptionalAttention
     },
@@ -8428,6 +8460,16 @@ function quietMemoryFlow(data: DashboardData): string {
     </section>`;
 }
 
+function quietKnowledgeLoop(data: DashboardData): string {
+  const loop = data.quiet_dashboard.knowledge_loop;
+  return `
+    <section class="quiet-panel" data-quiet-section="knowledge-loop">
+      <div class="quiet-panel-heading">${i18nText("Knowledge loop", "知识闭环", "span")}<strong>${loop.learned_records} learned</strong></div>
+      <small>${escapeHtml(`${loop.resolved_investigations} resolved · ${loop.unresolved_investigations} unresolved preserved`)}</small>
+      <small>${escapeHtml(`${loop.learned_canonical_records} canonical · ${loop.learned_candidate_records} candidate · ${loop.investigations} investigations`)}</small>
+    </section>`;
+}
+
 function semanticConsolidationAudit(data: DashboardData): string {
   const flow = data.quiet_dashboard.memory_flow;
   return `<section class="panel" data-dashboard-detail="semantic-consolidation-audit"><h2>Semantic consolidation</h2><p>${flow.semantic_rejected_proposals} rejected semantic proposal${flow.semantic_rejected_proposals === 1 ? "" : "s"} · ${flow.semantic_conflict_links} conflict link${flow.semantic_conflict_links === 1 ? "" : "s"}</p></section>`;
@@ -8447,7 +8489,7 @@ function quietDashboardFirstScreen(data: DashboardData): string {
   return `
     <section class="quiet-dashboard" data-quiet-dashboard="first-screen" aria-label="Moryn monitoring overview">
       ${quietSystemPulse(data)}
-      <div class="quiet-dashboard-grid">${quietCurrentContext(data)}${quietMemoryFlow(data)}</div>
+      <div class="quiet-dashboard-grid">${quietCurrentContext(data)}${quietMemoryFlow(data)}${quietKnowledgeLoop(data)}</div>
       ${quietAttention(data)}
     </section>`;
 }
