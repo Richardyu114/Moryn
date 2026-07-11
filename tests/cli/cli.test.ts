@@ -10653,3 +10653,17 @@ describe("agent checkpoint CLI", () => {
     });
   });
 });
+
+describe("host hook CLI", () => {
+  it("reads official hook JSON from stdin and checkpoints idempotently", async () => {
+    await withTempDir(async (store) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      const payload = JSON.stringify({ hook_event_name: "PreCompact", session_id: "session-a", cwd: repoRoot, trigger: "auto", compact_summary: "Keep hook progress." });
+      const args = ["--import", tsxLoader, cliPath, "--store", store, "host", "hook", "--host", "codex", "--project-id", "moryn", "--device-id", "device-a", "--occurred-at", "2026-07-11T00:00:00.000Z", "--input-json", payload, "--no-pull", "--no-push"];
+      const first = JSON.parse((await exec("node", args)).stdout);
+      const replay = JSON.parse((await exec("node", args)).stdout);
+      expect(first).toMatchObject({ ok: true, event: "pre_compact", action: "checkpoint_before_compaction", checkpoint: { idempotent_replay: false } });
+      expect(replay).toMatchObject({ checkpoint: { idempotent_replay: true } });
+    });
+  });
+});

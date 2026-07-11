@@ -65,6 +65,8 @@ import {
 } from "./observability/dashboard.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "./sync/git.js";
 import type { RecallEvalCaseInput } from "./core/recall-eval.js";
+import { normalizeHostHookEvent } from "./core/host-hooks.js";
+import { runHostHook } from "./core/host-hook-runner.js";
 
 const program = new Command();
 const recordKinds = RECORD_KINDS;
@@ -2144,6 +2146,47 @@ program.command("install")
       }
     }
     printJson(plan);
+  });
+
+const host = program.command("host").description("Host lifecycle integration commands");
+
+async function readStdinText(): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+host.command("hook")
+  .requiredOption("--host <host>", "Host name: codex or claude")
+  .option("--project-id <id>")
+  .option("--project <path>")
+  .option("--current-task <task>")
+  .option("--device-id <id>", "Stable device identity", process.env.MORYN_DEVICE_ID)
+  .option("--occurred-at <timestamp>")
+  .option("--input-json <json>", "Hook input JSON; defaults to stdin")
+  .option("--no-pull")
+  .option("--no-push")
+  .action(async (options) => {
+    try {
+      const raw = options.inputJson ?? await readStdinText();
+      const payload = JSON.parse(raw);
+      const hookEvent = normalizeHostHookEvent(options.host, payload, {
+        device_id: options.deviceId ?? "unknown-device",
+        occurred_at: options.occurredAt ?? new Date().toISOString()
+      });
+      printJson(await runHostHook({
+        storePath: storePath(),
+        hook: hookEvent,
+        project_id: options.projectId,
+        project_path: options.project,
+        current_task: options.currentTask,
+        pull: options.pull,
+        push: options.push
+      }));
+    } catch (error) {
+      printError(error);
+      process.exitCode = 1;
+    }
   });
 
 program.command("setup")
