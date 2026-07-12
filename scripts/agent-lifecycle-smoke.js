@@ -144,6 +144,8 @@ async function main() {
       "codex",
       "--session-id",
       "codex-smoke",
+      "--device-id",
+      "device-codex-smoke",
       "--current-task",
       "verify cross device lifecycle smoke",
       "--status",
@@ -223,10 +225,19 @@ async function main() {
       "codex",
       "--session-id",
       "codex-smoke",
+      "--device-id",
+      "device-codex-smoke",
       "--current-task",
       "verify checkpoint lifecycle smoke"
     ]);
     if (compensatedStart.sync?.compensation?.decision !== "pushed") throw new Error("Agent start did not compensate the unpushed checkpoint");
+    const recoveryPack = compensatedStart.boot?.checkpoint_recovery_pack;
+    const resumeAction = compensatedStart.next?.actions_by_id?.resume_from_checkpoint;
+    if (recoveryPack?.available !== true || recoveryPack?.source_record_ids?.[0] !== checkpoint.checkpoint.record.id) throw new Error("Abnormal-exit start did not expose the durable checkpoint recovery pack");
+    if (resumeAction?.execution?.ready_to_run !== true) throw new Error("Abnormal-exit start did not expose a ready resume action");
+    const recoveryRecall = await runJson(command, [...argsPrefix, "--store", storeCodex, "recall", "--project", "moryn-smoke", "--record-id", checkpoint.checkpoint.record.id, "--include-private"]);
+    const checkpointRecordsAfterRecovery = recoveryRecall.results?.filter((entry) => entry.record?.id === checkpoint.checkpoint.record.id).length ?? 0;
+    if (checkpointRecordsAfterRecovery !== 1) throw new Error("Abnormal-exit recovery duplicated or lost the checkpoint record");
     await runJson(command, [...argsPrefix, "--store", storeClaude, "init"]);
     await runJson(command, [...argsPrefix, "--store", storeClaude, "sync", "init", remote]);
     const claudeRestore = await runJson(command, [
@@ -320,6 +331,14 @@ async function main() {
       record_read_model_status: readModelHealth.record_read_model.status,
       session_synthesis_mode: finish.details.record.content.synthesis_mode,
       abnormal_exit_compensation: compensatedStart.sync.compensation.decision,
+      abnormal_exit: {
+        compensation: compensatedStart.sync.compensation.decision,
+        recovery_pack_available: recoveryPack.available,
+        resume_action_ready: resumeAction.execution.ready_to_run,
+        second_device_checkpoint_restored: claudeRestore.hook_output.additional_context.includes("Checkpoint smoke persisted with semantic consolidation"),
+        second_device_investigation_restored: claudeRestore.hook_output.additional_context.includes(unresolvedInvestigation.next_step),
+        checkpoint_records_after_recovery: checkpointRecordsAfterRecovery
+      },
       acceptance: {
         cross_host_handoff: true,
         checkpoint_compaction_recovery: true,

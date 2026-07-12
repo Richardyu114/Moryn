@@ -31,5 +31,23 @@ describe("agent lifecycle smoke script", () => {
     expect(result.stdout).toContain('"abnormal_exit_compensation":"pushed"');
     expect(result.stdout).toContain('"acceptance":{"cross_host_handoff":true');
     expect(result.stdout).toContain('"abnormal_exit_recovery":true');
+    const evidence = JSON.parse(result.stdout.trim().split("\n").at(-1)!) as {
+      abnormal_exit?: {
+        compensation: string;
+        recovery_pack_available: boolean;
+        resume_action_ready: boolean;
+        second_device_checkpoint_restored: boolean;
+        second_device_investigation_restored: boolean;
+        checkpoint_records_after_recovery: number;
+      };
+    };
+    expect(evidence.abnormal_exit).toEqual({
+      compensation: "pushed",
+      recovery_pack_available: true,
+      resume_action_ready: true,
+      second_device_checkpoint_restored: true,
+      second_device_investigation_restored: true,
+      checkpoint_records_after_recovery: 1
+    });
   }, 60000);
 });
