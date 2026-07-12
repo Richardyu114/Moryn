@@ -898,13 +898,19 @@ describe("agent lifecycle", () => {
       expect(geminiStart.next.actions).toContainEqual(expect.objectContaining({
         action: "publish_status",
         tool: "agent_status",
-        safe_to_run: false,
+        safe_to_run: true,
         command: expect.stringContaining("moryn agent status"),
         required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
         required_fields: ["status"],
         argument_sources: {
-          status: "user_input.status"
+          status: "agent_authored.status"
         },
+        execution: expect.objectContaining({
+          ready_to_run: false,
+          next_step: "collect_required_fields",
+          blocked_by: ["required_fields"],
+          requires_user_confirmation: false
+        }),
         arguments: expect.objectContaining({
           project_path: project,
           status: "<status>",
@@ -915,13 +921,19 @@ describe("agent lifecycle", () => {
       expect(geminiStart.next.actions).toContainEqual(expect.objectContaining({
         action: "finish_session",
         tool: "agent_finish",
-        safe_to_run: false,
+        safe_to_run: true,
         command: expect.stringContaining("moryn agent finish"),
         required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
         required_fields: ["summary"],
         argument_sources: {
-          summary: "user_input.summary"
+          summary: "agent_authored.summary"
         },
+        execution: expect.objectContaining({
+          ready_to_run: false,
+          next_step: "collect_required_fields",
+          blocked_by: ["required_fields"],
+          requires_user_confirmation: false
+        }),
         arguments: expect.objectContaining({
           project_path: project,
           summary: "<summary>",
@@ -1231,12 +1243,12 @@ describe("agent lifecycle", () => {
       expect(status.next.actions).toContainEqual(expect.objectContaining({
         action: "finish_session",
         tool: "agent_finish",
-        safe_to_run: false,
+        safe_to_run: true,
         command: expect.stringContaining("moryn agent finish"),
         required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
         required_fields: ["summary"],
         argument_sources: {
-          summary: "user_input.summary"
+          summary: "agent_authored.summary"
         },
         arguments: expect.objectContaining({
           project_path: project,
@@ -1994,22 +2006,22 @@ describe("agent lifecycle", () => {
           expect.objectContaining({
             step: "publish_status",
             tool: "agent_status",
-            safe_to_run: false,
+            safe_to_run: true,
             command: "moryn agent status --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project to continue' --agent gemini --session-id gemini-enter-project-list --status <status>",
             required_fields: ["status"],
             argument_sources: {
-              status: "user_input.status"
+              status: "agent_authored.status"
             },
             arguments: expect.objectContaining({ project_id: "moryn", status: "<status>" })
           }),
           expect.objectContaining({
             step: "finish_handoff",
             tool: "agent_finish",
-            safe_to_run: false,
+            safe_to_run: true,
             command: "moryn agent finish --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project to continue' --agent gemini --session-id gemini-enter-project-list --summary <summary>",
             required_fields: ["summary"],
             argument_sources: {
-              summary: "user_input.summary"
+              summary: "agent_authored.summary"
             },
             arguments: expect.objectContaining({ project_id: "moryn", summary: "<summary>" })
           }),
@@ -2217,7 +2229,7 @@ describe("agent lifecycle", () => {
             action_id: "finish_session",
             action_source: "next.actions_by_id.finish_session",
             label: "Finish with handoff summary",
-            safe_to_run: false,
+            safe_to_run: true,
             owner: "agent",
             requires_authored_input: true,
             requires_user_input: false
@@ -2330,6 +2342,7 @@ describe("agent lifecycle", () => {
         headline: "Review startup context before working in moryn.",
         primary_next_step: {
           owner: "agent",
+          safe_to_run: true,
           requires_authored_input: true,
           requires_user_input: false
         },
@@ -2363,13 +2376,13 @@ describe("agent lifecycle", () => {
 
       expect(started.next.actions).toContainEqual(expect.objectContaining({
         action: "publish_status",
-        safe_to_run: false,
+        safe_to_run: true,
         command: expect.stringContaining("--project-id moryn"),
         arguments: expect.objectContaining({ project_id: "moryn" })
       }));
       expect(started.next.actions).toContainEqual(expect.objectContaining({
         action: "finish_session",
-        safe_to_run: false,
+        safe_to_run: true,
         command: expect.stringContaining("--project-id moryn"),
         arguments: expect.objectContaining({ project_id: "moryn" })
       }));
@@ -2388,7 +2401,7 @@ describe("agent lifecycle", () => {
       });
       expect(status.next.actions).toContainEqual(expect.objectContaining({
         action: "finish_session",
-        safe_to_run: false,
+        safe_to_run: true,
         command: expect.stringContaining("--project-id moryn"),
         arguments: expect.objectContaining({ project_id: "moryn" })
       }));

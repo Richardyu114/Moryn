@@ -192,6 +192,14 @@ is reserved for genuine warning or interrupt evidence that the agent must
 inspect before continuing, with user intervention requested only when the
 underlying exceptional condition actually requires a human decision.
 
+Routine `agent_status` and `agent_finish` actions use
+`agent_authored.status` and `agent_authored.summary`. A missing field keeps the
+action in `collect_required_fields` while the agent composes concise semantic
+text. Once the agent has composed the required field, it can run the returned
+lifecycle action without routine user approval. This ownership does not bypass
+project identity checks, sync-conflict recovery, privacy boundaries, or any
+separate action that explicitly requires user confirmation.
+
 For read-only setup checks, call:
 
 ```bash

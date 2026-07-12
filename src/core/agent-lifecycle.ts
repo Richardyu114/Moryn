@@ -1061,6 +1061,20 @@ function userInputArgumentSources(requiredFields: string[]): Record<string, stri
   return Object.keys(sources).length > 0 ? sources : undefined;
 }
 
+const AGENT_AUTHORED_ARGUMENT_SOURCES: Record<string, string> = {
+  status: "agent_authored.status",
+  summary: "agent_authored.summary"
+};
+
+function agentAuthoredArgumentSources(requiredFields: string[]): Record<string, string> | undefined {
+  const sources = Object.fromEntries(
+    requiredFields
+      .map((field) => [field, AGENT_AUTHORED_ARGUMENT_SOURCES[field]])
+      .filter((entry): entry is [string, string] => typeof entry[1] === "string")
+  );
+  return Object.keys(sources).length > 0 ? sources : undefined;
+}
+
 async function trySync<T>(fn: () => Promise<T>): Promise<{ ok: true; result: T } | { ok: false; error: string; cause: unknown }> {
   try {
     return { ok: true, result: await fn() };
@@ -1577,22 +1591,22 @@ function nextActions(input: AgentLifecycleInput, now: number, cursor?: string, r
     withLifecycleActionSelectionSources(withActionInterfaces({
       action: "publish_status",
       tool: "agent_status",
-      safe_to_run: false,
+      safe_to_run: true,
       command: buildAgentStatusCommand(input),
       required_when: PUBLISH_STATUS_WHEN,
       required_fields: ["status"],
       arguments: statusActionArguments(input),
-      argument_sources: userInputArgumentSources(["status"])
+      argument_sources: agentAuthoredArgumentSources(["status"])
     })),
     withLifecycleActionSelectionSources(withActionInterfaces({
       action: "finish_session",
       tool: "agent_finish",
-      safe_to_run: false,
+      safe_to_run: true,
       command: buildAgentFinishCommand(input),
       required_when: FINISH_HANDOFF_WHEN,
       required_fields: ["summary"],
       arguments: finishActionArguments(input),
-      argument_sources: userInputArgumentSources(["summary"])
+      argument_sources: agentAuthoredArgumentSources(["summary"])
     }))
   ];
   if (cursor) {
@@ -1761,12 +1775,12 @@ function statusNextActions(input: AgentLifecycleInput, cursor: string) {
     withLifecycleActionSelectionSources(withActionInterfaces({
       action: "finish_session",
       tool: "agent_finish",
-      safe_to_run: false,
+      safe_to_run: true,
       command: buildAgentFinishCommand(input),
       required_when: FINISH_HANDOFF_WHEN,
       required_fields: ["summary"],
       arguments: finishActionArguments(input),
-      argument_sources: userInputArgumentSources(["summary"])
+      argument_sources: agentAuthoredArgumentSources(["summary"])
     })),
     withLifecycleActionSelectionSources(withActionInterfaces({
       action: "refresh_context",
@@ -1951,24 +1965,24 @@ function agentGuideLifecycleWithSelectionSources(
     withLifecycleStepSelectionSources(withActionInterfaces({
       step: "publish_status",
       tool: "agent_status",
-      safe_to_run: false,
+      safe_to_run: true,
       required_when: PUBLISH_STATUS_WHEN,
       command: buildAgentStatusTemplateCommand(lifecycleInput),
       required_fields: statusRequiredFields,
       workflow: lifecycleStepWorkflow("publish_status", "agent_status", PUBLISH_STATUS_WHEN, statusRequiredFields),
       arguments: { ...lifecycleArguments, status: "<status>" },
-      argument_sources: userInputArgumentSources(statusRequiredFields)
+      argument_sources: agentAuthoredArgumentSources(statusRequiredFields)
     }), selectionSources, actionSourceForStep("publish_status")),
     withLifecycleStepSelectionSources(withActionInterfaces({
       step: "finish_handoff",
       tool: "agent_finish",
-      safe_to_run: false,
+      safe_to_run: true,
       required_when: FINISH_HANDOFF_WHEN,
       command: buildAgentFinishTemplateCommand(lifecycleInput),
       required_fields: finishRequiredFields,
       workflow: lifecycleStepWorkflow("finish_handoff", "agent_finish", FINISH_HANDOFF_WHEN, finishRequiredFields),
       arguments: { ...lifecycleArguments, summary: "<summary>" },
-      argument_sources: userInputArgumentSources(finishRequiredFields)
+      argument_sources: agentAuthoredArgumentSources(finishRequiredFields)
     }), selectionSources, actionSourceForStep("finish_handoff")),
     withLifecycleStepSelectionSources(withActionInterfaces({
       step: "refresh_context",

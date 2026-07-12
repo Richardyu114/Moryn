@@ -2824,20 +2824,20 @@ describe("MCP stdio server", () => {
         expect(guide.lifecycle).toContainEqual(expect.objectContaining({
           step: "publish_status",
           tool: "agent_status",
-          safe_to_run: false,
+          safe_to_run: true,
           required_fields: ["status"],
           argument_sources: {
-            status: "user_input.status"
+            status: "agent_authored.status"
           },
           arguments: expect.objectContaining({ status: "<status>" })
         }));
         expect(guide.lifecycle).toContainEqual(expect.objectContaining({
           step: "finish_handoff",
           tool: "agent_finish",
-          safe_to_run: false,
+          safe_to_run: true,
           required_fields: ["summary"],
           argument_sources: {
-            summary: "user_input.summary"
+            summary: "agent_authored.summary"
           },
           arguments: expect.objectContaining({ summary: "<summary>" })
         }));
@@ -4427,12 +4427,12 @@ describe("MCP stdio server", () => {
           expect(start.next.actions).toContainEqual(expect.objectContaining({
             action: "publish_status",
             tool: "agent_status",
-            safe_to_run: false,
+            safe_to_run: true,
             command: expect.stringContaining("moryn agent status"),
             required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
             required_fields: ["status"],
             argument_sources: {
-              status: "user_input.status"
+              status: "agent_authored.status"
             },
             arguments: expect.objectContaining({
               project_path: project,
@@ -4523,13 +4523,13 @@ describe("MCP stdio server", () => {
 
         expect(start.next.actions).toContainEqual(expect.objectContaining({
           action: "publish_status",
-          safe_to_run: false,
+          safe_to_run: true,
           command: expect.stringContaining("--project-id moryn"),
           arguments: expect.objectContaining({ project_id: "moryn", status: "<status>" })
         }));
         expect(start.next.actions).toContainEqual(expect.objectContaining({
           action: "finish_session",
-          safe_to_run: false,
+          safe_to_run: true,
           command: expect.stringContaining("--project-id moryn"),
           arguments: expect.objectContaining({ project_id: "moryn", summary: "<summary>" })
         }));
@@ -4639,11 +4639,12 @@ describe("MCP stdio server", () => {
           expect(status.next.actions).toContainEqual(expect.objectContaining({
             action: "finish_session",
             tool: "agent_finish",
+            safe_to_run: true,
             command: expect.stringContaining("moryn agent finish"),
             required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
             required_fields: ["summary"],
             argument_sources: {
-              summary: "user_input.summary"
+              summary: "agent_authored.summary"
             },
             arguments: expect.objectContaining({
               project_path: project,
@@ -5521,11 +5522,11 @@ describe("MCP stdio server", () => {
         expect(discoveredStatus).toMatchObject({
           step: "publish_status",
           tool: "agent_status",
-          safe_to_run: false,
+          safe_to_run: true,
           command: "moryn agent status --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find MCP project' --agent gemini --session-id gemini-mcp-enter --status <status>",
           required_fields: ["status"],
           argument_sources: {
-            status: "user_input.status"
+            status: "agent_authored.status"
           }
         });
         expectLifecycleWorkflow(discoveredStatus!);
@@ -5572,7 +5573,7 @@ describe("MCP stdio server", () => {
           primary_next_step: {
             action_id: "finish_session",
             action_source: "next.actions_by_id.finish_session",
-            safe_to_run: false,
+            safe_to_run: true,
             owner: "agent",
             requires_authored_input: true,
             requires_user_input: false
