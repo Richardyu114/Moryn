@@ -549,6 +549,19 @@ Validate the lifecycle path locally:
 npm run smoke:agent-lifecycle
 ```
 
+Validate an existing v0.2 store upgrading in place:
+
+```bash
+npm run smoke:upgrade-compat
+```
+
+This fixture writes the frozen v0.2 store contract directly. The current CLI
+must enter and recall without an explicit migration or rebuild, preserve the
+legacy event byte-for-byte, lazily create verified record/retrieval indexes,
+and make a newly learned project fact available to a later Claude Code boot
+pack. Legacy low-trust provenance remains subject to the current verification
+boundary rather than becoming trusted merely because it predates v0.3.
+
 After building, force the built CLI:
 
 ```bash
@@ -560,6 +573,7 @@ Installed packages expose the direct bin:
 
 ```bash
 moryn-agent-smoke
+moryn-upgrade-smoke
 ```
 
 Package smoke also installs the packed artifact with `--omit=dev` and runs the

@@ -505,11 +505,18 @@ npm test
 npm run release:check
 npm run smoke:dogfood-demo
 npm run smoke:agent-lifecycle
+npm run smoke:upgrade-compat
 ```
 
 `npm run smoke:dogfood-demo` runs the v0.2 default path end to end on a
 temporary local store: setup, context pack, low-risk autocapture, review-routed
 handoff, and dashboard snapshot evidence.
+
+`npm run smoke:upgrade-compat` creates a frozen v0.2-format store without using
+current initialization helpers, then proves the current CLI can open it in
+place, preserve its original event bytes, repair new derived read indexes
+automatically, and continue the Codex-to-Claude learning lifecycle without a
+migration wizard.
 
 The release check builds, typechecks, tests, checks packed-package contents, and
 optionally validates a private Git remote:
