@@ -26,8 +26,10 @@ npm run smoke:dogfood-demo
 npm run smoke:agent-lifecycle
 ```
 
-`npm run release:check` runs build, typecheck, tests, package-content checks,
-and optional private Git remote validation.
+`npm run release:check` is the authoritative local release gate. It runs build,
+typecheck, the full test suite, both dogfood and cross-host lifecycle smokes,
+package-content checks, and optional private Git remote validation. Its final
+line is machine-readable JSON listing completed and skipped checks.
 `npm run smoke:dogfood-demo` validates the v0.2 default path on a temporary
 local store: setup, context pack, low-risk autocapture, review-routed handoff,
 and dashboard snapshot evidence.

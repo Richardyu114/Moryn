@@ -316,7 +316,15 @@ async function main() {
       codex_activation_status: codexInstall.activation_status.status,
       record_read_model_status: readModelHealth.record_read_model.status,
       session_synthesis_mode: finish.details.record.content.synthesis_mode,
-      abnormal_exit_compensation: compensatedStart.sync.compensation.decision
+      abnormal_exit_compensation: compensatedStart.sync.compensation.decision,
+      acceptance: {
+        cross_host_handoff: true,
+        checkpoint_compaction_recovery: true,
+        semantic_consolidation: true,
+        recall_explore_learn: true,
+        bounded_verified_reads: true,
+        abnormal_exit_recovery: true
+      }
     }));
   } finally {
     if (options.keepTemp) {

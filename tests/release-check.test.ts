@@ -153,8 +153,10 @@ describe("release check", () => {
     });
 
     expect(result.stdout).toContain("private Git remote validation skipped");
-    expect(result.stdout).toContain("release check passed");
-  });
+    expect(result.stdout).toContain("$ npm run smoke:dogfood-demo");
+    expect(result.stdout).toContain("$ npm run smoke:agent-lifecycle");
+    expect(result.stdout).toContain('"status":"passed"');
+  }, 60_000);
 
   it("runs from a checkout path containing spaces", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn release check "));
@@ -169,9 +171,9 @@ describe("release check", () => {
         }
       });
 
-      expect(result.stdout).toContain("release check passed");
+      expect(result.stdout).toContain('"completed":["dogfood_smoke","lifecycle_smoke","package"]');
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  });
+  }, 60_000);
 });

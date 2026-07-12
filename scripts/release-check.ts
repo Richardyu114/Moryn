@@ -7,151 +7,103 @@ import { promisify } from "node:util";
 
 const exec = promisify(execFile);
 
-interface RunOptions {
-  cwd?: string;
-  env?: NodeJS.ProcessEnv;
+type GateStepId = "build" | "typecheck" | "tests" | "dogfood_smoke" | "lifecycle_smoke" | "package" | "private_remote";
+type GateStepMode = "required" | "skipped" | "optional_skipped";
+export interface ReleaseGateStep { id: GateStepId; mode: GateStepMode }
+export interface ReleaseGateResult { version: 1; status: "passed"; completed: GateStepId[]; skipped: GateStepId[] }
+export interface ReleaseGateOptions {
+  skip_slow_checks?: boolean;
+  private_remote?: string;
+  run_command?: (command: string, args: string[], options?: { cwd?: string; env?: NodeJS.ProcessEnv }) => Promise<string>;
+  log?: (message: string) => void;
 }
 
-function log(message: string): void {
-  process.stdout.write(`${message}\n`);
-}
+function output(message: string): void { process.stdout.write(`${message}\n`); }
 
-async function run(command: string, args: string[], options: RunOptions = {}): Promise<string> {
-  const pretty = [command, ...args].join(" ");
-  log(`$ ${pretty}`);
-  const { stdout } = await exec(command, args, {
-    cwd: options.cwd ?? process.cwd(),
-    env: options.env ?? process.env
-  });
+async function defaultRun(command: string, args: string[], options: { cwd?: string; env?: NodeJS.ProcessEnv } = {}): Promise<string> {
+  const { stdout } = await exec(command, args, { cwd: options.cwd ?? process.cwd(), env: options.env ?? process.env });
   return stdout;
+}
+
+export function releaseGateSteps(skipSlowChecks: boolean, hasPrivateRemote: boolean): ReleaseGateStep[] {
+  return [
+    { id: "build", mode: skipSlowChecks ? "skipped" : "required" },
+    { id: "typecheck", mode: skipSlowChecks ? "skipped" : "required" },
+    { id: "tests", mode: skipSlowChecks ? "skipped" : "required" },
+    { id: "dogfood_smoke", mode: "required" },
+    { id: "lifecycle_smoke", mode: "required" },
+    { id: "package", mode: "required" },
+    { id: "private_remote", mode: hasPrivateRemote ? "required" : "optional_skipped" }
+  ];
 }
 
 export function assertSafePackageFiles(files: string[]): void {
   const unsafe = files.filter((file) => {
     const normalized = file.replace(/\\/g, "/").replace(/^package\//, "");
-    return normalized === "config.json"
-      || normalized === ".moryn.json"
-      || normalized.startsWith(".moryn/")
-      || normalized.startsWith(".gemini/")
-      || normalized.startsWith("docs/superpowers/")
-      || normalized === "docs/v0.2-phase-plan.md"
-      || normalized.startsWith("events/")
-      || normalized.startsWith("snapshots/")
-      || normalized.startsWith("indexes/")
-      || normalized.endsWith(".tgz");
+    return normalized === "config.json" || normalized === ".moryn.json" || normalized.startsWith(".moryn/") || normalized.startsWith(".gemini/") || normalized.startsWith("docs/superpowers/") || normalized === "docs/v0.2-phase-plan.md" || normalized.startsWith("events/") || normalized.startsWith("snapshots/") || normalized.startsWith("indexes/") || normalized.endsWith(".tgz");
   });
-
-  if (unsafe.length) {
-    throw new Error(`Package contains private Moryn store data: ${unsafe.join(", ")}`);
-  }
+  if (unsafe.length) throw new Error(`Package contains private Moryn store data: ${unsafe.join(", ")}`);
 }
 
 export function assertPackageFilesComplete(files: string[]): void {
   const normalized = new Set(files.map((file) => file.replace(/\\/g, "/").replace(/^package\//, "")));
-  const required = [
-    "package.json",
-    "LICENSE",
-    "README.md",
-    "CHANGELOG.md",
-    "docs/agent-install-prompt.md",
-    "docs/agent-workflow.md",
-    "docs/contracts.md",
-    "docs/development.md",
-    "docs/implementation-roadmap.md",
-    "docs/moryn-design.md",
-    "dist/cli.js",
-    "dist/index.js",
-    "dist/mcp/server.js",
-    "scripts/agent-lifecycle-smoke.js",
-    "scripts/dogfood-demo-smoke.js"
-  ];
+  const required = ["package.json", "LICENSE", "README.md", "CHANGELOG.md", "docs/agent-install-prompt.md", "docs/agent-workflow.md", "docs/contracts.md", "docs/development.md", "docs/implementation-roadmap.md", "docs/moryn-design.md", "dist/cli.js", "dist/index.js", "dist/mcp/server.js", "scripts/agent-lifecycle-smoke.js", "scripts/dogfood-demo-smoke.js"];
   const missing = required.filter((file) => !normalized.has(file));
-
-  if (missing.length) {
-    throw new Error(`Package is missing required package files: ${missing.join(", ")}`);
-  }
+  if (missing.length) throw new Error(`Package is missing required package files: ${missing.join(", ")}`);
 }
 
-async function assertPackageContentsAreSafe(): Promise<void> {
-  const output = await run("npm", ["pack", "--dry-run", "--json"]);
-  const parsed = JSON.parse(output) as Array<{ files?: Array<{ path: string }> }>;
+async function validatePackage(run: NonNullable<ReleaseGateOptions["run_command"]>, log: NonNullable<ReleaseGateOptions["log"]>): Promise<void> {
+  log("$ npm pack --dry-run --json");
+  const parsed = JSON.parse(await run("npm", ["pack", "--dry-run", "--json"])) as Array<{ files?: Array<{ path: string }> }>;
   const files = parsed.flatMap((entry) => entry.files?.map((file) => file.path) ?? []);
   assertSafePackageFiles(files);
   assertPackageFilesComplete(files);
 }
 
-async function runPrivateGitRemoteValidation(remote: string): Promise<void> {
+async function validatePrivateRemote(remote: string, run: NonNullable<ReleaseGateOptions["run_command"]>, log: NonNullable<ReleaseGateOptions["log"]>): Promise<void> {
   const root = await mkdtemp(join(tmpdir(), "moryn-private-git-release-"));
   const storeA = join(root, "store-a");
   const storeB = join(root, "store-b");
   const moryn = join(process.cwd(), "dist", "cli.js");
-
+  const call = async (args: string[]) => { log(`$ node ${args.join(" ")}`); return run("node", args); };
   try {
-    await run("node", [moryn, "--store", storeA, "init"]);
-    await run("node", [moryn, "--store", storeB, "init"]);
-    await run("node", [moryn, "--store", storeA, "sync", "init", remote]);
-    await run("node", [moryn, "--store", storeB, "sync", "init", remote]);
-    await run("node", [
-      moryn,
-      "--store",
-      storeA,
-      "write",
-      "--kind",
-      "memory",
-      "--type",
-      "decision",
-      "--scope",
-      "project",
-      "--project-id",
-      "moryn-release-check",
-      "--state",
-      "canonical",
-      "--text",
-      `Private Git remote release check ${new Date().toISOString()}`
-    ]);
-    await run("node", [moryn, "--store", storeA, "sync", "--push"]);
-    await run("node", [moryn, "--store", storeB, "sync", "--pull"]);
-    const recall = await run("node", [
-      moryn,
-      "--store",
-      storeB,
-      "recall",
-      "Private Git remote release check",
-      "--project-id",
-      "moryn-release-check"
-    ]);
-    if (!recall.includes("Private Git remote release check")) {
-      throw new Error("Private Git remote validation did not recall the pushed event");
-    }
-  } finally {
-    await rm(root, { recursive: true, force: true });
+    await call([moryn, "--store", storeA, "init"]);
+    await call([moryn, "--store", storeB, "init"]);
+    await call([moryn, "--store", storeA, "sync", "init", remote]);
+    await call([moryn, "--store", storeB, "sync", "init", remote]);
+    await call([moryn, "--store", storeA, "write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "moryn-release-check", "--state", "canonical", "--text", `Private Git remote release check ${new Date().toISOString()}`]);
+    await call([moryn, "--store", storeA, "sync", "--push"]);
+    await call([moryn, "--store", storeB, "sync", "--pull"]);
+    if (!(await call([moryn, "--store", storeB, "recall", "Private Git remote release check", "--project-id", "moryn-release-check"])).includes("Private Git remote release check")) throw new Error("Private Git remote validation did not recall the pushed event");
+  } finally { await rm(root, { recursive: true, force: true }); }
+}
+
+export async function runReleaseGate(options: ReleaseGateOptions = {}): Promise<ReleaseGateResult> {
+  const run = options.run_command ?? defaultRun;
+  const log = options.log ?? output;
+  const privateRemote = options.private_remote?.trim();
+  const steps = releaseGateSteps(options.skip_slow_checks === true, Boolean(privateRemote));
+  const completed: GateStepId[] = [];
+  const skipped: GateStepId[] = [];
+  const commands: Partial<Record<GateStepId, [string, string[]]>> = {
+    build: ["npm", ["run", "build"]], typecheck: ["npm", ["run", "typecheck"]], tests: ["npm", ["test"]], dogfood_smoke: ["npm", ["run", "smoke:dogfood-demo"]], lifecycle_smoke: ["npm", ["run", "smoke:agent-lifecycle"]]
+  };
+  for (const step of steps) {
+    if (step.mode !== "required") { skipped.push(step.id); continue; }
+    const command = commands[step.id];
+    if (command) { log(`$ ${command[0]} ${command[1].join(" ")}`); await run(command[0], command[1]); }
+    else if (step.id === "package") await validatePackage(run, log);
+    else if (step.id === "private_remote" && privateRemote) await validatePrivateRemote(privateRemote, run, log);
+    completed.push(step.id);
   }
+  if (!privateRemote) log("private Git remote validation skipped: set MORYN_PRIVATE_GIT_REMOTE to run it");
+  const result: ReleaseGateResult = { version: 1, status: "passed", completed, skipped };
+  log(JSON.stringify(result));
+  return result;
 }
 
 export async function main(): Promise<void> {
-  const skipSlowChecks = process.env.MORYN_SKIP_SLOW_CHECKS === "1";
-  if (!skipSlowChecks) {
-    await run("npm", ["run", "build"]);
-    await run("npm", ["run", "typecheck"]);
-    await run("npm", ["test"]);
-  }
-  await assertPackageContentsAreSafe();
-
-  const privateRemote = process.env.MORYN_PRIVATE_GIT_REMOTE?.trim();
-  if (privateRemote) {
-    await runPrivateGitRemoteValidation(privateRemote);
-    log("private Git remote validation passed");
-  } else {
-    log("private Git remote validation skipped: set MORYN_PRIVATE_GIT_REMOTE to run it");
-  }
-
-  log("release check passed");
+  await runReleaseGate({ skip_slow_checks: process.env.MORYN_SKIP_SLOW_CHECKS === "1", private_remote: process.env.MORYN_PRIVATE_GIT_REMOTE });
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  main().catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`${message}\n`);
-    process.exitCode = 1;
-  });
-}
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) main().catch((error: unknown) => { process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`); process.exitCode = 1; });

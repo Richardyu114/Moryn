@@ -28,5 +28,7 @@ describe("agent lifecycle smoke script", () => {
     expect(result.stdout).toContain('"record_read_model_status":"fresh"');
     expect(result.stdout).toContain('"session_synthesis_mode":"evidence_synthesized"');
     expect(result.stdout).toContain('"abnormal_exit_compensation":"pushed"');
+    expect(result.stdout).toContain('"acceptance":{"cross_host_handoff":true');
+    expect(result.stdout).toContain('"abnormal_exit_recovery":true');
   }, 60000);
 });
