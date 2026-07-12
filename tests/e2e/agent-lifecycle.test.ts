@@ -3115,14 +3115,14 @@ describe("agent lifecycle", () => {
       expect((await readEvents(storeB)).filter((event) => event.record?.type === "status")).toHaveLength(1);
 
       const second = await runHostHook({ storePath: storeA, project_path: project, current_task: "Implement bounded turn sync", hook: { ...hook, occurred_at: "2026-07-12T00:05:00.000Z" } });
-      expect(second).toMatchObject({ sync_cadence: { reason: "within_interval", push_requested: false } });
+      expect(second).toMatchObject({ action: "skip_duplicate_status", sync_cadence: { reason: "within_interval", push_requested: false } });
       await pullGitSync(storeB);
       expect((await readEvents(storeB)).filter((event) => event.record?.type === "status")).toHaveLength(1);
 
       const third = await runHostHook({ storePath: storeA, project_path: project, current_task: "Implement bounded turn sync", hook: { ...hook, occurred_at: "2026-07-12T00:16:00.000Z" } });
-      expect(third).toMatchObject({ sync_cadence: { reason: "interval_elapsed", push_succeeded: true } });
+      expect(third).toMatchObject({ action: "skip_duplicate_status", sync_cadence: { reason: "interval_elapsed", push_succeeded: true } });
       await pullGitSync(storeB);
-      expect((await readEvents(storeB)).filter((event) => event.record?.type === "status")).toHaveLength(3);
+      expect((await readEvents(storeB)).filter((event) => event.record?.type === "status")).toHaveLength(1);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

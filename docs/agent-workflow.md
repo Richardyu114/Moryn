@@ -108,6 +108,13 @@ High-frequency Codex Stop receipts are coalesced to one receipt per session and
 UTC hour. Session start, compaction, resume, and final-session boundary receipts
 retain exact event timing because they are lower-frequency lifecycle evidence.
 
+Automatic Stop status writes are also logically coalesced. If the latest status
+for the same project, host, session, and device has the same bounded synthesis
+fingerprint, Moryn reuses that status instead of appending another event. A
+changed task, checkpoint evidence, decision, blocker, learning, or next step
+creates a new status. Remote sync cadence remains independent, so an unchanged
+Stop can still perform a due push without growing append-only history.
+
 ## Startup
 
 Use `agent enter` as the default entrypoint:

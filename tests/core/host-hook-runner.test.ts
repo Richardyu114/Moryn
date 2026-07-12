@@ -334,11 +334,12 @@ describe("host hook runner", () => {
       const third = await runHostHook({ storePath, hook: { ...base, event: "stop", occurred_at: "2026-07-11T00:16:00.000Z" }, project_id: "moryn" }, deps);
       const explicit = await runHostHook({ storePath, hook: { ...base, event: "stop", occurred_at: "2026-07-11T00:17:00.000Z" }, project_id: "moryn", push: true }, deps);
 
-      expect(first).toMatchObject({ sync_cadence: { due: true, reason: "first_turn_sync", push_requested: true, push_succeeded: true } });
-      expect(second).toMatchObject({ sync_cadence: { due: false, reason: "within_interval", push_requested: false } });
-      expect(third).toMatchObject({ sync_cadence: { due: true, reason: "interval_elapsed", push_requested: true, push_succeeded: true } });
-      expect(explicit).toMatchObject({ sync_cadence: { reason: "explicit_push", push_requested: true, push_succeeded: true } });
+      expect(first).toMatchObject({ action: "agent_status", sync_cadence: { due: true, reason: "first_turn_sync", push_requested: true, push_succeeded: true } });
+      expect(second).toMatchObject({ action: "skip_duplicate_status", duplicate_status: { prior_record_id: first.details.record.id }, sync_cadence: { due: false, reason: "within_interval", push_requested: false } });
+      expect(third).toMatchObject({ action: "skip_duplicate_status", duplicate_status: { prior_record_id: first.details.record.id }, sync_cadence: { due: true, reason: "interval_elapsed", push_requested: true, push_succeeded: true } });
+      expect(explicit).toMatchObject({ action: "skip_duplicate_status", duplicate_status: { prior_record_id: first.details.record.id }, sync_cadence: { reason: "explicit_push", push_requested: true, push_succeeded: true } });
       expect(pushes).toHaveLength(3);
+      expect((await engine.listRecent({ project_id: "moryn", limit: 20 })).records.filter((record) => record.type === "status")).toHaveLength(1);
     });
   });
 
@@ -357,8 +358,43 @@ describe("host hook runner", () => {
       const retried = await runHostHook({ storePath, hook: { ...base, host: "claude", event: "stop", occurred_at: "2026-07-11T00:05:00.000Z" }, project_id: "moryn" }, deps);
 
       expect(failed).toMatchObject({ sync_cadence: { reason: "first_turn_sync", push_requested: true, push_succeeded: false } });
-      expect(retried).toMatchObject({ sync_cadence: { reason: "first_turn_sync", push_requested: true, push_succeeded: true } });
+      expect(retried).toMatchObject({ action: "skip_duplicate_status", sync_cadence: { reason: "first_turn_sync", push_requested: true, push_succeeded: true } });
       expect(attempts).toBe(2);
+    });
+  });
+
+  it("writes a new Stop status when durable session evidence changes", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath });
+      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "session-a", device_id: "device-a" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: { session_id: "session-a", checkpoint_id: "status-change-a", progress: ["Implemented parser"] } });
+      const first = await runHostHook({ storePath, hook: { ...base, event: "stop", occurred_at: "2026-07-11T00:01:00.000Z" }, project_id: "moryn", push: false });
+      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "session-a", device_id: "device-a" }, occurred_at: "2026-07-11T00:02:00.000Z", delta: { session_id: "session-a", checkpoint_id: "status-change-b", progress: ["Integration tests pass"], next_steps: ["Review release gate"] } });
+      const changed = await runHostHook({ storePath, hook: { ...base, event: "stop", occurred_at: "2026-07-11T00:03:00.000Z" }, project_id: "moryn", push: false });
+
+      expect(first).toMatchObject({ action: "agent_status" });
+      expect(changed).toMatchObject({ action: "agent_status" });
+      expect((await engine.listRecent({ project_id: "moryn", limit: 20 })).records.filter((record) => record.type === "status")).toHaveLength(2);
+    });
+  });
+
+  it("does not coalesce a status that changed away and later returned", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath });
+      const checkpoint = async (checkpointId: string, occurredAt: string, progress: string) => engine.checkpoint({
+        project_id: "moryn",
+        source: { client: "codex", session_id: "session-a", device_id: "device-a" },
+        occurred_at: occurredAt,
+        delta: { session_id: "session-a", checkpoint_id: checkpointId, progress: [progress] }
+      });
+      await checkpoint("status-a-1", "2026-07-11T00:00:00.000Z", "State A");
+      await runHostHook({ storePath, hook: { ...base, event: "stop", occurred_at: "2026-07-11T00:01:00.000Z" }, project_id: "moryn", push: false });
+      await checkpoint("status-b", "2026-07-11T00:02:00.000Z", "State B");
+      await runHostHook({ storePath, hook: { ...base, event: "stop", occurred_at: "2026-07-11T00:03:00.000Z" }, project_id: "moryn", push: false });
+      await checkpoint("status-a-2", "2026-07-11T00:04:00.000Z", "State A");
+      const returned = await runHostHook({ storePath, hook: { ...base, event: "stop", occurred_at: "2026-07-11T00:05:00.000Z" }, project_id: "moryn", push: false });
+
+      expect(returned).toMatchObject({ action: "agent_status" });
+      expect((await engine.listRecent({ project_id: "moryn", limit: 30 })).records.filter((record) => record.type === "status")).toHaveLength(3);
     });
   });
 

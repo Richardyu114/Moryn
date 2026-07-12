@@ -11,6 +11,7 @@ import { synthesizeSession, type SessionSynthesis } from "./session-synthesis.js
 import { buildPromptRecallContext } from "./host-prompt-recall.js";
 import { evaluateTurnSyncCadence, recordTurnSyncSuccess, type TurnSyncCadenceDecision } from "./turn-sync-cadence.js";
 import { isGitSyncConfigured, pushGitSync, type GitSyncResult } from "../sync/git.js";
+import { readCurrentRecords } from "./record-read-model.js";
 
 export interface RunHostHookInput {
   storePath: string;
@@ -52,7 +53,7 @@ export type HostHookCheckpointSync = {
 export interface HostHookRunResult {
   ok: true;
   event: NormalizedHostHookEvent["event"];
-  action: "agent_start" | "recall_prompt" | "checkpoint_before_compaction" | "resume_from_checkpoint" | "agent_status" | "agent_finish" | "skip_empty_status";
+  action: "agent_start" | "recall_prompt" | "checkpoint_before_compaction" | "resume_from_checkpoint" | "agent_status" | "agent_finish" | "skip_empty_status" | "skip_duplicate_status";
   degradation: { mode: "native" } | { mode: "fallback"; reason: "host_hook_unavailable" };
   hook_output: { additional_context: string };
   checkpoint?: { idempotent_replay: boolean; record: { id: string } };
@@ -60,6 +61,7 @@ export interface HostHookRunResult {
   activation_receipt?: Awaited<ReturnType<typeof recordActivationReceipt>>;
   activation_warning?: { code: "ACTIVATION_RECEIPT_FAILED"; reason: string };
   skipped?: { reason: "no_durable_session_evidence" };
+  duplicate_status?: { prior_record_id: string };
   details?: unknown;
   prompt_recall?: {
     outcome: { status: "trusted_match" | "verification_required" | "knowledge_gap"; best_record_id?: string };
@@ -67,6 +69,37 @@ export interface HostHookRunResult {
     record_count: number;
   };
   sync_cadence?: HostHookSyncCadence;
+}
+
+function synthesisFingerprint(synthesis: SessionSynthesis): string {
+  return JSON.stringify({
+    version: synthesis.version,
+    mode: synthesis.mode,
+    current_task: synthesis.current_task,
+    progress: synthesis.progress,
+    decisions: synthesis.decisions,
+    blockers: synthesis.blockers,
+    next_steps: synthesis.next_steps,
+    learning_conclusions: synthesis.learning_conclusions,
+    unresolved_investigations: synthesis.unresolved_investigations,
+    source_record_ids: synthesis.source_record_ids
+  });
+}
+
+function recordSynthesisFingerprint(content: Record<string, unknown>): string | undefined {
+  if (content.synthesis_version !== 1 || typeof content.synthesis_mode !== "string") return undefined;
+  return JSON.stringify({
+    version: content.synthesis_version,
+    mode: content.synthesis_mode,
+    current_task: content.synthesis_current_task,
+    progress: content.synthesis_progress,
+    decisions: content.synthesis_decisions,
+    blockers: content.synthesis_blockers,
+    next_steps: content.synthesis_next_steps,
+    learning_conclusions: content.synthesis_learning_conclusions,
+    unresolved_investigations: content.synthesis_unresolved_investigations,
+    source_record_ids: content.synthesis_source_record_ids
+  });
 }
 
 function checkpointId(hook: NormalizedHostHookEvent): string {
@@ -265,6 +298,37 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       const decision = await evaluateTurnSyncCadence(input.storePath, identity);
       syncCadence = { ...decision, push_requested: decision.due };
       push = decision.due;
+    }
+    const current = await readCurrentRecords(input.storePath);
+    const priorStatus = current.records
+      .filter((record) =>
+        record.project_id === project.project_id
+        && record.type === "status"
+        && record.source.client === input.hook.host
+        && record.source.session_id === input.hook.session_id
+        && record.source.device_id === input.hook.device_id
+      )
+      .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id))[0];
+    if (priorStatus && recordSynthesisFingerprint(priorStatus.content) === synthesisFingerprint(synthesis)) {
+      if (syncCadence.push_requested) {
+        try {
+          const pushed = await (deps.pushGitSync ?? pushGitSync)(input.storePath, { message: `agent status: ${project.project_id}` });
+          syncCadence.push_succeeded = pushed.ok;
+          if (pushed.ok) await recordTurnSyncSuccess(input.storePath, identity);
+        } catch {
+          syncCadence.push_succeeded = false;
+        }
+      }
+      return {
+        ok: true,
+        event: input.hook.event,
+        action: "skip_duplicate_status",
+        degradation,
+        duplicate_status: { prior_record_id: priorStatus.id },
+        sync_cadence: syncCadence,
+        hook_output: { additional_context: `Moryn reused unchanged status: ${priorStatus.id}` },
+        ...activationEvidence
+      };
     }
     const result = await agentStatus({ ...common, status: synthesis.summary, synthesis, push }, { pushGitSync: deps.pushGitSync });
     if (syncCadence.push_requested) {

@@ -74,6 +74,9 @@ During agent work:
   reusable procedures, or handoff context.
 - Promote only material that is stable enough to become canonical shared memory.
 - Use `moryn agent status` during long work when it helps future handoffs.
+- Do not require automatic Stop hooks to append the same synthesized status on
+  every turn. Moryn coalesces unchanged status evidence while preserving due
+  remote synchronization and writes a new status when durable state changes.
 - Before host compaction or when context pressure is visible, checkpoint current
   progress, durable learning, and unresolved knowledge investigations so the
   next compacted context can restore them.
