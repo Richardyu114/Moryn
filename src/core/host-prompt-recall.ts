@@ -19,7 +19,29 @@ function boundedText(record: MorynRecord): string {
 }
 
 export function buildPromptRecallContext(input: PromptRecallInput): PromptRecallContext {
-  if (input.outcome.status !== "trusted_match") return { injected: false, record_count: 0, additional_context: "" };
+  if (input.outcome.status === "knowledge_gap") {
+    return {
+      injected: true,
+      record_count: 0,
+      additional_context: JSON.stringify({
+        source: "moryn",
+        status: "knowledge_gap",
+        instruction: "Moryn has no trusted answer. Investigate project files, local tools, web sources, or ask the user as needed. When a reusable conclusion is supported, queue an evidence-backed Learning Delta at the next checkpoint or finish. If still unresolved before compaction, preserve the question, evidence, blocker, and exact next verification step."
+      })
+    };
+  }
+  if (input.outcome.status === "verification_required") {
+    return {
+      injected: true,
+      record_count: 0,
+      additional_context: JSON.stringify({
+        source: "moryn",
+        status: "verification_required",
+        ...(input.outcome.best_record_id ? { candidate_record_id: input.outcome.best_record_id } : {}),
+        instruction: "Moryn found only unverified knowledge. Inspect the candidate timeline and verify it with project files, local tools, web sources, or the user before relying on it. Queue an evidence-backed Learning Delta at the next checkpoint or finish only after the conclusion is supported."
+      })
+    };
+  }
   const records = input.results.slice(0, 3);
   if (!records.length) return { injected: false, record_count: 0, additional_context: "" };
   const context = {

@@ -10752,12 +10752,16 @@ describe("host hook CLI", () => {
     });
   });
 
-  it("keeps prompt recall misses silent in host-output mode", async () => {
+  it("emits compact learning guidance for prompt recall misses", async () => {
     await withTempDir(async (store) => {
       await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
       const payload = JSON.stringify({ hook_event_name: "UserPromptSubmit", session_id: "prompt-miss", cwd: repoRoot, prompt: "What is the unknown lunar deployment protocol?" });
       const result = await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "host", "hook", "--host", "claude", "--project-id", "moryn", "--device-id", "device-a", "--input-json", payload, "--host-output", "--no-pull", "--no-push"]);
-      expect(result.stdout).toBe("");
+      const output = JSON.parse(result.stdout);
+      expect(output).toMatchObject({ hookSpecificOutput: { hookEventName: "UserPromptSubmit" } });
+      expect(output.hookSpecificOutput.additionalContext).toContain("knowledge_gap");
+      expect(output.hookSpecificOutput.additionalContext).toContain("Learning Delta");
+      expect(result.stdout).not.toContain("unknown lunar deployment protocol");
     });
   });
 

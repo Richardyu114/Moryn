@@ -109,6 +109,7 @@ export async function runHostHook(input: RunHostHookInput): Promise<HostHookRunR
     const recall = await engine.recall({
       query: input.hook.prompt,
       project_id: project.project_id,
+      kinds: ["memory", "skill", "soul"],
       limit: 3,
       include_private: false
     });

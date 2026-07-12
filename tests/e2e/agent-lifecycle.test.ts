@@ -3059,6 +3059,39 @@ describe("agent lifecycle", () => {
     }
   });
 
+  it("turns prompt-hook learning guidance into trusted recall after checkpoint", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-prompt-learning-loop-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    const question = "Does rollback require restoring the previous signed release tag?";
+    const conclusion = "Rollback requires restoring the previous signed release tag.";
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(store, { id: () => "device-loop" });
+      const hookBase = { host: "codex" as const, session_id: "loop-session", device_id: "device-loop", cwd: project, occurred_at: "2026-07-12T00:00:00.000Z" };
+
+      const gap = await runHostHook({ storePath: store, project_path: project, hook: { ...hookBase, event: "user_prompt_submit", prompt: question } });
+      expect(gap).toMatchObject({ prompt_recall: { outcome: { status: "knowledge_gap" }, injected: true } });
+      expect(gap.hook_output.additional_context).toContain("Learning Delta");
+
+      const checkpoint = await runHostHook({
+        storePath: store,
+        project_path: project,
+        current_task: "Resolve rollback policy",
+        hook: { ...hookBase, event: "pre_compact", trigger: "auto", compact_summary: "User confirmed the rollback policy." },
+        learnings: [{ question, conclusion, evidence_type: "user_confirmed", scope: "project", confidence: 1, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] }],
+        knowledge_investigations: [{ resolution_id: "prompt-loop", question, recall_status: "knowledge_gap", recalled_record_ids: [], evidence: [{ type: "user_confirmation", reference: "conversation", summary: "User confirmed signed-tag rollback." }], status: "resolved", conclusion }]
+      });
+      expect(checkpoint).toMatchObject({ checkpoint: { learning_ingestion: { records_created: 1 } } });
+
+      const recalled = await runHostHook({ storePath: store, project_path: project, hook: { ...hookBase, occurred_at: "2026-07-12T00:01:00.000Z", event: "user_prompt_submit", prompt: question } });
+      expect(recalled).toMatchObject({ prompt_recall: { outcome: { status: "trusted_match" }, injected: true, record_count: 1 } });
+      expect(recalled.hook_output.additional_context).toContain(conclusion);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("preserves checkpoint and handoff across Codex and Claude Code compaction hooks", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-cross-host-hooks-"));
     const remote = join(root, "remote.git");

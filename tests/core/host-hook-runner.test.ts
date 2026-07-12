@@ -73,7 +73,7 @@ describe("host hook runner", () => {
     });
   });
 
-  it("keeps prompt recall misses silent and read-only", async () => {
+  it("guides prompt recall misses toward evidence-backed learning without writing", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createEngine({ storePath });
       const before = (await engine.listRecent({ project_id: "moryn", limit: 100 })).records.length;
@@ -86,10 +86,44 @@ describe("host hook runner", () => {
 
       expect(result).toMatchObject({
         action: "recall_prompt",
-        prompt_recall: { outcome: { status: "knowledge_gap" }, injected: false, record_count: 0 },
-        hook_output: { additional_context: "" }
+        prompt_recall: { outcome: { status: "knowledge_gap" }, injected: true, record_count: 0 }
       });
+      expect(result.hook_output.additional_context).toContain("knowledge_gap");
+      expect(result.hook_output.additional_context).toContain("Learning Delta");
+      expect(result.hook_output.additional_context).toContain("checkpoint or finish");
       expect(after).toBe(before);
+    });
+  });
+
+  it("guides weak matches without injecting unverified candidate content", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath });
+      const candidate = await engine.write({
+        kind: "memory",
+        type: "candidate_policy",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Candidate lunar deployment protocol uses an unverified launch window." },
+        state: "candidate",
+        confidence: 0.6,
+        source: { client: "agent" }
+      });
+      const result = await runHostHook({
+        storePath,
+        hook: { ...base, event: "user_prompt_submit", prompt: "Does the candidate lunar deployment protocol use an unverified launch window?" },
+        project_id: "moryn"
+      });
+
+      expect(result).toMatchObject({
+        prompt_recall: {
+          outcome: { status: "verification_required", best_record_id: candidate.record.id },
+          injected: true,
+          record_count: 0
+        }
+      });
+      expect(result.hook_output.additional_context).toContain(candidate.record.id);
+      expect(result.hook_output.additional_context).toContain("verification_required");
+      expect(result.hook_output.additional_context).not.toContain("unverified launch window");
     });
   });
 
