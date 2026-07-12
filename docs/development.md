@@ -34,7 +34,11 @@ npm run smoke:permission-recovery
 typecheck, the full test suite, dogfood, cross-host lifecycle, v0.2 in-place
 upgrade, sync-resilience, real-conflict guard, and permission-recovery smokes, package-content checks, and optional private Git remote
 validation. Its final line is machine-readable JSON listing completed and
-skipped checks.
+skipped checks. The final JSON includes `acceptance`, a stable nine-area v0.3
+evidence matrix. Each area lists its required, completed, and missing evidence;
+`acceptance_complete` is `true` only when every required evidence step ran
+successfully. Fast or skipped-check runs report affected areas as
+`not_verified` instead of implying full release acceptance.
 `npm run smoke:dogfood-demo` validates the v0.2 default path on a temporary
 local store: setup, context pack, low-risk autocapture, review-routed handoff,
 and dashboard snapshot evidence.

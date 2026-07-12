@@ -967,10 +967,11 @@ describe("documentation contracts", () => {
   });
 
   it("documents the product positioning guardrail and phase decision gate", async () => {
-    const [readme, design, roadmap] = await Promise.all([
+    const [readme, design, roadmap, development] = await Promise.all([
       readFile("README.md", "utf8"),
       readFile("docs/moryn-design.md", "utf8"),
-      readFile("docs/implementation-roadmap.md", "utf8")
+      readFile("docs/implementation-roadmap.md", "utf8"),
+      readFile("docs/development.md", "utf8")
     ]);
 
     for (const document of [readme, design, roadmap]) {
@@ -1017,6 +1018,11 @@ describe("documentation contracts", () => {
     expectText(roadmap, "Temporary development plans are not part of the public package");
     expect(roadmap).toContain("npm run smoke:agent-lifecycle");
     expect(roadmap).toContain("npm pack --dry-run --json");
+    expectText(roadmap, "The final release JSON includes all nine v0.3 acceptance areas");
+    expectText(roadmap, "`acceptance_complete: true` means every area's required evidence completed in that run");
+    expectText(roadmap, "Fast or skipped-check runs report `not_verified` instead of implying full acceptance");
+    expectText(development, "The final JSON includes `acceptance`, a stable nine-area v0.3 evidence matrix");
+    expectText(development, "`acceptance_complete` is `true` only when every required evidence step ran successfully");
     expect(roadmap).toContain("Final v0.2.0 Definition of Done");
   });
 

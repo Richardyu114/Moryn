@@ -7,10 +7,24 @@ import { promisify } from "node:util";
 
 const exec = promisify(execFile);
 
-type GateStepId = "build" | "typecheck" | "tests" | "dogfood_smoke" | "lifecycle_smoke" | "upgrade_compat_smoke" | "sync_resilience_smoke" | "sync_conflict_smoke" | "permission_recovery_smoke" | "large_store_smoke" | "package" | "private_remote";
+export type GateStepId = "build" | "typecheck" | "tests" | "dogfood_smoke" | "lifecycle_smoke" | "upgrade_compat_smoke" | "sync_resilience_smoke" | "sync_conflict_smoke" | "permission_recovery_smoke" | "large_store_smoke" | "package" | "private_remote";
 type GateStepMode = "required" | "skipped" | "optional_skipped";
 export interface ReleaseGateStep { id: GateStepId; mode: GateStepMode }
-export interface ReleaseGateResult { version: 1; status: "passed"; completed: GateStepId[]; skipped: GateStepId[] }
+export type V03AcceptanceArea = "autopilot" | "sync" | "working_set" | "consolidation" | "learning" | "hosts" | "dashboard" | "audit" | "reliability";
+export interface V03AcceptanceEvidence {
+  status: "passed" | "not_verified";
+  required_evidence: GateStepId[];
+  completed_evidence: GateStepId[];
+  missing_evidence: GateStepId[];
+}
+export interface ReleaseGateResult {
+  version: 1;
+  status: "passed";
+  completed: GateStepId[];
+  skipped: GateStepId[];
+  acceptance: Record<V03AcceptanceArea, V03AcceptanceEvidence>;
+  acceptance_complete: boolean;
+}
 export interface ReleaseGateOptions {
   skip_slow_checks?: boolean;
   private_remote?: string;
@@ -40,6 +54,32 @@ export function releaseGateSteps(skipSlowChecks: boolean, hasPrivateRemote: bool
     { id: "package", mode: "required" },
     { id: "private_remote", mode: hasPrivateRemote ? "required" : "optional_skipped" }
   ];
+}
+
+const V03_ACCEPTANCE_EVIDENCE: Record<V03AcceptanceArea, GateStepId[]> = {
+  autopilot: ["build", "typecheck", "tests", "lifecycle_smoke"],
+  sync: ["tests", "lifecycle_smoke", "sync_resilience_smoke", "sync_conflict_smoke", "permission_recovery_smoke"],
+  working_set: ["tests", "large_store_smoke"],
+  consolidation: ["tests", "lifecycle_smoke", "large_store_smoke"],
+  learning: ["tests", "lifecycle_smoke"],
+  hosts: ["build", "tests", "lifecycle_smoke", "upgrade_compat_smoke", "package"],
+  dashboard: ["tests", "large_store_smoke", "package"],
+  audit: ["tests", "dogfood_smoke", "package"],
+  reliability: ["tests", "lifecycle_smoke", "sync_resilience_smoke", "sync_conflict_smoke", "permission_recovery_smoke", "large_store_smoke", "package"]
+};
+
+export function v03AcceptanceMatrix(completedSteps: readonly GateStepId[]): Record<V03AcceptanceArea, V03AcceptanceEvidence> {
+  const completed = new Set(completedSteps);
+  return Object.fromEntries(Object.entries(V03_ACCEPTANCE_EVIDENCE).map(([area, requiredEvidence]) => {
+    const completedEvidence = requiredEvidence.filter((step) => completed.has(step));
+    const missingEvidence = requiredEvidence.filter((step) => !completed.has(step));
+    return [area, {
+      status: missingEvidence.length === 0 ? "passed" : "not_verified",
+      required_evidence: requiredEvidence,
+      completed_evidence: completedEvidence,
+      missing_evidence: missingEvidence
+    }];
+  })) as Record<V03AcceptanceArea, V03AcceptanceEvidence>;
 }
 
 export function assertSafePackageFiles(files: string[]): void {
@@ -102,7 +142,9 @@ export async function runReleaseGate(options: ReleaseGateOptions = {}): Promise<
     completed.push(step.id);
   }
   if (!privateRemote) log("private Git remote validation skipped: set MORYN_PRIVATE_GIT_REMOTE to run it");
-  const result: ReleaseGateResult = { version: 1, status: "passed", completed, skipped };
+  const acceptance = v03AcceptanceMatrix(completed);
+  const acceptanceComplete = Object.values(acceptance).every((area) => area.status === "passed");
+  const result: ReleaseGateResult = { version: 1, status: "passed", completed, skipped, acceptance, acceptance_complete: acceptanceComplete };
   log(JSON.stringify(result));
   return result;
 }

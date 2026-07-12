@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { releaseGateSteps, runReleaseGate } from "../scripts/release-check.js";
+import { releaseGateSteps, runReleaseGate, v03AcceptanceMatrix } from "../scripts/release-check.js";
 
 describe("v0.3 release gate", () => {
   it("defines one ordered gate containing tests, both smokes, package validation, and optional remote validation", () => {
@@ -14,8 +14,18 @@ describe("v0.3 release gate", () => {
     const logs: string[] = [];
     const result = await runReleaseGate({ skip_slow_checks: true, private_remote: undefined, run_command: async (command, args) => { calls.push([command, ...args].join(" ")); return command === "npm" && args[0] === "pack" ? JSON.stringify([{ files: [{ path: "package.json" }, { path: "LICENSE" }, { path: "README.md" }, { path: "CHANGELOG.md" }, { path: "docs/agent-install-prompt.md" }, { path: "docs/agent-workflow.md" }, { path: "docs/contracts.md" }, { path: "docs/development.md" }, { path: "docs/implementation-roadmap.md" }, { path: "docs/moryn-design.md" }, { path: "dist/cli.js" }, { path: "dist/index.js" }, { path: "dist/mcp/server.js" }, { path: "scripts/agent-lifecycle-smoke.js" }, { path: "scripts/dogfood-demo-smoke.js" }, { path: "scripts/upgrade-compat-smoke.js" }, { path: "scripts/sync-resilience-smoke.js" }, { path: "scripts/sync-conflict-smoke.js" }, { path: "scripts/permission-recovery-smoke.js" }, { path: "scripts/large-store-smoke.js" }] }]) : "ok"; }, log: (line) => logs.push(line) });
     expect(calls).toEqual(["npm run smoke:dogfood-demo", "npm run smoke:agent-lifecycle", "npm run smoke:upgrade-compat", "npm run smoke:sync-resilience", "npm run smoke:sync-conflict", "npm run smoke:permission-recovery", "npm run smoke:large-store", "npm pack --dry-run --json"]);
-    expect(result).toMatchObject({ version: 1, status: "passed", completed: ["dogfood_smoke", "lifecycle_smoke", "upgrade_compat_smoke", "sync_resilience_smoke", "sync_conflict_smoke", "permission_recovery_smoke", "large_store_smoke", "package"], skipped: ["build", "typecheck", "tests", "private_remote"] });
+    expect(result).toMatchObject({ version: 1, status: "passed", completed: ["dogfood_smoke", "lifecycle_smoke", "upgrade_compat_smoke", "sync_resilience_smoke", "sync_conflict_smoke", "permission_recovery_smoke", "large_store_smoke", "package"], skipped: ["build", "typecheck", "tests", "private_remote"], acceptance_complete: false });
+    expect(Object.values(result.acceptance).every((area) => area.status === "not_verified")).toBe(true);
     expect(JSON.parse(logs.at(-1)!)).toEqual(result);
+  });
+
+  it("maps a full release run to all nine v0.3 acceptance areas", () => {
+    const completed = releaseGateSteps(false, false).filter((step) => step.mode === "required").map((step) => step.id);
+    const acceptance = v03AcceptanceMatrix(completed);
+    expect(Object.keys(acceptance)).toEqual(["autopilot", "sync", "working_set", "consolidation", "learning", "hosts", "dashboard", "audit", "reliability"]);
+    expect(Object.values(acceptance).every((area) => area.status === "passed" && area.missing_evidence.length === 0)).toBe(true);
+    expect(acceptance.dashboard.required_evidence).toEqual(expect.arrayContaining(["tests", "large_store_smoke"]));
+    expect(acceptance.hosts.required_evidence).toEqual(expect.arrayContaining(["tests", "lifecycle_smoke"]));
   });
 
   it("stops on the first failed required step without success evidence", async () => {

@@ -39,6 +39,11 @@ cross-project changes.
 | Dashboard | The first screen is quiet and read-only; routine sync and maintenance stay subordinate while genuine user decisions remain visible. | Dashboard tests, real-store rendering, large-store dashboard smoke. |
 | Release | Build, typecheck, full tests, package smoke, lifecycle, resilience, conflict, permission, upgrade, and large-store checks pass. | `npm run release:check`. |
 
+The final release JSON includes all nine v0.3 acceptance areas and the exact
+evidence completed or missing for each one. `acceptance_complete: true` means
+every area's required evidence completed in that run. Fast or skipped-check
+runs report `not_verified` instead of implying full acceptance.
+
 The package version, changelog release heading, and public release metadata stay
 at v0.2 until an explicit v0.3 release decision is made.
 
