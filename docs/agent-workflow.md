@@ -346,6 +346,19 @@ privacy boundaries, and exact or semantic consolidation remain authoritative.
 Moryn supplies the workflow and durable state; it does not perform web or
 repository research itself.
 
+Learning ingestion folds high-confidence duplicates automatically. When a new
+learning may instead revise, supersede, or conflict with existing knowledge,
+`semantic_candidates` returns at most three candidates per new record and
+twelve candidates per ingestion. Candidate feedback contains record ids,
+scores, and signals, but not record text, so the normal receipt stays bounded
+and does not expose private content by accident.
+
+Agents recall candidate records before proposing `duplicate_of`, `revises`,
+`supersedes`, or `conflicts_with`. A similarity score alone is not a semantic
+relationship assertion. If no candidate is convincing, the agent continues
+without creating maintenance work for the user; exceptional ambiguity can
+remain visible through the existing read-only diagnostics.
+
 ## Timeline Context
 
 Use `timeline` when a single recalled record is not enough to understand why it

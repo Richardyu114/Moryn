@@ -1967,7 +1967,11 @@ describe("core engine", () => {
       });
 
       expect(first).toMatchObject({ records_created: 1, automatic_consolidation: { links_created: 0 } });
-      expect(second).toMatchObject({ records_created: 1, automatic_consolidation: { links_created: 1, accepted_by_relationship: { duplicate_of: 1 } } });
+      expect(second).toMatchObject({
+        records_created: 1,
+        automatic_consolidation: { links_created: 1, accepted_by_relationship: { duplicate_of: 1 } },
+        semantic_candidates: { candidates: [] }
+      });
       const active = await engine.recall({ project_id: "moryn", kinds: ["memory"], query: "Moryn automatically pulls project memory when an agent enters the project" });
       expect(active.results).toHaveLength(1);
       const events = await readEvents(storePath);
@@ -1989,6 +1993,64 @@ describe("core engine", () => {
         ]
       });
       expect(result).toMatchObject({ records_created: 2, automatic_consolidation: { proposals_received: 1, links_created: 1 } });
+    });
+  });
+
+  it("returns bounded semantic candidates for agent review after learning ingestion", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath });
+      const existing = await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Agent enter pulls shared project context before work begins." },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Dashboard colors use a restrained blue palette." },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+
+      const result = await engine.ingestLearnings({
+        project_id: "moryn",
+        occurred_at: "2026-07-12T00:01:00.000Z",
+        source: { client: "codex", session_id: "session-a", device_id: "device-a" },
+        learnings: [{
+          question: "How is shared context loaded?",
+          conclusion: "Moryn agent enter loads project context before the agent starts working.",
+          evidence_type: "source_code",
+          scope: "project",
+          confidence: 0.95,
+          recommended_kind: "memory",
+          recommended_type: "fact",
+          related_record_ids: []
+        }]
+      });
+
+      expect(result.automatic_consolidation).toMatchObject({ links_created: 0 });
+      expect(result.semantic_candidates).toMatchObject({
+        candidates: [expect.objectContaining({
+          source_record_id: result.dispositions[0]?.record_id,
+          record_id: existing.record.id,
+          token_overlap: expect.any(Number),
+          signals: expect.arrayContaining(["token_overlap"])
+        })],
+        next_action: {
+          action: "recall_then_propose_semantic_relationship",
+          recall_tool: "recall",
+          proposal_tool: "consolidate_semantic"
+        }
+      });
+      expect(result.semantic_candidates.candidates).toHaveLength(1);
     });
   });
 

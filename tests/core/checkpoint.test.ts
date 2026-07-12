@@ -310,6 +310,16 @@ describe("engine.checkpoint", () => {
   it("materializes checkpoint learnings idempotently before compaction", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createTestEngine(storePath);
+      const existing = await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "project-a",
+        content: { text: "Moryn pulls project context on agent enter before work begins." },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
       const input = {
         project_id: "project-a",
         ...authored,
@@ -329,10 +339,18 @@ describe("engine.checkpoint", () => {
       };
       const first = await engine.checkpoint(input);
       const replay = await engine.checkpoint(input);
-      expect(first.learning_ingestion).toMatchObject({ learnings_received: 1, records_created: 1, dispositions: [{ state: "canonical", created: true }] });
+      expect(first.learning_ingestion).toMatchObject({
+        learnings_received: 1,
+        records_created: 1,
+        dispositions: [{ state: "canonical", created: true }],
+        semantic_candidates: {
+          candidates: [expect.objectContaining({ record_id: existing.record.id })],
+          next_action: { action: "recall_then_propose_semantic_relationship" }
+        }
+      });
       expect(replay.learning_ingestion).toMatchObject({ learnings_received: 1, records_created: 0, dispositions: [{ state: "canonical", created: false }] });
-      expect(await readEvents(storePath)).toHaveLength(3);
-      const recall = await engine.recall({ project_id: "project-a", query: "moryn pull agent enter" });
+      expect(await readEvents(storePath)).toHaveLength(4);
+      const recall = await engine.recall({ project_id: "project-a", query: "Moryn pulls on agent enter." });
       expect(recall.outcome).toMatchObject({ status: "trusted_match" });
     });
   });

@@ -38,6 +38,11 @@ describe("documentation contracts", () => {
     expectText(workflow, "The bridge references `current_user_prompt` instead of echoing prompt text into hook output");
     expectText(workflow, "Capture targets contain the resolved project plus current host, session, and device identity");
     expectText(workflow, "Only the current ISO timestamp, stable checkpoint id, concise progress or final summary, and filled Learning Delta remain agent-authored placeholders");
+    expectText(workflow, "Learning ingestion folds high-confidence duplicates automatically");
+    expectText(workflow, "`semantic_candidates` returns at most three candidates per new record and twelve candidates per ingestion");
+    expectText(workflow, "Candidate feedback contains record ids, scores, and signals, but not record text");
+    expectText(workflow, "Agents recall candidate records before proposing `duplicate_of`, `revises`, `supersedes`, or `conflicts_with`");
+    expectText(workflow, "A similarity score alone is not a semantic relationship assertion");
     expectText(dashboard, "Capture Inbox is a compatibility and exceptional review surface");
     for (const document of [installPrompt, workflow, dashboard]) {
       expect(document).not.toContain("Canonical memory still requires explicit Capture Inbox user action.");

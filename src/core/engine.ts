@@ -3069,7 +3069,48 @@ export function createEngine(deps: EngineDeps) {
       const automaticConsolidation = proposals.length
         ? await engine.consolidateSemanticProposals({ proposals, project_id: input.project_id, source: input.source, occurred_at: input.occurred_at })
         : semanticConsolidationReceipt([]);
-      return { learnings_received: learnings.length, records_created: createdCount, evidence_links_created: evidenceLinksCreated, dispositions, automatic_consolidation: automaticConsolidation };
+      const semanticCandidates = await (async () => {
+        try {
+          const activeRecords = await currentRecords();
+          const result = retrieveSemanticConsolidationCandidates(activeRecords, {
+            source_record_ids: ingestedRecordIds,
+            include_private: false,
+            per_source_limit: 3,
+            total_limit: 12
+          });
+          const candidates = result.candidates.filter((candidate) =>
+            candidate.token_overlap >= 0.35
+            || candidate.signals.includes("shared_file")
+            || candidate.signals.includes("shared_provenance")
+          );
+          return {
+            candidates,
+            candidates_by_source_record_id: Object.fromEntries(ingestedRecordIds.map((recordId) => [
+              recordId,
+              candidates.filter((candidate) => candidate.source_record_id === recordId)
+            ])),
+            next_action: {
+              action: "recall_then_propose_semantic_relationship",
+              recall_tool: "recall",
+              proposal_tool: "consolidate_semantic",
+              relationships: ["duplicate_of", "revises", "supersedes", "conflicts_with"],
+              instruction: "Recall candidate records before proposing a semantic relationship; do not infer equivalence from score alone."
+            },
+            selection_sources: result.selection_sources
+          };
+        } catch (error) {
+          return {
+            candidates: [],
+            candidates_by_source_record_id: Object.fromEntries(ingestedRecordIds.map((recordId) => [recordId, []])),
+            next_action: {
+              action: "none",
+              reason: "candidate_discovery_failed"
+            },
+            error: error instanceof Error ? error.message : String(error)
+          };
+        }
+      })();
+      return { learnings_received: learnings.length, records_created: createdCount, evidence_links_created: evidenceLinksCreated, dispositions, automatic_consolidation: automaticConsolidation, semantic_candidates: semanticCandidates };
     },
 
     async checkpoint(input: CheckpointInput): Promise<CheckpointResult> {
