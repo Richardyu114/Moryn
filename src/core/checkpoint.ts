@@ -3,6 +3,24 @@ import { validateContextDelta, type ContextDelta, type ContextDeltaInput } from 
 import { isPrivateTags } from "./sensitive.js";
 import type { MorynRecord, RecordSource } from "./types.js";
 import type { SemanticConsolidationReceipt } from "./semantic-consolidation.js";
+import type { SemanticConsolidationCandidate } from "./semantic-consolidation-candidates.js";
+import type { LearningCandidateReviewWorkflow } from "./learning-candidate-review.js";
+
+export interface LearningSemanticCandidatesReceipt {
+  candidates: SemanticConsolidationCandidate[];
+  candidates_by_source_record_id: Record<string, SemanticConsolidationCandidate[]>;
+  next_action:
+    | {
+        action: "recall_then_propose_semantic_relationship";
+        recall_tool: "recall";
+        proposal_tool: "consolidate_semantic";
+        relationships: readonly ("duplicate_of" | "revises" | "supersedes" | "conflicts_with")[];
+        instruction: string;
+      }
+    | { action: "none"; reason: "candidate_discovery_failed" };
+  selection_sources?: Record<string, string>;
+  error?: string;
+}
 
 export interface CheckpointInput {
   project_id: string;
@@ -63,6 +81,8 @@ export interface CheckpointResult {
       requires_confirmation: boolean;
       policy_reason: string;
     }>;
+    semantic_candidates: LearningSemanticCandidatesReceipt;
+    candidate_review?: LearningCandidateReviewWorkflow;
   };
   semantic_consolidation: SemanticConsolidationReceipt;
   selection_sources: typeof CHECKPOINT_SELECTION_SOURCES;

@@ -10644,6 +10644,21 @@ describe("moryn CLI", () => {
 });
 
 describe("agent checkpoint CLI", () => {
+  it("surfaces the bounded candidate review workflow", async () => {
+    await withTempDir(async (store) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      const target = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "write", "--kind", "memory", "--type", "fact", "--scope", "project", "--project-id", "project-a", "--text", "Moryn pulls project context on agent enter before work begins.", "--state", "canonical", "--confirm"])).stdout);
+      const learning = { question: "When is project context loaded?", conclusion: "Moryn loads project context during agent enter before work begins.", evidence_type: "source_code", scope: "project", confidence: 0.9, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] };
+      const parsed = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "agent", "checkpoint", "--project-id", "project-a", "--agent", "codex", "--session-id", "session-candidate", "--device-id", "device-a", "--occurred-at", "2026-07-13T00:00:00.000Z", "--checkpoint-id", "checkpoint-candidate", "--current-task", "Review learned context", "--progress", "Captured reusable context loading behavior.", "--learning", JSON.stringify(learning)])).stdout);
+
+      expect(parsed.learning_ingestion.candidate_review).toMatchObject({
+        action: "review_learning_candidates",
+        owner: "agent",
+        candidate_pairs: [{ candidate_record_id: target.record.id }]
+      });
+    });
+  });
+
   it("writes semantic flags and replays the identical checkpoint", async () => {
     await withTempDir(async (store) => {
       await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);

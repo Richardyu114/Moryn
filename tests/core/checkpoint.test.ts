@@ -346,6 +346,16 @@ describe("engine.checkpoint", () => {
         semantic_candidates: {
           candidates: [expect.objectContaining({ record_id: existing.record.id })],
           next_action: { action: "recall_then_propose_semantic_relationship" }
+        },
+        candidate_review: {
+          action: "review_learning_candidates",
+          owner: "agent",
+          candidate_pairs: [{
+            source_record_id: expect.any(String),
+            candidate_record_id: existing.record.id,
+            source_recall: { tool: "recall", arguments: { project_id: "project-a", record_ids: [expect.any(String)] } },
+            candidate_recall: { tool: "recall", arguments: { project_id: "project-a", record_ids: [existing.record.id] } }
+          }]
         }
       });
       expect(replay.learning_ingestion).toMatchObject({ learnings_received: 1, records_created: 0, dispositions: [{ state: "canonical", created: false }] });

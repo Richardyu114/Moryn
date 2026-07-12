@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { agentFinish, agentStart, agentStatus } from "./agent-lifecycle.js";
+import { agentFinish, agentStart, agentStatus, buildLearningCandidateReviewAction } from "./agent-lifecycle.js";
 import { createEngine } from "./engine.js";
 import { getHostCapabilities } from "./host-capabilities.js";
 import type { NormalizedHostHookEvent } from "./host-hooks.js";
@@ -12,6 +12,7 @@ import { buildPromptRecallContext } from "./host-prompt-recall.js";
 import { evaluateTurnSyncCadence, recordTurnSyncSuccess, type TurnSyncCadenceDecision } from "./turn-sync-cadence.js";
 import { isGitSyncConfigured, pushGitSync, type GitSyncResult } from "../sync/git.js";
 import { readCurrentRecords } from "./record-read-model.js";
+import { unresolvedLearningCandidates } from "./learning-candidate-review.js";
 
 export interface RunHostHookInput {
   storePath: string;
@@ -284,7 +285,24 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
     const additionalContext = checkpointSync.succeeded === false
       ? `Moryn checkpoint saved and locally protected: ${checkpoint.record.id}. Remote synchronization is pending.`
       : `Moryn checkpoint saved: ${checkpoint.record.id}`;
-    return { ok: true, event: input.hook.event, action: "checkpoint_before_compaction", degradation, checkpoint, checkpoint_sync: checkpointSync, hook_output: { additional_context: additionalContext }, ...activationEvidence };
+    const candidateReview = buildLearningCandidateReviewAction(
+      project.project_id,
+      unresolvedLearningCandidates(checkpoint.learning_ingestion.semantic_candidates.candidates, checkpoint.semantic_consolidation)
+    );
+    const candidateContext = candidateReview
+      ? `${additionalContext} Moryn found ${candidateReview.candidate_pairs.length} bounded semantic candidate pair(s); follow candidate_review recalls before proposing a relationship.`
+      : additionalContext;
+    return {
+      ok: true,
+      event: input.hook.event,
+      action: "checkpoint_before_compaction",
+      degradation,
+      checkpoint,
+      checkpoint_sync: checkpointSync,
+      ...(candidateReview ? { candidate_review: candidateReview } : {}),
+      hook_output: { additional_context: candidateContext },
+      ...activationEvidence
+    };
   }
   if (input.hook.event === "session_end") {
     const synthesis = await sessionSynthesis(input, project.project_id);

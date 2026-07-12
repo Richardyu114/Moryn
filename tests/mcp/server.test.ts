@@ -1063,6 +1063,34 @@ describe("MCP stdio server", () => {
     } finally { await rm(store, { recursive: true, force: true }); }
   });
 
+  it("surfaces checkpoint candidate review workflow over MCP", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-checkpoint-candidate-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        await client.callTool({ name: "init", arguments: {} });
+        const target = parseTextContent(await client.callTool({ name: "write", arguments: { kind: "memory", type: "fact", scope: "project", project_id: "project-a", content: { text: "Moryn pulls project context on agent enter before work begins." }, state: "canonical", confirmed: true, source: { client: "user" } } })) as any;
+        const result = parseTextContent(await client.callTool({ name: "checkpoint", arguments: {
+          project_id: "project-a",
+          occurred_at: "2026-07-13T00:00:00.000Z",
+          source: { client: "claude-code", session_id: "claude-candidate", device_id: "device-b" },
+          delta: {
+            session_id: "claude-candidate",
+            checkpoint_id: "checkpoint-candidate",
+            current_task: "Review learned context",
+            progress: ["Captured reusable context loading behavior."],
+            learnings: [{ question: "When is project context loaded?", conclusion: "Moryn loads project context during agent enter before work begins.", evidence_type: "source_code", scope: "project", confidence: 0.9, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] }]
+          }
+        } })) as any;
+
+        expect(result.learning_ingestion.candidate_review).toMatchObject({
+          action: "review_learning_candidates",
+          owner: "agent",
+          candidate_pairs: [{ candidate_record_id: target.record.id }]
+        });
+      });
+    } finally { await rm(store, { recursive: true, force: true }); }
+  });
+
   it("exposes activation status and applies Claude and Codex hooks", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-mcp-activation-"));
     const store = join(root, "store");

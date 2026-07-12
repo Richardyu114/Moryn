@@ -359,6 +359,15 @@ relationship assertion. If no candidate is convincing, the agent continues
 without creating maintenance work for the user; exceptional ambiguity can
 remain visible through the existing read-only diagnostics.
 
+Checkpoint and finish lifecycle results promote unresolved candidates into an
+agent-owned `review_learning_candidates` workflow. Codex and Claude Code
+follow the supplied record-id recalls without routine user confirmation, then
+submit only a relationship supported by the recalled evidence or continue
+with no relationship. When automatic consolidation or an accepted proposal
+already resolves a pair, the workflow stays absent. Official PreCompact hooks
+return the same bounded workflow without injecting either record's text into
+hook context.
+
 ## Timeline Context
 
 Use `timeline` when a single recalled record is not enough to understand why it

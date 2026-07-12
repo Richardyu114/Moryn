@@ -20,6 +20,7 @@ import { activateClaudeSettings } from "./claude-activation.js";
 import { activateCodexHooks } from "./codex-activation.js";
 import type { SessionSynthesis } from "./session-synthesis.js";
 import { assessSyncCompensation, writeSyncCompensationReceipt, type SyncCompensationAssessment } from "./sync-compensation.js";
+import { buildLearningCandidateReviewWorkflow, unresolvedLearningCandidates } from "./learning-candidate-review.js";
 
 interface AgentIdentity {
   client: string;
@@ -1754,9 +1755,26 @@ async function assertSyncNotConflicted(storePath: string): Promise<GitSyncStatus
   return status;
 }
 
-function finishNextActions(input: AgentLifecycleInput) {
+export function buildLearningCandidateReviewAction(projectId: string, candidates: Parameters<typeof buildLearningCandidateReviewWorkflow>[1]) {
+  const review = buildLearningCandidateReviewWorkflow(projectId, candidates);
+  const first = review?.candidate_pairs[0];
+  if (!review || !first) return undefined;
+  const recallArguments = { project_id: projectId, record_ids: [first.source_record_id] };
+  return withLifecycleActionSelectionSources(withActionInterfaces({
+    ...review,
+    tool: "recall",
+    command: buildRecallRecordCommand(first.source_record_id, projectId),
+    required_when: "When learning ingestion returns unresolved semantic candidates that require evidence-based agent review.",
+    required_fields: [],
+    arguments: recallArguments
+  }));
+}
+
+function finishNextActions(input: AgentLifecycleInput, projectId: string, candidates: Parameters<typeof buildLearningCandidateReviewWorkflow>[1] = []) {
   const requiredFields = input.currentTask ? [] : ["current_task"];
+  const candidateAction = buildLearningCandidateReviewAction(projectId, candidates);
   return [
+    ...(candidateAction ? [candidateAction] : []),
     withLifecycleActionSelectionSources(withActionInterfaces({
       action: "start_next_session",
       tool: "agent_start",
@@ -2983,7 +3001,11 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     }
   }
   sync.status = await getGitSyncStatus(input.storePath);
-  const actions = finishNextActions(actionInput);
+  const actions = finishNextActions(
+    actionInput,
+    project.project_id,
+    unresolvedLearningCandidates(learningIngestion.semantic_candidates.candidates, semanticConsolidation)
+  );
 
   return {
     ok: true,

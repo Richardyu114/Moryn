@@ -43,6 +43,9 @@ describe("documentation contracts", () => {
     expectText(workflow, "Candidate feedback contains record ids, scores, and signals, but not record text");
     expectText(workflow, "Agents recall candidate records before proposing `duplicate_of`, `revises`, `supersedes`, or `conflicts_with`");
     expectText(workflow, "A similarity score alone is not a semantic relationship assertion");
+    expectText(workflow, "Checkpoint and finish lifecycle results promote unresolved candidates into an agent-owned `review_learning_candidates` workflow");
+    expectText(workflow, "Codex and Claude Code follow the supplied record-id recalls without routine user confirmation");
+    expectText(workflow, "When automatic consolidation or an accepted proposal already resolves a pair, the workflow stays absent");
     expectText(dashboard, "Capture Inbox is a compatibility and exceptional review surface");
     for (const document of [installPrompt, workflow, dashboard]) {
       expect(document).not.toContain("Canonical memory still requires explicit Capture Inbox user action.");

@@ -311,6 +311,53 @@ describe("host hook runner", () => {
     });
   });
 
+  it("returns an agent-owned candidate review workflow before compaction", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath });
+      const target = await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Moryn restores project context after host compaction." },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const learning = {
+        question: "What happens after compact?",
+        conclusion: "Moryn restores project context when compaction completes.",
+        evidence_type: "source_code" as const,
+        scope: "project" as const,
+        confidence: 0.9,
+        recommended_kind: "memory" as const,
+        recommended_type: "fact",
+        related_record_ids: []
+      };
+
+      const result = await runHostHook({
+        storePath,
+        hook: { ...base, host: "claude", event: "pre_compact", trigger: "auto", compact_summary: "Checkpoint before compact." },
+        project_id: "moryn",
+        current_task: "Verify compaction recovery",
+        learnings: [learning],
+        pull: false,
+        push: false
+      });
+
+      expect(result).toMatchObject({
+        action: "checkpoint_before_compaction",
+        candidate_review: {
+          action: "review_learning_candidates",
+          owner: "agent",
+          candidate_pairs: [{ candidate_record_id: target.record.id }]
+        }
+      });
+      expect(result.hook_output.additional_context).toContain("semantic candidate");
+      expect(result.hook_output.additional_context).not.toContain(target.record.content.text);
+    });
+  });
+
   it("writes stop status and Claude session-end handoff without requiring sync success", async () => {
     await withInitializedTempStore(async (storePath) => {
       const stopped = await runHostHook({ storePath, hook: { ...base, event: "stop", compact_summary: "Tests passing." }, project_id: "moryn", current_task: "Implement hooks", push: false });

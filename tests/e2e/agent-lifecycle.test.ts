@@ -1133,6 +1133,135 @@ describe("agent lifecycle", () => {
 
       expect(result.semantic_consolidation.proposal_results).toEqual([expect.objectContaining({ status: "accepted" })]);
       expect(result).toMatchObject({ learning_ingestion: { records_created: 1 }, semantic_consolidation: { proposals_received: 1, proposals_accepted: 1, links_created: 1 } });
+      expect(result.next.actions_by_id.review_learning_candidates).toBeUndefined();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("projects unresolved learning candidates as an agent-owned recall workflow", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-finish-candidate-review-"));
+    const storePath = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(storePath, { id: () => "device-codex" });
+      const engine = createEngine({ storePath });
+      const target = await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Moryn pulls project context when an agent enters the repository." },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+
+      const result = await agentFinish({
+        storePath,
+        projectPath: project,
+        currentTask: "Document lifecycle context loading",
+        agent: { client: "codex", device_id: "device-codex", session_id: "codex-candidate-review" },
+        summary: "Documented the lifecycle context loading behavior.",
+        learnings: [{
+          question: "When is project context loaded?",
+          conclusion: "Moryn loads project context during agent enter before work begins.",
+          evidence_type: "source_code",
+          scope: "project",
+          confidence: 0.9,
+          recommended_kind: "memory",
+          recommended_type: "fact",
+          related_record_ids: []
+        }],
+        push: false
+      }, { now: () => "2026-07-13T00:00:00.000Z" });
+
+      expect(result.next.actions_by_id.review_learning_candidates).toMatchObject({
+        action: "review_learning_candidates",
+        tool: "recall",
+        owner: "agent",
+        safe_to_run: true,
+        required_fields: [],
+        safety: {
+          safe_to_auto_run: true,
+          requires_user_confirmation: false,
+          requires_authored_input: false
+        },
+        candidate_pairs: [{
+          source_record_id: result.learning_ingestion.dispositions[0]?.record_id,
+          candidate_record_id: target.record.id,
+          source_recall: {
+            tool: "recall",
+            arguments: { project_id: "moryn", record_ids: [result.learning_ingestion.dispositions[0]?.record_id] }
+          },
+          candidate_recall: {
+            tool: "recall",
+            arguments: { project_id: "moryn", record_ids: [target.record.id] }
+          }
+        }],
+        after_recall: {
+          tool: "consolidate_semantic",
+          allowed_relationships: ["duplicate_of", "revises", "supersedes", "conflicts_with"],
+          no_relationship_is_valid: true
+        }
+      });
+      expect(result.next.actions).toContainEqual(result.next.actions_by_id.review_learning_candidates);
+      expect(JSON.stringify(result.next.actions_by_id.review_learning_candidates)).not.toContain(target.record.content.text);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("stays quiet when finish learning is automatically folded as a duplicate", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-finish-auto-duplicate-"));
+    const storePath = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(storePath, { id: () => "device-codex" });
+      const engine = createEngine({ storePath });
+      await engine.ingestLearnings({
+        project_id: "moryn",
+        occurred_at: "2026-07-13T00:04:00.000Z",
+        source: { client: "codex" },
+        learnings: [{
+          question: "When does Moryn pull project memory?",
+          conclusion: "When an agent enters a project, Moryn automatically pulls the project memory.",
+          evidence_type: "source_code",
+          scope: "project",
+          confidence: 0.95,
+          recommended_kind: "memory",
+          recommended_type: "fact",
+          related_record_ids: []
+        }]
+      });
+
+      const result = await agentFinish({
+        storePath,
+        projectPath: project,
+        currentTask: "Verify checkpoint restore",
+        agent: { client: "claude-code", device_id: "device-claude", session_id: "claude-auto-duplicate" },
+        summary: "Verified checkpoint restore.",
+        learnings: [{
+          question: "How does project entry load memory?",
+          conclusion: "Moryn automatically pulls project memory when an agent enters the project.",
+          evidence_type: "source_code",
+          scope: "project",
+          confidence: 0.99,
+          recommended_kind: "memory",
+          recommended_type: "fact",
+          related_record_ids: []
+        }],
+        push: false
+      }, { now: () => "2026-07-13T00:05:00.000Z" });
+
+      expect(result.learning_ingestion).toMatchObject({
+        records_created: 1,
+        automatic_consolidation: { links_created: 1, accepted_by_relationship: { duplicate_of: 1 } },
+        semantic_candidates: { candidates: [] }
+      });
+      expect(result.next.actions_by_id.review_learning_candidates).toBeUndefined();
     } finally {
       await rm(root, { recursive: true, force: true });
     }

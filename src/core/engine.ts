@@ -33,6 +33,7 @@ import { discoverAutomaticDuplicateProposal } from "./automatic-consolidation.js
 import { readCurrentRecords, type CurrentRecordReadResult } from "./record-read-model.js";
 import { readRetrievalCandidates, type ReadRetrievalCandidatesInput, type RetrievalCandidateReadResult } from "./retrieval-index.js";
 import { readSyncCompensationReceipt } from "./sync-compensation.js";
+import { buildLearningCandidateReviewWorkflow, unresolvedLearningCandidates } from "./learning-candidate-review.js";
 
 interface EngineDeps {
   storePath: string;
@@ -3090,10 +3091,10 @@ export function createEngine(deps: EngineDeps) {
               candidates.filter((candidate) => candidate.source_record_id === recordId)
             ])),
             next_action: {
-              action: "recall_then_propose_semantic_relationship",
-              recall_tool: "recall",
-              proposal_tool: "consolidate_semantic",
-              relationships: ["duplicate_of", "revises", "supersedes", "conflicts_with"],
+              action: "recall_then_propose_semantic_relationship" as const,
+              recall_tool: "recall" as const,
+              proposal_tool: "consolidate_semantic" as const,
+              relationships: ["duplicate_of", "revises", "supersedes", "conflicts_with"] as const,
               instruction: "Recall candidate records before proposing a semantic relationship; do not infer equivalence from score alone."
             },
             selection_sources: result.selection_sources
@@ -3103,8 +3104,8 @@ export function createEngine(deps: EngineDeps) {
             candidates: [],
             candidates_by_source_record_id: Object.fromEntries(ingestedRecordIds.map((recordId) => [recordId, []])),
             next_action: {
-              action: "none",
-              reason: "candidate_discovery_failed"
+              action: "none" as const,
+              reason: "candidate_discovery_failed" as const
             },
             error: error instanceof Error ? error.message : String(error)
           };
@@ -3159,13 +3160,21 @@ export function createEngine(deps: EngineDeps) {
         source: normalized.source,
         occurred_at: normalized.occurred_at
       });
+      const candidateReview = buildLearningCandidateReviewWorkflow(
+        normalized.project_id,
+        unresolvedLearningCandidates(learningIngestion.semantic_candidates.candidates, semanticConsolidation)
+      );
+      const learningIngestionResult = {
+        ...learningIngestion,
+        ...(candidateReview ? { candidate_review: candidateReview } : {})
+      };
       const recoveryPack = buildCheckpointRecoveryPack(
         [...replayEvents(await readEvents(deps.storePath)).values()],
         { project_id: normalized.project_id, session_id: normalized.delta.session_id, include_private: normalized.include_private }
       );
       try {
         await checkpointRebuild(deps.storePath);
-        return { record: outcome.record, idempotent_replay: outcome.idempotent_replay, committed: true, durability: outcome.durability, derived_views_refreshed: true, ...(warnings.length ? { warnings } : {}), recovery_pack: recoveryPack, learning_ingestion: learningIngestion, semantic_consolidation: semanticConsolidation, selection_sources: CHECKPOINT_SELECTION_SOURCES };
+        return { record: outcome.record, idempotent_replay: outcome.idempotent_replay, committed: true, durability: outcome.durability, derived_views_refreshed: true, ...(warnings.length ? { warnings } : {}), recovery_pack: recoveryPack, learning_ingestion: learningIngestionResult, semantic_consolidation: semanticConsolidation, selection_sources: CHECKPOINT_SELECTION_SOURCES };
       } catch (error) {
         warnings.push({ code: "DERIVED_VIEW_REBUILD_FAILED", reason: error instanceof Error ? error.message : String(error) });
         return {
@@ -3176,7 +3185,7 @@ export function createEngine(deps: EngineDeps) {
           derived_views_refreshed: false,
           warnings,
           recovery_pack: recoveryPack,
-          learning_ingestion: learningIngestion,
+          learning_ingestion: learningIngestionResult,
           semantic_consolidation: semanticConsolidation,
           selection_sources: CHECKPOINT_SELECTION_SOURCES
         };
