@@ -194,7 +194,9 @@ requests private or hidden content.
 ### Capture Inbox
 
 The live dashboard includes a `Capture Inbox` when agents have written active
-review candidate records. This is the v0.2.0 default review path only for
+review candidate records. Capture Inbox is a compatibility and exceptional
+review surface, not the v0.3 normal path for ordinary project learning. It is
+also the v0.2.0 default review path only for
 captures that need a human decision: hosts can propose memory naturally, but
 low-risk handoffs can be auto-captured as local handoff evidence without making
 the user click every event. The user keeps control over what becomes canonical
@@ -203,8 +205,7 @@ long-term context.
 The panel starts with a `Queue summary` before the individual cards. It tells
 the user how many candidates have been grouped into review groups and how many
 look like normal review versus likely noise. Queue summary uses one guidance
-line: review groups first, open item details only when needed, and canonical
-memory still requires approval. Item-level detail remains available for
+line: review groups first and open item details only when needed. Item-level detail remains available for
 inspection as collapsed candidate details inside each group, but the first read
 is "which group should I approve or reject?" rather than "click every event."
 The `Capture Inbox` heading uses the stable `Manual approval` status instead of
@@ -248,13 +249,13 @@ The same card still shows:
 - grouping by source, session, project, and capture day
 - likely noise signals such as smoke/test output or duplicate text
 
-The Capture Inbox also exposes a default Capture Policy:
+The Capture Inbox also exposes the deterministic v0.2 capture-session policy:
 
 - `default_capture_review_policy` version 1
 - manual review mode
 - no auto-canonical promotion
 - trust policy disabled by default
-- canonical memory requires explicit user action
+- candidate promotion through this compatibility policy requires explicit user action
 - grouping by `project_or_scope`, `source_client`, `source_session`, and
   `capture_day`
 - stale batch protection for group approval/rejection
@@ -347,8 +348,10 @@ Decisions routed to `capture` or `archive` remain read-only evidence such as
 `inspect_auto_captured_handoff` and `inspect_policy_archived_record`. They do
 not expose Approve, Reject, Promote, Archive, or Apply buttons.
 
-Canonical memory still requires explicit Capture Inbox user action.
-Auto-captured and archived policy decisions stay inspectable and reversible
+This Capture Inbox policy does not govern v0.3 Learning Deltas. Reliable,
+low-risk project learnings may become canonical automatically after scope,
+confidence, conflict, and safety checks; sensitive, conflicting, cross-project,
+or high-impact learnings still require confirmation. Auto-captured and archived policy decisions stay inspectable and reversible
 through append-only history, but the dashboard does not turn them back into
 inbox items automatically.
 

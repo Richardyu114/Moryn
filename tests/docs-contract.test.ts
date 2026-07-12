@@ -20,6 +20,22 @@ describe("documentation contracts", () => {
     expect(readme).not.toContain("setup -> context pack -> capture -> dashboard review -> approve -> sync");
   });
 
+  it("keeps current operating guides lifecycle-first and dashboard-exceptional", async () => {
+    const [installPrompt, workflow, dashboard] = await Promise.all([
+      readFile("docs/agent-install-prompt.md", "utf8"),
+      readFile("docs/agent-workflow.md", "utf8"),
+      readFile("docs/dashboard.md", "utf8")
+    ]);
+
+    expectText(installPrompt, "For Codex and Claude Code, the normal path is the installed Autopilot lifecycle");
+    expectText(workflow, "Official Codex and Claude Code sessions use the Autopilot lifecycle by default");
+    expectText(dashboard, "Capture Inbox is a compatibility and exceptional review surface");
+    for (const document of [installPrompt, workflow, dashboard]) {
+      expect(document).not.toContain("Canonical memory still requires explicit Capture Inbox user action.");
+      expect(document).not.toContain("canonical memory still requires approval");
+    }
+  });
+
   it("keeps deployment-private addresses out of public docs", async () => {
     const docs = await Promise.all([
       readFile("README.md", "utf8"),
@@ -612,7 +628,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "using the same `Change`, `Scope`, `Guard`, `Writes`, `Evidence`, and `Trace`");
     expectText(dashboard, "server rechecks active candidate records before writing");
     expectText(dashboard, "append-only approve/reject boundary visible, and points to");
-    expectText(dashboard, "Queue summary uses one guidance line: review groups first, open item details only when needed, and canonical memory still requires approval");
+    expectText(dashboard, "Queue summary uses one guidance line: review groups first and open item details only when needed");
     expectText(dashboard, "visible first-screen copy refers to the remote as the `Shared copy`");
     expectText(dashboard, "Sync-only pending warnings do not open the visible `Needs a look` review path");
     expectText(dashboard, "When sync is the only active warning, Work Lanes are skipped in the visible HTML so the Overview action lands directly on the promoted Shared copy details current-task section");
@@ -729,7 +745,8 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("inspect_auto_captured_handoff");
     expect(dashboard).toContain("inspect_policy_archived_record");
     expectText(dashboard, "They do not expose Approve, Reject, Promote, Archive, or Apply buttons");
-    expectText(dashboard, "Canonical memory still requires explicit Capture Inbox user action");
+    expectText(dashboard, "This Capture Inbox policy does not govern v0.3 Learning Deltas");
+    expectText(dashboard, "Reliable, low-risk project learnings may become canonical automatically");
     expectText(dashboard, "does not turn them back into inbox items automatically");
     expect(dashboard).toContain("smoke_test_marker");
     expect(dashboard).toContain("duplicate_text");

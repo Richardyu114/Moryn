@@ -56,11 +56,9 @@ Then internalize how to use it:
 - Prefer MCP tools when available; otherwise use the CLI.
 
 During agent work:
-- Prefer the host adapter flow for normal sessions:
-  `moryn context pack --project . --agent "<host client name>" --current-task "<current task>"`.
-- Before ending, use autocapture:
-  `moryn capture session --project . --agent "<host client name>" --summary "<handoff summary>"`.
-- Start a session with
+- For Codex and Claude Code, the normal path is the installed Autopilot lifecycle:
+  enter/recover, work and checkpoint, compact/resume, then finish/sync.
+- Start the logical session with
   `moryn agent enter --project . --current-task "<current task>" --agent "<host client name>"`.
 - Let `agent enter` diagnose activation and perform one safe Claude repair when
   possible. Continue working with degraded evidence when repair is unsafe; do
@@ -91,6 +89,9 @@ During agent work:
   instead of repeatedly reporting sync errors. Do not invent a remote. Explicit
   sync requests should still return the normal setup diagnostic.
 - End with `moryn agent finish` and a concise handoff summary.
+- Use `moryn context pack` and `moryn capture session` as explicit fallback,
+  transfer, or unsupported-host tools rather than replacing the installed
+  Codex/Claude lifecycle on every normal session.
 - Repeated official `SessionEnd` delivery should reuse an unchanged final
   handoff instead of creating duplicate inbox entries. A changed summary remains
   a new handoff, and an explicit push may sync a replay without another write.

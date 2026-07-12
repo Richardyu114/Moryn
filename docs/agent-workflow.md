@@ -16,9 +16,20 @@ The short version:
 6. Use `agent finish` before stopping or handing off.
 7. Follow returned `next` actions instead of inventing command sequences.
 
+Official Codex and Claude Code sessions use the Autopilot lifecycle by default:
+
+```text
+install -> enter/recover -> work/checkpoint -> compact/resume -> finish/sync
+```
+
+Installed hooks protect compaction and turn/session boundaries. `context pack`
+and `capture session` remain useful explicit transfer and compatibility tools,
+especially for hosts without official lifecycle integration; they are not a
+routine user-operated approval loop for Codex or Claude Code.
+
 ## Host Adapter Flow
 
-For normal host sessions, the low-friction path is:
+For unsupported hosts or an explicit manual transfer, the compatibility path is:
 
 ```bash
 moryn setup --host codex --project .
@@ -56,10 +67,7 @@ session_summary tagged autocapture + host:<client>
 default_autocapture_policy archives obvious noise or duplicate captures
         |
         v
-Dashboard Capture Inbox reviews candidate
-        |
-        v
-Approved memory becomes canonical for context pack / agent start / recall
+Capture policy retains low-risk handoff evidence or routes exceptional review
 ```
 
 `context pack` is intentionally a convenience wrapper around the same Moryn
