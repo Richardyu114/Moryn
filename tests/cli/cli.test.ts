@@ -6974,8 +6974,9 @@ describe("moryn CLI", () => {
           status: string;
           project_id: string;
           headline: string;
-          primary_next_step: { action_id: string; action_source: string; safe_to_run: boolean; requires_user_input: boolean };
+          primary_next_step: { action_id: string; action_source: string; safe_to_run: boolean; owner: string; requires_authored_input: boolean; requires_user_input: boolean };
           safety: { read_first: boolean; writes_require_explicit_action: boolean; mutation_surfaces: string[] };
+          signals: Array<{ id: string; status: string; summary: string; source: string }>;
           evidence_sources: Record<string, string>;
         };
         sync: { pull?: { pulled?: boolean } };
@@ -7014,14 +7015,16 @@ describe("moryn CLI", () => {
       };
       expect(parsedStart.project.project_id).toBe("moryn");
       expect(parsedStart.startup_overview).toMatchObject({
-        status: "needs_attention",
+        status: "ready",
         project_id: "moryn",
-        headline: "Review startup context before working in moryn.",
+        headline: "Ready to work in moryn with recovered context.",
         primary_next_step: {
           action_id: "finish_session",
           action_source: "next.actions_by_id.finish_session",
           safe_to_run: false,
-          requires_user_input: true
+          owner: "agent",
+          requires_authored_input: true,
+          requires_user_input: false
         },
         safety: {
           read_first: true,
@@ -7035,6 +7038,10 @@ describe("moryn CLI", () => {
           next_actions: "next.actions_by_id"
         }
       });
+      expect(parsedStart.startup_overview.signals).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: "refresh_context", status: "available", source: "start.refresh" }),
+        expect.objectContaining({ id: "handoff_context", status: "available", source: "start.handoff" })
+      ]));
       expect(parsedStart.sync.pull?.pulled).toBe(true);
       expect(parsedStart.refresh.changes).toContainEqual(expect.objectContaining({
         summary: "CLI Codex finished the lifecycle protocol.",

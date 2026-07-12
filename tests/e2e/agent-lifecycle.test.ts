@@ -2218,7 +2218,9 @@ describe("agent lifecycle", () => {
             action_source: "next.actions_by_id.finish_session",
             label: "Finish with handoff summary",
             safe_to_run: false,
-            requires_user_input: true
+            owner: "agent",
+            requires_authored_input: true,
+            requires_user_input: false
           },
           safety: {
             read_first: true,
@@ -2292,6 +2294,53 @@ describe("agent lifecycle", () => {
         inbox: []
       });
       expect(entered.start.handoff.next_action).toBeUndefined();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps genuine project warnings visible as startup attention", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-start-warning-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(store);
+      const engine = createEngine({ storePath: store });
+      await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Do not include secrets in memory.", format: "text" },
+        state: "canonical",
+        priority: "high",
+        source: { client: "test" }
+      });
+
+      const started = await agentStart({
+        storePath: store,
+        projectPath: project,
+        currentTask: "continue project",
+        agent: { client: "codex", session_id: "codex-warning" }
+      });
+
+      expect(started.startup_overview).toMatchObject({
+        status: "needs_attention",
+        headline: "Review startup context before working in moryn.",
+        primary_next_step: {
+          owner: "agent",
+          requires_authored_input: true,
+          requires_user_input: false
+        },
+        signals: expect.arrayContaining([
+          expect.objectContaining({
+            id: "boot_context",
+            status: "review",
+            source: "start.boot"
+          })
+        ])
+      });
     } finally {
       await rm(root, { recursive: true, force: true });
     }

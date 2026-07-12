@@ -5573,7 +5573,9 @@ describe("MCP stdio server", () => {
             action_id: "finish_session",
             action_source: "next.actions_by_id.finish_session",
             safe_to_run: false,
-            requires_user_input: true
+            owner: "agent",
+            requires_authored_input: true,
+            requires_user_input: false
           },
           safety: {
             read_first: true,

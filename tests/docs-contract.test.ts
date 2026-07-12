@@ -29,6 +29,8 @@ describe("documentation contracts", () => {
 
     expectText(installPrompt, "For Codex and Claude Code, the normal path is the installed Autopilot lifecycle");
     expectText(workflow, "Official Codex and Claude Code sessions use the Autopilot lifecycle by default");
+    expectText(workflow, "Routine recovered context is marked `available`, not `review`");
+    expectText(workflow, "`requires_authored_input` means the agent must compose the lifecycle summary; it does not mean the user must supply it");
     expectText(dashboard, "Capture Inbox is a compatibility and exceptional review surface");
     for (const document of [installPrompt, workflow, dashboard]) {
       expect(document).not.toContain("Canonical memory still requires explicit Capture Inbox user action.");

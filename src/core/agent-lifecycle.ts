@@ -736,6 +736,8 @@ export interface AgentStartupOverview {
     action_source: string;
     label: string;
     safe_to_run: boolean;
+    owner: "agent";
+    requires_authored_input: boolean;
     requires_user_input: boolean;
   };
   safety: {
@@ -746,7 +748,7 @@ export interface AgentStartupOverview {
   signals: Array<{
     id: "boot_context" | "refresh_context" | "handoff_context";
     label: string;
-    status: "ok" | "review";
+    status: "ok" | "available" | "review";
     summary: string;
     source: "start.boot" | "start.refresh" | "start.handoff";
   }>;
@@ -1619,12 +1621,13 @@ function startupSignal(input: {
   id: AgentStartupOverview["signals"][number]["id"];
   label: string;
   count: number;
+  requiresReview?: boolean;
   source: AgentStartupOverview["signals"][number]["source"];
 }): AgentStartupOverview["signals"][number] {
   return {
     id: input.id,
     label: input.label,
-    status: input.count > 0 ? "review" : "ok",
+    status: input.count === 0 ? "ok" : input.requiresReview ? "review" : "available",
     summary: input.count > 0 ? pluralize(input.count, "item") : "No blocking items",
     source: input.source
   };
@@ -1643,12 +1646,14 @@ function buildStartupOverview(input: {
       id: "boot_context",
       label: "Boot context",
       count: input.boot.project.warnings.length + input.boot.task_relevant.length,
+      requiresReview: input.boot.project.warnings.length > 0,
       source: "start.boot"
     }),
     startupSignal({
       id: "refresh_context",
       label: "Refresh context",
-      count: input.refresh.should_interrupt ? input.refresh.changes.length || 1 : 0,
+      count: input.refresh.changes.length,
+      requiresReview: input.refresh.should_interrupt,
       source: "start.refresh"
     }),
     startupSignal({
@@ -1659,18 +1664,23 @@ function buildStartupOverview(input: {
     })
   ];
   const status: AgentStartupOverviewStatus = signals.some((signal) => signal.status === "review") ? "needs_attention" : "ready";
+  const hasRecoveredContext = signals.some((signal) => signal.status === "available");
   return {
     status,
     project_id: input.project.project_id,
     headline: status === "ready"
-      ? `Ready to work in ${input.project.project_id}.`
+      ? hasRecoveredContext
+        ? `Ready to work in ${input.project.project_id} with recovered context.`
+        : `Ready to work in ${input.project.project_id}.`
       : `Review startup context before working in ${input.project.project_id}.`,
     primary_next_step: {
       action_id: finishAction?.action ?? "finish_session",
       action_source: finishAction?.action_source ?? "next.actions_by_id.finish_session",
       label: "Finish with handoff summary",
       safe_to_run: finishAction?.safe_to_run ?? false,
-      requires_user_input: (finishAction?.required_fields.length ?? 1) > 0
+      owner: "agent",
+      requires_authored_input: (finishAction?.required_fields.length ?? 1) > 0,
+      requires_user_input: false
     },
     safety: {
       read_first: true,

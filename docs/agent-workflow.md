@@ -184,6 +184,14 @@ next step, explicit write boundary, and evidence pointers back to
 those evidence sources when you need details; do not manually reconstruct a
 startup sequence from lower-level calls.
 
+Routine recovered context is marked `available`, not `review`, and does not
+turn startup into a user approval step. The primary lifecycle action is owned
+by the agent. `requires_authored_input` means the agent must compose the
+lifecycle summary; it does not mean the user must supply it. `needs_attention`
+is reserved for genuine warning or interrupt evidence that the agent must
+inspect before continuing, with user intervention requested only when the
+underlying exceptional condition actually requires a human decision.
+
 For read-only setup checks, call:
 
 ```bash
