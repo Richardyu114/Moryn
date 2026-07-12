@@ -17,6 +17,7 @@ import { knowledgeProtocolForHost, type KnowledgeProtocol } from "./knowledge-pr
 import { inspectHostActivation, type HostActivationStatus } from "./host-activation.js";
 import { writeHostIntegrationArtifact } from "./host-integration-artifacts.js";
 import { activateClaudeSettings } from "./claude-activation.js";
+import { activateCodexHooks } from "./codex-activation.js";
 import type { SessionSynthesis } from "./session-synthesis.js";
 import { assessSyncCompensation, writeSyncCompensationReceipt, type SyncCompensationAssessment } from "./sync-compensation.js";
 
@@ -805,6 +806,7 @@ async function prepareAgentEnterActivation(input: AgentEnterInput): Promise<Agen
   const host = normalizeHostId(client);
   if (host !== "codex" && host !== "claude") return undefined;
 
+  await ensureLifecycleBootstrap(input);
   const project = await resolveLifecycleProjectContext(input);
   const activationInput = {
     store_path: input.storePath,
@@ -813,13 +815,14 @@ async function prepareAgentEnterActivation(input: AgentEnterInput): Promise<Agen
     host
   };
   const before = await inspectHostActivation(activationInput);
-  if (host !== "claude" || !before.repairable_automatically) {
+  if (!before.repairable_automatically) {
     return { attempted_repair: false, repair_succeeded: false, before, after: before };
   }
 
   try {
     const generated = await writeHostIntegrationArtifact(activationInput);
-    await activateClaudeSettings({ project_path: project.project_path, artifact: generated.artifact });
+    if (host === "claude") await activateClaudeSettings({ project_path: project.project_path, artifact: generated.artifact });
+    else await activateCodexHooks({ project_path: project.project_path, artifact: generated.artifact });
     const after = await inspectHostActivation(activationInput);
     return {
       attempted_repair: true,

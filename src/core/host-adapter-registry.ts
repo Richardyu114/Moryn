@@ -38,7 +38,7 @@ const HOST_ADAPTERS: HostAdapter[] = [
       default_command: "moryn capture session --agent claude --summary <summary>",
       records: ["session_summary", "agent_note", "memory(candidate)", "skill(candidate)"]
     },
-    limitations: ["MVP does not mutate Claude Code configuration files automatically."]
+    limitations: ["Moryn supports automatic lifecycle activation with safe merge, backup, and atomic replacement; invalid host configuration degrades without modification."]
   },
   {
     id: "codex",
@@ -57,7 +57,7 @@ const HOST_ADAPTERS: HostAdapter[] = [
       default_command: "moryn capture session --agent codex --summary <summary>",
       records: ["session_summary", "agent_note", "memory(candidate)", "skill(candidate)"]
     },
-    limitations: ["MVP returns exact commands instead of editing Codex configuration."]
+    limitations: ["Moryn supports automatic lifecycle activation in .codex/hooks.json; Codex still requires one-time project hook review through /hooks."]
   },
   {
     id: "gemini",

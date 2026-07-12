@@ -31,6 +31,10 @@ describe("host adapters", () => {
     expect(claude?.normalized_client).toBe("claude");
     expect(claude?.mcp_registration.command).toContain("moryn mcp");
     expect(claude?.capture_strategy.default_command).toContain("moryn capture session");
+    expect(claude?.limitations.join(" ")).toContain("automatic lifecycle activation");
+    const codex = getHostAdapter("codex-cli");
+    expect(codex?.limitations.join(" ")).toContain("automatic lifecycle activation");
+    expect(codex?.limitations.join(" ")).toContain("/hooks");
   });
 
   it.each(["codex", "claude"] as const)("includes the autonomous knowledge protocol for %s", (host) => {

@@ -25,6 +25,7 @@ describe("agent lifecycle smoke script", () => {
     expect(result.stdout).toContain('"claude_activation_status":"configured_unverified"');
     expect(result.stdout).toContain('"claude_activation_receipt_created":true');
     expect(result.stdout).toContain('"codex_activation_status":"configured_unverified"');
+    expect(result.stdout).toContain('"codex_enter_self_healed":true');
     expect(result.stdout).toContain('"record_read_model_status":"fresh"');
     expect(result.stdout).toContain('"session_synthesis_mode":"evidence_synthesized"');
     expect(result.stdout).toContain('"abnormal_exit_compensation":"pushed"');

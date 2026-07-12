@@ -836,6 +836,11 @@ describe("documentation contracts", () => {
     expect(readme).toContain("default_autocapture_policy");
     expect(workflow).toContain("capture_policy");
     expect(workflow).toContain("default_autocapture_policy");
+    expect(workflow).toContain("`.codex/hooks.json`");
+    expectText(workflow, "Codex hooks are merged automatically with Moryn-owned entries");
+    expectText(workflow, "use `/hooks` once to review and trust the project hooks");
+    expect(installPrompt).toContain("`.codex/hooks.json`");
+    expectText(installPrompt, "use `/hooks` once to review and trust the project hooks");
     expect(roadmap).toContain("default_autocapture_policy");
     expectText(readme, "Nothing becomes canonical memory without user approval");
     expect(design).toContain("Host Adapter / Autocapture Layer");

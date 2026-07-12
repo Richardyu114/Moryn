@@ -120,9 +120,10 @@ async function main() {
     }
 
     await run(command, [...argsPrefix, "project", "init", "--path", project, "--project-id", "moryn-smoke", "--tag", "typescript"]);
-    const codexInstall = await runJson(command, [...argsPrefix, "--store", storeCodex, "install", "--host", "codex", "--project", project, "--apply"]);
-    if (codexInstall.activation_status?.status !== "configured_unverified") throw new Error("Codex install did not safely activate lifecycle hooks");
-    if (codexInstall.activation_status?.suggested_actions?.[0]?.id !== "trust_codex_hooks") throw new Error("Codex install did not surface the one-time hook trust action");
+    const codexEnter = await runJson(command, [...argsPrefix, "--store", storeCodex, "agent", "enter", "--project", project, "--agent", "codex", "--session-id", "codex-enter", "--current-task", "verify autonomous lifecycle activation", "--no-pull"]);
+    if (codexEnter.activation?.attempted_repair !== true || codexEnter.activation?.repair_succeeded !== true) throw new Error("Codex agent enter did not self-heal lifecycle activation");
+    if (codexEnter.start?.activation_status?.status !== "configured_unverified") throw new Error("Codex agent enter did not report configured lifecycle hooks");
+    if (codexEnter.start?.activation_status?.suggested_actions?.[0]?.id !== "trust_codex_hooks") throw new Error("Codex agent enter did not surface the one-time hook trust action");
     const claudeInstall = await runJson(command, [...argsPrefix, "--store", storeClaude, "install", "--host", "claude", "--project", project, "--apply"]);
     if (claudeInstall.activation_status?.status !== "configured_unverified") throw new Error("Claude install did not safely activate lifecycle hooks");
     const claudeActivationId = claudeInstall.integration_artifact?.artifact?.activation_id;
@@ -314,7 +315,8 @@ async function main() {
       unresolved_knowledge_next_step: unresolvedInvestigation.next_step,
       claude_activation_status: claudeInstall.activation_status.status,
       claude_activation_receipt_created: claudeRestore.activation_receipt.created,
-      codex_activation_status: codexInstall.activation_status.status,
+      codex_activation_status: codexEnter.start.activation_status.status,
+      codex_enter_self_healed: codexEnter.activation.repair_succeeded,
       record_read_model_status: readModelHealth.record_read_model.status,
       session_synthesis_mode: finish.details.record.content.synthesis_mode,
       abnormal_exit_compensation: compensatedStart.sync.compensation.decision,
