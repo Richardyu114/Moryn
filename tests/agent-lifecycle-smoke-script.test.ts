@@ -29,9 +29,37 @@ describe("agent lifecycle smoke script", () => {
     expect(result.stdout).toContain('"record_read_model_status":"fresh"');
     expect(result.stdout).toContain('"session_synthesis_mode":"evidence_synthesized"');
     expect(result.stdout).toContain('"abnormal_exit_compensation":"pushed"');
-    expect(result.stdout).toContain('"acceptance":{"cross_host_handoff":true');
-    expect(result.stdout).toContain('"abnormal_exit_recovery":true');
     const evidence = JSON.parse(result.stdout.trim().split("\n").at(-1)!) as {
+      cross_host_handoff?: {
+        codex_status_pushed: boolean;
+        claude_checkpoint_pulled: boolean;
+        claude_handoff_pushed: boolean;
+        second_codex_handoff_pulled: boolean;
+        second_codex_handoff_visible: boolean;
+      };
+      checkpoint_compaction_recovery?: {
+        checkpoint_created: boolean;
+        idempotent_replay: boolean;
+        recovery_pack_available: boolean;
+        resume_action_ready: boolean;
+        claude_checkpoint_restored: boolean;
+      };
+      semantic_consolidation?: {
+        proposals_accepted: number;
+        links_created: number;
+        protected_rejections: number;
+      };
+      recall_explore_learn?: {
+        learning_records_created: number;
+        unresolved_investigations_preserved: number;
+        second_device_learning_restored: boolean;
+        second_device_investigation_restored: boolean;
+      };
+      bounded_verified_reads?: {
+        source: string;
+        status: string;
+        project_id: string;
+      };
       abnormal_exit?: {
         compensation: string;
         recovery_pack_available: boolean;
@@ -40,7 +68,38 @@ describe("agent lifecycle smoke script", () => {
         second_device_investigation_restored: boolean;
         checkpoint_records_after_recovery: number;
       };
+      acceptance?: Record<string, boolean>;
     };
+    expect(evidence.cross_host_handoff).toEqual({
+      codex_status_pushed: true,
+      claude_checkpoint_pulled: true,
+      claude_handoff_pushed: true,
+      second_codex_handoff_pulled: true,
+      second_codex_handoff_visible: true
+    });
+    expect(evidence.checkpoint_compaction_recovery).toEqual({
+      checkpoint_created: true,
+      idempotent_replay: true,
+      recovery_pack_available: true,
+      resume_action_ready: true,
+      claude_checkpoint_restored: true
+    });
+    expect(evidence.semantic_consolidation).toEqual({
+      proposals_accepted: 1,
+      links_created: 1,
+      protected_rejections: 1
+    });
+    expect(evidence.recall_explore_learn).toEqual({
+      learning_records_created: 2,
+      unresolved_investigations_preserved: 1,
+      second_device_learning_restored: true,
+      second_device_investigation_restored: true
+    });
+    expect(evidence.bounded_verified_reads).toEqual({
+      source: "read_model",
+      status: "fresh",
+      project_id: "moryn-smoke"
+    });
     expect(evidence.abnormal_exit).toEqual({
       compensation: "pushed",
       recovery_pack_available: true,
@@ -48,6 +107,14 @@ describe("agent lifecycle smoke script", () => {
       second_device_checkpoint_restored: true,
       second_device_investigation_restored: true,
       checkpoint_records_after_recovery: 1
+    });
+    expect(evidence.acceptance).toEqual({
+      cross_host_handoff: true,
+      checkpoint_compaction_recovery: true,
+      semantic_consolidation: true,
+      recall_explore_learn: true,
+      bounded_verified_reads: true,
+      abnormal_exit_recovery: true
     });
   }, 60000);
 });

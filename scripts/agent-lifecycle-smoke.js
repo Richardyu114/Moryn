@@ -315,6 +315,55 @@ async function main() {
     const readModelHealth = await runJson(command, [...argsPrefix, "--store", storeCodexSecond, "health", "check", "--project", project, "--host", "codex"]);
     if (readModelHealth.record_read_model?.status !== "fresh" || readModelHealth.record_read_model?.source !== "read_model") throw new Error("Second Codex did not use a fresh verified record read model");
 
+    const claudeContext = claudeRestore.hook_output.additional_context;
+    const crossHostHandoff = {
+      codex_status_pushed: status.sync.push.pushed === true,
+      claude_checkpoint_pulled: claudeRestore.details?.sync?.pull?.pulled === true,
+      claude_handoff_pushed: finish.details.sync.push.pushed === true,
+      second_codex_handoff_pulled: codexStart.sync.pull.pulled === true,
+      second_codex_handoff_visible: codexStart.refresh.changes.some((change) => change.summary.includes(finishSummary))
+    };
+    const checkpointCompactionRecovery = {
+      checkpoint_created: checkpoint.checkpoint.idempotent_replay === false,
+      idempotent_replay: checkpointReplay.checkpoint.idempotent_replay === true,
+      recovery_pack_available: recoveryPack.available === true,
+      resume_action_ready: resumeAction.execution.ready_to_run === true,
+      claude_checkpoint_restored: claudeContext.includes("Checkpoint smoke persisted with semantic consolidation")
+    };
+    const semanticConsolidation = {
+      proposals_accepted: checkpoint.checkpoint.semantic_consolidation.proposals_accepted,
+      links_created: checkpoint.checkpoint.semantic_consolidation.links_created,
+      protected_rejections: checkpoint.checkpoint.semantic_consolidation.rejected_by_reason.protected_signal_difference
+    };
+    const recallExploreLearn = {
+      learning_records_created: checkpoint.checkpoint.recovery_pack.learnings.length,
+      unresolved_investigations_preserved: checkpoint.checkpoint.recovery_pack.knowledge_investigations.length,
+      second_device_learning_restored: [semanticLearning, protectedLearning].every((learning) => claudeContext.includes(learning.conclusion)),
+      second_device_investigation_restored: claudeContext.includes(unresolvedInvestigation.next_step)
+    };
+    const boundedVerifiedReads = {
+      source: readModelHealth.record_read_model.source,
+      status: readModelHealth.record_read_model.status,
+      project_id: readModelHealth.project_id
+    };
+    const abnormalExit = {
+      compensation: compensatedStart.sync.compensation.decision,
+      recovery_pack_available: recoveryPack.available,
+      resume_action_ready: resumeAction.execution.ready_to_run,
+      second_device_checkpoint_restored: claudeContext.includes("Checkpoint smoke persisted with semantic consolidation"),
+      second_device_investigation_restored: claudeContext.includes(unresolvedInvestigation.next_step),
+      checkpoint_records_after_recovery: checkpointRecordsAfterRecovery
+    };
+    const acceptance = {
+      cross_host_handoff: Object.values(crossHostHandoff).every((value) => value === true),
+      checkpoint_compaction_recovery: Object.values(checkpointCompactionRecovery).every((value) => value === true),
+      semantic_consolidation: semanticConsolidation.proposals_accepted === 1 && semanticConsolidation.links_created === 1 && semanticConsolidation.protected_rejections === 1,
+      recall_explore_learn: recallExploreLearn.learning_records_created === 2 && recallExploreLearn.unresolved_investigations_preserved === 1 && recallExploreLearn.second_device_learning_restored && recallExploreLearn.second_device_investigation_restored,
+      bounded_verified_reads: boundedVerifiedReads.source === "read_model" && boundedVerifiedReads.status === "fresh" && boundedVerifiedReads.project_id === "moryn-smoke",
+      abnormal_exit_recovery: abnormalExit.compensation === "pushed" && abnormalExit.recovery_pack_available && abnormalExit.resume_action_ready && abnormalExit.second_device_checkpoint_restored && abnormalExit.second_device_investigation_restored && abnormalExit.checkpoint_records_after_recovery === 1
+    };
+    if (!Object.values(acceptance).every((value) => value === true)) throw new Error(`Lifecycle acceptance evidence incomplete: ${JSON.stringify(acceptance)}`);
+
     log(`agent lifecycle smoke passed (${options.remote ? "remote" : "local"} Git remote)`);
     log(statusSummary);
     log(finishSummary);
@@ -331,22 +380,13 @@ async function main() {
       record_read_model_status: readModelHealth.record_read_model.status,
       session_synthesis_mode: finish.details.record.content.synthesis_mode,
       abnormal_exit_compensation: compensatedStart.sync.compensation.decision,
-      abnormal_exit: {
-        compensation: compensatedStart.sync.compensation.decision,
-        recovery_pack_available: recoveryPack.available,
-        resume_action_ready: resumeAction.execution.ready_to_run,
-        second_device_checkpoint_restored: claudeRestore.hook_output.additional_context.includes("Checkpoint smoke persisted with semantic consolidation"),
-        second_device_investigation_restored: claudeRestore.hook_output.additional_context.includes(unresolvedInvestigation.next_step),
-        checkpoint_records_after_recovery: checkpointRecordsAfterRecovery
-      },
-      acceptance: {
-        cross_host_handoff: true,
-        checkpoint_compaction_recovery: true,
-        semantic_consolidation: true,
-        recall_explore_learn: true,
-        bounded_verified_reads: true,
-        abnormal_exit_recovery: true
-      }
+      cross_host_handoff: crossHostHandoff,
+      checkpoint_compaction_recovery: checkpointCompactionRecovery,
+      semantic_consolidation: semanticConsolidation,
+      recall_explore_learn: recallExploreLearn,
+      bounded_verified_reads: boundedVerifiedReads,
+      abnormal_exit: abnormalExit,
+      acceptance
     }));
   } finally {
     if (options.keepTemp) {
