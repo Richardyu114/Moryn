@@ -958,6 +958,9 @@ describe("documentation contracts", () => {
     }
 
     expect(roadmap).toContain("Default path");
+    expectText(roadmap, "installed Codex or Claude Code Autopilot -> enter / prompt recall / checkpoint / compact-resume / finish");
+    expectText(roadmap, "Compatibility path moryn setup / context pack / capture session");
+    expect(roadmap).not.toContain("Default path\n  moryn setup / context pack / capture / recall");
     expect(roadmap).not.toContain("v0.2-phase-plan.md");
     expect(roadmap).toContain("Power path");
     expect(roadmap).toContain("Core boundary");
@@ -968,8 +971,11 @@ describe("documentation contracts", () => {
     expect(roadmap).toContain("Phase 4: Recall Eval");
     expect(roadmap).toContain("Phase 5: Public Polish");
     expect(roadmap).toContain("Phase 6: Release Gate");
-    expect(roadmap).toContain("v0.2.0 Acceptance Matrix");
-    expect(roadmap).toContain("setup -> context pack -> capture -> dashboard review -> approve -> sync");
+    expect(roadmap).toContain("Unreleased v0.3 Context Autopilot");
+    expect(roadmap).toContain("enter -> recall/recover -> work -> checkpoint -> compact/resume -> finish");
+    expect(roadmap).toContain("v0.2.0 Compatibility Baseline");
+    expect(roadmap.indexOf("Unreleased v0.3 Context Autopilot")).toBeLessThan(roadmap.indexOf("v0.2.0 Compatibility Baseline"));
+    expect(roadmap).not.toContain("The release narrative is:\n\n```text\nsetup -> context pack -> capture -> dashboard review -> approve -> sync");
     expect(roadmap).toContain("No canonical writes without deterministic scope, confidence, conflict, safety, and provenance validation");
     expect(roadmap).not.toContain("No silent canonical writes");
     expect(roadmap).toContain("Dashboard first screen answers whether the user needs to act");

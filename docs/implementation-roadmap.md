@@ -1,7 +1,8 @@
 # Moryn Implementation Roadmap
 
-This roadmap tracks the public first-version status and release acceptance
-criteria.
+This roadmap tracks the published compatibility baseline and the current
+unreleased development direction. The npm package version remains `0.2.0`;
+the v0.3 work described here is not released yet.
 Detailed protocol design lives in [moryn-design.md](moryn-design.md). Agent
 usage details live in [agent-workflow.md](agent-workflow.md). Machine-readable
 contracts are summarized in [contracts.md](contracts.md). Dashboard usage lives
@@ -10,7 +11,38 @@ README.md, docs/moryn-design.md, docs/agent-workflow.md, docs/dashboard.md, and
 docs/contracts.md. Temporary development plans are not part of the public
 package.
 
-## Current Status
+## Unreleased v0.3 Context Autopilot
+
+The current development goal is simple, stable, low-intervention context
+continuity for Codex and Claude Code:
+
+```text
+enter -> recall/recover -> work -> checkpoint -> compact/resume -> finish
+  |           |            |          |               |             |
+pull      bounded pack   learnings   durable delta   restored      handoff
+safe      and gaps       captured    and optional    context       and push
+```
+
+Agents operate Moryn on the normal path. Users monitor the dashboard and step
+in only for credentials, irreconcilable sync conflicts, privacy boundaries,
+materially conflicting memory, ambiguous project identity, or high-impact
+cross-project changes.
+
+| Area | Current v0.3 acceptance | Required evidence |
+| --- | --- | --- |
+| Autopilot | Start, repeated checkpoint/compaction, resume, finish, and abnormal-exit recovery preserve the latest task state without duplicate logical records. | `npm run smoke:agent-lifecycle`, lifecycle tests. |
+| Recall and learning | User prompts consult trusted local knowledge first; gaps remain explicit and reliable project learnings become reusable across agents and devices under deterministic policy. | Prompt-recall tests and lifecycle smoke `recall_explore_learn` receipt. |
+| Working set | Recall, boot, and dashboard use bounded project-relevant candidates as append-only history grows. | `npm run smoke:large-store`. |
+| Consolidation | Exact duplicates fold automatically; semantic proposals retain evidence; protected differences and conflicts are not silently merged. | Consolidation tests and lifecycle smoke receipt. |
+| Sync | Enter pulls safely, checkpoint protects locally before optional push, finish pushes when safe, and failures retain executable recovery actions. | Lifecycle, resilience, conflict, permission, and large-store sync smokes. |
+| Hosts | Codex and Claude Code use native lifecycle artifacts including prompt recall and pre/post-compaction recovery. | Host artifact tests and cross-host lifecycle smoke. |
+| Dashboard | The first screen is quiet and read-only; routine sync and maintenance stay subordinate while genuine user decisions remain visible. | Dashboard tests, real-store rendering, large-store dashboard smoke. |
+| Release | Build, typecheck, full tests, package smoke, lifecycle, resilience, conflict, permission, upgrade, and large-store checks pass. | `npm run release:check`. |
+
+The package version, changelog release heading, and public release metadata stay
+at v0.2 until an explicit v0.3 release decision is made.
+
+## Current Implementation Status
 
 Moryn has reached a first-version MVP for a multi-agent, multi-device memory
 store:
@@ -27,9 +59,8 @@ store:
   rebuild after pull.
 - Agent lifecycle commands for setup diagnosis, session start, status,
   handoff, and workflow guidance.
-- Host adapter registry and autocapture path for Codex, Claude, Gemini,
-  Cursor, and shell hosts through `moryn install`, `moryn context pack`, and
-  `moryn capture session`.
+- Native Autopilot lifecycle artifacts for Codex and Claude Code, plus
+  compatibility adapters for Gemini, Cursor, and shell hosts.
 - Setup wizard / one-command local setup through `moryn setup`, with dry-run
   checks by default and `--apply` limited to Moryn-local store/project config.
 - Read-only `health_check` / `moryn health check` report for installation
@@ -39,10 +70,10 @@ store:
 - Operation contracts and selection-source contracts for agent hosts.
 - Package smoke tests and lifecycle smoke tests.
 
-## v0.2.0 Acceptance Matrix
+## v0.2.0 Compatibility Baseline
 
-v0.2.0 is release-ready only when the default dogfood path is simple and the
-power surfaces stay optional. The release narrative is:
+The published v0.2.0 path remains supported as a compatibility and explicit
+handoff workflow. Its historical release narrative was:
 
 ```text
 setup -> context pack -> capture -> dashboard review -> approve -> sync
@@ -242,8 +273,13 @@ context belongs to the user and can move across agents, devices, and projects.
 
 ```text
 Default path
-  moryn setup / context pack / capture / recall
-  -> fast, boring, hard to misuse
+  installed Codex or Claude Code Autopilot
+  -> enter / prompt recall / checkpoint / compact-resume / finish
+  -> automatic, bounded, recoverable
+
+Compatibility path
+  moryn setup / context pack / capture session
+  -> explicit transfer or unsupported-host fallback
 
 Power path
   review / timeline / memory doctor / memory lifecycle / dogfood report / eval / sync repair / dashboard
