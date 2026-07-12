@@ -56,6 +56,7 @@ describe("release check", () => {
       "package/scripts/agent-lifecycle-smoke.js",
       "package/scripts/host-runtime-binding-smoke.js",
       "package/scripts/transcript-compact-safety-smoke.js",
+      "package/scripts/official-host-handoff-smoke.js",
       "package/scripts/dogfood-demo-smoke.js",
       "package/scripts/upgrade-compat-smoke.js",
       "package/scripts/sync-resilience-smoke.js",
@@ -80,6 +81,7 @@ describe("release check", () => {
       "package/scripts/agent-lifecycle-smoke.js",
       "package/scripts/host-runtime-binding-smoke.js",
       "package/scripts/transcript-compact-safety-smoke.js",
+      "package/scripts/official-host-handoff-smoke.js",
       "package/scripts/dogfood-demo-smoke.js",
       "package/scripts/upgrade-compat-smoke.js",
       "package/scripts/sync-resilience-smoke.js",
@@ -124,6 +126,7 @@ describe("release check", () => {
       "package/scripts/agent-lifecycle-smoke.js",
       "package/scripts/host-runtime-binding-smoke.js",
       "package/scripts/transcript-compact-safety-smoke.js",
+      "package/scripts/official-host-handoff-smoke.js",
       "package/scripts/dogfood-demo-smoke.js",
       "package/scripts/upgrade-compat-smoke.js",
       "package/scripts/sync-resilience-smoke.js",
@@ -147,6 +150,7 @@ describe("release check", () => {
       "package/scripts/agent-lifecycle-smoke.js",
       "package/scripts/host-runtime-binding-smoke.js",
       "package/scripts/transcript-compact-safety-smoke.js",
+      "package/scripts/official-host-handoff-smoke.js",
       "package/scripts/dogfood-demo-smoke.js",
       "package/scripts/upgrade-compat-smoke.js",
       "package/scripts/sync-resilience-smoke.js",
@@ -192,6 +196,7 @@ describe("release check", () => {
       "package/scripts/agent-lifecycle-smoke.js",
       "package/scripts/host-runtime-binding-smoke.js",
       "package/scripts/transcript-compact-safety-smoke.js",
+      "package/scripts/official-host-handoff-smoke.js",
       "package/scripts/dogfood-demo-smoke.js"
     ])).toThrow(/missing required package files: .*scripts\/upgrade-compat-smoke\.js/);
 
@@ -246,6 +251,7 @@ describe("release check", () => {
     expect(result.stdout).toContain("$ npm run smoke:agent-lifecycle");
     expect(result.stdout).toContain("$ npm run smoke:host-runtime-binding");
     expect(result.stdout).toContain("$ npm run smoke:transcript-compact-safety");
+    expect(result.stdout).toContain("$ npm run smoke:official-host-handoff");
     expect(result.stdout).toContain("$ npm run smoke:upgrade-compat");
     expect(result.stdout).toContain("$ npm run smoke:sync-resilience");
     expect(result.stdout).toContain("$ npm run smoke:sync-conflict");
@@ -267,7 +273,7 @@ describe("release check", () => {
         }
       });
 
-      expect(result.stdout).toContain('"completed":["dogfood_smoke","lifecycle_smoke","host_runtime_binding_smoke","transcript_compact_safety_smoke","upgrade_compat_smoke","sync_resilience_smoke","sync_conflict_smoke","permission_recovery_smoke","large_store_smoke","package"]');
+      expect(result.stdout).toContain('"completed":["dogfood_smoke","lifecycle_smoke","host_runtime_binding_smoke","transcript_compact_safety_smoke","official_host_handoff_smoke","upgrade_compat_smoke","sync_resilience_smoke","sync_conflict_smoke","permission_recovery_smoke","large_store_smoke","package"]');
     } finally {
       await rm(root, { recursive: true, force: true });
     }

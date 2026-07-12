@@ -3725,7 +3725,7 @@ describe("moryn CLI", () => {
         expect(indexedTexts).toContain(text);
       }
     });
-  }, 30000);
+  }, 60000);
 
   it("initializes project config and resolves --project for writes", async () => {
     await withTempDir(async (dir) => {

@@ -26,6 +26,7 @@ npm run smoke:dogfood-demo
 npm run smoke:agent-lifecycle
 npm run smoke:host-runtime-binding
 npm run smoke:transcript-compact-safety
+npm run smoke:official-host-handoff
 npm run smoke:upgrade-compat
 npm run smoke:sync-resilience
 npm run smoke:sync-conflict
@@ -58,6 +59,12 @@ and PostCompact hooks against official-shape JSONL fixtures. It requires the
 latest public assistant progress to survive compaction, keeps restore context
 bounded, and rejects raw transcript paths, hidden reasoning, tool data, and
 sensitive extracted content from the recovered context.
+Official host handoff smoke executes the generated Codex and Claude shell
+commands across three isolated stores and project checkouts. It proves the
+Codex SessionStart, prompt recall, and PreCompact path can move through Claude
+SessionStart, PostCompact, and SessionEnd to a second-device Codex SessionStart,
+while preserving sync, checkpoint, activation, bounded-context, and handoff
+evidence without exposing private transcript content.
 `npm run smoke:upgrade-compat` materializes the frozen v0.2 disk contract
 directly, opens it with the current CLI without an explicit migration or
 rebuild, verifies the legacy event remains byte-identical, repairs verified

@@ -1019,8 +1019,11 @@ describe("documentation contracts", () => {
     expect(roadmap).toContain("npm run smoke:agent-lifecycle");
     expect(roadmap).toContain("npm run smoke:host-runtime-binding");
     expect(roadmap).toContain("npm run smoke:transcript-compact-safety");
+    expect(roadmap).toContain("npm run smoke:official-host-handoff");
     expectText(roadmap, "Compact safety reads only a bounded tail of host-authored public transcript messages");
     expectText(development, "Transcript compact safety smoke executes generated Codex and Claude PreCompact and PostCompact hooks");
+    expectText(development, "Official host handoff smoke executes the generated Codex and Claude shell commands");
+    expectText(development, "second-device Codex SessionStart");
     expectText(roadmap, "Official host hooks bind to the Moryn runtime that activated them");
     expectText(development, "Host runtime binding smoke places an incompatible `moryn` earlier on `PATH`");
     expect(roadmap).toContain("npm pack --dry-run --json");
