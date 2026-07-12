@@ -10733,6 +10733,35 @@ describe("semantic consolidation CLI", () => {
 });
 
 describe("host hook CLI", () => {
+  it("emits only host-compatible SessionStart context in host-output mode", async () => {
+    await withTempDir(async (store) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      const payload = JSON.stringify({ hook_event_name: "SessionStart", session_id: "session-wire", cwd: repoRoot, source: "startup" });
+      const result = await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "host", "hook", "--host", "codex", "--project-id", "moryn", "--device-id", "device-a", "--input-json", payload, "--host-output", "--no-pull", "--no-push"]);
+      const output = JSON.parse(result.stdout);
+      expect(output).toEqual({
+        hookSpecificOutput: {
+          hookEventName: "SessionStart",
+          additionalContext: expect.any(String)
+        }
+      });
+      expect(JSON.parse(output.hookSpecificOutput.additionalContext)).toHaveProperty("startup_overview");
+      expect(result.stdout).not.toContain("activation_receipt");
+      expect(result.stdout).not.toContain("selection_sources");
+    });
+  });
+
+  it("keeps side-effect-only lifecycle hooks silent in host-output mode", async () => {
+    await withTempDir(async (store) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      const payload = JSON.stringify({ hook_event_name: "PreCompact", session_id: "session-silent", cwd: repoRoot, trigger: "auto", compact_summary: "Preserve progress." });
+      const result = await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "host", "hook", "--host", "claude", "--project-id", "moryn", "--device-id", "device-a", "--input-json", payload, "--host-output", "--no-pull", "--no-push"]);
+      expect(result.stdout).toBe("");
+      const records = JSON.parse(await readFile(join(store, "snapshots", "records.json"), "utf8")).records;
+      expect(records.some((record: any) => record.type === "checkpoint")).toBe(true);
+    });
+  });
+
   it("reads official hook JSON from stdin and checkpoints idempotently", async () => {
     await withTempDir(async (store) => {
       await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);

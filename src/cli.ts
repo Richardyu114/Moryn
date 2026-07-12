@@ -72,6 +72,7 @@ import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from ".
 import type { RecallEvalCaseInput } from "./core/recall-eval.js";
 import { normalizeHostHookEvent } from "./core/host-hooks.js";
 import { runHostHook } from "./core/host-hook-runner.js";
+import { formatHostHookOutput } from "./core/host-hook-output.js";
 
 const program = new Command();
 const recordKinds = RECORD_KINDS;
@@ -2211,6 +2212,7 @@ host.command("hook")
   .option("--device-id <id>", "Stable device identity", process.env.MORYN_DEVICE_ID)
   .option("--occurred-at <timestamp>")
   .option("--activation-id <id>", "Moryn-owned host activation identity")
+  .option("--host-output", "Emit only the host hook wire response")
   .option("--input-json <json>", "Hook input JSON; defaults to stdin")
   .option("--learning <json>", "Learning Delta JSON", collectNonEmptyOption("--learning"))
   .option("--knowledge-investigation <json>", "Knowledge investigation JSON", collectNonEmptyOption("--knowledge-investigation"))
@@ -2228,7 +2230,7 @@ host.command("hook")
         device_id: configuredDeviceId,
         occurred_at: options.occurredAt ?? new Date().toISOString()
       });
-      printJson(await runHostHook({
+      const result = await runHostHook({
         storePath: storePath(),
         hook: hookEvent,
         project_id: options.projectId,
@@ -2240,7 +2242,13 @@ host.command("hook")
         semantic_consolidation_proposals: (options.semanticConsolidationProposal ?? []).map((value: string) => parseCheckpointJson(value, "--semantic-consolidation-proposal") as SemanticConsolidationProposalInput),
         pull: options.pull,
         push: options.push
-      }));
+      });
+      if (options.hostOutput) {
+        const output = formatHostHookOutput(result);
+        if (output !== undefined) printJson(output, { pretty: false });
+      } else {
+        printJson(result);
+      }
     } catch (error) {
       printError(error);
       process.exitCode = 1;

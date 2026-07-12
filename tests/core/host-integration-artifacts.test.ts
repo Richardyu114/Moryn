@@ -27,6 +27,7 @@ describe("host integration artifacts", () => {
     expect(artifact.content).toContain("host hook --host codex");
     expect(artifact.content).toContain("--store '/store'");
     expect(artifact.content).toContain("--activation-id moryn-v03-moryn-codex");
+    expect(artifact.content).toContain("--host-output");
     expect(artifact.content).not.toContain("MORYN_DEVICE_ID");
     expect(artifact.content).not.toContain("--device-id");
     expect(artifact.content).not.toContain("dangerously-bypass-hook-trust");
@@ -42,6 +43,7 @@ describe("host integration artifacts", () => {
     expect(Object.keys(parsed.hooks)).toEqual(["SessionStart", "PreCompact", "PostCompact", "Stop", "SessionEnd"]);
     expect(parsed.hooks.PreCompact[0].hooks[0].command).toContain("host hook --host claude");
     expect(parsed.hooks.PreCompact[0].hooks[0].command).toContain("--activation-id moryn-v03-moryn-claude");
+    expect(parsed.hooks.PreCompact[0].hooks[0].command).toContain("--host-output");
     expect(parsed.hooks.PreCompact[0].hooks[0].command).not.toContain("MORYN_DEVICE_ID");
     expect(parsed.hooks.PreCompact[0].hooks[0].command).not.toContain("--device-id");
     expect(artifact.expected_events).toEqual(["SessionStart", "PreCompact", "PostCompact", "Stop", "SessionEnd"]);
