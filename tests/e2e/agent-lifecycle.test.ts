@@ -2767,6 +2767,57 @@ describe("agent lifecycle", () => {
     }
   });
 
+  it("compensates an abnormal exit by pushing pending continuity events before pull", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-abnormal-exit-compensation-"));
+    const remote = join(root, "remote.git");
+    const storeA = join(root, "store-a");
+    const storeB = join(root, "store-b");
+    const project = join(root, "project");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(storeA, { id: () => "device-a" });
+      await initializeStore(storeB, { id: () => "device-b" });
+      await initializeGitSync(storeA, remote);
+      await initializeGitSync(storeB, remote);
+      const engineA = createEngine({ storePath: storeA });
+      await engineA.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "crashed-session", device_id: "device-a" }, occurred_at: "2026-07-12T03:00:00.000Z", delta: { session_id: "crashed-session", checkpoint_id: "before-crash", current_task: "Recover abnormal exit", progress: ["Durable locally before crash"] } });
+
+      const recoveredStart = await agentStart({ storePath: storeA, projectPath: project, currentTask: "Recover abnormal exit", agent: { client: "codex", session_id: "crashed-session", device_id: "device-a" }, pull: true });
+      expect(recoveredStart.sync.compensation).toMatchObject({ decision: "pushed", reason: "pending_continuity_events", push: { pushed: true }, continuity_record_ids: [expect.stringMatching(/^rec_checkpoint_/)] });
+      expect(recoveredStart.sync.pull).toMatchObject({ ok: true });
+
+      expect((await pullGitSync(storeB)).pulled).toBe(true);
+      const secondDevice = await agentStart({ storePath: storeB, projectPath: project, currentTask: "Recover abnormal exit", agent: { client: "claude-code", session_id: "crashed-session", device_id: "device-b" }, pull: false });
+      expect(secondDevice.boot.checkpoint_recovery_pack).toMatchObject({ available: true, progress: ["Durable locally before crash"] });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not auto-push abnormal-exit events alongside unrelated working-tree files", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-abnormal-exit-blocked-"));
+    const remote = join(root, "remote.git");
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(store, { id: () => "device-a" });
+      await initializeGitSync(store, remote);
+      const engine = createEngine({ storePath: store });
+      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "crashed-session", device_id: "device-a" }, occurred_at: "2026-07-12T04:00:00.000Z", delta: { session_id: "crashed-session", checkpoint_id: "blocked", current_task: "Preserve unrelated files", progress: ["Checkpoint remains local"] } });
+      await writeFile(join(store, "notes.txt"), "unrelated local work\n");
+
+      const start = await agentStart({ storePath: store, projectPath: project, currentTask: "Preserve unrelated files", agent: { client: "codex", session_id: "crashed-session", device_id: "device-a" }, pull: true });
+      expect(start.sync.compensation).toMatchObject({ decision: "blocked", reason: "unowned_pending_paths", pending_paths: expect.arrayContaining(["notes.txt"]) });
+      expect(start.sync.compensation).not.toHaveProperty("push");
+      expect((await readEvents(store)).some((event) => event.op === "upsert_record" && event.record.type === "checkpoint")).toBe(true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("recovers unresolved knowledge investigation after precompact without creating memory", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-agent-knowledge-compact-"));
     const store = join(root, "store");

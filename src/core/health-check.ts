@@ -8,6 +8,7 @@ import type { MorynEvent, MorynRecord } from "./types.js";
 import type { HostActivationStatus } from "./host-activation.js";
 import type { CurrentRecordReadResult, RecordReadFallbackReason } from "./record-read-model.js";
 import type { RetrievalCandidateReadResult, RetrievalIndexFallbackReason } from "./retrieval-index.js";
+import type { SyncCompensationReceipt } from "./sync-compensation.js";
 import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
 
 export type HealthCheckStatus = "healthy" | "needs_attention" | "unhealthy";
@@ -30,6 +31,7 @@ export interface HealthCheckDiagnoseInput extends HealthCheckInput {
   activation_status?: HostActivationStatus;
   record_read_model?: CurrentRecordReadResult;
   retrieval_index?: RetrievalCandidateReadResult;
+  sync_compensation?: SyncCompensationReceipt;
 }
 
 export interface HealthCheckRecordReadModel {
@@ -133,6 +135,7 @@ export interface HealthCheckReport {
   activation_status?: HostActivationStatus;
   record_read_model?: HealthCheckRecordReadModel;
   retrieval_index?: HealthCheckRetrievalIndex;
+  sync_compensation?: SyncCompensationReceipt;
   setup_readiness: HealthCheckSetupReadiness;
   summary: HealthCheckSummary;
   stats: HealthCheckStats;
@@ -588,6 +591,7 @@ export function diagnoseHealthCheck(input: HealthCheckDiagnoseInput): HealthChec
     ...(input.activation_status ? { activation_status: input.activation_status } : {}),
     ...(recordReadModel ? { record_read_model: recordReadModel } : {}),
     ...(retrievalIndex ? { retrieval_index: retrievalIndex } : {}),
+    ...(input.sync_compensation ? { sync_compensation: input.sync_compensation } : {}),
     setup_readiness: readiness,
     summary: healthSummary(status, checks, actions),
     stats: stats(input, projectRecords, reviewCandidates),

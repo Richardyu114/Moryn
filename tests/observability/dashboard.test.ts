@@ -8,6 +8,7 @@ import { createEngine } from "../../src/core/engine.js";
 import { initializeStore } from "../../src/core/config.js";
 import { readEvents } from "../../src/core/store.js";
 import { recordActivationReceipt } from "../../src/core/activation-receipts.js";
+import { writeSyncCompensationReceipt } from "../../src/core/sync-compensation.js";
 import {
   buildDashboardData,
   createDashboardDataLoader,
@@ -2191,6 +2192,7 @@ describe("observability dashboard", () => {
         content: { text: "Private dashboard health check detail must stay hidden.", format: "text" },
         source: { client: "codex" }
       });
+      await writeSyncCompensationReceipt(storePath, { occurred_at: "2026-06-21T00:04:00.000Z", project_id: "moryn", decision: "pushed", reason: "pending_continuity_events", pending_paths: ["events/checkpoint.json"], continuity_record_ids: ["rec_health_1"] });
 
       const beforeEvents = await readEvents(storePath);
       const data = await buildDashboardData(storePath, {
@@ -2207,6 +2209,7 @@ describe("observability dashboard", () => {
         read_only: true,
         status: "needs_attention",
         retrieval_index: { status: "fresh", source: "retrieval_index", repaired: false },
+        sync_compensation: { decision: "pushed", reason: "pending_continuity_events" },
         summary: {
           warning_checks: 1,
           failing_checks: 0

@@ -19,6 +19,7 @@ import { diagnoseMemory, type MemoryDoctorResult } from "../core/memory-doctor.j
 import { buildActiveLogicalMemoryView } from "../core/logical-memory.js";
 import { readCurrentRecords } from "../core/record-read-model.js";
 import { readRetrievalCandidates } from "../core/retrieval-index.js";
+import { readSyncCompensationReceipt } from "../core/sync-compensation.js";
 import type { RecallEvalReport } from "../core/recall-eval.js";
 import { replayEvents } from "../core/replay.js";
 import { readEvents } from "../core/store.js";
@@ -3358,6 +3359,10 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     const recordId = targetRecordId(event);
     return !recordId || healthCheckRecordIds.has(recordId);
   });
+  const latestSyncCompensation = await readSyncCompensationReceipt(storePath);
+  const syncCompensation = latestSyncCompensation && (!options.project_id || latestSyncCompensation.project_id === options.project_id)
+    ? latestSyncCompensation
+    : undefined;
   const healthCheckData = diagnoseHealthCheck({
     records: healthCheckRecords,
     events: healthCheckEvents,
@@ -3368,7 +3373,8 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     include_private: options.include_private === true,
     excluded_private_records: healthCheckAllRecords.length - healthCheckRecords.length,
     record_read_model: currentRecordRead,
-    ...(options.project_id ? { retrieval_index: await readRetrievalCandidates(storePath, { project_id: options.project_id, read_current_records: async () => currentRecordRead }) } : {})
+    ...(options.project_id ? { retrieval_index: await readRetrievalCandidates(storePath, { project_id: options.project_id, read_current_records: async () => currentRecordRead }) } : {}),
+    ...(syncCompensation ? { sync_compensation: syncCompensation } : {})
   });
   const recallEvalData = await buildDashboardRecallEval(storePath, records, options);
   const workingSetReport = summarizeWorkingSet(records, visibleEvents);

@@ -8,7 +8,7 @@ import { toErrorEnvelope } from "../../src/core/errors.js";
 import { createEngine } from "../../src/core/engine.js";
 import { initializeStore } from "../../src/core/config.js";
 import { rebuildDerivedViews } from "../../src/core/derived.js";
-import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync, SYNC_RESULT_SELECTION_SOURCES as EXPORTED_SYNC_RESULT_SELECTION_SOURCES } from "../../src/sync/git.js";
+import { getGitSyncStatus, getPendingSyncEvidence, initializeGitSync, pullGitSync, pushGitSync, SYNC_RESULT_SELECTION_SOURCES as EXPORTED_SYNC_RESULT_SELECTION_SOURCES } from "../../src/sync/git.js";
 
 const exec = promisify(execFile);
 const SYNC_STATUS_SELECTION_SOURCES = {
@@ -1082,6 +1082,50 @@ describe("git sync adapter", () => {
 
       await expect(readFile(join(store, "indexes", "sync-status.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
       await expect(readFile(join(store, "state", "sync-status.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("pending sync evidence", () => {
+  it("reports uncommitted and ahead event paths with parsed events", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-pending-sync-"));
+    const remote = join(root, "remote.git");
+    const store = join(root, "store");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(store, { id: () => "device-a" });
+      await initializeGitSync(store, remote);
+      const engine = createEngine({ storePath: store, id: (prefix) => `${prefix}_pending`, now: () => "2026-07-12T00:00:00.000Z" });
+      await engine.write({ kind: "session_summary", type: "checkpoint", scope: "project", project_id: "moryn", content: { text: "Pending checkpoint" }, source: { client: "codex", session_id: "session" } });
+
+      const evidence = await getPendingSyncEvidence(store);
+      expect(evidence.paths.some((path) => path.startsWith("events/") && path.endsWith(".json"))).toBe(true);
+      expect(evidence.events).toEqual([expect.objectContaining({ op: "upsert_record", record: expect.objectContaining({ type: "checkpoint", project_id: "moryn" }) })]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps deleted event paths as evidence without trying to parse missing files", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-pending-deleted-"));
+    const remote = join(root, "remote.git");
+    const store = join(root, "store");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(store, { id: () => "device-a" });
+      await initializeGitSync(store, remote);
+      const engine = createEngine({ storePath: store, id: (prefix) => `${prefix}_deleted`, now: () => "2026-07-12T00:00:00.000Z" });
+      await engine.write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Delete me" }, source: { client: "test" } });
+      await pushGitSync(store);
+      const trackedEventPath = (await exec("git", ["ls-files", "events/*.json", "events/**/*.json"], { cwd: store })).stdout.trim().split(/\r?\n/).find((path) => path.endsWith(".json"));
+      expect(trackedEventPath).toBeDefined();
+      await rm(join(store, trackedEventPath!));
+
+      const evidence = await getPendingSyncEvidence(store);
+      expect(evidence.paths).toEqual([trackedEventPath]);
+      expect(evidence.events).toEqual([]);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

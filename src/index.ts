@@ -63,6 +63,8 @@ export { buildRecordReadModel, eventManifest, readCurrentRecords } from "./core/
 export type { CurrentRecordReadResult, EventManifest, RecordReadFallbackReason, RecordReadModelV1 } from "./core/record-read-model.js";
 export { buildRetrievalIndex, readRetrievalCandidates, retrievalProjectShardName, writeRetrievalIndex } from "./core/retrieval-index.js";
 export type { BuiltRetrievalIndex, RetrievalCandidateReadResult, RetrievalIndexMetadataV1, RetrievalIndexShardV1 } from "./core/retrieval-index.js";
+export { assessSyncCompensation, readSyncCompensationReceipt, writeSyncCompensationReceipt } from "./core/sync-compensation.js";
+export type { SyncCompensationAssessment, SyncCompensationReceipt } from "./core/sync-compensation.js";
 import { CAPTURE_SESSION_SELECTION_SOURCES, HANDOFF_PACK_SELECTION_SOURCES, HANDOFF_QUALITY_GATE_SELECTION_SOURCES } from "./core/host-adapters.js";
 export { setupWizard } from "./core/setup-wizard.js";
 import { SETUP_WIZARD_SELECTION_SOURCES } from "./core/setup-wizard.js";

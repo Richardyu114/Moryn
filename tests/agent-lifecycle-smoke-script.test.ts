@@ -27,5 +27,6 @@ describe("agent lifecycle smoke script", () => {
     expect(result.stdout).toContain('"codex_activation_status":"host_schema_unknown"');
     expect(result.stdout).toContain('"record_read_model_status":"fresh"');
     expect(result.stdout).toContain('"session_synthesis_mode":"evidence_synthesized"');
+    expect(result.stdout).toContain('"abnormal_exit_compensation":"pushed"');
   }, 60000);
 });

@@ -31,6 +31,7 @@ import { SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES, semanticConsolidation
 import { retrieveSemanticConsolidationCandidates } from "./semantic-consolidation-candidates.js";
 import { readCurrentRecords, type CurrentRecordReadResult } from "./record-read-model.js";
 import { readRetrievalCandidates, type ReadRetrievalCandidatesInput, type RetrievalCandidateReadResult } from "./retrieval-index.js";
+import { readSyncCompensationReceipt } from "./sync-compensation.js";
 
 interface EngineDeps {
   storePath: string;
@@ -3911,6 +3912,10 @@ export function createEngine(deps: EngineDeps) {
       const activationStatus = resolvedInput.project_id && resolvedInput.project_path && (normalizedHost === "codex" || normalizedHost === "claude")
         ? await inspectHostActivation({ store_path: deps.storePath, project_path: resolvedInput.project_path, project_id: resolvedInput.project_id, host: normalizedHost }).catch(() => undefined)
         : undefined;
+      const latestSyncCompensation = await readSyncCompensationReceipt(deps.storePath);
+      const syncCompensation = latestSyncCompensation && (!resolvedInput.project_id || latestSyncCompensation.project_id === resolvedInput.project_id)
+        ? latestSyncCompensation
+        : undefined;
       return diagnoseHealthCheck({
         records: visibleRecords,
         events,
@@ -3923,6 +3928,7 @@ export function createEngine(deps: EngineDeps) {
         excluded_private_records: allRecords.length - visibleRecords.length,
         record_read_model: recordReadModel,
         ...(retrievalIndex ? { retrieval_index: retrievalIndex } : {}),
+        ...(syncCompensation ? { sync_compensation: syncCompensation } : {}),
         ...(activationStatus ? { activation_status: activationStatus } : {})
       });
     },

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createEngine } from "../../src/core/engine.js";
 import { toErrorEnvelope } from "../../src/core/errors.js";
 import { readEvents } from "../../src/core/store.js";
+import { writeSyncCompensationReceipt } from "../../src/core/sync-compensation.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
 const WRITE_SELECTION_SOURCES = {
@@ -552,6 +553,7 @@ describe("core engine", () => {
       });
 
       const beforeEvents = await readEvents(storePath);
+      await writeSyncCompensationReceipt(storePath, { occurred_at: "2026-06-21T00:03:00.000Z", project_id: "moryn", decision: "pushed", reason: "pending_continuity_events", pending_paths: ["events/checkpoint.json"], continuity_record_ids: [capture.record.id] });
       const report = await engine.healthCheck({ project_id: "moryn", limit: 20 });
       const afterEvents = await readEvents(storePath);
 
@@ -570,6 +572,8 @@ describe("core engine", () => {
       });
       expect(report.record_read_model).toMatchObject({ status: "fresh", source: "read_model", repaired: false, record_count: 3, event_count: 3 });
       expect(report.retrieval_index).toMatchObject({ status: "fresh", source: "retrieval_index", repaired: false, total_active_records: 3, candidate_count: 3 });
+      expect(report.sync_compensation).toMatchObject({ decision: "pushed", reason: "pending_continuity_events", continuity_record_ids: [capture.record.id] });
+      expect((await engine.healthCheck({ project_id: "other", limit: 20 })).sync_compensation).toBeUndefined();
       expect(report.selection_sources).toEqual(HEALTH_CHECK_SELECTION_SOURCES);
       expect(report.stats).toMatchObject({
         visible_records: 2,

@@ -5,7 +5,7 @@ import { resolveProjectContext, type ProjectContext, type SyncMode } from "./pro
 import { displayRecordText } from "./content-text.js";
 import type { MorynRecord, RecordSource } from "./types.js";
 import type { RecoveryPack } from "./checkpoint.js";
-import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync, SYNC_STATUS_SELECTION_SOURCES, type GitSyncResult, type GitSyncStatus } from "../sync/git.js";
+import { getGitSyncStatus, getPendingSyncEvidence, initializeGitSync, pullGitSync, pushGitSync, SYNC_STATUS_SELECTION_SOURCES, type GitSyncResult, type GitSyncStatus } from "../sync/git.js";
 import { toErrorEnvelope, type MorynErrorEnvelope } from "./errors.js";
 import { actionExecution, actionSafety, type ActionExecution, type ActionSafety } from "./action-safety.js";
 import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js";
@@ -18,6 +18,7 @@ import { inspectHostActivation, type HostActivationStatus } from "./host-activat
 import { writeHostIntegrationArtifact } from "./host-integration-artifacts.js";
 import { activateClaudeSettings } from "./claude-activation.js";
 import type { SessionSynthesis } from "./session-synthesis.js";
+import { assessSyncCompensation, writeSyncCompensationReceipt, type SyncCompensationAssessment } from "./sync-compensation.js";
 
 interface AgentIdentity {
   client: string;
@@ -60,6 +61,13 @@ export interface AgentLifecycleDeps {
   now?: () => string;
   createEngine?: typeof createEngine;
 }
+
+export type AgentSyncCompensation = Omit<SyncCompensationAssessment, "decision"> & {
+  decision: "not_needed" | "blocked" | "pushed" | "failed";
+  push?: GitSyncResult;
+  error?: string;
+  error_details?: MorynErrorEnvelope["error"];
+};
 
 type DoctorSeverity = "ok" | "notice" | "warning";
 type DoctorCheck = { name: string; ok: boolean; severity: DoctorSeverity; message: string };
@@ -2757,6 +2765,7 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
   const shouldPull = input.pull ?? projectInfo.sync_mode !== "manual";
   const sync: {
     before?: GitSyncStatus;
+    compensation?: AgentSyncCompensation;
     pull?: GitSyncResult;
     pull_error?: string;
     pull_error_details?: MorynErrorEnvelope["error"];
@@ -2765,6 +2774,24 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
 
   sync.before = await assertSyncNotConflicted(input.storePath);
   if (shouldPull) {
+    try {
+      const pending = await getPendingSyncEvidence(input.storePath);
+      const assessment = assessSyncCompensation({ project_id: project.project_id, status: sync.before, pending_paths: pending.paths, pending_events: pending.events });
+      if (assessment.decision === "safe_to_push") {
+        const pushed = await trySync(() => pushGitSync(input.storePath, { message: `Recover Moryn continuity for ${project.project_id}` }));
+        sync.compensation = pushed.ok
+          ? { ...assessment, decision: "pushed", push: pushed.result }
+          : { ...assessment, decision: "failed", error: pushed.error, error_details: syncErrorDetails(pushed.cause) };
+      } else {
+      sync.compensation = { ...assessment, decision: assessment.decision };
+      }
+    } catch (error) {
+      sync.compensation = { decision: "failed", reason: "evidence_unavailable", pending_paths: [], continuity_record_ids: [], error: error instanceof Error ? error.message : String(error), error_details: syncErrorDetails(error) };
+    }
+    if (sync.compensation) {
+      const { error_details: _errorDetails, push: _push, ...receipt } = sync.compensation;
+      await writeSyncCompensationReceipt(input.storePath, { occurred_at: nowIso, project_id: project.project_id, ...receipt }).catch(() => undefined);
+    }
     const pulled = await trySync(() => pullGitSync(input.storePath));
     if (pulled.ok) {
       sync.pull = pulled.result;

@@ -5,6 +5,8 @@ import { promisify } from "node:util";
 import type { StoreConfig } from "../core/config.js";
 import { readStoreConfig } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
+import { parseEvent } from "../core/schema.js";
+import type { MorynEvent } from "../core/types.js";
 
 const exec = promisify(execFile);
 
@@ -46,6 +48,51 @@ export interface GitSyncStatus {
   last_commit?: string;
   error?: string;
   selection_sources: typeof SYNC_STATUS_SELECTION_SOURCES;
+}
+
+export interface PendingSyncEvidence {
+  paths: string[];
+  events: MorynEvent[];
+}
+
+function gitPathLines(output: string): string[] {
+  return output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+}
+
+function porcelainPaths(output: string): string[] {
+  const entries = output.split("\0").filter(Boolean);
+  const paths: string[] = [];
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries[index]!;
+    const status = entry.slice(0, 2);
+    const path = entry.slice(3);
+    if (status.includes("R") || status.includes("C")) {
+      paths.push(entries[index + 1] ?? path);
+      index += 1;
+    } else {
+      paths.push(path);
+    }
+  }
+  return paths;
+}
+
+export async function getPendingSyncEvidence(storePath: string): Promise<PendingSyncEvidence> {
+  validateRequiredString(storePath, "storePath");
+  await ensureGitSyncConfigured(storePath);
+  const workingPaths = porcelainPaths(await gitRaw(storePath, ["status", "--porcelain=v1", "-z", "--untracked-files=all"]));
+  const aheadPaths = await gitOk(storePath, ["rev-parse", "--verify", "origin/main"])
+    ? gitPathLines(await git(storePath, ["diff", "--name-only", "origin/main...HEAD"]))
+    : [];
+  const paths = [...new Set([...workingPaths, ...aheadPaths])].sort();
+  const events: MorynEvent[] = [];
+  for (const path of paths.filter((path) => path.startsWith("events/") && path.endsWith(".json"))) {
+    try {
+      events.push(parseEvent(JSON.parse(await readFile(join(storePath, path), "utf8"))));
+    } catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+    }
+  }
+  return { paths, events };
 }
 
 export interface GitSyncConflictStatus {
@@ -212,6 +259,11 @@ function withSyncResultSelectionSources(
 async function git(cwd: string, args: string[]): Promise<string> {
   const { stdout } = await exec("git", args, { cwd });
   return stdout.trim();
+}
+
+async function gitRaw(cwd: string, args: string[]): Promise<string> {
+  const { stdout } = await exec("git", args, { cwd });
+  return stdout;
 }
 
 async function gitOk(cwd: string, args: string[]): Promise<boolean> {

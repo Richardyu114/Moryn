@@ -207,7 +207,24 @@ async function main() {
     }
     if (checkpoint.checkpoint.recovery_pack?.knowledge_investigations?.[0]?.next_step !== unresolvedInvestigation.next_step) throw new Error("PreCompact did not preserve unresolved knowledge investigation");
     if (checkpoint.checkpoint.semantic_consolidation?.proposals_accepted !== 1 || checkpoint.checkpoint.semantic_consolidation?.rejected_by_reason?.protected_signal_difference !== 1) throw new Error("PreCompact semantic receipt did not contain one accepted and one protected rejection");
-    await runJson(command, [...argsPrefix, "--store", storeCodex, "sync", "--push", "--message", "codex precompact semantic"]);
+    const compensatedStart = await runJson(command, [
+      ...argsPrefix,
+      "--store",
+      storeCodex,
+      "agent",
+      "start",
+      "--project",
+      project,
+      "--sync-remote",
+      remote,
+      "--agent",
+      "codex",
+      "--session-id",
+      "codex-smoke",
+      "--current-task",
+      "verify checkpoint lifecycle smoke"
+    ]);
+    if (compensatedStart.sync?.compensation?.decision !== "pushed") throw new Error("Agent start did not compensate the unpushed checkpoint");
     await runJson(command, [...argsPrefix, "--store", storeClaude, "init"]);
     await runJson(command, [...argsPrefix, "--store", storeClaude, "sync", "init", remote]);
     const claudeRestore = await runJson(command, [
@@ -298,7 +315,8 @@ async function main() {
       claude_activation_receipt_created: claudeRestore.activation_receipt.created,
       codex_activation_status: codexInstall.activation_status.status,
       record_read_model_status: readModelHealth.record_read_model.status,
-      session_synthesis_mode: finish.details.record.content.synthesis_mode
+      session_synthesis_mode: finish.details.record.content.synthesis_mode,
+      abnormal_exit_compensation: compensatedStart.sync.compensation.decision
     }));
   } finally {
     if (options.keepTemp) {
