@@ -17,7 +17,8 @@
     "moryn-dogfood-demo": "scripts/dogfood-demo-smoke.js",
     "moryn-upgrade-smoke": "scripts/upgrade-compat-smoke.js",
     "moryn-resilience-smoke": "scripts/sync-resilience-smoke.js",
-    "moryn-conflict-smoke": "scripts/sync-conflict-smoke.js"
+    "moryn-conflict-smoke": "scripts/sync-conflict-smoke.js",
+    "moryn-permission-smoke": "scripts/permission-recovery-smoke.js"
   },
   "keywords": [
     "agent",
@@ -43,7 +44,8 @@
     "scripts/dogfood-demo-smoke.js",
     "scripts/upgrade-compat-smoke.js",
     "scripts/sync-resilience-smoke.js",
-    "scripts/sync-conflict-smoke.js"
+    "scripts/sync-conflict-smoke.js",
+    "scripts/permission-recovery-smoke.js"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -54,6 +56,7 @@
     "smoke:upgrade-compat": "node scripts/upgrade-compat-smoke.js",
     "smoke:sync-resilience": "node scripts/sync-resilience-smoke.js",
     "smoke:sync-conflict": "node scripts/sync-conflict-smoke.js",
+    "smoke:permission-recovery": "node scripts/permission-recovery-smoke.js",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

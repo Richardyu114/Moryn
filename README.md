@@ -508,6 +508,7 @@ npm run smoke:agent-lifecycle
 npm run smoke:upgrade-compat
 npm run smoke:sync-resilience
 npm run smoke:sync-conflict
+npm run smoke:permission-recovery
 ```
 
 `npm run smoke:dogfood-demo` runs the v0.2 default path end to end on a
@@ -529,6 +530,11 @@ pull and recall it.
 conflict stops further lifecycle writes, preserves both conflicting versions,
 and tells the agent to inspect status and wait for explicit human resolution
 instead of retrying or choosing a history automatically.
+
+`npm run smoke:permission-recovery` proves authentication failure is also
+local-first: the handoff remains usable locally, no key or credential marker is
+stored, and after the user repairs external Git access the next lifecycle entry
+publishes the pending handoff automatically.
 
 The release check builds, typechecks, tests, checks packed-package contents, and
 optionally validates a private Git remote:

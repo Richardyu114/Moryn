@@ -27,11 +27,12 @@ npm run smoke:agent-lifecycle
 npm run smoke:upgrade-compat
 npm run smoke:sync-resilience
 npm run smoke:sync-conflict
+npm run smoke:permission-recovery
 ```
 
 `npm run release:check` is the authoritative local release gate. It runs build,
 typecheck, the full test suite, dogfood, cross-host lifecycle, v0.2 in-place
-upgrade, sync-resilience, and real-conflict guard smokes, package-content checks, and optional private Git remote
+upgrade, sync-resilience, real-conflict guard, and permission-recovery smokes, package-content checks, and optional private Git remote
 validation. Its final line is machine-readable JSON listing completed and
 skipped checks.
 `npm run smoke:dogfood-demo` validates the v0.2 default path on a temporary
@@ -54,6 +55,11 @@ pulls and recalls the handoff.
 event tree. It requires sync status to report `safe_to_retry_sync: false`,
 blocks `agent finish` before any new event is written, preserves both Git index
 stages, and returns an explicit manual conflict-resolution boundary.
+`npm run smoke:permission-recovery` uses a deterministic SSH wrapper to return
+`Permission denied (publickey)`. It proves the handoff is still committed and
+searchable locally, credentials are never copied into events, the response
+forbids exposing keys or retry loops, and a later `agent enter` publishes the
+pending handoff automatically after the external Git access is repaired.
 
 To validate with a real remote, use a dedicated test repository:
 
@@ -167,20 +173,21 @@ Before publishing:
 5. Run `npm run smoke:upgrade-compat`.
 6. Run `npm run smoke:sync-resilience`.
 7. Run `npm run smoke:sync-conflict`.
-8. Inspect `npm pack --dry-run --json`.
-9. Confirm no private memory store data is included.
-10. Confirm README, CHANGELOG, and docs describe the current public interface.
-11. Publish only to the official npm registry:
+8. Run `npm run smoke:permission-recovery`.
+9. Inspect `npm pack --dry-run --json`.
+10. Confirm no private memory store data is included.
+11. Confirm README, CHANGELOG, and docs describe the current public interface.
+12. Publish only to the official npm registry:
 
    ```bash
    npm publish --dry-run --access public --registry https://registry.npmjs.org
    npm publish --access public --registry https://registry.npmjs.org
    ```
 
-12. If npm requires two-factor auth for publishing, use a granular access token
+13. If npm requires two-factor auth for publishing, use a granular access token
    with publish permission and bypass-2FA enabled, or publish from a session
    that can satisfy the account's configured 2FA policy.
-13. After publishing, verify the public package and release bins:
+14. After publishing, verify the public package and release bins:
 
    ```bash
    npm view @richardyu114/moryn version --registry https://registry.npmjs.org

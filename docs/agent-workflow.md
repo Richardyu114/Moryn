@@ -587,6 +587,19 @@ report the conflict as unsafe to retry, preserve both Git stages, and reject
 `moryn sync --status`, but it must not auto-resolve generated files or continue
 writing until the user has chosen and completed the Git conflict resolution.
 
+Validate authentication and permission recovery:
+
+```bash
+npm run smoke:permission-recovery
+```
+
+This forces `Permission denied (publickey)` without using real credentials.
+`agent finish` must still commit the handoff locally, classify the failure as
+`PERMISSION_DENIED`, and explicitly forbid echoing private keys, writing
+credentials into memory, or retrying in a loop. Once the user repairs the Git
+credential or permission outside Moryn, the next `agent enter` compensates the
+pending handoff automatically and another device can pull it.
+
 After building, force the built CLI:
 
 ```bash
@@ -601,6 +614,7 @@ moryn-agent-smoke
 moryn-upgrade-smoke
 moryn-resilience-smoke
 moryn-conflict-smoke
+moryn-permission-smoke
 ```
 
 Package smoke also installs the packed artifact with `--omit=dev` and runs the
