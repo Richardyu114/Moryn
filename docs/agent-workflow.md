@@ -318,6 +318,14 @@ uses one returned capture target. If the question remains unresolved, the
 agent preserves a `knowledge_investigation` at the next checkpoint instead of
 creating speculative memory.
 
+Capture targets contain the resolved project plus current host, session, and
+device identity, so the agent does not reconstruct provenance or accidentally
+write into another project. The checkpoint target includes a complete Context
+Delta shape; the finish target includes the current task, agent identity,
+summary, and `learnings` arguments. Only the current ISO timestamp, stable
+checkpoint id, concise progress or final summary, and filled Learning Delta
+remain agent-authored placeholders.
+
 An unresolved investigation can be checkpointed without creating memory:
 
 ```bash

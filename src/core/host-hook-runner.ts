@@ -195,7 +195,20 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       limit: 3,
       include_private: false
     });
-    const promptRecall = buildPromptRecallContext({ outcome: recall.outcome!, results: recall.results, question: input.hook.prompt! });
+    const promptRecall = buildPromptRecallContext({
+      outcome: recall.outcome!,
+      results: recall.results,
+      question: input.hook.prompt!,
+      capture_context: {
+        project_id: project.project_id,
+        current_task: input.current_task,
+        agent: {
+          client: input.hook.host,
+          session_id: input.hook.session_id,
+          device_id: input.hook.device_id
+        }
+      }
+    });
     return {
       ok: true,
       event: input.hook.event,

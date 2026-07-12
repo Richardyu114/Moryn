@@ -10785,8 +10785,28 @@ describe("host hook CLI", () => {
             related_record_ids: []
           },
           capture_targets: [
-            expect.objectContaining({ mcp_tool: "checkpoint", mcp_argument: "learnings" }),
-            expect.objectContaining({ mcp_tool: "agent_finish", mcp_argument: "learnings" })
+            expect.objectContaining({
+              mcp_tool: "checkpoint",
+              mcp_arguments: expect.objectContaining({
+                project_id: "moryn",
+                source: { client: "claude", session_id: "prompt-miss", device_id: "device-a" },
+                occurred_at: "<current ISO timestamp>",
+                delta: expect.objectContaining({
+                  session_id: "prompt-miss",
+                  checkpoint_id: "<stable checkpoint id>",
+                  learnings: ["<filled learning_delta_template>"]
+                })
+              })
+            }),
+            expect.objectContaining({
+              mcp_tool: "agent_finish",
+              mcp_arguments: expect.objectContaining({
+                project_id: "moryn",
+                agent: { client: "claude", session_id: "prompt-miss", device_id: "device-a" },
+                summary: "<concise final handoff summary>",
+                learnings: ["<filled learning_delta_template>"]
+              })
+            })
           ]
         }
       });

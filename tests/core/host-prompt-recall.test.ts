@@ -14,7 +14,16 @@ function outcome(status: RecallOutcome["status"], bestRecordId?: string): Recall
 describe("host prompt recall context", () => {
   it("returns a machine-readable learning bridge for a knowledge gap", () => {
     const question = "What protects production rollback?";
-    const context = buildPromptRecallContext({ outcome: outcome("knowledge_gap"), results: [], question });
+    const context = buildPromptRecallContext({
+      outcome: outcome("knowledge_gap"),
+      results: [],
+      question,
+      capture_context: {
+        project_id: "moryn",
+        current_task: "verify rollback",
+        agent: { client: "codex", session_id: "session-a", device_id: "device-a" }
+      }
+    });
     const payload = JSON.parse(context.additional_context);
 
     expect(payload).toMatchObject({
@@ -36,8 +45,33 @@ describe("host prompt recall context", () => {
           related_record_ids: []
         },
         capture_targets: [
-          { mcp_tool: "checkpoint", mcp_argument: "learnings", cli_command: "moryn agent checkpoint --learning '<json>'" },
-          { mcp_tool: "agent_finish", mcp_argument: "learnings", cli_command: "moryn agent finish --learning '<json>'" }
+          {
+            mcp_tool: "checkpoint",
+            mcp_arguments: {
+              project_id: "moryn",
+              source: { client: "codex", session_id: "session-a", device_id: "device-a" },
+              occurred_at: "<current ISO timestamp>",
+              delta: {
+                session_id: "session-a",
+                checkpoint_id: "<stable checkpoint id>",
+                current_task: "verify rollback",
+                progress: ["<concise learning progress>"],
+                decisions: [], changed_facts: [], blockers: [], next_steps: [], files: [], candidate_memories: [], candidate_skills: [],
+                learnings: ["<filled learning_delta_template>"],
+                knowledge_investigations: [], semantic_consolidation_proposals: []
+              }
+            }
+          },
+          {
+            mcp_tool: "agent_finish",
+            mcp_arguments: {
+              project_id: "moryn",
+              current_task: "verify rollback",
+              agent: { client: "codex", session_id: "session-a", device_id: "device-a" },
+              summary: "<concise final handoff summary>",
+              learnings: ["<filled learning_delta_template>"]
+            }
+          }
         ]
       }
     });
@@ -48,7 +82,11 @@ describe("host prompt recall context", () => {
     const context = buildPromptRecallContext({
       outcome: outcome("verification_required", "rec_candidate"),
       results: [],
-      question: "Is the rollback record still current?"
+      question: "Is the rollback record still current?",
+      capture_context: {
+        project_id: "moryn",
+        agent: { client: "claude", session_id: "session-b", device_id: "device-b" }
+      }
     });
     const payload = JSON.parse(context.additional_context);
 

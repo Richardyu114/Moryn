@@ -36,6 +36,8 @@ describe("documentation contracts", () => {
     expectText(workflow, "A prompt recall miss does not write a store record by itself");
     expectText(workflow, "`learning_bridge.learning_delta_template` is schema-compatible with the `learnings` argument on `checkpoint` and `agent_finish`");
     expectText(workflow, "The bridge references `current_user_prompt` instead of echoing prompt text into hook output");
+    expectText(workflow, "Capture targets contain the resolved project plus current host, session, and device identity");
+    expectText(workflow, "Only the current ISO timestamp, stable checkpoint id, concise progress or final summary, and filled Learning Delta remain agent-authored placeholders");
     expectText(dashboard, "Capture Inbox is a compatibility and exceptional review surface");
     for (const document of [installPrompt, workflow, dashboard]) {
       expect(document).not.toContain("Canonical memory still requires explicit Capture Inbox user action.");

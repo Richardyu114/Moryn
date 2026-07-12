@@ -6,11 +6,63 @@ export interface PromptRecallInput {
   outcome: RecallOutcome;
   results: Array<{ record: MorynRecord; score: number }>;
   question: string;
+  capture_context?: {
+    project_id: string;
+    current_task?: string;
+    agent: {
+      client: string;
+      session_id: string;
+      device_id: string;
+    };
+  };
 }
 
 function learningBridge(input: PromptRecallInput): Record<string, unknown> {
   const candidateRecordId = input.outcome.best_record_id;
   const question = candidateRecordId ? "<verified question or situation>" : "<current user question or situation>";
+  const captureContext = input.capture_context;
+  const learningPlaceholder = "<filled learning_delta_template>";
+  const captureTargets = captureContext ? [{
+    mcp_tool: "checkpoint",
+    mcp_arguments: {
+      project_id: captureContext.project_id,
+      source: captureContext.agent,
+      occurred_at: "<current ISO timestamp>",
+      delta: {
+        session_id: captureContext.agent.session_id,
+        checkpoint_id: "<stable checkpoint id>",
+        ...(captureContext.current_task ? { current_task: captureContext.current_task } : {}),
+        progress: ["<concise learning progress>"],
+        decisions: [],
+        changed_facts: [],
+        blockers: [],
+        next_steps: [],
+        files: [],
+        candidate_memories: [],
+        candidate_skills: [],
+        learnings: [learningPlaceholder],
+        knowledge_investigations: [],
+        semantic_consolidation_proposals: []
+      }
+    }
+  }, {
+    mcp_tool: "agent_finish",
+    mcp_arguments: {
+      project_id: captureContext.project_id,
+      ...(captureContext.current_task ? { current_task: captureContext.current_task } : {}),
+      agent: captureContext.agent,
+      summary: "<concise final handoff summary>",
+      learnings: [learningPlaceholder]
+    }
+  }] : [{
+    mcp_tool: "checkpoint",
+    mcp_argument: "learnings",
+    requires_lifecycle_context: true
+  }, {
+    mcp_tool: "agent_finish",
+    mcp_argument: "learnings",
+    requires_lifecycle_context: true
+  }];
   return {
     version: 1,
     question_source: "current_user_prompt",
@@ -27,15 +79,7 @@ function learningBridge(input: PromptRecallInput): Record<string, unknown> {
       recommended_type: "fact",
       related_record_ids: candidateRecordId ? [candidateRecordId] : []
     },
-    capture_targets: [{
-      mcp_tool: "checkpoint",
-      mcp_argument: "learnings",
-      cli_command: "moryn agent checkpoint --learning '<json>'"
-    }, {
-      mcp_tool: "agent_finish",
-      mcp_argument: "learnings",
-      cli_command: "moryn agent finish --learning '<json>'"
-    }]
+    capture_targets: captureTargets
   };
 }
 
