@@ -29,6 +29,7 @@ import { learningStatePolicy } from "./learning-policy.js";
 import { learningRecordIdentity, normalizeLearningRecord } from "./learning-ingestion.js";
 import { SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES, semanticConsolidationProposalDigest, validateSemanticConsolidationProposal, type SemanticConsolidationProposalResult, type SemanticConsolidationReceipt } from "./semantic-consolidation.js";
 import { retrieveSemanticConsolidationCandidates } from "./semantic-consolidation-candidates.js";
+import { discoverAutomaticDuplicateProposal } from "./automatic-consolidation.js";
 import { readCurrentRecords, type CurrentRecordReadResult } from "./record-read-model.js";
 import { readRetrievalCandidates, type ReadRetrievalCandidatesInput, type RetrievalCandidateReadResult } from "./retrieval-index.js";
 import { readSyncCompensationReceipt } from "./sync-compensation.js";
@@ -3015,6 +3016,7 @@ export function createEngine(deps: EngineDeps) {
       }
       const learnings = input.learnings.map((learning) => learningDeltaSchema.parse(learning)) as LearningDelta[];
       const dispositions = [];
+      const ingestedRecordIds: string[] = [];
       let createdCount = 0;
       let evidenceLinksCreated = 0;
       for (const learning of learnings) {
@@ -3053,9 +3055,21 @@ export function createEngine(deps: EngineDeps) {
           requires_confirmation: policy.requires_confirmation,
           policy_reason: policy.reason
         });
+        ingestedRecordIds.push(appended.event.record.id);
       }
       if (createdCount > 0 || evidenceLinksCreated > 0) await rebuildDerivedViews(deps.storePath);
-      return { learnings_received: learnings.length, records_created: createdCount, evidence_links_created: evidenceLinksCreated, dispositions };
+      const records = await currentRecords();
+      const discoveredProposals = ingestedRecordIds
+        .map((recordId) => discoverAutomaticDuplicateProposal(records, recordId))
+        .filter((proposal): proposal is SemanticConsolidationProposal => proposal !== undefined);
+      const proposals = [...new Map(discoveredProposals.map((proposal) => [
+        `${proposal.source_record_id}\u0000${proposal.target_record_id}\u0000${proposal.relationship}`,
+        proposal
+      ])).values()];
+      const automaticConsolidation = proposals.length
+        ? await engine.consolidateSemanticProposals({ proposals, project_id: input.project_id, source: input.source, occurred_at: input.occurred_at })
+        : semanticConsolidationReceipt([]);
+      return { learnings_received: learnings.length, records_created: createdCount, evidence_links_created: evidenceLinksCreated, dispositions, automatic_consolidation: automaticConsolidation };
     },
 
     async checkpoint(input: CheckpointInput): Promise<CheckpointResult> {

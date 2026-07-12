@@ -1950,6 +1950,48 @@ describe("core engine", () => {
     });
   });
 
+  it("automatically consolidates high-confidence near-duplicate learnings", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath });
+      const first = await engine.ingestLearnings({
+        project_id: "moryn",
+        occurred_at: "2026-07-12T00:00:00.000Z",
+        source: { client: "codex" },
+        learnings: [{ question: "When does Moryn pull project memory?", conclusion: "When an agent enters a project, Moryn automatically pulls the project memory.", evidence_type: "source_code", scope: "project", confidence: 0.95, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] }]
+      });
+      const second = await engine.ingestLearnings({
+        project_id: "moryn",
+        occurred_at: "2026-07-12T00:01:00.000Z",
+        source: { client: "claude" },
+        learnings: [{ question: "How does project entry load memory?", conclusion: "Moryn automatically pulls project memory when an agent enters the project.", evidence_type: "source_code", scope: "project", confidence: 0.96, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] }]
+      });
+
+      expect(first).toMatchObject({ records_created: 1, automatic_consolidation: { links_created: 0 } });
+      expect(second).toMatchObject({ records_created: 1, automatic_consolidation: { links_created: 1, accepted_by_relationship: { duplicate_of: 1 } } });
+      const active = await engine.recall({ project_id: "moryn", kinds: ["memory"], query: "Moryn automatically pulls project memory when an agent enters the project" });
+      expect(active.results).toHaveLength(1);
+      const events = await readEvents(storePath);
+      expect(events.filter((event) => event.op === "upsert_record" && event.record.tags.includes("learning"))).toHaveLength(2);
+      expect(events.filter((event) => event.op === "link_records" && event.link_type === "duplicate_of")).toHaveLength(1);
+    });
+  });
+
+  it("deduplicates automatic proposals when near-duplicate learnings arrive together", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath });
+      const result = await engine.ingestLearnings({
+        project_id: "moryn",
+        occurred_at: "2026-07-12T00:00:00.000Z",
+        source: { client: "codex" },
+        learnings: [
+          { question: "When does Moryn pull memory?", conclusion: "When an agent enters a project, Moryn automatically pulls the project memory.", evidence_type: "source_code", scope: "project", confidence: 0.95, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] },
+          { question: "How is memory loaded on entry?", conclusion: "Moryn automatically pulls project memory when an agent enters the project.", evidence_type: "source_code", scope: "project", confidence: 0.96, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] }
+        ]
+      });
+      expect(result).toMatchObject({ records_created: 2, automatic_consolidation: { proposals_received: 1, links_created: 1 } });
+    });
+  });
+
   it("keeps risky learning as a confirmation-required candidate", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createEngine({ storePath });
