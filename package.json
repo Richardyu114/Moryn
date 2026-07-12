@@ -18,7 +18,8 @@
     "moryn-upgrade-smoke": "scripts/upgrade-compat-smoke.js",
     "moryn-resilience-smoke": "scripts/sync-resilience-smoke.js",
     "moryn-conflict-smoke": "scripts/sync-conflict-smoke.js",
-    "moryn-permission-smoke": "scripts/permission-recovery-smoke.js"
+    "moryn-permission-smoke": "scripts/permission-recovery-smoke.js",
+    "moryn-large-store-smoke": "scripts/large-store-smoke.js"
   },
   "keywords": [
     "agent",
@@ -45,7 +46,8 @@
     "scripts/upgrade-compat-smoke.js",
     "scripts/sync-resilience-smoke.js",
     "scripts/sync-conflict-smoke.js",
-    "scripts/permission-recovery-smoke.js"
+    "scripts/permission-recovery-smoke.js",
+    "scripts/large-store-smoke.js"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -57,6 +59,7 @@
     "smoke:sync-resilience": "node scripts/sync-resilience-smoke.js",
     "smoke:sync-conflict": "node scripts/sync-conflict-smoke.js",
     "smoke:permission-recovery": "node scripts/permission-recovery-smoke.js",
+    "smoke:large-store": "node scripts/large-store-smoke.js",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

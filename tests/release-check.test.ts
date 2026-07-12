@@ -58,7 +58,8 @@ describe("release check", () => {
       "package/scripts/upgrade-compat-smoke.js",
       "package/scripts/sync-resilience-smoke.js",
       "package/scripts/sync-conflict-smoke.js",
-      "package/scripts/permission-recovery-smoke.js"
+      "package/scripts/permission-recovery-smoke.js",
+      "package/scripts/large-store-smoke.js"
     ])).not.toThrow();
 
     expect(() => assertPackageFilesComplete([
@@ -209,6 +210,16 @@ describe("release check", () => {
       "package/scripts/agent-lifecycle-smoke.js", "package/scripts/dogfood-demo-smoke.js",
       "package/scripts/upgrade-compat-smoke.js", "package/scripts/sync-resilience-smoke.js", "package/scripts/sync-conflict-smoke.js"
     ])).toThrow(/missing required package files: scripts\/permission-recovery-smoke\.js/);
+
+    expect(() => assertPackageFilesComplete([
+      "package/package.json", "package/LICENSE", "package/README.md", "package/CHANGELOG.md",
+      "package/docs/agent-install-prompt.md", "package/docs/agent-workflow.md", "package/docs/contracts.md",
+      "package/docs/development.md", "package/docs/implementation-roadmap.md", "package/docs/moryn-design.md",
+      "package/dist/cli.js", "package/dist/index.js", "package/dist/mcp/server.js",
+      "package/scripts/agent-lifecycle-smoke.js", "package/scripts/dogfood-demo-smoke.js",
+      "package/scripts/upgrade-compat-smoke.js", "package/scripts/sync-resilience-smoke.js",
+      "package/scripts/sync-conflict-smoke.js", "package/scripts/permission-recovery-smoke.js"
+    ])).toThrow(/missing required package files: scripts\/large-store-smoke\.js/);
   });
 
   it("runs the local release gate and skips external Git validation without a remote", async () => {
@@ -227,6 +238,7 @@ describe("release check", () => {
     expect(result.stdout).toContain("$ npm run smoke:sync-resilience");
     expect(result.stdout).toContain("$ npm run smoke:sync-conflict");
     expect(result.stdout).toContain("$ npm run smoke:permission-recovery");
+    expect(result.stdout).toContain("$ npm run smoke:large-store");
     expect(result.stdout).toContain('"status":"passed"');
   }, 120_000);
 
@@ -243,7 +255,7 @@ describe("release check", () => {
         }
       });
 
-      expect(result.stdout).toContain('"completed":["dogfood_smoke","lifecycle_smoke","upgrade_compat_smoke","sync_resilience_smoke","sync_conflict_smoke","permission_recovery_smoke","package"]');
+      expect(result.stdout).toContain('"completed":["dogfood_smoke","lifecycle_smoke","upgrade_compat_smoke","sync_resilience_smoke","sync_conflict_smoke","permission_recovery_smoke","large_store_smoke","package"]');
     } finally {
       await rm(root, { recursive: true, force: true });
     }

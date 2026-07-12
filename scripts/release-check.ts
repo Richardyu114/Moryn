@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 
 const exec = promisify(execFile);
 
-type GateStepId = "build" | "typecheck" | "tests" | "dogfood_smoke" | "lifecycle_smoke" | "upgrade_compat_smoke" | "sync_resilience_smoke" | "sync_conflict_smoke" | "permission_recovery_smoke" | "package" | "private_remote";
+type GateStepId = "build" | "typecheck" | "tests" | "dogfood_smoke" | "lifecycle_smoke" | "upgrade_compat_smoke" | "sync_resilience_smoke" | "sync_conflict_smoke" | "permission_recovery_smoke" | "large_store_smoke" | "package" | "private_remote";
 type GateStepMode = "required" | "skipped" | "optional_skipped";
 export interface ReleaseGateStep { id: GateStepId; mode: GateStepMode }
 export interface ReleaseGateResult { version: 1; status: "passed"; completed: GateStepId[]; skipped: GateStepId[] }
@@ -36,6 +36,7 @@ export function releaseGateSteps(skipSlowChecks: boolean, hasPrivateRemote: bool
     { id: "sync_resilience_smoke", mode: "required" },
     { id: "sync_conflict_smoke", mode: "required" },
     { id: "permission_recovery_smoke", mode: "required" },
+    { id: "large_store_smoke", mode: "required" },
     { id: "package", mode: "required" },
     { id: "private_remote", mode: hasPrivateRemote ? "required" : "optional_skipped" }
   ];
@@ -51,7 +52,7 @@ export function assertSafePackageFiles(files: string[]): void {
 
 export function assertPackageFilesComplete(files: string[]): void {
   const normalized = new Set(files.map((file) => file.replace(/\\/g, "/").replace(/^package\//, "")));
-  const required = ["package.json", "LICENSE", "README.md", "CHANGELOG.md", "docs/agent-install-prompt.md", "docs/agent-workflow.md", "docs/contracts.md", "docs/development.md", "docs/implementation-roadmap.md", "docs/moryn-design.md", "dist/cli.js", "dist/index.js", "dist/mcp/server.js", "scripts/agent-lifecycle-smoke.js", "scripts/dogfood-demo-smoke.js", "scripts/upgrade-compat-smoke.js", "scripts/sync-resilience-smoke.js", "scripts/sync-conflict-smoke.js", "scripts/permission-recovery-smoke.js"];
+  const required = ["package.json", "LICENSE", "README.md", "CHANGELOG.md", "docs/agent-install-prompt.md", "docs/agent-workflow.md", "docs/contracts.md", "docs/development.md", "docs/implementation-roadmap.md", "docs/moryn-design.md", "dist/cli.js", "dist/index.js", "dist/mcp/server.js", "scripts/agent-lifecycle-smoke.js", "scripts/dogfood-demo-smoke.js", "scripts/upgrade-compat-smoke.js", "scripts/sync-resilience-smoke.js", "scripts/sync-conflict-smoke.js", "scripts/permission-recovery-smoke.js", "scripts/large-store-smoke.js"];
   const missing = required.filter((file) => !normalized.has(file));
   if (missing.length) throw new Error(`Package is missing required package files: ${missing.join(", ")}`);
 }
@@ -90,7 +91,7 @@ export async function runReleaseGate(options: ReleaseGateOptions = {}): Promise<
   const completed: GateStepId[] = [];
   const skipped: GateStepId[] = [];
   const commands: Partial<Record<GateStepId, [string, string[]]>> = {
-    build: ["npm", ["run", "build"]], typecheck: ["npm", ["run", "typecheck"]], tests: ["npm", ["test"]], dogfood_smoke: ["npm", ["run", "smoke:dogfood-demo"]], lifecycle_smoke: ["npm", ["run", "smoke:agent-lifecycle"]], upgrade_compat_smoke: ["npm", ["run", "smoke:upgrade-compat"]], sync_resilience_smoke: ["npm", ["run", "smoke:sync-resilience"]], sync_conflict_smoke: ["npm", ["run", "smoke:sync-conflict"]], permission_recovery_smoke: ["npm", ["run", "smoke:permission-recovery"]]
+    build: ["npm", ["run", "build"]], typecheck: ["npm", ["run", "typecheck"]], tests: ["npm", ["test"]], dogfood_smoke: ["npm", ["run", "smoke:dogfood-demo"]], lifecycle_smoke: ["npm", ["run", "smoke:agent-lifecycle"]], upgrade_compat_smoke: ["npm", ["run", "smoke:upgrade-compat"]], sync_resilience_smoke: ["npm", ["run", "smoke:sync-resilience"]], sync_conflict_smoke: ["npm", ["run", "smoke:sync-conflict"]], permission_recovery_smoke: ["npm", ["run", "smoke:permission-recovery"]], large_store_smoke: ["npm", ["run", "smoke:large-store"]]
   };
   for (const step of steps) {
     if (step.mode !== "required") { skipped.push(step.id); continue; }
