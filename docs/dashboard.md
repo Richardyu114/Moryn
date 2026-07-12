@@ -18,10 +18,31 @@ local store and never uploads dashboard data.
 
 ## First Screen
 
-The first screen is optimized for one-glance reading, not for browsing a project
-tool. It uses a black high-contrast surface with visible status colors and chart
-cards before any evidence folds. A user should be able to answer these questions
-without opening a collapsed section:
+The v0.3 first screen is one continuous monitoring surface. It is optimized for
+one-glance reading, not for browsing a project tool or maintaining the store.
+Its hierarchy is deliberately typography-led instead of presenting several
+equally weighted cards:
+
+- `System Pulse` is a quiet horizontal status band. Store, sync, protected
+  context, and Autopilot remain visible as compact signals; healthy signals use
+  neutral color and exceptional state uses a narrow status accent.
+- `Current Context` is the visual anchor and gives the active task the largest
+  type. Project, agent, device, checkpoint, and handoff evidence remain muted
+  metadata rather than competing headlines.
+- `Memory Flow` is a compact metric strip rather than a peer card. It summarizes
+  active knowledge, consolidation, and learned conclusions while raw event and
+  relationship totals stay behind its folded details.
+- Healthy pages do not render an `Attention Needed` zero state. The section
+  exists only for genuine user-dependent exceptions such as authentication,
+  conflicts, sensitive confirmation, or project repair.
+
+The older `Right now`, `At a glance`, saved-content, and maintenance surfaces
+remain available inside collapsed `Audit Details`. They preserve compatibility,
+search, and audit depth without dominating the normal first screen.
+
+The detailed compatibility surfaces use a black high-contrast surface with
+visible status colors and chart cards before any evidence folds. Within
+that layer a user can answer these questions:
 
 - Do I need to act? -> the `Right now` action card plus a visible
   `Needs your confirmation` panel only when approval is waiting.

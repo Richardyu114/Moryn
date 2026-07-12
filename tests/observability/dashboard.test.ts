@@ -9943,10 +9943,14 @@ describe("quiet dashboard first screen", () => {
       await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "session-a", device_id: "device-a" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: { session_id: "session-a", checkpoint_id: "checkpoint-a", current_task: "Polish dashboard", progress: ["Ready"] } });
       const html = renderDashboardHtml(await buildDashboardData(storePath, { project_id: "moryn" }));
       expect(html).toContain('data-quiet-dashboard="first-screen"');
+      expect(html).toContain('class="quiet-dashboard-shell"');
       expect(html).toContain('data-quiet-section="system-pulse"');
+      expect(html).toContain('class="quiet-pulse-band');
       expect(html).toContain('data-quiet-section="current-context"');
+      expect(html).toContain('class="quiet-current-task"');
       expect(html).toContain('data-quiet-section="memory-flow"');
-      expect(html).toContain('data-quiet-layout="context-flow"');
+      expect(html).toContain('class="quiet-flow-strip"');
+      expect(html).not.toContain('data-quiet-layout="context-flow"');
       const firstScreen = quietFirstScreenHtml(html);
       expect(firstScreen).toContain('data-quiet-flow-summary');
       expect(firstScreen).toContain('<details class="quiet-flow-details" data-dashboard-detail="quiet-flow-details">');
@@ -9961,7 +9965,9 @@ describe("quiet dashboard first screen", () => {
       expect(firstScreen.slice(flowSummaryStart, flowDetailsStart)).not.toContain('equivalent');
       expect(html).not.toContain('data-quiet-section="knowledge-loop"');
       expect(html).not.toContain('data-quiet-section="attention-needed"');
-      expect(html).toContain(".quiet-system-pulse { grid-template-columns: 1fr; gap: 14px; }");
+      expect(html).toContain(".quiet-dashboard-shell {");
+      expect(html).toContain(".quiet-current-task {");
+      expect(html).toContain(".quiet-flow-strip {");
       expect(html).toContain('data-dashboard-detail="audit-details"');
       expect(html.indexOf('data-dashboard-detail="audit-details"')).toBeGreaterThan(html.indexOf('data-quiet-section="memory-flow"'));
       expect(html).not.toContain('data-dashboard-command-flow');

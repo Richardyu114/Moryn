@@ -8492,7 +8492,7 @@ function quietSystemPulse(data: DashboardData): string {
     ? "Not installed"
     : `${pulse.autopilot.status[0]?.toUpperCase()}${pulse.autopilot.status.slice(1)} · ${pulse.autopilot.host === "claude" ? "Claude" : pulse.autopilot.host === "codex" ? "Codex" : "Unknown"}`;
   return `
-    <section class="quiet-panel quiet-system-pulse ${pulse.healthy ? "healthy" : "attention"}" data-quiet-section="system-pulse">
+    <section class="quiet-pulse-band ${pulse.healthy ? "healthy" : "attention"}" data-quiet-section="system-pulse">
       <div class="quiet-panel-heading">
         ${i18nText("System Pulse", "系统脉搏", "span")}
         <strong ${i18nAttribute(pulseLabel, pulseLabelZh)}>${escapeHtml(pulseLabel)}</strong>
@@ -8509,8 +8509,8 @@ function quietSystemPulse(data: DashboardData): string {
 function quietCurrentContext(data: DashboardData): string {
   const context = data.quiet_dashboard.current_context;
   return `
-    <section class="quiet-panel quiet-context-primary" data-quiet-section="current-context">
-      <div class="quiet-panel-heading">${i18nText("Current Context", "当前上下文", "span")}<strong>${escapeHtml(context.task ?? "No active task")}</strong></div>
+    <section class="quiet-context-primary" data-quiet-section="current-context">
+      <div class="quiet-panel-heading">${i18nText("Current Context", "当前上下文", "span")}<strong class="quiet-current-task">${escapeHtml(context.task ?? "No active task")}</strong></div>
       <dl class="quiet-context-list">
         <div><dt>Project</dt><dd>${escapeHtml(context.project_id ?? "Not resolved")}</dd></div>
         <div><dt>Agent</dt><dd>${escapeHtml(context.agent ?? "No recent agent")}</dd></div>
@@ -8525,9 +8525,9 @@ function quietMemoryFlow(data: DashboardData): string {
   const loop = data.quiet_dashboard.knowledge_loop;
   const consolidationPercent = Math.round(flow.compaction_ratio * 100);
   return `
-    <section class="quiet-panel quiet-memory-secondary" data-quiet-section="memory-flow">
+    <section class="quiet-memory-secondary" data-quiet-section="memory-flow">
       <div class="quiet-panel-heading">${i18nText("Memory Flow", "记忆流", "span")}<strong>${flow.active_working_set_records} active</strong></div>
-      <div class="quiet-flow-summary" data-quiet-flow-summary aria-label="Memory flow summary">
+      <div class="quiet-flow-strip" data-quiet-flow-summary aria-label="Memory flow summary">
         <div><span>Available</span><strong>${flow.active_working_set_records}</strong><small>active knowledge</small></div>
         <div><span>Reduced</span><strong>${consolidationPercent}%</strong><small>${flow.hidden_logical_records} duplicate or replaced</small></div>
         <div><span>Learned</span><strong>${flow.learned_records}</strong><small>${loop.resolved_investigations} investigations resolved</small></div>
@@ -8553,7 +8553,7 @@ function quietAttention(data: DashboardData): string {
   const items = data.quiet_dashboard.attention_needed;
   if (!items.length) return "";
   return `
-    <section class="quiet-panel quiet-attention" data-quiet-section="attention-needed">
+    <section class="quiet-attention" data-quiet-section="attention-needed">
       <div class="quiet-panel-heading">${i18nText("Attention Needed", "需要关注", "span")}<strong>${items.length}</strong></div>
       <div class="quiet-attention-list">${items.map((item) => `<article><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.description)}</p>${item.action_label ? `<small>${escapeHtml(item.action_label)}</small>` : ""}</article>`).join("")}</div>
     </section>`;
@@ -8562,9 +8562,11 @@ function quietAttention(data: DashboardData): string {
 function quietDashboardFirstScreen(data: DashboardData): string {
   return `
     <section class="quiet-dashboard" data-quiet-dashboard="first-screen" aria-label="Moryn monitoring overview">
-      ${quietSystemPulse(data)}
-      <div class="quiet-dashboard-grid" data-quiet-layout="context-flow">${quietCurrentContext(data)}${quietMemoryFlow(data)}</div>
-      ${quietAttention(data)}
+      <div class="quiet-dashboard-shell">
+        ${quietSystemPulse(data)}
+        <div class="quiet-context-flow">${quietCurrentContext(data)}${quietMemoryFlow(data)}</div>
+        ${quietAttention(data)}
+      </div>
     </section>`;
 }
 
@@ -11561,26 +11563,25 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     }
     .panel { padding: 16px; margin-bottom: 14px; background: var(--surface); }
     .quiet-dashboard {
-      display: grid;
-      gap: 12px;
       margin-bottom: 26px;
     }
-    .quiet-dashboard-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-      gap: 28px;
-      padding: 24px 2px 4px;
-      border-top: 1px solid rgba(143, 156, 173, 0.14);
+    .quiet-dashboard-shell {
+      overflow: hidden;
+      border: 1px solid rgba(143, 156, 173, 0.14);
+      border-radius: 16px;
+      background: rgba(13, 16, 21, 0.72);
+      box-shadow: 0 22px 60px rgba(0, 0, 0, 0.24);
     }
-    .quiet-panel {
-      min-width: 0;
-      padding: 0;
-      background: transparent;
+    .quiet-context-flow {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
+      gap: 0;
+      border-top: 1px solid rgba(143, 156, 173, 0.14);
     }
     .quiet-panel-heading {
       display: grid;
       gap: 5px;
-      margin-bottom: 18px;
+      margin-bottom: 20px;
     }
     .quiet-panel-heading > span {
       color: var(--muted);
@@ -11596,21 +11597,19 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       font-weight: 720;
       overflow-wrap: anywhere;
     }
-    .quiet-system-pulse {
+    .quiet-pulse-band {
       display: grid;
       grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.3fr);
       align-items: center;
       gap: 24px;
-      padding: 18px 22px;
-      border: 1px solid rgba(143, 156, 173, 0.13);
-      border-radius: 12px;
-      background: rgba(15, 18, 23, 0.78);
+      padding: 16px 24px;
+      background: rgba(255, 255, 255, 0.018);
     }
-    .quiet-system-pulse.attention {
-      border-color: rgba(255, 209, 102, 0.28);
-      background: rgba(33, 29, 19, 0.72);
+    .quiet-pulse-band.attention {
+      box-shadow: inset 3px 0 0 rgba(255, 209, 102, 0.72);
+      background: rgba(255, 209, 102, 0.045);
     }
-    .quiet-system-pulse .quiet-panel-heading { margin-bottom: 0; }
+    .quiet-pulse-band .quiet-panel-heading { margin-bottom: 0; }
     .quiet-signal-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -11630,22 +11629,45 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       font-weight: 700;
     }
     .quiet-signal-grid strong { color: var(--ink-2); font-size: 13px; text-transform: capitalize; }
-    .quiet-context-list { gap: 9px; }
-    .quiet-context-list div { grid-template-columns: 78px minmax(0, 1fr); }
+    .quiet-context-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px 24px;
+    }
+    .quiet-context-list div { display: grid; grid-template-columns: 1fr; gap: 2px; }
     .quiet-context-list dd { color: var(--ink-2); }
-    .quiet-context-primary { min-height: 0; }
-    .quiet-memory-secondary { color: var(--muted); }
-    .quiet-flow-summary {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 18px;
-    }
-    .quiet-flow-summary > div {
-      display: grid;
-      gap: 3px;
+    .quiet-context-primary {
       min-width: 0;
+      padding: 32px 34px 34px;
     }
-    .quiet-flow-summary span,
+    .quiet-current-task {
+      max-width: 760px;
+      font-size: clamp(25px, 3vw, 38px) !important;
+      line-height: 1.08 !important;
+      letter-spacing: -0.025em;
+      font-weight: 730 !important;
+    }
+    .quiet-memory-secondary {
+      min-width: 0;
+      padding: 32px 30px;
+      border-left: 1px solid rgba(143, 156, 173, 0.14);
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.012);
+    }
+    .quiet-flow-strip {
+      display: grid;
+      gap: 0;
+    }
+    .quiet-flow-strip > div {
+      display: grid;
+      grid-template-columns: minmax(70px, 0.7fr) auto;
+      gap: 3px 12px;
+      align-items: baseline;
+      min-width: 0;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(143, 156, 173, 0.1);
+    }
+    .quiet-flow-strip > div:last-child { border-bottom: 0; }
+    .quiet-flow-strip span,
     .quiet-flow-detail-grid span {
       color: var(--muted);
       font-size: 11px;
@@ -11653,8 +11675,8 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       letter-spacing: 0.06em;
       text-transform: uppercase;
     }
-    .quiet-flow-summary strong { color: var(--ink); font-size: 22px; line-height: 1.1; font-weight: 720; }
-    .quiet-flow-summary small { margin-top: 1px; color: var(--muted); }
+    .quiet-flow-strip strong { color: var(--ink); font-size: 19px; line-height: 1.1; font-weight: 720; text-align: right; }
+    .quiet-flow-strip small { grid-column: 1 / -1; margin-top: 1px; color: var(--muted); }
     .quiet-flow-details {
       margin-top: 20px;
       padding-top: 12px;
@@ -11674,10 +11696,10 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .quiet-flow-detail-grid > div { display: grid; gap: 3px; }
     .quiet-flow-detail-grid strong { color: var(--ink-2); font-size: 12px; font-weight: 600; }
     .quiet-attention {
-      border: 1px solid rgba(255, 209, 102, 0.28);
-      border-radius: 12px;
-      border-color: rgba(255, 209, 102, 0.3);
-      background: rgba(33, 29, 19, 0.72);
+      padding: 22px 28px 24px;
+      border-top: 1px solid rgba(255, 209, 102, 0.22);
+      box-shadow: inset 3px 0 0 rgba(255, 209, 102, 0.72);
+      background: rgba(255, 209, 102, 0.04);
     }
     .quiet-attention-list { display: grid; gap: 8px; }
     .quiet-attention-list article {
@@ -14200,13 +14222,13 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .truncate { display: inline-block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     details summary { cursor: pointer; }
     @media (max-width: 920px) {
-      header, .quiet-dashboard-grid, .status-board-answers, .status-board-rail, .memory-inventory-grid, .recent-status-grid, .recent-change-list, .glance-grid, .memory-explorer-layout, .stored-content-list, .stored-content-explain, .memory-search-controls, .memory-search-summary, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
-      .quiet-system-pulse { grid-template-columns: 1fr; gap: 14px; }
+      header, .quiet-context-flow, .status-board-answers, .status-board-rail, .memory-inventory-grid, .recent-status-grid, .recent-change-list, .glance-grid, .memory-explorer-layout, .stored-content-list, .stored-content-explain, .memory-search-controls, .memory-search-summary, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
+      .quiet-pulse-band { grid-template-columns: 1fr; gap: 14px; }
       .quiet-signal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .quiet-flow-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
       .quiet-signal-grid > div + div { border-left: 0; }
       .quiet-signal-grid > div:nth-child(even) { border-left: 1px solid rgba(143, 156, 173, 0.13); }
       .quiet-context-primary { min-height: 0; }
+      .quiet-memory-secondary { border-top: 1px solid rgba(143, 156, 173, 0.14); border-left: 0; }
       .memory-state-guide-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
@@ -14243,10 +14265,9 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       .bar-label span { text-align: left; }
     }
     @media (max-width: 560px) {
-      .quiet-flow-summary { grid-template-columns: 1fr; gap: 14px; }
-      .quiet-flow-summary > div { padding-bottom: 12px; border-bottom: 1px solid rgba(143, 156, 173, 0.1); }
-      .quiet-flow-summary > div:last-child { padding-bottom: 0; border-bottom: 0; }
-      .quiet-dashboard-grid { gap: 22px; }
+      .quiet-context-primary, .quiet-memory-secondary { padding: 24px 20px; }
+      .quiet-context-list { grid-template-columns: 1fr; }
+      .quiet-current-task { font-size: 26px !important; }
     }
   </style>
 </head>

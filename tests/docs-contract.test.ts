@@ -181,6 +181,12 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The visible receipt labels, decision sentence, write-boundary summary, changed count, and trace status follow the dashboard language toggle");
     expectText(dashboard, "Record ids, event ids, decision context, and read-only trace commands");
     expectText(dashboard, "stay literal inside the collapsed `Trace details` fold");
+    expectText(dashboard, "The v0.3 first screen is one continuous monitoring surface");
+    expectText(dashboard, "`System Pulse` is a quiet horizontal status band");
+    expectText(dashboard, "`Current Context` is the visual anchor and gives the active task the largest type");
+    expectText(dashboard, "`Memory Flow` is a compact metric strip rather than a peer card");
+    expectText(dashboard, "Healthy pages do not render an `Attention Needed` zero state");
+    expectText(dashboard, "The older `Right now`, `At a glance`, saved-content, and maintenance surfaces remain available inside collapsed `Audit Details`");
     expectText(dashboard, "black high-contrast surface");
     expectText(dashboard, "visible status colors and chart cards before any evidence folds");
     expectText(dashboard, "soft glass surfaces, restrained glow, stable grid row");
