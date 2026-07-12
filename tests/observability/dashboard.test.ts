@@ -508,8 +508,9 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("data-action-board-quiet-item=\"review\"");
       expect(html).not.toContain("data-action-board-quiet-item=\"inspect\"");
       expect(html).not.toContain("<em class=\"action-board-next\">Open checks</em>");
-      expect(firstScreen).toContain('data-quiet-section="attention-needed"');
-      expect(firstScreen).toContain("Local event history has changes that are not committed or pushed yet.");
+      expect(data.quiet_dashboard.attention_needed.map((item) => item.title)).not.toContain("Sync changes not pushed");
+      expect(firstScreen).not.toContain('data-quiet-section="attention-needed"');
+      expect(firstScreen).not.toContain("Local event history has changes that are not committed or pushed yet.");
       expect(auditDetails).toContain("<section class=\"sync-action-brief warning\" data-dashboard-sync-action>");
       expect(html).not.toContain("<section id=\"needs-attention\" class=\"needs-attention-quiet-line\" data-dashboard-section=\"needs-attention\" data-dashboard-detail=\"needs-attention\">");
       expect(html).not.toContain("data-dashboard-detail=\"attention-info-checks\"");
@@ -9762,12 +9763,33 @@ describe("quiet dashboard model", () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device-test" });
       const engine = createEngine({ storePath });
-      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "session-a", device_id: "device-a" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: { session_id: "session-a", checkpoint_id: "checkpoint-a", current_task: "Polish dashboard", progress: ["First screen ready"] } });
+      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "session-a", device_id: "device_dda1e19fac3e45e1acb86f26115acc00" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: { session_id: "session-a", checkpoint_id: "checkpoint-a", current_task: "Polish dashboard", progress: ["First screen ready"] } });
       const data = await buildDashboardData(storePath, { project_id: "moryn", now: "2026-07-11T00:01:00.000Z" });
       expect(data.quiet_dashboard.system_pulse).toMatchObject({ healthy: true, context_protected: true });
-      expect(data.quiet_dashboard.current_context).toMatchObject({ project_id: "moryn", task: "Polish dashboard", agent: "codex", device_id: "device-a", checkpoint_available: true });
+      expect(data.quiet_dashboard.current_context).toMatchObject({ project_id: "moryn", task: "Polish dashboard", agent: "codex", device_id: "device_dda1e19fac3e45e1acb86f26115acc00", checkpoint_available: true });
       expect(data.quiet_dashboard.memory_flow).toMatchObject({ store_records: 1, active_working_set_records: 1 });
       expect(data.quiet_dashboard.attention_needed).toEqual([]);
+      const firstScreen = quietFirstScreenHtml(renderDashboardHtml(data));
+      expect(firstScreen).toContain(">device · dda1e1<");
+      expect(firstScreen).toContain('title="device_dda1e19fac3e45e1acb86f26115acc00"');
+    });
+  });
+
+  it("keeps routine candidate-noise maintenance out of first-screen attention", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device_dda1e19fac3e45e1acb86f26115acc00" });
+      const engine = createEngine({ storePath });
+      await engine.write({ kind: "agent_note", type: "note", scope: "project", project_id: "moryn", tags: ["smoke", "marker"], content: { text: "Smoke marker candidate one" }, state: "candidate", source: { client: "codex" } });
+      await engine.write({ kind: "agent_note", type: "note", scope: "project", project_id: "moryn", tags: ["e2e", "marker"], content: { text: "E2E marker candidate two" }, state: "candidate", source: { client: "codex" } });
+      await engine.write({ kind: "agent_note", type: "note", scope: "project", project_id: "moryn", tags: ["smoke"], content: { text: "Smoke marker candidate three" }, state: "candidate", source: { client: "codex" } });
+
+      const data = await buildDashboardData(storePath, { project_id: "moryn" });
+      const html = renderDashboardHtml(data);
+      const firstScreen = quietFirstScreenHtml(html);
+      expect(data.maintenance.plans.some((plan) => plan.type === "candidate_noise_archive")).toBe(true);
+      expect(data.quiet_dashboard.attention_needed.map((item) => item.title)).not.toContain("Candidate noise cleanup");
+      expect(firstScreen).not.toContain("Candidate noise cleanup");
+      expect(auditDetailsHtml(html)).toContain("Candidate noise cleanup");
     });
   });
 

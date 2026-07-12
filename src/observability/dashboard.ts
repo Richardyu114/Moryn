@@ -3427,9 +3427,12 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     evidence_synthesized: records.filter((record) => record.kind === "session_summary" && record.content.synthesis_mode === "evidence_synthesized").length,
     minimal_fallback: records.filter((record) => record.kind === "session_summary" && record.content.synthesis_mode === "minimal_fallback").length
   };
+  const routineMaintenanceDecisionIds = new Set(maintenanceData.plans
+    .filter((plan) => plan.type === "candidate_noise_archive")
+    .map((plan) => `maintenance_review:${plan.plan_hash.replace(/^sha256:/, "")}`));
   const exceptionalAttention: DashboardAttentionItem[] = [
-    ...attentionItems.filter((item) => item.severity === "warning" || item.severity === "critical"),
-    ...decisionSummaryData.items.map((item) => ({
+    ...attentionItems.filter((item) => (item.severity === "warning" || item.severity === "critical") && item.title !== "Sync changes not pushed"),
+    ...decisionSummaryData.items.filter((item) => !routineMaintenanceDecisionIds.has(item.id)).map((item) => ({
       severity: "warning" as const,
       title: item.title,
       description: item.summary,
@@ -3808,6 +3811,11 @@ function recordLabel(recordId: string): string {
   const generated = recordId.match(/^rec_[0-9a-f]{16,}$/i);
   if (!generated) return recordId;
   return recordId.slice(0, 12);
+}
+
+function deviceLabel(deviceId: string): string {
+  const generated = deviceId.match(/^device_([0-9a-f]{12,})$/i);
+  return generated ? `device · ${generated[1]?.slice(0, 6)}` : deviceId;
 }
 
 function isReadOnlyInspectActionBoardItem(item: DashboardActionBoardItem): boolean {
@@ -8491,7 +8499,7 @@ function quietCurrentContext(data: DashboardData): string {
       <dl class="quiet-context-list">
         <div><dt>Project</dt><dd>${escapeHtml(context.project_id ?? "Not resolved")}</dd></div>
         <div><dt>Agent</dt><dd>${escapeHtml(context.agent ?? "No recent agent")}</dd></div>
-        <div><dt>Device</dt><dd>${escapeHtml(context.device_id ?? "Unknown")}</dd></div>
+        <div><dt>Device</dt><dd${context.device_id ? ` title="${escapeHtml(context.device_id)}"` : ""}>${escapeHtml(context.device_id ? deviceLabel(context.device_id) : "Unknown")}</dd></div>
         <div><dt>Continuity</dt><dd>${context.checkpoint_available ? "Checkpoint protected" : context.handoff_available ? "Handoff available" : "No checkpoint yet"}</dd></div>
       </dl>
     </section>`;
