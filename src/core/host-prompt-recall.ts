@@ -5,6 +5,38 @@ import type { RecallOutcome } from "./recall-outcome.js";
 export interface PromptRecallInput {
   outcome: RecallOutcome;
   results: Array<{ record: MorynRecord; score: number }>;
+  question: string;
+}
+
+function learningBridge(input: PromptRecallInput): Record<string, unknown> {
+  const candidateRecordId = input.outcome.best_record_id;
+  const question = candidateRecordId ? "<verified question or situation>" : "<current user question or situation>";
+  return {
+    version: 1,
+    question_source: "current_user_prompt",
+    ...(candidateRecordId ? { candidate_record_id: candidateRecordId } : {}),
+    write_policy: "write_only_after_supported_reusable_conclusion",
+    unresolved_policy: "preserve_investigation_at_checkpoint_before_compaction",
+    learning_delta_template: {
+      question,
+      conclusion: "<supported reusable conclusion>",
+      evidence_type: "<user_confirmed|source_code|documentation|web|inference>",
+      scope: "project",
+      confidence: "<0..1>",
+      recommended_kind: "memory",
+      recommended_type: "fact",
+      related_record_ids: candidateRecordId ? [candidateRecordId] : []
+    },
+    capture_targets: [{
+      mcp_tool: "checkpoint",
+      mcp_argument: "learnings",
+      cli_command: "moryn agent checkpoint --learning '<json>'"
+    }, {
+      mcp_tool: "agent_finish",
+      mcp_argument: "learnings",
+      cli_command: "moryn agent finish --learning '<json>'"
+    }]
+  };
 }
 
 export interface PromptRecallContext {
@@ -26,7 +58,8 @@ export function buildPromptRecallContext(input: PromptRecallInput): PromptRecall
       additional_context: JSON.stringify({
         source: "moryn",
         status: "knowledge_gap",
-        instruction: "Moryn has no trusted answer. Investigate project files, local tools, web sources, or ask the user as needed. When a reusable conclusion is supported, queue an evidence-backed Learning Delta at the next checkpoint or finish. If still unresolved before compaction, preserve the question, evidence, blocker, and exact next verification step."
+        instruction: "Moryn has no trusted answer. Investigate project files, local tools, web sources, or ask the user as needed. When a reusable conclusion is supported, fill the evidence-backed Learning Delta in learning_bridge.learning_delta_template and pass it to one checkpoint or finish capture target. If still unresolved before compaction, preserve the question, evidence, blocker, and exact next verification step.",
+        learning_bridge: learningBridge(input)
       })
     };
   }
@@ -38,7 +71,8 @@ export function buildPromptRecallContext(input: PromptRecallInput): PromptRecall
         source: "moryn",
         status: "verification_required",
         ...(input.outcome.best_record_id ? { candidate_record_id: input.outcome.best_record_id } : {}),
-        instruction: "Moryn found only unverified knowledge. Inspect the candidate timeline and verify it with project files, local tools, web sources, or the user before relying on it. Queue an evidence-backed Learning Delta at the next checkpoint or finish only after the conclusion is supported."
+        instruction: "Moryn found only unverified knowledge. Inspect the candidate timeline and verify it with project files, local tools, web sources, or the user before relying on it. Only after the conclusion is supported, fill learning_bridge.learning_delta_template and pass it to one capture target.",
+        learning_bridge: learningBridge(input)
       })
     };
   }

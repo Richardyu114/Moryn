@@ -10769,6 +10769,27 @@ describe("host hook CLI", () => {
       expect(output).toMatchObject({ hookSpecificOutput: { hookEventName: "UserPromptSubmit" } });
       expect(output.hookSpecificOutput.additionalContext).toContain("knowledge_gap");
       expect(output.hookSpecificOutput.additionalContext).toContain("Learning Delta");
+      expect(JSON.parse(output.hookSpecificOutput.additionalContext)).toMatchObject({
+        learning_bridge: {
+          version: 1,
+          question_source: "current_user_prompt",
+          write_policy: "write_only_after_supported_reusable_conclusion",
+          learning_delta_template: {
+            question: "<current user question or situation>",
+            conclusion: "<supported reusable conclusion>",
+            evidence_type: "<user_confirmed|source_code|documentation|web|inference>",
+            scope: "project",
+            confidence: "<0..1>",
+            recommended_kind: "memory",
+            recommended_type: "fact",
+            related_record_ids: []
+          },
+          capture_targets: [
+            expect.objectContaining({ mcp_tool: "checkpoint", mcp_argument: "learnings" }),
+            expect.objectContaining({ mcp_tool: "agent_finish", mcp_argument: "learnings" })
+          ]
+        }
+      });
       expect(result.stdout).not.toContain("unknown lunar deployment protocol");
     });
   });

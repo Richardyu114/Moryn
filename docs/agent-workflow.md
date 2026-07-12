@@ -307,6 +307,17 @@ user knowledge is uncertain:
 4. Before host compaction, write resolved Learning Deltas and preserve every
    unresolved material question with evidence and an exact next step.
 
+A prompt recall miss does not write a store record by itself. The Codex and
+Claude Code `UserPromptSubmit` hook returns a bounded `learning_bridge` only for
+`knowledge_gap` or `verification_required`. The bridge references
+`current_user_prompt` instead of echoing prompt text into hook output.
+`learning_bridge.learning_delta_template` is schema-compatible with the
+`learnings` argument on `checkpoint` and `agent_finish`; after research or user
+dialogue supports a reusable conclusion, the agent fills that template and
+uses one returned capture target. If the question remains unresolved, the
+agent preserves a `knowledge_investigation` at the next checkpoint instead of
+creating speculative memory.
+
 An unresolved investigation can be checkpointed without creating memory:
 
 ```bash
