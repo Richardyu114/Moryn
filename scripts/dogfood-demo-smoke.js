@@ -231,7 +231,10 @@ async function main() {
     if (!dashboardHtml.includes("Reference Library")) {
       throw new Error("dashboard snapshot did not keep evidence in the read-only layer");
     }
-    if (!dashboardHtml.includes("events") || !dashboardHtml.includes("consolidated")) {
+    if (!dashboardHtml.includes('data-quiet-flow-summary')
+      || !dashboardHtml.includes('data-dashboard-detail="quiet-flow-details"')
+      || !dashboardHtml.includes("events")
+      || !dashboardHtml.includes("Reduced")) {
       throw new Error("dashboard snapshot did not expose logical working-set capacity telemetry");
     }
     log("dashboard snapshot generated");

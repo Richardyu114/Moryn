@@ -8500,26 +8500,24 @@ function quietCurrentContext(data: DashboardData): string {
 function quietMemoryFlow(data: DashboardData): string {
   const flow = data.quiet_dashboard.memory_flow;
   const loop = data.quiet_dashboard.knowledge_loop;
+  const consolidationPercent = Math.round(flow.compaction_ratio * 100);
   return `
     <section class="quiet-panel quiet-memory-secondary" data-quiet-section="memory-flow">
       <div class="quiet-panel-heading">${i18nText("Memory Flow", "记忆流", "span")}<strong>${flow.active_working_set_records} active</strong></div>
-      <div class="quiet-flow-line" aria-label="Memory flow summary">
-        <div><span>Stored</span><strong>${flow.store_records}</strong></div>
-        <span aria-hidden="true">→</span>
-        <div><span>Consolidated</span><strong>${flow.hidden_logical_records}</strong></div>
-        <span aria-hidden="true">→</span>
-        <div><span>Working set</span><strong>${flow.active_working_set_records}</strong></div>
-        <span aria-hidden="true">→</span>
-        <div><span>Learned</span><strong>${flow.learned_records}</strong></div>
+      <div class="quiet-flow-summary" data-quiet-flow-summary aria-label="Memory flow summary">
+        <div><span>Available</span><strong>${flow.active_working_set_records}</strong><small>active knowledge</small></div>
+        <div><span>Reduced</span><strong>${consolidationPercent}%</strong><small>${flow.hidden_logical_records} duplicate or replaced</small></div>
+        <div><span>Learned</span><strong>${flow.learned_records}</strong><small>${loop.resolved_investigations} investigations resolved</small></div>
       </div>
-      <small>${escapeHtml(`${flow.recent_records} recent records · ${flow.recent_events} recent events · sync ${flow.sync_state.replaceAll("_", " ")}`)}</small>
-      <small>${escapeHtml(`${Math.round(flow.compaction_ratio * 100)}% consolidated · ${flow.store_events} events`)}</small>
-      <small>${escapeHtml(`${flow.semantic_equivalent_links} equivalent · ${flow.semantic_revision_links} revised · ${flow.semantic_superseded_links} superseded · ${flow.semantic_conflict_links} conflicts`)}</small>
-      <div class="quiet-knowledge-summary" data-quiet-subsection="knowledge-loop">
-        <span>${i18nText("Knowledge loop", "知识闭环")}</span>
-        <strong>${loop.learned_records} learned</strong>
-        <small>${escapeHtml(`${loop.resolved_investigations} resolved · ${loop.unresolved_investigations} unresolved preserved · ${loop.learned_canonical_records} canonical · ${loop.learned_candidate_records} candidate`)}</small>
-      </div>
+      <details class="quiet-flow-details" data-dashboard-detail="quiet-flow-details">
+        <summary><span>Flow details</span><small>${escapeHtml(`sync ${flow.sync_state.replaceAll("_", " ")}`)}</small></summary>
+        <div class="quiet-flow-detail-grid">
+          <div><span>Store</span><strong>${flow.store_records} records · ${flow.store_events} events</strong></div>
+          <div><span>Recent</span><strong>${flow.recent_records} records · ${flow.recent_events} events</strong></div>
+          <div><span>Relationships</span><strong>${flow.semantic_equivalent_links} equivalent · ${flow.semantic_revision_links} revised · ${flow.semantic_superseded_links} superseded · ${flow.semantic_conflict_links} conflicts</strong></div>
+          <div><span>Knowledge loop</span><strong>${loop.learned_canonical_records} canonical · ${loop.learned_candidate_records} candidate · ${loop.unresolved_investigations} unresolved preserved</strong></div>
+        </div>
+      </details>
     </section>`;
 }
 
@@ -11546,16 +11544,14 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .quiet-dashboard-grid {
       display: grid;
       grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-      gap: 1px;
-      overflow: hidden;
-      border: 1px solid rgba(143, 156, 173, 0.13);
-      border-radius: 12px;
-      background: rgba(143, 156, 173, 0.13);
+      gap: 28px;
+      padding: 24px 2px 4px;
+      border-top: 1px solid rgba(143, 156, 173, 0.14);
     }
     .quiet-panel {
       min-width: 0;
-      padding: 22px;
-      background: rgba(15, 18, 23, 0.92);
+      padding: 0;
+      background: transparent;
     }
     .quiet-panel-heading {
       display: grid;
@@ -11596,8 +11592,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 8px;
     }
-    .quiet-signal-grid > div,
-    .quiet-flow-line > div {
+    .quiet-signal-grid > div {
       display: grid;
       gap: 3px;
       min-width: 0;
@@ -11605,46 +11600,55 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     }
     .quiet-signal-grid > div + div { border-left: 1px solid rgba(143, 156, 173, 0.13); }
     .quiet-signal-grid span,
-    .quiet-flow-line span,
     .quiet-context-list dt {
       color: var(--muted);
       font-size: 11px;
       font-weight: 700;
     }
-    .quiet-signal-grid strong,
-    .quiet-flow-line strong { color: var(--ink-2); font-size: 13px; text-transform: capitalize; }
+    .quiet-signal-grid strong { color: var(--ink-2); font-size: 13px; text-transform: capitalize; }
     .quiet-context-list { gap: 9px; }
     .quiet-context-list div { grid-template-columns: 78px minmax(0, 1fr); }
     .quiet-context-list dd { color: var(--ink-2); }
-    .quiet-context-primary { min-height: 250px; }
+    .quiet-context-primary { min-height: 0; }
     .quiet-memory-secondary { color: var(--muted); }
-    .quiet-flow-line {
+    .quiet-flow-summary {
       display: grid;
-      grid-template-columns: repeat(7, auto);
-      align-items: center;
-      gap: 6px;
-      overflow-x: auto;
-      padding-bottom: 4px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
     }
-    .quiet-flow-line > span { color: var(--subtle); }
-    .quiet-panel > small { margin-top: 12px; }
-    .quiet-knowledge-summary {
+    .quiet-flow-summary > div {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 5px 12px;
-      margin-top: 18px;
-      padding-top: 16px;
-      border-top: 1px solid rgba(143, 156, 173, 0.13);
+      gap: 3px;
+      min-width: 0;
     }
-    .quiet-knowledge-summary > span {
+    .quiet-flow-summary span,
+    .quiet-flow-detail-grid span {
       color: var(--muted);
       font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.08em;
+      font-weight: 760;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
     }
-    .quiet-knowledge-summary > strong { color: var(--ink-2); font-size: 13px; }
-    .quiet-knowledge-summary > small { grid-column: 1 / -1; margin-top: 1px; }
+    .quiet-flow-summary strong { color: var(--ink); font-size: 22px; line-height: 1.1; font-weight: 720; }
+    .quiet-flow-summary small { margin-top: 1px; color: var(--muted); }
+    .quiet-flow-details {
+      margin-top: 20px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(143, 156, 173, 0.12);
+    }
+    .quiet-flow-details > summary {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 680;
+    }
+    .quiet-flow-details > summary small { display: inline; margin: 0; }
+    .quiet-flow-detail-grid { display: grid; gap: 9px; margin-top: 14px; }
+    .quiet-flow-detail-grid > div { display: grid; gap: 3px; }
+    .quiet-flow-detail-grid strong { color: var(--ink-2); font-size: 12px; font-weight: 600; }
     .quiet-attention {
       border: 1px solid rgba(255, 209, 102, 0.28);
       border-radius: 12px;
@@ -14175,6 +14179,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       header, .quiet-dashboard-grid, .status-board-answers, .status-board-rail, .memory-inventory-grid, .recent-status-grid, .recent-change-list, .glance-grid, .memory-explorer-layout, .stored-content-list, .stored-content-explain, .memory-search-controls, .memory-search-summary, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
       .quiet-system-pulse { grid-template-columns: 1fr; gap: 14px; }
       .quiet-signal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .quiet-flow-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
       .quiet-signal-grid > div + div { border-left: 0; }
       .quiet-signal-grid > div:nth-child(even) { border-left: 1px solid rgba(143, 156, 173, 0.13); }
       .quiet-context-primary { min-height: 0; }
@@ -14212,6 +14217,12 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       .governance-meta { justify-content: flex-start; }
       .context-pack-checks li { grid-template-columns: 1fr; }
       .bar-label span { text-align: left; }
+    }
+    @media (max-width: 560px) {
+      .quiet-flow-summary { grid-template-columns: 1fr; gap: 14px; }
+      .quiet-flow-summary > div { padding-bottom: 12px; border-bottom: 1px solid rgba(143, 156, 173, 0.1); }
+      .quiet-flow-summary > div:last-child { padding-bottom: 0; border-bottom: 0; }
+      .quiet-dashboard-grid { gap: 22px; }
     }
   </style>
 </head>
