@@ -13,6 +13,8 @@ import { evaluateTurnSyncCadence, recordTurnSyncSuccess, type TurnSyncCadenceDec
 import { isGitSyncConfigured, pushGitSync, type GitSyncResult } from "../sync/git.js";
 import { readCurrentRecords } from "./record-read-model.js";
 import { unresolvedLearningCandidates } from "./learning-candidate-review.js";
+import { defaultHostTranscriptRoots, readHostTranscriptEvidence, type HostTranscriptEvidence } from "./host-transcript-evidence.js";
+import { detectSensitiveContent } from "./sensitive.js";
 
 export interface RunHostHookInput {
   storePath: string;
@@ -27,6 +29,7 @@ export interface RunHostHookInput {
   semantic_consolidation_proposals?: SemanticConsolidationProposalInput[];
   activation_id?: string;
   command_digest?: string;
+  transcript_roots?: string[];
 }
 
 export interface RunHostHookDeps {
@@ -58,6 +61,10 @@ export type HostHookDuplicateHandoffSync = {
   error?: string;
 };
 
+export type HostTranscriptEvidenceSummary = Pick<HostTranscriptEvidence, "status" | "reason" | "lines_considered" | "malformed_lines" | "truncated"> & {
+  source: "hook_payload" | "transcript" | "none";
+};
+
 export interface HostHookRunResult {
   ok: true;
   event: NormalizedHostHookEvent["event"];
@@ -79,6 +86,7 @@ export interface HostHookRunResult {
     record_count: number;
   };
   sync_cadence?: HostHookSyncCadence;
+  transcript_evidence?: HostTranscriptEvidenceSummary;
 }
 
 function synthesisFingerprint(synthesis: SessionSynthesis): string {
@@ -143,13 +151,31 @@ function contextText(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
-async function sessionSynthesis(input: RunHostHookInput, projectId: string): Promise<SessionSynthesis> {
+function evidenceSummary(evidence: HostTranscriptEvidence, source: HostTranscriptEvidenceSummary["source"]): HostTranscriptEvidenceSummary {
+  return { status: evidence.status, ...(evidence.reason ? { reason: evidence.reason } : {}), lines_considered: evidence.lines_considered, malformed_lines: evidence.malformed_lines, truncated: evidence.truncated, source };
+}
+
+async function hookTranscriptEvidence(input: RunHostHookInput): Promise<{ assistant?: string; summary: HostTranscriptEvidenceSummary }> {
+  const payloadAssistant = input.hook.last_assistant_message?.trim();
+  if (payloadAssistant) {
+    if (detectSensitiveContent(payloadAssistant).sensitive) return { summary: { status: "protected", reason: "sensitive_content", lines_considered: 0, malformed_lines: 0, truncated: false, source: "hook_payload" } };
+    return { assistant: payloadAssistant, summary: { status: "available", lines_considered: 0, malformed_lines: 0, truncated: false, source: "hook_payload" } };
+  }
+  if (!input.hook.transcript_path) return { summary: { status: "unavailable", reason: "missing_path", lines_considered: 0, malformed_lines: 0, truncated: false, source: "none" } };
+  const host = input.hook.host === "claude" ? "claude" : "codex";
+  const evidence = await readHostTranscriptEvidence({ host, transcript_path: input.hook.transcript_path, allowed_roots: input.transcript_roots?.length ? input.transcript_roots : defaultHostTranscriptRoots(host) });
+  return { ...(evidence.last_assistant_message ? { assistant: evidence.last_assistant_message } : {}), summary: evidenceSummary(evidence, "transcript") };
+}
+
+async function sessionSynthesis(input: RunHostHookInput, projectId: string, assistantEvidence?: string): Promise<SessionSynthesis> {
   try {
     const engine = createEngine({ storePath: input.storePath });
     const boot = await engine.boot({ project_id: projectId, agent_session_id: input.hook.session_id });
-    return synthesizeSession({ host_summary: input.hook.compact_summary, current_task: input.current_task, recovery_pack: boot.checkpoint_recovery_pack });
+    const recovery = boot.checkpoint_recovery_pack;
+    const hasRecoveryEvidence = recovery?.available === true && Boolean(recovery.progress?.length || recovery.decisions?.length || recovery.blockers?.length || recovery.next_steps?.length || recovery.learnings?.length || recovery.source_record_ids?.length);
+    return synthesizeSession({ host_summary: input.hook.compact_summary ?? (hasRecoveryEvidence ? undefined : assistantEvidence), current_task: input.current_task, recovery_pack: recovery });
   } catch {
-    return synthesizeSession({ host_summary: input.hook.compact_summary, current_task: input.current_task });
+    return synthesizeSession({ host_summary: input.hook.compact_summary ?? assistantEvidence, current_task: input.current_task });
   }
 }
 
@@ -231,19 +257,24 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
         ? false
         : await hasConfiguredSync();
     const result = await agentStart({ ...common, pull });
+    const safeCompactSummary = input.hook.event === "post_compact" && input.hook.compact_summary && !detectSensitiveContent(input.hook.compact_summary).sensitive
+      ? input.hook.compact_summary
+      : undefined;
+    const restoreContext = contextText({ current_task: input.current_task, ...(safeCompactSummary ? { host_compact_summary: safeCompactSummary } : {}), startup_overview: result.startup_overview, checkpoint_recovery_pack: result.boot.checkpoint_recovery_pack, active_checkpoint: result.boot.active_checkpoint });
     return {
       ok: true as const,
       event: input.hook.event,
       action: input.hook.event === "session_start" ? "agent_start" as const : "resume_from_checkpoint" as const,
       degradation,
       details: result,
-      hook_output: { additional_context: contextText({ current_task: input.current_task, startup_overview: result.startup_overview, checkpoint_recovery_pack: result.boot.checkpoint_recovery_pack, active_checkpoint: result.boot.active_checkpoint }) },
+      hook_output: { additional_context: restoreContext },
       ...activationEvidence
     };
   }
   if (input.hook.event === "pre_compact") {
     const engine = createEngine({ storePath: input.storePath });
-    const summary = input.hook.compact_summary ?? `Checkpoint before ${input.hook.trigger ?? "compaction"}`;
+    const transcriptEvidence = await hookTranscriptEvidence(input);
+    const summary = input.hook.compact_summary ?? transcriptEvidence.assistant ?? `Checkpoint before ${input.hook.trigger ?? "compaction"}`;
     const checkpoint = await engine.checkpoint({
       project_id: project.project_id,
       source: { client: input.hook.host, session_id: input.hook.session_id, device_id: input.hook.device_id },
@@ -300,12 +331,14 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       checkpoint,
       checkpoint_sync: checkpointSync,
       ...(candidateReview ? { candidate_review: candidateReview } : {}),
+      transcript_evidence: transcriptEvidence.summary,
       hook_output: { additional_context: candidateContext },
       ...activationEvidence
     };
   }
   if (input.hook.event === "session_end") {
-    const synthesis = await sessionSynthesis(input, project.project_id);
+    const transcriptEvidence = await hookTranscriptEvidence(input);
+    const synthesis = await sessionSynthesis(input, project.project_id, transcriptEvidence.assistant);
     const payloadFingerprint = sessionEndPayloadFingerprint(input, synthesis);
     const push = input.push !== undefined
       ? input.push
@@ -341,14 +374,16 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
         degradation,
         duplicate_handoff: { prior_record_id: priorSummary.id },
         duplicate_handoff_sync: duplicateSync,
+        transcript_evidence: transcriptEvidence.summary,
         hook_output: { additional_context: `Moryn reused unchanged handoff: ${priorSummary.id}` },
         ...activationEvidence
       };
     }
     const result = await agentFinish({ ...common, summary: synthesis.summary, synthesis, push, learnings: input.learnings, semanticConsolidationProposals: input.semantic_consolidation_proposals }, { pushGitSync: deps.pushGitSync, handoffPayloadFingerprint: payloadFingerprint });
-    return { ok: true, event: input.hook.event, action: "agent_finish", degradation, details: result, hook_output: { additional_context: `Moryn handoff saved: ${result.record.id}` }, ...activationEvidence };
+    return { ok: true, event: input.hook.event, action: "agent_finish", degradation, details: result, transcript_evidence: transcriptEvidence.summary, hook_output: { additional_context: `Moryn handoff saved: ${result.record.id}` }, ...activationEvidence };
   }
-  const synthesis = await sessionSynthesis(input, project.project_id);
+  const transcriptEvidence = await hookTranscriptEvidence(input);
+  const synthesis = await sessionSynthesis(input, project.project_id, transcriptEvidence.assistant);
   if (input.hook.event === "stop" && synthesis.mode === "minimal_fallback") {
     return {
       ok: true,
@@ -356,6 +391,7 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       action: "skip_empty_status",
       degradation,
       skipped: { reason: "no_durable_session_evidence" },
+      transcript_evidence: transcriptEvidence.summary,
       hook_output: { additional_context: "Moryn skipped an empty turn status because no durable session evidence was available." },
       ...activationEvidence
     };
@@ -411,6 +447,7 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
         action: "skip_duplicate_status",
         degradation,
         duplicate_status: { prior_record_id: priorStatus.id },
+        transcript_evidence: transcriptEvidence.summary,
         sync_cadence: syncCadence,
         hook_output: { additional_context: `Moryn reused unchanged status: ${priorStatus.id}` },
         ...activationEvidence
@@ -421,8 +458,8 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       syncCadence.push_succeeded = result.sync.push?.ok === true;
       if (syncCadence.push_succeeded) await recordTurnSyncSuccess(input.storePath, identity);
     }
-    return { ok: true, event: input.hook.event, action: "agent_status", degradation, details: result, sync_cadence: syncCadence, hook_output: { additional_context: `Moryn status saved: ${result.record.id}` }, ...activationEvidence };
+    return { ok: true, event: input.hook.event, action: "agent_status", degradation, details: result, transcript_evidence: transcriptEvidence.summary, sync_cadence: syncCadence, hook_output: { additional_context: `Moryn status saved: ${result.record.id}` }, ...activationEvidence };
   }
   const result = await agentStatus({ ...common, status: synthesis.summary, synthesis, push }, { pushGitSync: deps.pushGitSync });
-  return { ok: true, event: input.hook.event, action: "agent_status", degradation, details: result, hook_output: { additional_context: `Moryn status saved: ${result.record.id}` }, ...activationEvidence };
+  return { ok: true, event: input.hook.event, action: "agent_status", degradation, details: result, transcript_evidence: transcriptEvidence.summary, hook_output: { additional_context: `Moryn status saved: ${result.record.id}` }, ...activationEvidence };
 }

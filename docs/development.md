@@ -25,6 +25,7 @@ npm run release:check
 npm run smoke:dogfood-demo
 npm run smoke:agent-lifecycle
 npm run smoke:host-runtime-binding
+npm run smoke:transcript-compact-safety
 npm run smoke:upgrade-compat
 npm run smoke:sync-resilience
 npm run smoke:sync-conflict
@@ -52,6 +53,11 @@ SessionStart command, and requires a real activation receipt without invoking
 the incompatible binary. Official hooks therefore bind to the runtime that
 activated them instead of silently depending on whichever global binary PATH
 resolves later.
+Transcript compact safety smoke executes generated Codex and Claude PreCompact
+and PostCompact hooks against official-shape JSONL fixtures. It requires the
+latest public assistant progress to survive compaction, keeps restore context
+bounded, and rejects raw transcript paths, hidden reasoning, tool data, and
+sensitive extracted content from the recovered context.
 `npm run smoke:upgrade-compat` materializes the frozen v0.2 disk contract
 directly, opens it with the current CLI without an explicit migration or
 rebuild, verifies the legacy event remains byte-identical, repairs verified

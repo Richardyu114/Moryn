@@ -19,6 +19,33 @@ describe("host hook normalization", () => {
     });
   });
 
+  it("retains bounded transcript evidence fields from observed Codex payloads", () => {
+    expect(normalizeHostHookEvent("codex", {
+      hook_event_name: "Stop",
+      session_id: "codex-session",
+      turn_id: "turn-1",
+      transcript_path: "/home/user/.codex/sessions/session.jsonl",
+      cwd: "/repo",
+      last_assistant_message: "Implemented the parser and verified tests."
+    }, { device_id: "device-a", occurred_at: "2026-07-11T00:00:00.000Z" })).toMatchObject({
+      turn_id: "turn-1",
+      transcript_path: "/home/user/.codex/sessions/session.jsonl",
+      last_assistant_message: "Implemented the parser and verified tests."
+    });
+  });
+
+  it("retains transcript evidence fields from observed Claude payloads", () => {
+    expect(normalizeHostHookEvent("claude", {
+      hook_event_name: "SessionEnd",
+      session_id: "claude-session",
+      transcript_path: "/home/user/.claude/projects/repo/session.jsonl",
+      cwd: "/repo",
+      reason: "other"
+    }, { device_id: "device-b", occurred_at: "2026-07-11T00:00:00.000Z" })).toMatchObject({
+      transcript_path: "/home/user/.claude/projects/repo/session.jsonl"
+    });
+  });
+
   it("normalizes Claude Code PreCompact and compact summary aliases", () => {
     expect(normalizeHostHookEvent("claude-code", {
       hook_event_name: "PreCompact",

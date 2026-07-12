@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runHostHook } from "../../src/core/host-hook-runner.js";
@@ -21,6 +21,86 @@ const base = {
 const configuredSync = async () => true;
 
 describe("host hook runner", () => {
+  it("checkpoints public transcript progress when PreCompact has no summary", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const transcriptRoot = join(storePath, "sessions");
+      const transcriptPath = join(transcriptRoot, "session.jsonl");
+      await mkdir(transcriptRoot, { recursive: true });
+      await writeFile(transcriptPath, `${JSON.stringify({ type: "event_msg", payload: { type: "agent_message", message: "Implemented bounded compact recovery; next verify restore." } })}\n`);
+      const result = await runHostHook({
+        storePath,
+        project_id: "moryn",
+        current_task: "Implement compact safety",
+        transcript_roots: [transcriptRoot],
+        hook: { ...base, event: "pre_compact", transcript_path: transcriptPath }
+      });
+      expect(result).toMatchObject({ checkpoint: { recovery_pack: { progress: ["Implemented bounded compact recovery; next verify restore."] } }, transcript_evidence: { status: "available" } });
+      expect(JSON.stringify(result)).not.toContain(transcriptPath);
+    });
+  });
+
+  it("synthesizes Stop progress from the host last assistant message without a checkpoint", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const result = await runHostHook({
+        storePath,
+        project_id: "moryn",
+        current_task: "Implement compact safety",
+        hook: { ...base, event: "stop", last_assistant_message: "Completed transcript parsing and ran focused tests." },
+        push: false
+      });
+      expect(result).toMatchObject({ action: "agent_status", details: { record: { content: { synthesis_mode: "host_authored" } } }, transcript_evidence: { status: "available", source: "hook_payload" } });
+      expect(result.details?.record?.content.text).toContain("Completed transcript parsing");
+    });
+  });
+
+  it("does not checkpoint sensitive transcript text", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const transcriptRoot = join(storePath, "sessions");
+      const transcriptPath = join(transcriptRoot, "session.jsonl");
+      await mkdir(transcriptRoot, { recursive: true });
+      await writeFile(transcriptPath, `${JSON.stringify({ type: "event_msg", payload: { type: "agent_message", message: "Use api_key=abcdefghijklmnop for deployment." } })}\n`);
+      const result = await runHostHook({ storePath, project_id: "moryn", current_task: "Protect compact evidence", transcript_roots: [transcriptRoot], hook: { ...base, event: "pre_compact", transcript_path: transcriptPath } });
+      expect(result).toMatchObject({ transcript_evidence: { status: "protected" } });
+      expect(JSON.stringify(result)).not.toContain("abcdefghijklmnop");
+    });
+  });
+
+  it("does not persist a sensitive Stop last assistant message", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const result = await runHostHook({ storePath, project_id: "moryn", current_task: "Protect stop evidence", hook: { ...base, event: "stop", last_assistant_message: "Use api_key=abcdefghijklmnop for deployment." }, push: false });
+      expect(result).toMatchObject({ action: "skip_empty_status", transcript_evidence: { status: "protected", source: "hook_payload" } });
+      expect(JSON.stringify(result)).not.toContain("abcdefghijklmnop");
+    });
+  });
+
+  it("keeps durable checkpoint synthesis ahead of a weaker SessionEnd assistant message", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      await runHostHook({ storePath, project_id: "moryn", current_task: "Preserve structured evidence", hook: { ...base, event: "pre_compact", compact_summary: "Implemented parser; next run full release gate." } });
+      const result = await runHostHook({ storePath, project_id: "moryn", current_task: "Preserve structured evidence", hook: { ...base, event: "session_end", occurred_at: "2026-07-11T00:05:00.000Z", last_assistant_message: "Done." }, push: false });
+      expect(result).toMatchObject({ action: "agent_finish", details: { record: { content: { synthesis_mode: "evidence_synthesized" } } } });
+      expect(result.details?.record?.content.text).toContain("Implemented parser; next run full release gate.");
+      expect(result.details?.record?.content.text).not.toBe("Done.");
+    });
+  });
+
+  it("returns a safe PostCompact host summary alongside restored checkpoint evidence", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      await runHostHook({ storePath, project_id: "moryn", current_task: "Restore compact context", hook: { ...base, event: "pre_compact", compact_summary: "Checkpointed parser implementation." } });
+      const result = await runHostHook({ storePath, project_id: "moryn", current_task: "Restore compact context", hook: { ...base, event: "post_compact", occurred_at: "2026-07-11T00:02:00.000Z", compact_summary: "Host compact retained the parser decision." } });
+      expect(result.hook_output.additional_context).toContain("Checkpointed parser implementation.");
+      expect(result.hook_output.additional_context).toContain("Host compact retained the parser decision.");
+    });
+  });
+
+  it("omits a sensitive PostCompact host summary while restoring the checkpoint", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      await runHostHook({ storePath, project_id: "moryn", current_task: "Restore protected compact context", hook: { ...base, event: "pre_compact", compact_summary: "Checkpointed safe progress." } });
+      const result = await runHostHook({ storePath, project_id: "moryn", current_task: "Restore protected compact context", hook: { ...base, event: "post_compact", occurred_at: "2026-07-11T00:03:00.000Z", compact_summary: "Use api_key=abcdefghijklmnop after compact." } });
+      expect(result.hook_output.additional_context).toContain("Checkpointed safe progress.");
+      expect(result.hook_output.additional_context).not.toContain("abcdefghijklmnop");
+    });
+  });
+
   it("injects bounded trusted project knowledge for a submitted prompt", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createEngine({ storePath });

@@ -10,6 +10,9 @@ export interface NormalizedHostHookEvent {
   trigger?: string;
   compact_summary?: string;
   prompt?: string;
+  transcript_path?: string;
+  turn_id?: string;
+  last_assistant_message?: string;
   occurred_at: string;
 }
 
@@ -29,6 +32,11 @@ function nonEmpty(value: unknown, name: string): string {
 
 function optionalText(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function optionalBoundedText(value: unknown, maxLength: number): string | undefined {
+  const text = optionalText(value);
+  return text ? text.slice(0, maxLength) : undefined;
 }
 
 export function normalizeHostHookEvent(host: string, input: unknown, defaults: { device_id: string; occurred_at: string }): NormalizedHostHookEvent {
@@ -53,6 +61,9 @@ export function normalizeHostHookEvent(host: string, input: unknown, defaults: {
     ...(optionalText(payload.source ?? payload.trigger) ? { trigger: optionalText(payload.source ?? payload.trigger) } : {}),
     ...(optionalText(payload.compact_summary ?? payload.compactSummary ?? payload.summary) ? { compact_summary: optionalText(payload.compact_summary ?? payload.compactSummary ?? payload.summary) } : {}),
     ...(prompt ? { prompt } : {}),
+    ...(optionalBoundedText(payload.transcript_path ?? payload.transcriptPath, 4096) ? { transcript_path: optionalBoundedText(payload.transcript_path ?? payload.transcriptPath, 4096) } : {}),
+    ...(optionalBoundedText(payload.turn_id ?? payload.turnId, 256) ? { turn_id: optionalBoundedText(payload.turn_id ?? payload.turnId, 256) } : {}),
+    ...(optionalBoundedText(payload.last_assistant_message ?? payload.lastAssistantMessage, 4000) ? { last_assistant_message: optionalBoundedText(payload.last_assistant_message ?? payload.lastAssistantMessage, 4000) } : {}),
     occurred_at: occurredAt
   };
 }

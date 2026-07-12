@@ -1018,6 +1018,9 @@ describe("documentation contracts", () => {
     expectText(roadmap, "Temporary development plans are not part of the public package");
     expect(roadmap).toContain("npm run smoke:agent-lifecycle");
     expect(roadmap).toContain("npm run smoke:host-runtime-binding");
+    expect(roadmap).toContain("npm run smoke:transcript-compact-safety");
+    expectText(roadmap, "Compact safety reads only a bounded tail of host-authored public transcript messages");
+    expectText(development, "Transcript compact safety smoke executes generated Codex and Claude PreCompact and PostCompact hooks");
     expectText(roadmap, "Official host hooks bind to the Moryn runtime that activated them");
     expectText(development, "Host runtime binding smoke places an incompatible `moryn` earlier on `PATH`");
     expect(roadmap).toContain("npm pack --dry-run --json");

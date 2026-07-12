@@ -30,7 +30,7 @@ cross-project changes.
 
 | Area | Current v0.3 acceptance | Required evidence |
 | --- | --- | --- |
-| Autopilot | Start, repeated checkpoint/compaction, resume, finish, and abnormal-exit recovery preserve the latest task state without duplicate logical records. | `npm run smoke:agent-lifecycle`, lifecycle tests. |
+| Autopilot | Start, repeated checkpoint/compaction, resume, finish, and abnormal-exit recovery preserve the latest task state without duplicate logical records. Compact safety reads only a bounded tail of host-authored public transcript messages when the host does not supply a PreCompact summary; reasoning, developer/system instructions, tools, raw paths, and sensitive text remain excluded. | `npm run smoke:agent-lifecycle`, `npm run smoke:transcript-compact-safety`, lifecycle tests. |
 | Recall and learning | User prompts consult trusted local knowledge first; gaps remain explicit and reliable project learnings become reusable across agents and devices under deterministic policy. | Prompt-recall tests and lifecycle smoke `recall_explore_learn` receipt. |
 | Working set | Recall, boot, and dashboard use bounded project-relevant candidates as append-only history grows. | `npm run smoke:large-store`. |
 | Consolidation | Exact duplicates fold automatically; semantic proposals retain evidence; protected differences and conflicts are not silently merged. | Consolidation tests and lifecycle smoke receipt. |
