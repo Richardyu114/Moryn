@@ -6172,6 +6172,31 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("does not treat a tag shared across many distinct projects as project identity evidence", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath });
+      for (let projectIndex = 0; projectIndex < 4; projectIndex += 1) {
+        await engine.write({
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: `project-${projectIndex}`,
+          tags: ["large-store"],
+          content: { text: `Independent project ${projectIndex} decision.`, format: "text" },
+          state: "canonical",
+          confirmed: true,
+          source: { client: "user" }
+        });
+      }
+
+      const data = await buildDashboardData(storePath, { project_id: "project-0" });
+
+      expect(data.maintenance.plans.filter((plan) => plan.type === "project_identity_repair")).toEqual([]);
+      expect(data.quiet_dashboard.attention_needed).toEqual([]);
+    });
+  });
+
   it("keeps include_private explicit in maintenance repair plans", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {

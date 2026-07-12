@@ -33,6 +33,7 @@ const store = join(root, "store");
 const extension = options.useSource ? "ts" : "js";
 const sourceRoot = options.useSource ? "src" : "dist";
 const moduleUrl = (path) => pathToFileURL(join(packageRoot, sourceRoot, "core", `${path}.${extension}`)).href;
+const observabilityModuleUrl = (path) => pathToFileURL(join(packageRoot, sourceRoot, "observability", `${path}.${extension}`)).href;
 const smokeScript = `
   import { rm } from "node:fs/promises";
   import { join } from "node:path";
@@ -40,7 +41,8 @@ const smokeScript = `
   import { initializeStore } from ${JSON.stringify(moduleUrl("config"))};
   import { rebuildDerivedViews } from ${JSON.stringify(moduleUrl("derived"))};
   import { createEngine } from ${JSON.stringify(moduleUrl("engine"))};
-  import { appendEventIfAbsent } from ${JSON.stringify(moduleUrl("store"))};
+  import { appendEventIfAbsent, readEventFileManifest } from ${JSON.stringify(moduleUrl("store"))};
+  import { buildDashboardData, renderDashboardHtml } from ${JSON.stringify(observabilityModuleUrl("dashboard"))};
 
   const store = ${JSON.stringify(store)};
   const projectCount = 20;
@@ -119,9 +121,33 @@ const smokeScript = `
   if (!bootText.includes(targetRecordId) || bootText.includes("memory-project-19-099")) {
     throw new Error("boot context missed the target or leaked an unrelated project");
   }
+  const eventsBefore = (await readEventFileManifest(store)).count;
+  const dashboardStarted = performance.now();
+  const dashboard = await buildDashboardData(store, { project_id: targetProject, limit: 10, now: "2026-07-12T12:00:00.000Z" });
+  const dashboardHtml = renderDashboardHtml(dashboard);
+  const dashboardMs = performance.now() - dashboardStarted;
+  const eventsAfter = (await readEventFileManifest(store)).count;
+  const dashboardCandidates = dashboard.health_check.retrieval_index?.candidate_count;
+  const dashboardBytes = Buffer.byteLength(dashboardHtml, "utf8");
+  if (eventsBefore !== recordCount || eventsAfter !== eventsBefore) {
+    throw new Error("dashboard mutated append-only events: before=" + eventsBefore + " after=" + eventsAfter);
+  }
+  if (dashboardCandidates !== recordsPerProject) {
+    throw new Error("dashboard retrieval was not project-bounded: " + JSON.stringify(dashboard.health_check.retrieval_index));
+  }
+  if (dashboard.quiet_dashboard.attention_needed.length !== 0) {
+    throw new Error("healthy large-store dashboard created exceptional attention: " + JSON.stringify(dashboard.quiet_dashboard.attention_needed));
+  }
+  for (const marker of ["System Pulse", "Current Context", "Memory Flow", "data-dashboard-detail=\\\"evidence-library\\\""]) {
+    if (!dashboardHtml.includes(marker)) throw new Error("dashboard omitted monitoring marker: " + marker);
+  }
   const budgetMs = 5000;
-  if (recallMs > budgetMs || bootMs > budgetMs) {
-    throw new Error("large-store hot path exceeded budget: recall=" + recallMs.toFixed(1) + "ms boot=" + bootMs.toFixed(1) + "ms");
+  const dashboardByteBudget = 1000000;
+  if (recallMs > budgetMs || bootMs > budgetMs || dashboardMs > budgetMs) {
+    throw new Error("large-store hot path exceeded budget: recall=" + recallMs.toFixed(1) + "ms boot=" + bootMs.toFixed(1) + "ms dashboard=" + dashboardMs.toFixed(1) + "ms");
+  }
+  if (dashboardBytes > dashboardByteBudget) {
+    throw new Error("large-store dashboard exceeded byte budget: " + dashboardBytes);
   }
 
   process.stdout.write(JSON.stringify({
@@ -130,7 +156,9 @@ const smokeScript = `
     fixture: { records: recordCount, projects: projectCount, target_project_records: recordsPerProject },
     recall: { milliseconds: Math.round(recallMs), candidate_count: recall.retrieval.candidate_count, repaired: recall.retrieval.repaired },
     boot: { milliseconds: Math.round(bootMs), candidate_count: boot.retrieval.candidate_count, task_relevant: boot.task_relevant.length, recent_changes: boot.recent_changes.length },
-    budget_ms: budgetMs
+    dashboard: { milliseconds: Math.round(dashboardMs), candidate_count: dashboardCandidates, events_before: eventsBefore, events_after: eventsAfter, html_bytes: dashboardBytes, attention_items: dashboard.quiet_dashboard.attention_needed.length },
+    budget_ms: budgetMs,
+    dashboard_byte_budget: dashboardByteBudget
   }) + "\\n");
 `;
 

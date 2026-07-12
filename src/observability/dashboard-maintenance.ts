@@ -114,9 +114,21 @@ function meaningfulTags(record: MorynRecord): string[] {
     .filter((tag) => tag.length > 0 && !GENERIC_TAGS.has(tag) && !PRIVATE_RECORD_TAGS.has(tag));
 }
 
-function hasSharedMeaningfulTag(left: MorynRecord[], record: MorynRecord): boolean {
-  const leftTags = new Set(left.flatMap(meaningfulTags));
-  return meaningfulTags(record).some((tag) => leftTags.has(tag));
+function meaningfulTagProjectCounts(records: MorynRecord[]): Map<string, number> {
+  const projectIdsByTag = new Map<string, Set<string>>();
+  for (const record of records) {
+    if (!record.project_id) continue;
+    for (const tag of meaningfulTags(record)) {
+      const projectIds = projectIdsByTag.get(tag) ?? new Set<string>();
+      projectIds.add(record.project_id);
+      projectIdsByTag.set(tag, projectIds);
+    }
+  }
+  return new Map([...projectIdsByTag].map(([tag, projectIds]) => [tag, projectIds.size]));
+}
+
+function hasSharedMeaningfulTag(leftTags: Set<string>, record: MorynRecord, tagProjectCounts: Map<string, number>): boolean {
+  return meaningfulTags(record).some((tag) => leftTags.has(tag) && (tagProjectCounts.get(tag) ?? 0) <= 2);
 }
 
 function isMarkerNoiseCandidate(record: MorynRecord): boolean {
@@ -380,10 +392,12 @@ export function buildDashboardMaintenance(
     .filter((record) => record.project_id === projectId)
     .filter((record) => includePrivate || !isPrivateRecord(record));
   if (currentProjectRecords.length === 0) return { plans: [], plans_by_id: {} };
+  const currentProjectTags = new Set(currentProjectRecords.flatMap(meaningfulTags));
+  const tagProjectCounts = meaningfulTagProjectCounts(allRecords);
 
   const relatedProjectIds = [...new Set(allRecords
     .filter((record) => record.project_id && record.project_id !== projectId)
-    .filter((record) => hasSharedMeaningfulTag(currentProjectRecords, record))
+    .filter((record) => hasSharedMeaningfulTag(currentProjectTags, record, tagProjectCounts))
     .map((record) => record.project_id as string))]
     .sort();
 
