@@ -211,6 +211,10 @@ is "which group should I approve or reject?" rather than "click every event."
 The `Capture Inbox` heading uses the stable `Manual approval` status instead of
 repeating candidate and group counts. Counts stay in `Queue summary`, Pending
 Decisions, and `/api/dashboard.capture_inbox`.
+Candidates in this compatibility queue require approval; reliable low-risk
+Learning Deltas follow the automatic v0.3 policy instead. Sensitive,
+conflicting, cross-project, and high-impact changes still require explicit
+confirmation on their owning surface.
 Capture Inbox visible approval copy, including `Manual approval`, `Queue summary`,
 `Approval brief`, `Review context`, `Item review`, `Trace details`, `Approve Group`,
 `Reject Group`, `Approve Memory`, and `Reject`, carries English and Chinese display

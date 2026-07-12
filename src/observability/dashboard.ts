@@ -6209,7 +6209,7 @@ function captureInboxQueueSummary(items: DashboardCaptureInbox): string {
         <div>
           ${i18nText("Queue summary", "队列摘要", "h3")}
           <p ${i18nAttribute(queueSummary, queueSummaryZh)}>${escapeHtml(queueSummary)}</p>
-          <p ${i18nAttribute("Review groups first; open item details only when needed. Canonical memory still requires approval.", "先按分组查看；只有需要时再打开逐条详情。成为长期记忆仍需要确认。")}>Review groups first; open item details only when needed. Canonical memory still requires approval.</p>
+          <p ${i18nAttribute("Review groups first; open item details only when needed. Candidates in this compatibility queue require approval; reliable low-risk Learning Deltas follow the automatic v0.3 policy instead.", "先按分组查看；只有需要时再打开逐条详情。这个兼容队列中的候选项需要确认；可靠、低风险的 Learning Delta 则按 v0.3 自动策略处理。")}>Review groups first; open item details only when needed. Candidates in this compatibility queue require approval; reliable low-risk Learning Deltas follow the automatic v0.3 policy instead.</p>
         </div>
         <div class="capture-inbox-queue-chips" aria-label="Capture Inbox queue counts">
           <span ${i18nAttribute(`${normalReview} normal review`, `${normalReview} 条正常查看`)}>${escapeHtml(normalReview)} normal review</span>

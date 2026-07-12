@@ -7858,7 +7858,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<h2 data-i18n-en=\"Capture Inbox\" data-i18n-zh=\"捕获收件箱\">Capture Inbox</h2>");
       expect(html).toContain("<span data-i18n-en=\"Manual approval\" data-i18n-zh=\"手动确认\">Manual approval</span>");
       expect(html).not.toContain("<span>4 candidates | 2 groups</span>");
-      expect(html).toContain("Review groups first; open item details only when needed. Canonical memory still requires approval.");
+      expect(html).toContain("Review groups first; open item details only when needed. Candidates in this compatibility queue require approval; reliable low-risk Learning Deltas follow the automatic v0.3 policy instead.");
+      expect(html).not.toContain("Canonical memory still requires approval.");
       expect(html).not.toContain("Default path: review by group first, then open item details only when needed.");
       expect(html).not.toContain("Manual review: candidates become canonical only after Approve Memory or Approve Group.");
       expect(html).toContain("<span data-i18n-en=\"2 normal review\" data-i18n-zh=\"2 条正常查看\">2 normal review</span>");

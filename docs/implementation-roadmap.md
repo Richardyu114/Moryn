@@ -57,7 +57,7 @@ dry-run   handoff     evidence    decision   append    user-owned
 | Context pack | `moryn context pack` returns Handoff Pack v0.2 with quality gate, evidence paths, and required capture action. | CLI/MCP tests, `npm run smoke:dogfood-demo`. |
 | Capture | Low-risk handoffs auto-capture as local evidence; risky or durable handoffs enter Capture Inbox. | Capture policy tests and dashboard smoke evidence. |
 | Review | Capture Inbox groups decisions by source/session/project/day; Review Queue and Candidate Triage use the same approval brief language. | Dashboard tests and `/api/dashboard.decision_summary`. |
-| Approval | No silent canonical writes. Canonical memory changes only happen through explicit Capture Inbox, Review Queue, or Candidate Triage approval controls with append-only events. | Safe Action Registry, stale guards, timeline evidence. |
+| Approval | No unvalidated canonical writes. Reliable low-risk project Learning Deltas may become canonical through the v0.3 state policy; Capture Inbox, Review Queue, Candidate Triage, sensitive, conflicting, cross-project, and high-impact changes retain explicit approval controls with append-only evidence. | Learning state-policy tests, Safe Action Registry, stale guards, timeline evidence. |
 | Sync | Private Git sync can report clean/pending/conflict, push local events, pull remote events, and leave generated views local-only. | Sync adapter tests, lifecycle tests, live `moryn sync --status`. |
 | Dashboard | Dashboard first screen answers whether the user needs to act, what Moryn stores, recently saved content, and shared-copy state. Default copy is English with a Chinese language switch; read-only evidence stays folded under `More details` while `/api/dashboard` keeps the full machine-readable trail. | `tests/observability/dashboard.test.ts`, live `/api/dashboard`, browser fragment smoke. |
 | Audit | Evidence remains in `/api/dashboard`; visible HTML may collapse or index evidence, but should not delete the machine-readable trail. | Docs contract, dashboard JSON smoke, release check. |
@@ -65,7 +65,7 @@ dry-run   handoff     evidence    decision   append    user-owned
 
 Two rules cut across every row:
 
-- No silent canonical writes.
+- No canonical writes without deterministic scope, confidence, conflict, safety, and provenance validation.
 - Evidence remains in `/api/dashboard` even when the visible UI gets quieter.
 
 Release work follows the same implementation loop as feature work:
@@ -287,8 +287,10 @@ memory writes that silently become canonical.
 
 - Build only if it produces raw or candidate capture records with source,
   project, task, summary, touched files, and risk tags.
-- Keep automatic canonical promotion out of scope unless the user explicitly
-  confirms it.
+- For the v0.2 autocapture path, keep automatic canonical promotion out of
+  scope unless the user explicitly confirms it. The v0.3 Learning Delta path
+  is governed separately by deterministic scope, confidence, conflict, safety,
+  and provenance policy.
 - Prefer host adapter hints and reversible local hooks over opaque background
   services.
 - Verify with CLI, MCP, package smoke, and dashboard/private-boundary tests.

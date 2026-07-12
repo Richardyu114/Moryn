@@ -614,6 +614,7 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("Capture Inbox");
     expectText(dashboard, "Capture Inbox group metadata such as Source, Project, Items, and Captured is folded behind `Review context`");
     expectText(dashboard, "The `Capture Inbox` heading uses the stable `Manual approval` status instead of repeating candidate and group counts");
+    expectText(dashboard, "Candidates in this compatibility queue require approval; reliable low-risk Learning Deltas follow the automatic v0.3 policy instead");
     expectText(dashboard, "Counts stay in `Queue summary`, Pending Decisions, and `/api/dashboard.capture_inbox`");
     expectText(dashboard, "Capture Inbox visible approval copy, including `Manual approval`, `Queue summary`,");
     expectText(dashboard, "`Approval brief`, `Review context`, `Item review`, `Trace details`, `Approve Group`,");
@@ -969,7 +970,8 @@ describe("documentation contracts", () => {
     expect(roadmap).toContain("Phase 6: Release Gate");
     expect(roadmap).toContain("v0.2.0 Acceptance Matrix");
     expect(roadmap).toContain("setup -> context pack -> capture -> dashboard review -> approve -> sync");
-    expect(roadmap).toContain("No silent canonical writes");
+    expect(roadmap).toContain("No canonical writes without deterministic scope, confidence, conflict, safety, and provenance validation");
+    expect(roadmap).not.toContain("No silent canonical writes");
     expect(roadmap).toContain("Dashboard first screen answers whether the user needs to act");
     expect(roadmap).toContain("Default copy is English with a Chinese language switch");
     expect(roadmap).toContain("Evidence remains in `/api/dashboard`");
