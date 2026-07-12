@@ -104,6 +104,10 @@ activation receipt but skips the empty status write. This keeps hook health
 auditable without filling the event store and Git history with repeated
 minimal-fallback summaries.
 
+High-frequency Codex Stop receipts are coalesced to one receipt per session and
+UTC hour. Session start, compaction, resume, and final-session boundary receipts
+retain exact event timing because they are lower-frequency lifecycle evidence.
+
 ## Startup
 
 Use `agent enter` as the default entrypoint:

@@ -20,16 +20,24 @@ export interface ActivationReceipt extends ActivationReceiptInput {
   version: 1;
 }
 
+function normalizedReceiptInput(input: ActivationReceiptInput): ActivationReceiptInput {
+  if (input.event !== "stop") return input;
+  const occurredAt = new Date(input.occurred_at);
+  occurredAt.setUTCMinutes(0, 0, 0);
+  return { ...input, occurred_at: occurredAt.toISOString() };
+}
+
 export function activationReceiptIdentity(input: ActivationReceiptInput): { digest: string; record_id: string; event_id: string } {
+  const normalized = normalizedReceiptInput(input);
   const digest = createHash("sha256").update(JSON.stringify({
-    activation_id: input.activation_id,
-    host: input.host,
-    project_id: input.project_id,
-    event: input.event,
-    session_id: input.session_id,
-    device_id: input.device_id,
-    occurred_at: input.occurred_at,
-    command_digest: input.command_digest
+    activation_id: normalized.activation_id,
+    host: normalized.host,
+    project_id: normalized.project_id,
+    event: normalized.event,
+    session_id: normalized.session_id,
+    device_id: normalized.device_id,
+    occurred_at: normalized.occurred_at,
+    command_digest: normalized.command_digest
   })).digest("hex");
   return { digest, record_id: `rec_activation_${digest.slice(0, 32)}`, event_id: `evt_activation_${digest.slice(0, 32)}` };
 }
@@ -43,36 +51,37 @@ export async function recordActivationReceipt(storePath: string, input: Activati
   record: MorynRecord;
   receipt: ActivationReceipt;
 }> {
-  const identity = activationReceiptIdentity(input);
-  const receipt: ActivationReceipt = { version: 1, ...input };
+  const normalized = normalizedReceiptInput(input);
+  const identity = activationReceiptIdentity(normalized);
+  const receipt: ActivationReceipt = { version: 1, ...normalized };
   const record: MorynRecord = {
     id: identity.record_id,
     kind: "agent_note",
     type: "activation_receipt",
     scope: "project",
-    project_id: input.project_id,
-    tags: ["activation", "activation-receipt", `host:${input.host}`, `event:${input.event}`],
+    project_id: normalized.project_id,
+    tags: ["activation", "activation-receipt", `host:${normalized.host}`, `event:${normalized.event}`],
     content: {
       format: "json",
-      text: `${hostLabel(input.host)} activation receipt: ${input.event}`,
+      text: `${hostLabel(normalized.host)} activation receipt: ${normalized.event}`,
       activation_receipt_version: 1,
-      activation_id: input.activation_id,
-      host: input.host,
-      event: input.event,
-      session_id: input.session_id,
-      device_id: input.device_id,
-      command_digest: input.command_digest
+      activation_id: normalized.activation_id,
+      host: normalized.host,
+      event: normalized.event,
+      session_id: normalized.session_id,
+      device_id: normalized.device_id,
+      command_digest: normalized.command_digest
     },
     state: "canonical",
     confidence: 1,
     priority: "low",
     visibility: "active",
-    created_at: input.occurred_at,
-    updated_at: input.occurred_at,
-    source: { client: input.host, session_id: input.session_id, device_id: input.device_id },
-    provenance: { method: "rule-promoted", reason: "Host lifecycle hook executed", promoted_at: input.occurred_at }
+    created_at: normalized.occurred_at,
+    updated_at: normalized.occurred_at,
+    source: { client: normalized.host, session_id: normalized.session_id, device_id: normalized.device_id },
+    provenance: { method: "rule-promoted", reason: "Host lifecycle hook executed", promoted_at: normalized.occurred_at }
   };
-  const event: MorynEvent = { event_id: identity.event_id, op: "upsert_record", record, created_at: input.occurred_at, source: record.source };
+  const event: MorynEvent = { event_id: identity.event_id, op: "upsert_record", record, created_at: normalized.occurred_at, source: record.source };
   const appended = await appendEventIfAbsent(storePath, event);
   return { created: appended.created, record, receipt };
 }

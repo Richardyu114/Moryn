@@ -3196,7 +3196,7 @@ describe("agent lifecycle", () => {
       const second = await runHostHook({ storePath: store, project_path: project, activation_id: artifact.activation_id, push: false, hook: { ...base, event: "stop", occurred_at: "2026-07-12T03:05:00.000Z" } });
 
       expect(first).toMatchObject({ action: "skip_empty_status", skipped: { reason: "no_durable_session_evidence" }, activation_receipt: { created: true } });
-      expect(second).toMatchObject({ action: "skip_empty_status", skipped: { reason: "no_durable_session_evidence" }, activation_receipt: { created: true } });
+      expect(second).toMatchObject({ action: "skip_empty_status", skipped: { reason: "no_durable_session_evidence" }, activation_receipt: { created: false, record: { id: first.activation_receipt?.record.id } } });
       const records = (await createEngine({ storePath: store }).recall({ project_id: "moryn", kinds: ["session_summary"], limit: 20 })).results;
       expect(records).toEqual([]);
     } finally {
