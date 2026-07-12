@@ -7,6 +7,19 @@ describe("documentation contracts", () => {
     expect(document.replace(/\s+/g, " ")).toContain(text);
   }
 
+  it("presents the v0.3 Autopilot lifecycle as the public default path", async () => {
+    const readme = await readFile("README.md", "utf8");
+
+    expect(readme).toContain("install -> enter/recover -> work/checkpoint -> compact/resume -> finish/sync");
+    expect(readme).toContain("moryn install --host codex --project . --apply");
+    expect(readme).toContain("moryn install --host claude --project . --apply");
+    expect(readme).toContain("moryn agent enter --project .");
+    expect(readme).toContain("moryn agent finish --project .");
+    expectText(readme, "The dashboard is a quiet, read-only monitoring surface on the normal path");
+    expectText(readme, "Users intervene only for exceptional cases");
+    expect(readme).not.toContain("setup -> context pack -> capture -> dashboard review -> approve -> sync");
+  });
+
   it("keeps deployment-private addresses out of public docs", async () => {
     const docs = await Promise.all([
       readFile("README.md", "utf8"),
@@ -814,11 +827,11 @@ describe("documentation contracts", () => {
       expect(document).toContain("moryn capture session");
     }
     expect(readme).toContain("moryn install --host codex --project . --apply");
-    expect(readme).toContain("moryn context pack --project . --agent codex");
-    expect(readme).toContain("moryn capture session --project . --agent codex --summary");
+    expect(readme).toContain("The lower-level `moryn context pack` remains available");
+    expect(readme).toContain("`moryn capture session`");
     expect(readme).toContain("`--file <path>` flags preserve touched-file evidence");
     expect(readme).toContain("npm run smoke:dogfood-demo");
-    expect(readme).toContain("low-risk autocapture");
+    expect(readme).toContain("Low-risk handoffs are auto-captured");
     expect(workflow).toContain("npm run smoke:dogfood-demo");
     expect(workflow).toContain("dashboard snapshot checks");
     expectText(workflow, "setup applied -> context pack ready -> low-risk handoff auto-captured -> review handoff routed to Capture Inbox -> dashboard snapshot generated");
@@ -846,7 +859,7 @@ describe("documentation contracts", () => {
     expect(installPrompt).toContain("`.codex/hooks.json`");
     expectText(installPrompt, "use `/hooks` once to review and trust the project hooks");
     expect(roadmap).toContain("default_autocapture_policy");
-    expectText(readme, "Nothing becomes canonical memory without user approval");
+    expectText(readme, "Reliable low-risk project learnings may become canonical automatically under the documented state policy");
     expect(design).toContain("Host Adapter / Autocapture Layer");
     expect(roadmap).toContain("Host adapter registry and autocapture");
   });
@@ -857,10 +870,10 @@ describe("documentation contracts", () => {
 
     expectText(firstMinute, "Moryn is a local-first, user-owned, auditable context store and handoff layer");
     expectText(firstMinute, "Default path");
-    expectText(firstMinute, "setup -> context pack -> capture -> dashboard review -> approve -> sync");
+    expectText(firstMinute, "install -> enter/recover -> work/checkpoint -> compact/resume -> finish/sync");
     expectText(firstMinute, "Try the demo");
     expect(firstMinute).toContain("npm run smoke:dogfood-demo");
-    expectText(firstMinute, "setup applied -> context pack ready -> low-risk handoff auto-captured -> review handoff routed to Capture Inbox -> dashboard snapshot generated");
+    expectText(firstMinute, "The required Autopilot lifecycle is covered by `npm run smoke:agent-lifecycle`");
     expectText(firstMinute, "Most users should ask an agent to operate Moryn");
     expect(firstMinute).toContain("[Agent Workflow](docs/agent-workflow.md)");
     expect(firstMinute).toContain("[Dashboard](docs/dashboard.md)");
@@ -972,12 +985,13 @@ describe("documentation contracts", () => {
     expect(changelog).not.toContain("docs/superpowers");
     expect(changelog).not.toContain("v0.2-phase-plan.md");
 
-    expect(readme).toContain("Status: v0.2.0 release candidate");
-    expect(readme).toContain("DashboardReview[\"Dashboard review");
+    expect(readme).toContain("Published package: v0.2.0");
+    expect(readme).toContain("v0.3 Context Autopilot lifecycle");
+    expect(readme).toContain("DashboardReview[\"Exceptional attention only");
     expect(readme).toContain("MemorySearch[\"Find what Moryn saved");
     expect(readme).toContain("SharedCopy[\"Shared copy");
     expect(readme).toContain("DashboardReview --> Approve");
-    expect(readme).toContain("Views --> Dashboard");
+    expect(readme).toContain("Views -. monitor .-> Dashboard");
     expect(readme).toContain("[Changelog](CHANGELOG.md)");
 
     expect(development).toContain("npm publish --dry-run --access public --registry https://registry.npmjs.org");

@@ -16,20 +16,27 @@ It is the memory bus between agents: simple on the default path, and
 fully traceable when a user or agent needs review, provenance, sync, or handoff
 history.
 
-> Status: v0.2.0 release candidate. Local memory operations, Git sync,
-> handoffs, dashboard review, package smoke tests, and MCP stdio access are
-> implemented.
+> Published package: v0.2.0. The current development branch is building the
+> v0.3 Context Autopilot lifecycle for Codex and Claude Code. It is not released
+> until the version, changelog, and release process are updated explicitly.
 
 ## Default path
 
 ```text
-setup -> context pack -> capture -> dashboard review -> approve -> sync
+install -> enter/recover -> work/checkpoint -> compact/resume -> finish/sync
 ```
 
-The normal flow is intentionally small: initialize a local store, let an agent
-read the current project context, capture a handoff, review only the notes that
-need a real decision in the dashboard, approve useful long-term memory, and sync
-through a private repository you control.
+The normal flow is agent-operated. Codex or Claude Code enters the project,
+recalls bounded context, writes durable checkpoints before compaction, restores
+the active task afterward, captures reliable reusable learnings, and finishes
+with a synchronized handoff when the remote is configured and safe.
+
+The dashboard is a quiet, read-only monitoring surface on the normal path. It
+shows health, current context, memory flow, sync state, and audit evidence; it
+is not a routine approval queue. Users intervene only for exceptional cases:
+credentials or private configuration, unresolved sync conflicts, sensitive
+content, ambiguous project identity, or materially conflicting long-term
+memory.
 
 Most users should ask an agent to operate Moryn instead of learning every
 command. The deeper surfaces stay available when needed:
@@ -44,14 +51,11 @@ From a source checkout, run:
 npm run smoke:dogfood-demo
 ```
 
-The demo exercises the default path on a temporary local store and should print:
+The demo exercises storage, context, capture policy, and dashboard evidence on
+a temporary local store. The required Autopilot lifecycle is covered by
+`npm run smoke:agent-lifecycle`.
 
-```text
-setup applied -> context pack ready -> low-risk handoff auto-captured -> review handoff routed to Capture Inbox -> dashboard snapshot generated
-```
-
-It proves the main shape without touching your real Moryn store: setup, context
-pack, low-risk autocapture, review-routed capture, and a dashboard snapshot.
+Neither smoke touches your real Moryn store.
 
 ## Use With An Agent
 
@@ -93,16 +97,16 @@ user-owned private Git repository is the first sync backend.
 
 ## Fast Host Adapter Path
 
-For Codex, Claude, Gemini, Cursor, or a shell-based agent, start with the host
-adapter path. It keeps Moryn's positioning broad: one user-owned store reused
-across multiple agents and devices, not a memory silo for a single host.
+Codex and Claude Code are the validated v0.3 Autopilot integrations. Other
+hosts continue to use MCP guidance and explicit lifecycle commands.
 
 ```bash
 moryn setup --host codex --project .
 moryn setup --host codex --project . --apply
 moryn install --host codex --project . --apply
-moryn context pack --project . --agent codex
-moryn capture session --project . --agent codex --summary "Finished the task and left handoff notes."
+moryn install --host claude --project . --apply
+moryn agent enter --project . --agent codex --session-id "<session-id>" --device-id "<device-id>" --current-task "<current task>"
+moryn agent finish --project . --agent codex --session-id "<session-id>" --device-id "<device-id>" --summary "<concise handoff>"
 ```
 
 `moryn setup` is the one-command local setup wizard. Without `--apply` it is a
@@ -111,8 +115,13 @@ planned actions without writing anything. Run setup once without `--apply`
 first; it prints checks and planned local writes without changing files. Apply
 only after the dry-run looks right. With `--apply` it initializes only the
 Moryn-local store and project config. It still does not edit host configuration files.
-`moryn install` remains the lower-level host adapter plan for MCP registration
-hints and startup commands. `moryn context pack` returns Handoff Pack v0.2: a
+`moryn install --apply` safely activates Moryn-owned lifecycle hooks for Codex
+or Claude Code without replacing unrelated host configuration. `agent enter`
+performs safe pull/recovery and returns the bounded working set. Host hooks
+checkpoint before compaction and restore afterward. `agent finish` persists the
+final handoff locally first and pushes when sync is configured and safe.
+
+The lower-level `moryn context pack` remains available and returns Handoff Pack v0.2: a
 small handoff index with the current goal, recent decisions, open threads,
 risks, user preferences, important files, and next actions, plus the raw boot,
 refresh, and handoff evidence it came from. Its read-only `quality_gate`
@@ -125,9 +134,11 @@ agent, host, or device can resume from the same store. Optional repeated
 handoff. Low-risk handoffs are auto-captured as local handoff evidence without
 a user click. Handoffs that mention decisions, risks, blockers, credentials,
 permissions, or approval enter the dashboard Capture Inbox as review
-candidates; obvious smoke/test or
-duplicate captures are archived with policy evidence. Nothing becomes canonical
-memory without user approval.
+candidates; obvious smoke/test or duplicate captures are archived with policy
+evidence. Sensitive, conflicting, cross-project, or otherwise high-impact
+content does not become canonical without user approval. Reliable low-risk
+project learnings may become canonical automatically under the documented state
+policy.
 
 ## Architecture
 
@@ -154,11 +165,11 @@ flowchart LR
     Views["Rebuildable snapshots and indexes"]
   end
 
-  subgraph ReviewLayer["Dashboard and review"]
-    Dashboard["Local dashboard"]
-    DashboardReview["Dashboard review: act or all clear"]
+  subgraph ReviewLayer["Quiet monitoring and exceptions"]
+    Dashboard["Read-only monitoring dashboard"]
+    DashboardReview["Exceptional attention only"]
     MemorySearch["Find what Moryn saved"]
-    Approve["Approve long-term memory"]
+    Approve["Confirm high-impact changes"]
   end
 
   subgraph Sync["Sync"]
@@ -175,11 +186,11 @@ flowchart LR
   MCP --> Engine
   Engine --> Events
   Events --> Views
-  Views --> Dashboard
+  Views -. monitor .-> Dashboard
   Dashboard --> DashboardReview
   Dashboard --> MemorySearch
   DashboardReview --> Approve
-  MemorySearch --> DashboardReview
+  MemorySearch --> Dashboard
   Approve --> Events
   Events --> Git
   Git --> SharedCopy
@@ -469,8 +480,8 @@ raw -> candidate -> canonical
 - `archived`: preserved history, hidden by default.
 - `quarantined`: sensitive or unsafe content, hidden by default.
 
-The dashboard Capture Inbox is the default human review path only for
-autocaptured handoffs that need a user decision. Low-risk handoffs remain
+The dashboard Capture Inbox is the exceptional human review path for
+autocaptured handoffs that genuinely need a user decision. Low-risk handoffs remain
 auto-captured local evidence for context packs without becoming canonical.
 Grouped approve and reject actions are batch user decisions, not background
 promotion rules. The read-only `capture_policy` report explains automatic
@@ -511,9 +522,14 @@ npm run smoke:sync-conflict
 npm run smoke:permission-recovery
 ```
 
-`npm run smoke:dogfood-demo` runs the v0.2 default path end to end on a
-temporary local store: setup, context pack, low-risk autocapture, review-routed
-handoff, and dashboard snapshot evidence.
+`npm run smoke:agent-lifecycle` is the v0.3 Autopilot acceptance path. It proves
+Codex and Claude Code activation, checkpoint and compaction recovery,
+recall/explore/learn, abnormal-exit compensation, cross-host handoff, and
+cross-device sync on temporary stores.
+
+`npm run smoke:dogfood-demo` continues to exercise setup, context-pack,
+autocapture policy, consolidation capacity, and the quiet dashboard on a
+temporary local store.
 
 `npm run smoke:upgrade-compat` creates a frozen v0.2-format store without using
 current initialization helpers, then proves the current CLI can open it in
