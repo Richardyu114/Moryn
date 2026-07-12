@@ -16,6 +16,13 @@ export interface HostIntegrationArtifact {
   expected_events: string[];
 }
 
+export interface HostRuntimeDescriptor {
+  exec_file: string;
+  exec_args?: string[];
+  cli_entry: string;
+  package_version?: string;
+}
+
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
@@ -28,8 +35,11 @@ export function activationId(projectId: string, hostInput: string): string {
   return `moryn-v03-${slug}-${host}`;
 }
 
-function hookCommand(host: "codex" | "claude", input: { project_id: string; project_path: string; store_path: string }): string {
-  return `moryn --store ${shellQuote(input.store_path)} host hook --host ${host} --project ${shellQuote(input.project_path)} --activation-id ${activationId(input.project_id, host)} --host-output`;
+function hookCommandBase(host: "codex" | "claude", input: { project_id: string; project_path: string; store_path: string; runtime?: HostRuntimeDescriptor }): string {
+  const executable = input.runtime
+    ? [input.runtime.exec_file, ...(input.runtime.exec_args ?? []), input.runtime.cli_entry].map(shellQuote).join(" ")
+    : "moryn";
+  return `${executable} --store ${shellQuote(input.store_path)} host hook --host ${host} --project ${shellQuote(input.project_path)} --activation-id ${activationId(input.project_id, host)} --host-output`;
 }
 
 function claudeHook(command: string) {
@@ -40,12 +50,13 @@ function codexHook(command: string) {
   return [{ hooks: [{ type: "command", command, timeout: 30, statusMessage: "Syncing Moryn context" }] }];
 }
 
-export function buildHostIntegrationArtifact(input: { host: string; project_id: string; project_path: string; store_path: string }): HostIntegrationArtifact {
+export function buildHostIntegrationArtifact(input: { host: string; project_id: string; project_path: string; store_path: string; runtime?: HostRuntimeDescriptor }): HostIntegrationArtifact {
   const host = normalizeHostId(input.host);
   if (host !== "codex" && host !== "claude") throw new Error(`Invalid argument: official integration unavailable for host: ${input.host}`);
-  const command = hookCommand(host, input);
+  const commandBase = hookCommandBase(host, input);
   const activation_id = activationId(input.project_id, host);
-  const command_digest = createHash("sha256").update(command).digest("hex");
+  const command_digest = createHash("sha256").update(commandBase).digest("hex");
+  const command = `${commandBase} --command-digest ${command_digest}`;
   if (host === "claude") {
     const expected_events = ["SessionStart", "UserPromptSubmit", "PreCompact", "PostCompact", "Stop", "SessionEnd"];
     const content = `${JSON.stringify({ hooks: {
@@ -91,7 +102,7 @@ export function buildHostIntegrationArtifact(input: { host: string; project_id: 
   };
 }
 
-export async function writeHostIntegrationArtifact(input: { host: string; project_id: string; project_path: string; store_path: string }) {
+export async function writeHostIntegrationArtifact(input: { host: string; project_id: string; project_path: string; store_path: string; runtime?: HostRuntimeDescriptor }) {
   const artifact = buildHostIntegrationArtifact(input);
   const path = join(input.project_path, artifact.path);
   let existing: string | undefined;

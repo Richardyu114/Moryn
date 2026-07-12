@@ -19,6 +19,7 @@ import {
   inspectHostActivation,
   writeHostIntegrationArtifact
 } from "../index.js";
+import type { HostRuntimeDescriptor } from "../core/host-integration-artifacts.js";
 import {
   OperationContractLookupConflictError,
   OperationContractLookupError,
@@ -1106,7 +1107,7 @@ function checkpointSource(value: unknown): RecordSource {
   };
 }
 
-export async function runMcpServer(engine: Engine, options: { storePath: string }): Promise<void> {
+export async function runMcpServer(engine: Engine, options: { storePath: string; hostRuntime?: HostRuntimeDescriptor }): Promise<void> {
   const server = new McpServer({
     name: "moryn",
     version
@@ -2069,7 +2070,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         refreshSince: normalizedInput.refresh_since,
         limit: normalizedInput.limit,
         pull: coreValidatedPull,
-        agent: lifecycleAgent
+        agent: lifecycleAgent,
+        hostRuntime: options.hostRuntime
       });
       return withOptionalMcpDashboard(options.storePath, result, normalizedInput.open);
     }, (normalizedInput) => {
@@ -2392,7 +2394,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     },
     async (input) => toolResultWithNormalizedInput("activation_status", input, async (normalizedInput) => {
       const project = await resolveProjectContext({ projectId: normalizedInput.project_id as string | undefined, projectPath: normalizedInput.project_path as string | undefined });
-      return inspectHostActivation({ store_path: options.storePath, project_path: project.project_path, project_id: project.project_id, host: normalizedInput.host as string });
+      return inspectHostActivation({ store_path: options.storePath, project_path: project.project_path, project_id: project.project_id, host: normalizedInput.host as string, runtime: options.hostRuntime });
     })
   );
 
@@ -2408,10 +2410,10 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       const host = normalizedInput.host as string;
       const normalizedHost = host === "claude-code" ? "claude" : host;
       if (normalizedHost !== "claude" && normalizedHost !== "codex") throw new Error(`Invalid argument: activation apply is unsupported for host: ${host}`);
-      const artifact = buildHostIntegrationArtifact({ host: normalizedHost, project_id: project.project_id, project_path: project.project_path, store_path: options.storePath });
-      const fragment = await writeHostIntegrationArtifact({ host: normalizedHost, project_id: project.project_id, project_path: project.project_path, store_path: options.storePath });
+      const artifact = buildHostIntegrationArtifact({ host: normalizedHost, project_id: project.project_id, project_path: project.project_path, store_path: options.storePath, runtime: options.hostRuntime });
+      const fragment = await writeHostIntegrationArtifact({ host: normalizedHost, project_id: project.project_id, project_path: project.project_path, store_path: options.storePath, runtime: options.hostRuntime });
       const activation = normalizedHost === "claude" ? await activateClaudeSettings({ project_path: project.project_path, artifact }) : await activateCodexHooks({ project_path: project.project_path, artifact });
-      const status = await inspectHostActivation({ store_path: options.storePath, project_path: project.project_path, project_id: project.project_id, host: normalizedHost });
+      const status = await inspectHostActivation({ store_path: options.storePath, project_path: project.project_path, project_id: project.project_id, host: normalizedHost, runtime: options.hostRuntime });
       return { ok: true, fragment, activation, status };
     })
   );

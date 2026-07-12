@@ -11,7 +11,13 @@ describe("host integration artifacts", () => {
   });
 
   it("builds a Codex lifecycle hooks JSON fragment", () => {
-    const artifact = buildHostIntegrationArtifact({ host: "codex", project_id: "moryn", project_path: "/repo", store_path: "/store" });
+    const artifact = buildHostIntegrationArtifact({
+      host: "codex",
+      project_id: "moryn",
+      project_path: "/repo",
+      store_path: "/store",
+      runtime: { exec_file: "/runtime/node", cli_entry: "/runtime/moryn/dist/cli.js", package_version: "0.3.0" }
+    });
     expect(artifact.path).toBe(".codex/moryn-hooks.json");
     expect(artifact.format).toBe("json");
     expect(artifact.merge_target).toBe(".codex/hooks.json");
@@ -26,9 +32,12 @@ describe("host integration artifacts", () => {
     expect(artifact.content).toContain("PreCompact");
     expect(artifact.content).toContain("PostCompact");
     expect(artifact.content).toContain("host hook --host codex");
+    expect(artifact.command).toMatch(/^'\/runtime\/node' '\/runtime\/moryn\/dist\/cli\.js' --store/);
+    expect(artifact.command).not.toMatch(/(^|\s)moryn --store/);
     expect(artifact.content).toContain("--store '/store'");
     expect(artifact.content).toContain("--activation-id moryn-v03-moryn-codex");
     expect(artifact.content).toContain("--host-output");
+    expect(artifact.command).toContain(`--command-digest ${artifact.command_digest}`);
     expect(artifact.content).not.toContain("MORYN_DEVICE_ID");
     expect(artifact.content).not.toContain("--device-id");
     expect(artifact.content).not.toContain("dangerously-bypass-hook-trust");
@@ -38,7 +47,13 @@ describe("host integration artifacts", () => {
   });
 
   it("builds Claude Code project-local settings with lifecycle hooks", () => {
-    const artifact = buildHostIntegrationArtifact({ host: "claude-code", project_id: "moryn", project_path: "/repo", store_path: "/store" });
+    const artifact = buildHostIntegrationArtifact({
+      host: "claude-code",
+      project_id: "moryn",
+      project_path: "/repo",
+      store_path: "/store",
+      runtime: { exec_file: "/runtime/node", cli_entry: "/runtime/moryn/dist/cli.js", package_version: "0.3.0" }
+    });
     expect(artifact.path).toBe(".claude/moryn-settings.json");
     const parsed = JSON.parse(artifact.content);
     expect(Object.keys(parsed.hooks)).toEqual(["SessionStart", "UserPromptSubmit", "PreCompact", "PostCompact", "Stop", "SessionEnd"]);
@@ -48,6 +63,25 @@ describe("host integration artifacts", () => {
     expect(parsed.hooks.PreCompact[0].hooks[0].command).not.toContain("MORYN_DEVICE_ID");
     expect(parsed.hooks.PreCompact[0].hooks[0].command).not.toContain("--device-id");
     expect(artifact.expected_events).toEqual(["SessionStart", "UserPromptSubmit", "PreCompact", "PostCompact", "Stop", "SessionEnd"]);
+  });
+
+  it("changes command identity when the activating CLI runtime changes", () => {
+    const first = buildHostIntegrationArtifact({ host: "codex", project_id: "moryn", project_path: "/repo", store_path: "/store", runtime: { exec_file: "/runtime/node", cli_entry: "/runtime/one/cli.js", package_version: "0.3.0" } });
+    const second = buildHostIntegrationArtifact({ host: "codex", project_id: "moryn", project_path: "/repo", store_path: "/store", runtime: { exec_file: "/runtime/node", cli_entry: "/runtime/two/cli.js", package_version: "0.3.0" } });
+    expect(first.activation_id).toBe(second.activation_id);
+    expect(first.command_digest).not.toBe(second.command_digest);
+    expect(first.command).not.toBe(second.command);
+  });
+
+  it("preserves Node loader arguments for source-tree runtimes", () => {
+    const artifact = buildHostIntegrationArtifact({
+      host: "claude",
+      project_id: "moryn",
+      project_path: "/repo",
+      store_path: "/store",
+      runtime: { exec_file: "/runtime/node", exec_args: ["--import", "tsx"], cli_entry: "/repo/src/cli.ts" }
+    });
+    expect(artifact.command).toMatch(/^'\/runtime\/node' '--import' 'tsx' '\/repo\/src\/cli\.ts' --store/);
   });
 
   it("writes artifacts idempotently and preserves unrelated project files", async () => {

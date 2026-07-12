@@ -52,7 +52,7 @@ export { synthesizeSession } from "./core/session-synthesis.js";
 export type { SessionSynthesis } from "./core/session-synthesis.js";
 export type { HostHookRunResult, RunHostHookInput } from "./core/host-hook-runner.js";
 export { activationId, buildHostIntegrationArtifact, writeHostIntegrationArtifact } from "./core/host-integration-artifacts.js";
-export type { HostIntegrationArtifact } from "./core/host-integration-artifacts.js";
+export type { HostIntegrationArtifact, HostRuntimeDescriptor } from "./core/host-integration-artifacts.js";
 export { activateClaudeSettings, mergeClaudeSettings } from "./core/claude-activation.js";
 export { activateCodexHooks, mergeCodexHooks } from "./core/codex-activation.js";
 export type { ClaudeActivationResult, ClaudeSettingsMergeResult } from "./core/claude-activation.js";

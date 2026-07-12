@@ -3575,12 +3575,17 @@ describe("agent lifecycle", () => {
     try {
       await initializeProjectConfig(project, { project_id: "moryn" });
       await initializeStore(store);
-      const entered = await agentEnter({ storePath: store, projectPath: project, currentTask: "Start with active hooks", agent: { client, session_id: `${host}-enter`, device_id: "device-1" }, pull: false });
+      const hostRuntime = { exec_file: "/runtime/node", cli_entry: "/runtime/moryn/dist/cli.js", package_version: "0.3.0" };
+      const entered = await agentEnter({ storePath: store, projectPath: project, currentTask: "Start with active hooks", agent: { client, session_id: `${host}-enter`, device_id: "device-1" }, pull: false, hostRuntime });
 
       expect(entered.mode).toBe("start_session");
       expect(entered.activation).toMatchObject({ attempted_repair: true, repair_succeeded: true, before: { status: "not_installed" }, after: { status: "configured_unverified" } });
       expect(entered.start.activation_status).toMatchObject({ status: "configured_unverified", host });
-      expect(JSON.parse(await readFile(join(project, target), "utf8")).hooks.PreCompact).toBeDefined();
+      const configured = JSON.parse(await readFile(join(project, target), "utf8"));
+      expect(configured.hooks.PreCompact).toBeDefined();
+      expect(configured.hooks.PreCompact[0].hooks[0].command).toMatch(/^'\/runtime\/node' '\/runtime\/moryn\/dist\/cli\.js' --store/);
+      const repeated = await agentEnter({ storePath: store, projectPath: project, currentTask: "Continue with active hooks", agent: { client, session_id: `${host}-enter-2`, device_id: "device-1" }, pull: false, hostRuntime });
+      expect(repeated.activation).toMatchObject({ attempted_repair: false, repair_succeeded: false, before: { status: "configured_unverified" }, after: { status: "configured_unverified" } });
     } finally {
       await rm(root, { recursive: true, force: true });
     }

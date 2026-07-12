@@ -1,6 +1,6 @@
 import { access, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { buildHostIntegrationArtifact } from "./host-integration-artifacts.js";
+import { buildHostIntegrationArtifact, type HostRuntimeDescriptor } from "./host-integration-artifacts.js";
 import { readCurrentRecords } from "./record-read-model.js";
 import type { ActivationHost, ActivationReceiptEvent } from "./activation-receipts.js";
 
@@ -54,13 +54,13 @@ function activationActions(input: { status: ActivationStatus; host: ActivationHo
   return [{ id: input.status === "stale_moryn_config" ? "repair_claude_hooks" : "activate_claude_hooks", title: input.status === "stale_moryn_config" ? "Repair Moryn-owned Claude hooks" : "Activate Claude hooks", safe_to_run: true, command: `moryn activation apply --host claude --project '${input.project_path}'` }];
 }
 
-export async function inspectHostActivation(input: { store_path: string; project_path: string; project_id: string; host: string; now?: string }): Promise<HostActivationStatus> {
-  const artifact = buildHostIntegrationArtifact({ host: input.host, project_id: input.project_id, project_path: input.project_path, store_path: input.store_path });
+export async function inspectHostActivation(input: { store_path: string; project_path: string; project_id: string; host: string; now?: string; runtime?: HostRuntimeDescriptor }): Promise<HostActivationStatus> {
+  const artifact = buildHostIntegrationArtifact({ host: input.host, project_id: input.project_id, project_path: input.project_path, store_path: input.store_path, runtime: input.runtime });
   const fragmentPath = join(input.project_path, artifact.path);
   const targetPath = join(input.project_path, artifact.merge_target);
   const fragmentExists = await exists(fragmentPath);
   const records = (await readCurrentRecords(input.store_path)).records
-    .filter((record) => record.type === "activation_receipt" && record.project_id === input.project_id && record.content.activation_id === artifact.activation_id)
+    .filter((record) => record.type === "activation_receipt" && record.project_id === input.project_id && record.content.activation_id === artifact.activation_id && record.content.command_digest === artifact.command_digest)
     .sort((left, right) => right.created_at.localeCompare(left.created_at) || left.id.localeCompare(right.id));
   const observedEvents = [...new Set(records.map((record) => record.content.event).filter((event): event is ActivationReceiptEvent => typeof event === "string"))];
   const lastRecord = records[0];

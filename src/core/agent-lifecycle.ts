@@ -15,7 +15,7 @@ import type { LearningDeltaInput, SemanticConsolidationProposalInput } from "./c
 import { normalizeHostId } from "./host-adapter-registry.js";
 import { knowledgeProtocolForHost, type KnowledgeProtocol } from "./knowledge-protocol.js";
 import { inspectHostActivation, type HostActivationStatus } from "./host-activation.js";
-import { writeHostIntegrationArtifact } from "./host-integration-artifacts.js";
+import { writeHostIntegrationArtifact, type HostRuntimeDescriptor } from "./host-integration-artifacts.js";
 import { activateClaudeSettings } from "./claude-activation.js";
 import { activateCodexHooks } from "./codex-activation.js";
 import type { SessionSynthesis } from "./session-synthesis.js";
@@ -36,6 +36,7 @@ interface AgentLifecycleInput {
   currentTask?: string;
   agent?: unknown;
   syncRemote?: string;
+  hostRuntime?: HostRuntimeDescriptor;
 }
 
 export interface AgentStartInput extends AgentLifecycleInput {
@@ -800,7 +801,8 @@ async function lifecycleActivationStatus(input: AgentLifecycleInput, project: Pr
       store_path: input.storePath,
       project_path: project.project_path,
       project_id: project.project_id,
-      host
+      host,
+      runtime: input.hostRuntime
     });
   } catch {
     return undefined;
@@ -819,7 +821,8 @@ async function prepareAgentEnterActivation(input: AgentEnterInput): Promise<Agen
     store_path: input.storePath,
     project_path: project.project_path,
     project_id: project.project_id,
-    host
+    host,
+    runtime: input.hostRuntime
   };
   const before = await inspectHostActivation(activationInput);
   if (!before.repairable_automatically) {

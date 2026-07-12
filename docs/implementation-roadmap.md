@@ -35,7 +35,7 @@ cross-project changes.
 | Working set | Recall, boot, and dashboard use bounded project-relevant candidates as append-only history grows. | `npm run smoke:large-store`. |
 | Consolidation | Exact duplicates fold automatically; semantic proposals retain evidence; protected differences and conflicts are not silently merged. | Consolidation tests and lifecycle smoke receipt. |
 | Sync | Enter pulls safely, checkpoint protects locally before optional push, finish pushes when safe, and failures retain executable recovery actions. | Lifecycle, resilience, conflict, permission, and large-store sync smokes. |
-| Hosts | Codex and Claude Code use native lifecycle artifacts including prompt recall and pre/post-compaction recovery. | Host artifact tests and cross-host lifecycle smoke. |
+| Hosts | Codex and Claude Code use native lifecycle artifacts including prompt recall and pre/post-compaction recovery. Official host hooks bind to the Moryn runtime that activated them; runtime drift is detected and Moryn-owned entries repair automatically without changing user hooks. | Host artifact tests, cross-host lifecycle smoke, and `npm run smoke:host-runtime-binding`. |
 | Dashboard | The first screen is quiet and read-only; routine sync and maintenance stay subordinate while genuine user decisions remain visible. | Dashboard tests, real-store rendering, large-store dashboard smoke. |
 | Release | Build, typecheck, full tests, package smoke, lifecycle, resilience, conflict, permission, upgrade, and large-store checks pass. | `npm run release:check`. |
 

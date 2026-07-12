@@ -24,6 +24,7 @@ npm test
 npm run release:check
 npm run smoke:dogfood-demo
 npm run smoke:agent-lifecycle
+npm run smoke:host-runtime-binding
 npm run smoke:upgrade-compat
 npm run smoke:sync-resilience
 npm run smoke:sync-conflict
@@ -45,6 +46,12 @@ and dashboard snapshot evidence.
 `npm run smoke:agent-lifecycle` also validates the v0.3 checkpoint path on a
 temporary store: authored local checkpoint, idempotent replay, bounded boot
 recovery by session id, and the existing cross-store Git handoff flow.
+Host runtime binding smoke places an incompatible `moryn` earlier on `PATH`,
+activates official project hooks through the current CLI, executes the generated
+SessionStart command, and requires a real activation receipt without invoking
+the incompatible binary. Official hooks therefore bind to the runtime that
+activated them instead of silently depending on whichever global binary PATH
+resolves later.
 `npm run smoke:upgrade-compat` materializes the frozen v0.2 disk contract
 directly, opens it with the current CLI without an explicit migration or
 rebuild, verifies the legacy event remains byte-identical, repairs verified

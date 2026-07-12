@@ -1017,6 +1017,9 @@ describe("documentation contracts", () => {
     expectText(roadmap, "Public docs keep the product truth in README.md, docs/moryn-design.md, docs/agent-workflow.md, docs/dashboard.md, and docs/contracts.md");
     expectText(roadmap, "Temporary development plans are not part of the public package");
     expect(roadmap).toContain("npm run smoke:agent-lifecycle");
+    expect(roadmap).toContain("npm run smoke:host-runtime-binding");
+    expectText(roadmap, "Official host hooks bind to the Moryn runtime that activated them");
+    expectText(development, "Host runtime binding smoke places an incompatible `moryn` earlier on `PATH`");
     expect(roadmap).toContain("npm pack --dry-run --json");
     expectText(roadmap, "The final release JSON includes all nine v0.3 acceptance areas");
     expectText(roadmap, "`acceptance_complete: true` means every area's required evidence completed in that run");

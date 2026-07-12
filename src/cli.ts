@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import { Command, CommanderError } from "commander";
 import {
@@ -75,6 +76,7 @@ import { runHostHook } from "./core/host-hook-runner.js";
 import { formatHostHookOutput } from "./core/host-hook-output.js";
 
 const program = new Command();
+const hostRuntime = { exec_file: process.execPath, exec_args: process.execArgv, cli_entry: fileURLToPath(import.meta.url), package_version: version };
 const recordKinds = RECORD_KINDS;
 const recordScopes = RECORD_SCOPES;
 const recordStates = RECORD_STATES;
@@ -2154,12 +2156,12 @@ program.command("install")
         if (host === "codex" || host === "claude" || host === "claude-code") {
           const projectId = projectConfig.config.project_id;
           if (!projectId) throw new Error("Invalid project config: missing project_id after initialization");
-          const artifact = await writeHostIntegrationArtifact({ host, project_id: projectId, project_path: projectPath, store_path: storePath() });
+          const artifact = await writeHostIntegrationArtifact({ host, project_id: projectId, project_path: projectPath, store_path: storePath(), runtime: hostRuntime });
           const normalizedHost = host === "claude-code" ? "claude" : host;
           const activation = normalizedHost === "claude"
             ? await activateClaudeSettings({ project_path: projectPath, artifact: artifact.artifact })
             : await activateCodexHooks({ project_path: projectPath, artifact: artifact.artifact });
-          const activationStatus = await inspectHostActivation({ store_path: storePath(), project_path: projectPath, project_id: projectId, host: normalizedHost });
+          const activationStatus = await inspectHostActivation({ store_path: storePath(), project_path: projectPath, project_id: projectId, host: normalizedHost, runtime: hostRuntime });
           printJson({ ...plan, integration_artifact: artifact, ...(activation ? { activation } : {}), activation_status: activationStatus });
           return;
         }
@@ -2177,7 +2179,7 @@ activation.command("status")
     const host = parseNonEmptyString(options.host, "--host")!;
     const projectPath = parseNonEmptyString(options.project, "--project")!;
     const project = await resolveProjectContext({ projectPath });
-    printJson(await inspectHostActivation({ store_path: storePath(), project_path: project.project_path, project_id: project.project_id, host }));
+    printJson(await inspectHostActivation({ store_path: storePath(), project_path: project.project_path, project_id: project.project_id, host, runtime: hostRuntime }));
   });
 
 activation.command("apply")
@@ -2189,10 +2191,10 @@ activation.command("apply")
     const project = await resolveProjectContext({ projectPath });
     const normalizedHost = host === "claude-code" ? "claude" : host;
     if (normalizedHost !== "claude" && normalizedHost !== "codex") throw new Error(`Invalid argument: activation apply is unsupported for host: ${host}`);
-    const artifact = buildHostIntegrationArtifact({ host: normalizedHost, project_id: project.project_id, project_path: project.project_path, store_path: storePath() });
-    const fragment = await writeHostIntegrationArtifact({ host: normalizedHost, project_id: project.project_id, project_path: project.project_path, store_path: storePath() });
+    const artifact = buildHostIntegrationArtifact({ host: normalizedHost, project_id: project.project_id, project_path: project.project_path, store_path: storePath(), runtime: hostRuntime });
+    const fragment = await writeHostIntegrationArtifact({ host: normalizedHost, project_id: project.project_id, project_path: project.project_path, store_path: storePath(), runtime: hostRuntime });
     const applied = normalizedHost === "claude" ? await activateClaudeSettings({ project_path: project.project_path, artifact }) : await activateCodexHooks({ project_path: project.project_path, artifact });
-    const status = await inspectHostActivation({ store_path: storePath(), project_path: project.project_path, project_id: project.project_id, host: normalizedHost });
+    const status = await inspectHostActivation({ store_path: storePath(), project_path: project.project_path, project_id: project.project_id, host: normalizedHost, runtime: hostRuntime });
     printJson({ ok: true, fragment, activation: applied, status });
   });
 
@@ -2212,6 +2214,7 @@ host.command("hook")
   .option("--device-id <id>", "Stable device identity", process.env.MORYN_DEVICE_ID)
   .option("--occurred-at <timestamp>")
   .option("--activation-id <id>", "Moryn-owned host activation identity")
+  .option("--command-digest <digest>", "Digest of the generated host hook command")
   .option("--host-output", "Emit only the host hook wire response")
   .option("--input-json <json>", "Hook input JSON; defaults to stdin")
   .option("--learning <json>", "Learning Delta JSON", collectNonEmptyOption("--learning"))
@@ -2237,6 +2240,7 @@ host.command("hook")
         project_path: options.project,
         current_task: options.currentTask,
         activation_id: options.activationId,
+        command_digest: options.commandDigest,
         learnings: (options.learning ?? []).map((value: string) => parseCheckpointJson(value, "--learning") as LearningDeltaInput),
         knowledge_investigations: (options.knowledgeInvestigation ?? []).map((value: string) => parseCheckpointJson(value, "--knowledge-investigation") as KnowledgeInvestigationInput),
         semantic_consolidation_proposals: (options.semanticConsolidationProposal ?? []).map((value: string) => parseCheckpointJson(value, "--semantic-consolidation-proposal") as SemanticConsolidationProposalInput),
@@ -2957,7 +2961,7 @@ program.command("mcp").action(async () => {
     storePath: path,
     syncStatus: () => getGitSyncStatus(path)
   });
-  await runMcpServer(engine, { storePath: path });
+  await runMcpServer(engine, { storePath: path, hostRuntime });
 });
 
 const agent = program.command("agent");
@@ -3107,7 +3111,8 @@ agent.command("enter")
         refreshSince: parseNonEmptyCliString(options.refreshSince, "--refresh-since", lifecycleStringSource(operation, "refresh_since")),
         limit: parseLimit(options.limit, "agent_enter"),
         pull,
-        agent: agentOptions
+        agent: agentOptions,
+        hostRuntime
       });
       printJson(await withDashboard(result, { open: options.open }));
     } catch (error) {

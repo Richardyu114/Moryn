@@ -9,6 +9,36 @@ import { buildHostIntegrationArtifact, writeHostIntegrationArtifact } from "../.
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
 describe("host activation inspector", () => {
+  const runtime = { exec_file: "/runtime/node", cli_entry: "/runtime/moryn/dist/cli.js", package_version: "0.3.0" };
+
+  it("reports legacy PATH-bound Codex hooks as stale for the current runtime", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const projectPath = join(storePath, "project");
+      const legacy = buildHostIntegrationArtifact({ host: "codex", project_id: "moryn", project_path: projectPath, store_path: storePath });
+      await mkdir(join(projectPath, ".codex"), { recursive: true });
+      await writeFile(join(projectPath, ".codex", "hooks.json"), legacy.content, "utf8");
+
+      const result = await inspectHostActivation({ store_path: storePath, project_path: projectPath, project_id: "moryn", host: "codex", runtime });
+
+      expect(result).toMatchObject({ status: "stale_moryn_config", healthy: false, repairable_automatically: true, stale_entries: 5 });
+    });
+  });
+
+  it("does not treat a receipt from an older runtime command as active", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const projectPath = join(storePath, "project");
+      const artifact = buildHostIntegrationArtifact({ host: "codex", project_id: "moryn", project_path: projectPath, store_path: storePath, runtime });
+      await mkdir(join(projectPath, ".codex"), { recursive: true });
+      await writeFile(join(projectPath, ".codex", "hooks.json"), artifact.content, "utf8");
+      await recordActivationReceipt(storePath, { activation_id: artifact.activation_id, host: "codex", project_id: "moryn", event: "session_start", session_id: "legacy-runtime", device_id: "device-1", occurred_at: "2026-07-12T00:09:00.000Z", command_digest: "0".repeat(64) });
+
+      const result = await inspectHostActivation({ store_path: storePath, project_path: projectPath, project_id: "moryn", host: "codex", runtime, now: "2026-07-12T00:10:00.000Z" });
+
+      expect(result).toMatchObject({ status: "configured_unverified", healthy: true, observed_events: [] });
+      expect(result.last_receipt).toBeUndefined();
+    });
+  });
+
   it("reports not installed for Claude without fragment, config, or receipt", async () => {
     await withInitializedTempStore(async (storePath) => {
       const projectPath = join(storePath, "project");
