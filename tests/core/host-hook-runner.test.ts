@@ -8,6 +8,7 @@ import { learningRecordIdentity } from "../../src/core/learning-ingestion.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 import { SYNC_RESULT_SELECTION_SOURCES } from "../../src/sync/git.js";
 import { initializeProjectConfig } from "../../src/core/project.js";
+import { agentFinish } from "../../src/core/agent-lifecycle.js";
 
 const base = {
   host: "codex" as const,
@@ -349,6 +350,63 @@ describe("host hook runner", () => {
       expect(pushes).toHaveLength(2);
       const engine = createEngine({ storePath });
       expect((await engine.listRecent({ project_id: "moryn", limit: 20 })).records.filter((record) => record.type === "summary")).toHaveLength(1);
+    });
+  });
+
+  it("does not coalesce SessionEnd when new learning arrives with the same summary", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const hook = { ...base, host: "claude" as const, event: "session_end" as const, occurred_at: "2026-07-11T00:10:00.000Z", compact_summary: "Final handoff." };
+      const learning = { question: "What protects rollback?", conclusion: "Rollback requires the signed release tag.", evidence_type: "user_confirmed" as const, scope: "project" as const, confidence: 1, recommended_kind: "memory" as const, recommended_type: "fact", related_record_ids: [] };
+      const first = await runHostHook({ storePath, hook, project_id: "moryn", push: false });
+      const learned = await runHostHook({ storePath, hook, project_id: "moryn", push: false, learnings: [learning] });
+      const replay = await runHostHook({ storePath, hook, project_id: "moryn", push: false, learnings: [learning] });
+
+      expect(first).toMatchObject({ action: "agent_finish" });
+      expect(learned).toMatchObject({ action: "agent_finish", details: { learning_ingestion: { records_created: 1 } } });
+      expect(replay).toMatchObject({ action: "skip_duplicate_handoff", duplicate_handoff: { prior_record_id: learned.details.record.id } });
+      const engine = createEngine({ storePath });
+      const records = (await engine.listRecent({ project_id: "moryn", limit: 30 })).records;
+      expect(records.filter((record) => record.type === "summary")).toHaveLength(2);
+      expect(records.some((record) => record.content.text === learning.conclusion)).toBe(true);
+    });
+  });
+
+  it("normalizes Learning Delta order for exact SessionEnd replay", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const hook = { ...base, host: "claude" as const, event: "session_end" as const, occurred_at: "2026-07-11T00:10:00.000Z", compact_summary: "Final handoff." };
+      const firstLearning = { question: "What protects rollback?", conclusion: "Rollback requires the signed release tag.", evidence_type: "user_confirmed" as const, scope: "project" as const, confidence: 1, recommended_kind: "memory" as const, recommended_type: "fact", related_record_ids: [] };
+      const secondLearning = { question: "What validates release?", conclusion: "The complete release gate must pass.", evidence_type: "source_code" as const, scope: "project" as const, confidence: 1, recommended_kind: "memory" as const, recommended_type: "fact", related_record_ids: [] };
+      const first = await runHostHook({ storePath, hook, project_id: "moryn", push: false, learnings: [firstLearning, secondLearning] });
+      const replay = await runHostHook({ storePath, hook, project_id: "moryn", push: false, learnings: [secondLearning, firstLearning] });
+
+      expect(first).toMatchObject({ action: "agent_finish" });
+      expect(replay).toMatchObject({ action: "skip_duplicate_handoff", duplicate_handoff: { prior_record_id: first.details.record.id } });
+    });
+  });
+
+  it("does not let a legacy summary suppress an automatic SessionEnd", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      await agentFinish({ storePath, projectId: "moryn", agent: { client: "claude", session_id: "session-a", device_id: "device-a" }, summary: "Final handoff.", push: false });
+      const result = await runHostHook({ storePath, hook: { ...base, host: "claude", event: "session_end", occurred_at: "2026-07-11T00:10:00.000Z", compact_summary: "Final handoff." }, project_id: "moryn", push: false });
+
+      expect(result).toMatchObject({ action: "agent_finish", details: { record: { content: { handoff_payload_fingerprint: expect.any(String) } } } });
+      const engine = createEngine({ storePath });
+      expect((await engine.listRecent({ project_id: "moryn", limit: 20 })).records.filter((record) => record.type === "summary")).toHaveLength(2);
+    });
+  });
+
+  it("does not coalesce SessionEnd when a new semantic proposal arrives", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath });
+      const target = await engine.write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Rollback uses a signed tag." }, state: "canonical", confirmed: true, source: { client: "user" } });
+      const learning = { question: "What protects rollback?", conclusion: "Rollback uses a signed tag.", evidence_type: "user_confirmed" as const, scope: "project" as const, confidence: 1, recommended_kind: "memory" as const, recommended_type: "fact", related_record_ids: [] };
+      const sourceRecordId = learningRecordIdentity({ project_id: "moryn", learning }).record_id;
+      const proposal = { proposal_id: "finish-proposal", source_record_id: sourceRecordId, target_record_id: target.record.id, relationship: "duplicate_of" as const, confidence: 1, rationale: "Equivalent rollback fact.", semantic_equivalence: "equivalent" as const, material_differences: [], evidence_record_ids: [] };
+      const hook = { ...base, host: "claude" as const, event: "session_end" as const, occurred_at: "2026-07-11T00:10:00.000Z", compact_summary: "Final handoff." };
+      await runHostHook({ storePath, hook, project_id: "moryn", push: false, learnings: [learning] });
+      const proposed = await runHostHook({ storePath, hook, project_id: "moryn", push: false, learnings: [learning], semantic_consolidation_proposals: [proposal] });
+
+      expect(proposed).toMatchObject({ action: "agent_finish", details: { semantic_consolidation: { proposals_received: 1, proposals_accepted: 1 } } });
     });
   });
 

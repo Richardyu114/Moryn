@@ -3,7 +3,7 @@ import { agentFinish, agentStart, agentStatus } from "./agent-lifecycle.js";
 import { createEngine } from "./engine.js";
 import { getHostCapabilities } from "./host-capabilities.js";
 import type { NormalizedHostHookEvent } from "./host-hooks.js";
-import type { KnowledgeInvestigationInput, LearningDeltaInput, SemanticConsolidationProposalInput } from "./context-delta.js";
+import { learningDeltaSchema, semanticConsolidationProposalSchema, type KnowledgeInvestigationInput, type LearningDeltaInput, type SemanticConsolidationProposalInput } from "./context-delta.js";
 import { resolveProjectContext } from "./project.js";
 import { recordActivationReceipt, type ActivationReceiptInput } from "./activation-receipts.js";
 import { buildHostIntegrationArtifact } from "./host-integration-artifacts.js";
@@ -111,6 +111,16 @@ function recordSynthesisFingerprint(content: Record<string, unknown>): string | 
     unresolved_investigations: content.synthesis_unresolved_investigations,
     source_record_ids: content.synthesis_source_record_ids
   });
+}
+
+function sessionEndPayloadFingerprint(input: RunHostHookInput, synthesis: SessionSynthesis): string {
+  const learnings = (input.learnings ?? [])
+    .map((learning) => learningDeltaSchema.parse(learning))
+    .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+  const proposals = (input.semantic_consolidation_proposals ?? [])
+    .map((proposal) => semanticConsolidationProposalSchema.parse(proposal))
+    .sort((left, right) => left.proposal_id.localeCompare(right.proposal_id) || JSON.stringify(left).localeCompare(JSON.stringify(right)));
+  return createHash("sha256").update(JSON.stringify({ synthesis: JSON.parse(synthesisFingerprint(synthesis)), learnings, proposals })).digest("hex");
 }
 
 function checkpointId(hook: NormalizedHostHookEvent): string {
@@ -265,6 +275,7 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
   }
   if (input.hook.event === "session_end") {
     const synthesis = await sessionSynthesis(input, project.project_id);
+    const payloadFingerprint = sessionEndPayloadFingerprint(input, synthesis);
     const push = input.push !== undefined
       ? input.push
       : project.config?.sync.mode === "manual"
@@ -280,7 +291,7 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
         && record.source.device_id === input.hook.device_id
       )
       .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id))[0];
-    if (priorSummary && recordSynthesisFingerprint(priorSummary.content) === synthesisFingerprint(synthesis)) {
+    if (priorSummary?.content.handoff_payload_fingerprint === payloadFingerprint) {
       const duplicateSync: HostHookDuplicateHandoffSync = { requested: input.push === true };
       if (duplicateSync.requested) {
         try {
@@ -303,7 +314,7 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
         ...activationEvidence
       };
     }
-    const result = await agentFinish({ ...common, summary: synthesis.summary, synthesis, push, learnings: input.learnings, semanticConsolidationProposals: input.semantic_consolidation_proposals }, { pushGitSync: deps.pushGitSync });
+    const result = await agentFinish({ ...common, summary: synthesis.summary, synthesis, push, learnings: input.learnings, semanticConsolidationProposals: input.semantic_consolidation_proposals }, { pushGitSync: deps.pushGitSync, handoffPayloadFingerprint: payloadFingerprint });
     return { ok: true, event: input.hook.event, action: "agent_finish", degradation, details: result, hook_output: { additional_context: `Moryn handoff saved: ${result.record.id}` }, ...activationEvidence };
   }
   const synthesis = await sessionSynthesis(input, project.project_id);

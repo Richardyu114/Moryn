@@ -62,6 +62,7 @@ export interface AgentLifecycleDeps {
   now?: () => string;
   createEngine?: typeof createEngine;
   pushGitSync?: typeof pushGitSync;
+  handoffPayloadFingerprint?: string;
 }
 
 export type AgentSyncCompensation = Omit<SyncCompensationAssessment, "decision"> & {
@@ -2921,7 +2922,8 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
         synthesis_learning_conclusions: input.synthesis.learning_conclusions,
         synthesis_unresolved_investigations: input.synthesis.unresolved_investigations,
         synthesis_source_record_ids: input.synthesis.source_record_ids
-      } : {})
+      } : {}),
+      ...(deps.handoffPayloadFingerprint ? { handoff_payload_fingerprint: deps.handoffPayloadFingerprint } : {})
     },
     source: sourceFromAgent(input.agent)
   });

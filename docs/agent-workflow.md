@@ -122,6 +122,13 @@ second inbox item. The fingerprint includes host-authored summary text, so a
 changed final summary remains a new handoff. Explicit push can still synchronize
 an unchanged replay without creating another summary event.
 
+SessionEnd idempotency covers the complete authored payload, not summary text
+alone. Normalized Learning Deltas and semantic consolidation proposals are part
+of the persisted payload fingerprint. New knowledge or a new proposal therefore
+runs the finish ingestion path even when the visible summary is unchanged.
+Legacy summaries without this fingerprint are handled conservatively and do
+not suppress a new finish.
+
 ## Startup
 
 Use `agent enter` as the default entrypoint:

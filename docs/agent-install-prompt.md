@@ -94,6 +94,9 @@ During agent work:
 - Repeated official `SessionEnd` delivery should reuse an unchanged final
   handoff instead of creating duplicate inbox entries. A changed summary remains
   a new handoff, and an explicit push may sync a replay without another write.
+- Treat SessionEnd as unchanged only when its summary, Learning Deltas, and
+  semantic consolidation proposals are all equivalent. Never skip newly
+  authored knowledge merely because the visible handoff summary is unchanged.
 - Use `moryn dashboard --serve --host 127.0.0.1 --port 8765` when a human needs
   live browser monitoring of sync state, records, recent events, or agent
   activity.
