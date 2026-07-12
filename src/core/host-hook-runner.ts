@@ -9,6 +9,8 @@ import { recordActivationReceipt, type ActivationReceiptInput } from "./activati
 import { buildHostIntegrationArtifact } from "./host-integration-artifacts.js";
 import { synthesizeSession, type SessionSynthesis } from "./session-synthesis.js";
 import { buildPromptRecallContext } from "./host-prompt-recall.js";
+import { evaluateTurnSyncCadence, recordTurnSyncSuccess, type TurnSyncCadenceDecision } from "./turn-sync-cadence.js";
+import type { pushGitSync } from "../sync/git.js";
 
 export interface RunHostHookInput {
   storePath: string;
@@ -24,6 +26,19 @@ export interface RunHostHookInput {
   activation_id?: string;
   command_digest?: string;
 }
+
+export interface RunHostHookDeps {
+  pushGitSync?: typeof pushGitSync;
+}
+
+export type HostHookSyncCadence = {
+  due: boolean;
+  reason: TurnSyncCadenceDecision["reason"] | "explicit_push" | "explicit_no_push" | "manual_mode";
+  interval_minutes: 15;
+  last_success_at?: string;
+  push_requested: boolean;
+  push_succeeded?: boolean;
+};
 
 export interface HostHookRunResult {
   ok: true;
@@ -41,6 +56,7 @@ export interface HostHookRunResult {
     injected: boolean;
     record_count: number;
   };
+  sync_cadence?: HostHookSyncCadence;
 }
 
 function checkpointId(hook: NormalizedHostHookEvent): string {
@@ -72,7 +88,7 @@ async function sessionSynthesis(input: RunHostHookInput, projectId: string): Pro
   }
 }
 
-export async function runHostHook(input: RunHostHookInput): Promise<HostHookRunResult> {
+export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps = {}): Promise<HostHookRunResult> {
   const project = await resolveProjectContext({ projectId: input.project_id, projectPath: input.project_path ?? input.hook.cwd });
   const capabilities = getHostCapabilities(input.hook.host);
   const native = capabilities.events[input.hook.event];
@@ -176,6 +192,35 @@ export async function runHostHook(input: RunHostHookInput): Promise<HostHookRunR
       ...activationEvidence
     };
   }
-  const result = await agentStatus({ ...common, status: synthesis.summary, synthesis, push: input.push });
+  let syncCadence: HostHookSyncCadence | undefined;
+  let push = input.push;
+  if (input.hook.event === "stop") {
+    const identity = {
+      project_id: project.project_id,
+      host: input.hook.host,
+      session_id: input.hook.session_id,
+      device_id: input.hook.device_id,
+      occurred_at: input.hook.occurred_at
+    };
+    if (input.push === true) {
+      syncCadence = { due: true, reason: "explicit_push", interval_minutes: 15, push_requested: true };
+    } else if (input.push === false) {
+      syncCadence = { due: false, reason: "explicit_no_push", interval_minutes: 15, push_requested: false };
+    } else if (project.config?.sync.mode === "manual") {
+      syncCadence = { due: false, reason: "manual_mode", interval_minutes: 15, push_requested: false };
+      push = false;
+    } else {
+      const decision = await evaluateTurnSyncCadence(input.storePath, identity);
+      syncCadence = { ...decision, push_requested: decision.due };
+      push = decision.due;
+    }
+    const result = await agentStatus({ ...common, status: synthesis.summary, synthesis, push }, { pushGitSync: deps.pushGitSync });
+    if (syncCadence.push_requested) {
+      syncCadence.push_succeeded = result.sync.push?.ok === true;
+      if (syncCadence.push_succeeded) await recordTurnSyncSuccess(input.storePath, identity);
+    }
+    return { ok: true, event: input.hook.event, action: "agent_status", degradation, details: result, sync_cadence: syncCadence, hook_output: { additional_context: `Moryn status saved: ${result.record.id}` }, ...activationEvidence };
+  }
+  const result = await agentStatus({ ...common, status: synthesis.summary, synthesis, push }, { pushGitSync: deps.pushGitSync });
   return { ok: true, event: input.hook.event, action: "agent_status", degradation, details: result, hook_output: { additional_context: `Moryn status saved: ${result.record.id}` }, ...activationEvidence };
 }

@@ -3092,6 +3092,42 @@ describe("agent lifecycle", () => {
     }
   });
 
+  it("makes throttled turn statuses eventually visible on another device", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-turn-sync-cadence-"));
+    const remote = join(root, "remote.git");
+    const storeA = join(root, "store-a");
+    const storeB = join(root, "store-b");
+    const project = join(root, "project");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeProjectConfig(project, { project_id: "moryn", sync: { mode: "session" } });
+      await initializeStore(storeA, { id: () => "device-a" });
+      await initializeStore(storeB, { id: () => "device-b" });
+      await initializeGitSync(storeA, remote);
+      await initializeGitSync(storeB, remote);
+      const engineA = createEngine({ storePath: storeA });
+      await engineA.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "cadence-session", device_id: "device-a" }, occurred_at: "2026-07-12T00:00:00.000Z", delta: { session_id: "cadence-session", checkpoint_id: "cadence-evidence", progress: ["Implement bounded turn sync"] } });
+      const hook = { host: "codex" as const, event: "stop" as const, session_id: "cadence-session", device_id: "device-a", cwd: project, occurred_at: "2026-07-12T00:01:00.000Z" };
+
+      const first = await runHostHook({ storePath: storeA, project_path: project, current_task: "Implement bounded turn sync", hook });
+      expect(first).toMatchObject({ sync_cadence: { reason: "first_turn_sync", push_succeeded: true } });
+      await pullGitSync(storeB);
+      expect((await readEvents(storeB)).filter((event) => event.record?.type === "status")).toHaveLength(1);
+
+      const second = await runHostHook({ storePath: storeA, project_path: project, current_task: "Implement bounded turn sync", hook: { ...hook, occurred_at: "2026-07-12T00:05:00.000Z" } });
+      expect(second).toMatchObject({ sync_cadence: { reason: "within_interval", push_requested: false } });
+      await pullGitSync(storeB);
+      expect((await readEvents(storeB)).filter((event) => event.record?.type === "status")).toHaveLength(1);
+
+      const third = await runHostHook({ storePath: storeA, project_path: project, current_task: "Implement bounded turn sync", hook: { ...hook, occurred_at: "2026-07-12T00:16:00.000Z" } });
+      expect(third).toMatchObject({ sync_cadence: { reason: "interval_elapsed", push_succeeded: true } });
+      await pullGitSync(storeB);
+      expect((await readEvents(storeB)).filter((event) => event.record?.type === "status")).toHaveLength(3);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("preserves checkpoint and handoff across Codex and Claude Code compaction hooks", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-cross-host-hooks-"));
     const remote = join(root, "remote.git");

@@ -61,6 +61,7 @@ export interface AgentStatusInput extends AgentLifecycleInput {
 export interface AgentLifecycleDeps {
   now?: () => string;
   createEngine?: typeof createEngine;
+  pushGitSync?: typeof pushGitSync;
 }
 
 export type AgentSyncCompensation = Omit<SyncCompensationAssessment, "decision"> & {
@@ -2980,7 +2981,7 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
   };
 }
 
-export async function agentStatus(input: AgentStatusInput) {
+export async function agentStatus(input: AgentStatusInput, deps: AgentLifecycleDeps = {}) {
   validateLifecycleText(input.status, "status", "agent_status");
   validateAgentIdentity(input.agent, "agent_status");
   validateLifecycleCurrentTask(input.currentTask, "agent_status");
@@ -3027,7 +3028,7 @@ export async function agentStatus(input: AgentStatusInput) {
   } = {};
 
   if (shouldPush) {
-    const pushed = await trySync(() => pushGitSync(input.storePath, { message: `agent status: ${project.project_id}` }));
+    const pushed = await trySync(() => (deps.pushGitSync ?? pushGitSync)(input.storePath, { message: `agent status: ${project.project_id}` }));
     if (pushed.ok) {
       sync.push = pushed.result;
     } else {
