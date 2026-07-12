@@ -50,8 +50,13 @@ describe("agent lifecycle smoke script", () => {
         protected_rejections: number;
       };
       recall_explore_learn?: {
+        initial_prompt_status: string;
+        initial_prompt_read_only: boolean;
         learning_records_created: number;
         unresolved_investigations_preserved: number;
+        second_device_prompt_status: string;
+        second_device_prompt_record_count: number;
+        second_device_prompt_read_only: boolean;
         second_device_learning_restored: boolean;
         second_device_investigation_restored: boolean;
       };
@@ -90,8 +95,13 @@ describe("agent lifecycle smoke script", () => {
       protected_rejections: 1
     });
     expect(evidence.recall_explore_learn).toEqual({
-      learning_records_created: 2,
+      initial_prompt_status: "knowledge_gap",
+      initial_prompt_read_only: true,
+      learning_records_created: 3,
       unresolved_investigations_preserved: 1,
+      second_device_prompt_status: "trusted_match",
+      second_device_prompt_record_count: 1,
+      second_device_prompt_read_only: true,
       second_device_learning_restored: true,
       second_device_investigation_restored: true
     });

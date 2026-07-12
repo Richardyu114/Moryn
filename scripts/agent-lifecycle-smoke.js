@@ -162,10 +162,35 @@ async function main() {
       throw new Error("Status finish_session action must require summary");
     }
 
-    const target = await runJson(command, [...argsPrefix, "--store", storeCodex, "write", "--kind", "memory", "--type", "fact", "--scope", "project", "--project", project, "--text", "Agents pull memory on project enter.", "--state", "canonical", "--confirm"]);
-    const protectedTarget = await runJson(command, [...argsPrefix, "--store", storeCodex, "write", "--kind", "memory", "--type", "fact", "--scope", "project", "--project", project, "--text", "Retry 3 times."]);
     const semanticLearning = { question: "When do agents pull?", conclusion: "Agents pull memories when entering a project.", evidence_type: "source_code", scope: "project", confidence: 0.99, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] };
     const protectedLearning = { question: "How many retries?", conclusion: "Retry 4 times.", evidence_type: "source_code", scope: "project", confidence: 0.99, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] };
+    const promptLearning = { question: "What protects an active task before context compaction?", conclusion: "A durable Moryn checkpoint protects the active task before context compaction.", evidence_type: "source_code", scope: "project", confidence: 0.99, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] };
+    const initialPromptEventsBefore = (await runJson(command, [...argsPrefix, "--store", storeCodex, "health", "check", "--project", project, "--host", "codex"])).stats.total_events;
+    const initialPromptRecall = await runJson(command, [
+      ...argsPrefix,
+      "--store",
+      storeCodex,
+      "host",
+      "hook",
+      "--host",
+      "codex",
+      "--project",
+      project,
+      "--device-id",
+      "device-codex-smoke",
+      "--occurred-at",
+      "2026-07-11T10:20:00.000Z",
+      "--input-json",
+      JSON.stringify({ hook_event_name: "UserPromptSubmit", session_id: "codex-smoke", cwd: project, prompt: promptLearning.question }),
+      "--no-pull",
+      "--no-push"
+    ]);
+    const initialPromptEventsAfter = (await runJson(command, [...argsPrefix, "--store", storeCodex, "health", "check", "--project", project, "--host", "codex"])).stats.total_events;
+    if (initialPromptRecall.prompt_recall?.outcome?.status !== "knowledge_gap") throw new Error("Initial Codex prompt recall did not expose a knowledge gap");
+    if (initialPromptEventsAfter !== initialPromptEventsBefore) throw new Error("Initial Codex prompt recall mutated the event store");
+
+    const target = await runJson(command, [...argsPrefix, "--store", storeCodex, "write", "--kind", "memory", "--type", "fact", "--scope", "project", "--project", project, "--text", "Agents pull memory on project enter.", "--state", "canonical", "--confirm"]);
+    const protectedTarget = await runJson(command, [...argsPrefix, "--store", storeCodex, "write", "--kind", "memory", "--type", "fact", "--scope", "project", "--project", project, "--text", "Retry 3 times."]);
     const semanticProposal = { proposal_id: "smoke-semantic", source_record_id: learningRecordId("moryn-smoke", semanticLearning), target_record_id: target.record.id, relationship: "duplicate_of", confidence: 0.99, rationale: "Equivalent enter behavior.", semantic_equivalence: "equivalent", material_differences: [], evidence_record_ids: [] };
     const protectedProposal = { proposal_id: "smoke-protected", source_record_id: learningRecordId("moryn-smoke", protectedLearning), target_record_id: protectedTarget.record.id, relationship: "duplicate_of", confidence: 0.99, rationale: "Protected retry difference.", semantic_equivalence: "equivalent", material_differences: [{ field: "retry count", before: "3", after: "4", significance: "minor" }], evidence_record_ids: [] };
     const unresolvedInvestigation = { resolution_id: "smoke-release-policy", question: "What is the release rollback policy?", recall_status: "knowledge_gap", recalled_record_ids: [], evidence: [{ type: "source_code", reference: "src/release.ts", summary: "Signed tag validation exists" }], status: "unresolved", next_step: "Run the rollback integration smoke" };
@@ -192,6 +217,8 @@ async function main() {
       JSON.stringify(semanticLearning),
       "--learning",
       JSON.stringify(protectedLearning),
+      "--learning",
+      JSON.stringify(promptLearning),
       "--knowledge-investigation",
       JSON.stringify(unresolvedInvestigation),
       "--semantic-consolidation-proposal",
@@ -264,6 +291,32 @@ async function main() {
     if (!claudeRestore.hook_output?.additional_context?.includes("Checkpoint smoke persisted with semantic consolidation")) throw new Error("Claude PostCompact did not restore the Codex checkpoint");
     if (!claudeRestore.hook_output?.additional_context?.includes(unresolvedInvestigation.next_step)) throw new Error("Claude PostCompact did not restore the unresolved knowledge next step");
     if (claudeRestore.activation_receipt?.created !== true) throw new Error("Claude PostCompact did not record activation receipt evidence");
+    const secondPromptEventsBefore = (await runJson(command, [...argsPrefix, "--store", storeClaude, "health", "check", "--project", project, "--host", "claude"])).stats.total_events;
+    const secondDevicePromptRecall = await runJson(command, [
+      ...argsPrefix,
+      "--store",
+      storeClaude,
+      "host",
+      "hook",
+      "--host",
+      "claude",
+      "--project",
+      project,
+      "--device-id",
+      "device-claude-smoke",
+      "--activation-id",
+      claudeActivationId,
+      "--occurred-at",
+      "2026-07-11T10:37:00.000Z",
+      "--input-json",
+      JSON.stringify({ hook_event_name: "UserPromptSubmit", session_id: "codex-smoke", cwd: project, prompt: promptLearning.question }),
+      "--no-pull",
+      "--no-push"
+    ]);
+    const secondPromptEventsAfter = (await runJson(command, [...argsPrefix, "--store", storeClaude, "health", "check", "--project", project, "--host", "claude"])).stats.total_events;
+    if (secondDevicePromptRecall.prompt_recall?.outcome?.status !== "trusted_match") throw new Error(`Second-device Claude prompt recall did not find trusted learned knowledge: ${JSON.stringify(secondDevicePromptRecall.prompt_recall)}`);
+    if (!secondDevicePromptRecall.hook_output?.additional_context?.includes(promptLearning.conclusion)) throw new Error("Second-device Claude prompt recall did not inject the learned conclusion");
+    if (secondPromptEventsAfter !== secondPromptEventsBefore) throw new Error("Second-device Claude prompt recall mutated the event store");
     const finish = await runJson(command, [
       ...argsPrefix,
       "--store",
@@ -336,8 +389,13 @@ async function main() {
       protected_rejections: checkpoint.checkpoint.semantic_consolidation.rejected_by_reason.protected_signal_difference
     };
     const recallExploreLearn = {
+      initial_prompt_status: initialPromptRecall.prompt_recall.outcome.status,
+      initial_prompt_read_only: initialPromptEventsAfter === initialPromptEventsBefore,
       learning_records_created: checkpoint.checkpoint.recovery_pack.learnings.length,
       unresolved_investigations_preserved: checkpoint.checkpoint.recovery_pack.knowledge_investigations.length,
+      second_device_prompt_status: secondDevicePromptRecall.prompt_recall.outcome.status,
+      second_device_prompt_record_count: secondDevicePromptRecall.prompt_recall.record_count,
+      second_device_prompt_read_only: secondPromptEventsAfter === secondPromptEventsBefore,
       second_device_learning_restored: [semanticLearning, protectedLearning].every((learning) => claudeContext.includes(learning.conclusion)),
       second_device_investigation_restored: claudeContext.includes(unresolvedInvestigation.next_step)
     };
@@ -358,7 +416,7 @@ async function main() {
       cross_host_handoff: Object.values(crossHostHandoff).every((value) => value === true),
       checkpoint_compaction_recovery: Object.values(checkpointCompactionRecovery).every((value) => value === true),
       semantic_consolidation: semanticConsolidation.proposals_accepted === 1 && semanticConsolidation.links_created === 1 && semanticConsolidation.protected_rejections === 1,
-      recall_explore_learn: recallExploreLearn.learning_records_created === 2 && recallExploreLearn.unresolved_investigations_preserved === 1 && recallExploreLearn.second_device_learning_restored && recallExploreLearn.second_device_investigation_restored,
+      recall_explore_learn: recallExploreLearn.initial_prompt_status === "knowledge_gap" && recallExploreLearn.initial_prompt_read_only && recallExploreLearn.learning_records_created === 3 && recallExploreLearn.unresolved_investigations_preserved === 1 && recallExploreLearn.second_device_prompt_status === "trusted_match" && recallExploreLearn.second_device_prompt_record_count === 1 && recallExploreLearn.second_device_prompt_read_only && recallExploreLearn.second_device_learning_restored && recallExploreLearn.second_device_investigation_restored,
       bounded_verified_reads: boundedVerifiedReads.source === "read_model" && boundedVerifiedReads.status === "fresh" && boundedVerifiedReads.project_id === "moryn-smoke",
       abnormal_exit_recovery: abnormalExit.compensation === "pushed" && abnormalExit.recovery_pack_available && abnormalExit.resume_action_ready && abnormalExit.second_device_checkpoint_restored && abnormalExit.second_device_investigation_restored && abnormalExit.checkpoint_records_after_recovery === 1
     };
