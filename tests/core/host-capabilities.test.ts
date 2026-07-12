@@ -7,7 +7,7 @@ describe("host capabilities", () => {
       host: "codex",
       hook_transport: "command",
       context_injection: "hook_output",
-      events: { session_start: true, pre_compact: true, post_compact: true, stop: true, session_end: false }
+      events: { session_start: true, user_prompt_submit: true, pre_compact: true, post_compact: true, stop: true, session_end: false }
     });
   });
 
@@ -16,7 +16,7 @@ describe("host capabilities", () => {
       host: "claude",
       hook_transport: "command",
       context_injection: "hook_output",
-      events: { session_start: true, pre_compact: true, post_compact: true, stop: true, session_end: true }
+      events: { session_start: true, user_prompt_submit: true, pre_compact: true, post_compact: true, stop: true, session_end: true }
     });
   });
 });

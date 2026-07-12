@@ -8,6 +8,7 @@ import { resolveProjectContext } from "./project.js";
 import { recordActivationReceipt, type ActivationReceiptInput } from "./activation-receipts.js";
 import { buildHostIntegrationArtifact } from "./host-integration-artifacts.js";
 import { synthesizeSession, type SessionSynthesis } from "./session-synthesis.js";
+import { buildPromptRecallContext } from "./host-prompt-recall.js";
 
 export interface RunHostHookInput {
   storePath: string;
@@ -27,7 +28,7 @@ export interface RunHostHookInput {
 export interface HostHookRunResult {
   ok: true;
   event: NormalizedHostHookEvent["event"];
-  action: "agent_start" | "checkpoint_before_compaction" | "resume_from_checkpoint" | "agent_status" | "agent_finish" | "skip_empty_status";
+  action: "agent_start" | "recall_prompt" | "checkpoint_before_compaction" | "resume_from_checkpoint" | "agent_status" | "agent_finish" | "skip_empty_status";
   degradation: { mode: "native" } | { mode: "fallback"; reason: "host_hook_unavailable" };
   hook_output: { additional_context: string };
   checkpoint?: { idempotent_replay: boolean; record: { id: string } };
@@ -35,6 +36,11 @@ export interface HostHookRunResult {
   activation_warning?: { code: "ACTIVATION_RECEIPT_FAILED"; reason: string };
   skipped?: { reason: "no_durable_session_evidence" };
   details?: unknown;
+  prompt_recall?: {
+    outcome: { status: "trusted_match" | "verification_required" | "knowledge_gap"; best_record_id?: string };
+    injected: boolean;
+    record_count: number;
+  };
 }
 
 function checkpointId(hook: NormalizedHostHookEvent): string {
@@ -76,7 +82,7 @@ export async function runHostHook(input: RunHostHookInput): Promise<HostHookRunR
   const common = lifecycleInput({ ...input, project_id: project.project_id, project_path: input.project_id && !input.project_path ? undefined : project.project_path });
   let activation_receipt: Awaited<ReturnType<typeof recordActivationReceipt>> | undefined;
   let activation_warning: HostHookRunResult["activation_warning"];
-  if (input.activation_id && (input.hook.host === "codex" || input.hook.host === "claude")) {
+  if (input.activation_id && input.hook.event !== "user_prompt_submit" && (input.hook.host === "codex" || input.hook.host === "claude")) {
     try {
       const expectedArtifact = buildHostIntegrationArtifact({ host: input.hook.host, project_id: project.project_id, project_path: project.project_path, store_path: input.storePath });
       if (input.activation_id !== expectedArtifact.activation_id) throw new Error(`Activation ID mismatch: expected ${expectedArtifact.activation_id}`);
@@ -98,6 +104,29 @@ export async function runHostHook(input: RunHostHookInput): Promise<HostHookRunR
     ...(activation_receipt ? { activation_receipt } : {}),
     ...(activation_warning ? { activation_warning } : {})
   };
+  if (input.hook.event === "user_prompt_submit") {
+    const engine = createEngine({ storePath: input.storePath });
+    const recall = await engine.recall({
+      query: input.hook.prompt,
+      project_id: project.project_id,
+      limit: 3,
+      include_private: false
+    });
+    const promptRecall = buildPromptRecallContext({ outcome: recall.outcome!, results: recall.results });
+    return {
+      ok: true,
+      event: input.hook.event,
+      action: "recall_prompt",
+      degradation,
+      hook_output: { additional_context: promptRecall.additional_context },
+      prompt_recall: {
+        outcome: recall.outcome!,
+        injected: promptRecall.injected,
+        record_count: promptRecall.record_count
+      },
+      ...activationEvidence
+    };
+  }
   if (input.hook.event === "session_start" || input.hook.event === "post_compact") {
     const result = await agentStart({ ...common, pull: input.pull ?? input.hook.event === "session_start" });
     return {

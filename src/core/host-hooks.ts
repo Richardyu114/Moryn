@@ -9,11 +9,13 @@ export interface NormalizedHostHookEvent {
   cwd: string;
   trigger?: string;
   compact_summary?: string;
+  prompt?: string;
   occurred_at: string;
 }
 
 const EVENT_NAMES: Record<string, HostLifecycleEvent> = {
   SessionStart: "session_start",
+  UserPromptSubmit: "user_prompt_submit",
   PreCompact: "pre_compact",
   PostCompact: "post_compact",
   Stop: "stop",
@@ -41,6 +43,7 @@ export function normalizeHostHookEvent(host: string, input: unknown, defaults: {
   if (!Number.isFinite(Date.parse(occurredAt)) || new Date(Date.parse(occurredAt)).toISOString() !== occurredAt) {
     throw new Error("Invalid argument: host hook occurred_at must be a canonical ISO timestamp");
   }
+  const prompt = event === "user_prompt_submit" ? nonEmpty(payload.prompt, "prompt") : undefined;
   return {
     host: normalizedHost,
     event,
@@ -49,6 +52,7 @@ export function normalizeHostHookEvent(host: string, input: unknown, defaults: {
     cwd: nonEmpty(payload.cwd ?? payload.project_path ?? payload.projectPath, "cwd"),
     ...(optionalText(payload.source ?? payload.trigger) ? { trigger: optionalText(payload.source ?? payload.trigger) } : {}),
     ...(optionalText(payload.compact_summary ?? payload.compactSummary ?? payload.summary) ? { compact_summary: optionalText(payload.compact_summary ?? payload.compactSummary ?? payload.summary) } : {}),
+    ...(prompt ? { prompt } : {}),
     occurred_at: occurredAt
   };
 }

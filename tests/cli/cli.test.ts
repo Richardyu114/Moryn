@@ -10733,6 +10733,34 @@ describe("semantic consolidation CLI", () => {
 });
 
 describe("host hook CLI", () => {
+  it("emits trusted prompt recall through the UserPromptSubmit wire shape", async () => {
+    await withTempDir(async (store) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      const memory = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "write", "--kind", "memory", "--type", "release_policy", "--scope", "project", "--project-id", "moryn", "--text", "Production rollback requires a tagged release and the rollback runbook.", "--state", "canonical", "--confidence", "0.98", "--confirm"])).stdout);
+      const payload = JSON.stringify({ hook_event_name: "UserPromptSubmit", session_id: "prompt-wire", cwd: repoRoot, prompt: "Does production rollback require a tagged release and the rollback runbook?" });
+      const result = await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "host", "hook", "--host", "codex", "--project-id", "moryn", "--device-id", "device-a", "--input-json", payload, "--host-output", "--no-pull", "--no-push"]);
+      const output = JSON.parse(result.stdout);
+      expect(output).toEqual({
+        hookSpecificOutput: {
+          hookEventName: "UserPromptSubmit",
+          additionalContext: expect.any(String)
+        }
+      });
+      expect(output.hookSpecificOutput.additionalContext).toContain(memory.record.id);
+      expect(result.stdout).not.toContain("prompt_recall");
+      expect(result.stdout).not.toContain("activation_receipt");
+    });
+  });
+
+  it("keeps prompt recall misses silent in host-output mode", async () => {
+    await withTempDir(async (store) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      const payload = JSON.stringify({ hook_event_name: "UserPromptSubmit", session_id: "prompt-miss", cwd: repoRoot, prompt: "What is the unknown lunar deployment protocol?" });
+      const result = await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "host", "hook", "--host", "claude", "--project-id", "moryn", "--device-id", "device-a", "--input-json", payload, "--host-output", "--no-pull", "--no-push"]);
+      expect(result.stdout).toBe("");
+    });
+  });
+
   it("emits only host-compatible SessionStart context in host-output mode", async () => {
     await withTempDir(async (store) => {
       await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
@@ -10845,7 +10873,7 @@ describe("host activation CLI", () => {
         expect(before).toMatchObject({ status: "not_installed", repairable_automatically: true });
         expect(first).toMatchObject({ activation: { changed: true, created: true }, status: { status: "configured_unverified" } });
         expect(second).toMatchObject({ activation: { changed: false, backup_created: false }, status: { status: "configured_unverified" } });
-        expect(after).toMatchObject({ status: "configured_unverified", configured_events: ["SessionStart", "PreCompact", "PostCompact", "Stop", "SessionEnd"] });
+        expect(after).toMatchObject({ status: "configured_unverified", configured_events: ["SessionStart", "UserPromptSubmit", "PreCompact", "PostCompact", "Stop", "SessionEnd"] });
       });
     });
   });

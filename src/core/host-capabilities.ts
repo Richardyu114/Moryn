@@ -1,6 +1,6 @@
 import { normalizeHostId, type HostAdapterId } from "./host-adapter-registry.js";
 
-export type HostLifecycleEvent = "session_start" | "pre_compact" | "post_compact" | "stop" | "session_end";
+export type HostLifecycleEvent = "session_start" | "user_prompt_submit" | "pre_compact" | "post_compact" | "stop" | "session_end";
 
 export interface HostCapabilities {
   host: HostAdapterId;
@@ -11,6 +11,7 @@ export interface HostCapabilities {
 
 const HOOK_EVENT_NAMES: Record<HostLifecycleEvent, string> = {
   session_start: "SessionStart",
+  user_prompt_submit: "UserPromptSubmit",
   pre_compact: "PreCompact",
   post_compact: "PostCompact",
   stop: "Stop",
@@ -19,6 +20,7 @@ const HOOK_EVENT_NAMES: Record<HostLifecycleEvent, string> = {
 
 const FALLBACK_COMMANDS: Record<HostLifecycleEvent, string> = {
   session_start: "moryn agent start --current-task <task>",
+  user_prompt_submit: "moryn recall --query <prompt>",
   pre_compact: "moryn agent checkpoint --checkpoint-id <checkpoint_id> --progress <progress>",
   post_compact: "moryn agent start --current-task <task>",
   stop: "moryn agent status --status <status>",
@@ -27,6 +29,7 @@ const FALLBACK_COMMANDS: Record<HostLifecycleEvent, string> = {
 
 const NONE: Record<HostLifecycleEvent, boolean> = {
   session_start: false,
+  user_prompt_submit: false,
   pre_compact: false,
   post_compact: false,
   stop: false,
@@ -36,10 +39,10 @@ const NONE: Record<HostLifecycleEvent, boolean> = {
 export function getHostCapabilities(host: string): HostCapabilities {
   const normalized = normalizeHostId(host) ?? "shell";
   if (normalized === "codex") {
-    return { host: normalized, hook_transport: "command", context_injection: "hook_output", events: { ...NONE, session_start: true, pre_compact: true, post_compact: true, stop: true } };
+    return { host: normalized, hook_transport: "command", context_injection: "hook_output", events: { ...NONE, session_start: true, user_prompt_submit: true, pre_compact: true, post_compact: true, stop: true } };
   }
   if (normalized === "claude") {
-    return { host: normalized, hook_transport: "command", context_injection: "hook_output", events: { session_start: true, pre_compact: true, post_compact: true, stop: true, session_end: true } };
+    return { host: normalized, hook_transport: "command", context_injection: "hook_output", events: { session_start: true, user_prompt_submit: true, pre_compact: true, post_compact: true, stop: true, session_end: true } };
   }
   return { host: normalized, hook_transport: "none", context_injection: "none", events: { ...NONE } };
 }

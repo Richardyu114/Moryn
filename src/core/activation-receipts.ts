@@ -3,7 +3,7 @@ import { appendEventIfAbsent } from "./store.js";
 import type { MorynEvent, MorynRecord } from "./types.js";
 
 export type ActivationHost = "codex" | "claude";
-export type ActivationReceiptEvent = "session_start" | "pre_compact" | "post_compact" | "stop" | "session_end";
+export type ActivationReceiptEvent = "session_start" | "user_prompt_submit" | "pre_compact" | "post_compact" | "stop" | "session_end";
 
 export interface ActivationReceiptInput {
   activation_id: string;

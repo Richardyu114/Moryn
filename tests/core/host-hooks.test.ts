@@ -37,11 +37,31 @@ describe("host hook normalization", () => {
   });
 
   it.each([
+    ["UserPromptSubmit", "user_prompt_submit"],
     ["PostCompact", "post_compact"],
     ["Stop", "stop"],
     ["SessionEnd", "session_end"]
   ])("maps %s to %s", (hookEvent, expected) => {
-    expect(normalizeHostHookEvent("claude", { hook_event_name: hookEvent, session_id: "s", cwd: "/repo" }, { device_id: "d", occurred_at: "2026-07-11T00:00:00.000Z" }).event).toBe(expected);
+    const input = { hook_event_name: hookEvent, session_id: "s", cwd: "/repo", ...(hookEvent === "UserPromptSubmit" ? { prompt: "How does release rollback work?" } : {}) };
+    expect(normalizeHostHookEvent("claude", input, { device_id: "d", occurred_at: "2026-07-11T00:00:00.000Z" }).event).toBe(expected);
+  });
+
+  it("normalizes a user prompt and rejects empty prompt input", () => {
+    expect(normalizeHostHookEvent("codex", {
+      hook_event_name: "UserPromptSubmit",
+      session_id: "prompt-session",
+      cwd: "/repo",
+      prompt: "  How does release rollback work?  "
+    }, { device_id: "device-a", occurred_at: "2026-07-11T00:00:00.000Z" })).toMatchObject({
+      event: "user_prompt_submit",
+      prompt: "How does release rollback work?"
+    });
+    expect(() => normalizeHostHookEvent("codex", {
+      hook_event_name: "UserPromptSubmit",
+      session_id: "prompt-session",
+      cwd: "/repo",
+      prompt: "  "
+    }, { device_id: "device-a", occurred_at: "2026-07-11T00:00:00.000Z" })).toThrow("prompt");
   });
 
   it("rejects unknown events and missing stable identity", () => {

@@ -17,6 +17,7 @@ describe("host integration artifacts", () => {
     expect(artifact.merge_target).toBe(".codex/hooks.json");
     expect(JSON.parse(artifact.content).hooks).toMatchObject({
       SessionStart: expect.any(Array),
+      UserPromptSubmit: expect.any(Array),
       PreCompact: expect.any(Array),
       PostCompact: expect.any(Array),
       Stop: expect.any(Array)
@@ -32,7 +33,7 @@ describe("host integration artifacts", () => {
     expect(artifact.content).not.toContain("--device-id");
     expect(artifact.content).not.toContain("dangerously-bypass-hook-trust");
     expect(artifact.activation_id).toBe("moryn-v03-moryn-codex");
-    expect(artifact.expected_events).toEqual(["SessionStart", "PreCompact", "PostCompact", "Stop"]);
+    expect(artifact.expected_events).toEqual(["SessionStart", "UserPromptSubmit", "PreCompact", "PostCompact", "Stop"]);
     expect(artifact.command_digest).toMatch(/^[a-f0-9]{64}$/);
   });
 
@@ -40,13 +41,13 @@ describe("host integration artifacts", () => {
     const artifact = buildHostIntegrationArtifact({ host: "claude-code", project_id: "moryn", project_path: "/repo", store_path: "/store" });
     expect(artifact.path).toBe(".claude/moryn-settings.json");
     const parsed = JSON.parse(artifact.content);
-    expect(Object.keys(parsed.hooks)).toEqual(["SessionStart", "PreCompact", "PostCompact", "Stop", "SessionEnd"]);
+    expect(Object.keys(parsed.hooks)).toEqual(["SessionStart", "UserPromptSubmit", "PreCompact", "PostCompact", "Stop", "SessionEnd"]);
     expect(parsed.hooks.PreCompact[0].hooks[0].command).toContain("host hook --host claude");
     expect(parsed.hooks.PreCompact[0].hooks[0].command).toContain("--activation-id moryn-v03-moryn-claude");
     expect(parsed.hooks.PreCompact[0].hooks[0].command).toContain("--host-output");
     expect(parsed.hooks.PreCompact[0].hooks[0].command).not.toContain("MORYN_DEVICE_ID");
     expect(parsed.hooks.PreCompact[0].hooks[0].command).not.toContain("--device-id");
-    expect(artifact.expected_events).toEqual(["SessionStart", "PreCompact", "PostCompact", "Stop", "SessionEnd"]);
+    expect(artifact.expected_events).toEqual(["SessionStart", "UserPromptSubmit", "PreCompact", "PostCompact", "Stop", "SessionEnd"]);
   });
 
   it("writes artifacts idempotently and preserves unrelated project files", async () => {

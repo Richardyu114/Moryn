@@ -13,6 +13,104 @@ const base = {
 };
 
 describe("host hook runner", () => {
+  it("injects bounded trusted project knowledge for a submitted prompt", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath });
+      const memory = await engine.write({
+        kind: "memory",
+        type: "release_policy",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Production rollback requires a tagged release and the rollback runbook." },
+        state: "canonical",
+        confirmed: true,
+        confidence: 0.98,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "private_release_note",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Production rollback secret token is private." },
+        state: "canonical",
+        confirmed: true,
+        confidence: 0.99,
+        tags: ["private"],
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "other_project",
+        scope: "project",
+        project_id: "other",
+        content: { text: "Production rollback in other project uses a different process." },
+        state: "canonical",
+        confirmed: true,
+        confidence: 0.99,
+        source: { client: "user" }
+      });
+
+      const result = await runHostHook({
+        storePath,
+        hook: { ...base, event: "user_prompt_submit", prompt: "Does production rollback require a tagged release and the rollback runbook?" },
+        project_id: "moryn"
+      });
+
+      expect(result).toMatchObject({
+        event: "user_prompt_submit",
+        action: "recall_prompt",
+        prompt_recall: {
+          outcome: { status: "trusted_match", best_record_id: memory.record.id },
+          injected: true,
+          record_count: 1
+        }
+      });
+      expect(result.hook_output.additional_context).toContain(memory.record.id);
+      expect(result.hook_output.additional_context).toContain("tagged release");
+      expect(result.hook_output.additional_context).not.toContain("secret token");
+      expect(result.hook_output.additional_context).not.toContain("other project");
+    });
+  });
+
+  it("keeps prompt recall misses silent and read-only", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath });
+      const before = (await engine.listRecent({ project_id: "moryn", limit: 100 })).records.length;
+      const result = await runHostHook({
+        storePath,
+        hook: { ...base, event: "user_prompt_submit", prompt: "What is the unknown lunar deployment protocol?" },
+        project_id: "moryn"
+      });
+      const after = (await engine.listRecent({ project_id: "moryn", limit: 100 })).records.length;
+
+      expect(result).toMatchObject({
+        action: "recall_prompt",
+        prompt_recall: { outcome: { status: "knowledge_gap" }, injected: false, record_count: 0 },
+        hook_output: { additional_context: "" }
+      });
+      expect(after).toBe(before);
+    });
+  });
+
+  it("does not create activation receipts for high-frequency prompt recall", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath });
+      const before = (await engine.listRecent({ project_id: "moryn", limit: 100 })).records.length;
+      const result = await runHostHook({
+        storePath,
+        hook: { ...base, event: "user_prompt_submit", prompt: "What is the unknown lunar deployment protocol?" },
+        project_id: "moryn",
+        activation_id: "moryn-v03-moryn-codex"
+      });
+      const after = (await engine.listRecent({ project_id: "moryn", limit: 100 })).records.length;
+
+      expect(result.activation_receipt).toBeUndefined();
+      expect(result.activation_warning).toBeUndefined();
+      expect(after).toBe(before);
+    });
+  });
+
   it("starts a session and returns host-injectable context", async () => {
     await withInitializedTempStore(async (storePath) => {
       const result = await runHostHook({ storePath, hook: { ...base, event: "session_start", trigger: "startup" }, project_id: "moryn", current_task: "Implement hooks", pull: false });

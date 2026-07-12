@@ -20,7 +20,9 @@ describe("Codex hook activation", () => {
     expect(result.owned_entries_removed).toBe(1);
     expect(result.settings.hooks.SessionStart).toHaveLength(2);
     expect(result.settings.hooks.SessionStart[0].hooks[0].command).toBe("echo user");
-    expect(result.settings.hooks.UserPromptSubmit).toEqual(current.hooks.UserPromptSubmit);
+    expect(result.settings.hooks.UserPromptSubmit).toHaveLength(2);
+    expect(result.settings.hooks.UserPromptSubmit[0]).toEqual(current.hooks.UserPromptSubmit[0]);
+    expect(result.settings.hooks.UserPromptSubmit[1].hooks[0].command).toContain("host hook --host codex");
   });
 
   it("atomically activates hooks and is idempotent", async () => {

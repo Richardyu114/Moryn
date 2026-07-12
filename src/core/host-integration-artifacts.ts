@@ -47,9 +47,10 @@ export function buildHostIntegrationArtifact(input: { host: string; project_id: 
   const activation_id = activationId(input.project_id, host);
   const command_digest = createHash("sha256").update(command).digest("hex");
   if (host === "claude") {
-    const expected_events = ["SessionStart", "PreCompact", "PostCompact", "Stop", "SessionEnd"];
+    const expected_events = ["SessionStart", "UserPromptSubmit", "PreCompact", "PostCompact", "Stop", "SessionEnd"];
     const content = `${JSON.stringify({ hooks: {
       SessionStart: claudeHook(command),
+      UserPromptSubmit: claudeHook(command),
       PreCompact: claudeHook(command),
       PostCompact: claudeHook(command),
       Stop: claudeHook(command),
@@ -68,9 +69,10 @@ export function buildHostIntegrationArtifact(input: { host: string; project_id: 
       expected_events
     };
   }
-  const expected_events = ["SessionStart", "PreCompact", "PostCompact", "Stop"];
+  const expected_events = ["SessionStart", "UserPromptSubmit", "PreCompact", "PostCompact", "Stop"];
   const content = `${JSON.stringify({ hooks: {
     SessionStart: codexHook(command),
+    UserPromptSubmit: codexHook(command),
     PreCompact: codexHook(command),
     PostCompact: codexHook(command),
     Stop: codexHook(command)
