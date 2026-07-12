@@ -10742,6 +10742,16 @@ describe("host hook CLI", () => {
       expect(replay).toMatchObject({ checkpoint: { idempotent_replay: true } });
     });
   });
+
+  it("uses the stable store device identity when hooks omit device-id", async () => {
+    await withTempDir(async (store) => {
+      const initialized = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"])).stdout);
+      const payload = JSON.stringify({ hook_event_name: "PreCompact", session_id: "session-store-device", cwd: repoRoot, compact_summary: "Persist without environment setup." });
+      const parsed = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "host", "hook", "--host", "codex", "--project-id", "moryn", "--occurred-at", "2026-07-11T00:00:00.000Z", "--input-json", payload, "--no-pull", "--no-push"], { env: { ...process.env, MORYN_DEVICE_ID: "" } })).stdout);
+      const record = JSON.parse((await readFile(join(store, "snapshots", "records.json"), "utf8")).toString()).records.find((candidate: any) => candidate.id === parsed.checkpoint.record.id);
+      expect(record.source.device_id).toBe(initialized.config.device_id);
+    });
+  });
 });
 
 describe("official host integration install", () => {

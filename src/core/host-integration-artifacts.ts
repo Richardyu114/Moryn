@@ -29,7 +29,7 @@ export function activationId(projectId: string, hostInput: string): string {
 }
 
 function hookCommand(host: "codex" | "claude", input: { project_id: string; project_path: string; store_path: string }): string {
-  return `moryn --store ${shellQuote(input.store_path)} host hook --host ${host} --project ${shellQuote(input.project_path)} --device-id \"$MORYN_DEVICE_ID\" --activation-id ${activationId(input.project_id, host)}`;
+  return `moryn --store ${shellQuote(input.store_path)} host hook --host ${host} --project ${shellQuote(input.project_path)} --activation-id ${activationId(input.project_id, host)}`;
 }
 
 function claudeHook(command: string) {

@@ -30,7 +30,7 @@ import {
 } from "./operation-contracts.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "./core/agent-lifecycle.js";
 import { commandLineForCliInterface } from "./core/cli-command-line.js";
-import { initializeStore } from "./core/config.js";
+import { initializeStore, readStoreConfig } from "./core/config.js";
 import type { ContextDeltaInput, KnowledgeInvestigationInput, LearningDeltaInput, SemanticConsolidationProposalInput } from "./core/context-delta.js";
 import { LOGICAL_RELATIONSHIP_TYPES, type LogicalRelationshipType } from "./core/logical-memory.js";
 import { rebuildDerivedViews } from "./core/derived.js";
@@ -2221,8 +2221,11 @@ host.command("hook")
     try {
       const raw = options.inputJson ?? await readStdinText();
       const payload = JSON.parse(raw);
+      const configuredDeviceId = typeof options.deviceId === "string" && options.deviceId.trim()
+        ? options.deviceId.trim()
+        : (await readStoreConfig(storePath())).device_id;
       const hookEvent = normalizeHostHookEvent(options.host, payload, {
-        device_id: options.deviceId ?? "unknown-device",
+        device_id: configuredDeviceId,
         occurred_at: options.occurredAt ?? new Date().toISOString()
       });
       printJson(await runHostHook({
