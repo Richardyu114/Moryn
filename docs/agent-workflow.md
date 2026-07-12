@@ -368,6 +368,13 @@ already resolves a pair, the workflow stays absent. Official PreCompact hooks
 return the same bounded workflow without injecting either record's text into
 hook context.
 
+Official side-effect hooks remain silent when no agent follow-up exists.
+PreCompact and Claude SessionEnd conditionally inject the bounded workflow into
+host output only when candidate review is required. This context is addressed
+to the running agent, not the user: it contains executable record-id recalls,
+keeps the normal dashboard quiet, and does not create a routine confirmation
+or notification step.
+
 ## Timeline Context
 
 Use `timeline` when a single recalled record is not enough to understand why it

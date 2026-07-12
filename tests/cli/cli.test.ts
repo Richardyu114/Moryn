@@ -10858,6 +10858,58 @@ describe("host hook CLI", () => {
     });
   });
 
+  it("emits bounded PreCompact follow-up context only when candidate review exists", async () => {
+    await withTempDir(async (store) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      const target = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "write", "--kind", "memory", "--type", "fact", "--scope", "project", "--project-id", "moryn", "--text", "Moryn restores project context after host compaction.", "--state", "canonical", "--confirm"])).stdout);
+      const learning = JSON.stringify({ question: "What happens after compact?", conclusion: "Moryn restores project context when compaction completes.", evidence_type: "source_code", scope: "project", confidence: 0.9, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] });
+      const payload = JSON.stringify({ hook_event_name: "PreCompact", session_id: "session-candidate-output", cwd: repoRoot, trigger: "auto", compact_summary: "Preserve candidate review." });
+      const result = await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "host", "hook", "--host", "claude", "--project-id", "moryn", "--device-id", "device-a", "--input-json", payload, "--host-output", "--learning", learning, "--no-pull", "--no-push"]);
+      const output = JSON.parse(result.stdout);
+      expect(output).toMatchObject({ hookSpecificOutput: { hookEventName: "PreCompact", additionalContext: expect.any(String) } });
+      expect(JSON.parse(output.hookSpecificOutput.additionalContext)).toMatchObject({
+        moryn_follow_up: {
+          reason: "learning_candidates_require_agent_review",
+          action: {
+            action: "review_learning_candidates",
+            owner: "agent",
+            candidate_pairs: [{ candidate_record_id: target.record.id }]
+          }
+        }
+      });
+      expect(result.stdout).not.toContain(target.record.content.text);
+    });
+  });
+
+  it("emits the same bounded follow-up context at Claude SessionEnd", async () => {
+    await withTempDir(async (store) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      const target = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "write", "--kind", "memory", "--type", "fact", "--scope", "project", "--project-id", "moryn", "--text", "Moryn loads shared project context before agent work begins.", "--state", "canonical", "--confirm"])).stdout);
+      const learning = JSON.stringify({ question: "When is shared context loaded?", conclusion: "Moryn loads shared project context during agent enter before work.", evidence_type: "source_code", scope: "project", confidence: 0.9, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] });
+      const payload = JSON.stringify({ hook_event_name: "SessionEnd", session_id: "session-end-candidate", cwd: repoRoot, summary: "Finished context loading verification." });
+      const result = await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "host", "hook", "--host", "claude", "--project-id", "moryn", "--device-id", "device-a", "--input-json", payload, "--host-output", "--learning", learning, "--no-pull", "--no-push"]);
+      const output = JSON.parse(result.stdout);
+      const context = JSON.parse(output.hookSpecificOutput.additionalContext);
+      expect(output.hookSpecificOutput.hookEventName).toBe("SessionEnd");
+      expect(context).toMatchObject({
+        moryn_follow_up: {
+          reason: "learning_candidates_require_agent_review",
+          action: { action: "review_learning_candidates", owner: "agent", candidate_pairs: [{ candidate_record_id: target.record.id }] }
+        }
+      });
+      expect(result.stdout).not.toContain(target.record.content.text);
+    });
+  });
+
+  it("keeps healthy Claude SessionEnd silent in host-output mode", async () => {
+    await withTempDir(async (store) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      const payload = JSON.stringify({ hook_event_name: "SessionEnd", session_id: "session-end-quiet", cwd: repoRoot, summary: "Finished without unresolved candidate review." });
+      const result = await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "host", "hook", "--host", "claude", "--project-id", "moryn", "--device-id", "device-a", "--input-json", payload, "--host-output", "--no-pull", "--no-push"]);
+      expect(result.stdout).toBe("");
+    });
+  });
+
   it("reads official hook JSON from stdin and checkpoints idempotently", async () => {
     await withTempDir(async (store) => {
       await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);

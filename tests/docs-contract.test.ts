@@ -46,6 +46,8 @@ describe("documentation contracts", () => {
     expectText(workflow, "Checkpoint and finish lifecycle results promote unresolved candidates into an agent-owned `review_learning_candidates` workflow");
     expectText(workflow, "Codex and Claude Code follow the supplied record-id recalls without routine user confirmation");
     expectText(workflow, "When automatic consolidation or an accepted proposal already resolves a pair, the workflow stays absent");
+    expectText(workflow, "Official side-effect hooks remain silent when no agent follow-up exists");
+    expectText(workflow, "PreCompact and Claude SessionEnd conditionally inject the bounded workflow into host output only when candidate review is required");
     expectText(dashboard, "Capture Inbox is a compatibility and exceptional review surface");
     for (const document of [installPrompt, workflow, dashboard]) {
       expect(document).not.toContain("Canonical memory still requires explicit Capture Inbox user action.");
