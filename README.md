@@ -507,6 +507,7 @@ npm run smoke:dogfood-demo
 npm run smoke:agent-lifecycle
 npm run smoke:upgrade-compat
 npm run smoke:sync-resilience
+npm run smoke:sync-conflict
 ```
 
 `npm run smoke:dogfood-demo` runs the v0.2 default path end to end on a
@@ -523,6 +524,11 @@ migration wizard.
 the final handoff: the finish stays committed locally, and the next lifecycle
 entry publishes it automatically once the remote returns so another device can
 pull and recall it.
+
+`npm run smoke:sync-conflict` verifies the exceptional path: a real Git event
+conflict stops further lifecycle writes, preserves both conflicting versions,
+and tells the agent to inspect status and wait for explicit human resolution
+instead of retrying or choosing a history automatically.
 
 The release check builds, typechecks, tests, checks packed-package contents, and
 optionally validates a private Git remote:

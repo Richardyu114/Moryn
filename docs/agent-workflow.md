@@ -575,6 +575,18 @@ event before another device pulls it. Connectivity recovery is autonomous; a
 real conflict or missing credentials still requires the documented exceptional
 user action.
 
+Validate the conflict guard boundary:
+
+```bash
+npm run smoke:sync-conflict
+```
+
+This creates a real add/add conflict at one append-only event path. Moryn must
+report the conflict as unsafe to retry, preserve both Git stages, and reject
+`agent finish` before another lifecycle event is authored. The agent may inspect
+`moryn sync --status`, but it must not auto-resolve generated files or continue
+writing until the user has chosen and completed the Git conflict resolution.
+
 After building, force the built CLI:
 
 ```bash
@@ -588,6 +600,7 @@ Installed packages expose the direct bin:
 moryn-agent-smoke
 moryn-upgrade-smoke
 moryn-resilience-smoke
+moryn-conflict-smoke
 ```
 
 Package smoke also installs the packed artifact with `--omit=dev` and runs the
