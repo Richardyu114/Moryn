@@ -371,6 +371,12 @@ async function ensureGitSyncConfigured(storePath: string): Promise<void> {
   }
 }
 
+export async function isGitSyncConfigured(storePath: string): Promise<boolean> {
+  validateRequiredString(storePath, "storePath");
+  if (!await gitOk(storePath, ["rev-parse", "--git-dir"])) return false;
+  return Boolean(await git(storePath, ["remote", "get-url", "origin"]).catch(() => ""));
+}
+
 async function ensureRemote(storePath: string, remoteUrl: string): Promise<void> {
   const current = await git(storePath, ["remote", "get-url", "origin"]).catch(() => "");
   if (!current) {

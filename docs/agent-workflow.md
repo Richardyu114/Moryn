@@ -687,6 +687,13 @@ context, while `manual` projects and explicit `pull: false` remain local-only.
 If the remote is unavailable, PostCompact reports the existing pull error
 evidence and still restores any locally available checkpoint.
 
+When no Git remote has been configured, official lifecycle hooks stay quietly
+local-only: they do not repeatedly attempt pull or push, and local checkpoints,
+turn statuses, recovery, and handoffs continue normally. This is distinct from
+a configured remote that is offline or rejected, which remains visible as sync
+degradation. Explicit `pull: true` or `push: true` requests still attempt sync
+and return the normal configuration error so setup can be diagnosed.
+
 `committed: true` means the event was atomically published. `durability` reports
 `confirmed`, `best_effort`, or `failed` separately from derived-view refresh
 status. After compaction, use `moryn boot --project . --session-id session-123`

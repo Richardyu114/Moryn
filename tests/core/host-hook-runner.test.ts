@@ -17,6 +17,8 @@ const base = {
   occurred_at: "2026-07-11T00:00:00.000Z"
 };
 
+const configuredSync = async () => true;
+
 describe("host hook runner", () => {
   it("injects bounded trusted project knowledge for a submitted prompt", async () => {
     await withInitializedTempStore(async (storePath) => {
@@ -158,11 +160,40 @@ describe("host hook runner", () => {
     });
   });
 
+  it("keeps automatic hooks quiet when no sync remote is configured", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const started = await runHostHook({ storePath, hook: { ...base, event: "session_start", trigger: "startup" }, project_id: "moryn", current_task: "Work locally" });
+      expect((started.details as { sync: { pull?: unknown; pull_error?: unknown } }).sync.pull).toBeUndefined();
+      expect((started.details as { sync: { pull?: unknown; pull_error?: unknown } }).sync.pull_error).toBeUndefined();
+
+      const checkpoint = await runHostHook({ storePath, hook: { ...base, event: "pre_compact", trigger: "auto", compact_summary: "Local checkpoint." }, project_id: "moryn", current_task: "Work locally" });
+      expect(checkpoint).toMatchObject({ checkpoint_sync: { requested: false, reason: "remote_unconfigured" } });
+
+      const restored = await runHostHook({ storePath, hook: { ...base, event: "post_compact" }, project_id: "moryn", current_task: "Work locally" });
+      expect((restored.details as { sync: { pull?: unknown; pull_error?: unknown } }).sync.pull).toBeUndefined();
+      expect((restored.details as { sync: { pull?: unknown; pull_error?: unknown } }).sync.pull_error).toBeUndefined();
+      expect(restored.hook_output.additional_context).toContain("Local checkpoint.");
+
+      const stopped = await runHostHook({ storePath, hook: { ...base, event: "stop", occurred_at: "2026-07-11T00:01:00.000Z" }, project_id: "moryn", current_task: "Work locally" });
+      expect(stopped).toMatchObject({ sync_cadence: { reason: "remote_unconfigured", push_requested: false } });
+      expect((stopped.details as { sync: { push?: unknown; push_error?: unknown } }).sync.push_error).toBeUndefined();
+
+      const ended = await runHostHook({ storePath, hook: { ...base, host: "claude", event: "session_end", occurred_at: "2026-07-11T00:02:00.000Z" }, project_id: "moryn", current_task: "Work locally" });
+      expect((ended.details as { sync: { push?: unknown; push_error?: unknown } }).sync.push).toBeUndefined();
+      expect((ended.details as { sync: { push?: unknown; push_error?: unknown } }).sync.push_error).toBeUndefined();
+
+      const explicitPull = await runHostHook({ storePath, hook: { ...base, event: "post_compact", occurred_at: "2026-07-11T00:03:00.000Z" }, project_id: "moryn", pull: true });
+      expect(explicitPull).toMatchObject({ details: { sync: { pull_error: expect.stringContaining("not configured") } } });
+      const explicitPush = await runHostHook({ storePath, hook: { ...base, event: "pre_compact", occurred_at: "2026-07-11T00:04:00.000Z", trigger: "manual", compact_summary: "Force sync." }, project_id: "moryn", push: true });
+      expect(explicitPush).toMatchObject({ checkpoint_sync: { requested: true, reason: "explicit_push", succeeded: false, error: expect.stringContaining("not configured") } });
+    });
+  });
+
   it("checkpoints idempotently before compact and restores after compact", async () => {
     await withInitializedTempStore(async (storePath) => {
       const preCompact = { ...base, event: "pre_compact" as const, trigger: "auto", compact_summary: "Implemented parser; next run tests." };
       const pushes: string[] = [];
-      const deps = { pushGitSync: async (_storePath: string, options: { message?: string }) => {
+      const deps = { isGitSyncConfigured: configuredSync, pushGitSync: async (_storePath: string, options: { message?: string }) => {
         pushes.push(options.message ?? "");
         return { ok: true, pushed: true, selection_sources: SYNC_RESULT_SELECTION_SOURCES };
       } };
@@ -184,7 +215,7 @@ describe("host hook runner", () => {
         hook: { ...base, event: "pre_compact", trigger: "auto", compact_summary: "Checkpoint before remote outage." },
         project_id: "moryn",
         current_task: "Preserve local checkpoint"
-      }, { pushGitSync: async () => { throw new Error("remote unavailable"); } });
+      }, { isGitSyncConfigured: configuredSync, pushGitSync: async () => { throw new Error("remote unavailable"); } });
 
       expect(result).toMatchObject({
         action: "checkpoint_before_compaction",
@@ -193,7 +224,8 @@ describe("host hook runner", () => {
       });
       expect(result.hook_output.additional_context).toContain("locally protected");
       const restored = await runHostHook({ storePath, hook: { ...base, event: "post_compact" }, project_id: "moryn", current_task: "Preserve local checkpoint" });
-      expect(restored).toMatchObject({ details: { sync: { pull_error: expect.stringContaining("not configured") } } });
+      expect((restored.details as { sync: { pull?: unknown; pull_error?: unknown } }).sync.pull).toBeUndefined();
+      expect((restored.details as { sync: { pull?: unknown; pull_error?: unknown } }).sync.pull_error).toBeUndefined();
       expect(restored.hook_output.additional_context).toContain("Checkpoint before remote outage.");
     });
   });
@@ -204,7 +236,7 @@ describe("host hook runner", () => {
         storePath,
         hook: { ...base, event: "pre_compact", trigger: "auto", compact_summary: "Checkpoint before rejected sync." },
         project_id: "moryn"
-      }, { pushGitSync: async () => ({ ok: false, message: "remote rejected update", selection_sources: SYNC_RESULT_SELECTION_SOURCES }) });
+      }, { isGitSyncConfigured: configuredSync, pushGitSync: async () => ({ ok: false, message: "remote rejected update", selection_sources: SYNC_RESULT_SELECTION_SOURCES }) });
 
       expect(result).toMatchObject({ checkpoint_sync: { requested: true, succeeded: false, error: "remote rejected update" } });
       expect(result.hook_output.additional_context).toContain("locally protected");
@@ -292,7 +324,7 @@ describe("host hook runner", () => {
       const engine = createEngine({ storePath });
       await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "session-a", device_id: "device-a" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: { session_id: "session-a", checkpoint_id: "sync-cadence", progress: ["Durable status evidence"] } });
       const pushes: string[] = [];
-      const deps = { pushGitSync: async (_storePath: string, options: { message?: string }) => {
+      const deps = { isGitSyncConfigured: configuredSync, pushGitSync: async (_storePath: string, options: { message?: string }) => {
         pushes.push(options.message ?? "");
         return { ok: true, committed: true, pushed: true, message: `commit-${pushes.length}`, selection_sources: SYNC_RESULT_SELECTION_SOURCES };
       } };
@@ -315,7 +347,7 @@ describe("host hook runner", () => {
       const engine = createEngine({ storePath });
       await engine.checkpoint({ project_id: "moryn", source: { client: "claude", session_id: "session-a", device_id: "device-a" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: { session_id: "session-a", checkpoint_id: "failed-sync-cadence", progress: ["Durable status evidence"] } });
       let attempts = 0;
-      const deps = { pushGitSync: async () => {
+      const deps = { isGitSyncConfigured: configuredSync, pushGitSync: async () => {
         attempts += 1;
         if (attempts === 1) throw new Error("remote unavailable");
         return { ok: true, pushed: true, selection_sources: SYNC_RESULT_SELECTION_SOURCES };
@@ -335,7 +367,7 @@ describe("host hook runner", () => {
       const engine = createEngine({ storePath });
       await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "session-a", device_id: "device-a" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: { session_id: "session-a", checkpoint_id: "no-push-cadence", progress: ["Durable status evidence"] } });
       let pushes = 0;
-      const deps = { pushGitSync: async () => {
+      const deps = { isGitSyncConfigured: configuredSync, pushGitSync: async () => {
         pushes += 1;
         return { ok: true, pushed: true, selection_sources: SYNC_RESULT_SELECTION_SOURCES };
       } };

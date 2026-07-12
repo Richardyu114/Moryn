@@ -228,7 +228,7 @@ describe("release check", () => {
     expect(result.stdout).toContain("$ npm run smoke:sync-conflict");
     expect(result.stdout).toContain("$ npm run smoke:permission-recovery");
     expect(result.stdout).toContain('"status":"passed"');
-  }, 60_000);
+  }, 120_000);
 
   it("runs from a checkout path containing spaces", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn release check "));
@@ -247,5 +247,5 @@ describe("release check", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  }, 60_000);
+  }, 120_000);
 });

@@ -8,7 +8,7 @@ import { toErrorEnvelope } from "../../src/core/errors.js";
 import { createEngine } from "../../src/core/engine.js";
 import { initializeStore } from "../../src/core/config.js";
 import { rebuildDerivedViews } from "../../src/core/derived.js";
-import { getGitSyncStatus, getPendingSyncEvidence, initializeGitSync, pullGitSync, pushGitSync, SYNC_RESULT_SELECTION_SOURCES as EXPORTED_SYNC_RESULT_SELECTION_SOURCES } from "../../src/sync/git.js";
+import { getGitSyncStatus, getPendingSyncEvidence, initializeGitSync, isGitSyncConfigured, pullGitSync, pushGitSync, SYNC_RESULT_SELECTION_SOURCES as EXPORTED_SYNC_RESULT_SELECTION_SOURCES } from "../../src/sync/git.js";
 
 const exec = promisify(execFile);
 const SYNC_STATUS_SELECTION_SOURCES = {
@@ -77,6 +77,20 @@ async function expectInvalidSyncArgument(
 }
 
 describe("git sync adapter", () => {
+  it("checks local sync configuration without requiring remote reachability", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-configured-"));
+    const store = join(root, "store");
+    try {
+      await initializeStore(store, { id: () => "device-a" });
+      expect(await isGitSyncConfigured(store)).toBe(false);
+      await exec("git", ["init"], { cwd: store });
+      expect(await isGitSyncConfigured(store)).toBe(false);
+      await exec("git", ["remote", "add", "origin", "ssh://unreachable.invalid/moryn.git"], { cwd: store });
+      expect(await isGitSyncConfigured(store)).toBe(true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
   it("exports stable sync result selection source paths", () => {
     expect(EXPORTED_SYNC_RESULT_SELECTION_SOURCES).toEqual(SYNC_RESULT_SELECTION_SOURCES);
   });

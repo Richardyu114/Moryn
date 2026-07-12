@@ -10,7 +10,7 @@ import { buildHostIntegrationArtifact } from "./host-integration-artifacts.js";
 import { synthesizeSession, type SessionSynthesis } from "./session-synthesis.js";
 import { buildPromptRecallContext } from "./host-prompt-recall.js";
 import { evaluateTurnSyncCadence, recordTurnSyncSuccess, type TurnSyncCadenceDecision } from "./turn-sync-cadence.js";
-import { pushGitSync, type GitSyncResult } from "../sync/git.js";
+import { isGitSyncConfigured, pushGitSync, type GitSyncResult } from "../sync/git.js";
 
 export interface RunHostHookInput {
   storePath: string;
@@ -29,11 +29,12 @@ export interface RunHostHookInput {
 
 export interface RunHostHookDeps {
   pushGitSync?: typeof pushGitSync;
+  isGitSyncConfigured?: typeof isGitSyncConfigured;
 }
 
 export type HostHookSyncCadence = {
   due: boolean;
-  reason: TurnSyncCadenceDecision["reason"] | "explicit_push" | "explicit_no_push" | "manual_mode";
+  reason: TurnSyncCadenceDecision["reason"] | "explicit_push" | "explicit_no_push" | "manual_mode" | "remote_unconfigured";
   interval_minutes: 15;
   last_success_at?: string;
   push_requested: boolean;
@@ -42,7 +43,7 @@ export type HostHookSyncCadence = {
 
 export type HostHookCheckpointSync = {
   requested: boolean;
-  reason: "explicit_push" | "explicit_no_push" | "manual_mode" | "new_checkpoint" | "idempotent_replay";
+  reason: "explicit_push" | "explicit_no_push" | "manual_mode" | "remote_unconfigured" | "new_checkpoint" | "idempotent_replay";
   succeeded?: boolean;
   push?: GitSyncResult;
   error?: string;
@@ -99,6 +100,8 @@ async function sessionSynthesis(input: RunHostHookInput, projectId: string): Pro
 
 export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps = {}): Promise<HostHookRunResult> {
   const project = await resolveProjectContext({ projectId: input.project_id, projectPath: input.project_path ?? input.hook.cwd });
+  let syncConfigured: boolean | undefined;
+  const hasConfiguredSync = async () => syncConfigured ??= await (deps.isGitSyncConfigured ?? isGitSyncConfigured)(input.storePath);
   const capabilities = getHostCapabilities(input.hook.host);
   const native = capabilities.events[input.hook.event];
   const degradation = native
@@ -154,7 +157,12 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
     };
   }
   if (input.hook.event === "session_start" || input.hook.event === "post_compact") {
-    const result = await agentStart({ ...common, pull: input.pull });
+    const pull = input.pull !== undefined
+      ? input.pull
+      : project.config?.sync.mode === "manual"
+        ? false
+        : await hasConfiguredSync();
+    const result = await agentStart({ ...common, pull });
     return {
       ok: true as const,
       event: input.hook.event,
@@ -189,6 +197,8 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       checkpointSync = { requested: false, reason: "explicit_no_push" };
     } else if (project.config?.sync.mode === "manual") {
       checkpointSync = { requested: false, reason: "manual_mode" };
+    } else if (!await hasConfiguredSync()) {
+      checkpointSync = { requested: false, reason: "remote_unconfigured" };
     } else if (checkpoint.idempotent_replay) {
       checkpointSync = { requested: false, reason: "idempotent_replay" };
     } else {
@@ -211,7 +221,12 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
   }
   if (input.hook.event === "session_end") {
     const synthesis = await sessionSynthesis(input, project.project_id);
-    const result = await agentFinish({ ...common, summary: synthesis.summary, synthesis, push: input.push, learnings: input.learnings, semanticConsolidationProposals: input.semantic_consolidation_proposals });
+    const push = input.push !== undefined
+      ? input.push
+      : project.config?.sync.mode === "manual"
+        ? false
+        : await hasConfiguredSync();
+    const result = await agentFinish({ ...common, summary: synthesis.summary, synthesis, push, learnings: input.learnings, semanticConsolidationProposals: input.semantic_consolidation_proposals });
     return { ok: true, event: input.hook.event, action: "agent_finish", degradation, details: result, hook_output: { additional_context: `Moryn handoff saved: ${result.record.id}` }, ...activationEvidence };
   }
   const synthesis = await sessionSynthesis(input, project.project_id);
@@ -242,6 +257,9 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       syncCadence = { due: false, reason: "explicit_no_push", interval_minutes: 15, push_requested: false };
     } else if (project.config?.sync.mode === "manual") {
       syncCadence = { due: false, reason: "manual_mode", interval_minutes: 15, push_requested: false };
+      push = false;
+    } else if (!await hasConfiguredSync()) {
+      syncCadence = { due: false, reason: "remote_unconfigured", interval_minutes: 15, push_requested: false };
       push = false;
     } else {
       const decision = await evaluateTurnSyncCadence(input.storePath, identity);

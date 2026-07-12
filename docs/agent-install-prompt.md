@@ -84,6 +84,9 @@ During agent work:
 - On `PostCompact`, use the normal safe startup pull policy before restoring
   context. If pull fails, continue from the locally available checkpoint and
   expose the sync degradation rather than blocking the agent.
+- If no sync remote is configured, keep automatic host hooks quietly local-only
+  instead of repeatedly reporting sync errors. Do not invent a remote. Explicit
+  sync requests should still return the normal setup diagnostic.
 - End with `moryn agent finish` and a concise handoff summary.
 - Use `moryn dashboard --serve --host 127.0.0.1 --port 8765` when a human needs
   live browser monitoring of sync state, records, recent events, or agent
