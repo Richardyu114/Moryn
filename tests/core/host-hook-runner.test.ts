@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { runHostHook } from "../../src/core/host-hook-runner.js";
 import { createEngine } from "../../src/core/engine.js";
 import { learningRecordIdentity } from "../../src/core/learning-ingestion.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 import { SYNC_RESULT_SELECTION_SOURCES } from "../../src/sync/git.js";
+import { initializeProjectConfig } from "../../src/core/project.js";
 
 const base = {
   host: "codex" as const,
@@ -157,14 +161,92 @@ describe("host hook runner", () => {
   it("checkpoints idempotently before compact and restores after compact", async () => {
     await withInitializedTempStore(async (storePath) => {
       const preCompact = { ...base, event: "pre_compact" as const, trigger: "auto", compact_summary: "Implemented parser; next run tests." };
-      const first = await runHostHook({ storePath, hook: preCompact, project_id: "moryn", current_task: "Implement hooks", pull: false });
-      const replay = await runHostHook({ storePath, hook: preCompact, project_id: "moryn", current_task: "Implement hooks", pull: false });
+      const pushes: string[] = [];
+      const deps = { pushGitSync: async (_storePath: string, options: { message?: string }) => {
+        pushes.push(options.message ?? "");
+        return { ok: true, pushed: true, selection_sources: SYNC_RESULT_SELECTION_SOURCES };
+      } };
+      const first = await runHostHook({ storePath, hook: preCompact, project_id: "moryn", current_task: "Implement hooks", pull: false }, deps);
+      const replay = await runHostHook({ storePath, hook: preCompact, project_id: "moryn", current_task: "Implement hooks", pull: false }, deps);
       const restored = await runHostHook({ storePath, hook: { ...base, event: "post_compact" }, project_id: "moryn", current_task: "Implement hooks", pull: false });
-      expect(first).toMatchObject({ action: "checkpoint_before_compaction", checkpoint: { idempotent_replay: false } });
-      expect(replay).toMatchObject({ checkpoint: { idempotent_replay: true } });
+      expect(first).toMatchObject({ action: "checkpoint_before_compaction", checkpoint: { idempotent_replay: false }, checkpoint_sync: { requested: true, reason: "new_checkpoint", succeeded: true } });
+      expect(replay).toMatchObject({ checkpoint: { idempotent_replay: true }, checkpoint_sync: { requested: false, reason: "idempotent_replay" } });
       expect(restored).toMatchObject({ action: "resume_from_checkpoint" });
       expect(restored.hook_output.additional_context).toContain("Implemented parser; next run tests.");
+      expect(pushes).toHaveLength(1);
     });
+  });
+
+  it("keeps a failed pre-compact push non-blocking and locally durable", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const result = await runHostHook({
+        storePath,
+        hook: { ...base, event: "pre_compact", trigger: "auto", compact_summary: "Checkpoint before remote outage." },
+        project_id: "moryn",
+        current_task: "Preserve local checkpoint"
+      }, { pushGitSync: async () => { throw new Error("remote unavailable"); } });
+
+      expect(result).toMatchObject({
+        action: "checkpoint_before_compaction",
+        checkpoint: { idempotent_replay: false },
+        checkpoint_sync: { requested: true, reason: "new_checkpoint", succeeded: false, error: "remote unavailable" }
+      });
+      expect(result.hook_output.additional_context).toContain("locally protected");
+      const restored = await runHostHook({ storePath, hook: { ...base, event: "post_compact" }, project_id: "moryn", current_task: "Preserve local checkpoint", pull: false });
+      expect(restored.hook_output.additional_context).toContain("Checkpoint before remote outage.");
+    });
+  });
+
+  it("reports a non-throwing pre-compact sync failure", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const result = await runHostHook({
+        storePath,
+        hook: { ...base, event: "pre_compact", trigger: "auto", compact_summary: "Checkpoint before rejected sync." },
+        project_id: "moryn"
+      }, { pushGitSync: async () => ({ ok: false, message: "remote rejected update", selection_sources: SYNC_RESULT_SELECTION_SOURCES }) });
+
+      expect(result).toMatchObject({ checkpoint_sync: { requested: true, succeeded: false, error: "remote rejected update" } });
+      expect(result.hook_output.additional_context).toContain("locally protected");
+    });
+  });
+
+  it("honors explicit pre-compact push overrides", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let pushes = 0;
+      const deps = { pushGitSync: async () => {
+        pushes += 1;
+        return { ok: true, pushed: true, selection_sources: SYNC_RESULT_SELECTION_SOURCES };
+      } };
+      const localOnly = await runHostHook({ storePath, hook: { ...base, event: "pre_compact", trigger: "manual", compact_summary: "Local only." }, project_id: "moryn", push: false }, deps);
+      const forcedReplay = await runHostHook({ storePath, hook: { ...base, event: "pre_compact", trigger: "manual", compact_summary: "Local only." }, project_id: "moryn", push: true }, deps);
+
+      expect(localOnly).toMatchObject({ checkpoint_sync: { requested: false, reason: "explicit_no_push" } });
+      expect(forcedReplay).toMatchObject({ checkpoint: { idempotent_replay: true }, checkpoint_sync: { requested: true, reason: "explicit_push", succeeded: true } });
+      expect(pushes).toBe(1);
+    });
+  });
+
+  it("keeps pre-compact checkpoints local in manual sync mode", async () => {
+    const projectPath = await mkdtemp(join(tmpdir(), "moryn-manual-precompact-"));
+    try {
+      await initializeProjectConfig(projectPath, { project_id: "moryn", sync: { mode: "manual" } });
+      await withInitializedTempStore(async (storePath) => {
+        let pushes = 0;
+        const result = await runHostHook({
+          storePath,
+          project_path: projectPath,
+          hook: { ...base, cwd: projectPath, event: "pre_compact", trigger: "auto", compact_summary: "Manual mode checkpoint." }
+        }, { pushGitSync: async () => {
+          pushes += 1;
+          return { ok: true, pushed: true, selection_sources: SYNC_RESULT_SELECTION_SOURCES };
+        } });
+
+        expect(result).toMatchObject({ checkpoint: { idempotent_replay: false }, checkpoint_sync: { requested: false, reason: "manual_mode" } });
+        expect(pushes).toBe(0);
+      });
+    } finally {
+      await rm(projectPath, { recursive: true, force: true });
+    }
   });
 
   it("consolidates authored pre-compact learnings without mutating post-compact restore", async () => {

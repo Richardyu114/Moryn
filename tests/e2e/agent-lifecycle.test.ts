@@ -3144,8 +3144,10 @@ describe("agent lifecycle", () => {
       const codexBase = { host: "codex" as const, session_id: "codex-compact", device_id: "device-codex", cwd: project, occurred_at: "2026-07-11T00:00:00.000Z" };
       await runHostHook({ storePath: codexStore, project_path: project, current_task: "Implement host hooks", pull: true, hook: { ...codexBase, event: "session_start", trigger: "startup" } });
       const checkpoint = await runHostHook({ storePath: codexStore, project_path: project, current_task: "Implement host hooks", knowledge_investigations: [{ resolution_id: "hook-rollback", question: "What is rollback policy?", recall_status: "knowledge_gap", recalled_record_ids: [], evidence: [], status: "unresolved", next_step: "Run rollback integration test" }], hook: { ...codexBase, event: "pre_compact", trigger: "auto", compact_summary: "Hook runner implemented; next verify Claude restore." } });
-      expect(checkpoint).toMatchObject({ action: "checkpoint_before_compaction", checkpoint: { idempotent_replay: false } });
-      expect((await pushGitSync(codexStore, { message: "codex precompact" })).pushed).toBe(true);
+      expect(checkpoint).toMatchObject({ action: "checkpoint_before_compaction", checkpoint: { idempotent_replay: false }, checkpoint_sync: { requested: true, reason: "new_checkpoint", succeeded: true, push: { pushed: true } } });
+
+      const replay = await runHostHook({ storePath: codexStore, project_path: project, current_task: "Implement host hooks", knowledge_investigations: [{ resolution_id: "hook-rollback", question: "What is rollback policy?", recall_status: "knowledge_gap", recalled_record_ids: [], evidence: [], status: "unresolved", next_step: "Run rollback integration test" }], hook: { ...codexBase, event: "pre_compact", trigger: "auto", compact_summary: "Hook runner implemented; next verify Claude restore." } });
+      expect(replay).toMatchObject({ checkpoint: { idempotent_replay: true }, checkpoint_sync: { requested: false, reason: "idempotent_replay" } });
 
       const claudeRestore = await runHostHook({
         storePath: claudeStore,

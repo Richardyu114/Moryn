@@ -10,7 +10,7 @@ import { buildHostIntegrationArtifact } from "./host-integration-artifacts.js";
 import { synthesizeSession, type SessionSynthesis } from "./session-synthesis.js";
 import { buildPromptRecallContext } from "./host-prompt-recall.js";
 import { evaluateTurnSyncCadence, recordTurnSyncSuccess, type TurnSyncCadenceDecision } from "./turn-sync-cadence.js";
-import type { pushGitSync } from "../sync/git.js";
+import { pushGitSync, type GitSyncResult } from "../sync/git.js";
 
 export interface RunHostHookInput {
   storePath: string;
@@ -40,6 +40,14 @@ export type HostHookSyncCadence = {
   push_succeeded?: boolean;
 };
 
+export type HostHookCheckpointSync = {
+  requested: boolean;
+  reason: "explicit_push" | "explicit_no_push" | "manual_mode" | "new_checkpoint" | "idempotent_replay";
+  succeeded?: boolean;
+  push?: GitSyncResult;
+  error?: string;
+};
+
 export interface HostHookRunResult {
   ok: true;
   event: NormalizedHostHookEvent["event"];
@@ -47,6 +55,7 @@ export interface HostHookRunResult {
   degradation: { mode: "native" } | { mode: "fallback"; reason: "host_hook_unavailable" };
   hook_output: { additional_context: string };
   checkpoint?: { idempotent_replay: boolean; record: { id: string } };
+  checkpoint_sync?: HostHookCheckpointSync;
   activation_receipt?: Awaited<ReturnType<typeof recordActivationReceipt>>;
   activation_warning?: { code: "ACTIVATION_RECEIPT_FAILED"; reason: string };
   skipped?: { reason: "no_durable_session_evidence" };
@@ -173,7 +182,32 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
         semantic_consolidation_proposals: input.semantic_consolidation_proposals ?? []
       }
     });
-    return { ok: true, event: input.hook.event, action: "checkpoint_before_compaction", degradation, checkpoint, hook_output: { additional_context: `Moryn checkpoint saved: ${checkpoint.record.id}` }, ...activationEvidence };
+    let checkpointSync: HostHookCheckpointSync;
+    if (input.push === true) {
+      checkpointSync = { requested: true, reason: "explicit_push" };
+    } else if (input.push === false) {
+      checkpointSync = { requested: false, reason: "explicit_no_push" };
+    } else if (project.config?.sync.mode === "manual") {
+      checkpointSync = { requested: false, reason: "manual_mode" };
+    } else if (checkpoint.idempotent_replay) {
+      checkpointSync = { requested: false, reason: "idempotent_replay" };
+    } else {
+      checkpointSync = { requested: true, reason: "new_checkpoint" };
+    }
+    if (checkpointSync.requested) {
+      try {
+        checkpointSync.push = await (deps.pushGitSync ?? pushGitSync)(input.storePath, { message: `precompact checkpoint: ${project.project_id}` });
+        checkpointSync.succeeded = checkpointSync.push.ok;
+        if (!checkpointSync.succeeded) checkpointSync.error = checkpointSync.push.message ?? "remote synchronization failed";
+      } catch (error) {
+        checkpointSync.succeeded = false;
+        checkpointSync.error = error instanceof Error ? error.message : String(error);
+      }
+    }
+    const additionalContext = checkpointSync.succeeded === false
+      ? `Moryn checkpoint saved and locally protected: ${checkpoint.record.id}. Remote synchronization is pending.`
+      : `Moryn checkpoint saved: ${checkpoint.record.id}`;
+    return { ok: true, event: input.hook.event, action: "checkpoint_before_compaction", degradation, checkpoint, checkpoint_sync: checkpointSync, hook_output: { additional_context: additionalContext }, ...activationEvidence };
   }
   if (input.hook.event === "session_end") {
     const synthesis = await sessionSynthesis(input, project.project_id);

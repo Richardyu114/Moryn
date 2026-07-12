@@ -670,10 +670,16 @@ moryn agent checkpoint \
   --next-step "Resume after compaction"
 ```
 
-The write is local-first and does not push the sync remote. A repeated hook must
-reuse the same project, source identity, `occurred_at`, checkpoint id, tags, and
-semantic delta. Identical retries return the existing checkpoint; reusing the
-same idempotency key with different authored content returns a collision error.
+The direct command is local-first and does not implicitly push the sync remote.
+Official host `PreCompact` hooks also write locally first, then automatically
+push a newly created checkpoint when project sync mode is `session` or
+`interval`. Manual mode and an explicit no-push override remain local-only. A
+repeated hook reuses the same project, source identity, `occurred_at`, checkpoint
+id, tags, and semantic delta; identical retries return the existing checkpoint
+without another automatic push. Reusing the same idempotency key with different
+authored content returns a collision error. Remote failure never blocks
+compaction: the checkpoint stays locally protected and the hook result marks
+remote synchronization as pending.
 
 `committed: true` means the event was atomically published. `durability` reports
 `confirmed`, `best_effort`, or `failed` separately from derived-view refresh
