@@ -50,10 +50,17 @@ export type HostHookCheckpointSync = {
   error?: string;
 };
 
+export type HostHookDuplicateHandoffSync = {
+  requested: boolean;
+  succeeded?: boolean;
+  push?: GitSyncResult;
+  error?: string;
+};
+
 export interface HostHookRunResult {
   ok: true;
   event: NormalizedHostHookEvent["event"];
-  action: "agent_start" | "recall_prompt" | "checkpoint_before_compaction" | "resume_from_checkpoint" | "agent_status" | "agent_finish" | "skip_empty_status" | "skip_duplicate_status";
+  action: "agent_start" | "recall_prompt" | "checkpoint_before_compaction" | "resume_from_checkpoint" | "agent_status" | "agent_finish" | "skip_empty_status" | "skip_duplicate_status" | "skip_duplicate_handoff";
   degradation: { mode: "native" } | { mode: "fallback"; reason: "host_hook_unavailable" };
   hook_output: { additional_context: string };
   checkpoint?: { idempotent_replay: boolean; record: { id: string } };
@@ -62,6 +69,8 @@ export interface HostHookRunResult {
   activation_warning?: { code: "ACTIVATION_RECEIPT_FAILED"; reason: string };
   skipped?: { reason: "no_durable_session_evidence" };
   duplicate_status?: { prior_record_id: string };
+  duplicate_handoff?: { prior_record_id: string };
+  duplicate_handoff_sync?: HostHookDuplicateHandoffSync;
   details?: unknown;
   prompt_recall?: {
     outcome: { status: "trusted_match" | "verification_required" | "knowledge_gap"; best_record_id?: string };
@@ -75,6 +84,7 @@ function synthesisFingerprint(synthesis: SessionSynthesis): string {
   return JSON.stringify({
     version: synthesis.version,
     mode: synthesis.mode,
+    summary: synthesis.summary,
     current_task: synthesis.current_task,
     progress: synthesis.progress,
     decisions: synthesis.decisions,
@@ -91,6 +101,7 @@ function recordSynthesisFingerprint(content: Record<string, unknown>): string | 
   return JSON.stringify({
     version: content.synthesis_version,
     mode: content.synthesis_mode,
+    summary: content.text,
     current_task: content.synthesis_current_task,
     progress: content.synthesis_progress,
     decisions: content.synthesis_decisions,
@@ -259,7 +270,40 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       : project.config?.sync.mode === "manual"
         ? false
         : await hasConfiguredSync();
-    const result = await agentFinish({ ...common, summary: synthesis.summary, synthesis, push, learnings: input.learnings, semanticConsolidationProposals: input.semantic_consolidation_proposals });
+    const current = await readCurrentRecords(input.storePath);
+    const priorSummary = current.records
+      .filter((record) =>
+        record.project_id === project.project_id
+        && record.type === "summary"
+        && record.source.client === input.hook.host
+        && record.source.session_id === input.hook.session_id
+        && record.source.device_id === input.hook.device_id
+      )
+      .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id))[0];
+    if (priorSummary && recordSynthesisFingerprint(priorSummary.content) === synthesisFingerprint(synthesis)) {
+      const duplicateSync: HostHookDuplicateHandoffSync = { requested: input.push === true };
+      if (duplicateSync.requested) {
+        try {
+          duplicateSync.push = await (deps.pushGitSync ?? pushGitSync)(input.storePath, { message: `agent finish: ${project.project_id}` });
+          duplicateSync.succeeded = duplicateSync.push.ok;
+          if (!duplicateSync.succeeded) duplicateSync.error = duplicateSync.push.message ?? "remote synchronization failed";
+        } catch (error) {
+          duplicateSync.succeeded = false;
+          duplicateSync.error = error instanceof Error ? error.message : String(error);
+        }
+      }
+      return {
+        ok: true,
+        event: input.hook.event,
+        action: "skip_duplicate_handoff",
+        degradation,
+        duplicate_handoff: { prior_record_id: priorSummary.id },
+        duplicate_handoff_sync: duplicateSync,
+        hook_output: { additional_context: `Moryn reused unchanged handoff: ${priorSummary.id}` },
+        ...activationEvidence
+      };
+    }
+    const result = await agentFinish({ ...common, summary: synthesis.summary, synthesis, push, learnings: input.learnings, semanticConsolidationProposals: input.semantic_consolidation_proposals }, { pushGitSync: deps.pushGitSync });
     return { ok: true, event: input.hook.event, action: "agent_finish", degradation, details: result, hook_output: { additional_context: `Moryn handoff saved: ${result.record.id}` }, ...activationEvidence };
   }
   const synthesis = await sessionSynthesis(input, project.project_id);

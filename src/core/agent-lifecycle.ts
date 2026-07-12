@@ -2948,7 +2948,7 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
   } = {};
 
   if (shouldPush) {
-    const pushed = await trySync(() => pushGitSync(input.storePath, { message: `agent finish: ${project.project_id}` }));
+    const pushed = await trySync(() => (deps.pushGitSync ?? pushGitSync)(input.storePath, { message: `agent finish: ${project.project_id}` }));
     if (pushed.ok) {
       sync.push = pushed.result;
     } else {

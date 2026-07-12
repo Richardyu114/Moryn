@@ -319,6 +319,39 @@ describe("host hook runner", () => {
     });
   });
 
+  it("keeps distinct host-authored Stop summaries", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const first = await runHostHook({ storePath, hook: { ...base, event: "stop", occurred_at: "2026-07-11T00:01:00.000Z", compact_summary: "Implemented parser." }, project_id: "moryn", push: false });
+      const second = await runHostHook({ storePath, hook: { ...base, event: "stop", occurred_at: "2026-07-11T00:02:00.000Z", compact_summary: "Parser tests pass." }, project_id: "moryn", push: false });
+
+      expect(first).toMatchObject({ action: "agent_status" });
+      expect(second).toMatchObject({ action: "agent_status" });
+      const engine = createEngine({ storePath });
+      expect((await engine.listRecent({ project_id: "moryn", limit: 20 })).records.filter((record) => record.type === "status")).toHaveLength(2);
+    });
+  });
+
+  it("coalesces repeated SessionEnd handoffs while preserving explicit push", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const pushes: string[] = [];
+      const deps = { isGitSyncConfigured: configuredSync, pushGitSync: async (_storePath: string, options: { message?: string }) => {
+        pushes.push(options.message ?? "");
+        return { ok: true, pushed: true, selection_sources: SYNC_RESULT_SELECTION_SOURCES };
+      } };
+      const hook = { ...base, host: "claude" as const, event: "session_end" as const, occurred_at: "2026-07-11T00:10:00.000Z", compact_summary: "Final handoff." };
+      const first = await runHostHook({ storePath, hook, project_id: "moryn" }, deps);
+      const replay = await runHostHook({ storePath, hook, project_id: "moryn" }, deps);
+      const forced = await runHostHook({ storePath, hook, project_id: "moryn", push: true }, deps);
+
+      expect(first).toMatchObject({ action: "agent_finish" });
+      expect(replay).toMatchObject({ action: "skip_duplicate_handoff", duplicate_handoff: { prior_record_id: first.details.record.id } });
+      expect(forced).toMatchObject({ action: "skip_duplicate_handoff", duplicate_handoff: { prior_record_id: first.details.record.id }, duplicate_handoff_sync: { requested: true, succeeded: true } });
+      expect(pushes).toHaveLength(2);
+      const engine = createEngine({ storePath });
+      expect((await engine.listRecent({ project_id: "moryn", limit: 20 })).records.filter((record) => record.type === "summary")).toHaveLength(1);
+    });
+  });
+
   it("throttles automatic turn pushes while explicit push overrides cadence", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createEngine({ storePath });

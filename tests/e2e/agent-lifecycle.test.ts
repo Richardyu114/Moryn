@@ -3174,9 +3174,12 @@ describe("agent lifecycle", () => {
         push: false,
         hook: { host: "claude", event: "session_end", session_id: "codex-compact", device_id: "device-claude", cwd: project, occurred_at: "2026-07-11T00:10:00.000Z" }
       });
-      expect(replayedEnd).toMatchObject({ details: { record: { content: { text: (claudeEnd.details as { record: { content: { text: string } } }).record.content.text } } } });
+      expect(replayedEnd).toMatchObject({ action: "skip_duplicate_handoff", duplicate_handoff: { prior_record_id: (claudeEnd.details as { record: { id: string } }).record.id } });
+      expect((await readEvents(claudeStore)).filter((event) => event.record?.type === "summary")).toHaveLength(1);
 
       expect((await pullGitSync(codexStore)).pulled).toBe(true);
+      const codexStart = await agentStart({ storePath: codexStore, projectPath: project, currentTask: "Review Claude handoff", agent: { client: "codex", session_id: "codex-next", device_id: "device-codex" }, pull: false });
+      expect(codexStart.handoff.inbox.filter((entry) => entry.type === "summary")).toHaveLength(1);
       const codexEngine = createEngine({ storePath: codexStore });
       const handoff = await codexEngine.recall({ project_id: "moryn", query: "Hook runner implemented verify Claude restore rollback integration test" });
       expect(handoff.results.some((result) => result.record.content.synthesis_mode === "evidence_synthesized" && result.record.content.text.includes("Hook runner implemented; next verify Claude restore.") && result.record.content.text.includes("Run rollback integration test"))).toBe(true);

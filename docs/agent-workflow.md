@@ -115,6 +115,13 @@ changed task, checkpoint evidence, decision, blocker, learning, or next step
 creates a new status. Remote sync cadence remains independent, so an unchanged
 Stop can still perform a due push without growing append-only history.
 
+Official `SessionEnd` delivery is idempotent at the logical handoff layer. If
+the latest final summary for the same project, host, session, and device has the
+same complete synthesis fingerprint, Moryn reuses it instead of appending a
+second inbox item. The fingerprint includes host-authored summary text, so a
+changed final summary remains a new handoff. Explicit push can still synchronize
+an unchanged replay without creating another summary event.
+
 ## Startup
 
 Use `agent enter` as the default entrypoint:
