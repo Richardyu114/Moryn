@@ -506,6 +506,7 @@ npm run release:check
 npm run smoke:dogfood-demo
 npm run smoke:agent-lifecycle
 npm run smoke:upgrade-compat
+npm run smoke:sync-resilience
 ```
 
 `npm run smoke:dogfood-demo` runs the v0.2 default path end to end on a
@@ -517,6 +518,11 @@ current initialization helpers, then proves the current CLI can open it in
 place, preserve its original event bytes, repair new derived read indexes
 automatically, and continue the Codex-to-Claude learning lifecycle without a
 migration wizard.
+
+`npm run smoke:sync-resilience` proves a temporary remote outage does not lose
+the final handoff: the finish stays committed locally, and the next lifecycle
+entry publishes it automatically once the remote returns so another device can
+pull and recall it.
 
 The release check builds, typechecks, tests, checks packed-package contents, and
 optionally validates a private Git remote:

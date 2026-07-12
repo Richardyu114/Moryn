@@ -562,6 +562,19 @@ and make a newly learned project fact available to a later Claude Code boot
 pack. Legacy low-trust provenance remains subject to the current verification
 boundary rather than becoming trusted merely because it predates v0.3.
 
+Validate temporary remote failure recovery:
+
+```bash
+npm run smoke:sync-resilience
+```
+
+The smoke removes a configured local bare remote before `agent finish`, proves
+the handoff remains committed and searchable in the local store, restores the
+same remote, and requires the next `agent enter` to push the pending continuity
+event before another device pulls it. Connectivity recovery is autonomous; a
+real conflict or missing credentials still requires the documented exceptional
+user action.
+
 After building, force the built CLI:
 
 ```bash
@@ -574,6 +587,7 @@ Installed packages expose the direct bin:
 ```bash
 moryn-agent-smoke
 moryn-upgrade-smoke
+moryn-resilience-smoke
 ```
 
 Package smoke also installs the packed artifact with `--omit=dev` and runs the

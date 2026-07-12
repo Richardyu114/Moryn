@@ -15,7 +15,8 @@
     "moryn": "dist/cli.js",
     "moryn-agent-smoke": "scripts/agent-lifecycle-smoke.js",
     "moryn-dogfood-demo": "scripts/dogfood-demo-smoke.js",
-    "moryn-upgrade-smoke": "scripts/upgrade-compat-smoke.js"
+    "moryn-upgrade-smoke": "scripts/upgrade-compat-smoke.js",
+    "moryn-resilience-smoke": "scripts/sync-resilience-smoke.js"
   },
   "keywords": [
     "agent",
@@ -39,7 +40,8 @@
     "assets",
     "scripts/agent-lifecycle-smoke.js",
     "scripts/dogfood-demo-smoke.js",
-    "scripts/upgrade-compat-smoke.js"
+    "scripts/upgrade-compat-smoke.js",
+    "scripts/sync-resilience-smoke.js"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -48,6 +50,7 @@
     "smoke:agent-lifecycle": "node scripts/agent-lifecycle-smoke.js",
     "smoke:dogfood-demo": "node scripts/dogfood-demo-smoke.js",
     "smoke:upgrade-compat": "node scripts/upgrade-compat-smoke.js",
+    "smoke:sync-resilience": "node scripts/sync-resilience-smoke.js",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
