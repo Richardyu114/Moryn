@@ -16,8 +16,9 @@ describe("agent lifecycle smoke script", () => {
 
     expect(result.stdout).toContain("agent lifecycle smoke passed");
     expect(result.stdout).toContain("Codex smoke status reached Gemini");
-    expect(result.stdout).toContain("Task: verify checkpoint lifecycle smoke");
-    expect(result.stdout).toContain("Next: Run the rollback integration smoke");
+    expect(result.stdout).toContain("Task: verify repeated checkpoint lifecycle smoke");
+    expect(result.stdout).toContain("Progress: Checkpoint smoke persisted with semantic consolidation.; Second checkpoint advanced rollback verification.");
+    expect(result.stdout).toContain("Next: Verify rollback behavior in the release candidate");
     expect(result.stdout).toContain('"checkpoint_record_id":"rec_checkpoint_');
     expect(result.stdout).toContain('"checkpoint_idempotent_replay":true');
     expect(result.stdout).toContain('"semantic_links_created":1');
@@ -40,9 +41,14 @@ describe("agent lifecycle smoke script", () => {
       checkpoint_compaction_recovery?: {
         checkpoint_created: boolean;
         idempotent_replay: boolean;
+        second_checkpoint_created: boolean;
+        second_checkpoint_pushed: boolean;
         recovery_pack_available: boolean;
         resume_action_ready: boolean;
         claude_checkpoint_restored: boolean;
+        claude_checkpoint_count: number;
+        claude_latest_checkpoint_restored: boolean;
+        claude_latest_investigation_restored: boolean;
       };
       semantic_consolidation?: {
         proposals_accepted: number;
@@ -85,9 +91,14 @@ describe("agent lifecycle smoke script", () => {
     expect(evidence.checkpoint_compaction_recovery).toEqual({
       checkpoint_created: true,
       idempotent_replay: true,
+      second_checkpoint_created: true,
+      second_checkpoint_pushed: true,
       recovery_pack_available: true,
       resume_action_ready: true,
-      claude_checkpoint_restored: true
+      claude_checkpoint_restored: true,
+      claude_checkpoint_count: 2,
+      claude_latest_checkpoint_restored: true,
+      claude_latest_investigation_restored: true
     });
     expect(evidence.semantic_consolidation).toEqual({
       proposals_accepted: 1,

@@ -194,6 +194,7 @@ async function main() {
     const semanticProposal = { proposal_id: "smoke-semantic", source_record_id: learningRecordId("moryn-smoke", semanticLearning), target_record_id: target.record.id, relationship: "duplicate_of", confidence: 0.99, rationale: "Equivalent enter behavior.", semantic_equivalence: "equivalent", material_differences: [], evidence_record_ids: [] };
     const protectedProposal = { proposal_id: "smoke-protected", source_record_id: learningRecordId("moryn-smoke", protectedLearning), target_record_id: protectedTarget.record.id, relationship: "duplicate_of", confidence: 0.99, rationale: "Protected retry difference.", semantic_equivalence: "equivalent", material_differences: [{ field: "retry count", before: "3", after: "4", significance: "minor" }], evidence_record_ids: [] };
     const unresolvedInvestigation = { resolution_id: "smoke-release-policy", question: "What is the release rollback policy?", recall_status: "knowledge_gap", recalled_record_ids: [], evidence: [{ type: "source_code", reference: "src/release.ts", summary: "Signed tag validation exists" }], status: "unresolved", next_step: "Run the rollback integration smoke" };
+    const advancedInvestigation = { ...unresolvedInvestigation, evidence: [...unresolvedInvestigation.evidence, { type: "source_code", reference: "tests/release.ts", summary: "Rollback fixture is ready" }], next_step: "Verify rollback behavior in the release candidate" };
     const preCompactPayload = JSON.stringify({ hook_event_name: "PreCompact", session_id: "codex-smoke", cwd: project, trigger: "auto", compact_summary: "Checkpoint smoke persisted with semantic consolidation." });
     const checkpointArgs = [
       ...argsPrefix,
@@ -265,6 +266,29 @@ async function main() {
     const recoveryRecall = await runJson(command, [...argsPrefix, "--store", storeCodex, "recall", "--project", "moryn-smoke", "--record-id", checkpoint.checkpoint.record.id, "--include-private"]);
     const checkpointRecordsAfterRecovery = recoveryRecall.results?.filter((entry) => entry.record?.id === checkpoint.checkpoint.record.id).length ?? 0;
     if (checkpointRecordsAfterRecovery !== 1) throw new Error("Abnormal-exit recovery duplicated or lost the checkpoint record");
+    const secondCheckpoint = await runJson(command, [
+      ...argsPrefix,
+      "--store",
+      storeCodex,
+      "host",
+      "hook",
+      "--host",
+      "codex",
+      "--project",
+      project,
+      "--device-id",
+      "device-codex-smoke",
+      "--occurred-at",
+      "2026-07-11T10:33:00.000Z",
+      "--current-task",
+      "verify repeated checkpoint lifecycle smoke",
+      "--input-json",
+      JSON.stringify({ hook_event_name: "PreCompact", session_id: "codex-smoke", cwd: project, trigger: "auto", compact_summary: "Second checkpoint advanced rollback verification." }),
+      "--knowledge-investigation",
+      JSON.stringify(advancedInvestigation)
+    ]);
+    if (secondCheckpoint.checkpoint?.idempotent_replay !== false) throw new Error("Second PreCompact did not create a distinct checkpoint");
+    if (secondCheckpoint.checkpoint_sync?.succeeded !== true) throw new Error("Second PreCompact did not push the latest checkpoint");
     await runJson(command, [...argsPrefix, "--store", storeClaude, "init"]);
     await runJson(command, [...argsPrefix, "--store", storeClaude, "sync", "init", remote]);
     const claudeRestore = await runJson(command, [
@@ -289,8 +313,11 @@ async function main() {
       JSON.stringify({ hook_event_name: "PostCompact", session_id: "codex-smoke", cwd: project })
     ]);
     if (!claudeRestore.hook_output?.additional_context?.includes("Checkpoint smoke persisted with semantic consolidation")) throw new Error("Claude PostCompact did not restore the Codex checkpoint");
-    if (!claudeRestore.hook_output?.additional_context?.includes(unresolvedInvestigation.next_step)) throw new Error("Claude PostCompact did not restore the unresolved knowledge next step");
+    if (!claudeRestore.hook_output?.additional_context?.includes(advancedInvestigation.next_step)) throw new Error("Claude PostCompact did not restore the latest unresolved knowledge next step");
     if (claudeRestore.activation_receipt?.created !== true) throw new Error("Claude PostCompact did not record activation receipt evidence");
+    const claudeRecoveryPack = claudeRestore.details?.boot?.checkpoint_recovery_pack;
+    if (claudeRecoveryPack?.checkpoint_count !== 2 || claudeRecoveryPack?.latest_checkpoint_id !== secondCheckpoint.checkpoint.record.content.checkpoint.checkpoint_id) throw new Error("Claude PostCompact did not select the latest of two checkpoints");
+    if (!claudeRecoveryPack.progress?.includes("Second checkpoint advanced rollback verification.")) throw new Error("Claude PostCompact did not restore second-checkpoint progress");
     const secondPromptEventsBefore = (await runJson(command, [...argsPrefix, "--store", storeClaude, "health", "check", "--project", project, "--host", "claude"])).stats.total_events;
     const secondDevicePromptRecall = await runJson(command, [
       ...argsPrefix,
@@ -379,9 +406,14 @@ async function main() {
     const checkpointCompactionRecovery = {
       checkpoint_created: checkpoint.checkpoint.idempotent_replay === false,
       idempotent_replay: checkpointReplay.checkpoint.idempotent_replay === true,
+      second_checkpoint_created: secondCheckpoint.checkpoint.idempotent_replay === false,
+      second_checkpoint_pushed: secondCheckpoint.checkpoint_sync.succeeded === true,
       recovery_pack_available: recoveryPack.available === true,
       resume_action_ready: resumeAction.execution.ready_to_run === true,
-      claude_checkpoint_restored: claudeContext.includes("Checkpoint smoke persisted with semantic consolidation")
+      claude_checkpoint_restored: claudeContext.includes("Checkpoint smoke persisted with semantic consolidation"),
+      claude_checkpoint_count: claudeRecoveryPack.checkpoint_count,
+      claude_latest_checkpoint_restored: claudeRecoveryPack.latest_checkpoint_id === secondCheckpoint.checkpoint.record.content.checkpoint.checkpoint_id && claudeContext.includes("Second checkpoint advanced rollback verification."),
+      claude_latest_investigation_restored: claudeContext.includes(advancedInvestigation.next_step)
     };
     const semanticConsolidation = {
       proposals_accepted: checkpoint.checkpoint.semantic_consolidation.proposals_accepted,
@@ -397,7 +429,7 @@ async function main() {
       second_device_prompt_record_count: secondDevicePromptRecall.prompt_recall.record_count,
       second_device_prompt_read_only: secondPromptEventsAfter === secondPromptEventsBefore,
       second_device_learning_restored: [semanticLearning, protectedLearning].every((learning) => claudeContext.includes(learning.conclusion)),
-      second_device_investigation_restored: claudeContext.includes(unresolvedInvestigation.next_step)
+      second_device_investigation_restored: claudeContext.includes(advancedInvestigation.next_step)
     };
     const boundedVerifiedReads = {
       source: readModelHealth.record_read_model.source,
@@ -409,12 +441,12 @@ async function main() {
       recovery_pack_available: recoveryPack.available,
       resume_action_ready: resumeAction.execution.ready_to_run,
       second_device_checkpoint_restored: claudeContext.includes("Checkpoint smoke persisted with semantic consolidation"),
-      second_device_investigation_restored: claudeContext.includes(unresolvedInvestigation.next_step),
+      second_device_investigation_restored: claudeContext.includes(advancedInvestigation.next_step),
       checkpoint_records_after_recovery: checkpointRecordsAfterRecovery
     };
     const acceptance = {
       cross_host_handoff: Object.values(crossHostHandoff).every((value) => value === true),
-      checkpoint_compaction_recovery: Object.values(checkpointCompactionRecovery).every((value) => value === true),
+      checkpoint_compaction_recovery: checkpointCompactionRecovery.checkpoint_created && checkpointCompactionRecovery.idempotent_replay && checkpointCompactionRecovery.second_checkpoint_created && checkpointCompactionRecovery.second_checkpoint_pushed && checkpointCompactionRecovery.recovery_pack_available && checkpointCompactionRecovery.resume_action_ready && checkpointCompactionRecovery.claude_checkpoint_restored && checkpointCompactionRecovery.claude_checkpoint_count === 2 && checkpointCompactionRecovery.claude_latest_checkpoint_restored && checkpointCompactionRecovery.claude_latest_investigation_restored,
       semantic_consolidation: semanticConsolidation.proposals_accepted === 1 && semanticConsolidation.links_created === 1 && semanticConsolidation.protected_rejections === 1,
       recall_explore_learn: recallExploreLearn.initial_prompt_status === "knowledge_gap" && recallExploreLearn.initial_prompt_read_only && recallExploreLearn.learning_records_created === 3 && recallExploreLearn.unresolved_investigations_preserved === 1 && recallExploreLearn.second_device_prompt_status === "trusted_match" && recallExploreLearn.second_device_prompt_record_count === 1 && recallExploreLearn.second_device_prompt_read_only && recallExploreLearn.second_device_learning_restored && recallExploreLearn.second_device_investigation_restored,
       bounded_verified_reads: boundedVerifiedReads.source === "read_model" && boundedVerifiedReads.status === "fresh" && boundedVerifiedReads.project_id === "moryn-smoke",
@@ -430,7 +462,7 @@ async function main() {
       checkpoint_idempotent_replay: checkpointReplay.checkpoint.idempotent_replay,
       semantic_links_created: checkpoint.checkpoint.semantic_consolidation.links_created,
       protected_rejections: checkpoint.checkpoint.semantic_consolidation.rejected_by_reason.protected_signal_difference,
-      unresolved_knowledge_next_step: unresolvedInvestigation.next_step,
+      unresolved_knowledge_next_step: advancedInvestigation.next_step,
       claude_activation_status: claudeInstall.activation_status.status,
       claude_activation_receipt_created: claudeRestore.activation_receipt.created,
       codex_activation_status: codexEnter.start.activation_status.status,

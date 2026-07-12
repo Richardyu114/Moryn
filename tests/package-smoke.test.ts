@@ -9,7 +9,7 @@ const exec = promisify(execFile);
 
 beforeAll(async () => {
   await exec("npm", ["run", "build"], { cwd: process.cwd() });
-});
+}, 30000);
 
 async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), "moryn-package-smoke-"));
@@ -860,11 +860,29 @@ describe("published package smoke", () => {
 
         expect(result.stdout).toContain("agent lifecycle smoke passed");
         expect(result.stdout).toContain("Codex smoke status reached Gemini");
-        expect(result.stdout).toContain("Task: verify checkpoint lifecycle smoke");
-        expect(result.stdout).toContain("Next: Run the rollback integration smoke");
+        expect(result.stdout).toContain("Task: verify repeated checkpoint lifecycle smoke");
+        expect(result.stdout).toContain("Next: Verify rollback behavior in the release candidate");
         expect(result.stdout).toContain('"semantic_links_created":1');
         expect(result.stdout).toContain('"protected_rejections":1');
         expect(result.stdout).toContain('"session_synthesis_mode":"evidence_synthesized"');
+        const evidence = JSON.parse(result.stdout.trim().split("\n").at(-1)!) as {
+          checkpoint_compaction_recovery?: {
+            second_checkpoint_created: boolean;
+            second_checkpoint_pushed: boolean;
+            claude_checkpoint_count: number;
+            claude_latest_checkpoint_restored: boolean;
+            claude_latest_investigation_restored: boolean;
+          };
+          acceptance?: { checkpoint_compaction_recovery?: boolean };
+        };
+        expect(evidence.checkpoint_compaction_recovery).toMatchObject({
+          second_checkpoint_created: true,
+          second_checkpoint_pushed: true,
+          claude_checkpoint_count: 2,
+          claude_latest_checkpoint_restored: true,
+          claude_latest_investigation_restored: true
+        });
+        expect(evidence.acceptance?.checkpoint_compaction_recovery).toBe(true);
       } finally {
         if (tarball) {
           await rm(tarball, { force: true });
