@@ -8486,7 +8486,7 @@ function quietSystemPulse(data: DashboardData): string {
 function quietCurrentContext(data: DashboardData): string {
   const context = data.quiet_dashboard.current_context;
   return `
-    <section class="quiet-panel" data-quiet-section="current-context">
+    <section class="quiet-panel quiet-context-primary" data-quiet-section="current-context">
       <div class="quiet-panel-heading">${i18nText("Current Context", "当前上下文", "span")}<strong>${escapeHtml(context.task ?? "No active task")}</strong></div>
       <dl class="quiet-context-list">
         <div><dt>Project</dt><dd>${escapeHtml(context.project_id ?? "Not resolved")}</dd></div>
@@ -8499,8 +8499,9 @@ function quietCurrentContext(data: DashboardData): string {
 
 function quietMemoryFlow(data: DashboardData): string {
   const flow = data.quiet_dashboard.memory_flow;
+  const loop = data.quiet_dashboard.knowledge_loop;
   return `
-    <section class="quiet-panel" data-quiet-section="memory-flow">
+    <section class="quiet-panel quiet-memory-secondary" data-quiet-section="memory-flow">
       <div class="quiet-panel-heading">${i18nText("Memory Flow", "记忆流", "span")}<strong>${flow.active_working_set_records} active</strong></div>
       <div class="quiet-flow-line" aria-label="Memory flow summary">
         <div><span>Stored</span><strong>${flow.store_records}</strong></div>
@@ -8514,16 +8515,11 @@ function quietMemoryFlow(data: DashboardData): string {
       <small>${escapeHtml(`${flow.recent_records} recent records · ${flow.recent_events} recent events · sync ${flow.sync_state.replaceAll("_", " ")}`)}</small>
       <small>${escapeHtml(`${Math.round(flow.compaction_ratio * 100)}% consolidated · ${flow.store_events} events`)}</small>
       <small>${escapeHtml(`${flow.semantic_equivalent_links} equivalent · ${flow.semantic_revision_links} revised · ${flow.semantic_superseded_links} superseded · ${flow.semantic_conflict_links} conflicts`)}</small>
-    </section>`;
-}
-
-function quietKnowledgeLoop(data: DashboardData): string {
-  const loop = data.quiet_dashboard.knowledge_loop;
-  return `
-    <section class="quiet-panel" data-quiet-section="knowledge-loop">
-      <div class="quiet-panel-heading">${i18nText("Knowledge loop", "知识闭环", "span")}<strong>${loop.learned_records} learned</strong></div>
-      <small>${escapeHtml(`${loop.resolved_investigations} resolved · ${loop.unresolved_investigations} unresolved preserved`)}</small>
-      <small>${escapeHtml(`${loop.learned_canonical_records} canonical · ${loop.learned_candidate_records} candidate · ${loop.investigations} investigations`)}</small>
+      <div class="quiet-knowledge-summary" data-quiet-subsection="knowledge-loop">
+        <span>${i18nText("Knowledge loop", "知识闭环")}</span>
+        <strong>${loop.learned_records} learned</strong>
+        <small>${escapeHtml(`${loop.resolved_investigations} resolved · ${loop.unresolved_investigations} unresolved preserved · ${loop.learned_canonical_records} canonical · ${loop.learned_candidate_records} candidate`)}</small>
+      </div>
     </section>`;
 }
 
@@ -8546,7 +8542,7 @@ function quietDashboardFirstScreen(data: DashboardData): string {
   return `
     <section class="quiet-dashboard" data-quiet-dashboard="first-screen" aria-label="Moryn monitoring overview">
       ${quietSystemPulse(data)}
-      <div class="quiet-dashboard-grid">${quietCurrentContext(data)}${quietMemoryFlow(data)}${quietKnowledgeLoop(data)}</div>
+      <div class="quiet-dashboard-grid" data-quiet-layout="context-flow">${quietCurrentContext(data)}${quietMemoryFlow(data)}</div>
       ${quietAttention(data)}
     </section>`;
 }
@@ -11544,21 +11540,22 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .panel { padding: 16px; margin-bottom: 14px; background: var(--surface); }
     .quiet-dashboard {
       display: grid;
-      gap: 14px;
-      margin-bottom: 22px;
+      gap: 12px;
+      margin-bottom: 26px;
     }
     .quiet-dashboard-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
-      gap: 14px;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+      gap: 1px;
+      overflow: hidden;
+      border: 1px solid rgba(143, 156, 173, 0.13);
+      border-radius: 12px;
+      background: rgba(143, 156, 173, 0.13);
     }
     .quiet-panel {
       min-width: 0;
-      border: 1px solid rgba(143, 156, 173, 0.16);
-      border-radius: 14px;
-      padding: 20px;
-      background: linear-gradient(145deg, rgba(24, 29, 36, 0.86), rgba(13, 17, 22, 0.94));
-      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
+      padding: 22px;
+      background: rgba(15, 18, 23, 0.92);
     }
     .quiet-panel-heading {
       display: grid;
@@ -11580,14 +11577,20 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       overflow-wrap: anywhere;
     }
     .quiet-system-pulse {
-      padding: 22px 24px;
-      border-color: rgba(116, 242, 145, 0.16);
-      background: linear-gradient(135deg, rgba(116, 242, 145, 0.055), rgba(15, 19, 24, 0.94) 42%);
+      display: grid;
+      grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.3fr);
+      align-items: center;
+      gap: 24px;
+      padding: 18px 22px;
+      border: 1px solid rgba(143, 156, 173, 0.13);
+      border-radius: 12px;
+      background: rgba(15, 18, 23, 0.78);
     }
     .quiet-system-pulse.attention {
       border-color: rgba(255, 209, 102, 0.28);
-      background: linear-gradient(135deg, rgba(255, 209, 102, 0.08), rgba(18, 20, 24, 0.95) 42%);
+      background: rgba(33, 29, 19, 0.72);
     }
+    .quiet-system-pulse .quiet-panel-heading { margin-bottom: 0; }
     .quiet-signal-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -11598,10 +11601,9 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       display: grid;
       gap: 3px;
       min-width: 0;
-      padding: 10px 12px;
-      border-radius: 9px;
-      background: rgba(255, 255, 255, 0.025);
+      padding: 6px 10px;
     }
+    .quiet-signal-grid > div + div { border-left: 1px solid rgba(143, 156, 173, 0.13); }
     .quiet-signal-grid span,
     .quiet-flow-line span,
     .quiet-context-list dt {
@@ -11614,6 +11616,8 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .quiet-context-list { gap: 9px; }
     .quiet-context-list div { grid-template-columns: 78px minmax(0, 1fr); }
     .quiet-context-list dd { color: var(--ink-2); }
+    .quiet-context-primary { min-height: 250px; }
+    .quiet-memory-secondary { color: var(--muted); }
     .quiet-flow-line {
       display: grid;
       grid-template-columns: repeat(7, auto);
@@ -11624,9 +11628,28 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     }
     .quiet-flow-line > span { color: var(--subtle); }
     .quiet-panel > small { margin-top: 12px; }
+    .quiet-knowledge-summary {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 5px 12px;
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(143, 156, 173, 0.13);
+    }
+    .quiet-knowledge-summary > span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .quiet-knowledge-summary > strong { color: var(--ink-2); font-size: 13px; }
+    .quiet-knowledge-summary > small { grid-column: 1 / -1; margin-top: 1px; }
     .quiet-attention {
+      border: 1px solid rgba(255, 209, 102, 0.28);
+      border-radius: 12px;
       border-color: rgba(255, 209, 102, 0.3);
-      background: linear-gradient(145deg, rgba(255, 209, 102, 0.08), rgba(20, 19, 17, 0.94));
+      background: rgba(33, 29, 19, 0.72);
     }
     .quiet-attention-list { display: grid; gap: 8px; }
     .quiet-attention-list article {
@@ -14150,7 +14173,11 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     details summary { cursor: pointer; }
     @media (max-width: 920px) {
       header, .quiet-dashboard-grid, .status-board-answers, .status-board-rail, .memory-inventory-grid, .recent-status-grid, .recent-change-list, .glance-grid, .memory-explorer-layout, .stored-content-list, .stored-content-explain, .memory-search-controls, .memory-search-summary, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
+      .quiet-system-pulse { grid-template-columns: 1fr; gap: 14px; }
       .quiet-signal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .quiet-signal-grid > div + div { border-left: 0; }
+      .quiet-signal-grid > div:nth-child(even) { border-left: 1px solid rgba(143, 156, 173, 0.13); }
+      .quiet-context-primary { min-height: 0; }
       .memory-state-guide-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }

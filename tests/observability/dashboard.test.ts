@@ -9815,6 +9815,8 @@ describe("quiet dashboard first screen", () => {
       expect(html).toContain("Knowledge loop");
       expect(html).toContain("1 learned");
       expect(html).toContain("1 unresolved preserved");
+      expect(html).toContain('data-quiet-subsection="knowledge-loop"');
+      expect(html).not.toContain('data-quiet-section="knowledge-loop"');
       expect(html).not.toMatch(/button|form|Approve|Review knowledge/i);
     });
   });
@@ -9891,7 +9893,10 @@ describe("quiet dashboard first screen", () => {
       expect(html).toContain('data-quiet-section="system-pulse"');
       expect(html).toContain('data-quiet-section="current-context"');
       expect(html).toContain('data-quiet-section="memory-flow"');
+      expect(html).toContain('data-quiet-layout="context-flow"');
+      expect(html).not.toContain('data-quiet-section="knowledge-loop"');
       expect(html).not.toContain('data-quiet-section="attention-needed"');
+      expect(html).toContain(".quiet-system-pulse { grid-template-columns: 1fr; gap: 14px; }");
       expect(html).toContain('data-dashboard-detail="audit-details"');
       expect(html.indexOf('data-dashboard-detail="audit-details"')).toBeGreaterThan(html.indexOf('data-quiet-section="memory-flow"'));
       expect(html).not.toContain('data-dashboard-command-flow');
