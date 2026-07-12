@@ -19,6 +19,16 @@ describe("large-store smoke", () => {
         html_bytes: number;
         attention_items: number;
       };
+      sync?: {
+        push_milliseconds: number;
+        pull_milliseconds: number;
+        first_device_events: number;
+        second_device_events: number;
+        event_content_match: boolean;
+        second_device_candidate_count: number;
+        second_device_target_recalled: boolean;
+        second_device_target_booted: boolean;
+      };
     };
 
     expect(evidence.dashboard).toMatchObject({
@@ -29,5 +39,15 @@ describe("large-store smoke", () => {
     });
     expect(evidence.dashboard!.milliseconds).toBeLessThanOrEqual(5000);
     expect(evidence.dashboard!.html_bytes).toBeLessThanOrEqual(1_000_000);
+    expect(evidence.sync).toMatchObject({
+      first_device_events: 2000,
+      second_device_events: 2000,
+      event_content_match: true,
+      second_device_candidate_count: 100,
+      second_device_target_recalled: true,
+      second_device_target_booted: true
+    });
+    expect(evidence.sync!.push_milliseconds).toBeLessThanOrEqual(15_000);
+    expect(evidence.sync!.pull_milliseconds).toBeLessThanOrEqual(15_000);
   }, 30_000);
 });

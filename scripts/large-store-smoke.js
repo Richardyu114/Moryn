@@ -36,13 +36,19 @@ const moduleUrl = (path) => pathToFileURL(join(packageRoot, sourceRoot, "core", 
 const observabilityModuleUrl = (path) => pathToFileURL(join(packageRoot, sourceRoot, "observability", `${path}.${extension}`)).href;
 const smokeScript = `
   import { rm } from "node:fs/promises";
+  import { execFile } from "node:child_process";
+  import { createHash } from "node:crypto";
   import { join } from "node:path";
   import { performance } from "node:perf_hooks";
+  import { promisify } from "node:util";
   import { initializeStore } from ${JSON.stringify(moduleUrl("config"))};
   import { rebuildDerivedViews } from ${JSON.stringify(moduleUrl("derived"))};
   import { createEngine } from ${JSON.stringify(moduleUrl("engine"))};
-  import { appendEventIfAbsent, readEventFileManifest } from ${JSON.stringify(moduleUrl("store"))};
+  import { appendEventIfAbsent, readEventFileManifest, readEvents } from ${JSON.stringify(moduleUrl("store"))};
   import { buildDashboardData, renderDashboardHtml } from ${JSON.stringify(observabilityModuleUrl("dashboard"))};
+  import { initializeGitSync, pullGitSync, pushGitSync } from ${JSON.stringify(pathToFileURL(join(packageRoot, sourceRoot, "sync", `git.${extension}`)).href)};
+
+  const exec = promisify(execFile);
 
   const store = ${JSON.stringify(store)};
   const projectCount = 20;
@@ -149,6 +155,35 @@ const smokeScript = `
   if (dashboardBytes > dashboardByteBudget) {
     throw new Error("large-store dashboard exceeded byte budget: " + dashboardBytes);
   }
+  const remote = join(${JSON.stringify(root)}, "remote.git");
+  const secondStore = join(${JSON.stringify(root)}, "second-store");
+  await exec("git", ["init", "--bare", remote]);
+  const firstManifest = await readEventFileManifest(store);
+  const firstEventDigest = createHash("sha256").update(JSON.stringify(await readEvents(store))).digest("hex");
+  await initializeGitSync(store, remote);
+  const pushStarted = performance.now();
+  const push = await pushGitSync(store, { message: "Large-store release smoke" });
+  const pushMs = performance.now() - pushStarted;
+  await initializeStore(secondStore, { now: () => "2026-07-12T00:00:00.000Z", id: () => "device_large_store_second" });
+  await initializeGitSync(secondStore, remote);
+  const pullStarted = performance.now();
+  const pull = await pullGitSync(secondStore);
+  const pullMs = performance.now() - pullStarted;
+  const secondManifest = await readEventFileManifest(secondStore);
+  const secondEventDigest = createHash("sha256").update(JSON.stringify(await readEvents(secondStore))).digest("hex");
+  const secondEngine = createEngine({ storePath: secondStore, now: () => "2026-07-12T12:00:00.000Z" });
+  const secondRecall = await secondEngine.recall({ project_id: targetProject, query: "cobalt-orchid bounded retrieval shard", limit: 5 });
+  const secondBoot = await secondEngine.boot({ project_id: targetProject, current_task: "verify cobalt-orchid bounded retrieval shard" });
+  const secondBootText = JSON.stringify(secondBoot);
+  const eventContentMatch = firstManifest.count === secondManifest.count && firstEventDigest === secondEventDigest;
+  const secondTargetRecalled = secondRecall.results[0]?.record.id === targetRecordId;
+  const secondTargetBooted = secondBootText.includes(targetRecordId) && !secondBootText.includes("memory-project-19-099");
+  if (push.pushed !== true || pull.pulled !== true) throw new Error("large-store Git sync did not push and pull successfully");
+  if (!eventContentMatch || secondManifest.count !== recordCount) throw new Error("second-device event history did not match the first device");
+  if (secondRecall.retrieval?.candidate_count !== recordsPerProject || !secondTargetRecalled) throw new Error("second-device recall was not bounded or missed the target");
+  if (secondBoot.retrieval?.candidate_count !== recordsPerProject || !secondTargetBooted) throw new Error("second-device boot was not bounded or leaked unrelated context");
+  const syncBudgetMs = 15000;
+  if (pushMs > syncBudgetMs || pullMs > syncBudgetMs) throw new Error("large-store sync exceeded budget: push=" + pushMs.toFixed(1) + "ms pull=" + pullMs.toFixed(1) + "ms");
 
   process.stdout.write(JSON.stringify({
     version: 1,
@@ -157,8 +192,10 @@ const smokeScript = `
     recall: { milliseconds: Math.round(recallMs), candidate_count: recall.retrieval.candidate_count, repaired: recall.retrieval.repaired },
     boot: { milliseconds: Math.round(bootMs), candidate_count: boot.retrieval.candidate_count, task_relevant: boot.task_relevant.length, recent_changes: boot.recent_changes.length },
     dashboard: { milliseconds: Math.round(dashboardMs), candidate_count: dashboardCandidates, events_before: eventsBefore, events_after: eventsAfter, html_bytes: dashboardBytes, attention_items: dashboard.quiet_dashboard.attention_needed.length },
+    sync: { push_milliseconds: Math.round(pushMs), pull_milliseconds: Math.round(pullMs), first_device_events: firstManifest.count, second_device_events: secondManifest.count, event_content_match: eventContentMatch, second_device_candidate_count: secondRecall.retrieval.candidate_count, second_device_target_recalled: secondTargetRecalled, second_device_target_booted: secondTargetBooted },
     budget_ms: budgetMs,
-    dashboard_byte_budget: dashboardByteBudget
+    dashboard_byte_budget: dashboardByteBudget,
+    sync_budget_ms: syncBudgetMs
   }) + "\\n");
 `;
 
