@@ -457,7 +457,9 @@ describe("observability dashboard", () => {
           source: "action_board.items_by_id.sync"
         }
       });
-      expect(html).toContain("<span class=\"health-badge warning\" data-i18n-en=\"Sync Pending\" data-i18n-zh=\"等待同步\">Sync Pending</span>");
+      expect(html).toContain("<span class=\"health-badge info\" data-i18n-en=\"Local Ready\" data-i18n-zh=\"本机可用\">Local Ready</span>");
+      expect(firstScreen).toContain("<strong data-i18n-en=\"Local memory ready\" data-i18n-zh=\"本机记忆可用\">Local memory ready</strong>");
+      expect(firstScreen).not.toContain("<strong data-i18n-en=\"Sync Pending\"");
       expect(html).not.toContain("<p class=\"dashboard-status-line warning\" data-dashboard-status=\"sync_pending\">");
       expect(html).not.toContain("<section class=\"status-strip warning\" data-dashboard-status=\"sync_pending\">");
       expect(html).not.toContain("Local sync changes are waiting to be pushed or pulled");
@@ -7083,7 +7085,9 @@ describe("observability dashboard", () => {
         source: "action_board.items_by_id.sync"
       });
       expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"decision-summary\" aria-controls=\"decision-summary\" data-i18n-en=\"Review approvals\" data-i18n-zh=\"查看确认项\">Review approvals</button>");
-      expect(html).toContain("<span class=\"health-badge warning\" data-i18n-en=\"Sync Pending\" data-i18n-zh=\"等待同步\">Sync Pending</span>");
+      expect(html).toContain("<span class=\"health-badge warning\" data-i18n-en=\"Needs Review\" data-i18n-zh=\"需要查看\">Needs Review</span>");
+      expect(quietFirstScreenHtml(html)).toContain("<strong data-i18n-en=\"Needs Review\" data-i18n-zh=\"需要查看\">Needs Review</strong>");
+      expect(quietFirstScreenHtml(html)).not.toContain("<strong data-i18n-en=\"Sync Pending\"");
       expect(html).not.toContain("<p class=\"dashboard-status-line warning\" data-dashboard-status=\"sync_pending\">");
       expect(html).not.toContain("<section class=\"status-strip warning\" data-dashboard-status=\"sync_pending\">");
       expect(html).toContain("<details id=\"maintenance-review-queue\"");

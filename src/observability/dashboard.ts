@@ -3598,11 +3598,19 @@ function i18nAriaAndTitle(en: string, zh: string): string {
 
 function dashboardHealthZh(status: DashboardHealthStatus, label: string): string {
   if (status === "healthy" || label === "Healthy") return "正常";
+  if (label === "Local Ready") return "本机可用";
   if (status === "sync_pending" || label === "Sync Pending") return "等待同步";
   if (status === "needs_review" || label === "Needs Review") return "需要查看";
   if (status === "conflict" || label === "Conflict") return "需要处理冲突";
   if (status === "local_only" || label === "Local Only") return "仅本机";
   return label;
+}
+
+function dashboardDisplayHealth(data: DashboardData): { label: string; status: DashboardHealthStatus | "local_ready" } {
+  if (data.health.status === "conflict") return { label: data.health.label, status: data.health.status };
+  if (data.quiet_dashboard.attention_needed.length > 0) return { label: "Needs Review", status: "needs_review" };
+  if (data.health.status === "sync_pending") return { label: "Local Ready", status: "local_ready" };
+  return { label: data.health.label, status: data.health.status };
 }
 
 function dashboardActionLabelZh(label: string): string {
@@ -4643,7 +4651,7 @@ function dogfoodReviewPanel(report: DogfoodReportResult): string {
   `;
 }
 
-function healthClass(status: DashboardHealthStatus): string {
+function healthClass(status: DashboardHealthStatus | "local_ready"): string {
   if (status === "healthy") return "good";
   if (status === "conflict") return "critical";
   if (status === "needs_review" || status === "sync_pending") return "warning";
@@ -8473,6 +8481,13 @@ function dashboardCommandFlow(data: DashboardData, options: {
 
 function quietSystemPulse(data: DashboardData): string {
   const pulse = data.quiet_dashboard.system_pulse;
+  const displayHealth = dashboardDisplayHealth(data);
+  const pulseLabel = pulse.healthy
+    ? data.health.status === "sync_pending" ? "Local memory ready" : "All systems steady"
+    : displayHealth.label;
+  const pulseLabelZh = pulse.healthy
+    ? data.health.status === "sync_pending" ? "本机记忆可用" : "系统运行平稳"
+    : dashboardHealthZh(displayHealth.status === "local_ready" ? "local_only" : displayHealth.status, displayHealth.label);
   const autopilotLabel = pulse.autopilot.status === "not_installed"
     ? "Not installed"
     : `${pulse.autopilot.status[0]?.toUpperCase()}${pulse.autopilot.status.slice(1)} · ${pulse.autopilot.host === "claude" ? "Claude" : pulse.autopilot.host === "codex" ? "Codex" : "Unknown"}`;
@@ -8480,7 +8495,7 @@ function quietSystemPulse(data: DashboardData): string {
     <section class="quiet-panel quiet-system-pulse ${pulse.healthy ? "healthy" : "attention"}" data-quiet-section="system-pulse">
       <div class="quiet-panel-heading">
         ${i18nText("System Pulse", "系统脉搏", "span")}
-        <strong ${i18nAttribute(pulse.healthy ? "All systems steady" : data.health.label, pulse.healthy ? "系统运行平稳" : dashboardHealthZh(data.health.status, data.health.label))}>${escapeHtml(pulse.healthy ? "All systems steady" : data.health.label)}</strong>
+        <strong ${i18nAttribute(pulseLabel, pulseLabelZh)}>${escapeHtml(pulseLabel)}</strong>
       </div>
       <div class="quiet-signal-grid">
         <div><span>Store</span><strong>${pulse.store_ready ? "Ready" : "Unavailable"}</strong></div>
@@ -8568,7 +8583,8 @@ function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderO
   const shouldRenderOverview = !isAllClearOverview && !isSavedForLaterOverview;
   const shouldRenderWorkLanes = !shouldPromoteStoreSignals && !isAllClearOverview && !isSavedForLaterOverview;
   const promotedStoreSignals = shouldPromoteStoreSignals ? promotedStoreSignalsPanel(data) : "";
-  const healthLabelZh = dashboardHealthZh(data.health.status, data.health.label);
+  const displayHealth = dashboardDisplayHealth(data);
+  const healthLabelZh = dashboardHealthZh(displayHealth.status === "local_ready" ? "local_only" : displayHealth.status, displayHealth.label);
   return `
     <header>
       <div>
@@ -8577,7 +8593,7 @@ function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderO
         <p class="dashboard-generated-at"><time datetime="${escapeHtml(data.generated_at)}" title="${escapeHtml(data.generated_at)}">${escapeHtml(dashboardGeneratedAtLabel(data.generated_at))}</time></p>
       </div>
       <div class="dashboard-header-actions">
-        <span class="health-badge ${healthClass(data.health.status)}" ${i18nAttribute(data.health.label, healthLabelZh)}>${escapeHtml(data.health.label)}</span>
+        <span class="health-badge ${healthClass(displayHealth.status)}" ${i18nAttribute(displayHealth.label, healthLabelZh)}>${escapeHtml(displayHealth.label)}</span>
         ${dashboardLanguageToggle()}
       </div>
     </header>
