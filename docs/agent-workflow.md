@@ -681,6 +681,12 @@ authored content returns a collision error. Remote failure never blocks
 compaction: the checkpoint stays locally protected and the hook result marks
 remote synchronization as pending.
 
+Official `PostCompact` hooks delegate to the normal agent-start sync policy:
+`session` and `interval` projects attempt a safe pull before building recovery
+context, while `manual` projects and explicit `pull: false` remain local-only.
+If the remote is unavailable, PostCompact reports the existing pull error
+evidence and still restores any locally available checkpoint.
+
 `committed: true` means the event was atomically published. `durability` reports
 `confirmed`, `best_effort`, or `failed` separately from derived-view refresh
 status. After compaction, use `moryn boot --project . --session-id session-123`

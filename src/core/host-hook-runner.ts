@@ -154,7 +154,7 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
     };
   }
   if (input.hook.event === "session_start" || input.hook.event === "post_compact") {
-    const result = await agentStart({ ...common, pull: input.pull ?? input.hook.event === "session_start" });
+    const result = await agentStart({ ...common, pull: input.pull });
     return {
       ok: true as const,
       event: input.hook.event,

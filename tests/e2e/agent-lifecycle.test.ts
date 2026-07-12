@@ -3153,10 +3153,9 @@ describe("agent lifecycle", () => {
         storePath: claudeStore,
         project_path: project,
         current_task: "Verify Claude restore",
-        pull: true,
         hook: { host: "claude", event: "post_compact", session_id: "codex-compact", device_id: "device-claude", cwd: project, occurred_at: "2026-07-11T00:05:00.000Z" }
       });
-      expect(claudeRestore).toMatchObject({ action: "resume_from_checkpoint", degradation: { mode: "native" } });
+      expect(claudeRestore).toMatchObject({ action: "resume_from_checkpoint", degradation: { mode: "native" }, details: { sync: { pull: { pulled: true } } } });
       expect(claudeRestore.hook_output.additional_context).toContain("Hook runner implemented; next verify Claude restore.");
       expect(claudeRestore.hook_output.additional_context).toContain("Run rollback integration test");
       const claudeEnd = await runHostHook({

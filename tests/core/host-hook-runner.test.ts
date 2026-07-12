@@ -192,7 +192,8 @@ describe("host hook runner", () => {
         checkpoint_sync: { requested: true, reason: "new_checkpoint", succeeded: false, error: "remote unavailable" }
       });
       expect(result.hook_output.additional_context).toContain("locally protected");
-      const restored = await runHostHook({ storePath, hook: { ...base, event: "post_compact" }, project_id: "moryn", current_task: "Preserve local checkpoint", pull: false });
+      const restored = await runHostHook({ storePath, hook: { ...base, event: "post_compact" }, project_id: "moryn", current_task: "Preserve local checkpoint" });
+      expect(restored).toMatchObject({ details: { sync: { pull_error: expect.stringContaining("not configured") } } });
       expect(restored.hook_output.additional_context).toContain("Checkpoint before remote outage.");
     });
   });
@@ -242,6 +243,15 @@ describe("host hook runner", () => {
         } });
 
         expect(result).toMatchObject({ checkpoint: { idempotent_replay: false }, checkpoint_sync: { requested: false, reason: "manual_mode" } });
+        const restored = await runHostHook({
+          storePath,
+          project_path: projectPath,
+          hook: { ...base, cwd: projectPath, event: "post_compact" }
+        });
+        expect(restored).toMatchObject({ action: "resume_from_checkpoint", details: { sync: { before: { configured: false }, after: { configured: false } } } });
+        expect((restored.details as { sync: { pull?: unknown; pull_error?: unknown } }).sync.pull).toBeUndefined();
+        expect((restored.details as { sync: { pull?: unknown; pull_error?: unknown } }).sync.pull_error).toBeUndefined();
+        expect(restored.hook_output.additional_context).toContain("Manual mode checkpoint.");
         expect(pushes).toBe(0);
       });
     } finally {

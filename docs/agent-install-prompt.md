@@ -81,6 +81,9 @@ During agent work:
   project sync policy allows, Moryn pushes a newly created checkpoint once so a
   second agent or device can restore it. Replayed hooks do not push repeatedly,
   and remote failure does not block compaction or discard the local checkpoint.
+- On `PostCompact`, use the normal safe startup pull policy before restoring
+  context. If pull fails, continue from the locally available checkpoint and
+  expose the sync degradation rather than blocking the agent.
 - End with `moryn agent finish` and a concise handoff summary.
 - Use `moryn dashboard --serve --host 127.0.0.1 --port 8765` when a human needs
   live browser monitoring of sync state, records, recent events, or agent
