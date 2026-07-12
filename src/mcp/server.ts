@@ -13,6 +13,7 @@ import {
   planInstall,
   setupWizard,
   version,
+  activateCodexHooks,
   activateClaudeSettings,
   buildHostIntegrationArtifact,
   inspectHostActivation,
@@ -2399,17 +2400,18 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     "activation_apply",
     {
       title: "Apply Safe Host Activation",
-      description: "Safely generate and activate Moryn-owned Claude Code lifecycle hooks.",
+      description: "Safely generate and activate Moryn-owned Claude Code or Codex lifecycle hooks.",
       inputSchema: mcpInputSchema({ host: coreValidatedStringSchema, project_id: coreValidatedStringSchema.optional(), project_path: coreValidatedStringSchema.optional(), ...objectPathAliasInputSchema("activation_apply"), ...camelCaseAliasInputSchema("activation_apply") })
     },
     async (input) => toolResultWithNormalizedInput("activation_apply", input, async (normalizedInput) => {
       const project = await resolveProjectContext({ projectId: normalizedInput.project_id as string | undefined, projectPath: normalizedInput.project_path as string | undefined });
       const host = normalizedInput.host as string;
-      if (host !== "claude" && host !== "claude-code") throw new Error("host_schema_unknown: activation apply is supported only for Claude Code");
-      const artifact = buildHostIntegrationArtifact({ host: "claude", project_id: project.project_id, project_path: project.project_path, store_path: options.storePath });
-      const fragment = await writeHostIntegrationArtifact({ host: "claude", project_id: project.project_id, project_path: project.project_path, store_path: options.storePath });
-      const activation = await activateClaudeSettings({ project_path: project.project_path, artifact });
-      const status = await inspectHostActivation({ store_path: options.storePath, project_path: project.project_path, project_id: project.project_id, host: "claude" });
+      const normalizedHost = host === "claude-code" ? "claude" : host;
+      if (normalizedHost !== "claude" && normalizedHost !== "codex") throw new Error(`Invalid argument: activation apply is unsupported for host: ${host}`);
+      const artifact = buildHostIntegrationArtifact({ host: normalizedHost, project_id: project.project_id, project_path: project.project_path, store_path: options.storePath });
+      const fragment = await writeHostIntegrationArtifact({ host: normalizedHost, project_id: project.project_id, project_path: project.project_path, store_path: options.storePath });
+      const activation = normalizedHost === "claude" ? await activateClaudeSettings({ project_path: project.project_path, artifact }) : await activateCodexHooks({ project_path: project.project_path, artifact });
+      const status = await inspectHostActivation({ store_path: options.storePath, project_path: project.project_path, project_id: project.project_id, host: normalizedHost });
       return { ok: true, fragment, activation, status };
     })
   );

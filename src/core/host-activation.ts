@@ -7,7 +7,7 @@ import type { ActivationHost, ActivationReceiptEvent } from "./activation-receip
 export type ActivationStatus = "active" | "configured_unverified" | "generated_not_activated" | "stale_moryn_config" | "invalid_config" | "blocked_by_policy" | "host_schema_unknown" | "not_installed";
 
 export interface ActivationSuggestedAction {
-  id: "activate_claude_hooks" | "repair_claude_hooks" | "inspect_invalid_claude_config" | "merge_codex_fragment" | "generate_host_fragment";
+  id: "activate_claude_hooks" | "repair_claude_hooks" | "inspect_invalid_claude_config" | "activate_codex_hooks" | "repair_codex_hooks" | "inspect_invalid_codex_config" | "trust_codex_hooks" | "generate_host_fragment";
   title: string;
   safe_to_run: boolean;
   command: string;
@@ -43,8 +43,13 @@ function commandFromEntry(entry: unknown): string | undefined {
 }
 
 function activationActions(input: { status: ActivationStatus; host: ActivationHost; project_path: string }): ActivationSuggestedAction[] {
-  if (input.status === "active" || input.status === "configured_unverified") return [];
-  if (input.host === "codex") return [{ id: input.status === "not_installed" ? "generate_host_fragment" : "merge_codex_fragment", title: input.status === "not_installed" ? "Generate Codex hook fragment" : "Merge Codex hook fragment using the installed host schema", safe_to_run: input.status === "not_installed", command: `moryn install --host codex --project '${input.project_path}' --apply` }];
+  if (input.status === "active") return [];
+  if (input.host === "codex") {
+    if (input.status === "configured_unverified") return [{ id: "trust_codex_hooks", title: "Review and trust project hooks in Codex", safe_to_run: false, command: "/hooks" }];
+    if (input.status === "invalid_config") return [{ id: "inspect_invalid_codex_config", title: "Inspect invalid Codex hooks before repair", safe_to_run: false, command: `cat '${join(input.project_path, ".codex", "hooks.json")}'` }];
+    return [{ id: input.status === "stale_moryn_config" ? "repair_codex_hooks" : input.status === "not_installed" ? "generate_host_fragment" : "activate_codex_hooks", title: input.status === "stale_moryn_config" ? "Repair Moryn-owned Codex hooks" : "Activate Codex hooks", safe_to_run: true, command: `moryn activation apply --host codex --project '${input.project_path}'` }];
+  }
+  if (input.status === "configured_unverified") return [];
   if (input.status === "invalid_config") return [{ id: "inspect_invalid_claude_config", title: "Inspect invalid Claude settings before repair", safe_to_run: false, command: `cat '${join(input.project_path, ".claude", "settings.local.json")}'` }];
   return [{ id: input.status === "stale_moryn_config" ? "repair_claude_hooks" : "activate_claude_hooks", title: input.status === "stale_moryn_config" ? "Repair Moryn-owned Claude hooks" : "Activate Claude hooks", safe_to_run: true, command: `moryn activation apply --host claude --project '${input.project_path}'` }];
 }
@@ -63,11 +68,6 @@ export async function inspectHostActivation(input: { store_path: string; project
   const receiptFresh = lastRecord ? now - Date.parse(lastRecord.created_at) <= 24 * 60 * 60 * 1000 : false;
   const lastReceipt = lastRecord ? { record_id: lastRecord.id, event: lastRecord.content.event as ActivationReceiptEvent, occurred_at: lastRecord.created_at, session_id: lastRecord.source.session_id, device_id: lastRecord.source.device_id } : undefined;
 
-  if (artifact.host === "codex") {
-    const status: ActivationStatus = receiptFresh ? "active" : fragmentExists ? "host_schema_unknown" : "not_installed";
-    return { status, healthy: status === "active", host: "codex", activation_id: artifact.activation_id, fragment_path: fragmentPath, target_path: targetPath, expected_events: artifact.expected_events, configured_events: [], observed_events: observedEvents, owned_entries: 0, stale_entries: 0, repairable_automatically: status === "not_installed", ...(lastReceipt ? { last_receipt: lastReceipt } : {}), suggested_actions: activationActions({ status, host: "codex", project_path: input.project_path }) };
-  }
-
   let settings: Record<string, unknown> | undefined;
   if (await exists(targetPath)) {
     try {
@@ -76,7 +76,7 @@ export async function inspectHostActivation(input: { store_path: string; project
       settings = parsed as Record<string, unknown>;
     } catch {
       const status: ActivationStatus = "invalid_config";
-      return { status, healthy: false, host: "claude", activation_id: artifact.activation_id, fragment_path: fragmentPath, target_path: targetPath, expected_events: artifact.expected_events, configured_events: [], observed_events: observedEvents, owned_entries: 0, stale_entries: 0, repairable_automatically: false, ...(lastReceipt ? { last_receipt: lastReceipt } : {}), suggested_actions: activationActions({ status, host: "claude", project_path: input.project_path }) };
+      return { status, healthy: false, host: artifact.host, activation_id: artifact.activation_id, fragment_path: fragmentPath, target_path: targetPath, expected_events: artifact.expected_events, configured_events: [], observed_events: observedEvents, owned_entries: 0, stale_entries: 0, repairable_automatically: false, ...(lastReceipt ? { last_receipt: lastReceipt } : {}), suggested_actions: activationActions({ status, host: artifact.host, project_path: input.project_path }) };
     }
   }
 
@@ -109,5 +109,5 @@ export async function inspectHostActivation(input: { store_path: string; project
         : fragmentExists
           ? "generated_not_activated"
           : "not_installed";
-  return { status, healthy: status === "active" || status === "configured_unverified", host: "claude", activation_id: artifact.activation_id, fragment_path: fragmentPath, target_path: targetPath, expected_events: artifact.expected_events, configured_events: configuredEvents, observed_events: observedEvents, owned_entries: ownedEntries, stale_entries: staleEntries, repairable_automatically: status === "not_installed" || status === "generated_not_activated" || status === "stale_moryn_config", ...(lastReceipt ? { last_receipt: lastReceipt } : {}), suggested_actions: activationActions({ status, host: "claude", project_path: input.project_path }) };
+  return { status, healthy: status === "active" || status === "configured_unverified", host: artifact.host, activation_id: artifact.activation_id, fragment_path: fragmentPath, target_path: targetPath, expected_events: artifact.expected_events, configured_events: configuredEvents, observed_events: observedEvents, owned_entries: ownedEntries, stale_entries: staleEntries, repairable_automatically: status === "not_installed" || status === "generated_not_activated" || status === "stale_moryn_config", ...(lastReceipt ? { last_receipt: lastReceipt } : {}), suggested_actions: activationActions({ status, host: artifact.host, project_path: input.project_path }) };
 }

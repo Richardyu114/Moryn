@@ -54,6 +54,7 @@ export type { HostHookRunResult, RunHostHookInput } from "./core/host-hook-runne
 export { activationId, buildHostIntegrationArtifact, writeHostIntegrationArtifact } from "./core/host-integration-artifacts.js";
 export type { HostIntegrationArtifact } from "./core/host-integration-artifacts.js";
 export { activateClaudeSettings, mergeClaudeSettings } from "./core/claude-activation.js";
+export { activateCodexHooks, mergeCodexHooks } from "./core/codex-activation.js";
 export type { ClaudeActivationResult, ClaudeSettingsMergeResult } from "./core/claude-activation.js";
 export { activationReceiptIdentity, recordActivationReceipt } from "./core/activation-receipts.js";
 export type { ActivationHost, ActivationReceipt, ActivationReceiptEvent, ActivationReceiptInput } from "./core/activation-receipts.js";

@@ -10,15 +10,24 @@ describe("host integration artifacts", () => {
     expect(activationId("Moryn Project", "codex-cli")).toBe("moryn-v03-moryn-project-codex");
   });
 
-  it("builds a Codex lifecycle hooks TOML fragment", () => {
+  it("builds a Codex lifecycle hooks JSON fragment", () => {
     const artifact = buildHostIntegrationArtifact({ host: "codex", project_id: "moryn", project_path: "/repo", store_path: "/store" });
-    expect(artifact.path).toBe(".codex/moryn-hooks.toml");
+    expect(artifact.path).toBe(".codex/moryn-hooks.json");
+    expect(artifact.format).toBe("json");
+    expect(artifact.merge_target).toBe(".codex/hooks.json");
+    expect(JSON.parse(artifact.content).hooks).toMatchObject({
+      SessionStart: expect.any(Array),
+      PreCompact: expect.any(Array),
+      PostCompact: expect.any(Array),
+      Stop: expect.any(Array)
+    });
     expect(artifact.content).toContain("SessionStart");
     expect(artifact.content).toContain("PreCompact");
     expect(artifact.content).toContain("PostCompact");
     expect(artifact.content).toContain("host hook --host codex");
     expect(artifact.content).toContain("--store '/store'");
     expect(artifact.content).toContain("--activation-id moryn-v03-moryn-codex");
+    expect(artifact.content).not.toContain("dangerously-bypass-hook-trust");
     expect(artifact.activation_id).toBe("moryn-v03-moryn-codex");
     expect(artifact.expected_events).toEqual(["SessionStart", "PreCompact", "PostCompact", "Stop"]);
     expect(artifact.command_digest).toMatch(/^[a-f0-9]{64}$/);

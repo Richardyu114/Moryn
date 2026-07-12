@@ -10762,13 +10762,15 @@ describe("official host integration install", () => {
     });
   });
 
-  it("keeps Codex config untouched and reports schema unknown", async () => {
+  it("activates Codex hooks without modifying config.toml", async () => {
     await withTempDir(async (store) => {
       await withTempDir(async (project) => {
         await mkdir(join(project, ".codex"), { recursive: true });
         await writeFile(join(project, ".codex", "config.toml"), "model = \"gpt-5\"\n", "utf8");
         const parsed = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "install", "--host", "codex", "--project", project, "--apply"])).stdout);
-        expect(parsed.activation_status).toMatchObject({ status: "host_schema_unknown", repairable_automatically: false });
+        expect(parsed.activation).toMatchObject({ changed: true, created: true });
+        expect(parsed.activation_status).toMatchObject({ status: "configured_unverified", repairable_automatically: false });
+        expect(JSON.parse(await readFile(join(project, ".codex", "hooks.json"), "utf8")).hooks.PreCompact[0].hooks[0].command).toContain("--activation-id");
         expect(await readFile(join(project, ".codex", "config.toml"), "utf8")).toBe("model = \"gpt-5\"\n");
       });
     });
@@ -10795,7 +10797,7 @@ describe("host activation CLI", () => {
     });
   });
 
-  it("refuses Codex apply without modifying config", async () => {
+  it("applies Codex activation idempotently without modifying config.toml", async () => {
     await withTempDir(async (store) => {
       await withTempDir(async (project) => {
         await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
@@ -10803,7 +10805,11 @@ describe("host activation CLI", () => {
         await mkdir(join(project, ".codex"), { recursive: true });
         await writeFile(join(project, ".codex", "config.toml"), "model = \"gpt-5\"\n", "utf8");
 
-        await expect(exec("node", ["--import", tsxLoader, cliPath, "--store", store, "activation", "apply", "--host", "codex", "--project", project])).rejects.toMatchObject({ stderr: expect.stringContaining("host_schema_unknown") });
+        const args = ["--import", tsxLoader, cliPath, "--store", store, "activation", "apply", "--host", "codex", "--project", project];
+        const first = JSON.parse((await exec("node", args)).stdout);
+        const second = JSON.parse((await exec("node", args)).stdout);
+        expect(first).toMatchObject({ activation: { changed: true, created: true }, status: { status: "configured_unverified" } });
+        expect(second).toMatchObject({ activation: { changed: false, backup_created: false } });
         expect(await readFile(join(project, ".codex", "config.toml"), "utf8")).toBe("model = \"gpt-5\"\n");
       });
     });

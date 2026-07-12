@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { recordActivationReceipt } from "../../src/core/activation-receipts.js";
 import { activateClaudeSettings } from "../../src/core/claude-activation.js";
+import { activateCodexHooks } from "../../src/core/codex-activation.js";
 import { inspectHostActivation } from "../../src/core/host-activation.js";
 import { buildHostIntegrationArtifact, writeHostIntegrationArtifact } from "../../src/core/host-integration-artifacts.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
@@ -46,21 +47,20 @@ describe("host activation inspector", () => {
     });
   });
 
-  it("keeps Codex schema unknown until a runtime receipt proves activation", async () => {
+  it("distinguishes generated, configured, and active Codex states", async () => {
     await withInitializedTempStore(async (storePath) => {
       const projectPath = join(storePath, "project");
       await mkdir(join(projectPath, ".codex"), { recursive: true });
       const artifact = buildHostIntegrationArtifact({ host: "codex", project_id: "moryn", project_path: projectPath, store_path: storePath });
       await writeHostIntegrationArtifact({ host: "codex", project_id: "moryn", project_path: projectPath, store_path: storePath });
-      await writeFile(join(projectPath, ".codex", "config.toml"), "model = \"gpt-5\"\n", "utf8");
-
-      const unknown = await inspectHostActivation({ store_path: storePath, project_path: projectPath, project_id: "moryn", host: "codex", now: "2026-07-12T00:10:00.000Z" });
-      expect(unknown).toMatchObject({ status: "host_schema_unknown", healthy: false, repairable_automatically: false });
-      expect(unknown.suggested_actions[0]).toMatchObject({ id: "merge_codex_fragment", safe_to_run: false });
+      expect(await inspectHostActivation({ store_path: storePath, project_path: projectPath, project_id: "moryn", host: "codex", now: "2026-07-12T00:10:00.000Z" })).toMatchObject({ status: "generated_not_activated", repairable_automatically: true });
+      await activateCodexHooks({ project_path: projectPath, artifact });
+      const configured = await inspectHostActivation({ store_path: storePath, project_path: projectPath, project_id: "moryn", host: "codex", now: "2026-07-12T00:10:00.000Z" });
+      expect(configured).toMatchObject({ status: "configured_unverified", healthy: true, configured_events: artifact.expected_events });
+      expect(configured.suggested_actions[0]).toMatchObject({ id: "trust_codex_hooks", safe_to_run: false, command: "/hooks" });
 
       await recordActivationReceipt(storePath, { activation_id: artifact.activation_id, host: "codex", project_id: "moryn", event: "session_start", session_id: "session-1", device_id: "device-1", occurred_at: "2026-07-12T00:09:00.000Z", command_digest: artifact.command_digest });
       expect(await inspectHostActivation({ store_path: storePath, project_path: projectPath, project_id: "moryn", host: "codex", now: "2026-07-12T00:10:00.000Z" })).toMatchObject({ status: "active", healthy: true });
-      expect(await (await import("node:fs/promises")).readFile(join(projectPath, ".codex", "config.toml"), "utf8")).toBe("model = \"gpt-5\"\n");
     });
   });
 });

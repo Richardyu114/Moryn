@@ -16,6 +16,7 @@ import {
   setupWizard,
   version,
   writeHostIntegrationArtifact,
+  activateCodexHooks,
   activateClaudeSettings,
   inspectHostActivation,
   buildHostIntegrationArtifact
@@ -2154,7 +2155,9 @@ program.command("install")
           if (!projectId) throw new Error("Invalid project config: missing project_id after initialization");
           const artifact = await writeHostIntegrationArtifact({ host, project_id: projectId, project_path: projectPath, store_path: storePath() });
           const normalizedHost = host === "claude-code" ? "claude" : host;
-          const activation = normalizedHost === "claude" ? await activateClaudeSettings({ project_path: projectPath, artifact: artifact.artifact }) : undefined;
+          const activation = normalizedHost === "claude"
+            ? await activateClaudeSettings({ project_path: projectPath, artifact: artifact.artifact })
+            : await activateCodexHooks({ project_path: projectPath, artifact: artifact.artifact });
           const activationStatus = await inspectHostActivation({ store_path: storePath(), project_path: projectPath, project_id: projectId, host: normalizedHost });
           printJson({ ...plan, integration_artifact: artifact, ...(activation ? { activation } : {}), activation_status: activationStatus });
           return;
@@ -2183,11 +2186,12 @@ activation.command("apply")
     const host = parseNonEmptyString(options.host, "--host")!;
     const projectPath = parseNonEmptyString(options.project, "--project")!;
     const project = await resolveProjectContext({ projectPath });
-    if (host !== "claude" && host !== "claude-code") throw new Error("host_schema_unknown: activation apply is supported only for Claude Code");
-    const artifact = buildHostIntegrationArtifact({ host: "claude", project_id: project.project_id, project_path: project.project_path, store_path: storePath() });
-    const fragment = await writeHostIntegrationArtifact({ host: "claude", project_id: project.project_id, project_path: project.project_path, store_path: storePath() });
-    const applied = await activateClaudeSettings({ project_path: project.project_path, artifact });
-    const status = await inspectHostActivation({ store_path: storePath(), project_path: project.project_path, project_id: project.project_id, host: "claude" });
+    const normalizedHost = host === "claude-code" ? "claude" : host;
+    if (normalizedHost !== "claude" && normalizedHost !== "codex") throw new Error(`Invalid argument: activation apply is unsupported for host: ${host}`);
+    const artifact = buildHostIntegrationArtifact({ host: normalizedHost, project_id: project.project_id, project_path: project.project_path, store_path: storePath() });
+    const fragment = await writeHostIntegrationArtifact({ host: normalizedHost, project_id: project.project_id, project_path: project.project_path, store_path: storePath() });
+    const applied = normalizedHost === "claude" ? await activateClaudeSettings({ project_path: project.project_path, artifact }) : await activateCodexHooks({ project_path: project.project_path, artifact });
+    const status = await inspectHostActivation({ store_path: storePath(), project_path: project.project_path, project_id: project.project_id, host: normalizedHost });
     printJson({ ok: true, fragment, activation: applied, status });
   });
 

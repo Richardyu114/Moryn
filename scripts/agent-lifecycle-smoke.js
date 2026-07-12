@@ -121,7 +121,8 @@ async function main() {
 
     await run(command, [...argsPrefix, "project", "init", "--path", project, "--project-id", "moryn-smoke", "--tag", "typescript"]);
     const codexInstall = await runJson(command, [...argsPrefix, "--store", storeCodex, "install", "--host", "codex", "--project", project, "--apply"]);
-    if (codexInstall.activation_status?.status !== "host_schema_unknown") throw new Error("Codex activation must remain schema-unknown before runtime receipt evidence");
+    if (codexInstall.activation_status?.status !== "configured_unverified") throw new Error("Codex install did not safely activate lifecycle hooks");
+    if (codexInstall.activation_status?.suggested_actions?.[0]?.id !== "trust_codex_hooks") throw new Error("Codex install did not surface the one-time hook trust action");
     const claudeInstall = await runJson(command, [...argsPrefix, "--store", storeClaude, "install", "--host", "claude", "--project", project, "--apply"]);
     if (claudeInstall.activation_status?.status !== "configured_unverified") throw new Error("Claude install did not safely activate lifecycle hooks");
     const claudeActivationId = claudeInstall.integration_artifact?.artifact?.activation_id;

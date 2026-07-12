@@ -36,6 +36,10 @@ function claudeHook(command: string) {
   return [{ matcher: "", hooks: [{ type: "command", command }] }];
 }
 
+function codexHook(command: string) {
+  return [{ hooks: [{ type: "command", command, timeout: 30, statusMessage: "Syncing Moryn context" }] }];
+}
+
 export function buildHostIntegrationArtifact(input: { host: string; project_id: string; project_path: string; store_path: string }): HostIntegrationArtifact {
   const host = normalizeHostId(input.host);
   if (host !== "codex" && host !== "claude") throw new Error(`Invalid argument: official integration unavailable for host: ${input.host}`);
@@ -65,23 +69,19 @@ export function buildHostIntegrationArtifact(input: { host: string; project_id: 
     };
   }
   const expected_events = ["SessionStart", "PreCompact", "PostCompact", "Stop"];
-  const content = [
-    "# Moryn-owned Codex lifecycle hooks fragment.",
-    "# Merge these hook tables into the project Codex config supported by your Codex version.",
-    "",
-    ...["SessionStart", "PreCompact", "PostCompact", "Stop"].flatMap((event) => [
-      `[[hooks.${event}]]`,
-      `command = ${JSON.stringify(command)}`,
-      ""
-    ])
-  ].join("\n");
+  const content = `${JSON.stringify({ hooks: {
+    SessionStart: codexHook(command),
+    PreCompact: codexHook(command),
+    PostCompact: codexHook(command),
+    Stop: codexHook(command)
+  } }, null, 2)}\n`;
   return {
     host,
-    path: ".codex/moryn-hooks.toml",
-    format: "toml",
+    path: ".codex/moryn-hooks.json",
+    format: "json",
     content,
-    merge_target: ".codex/config.toml",
-    merge_instruction: "Merge .codex/moryn-hooks.toml into the project Codex config using the hook schema supported by your installed Codex version.",
+    merge_target: ".codex/hooks.json",
+    merge_instruction: "Merge the hooks object from .codex/moryn-hooks.json into .codex/hooks.json, then review the project hook trust prompt in Codex.",
     activation_id,
     command,
     command_digest,

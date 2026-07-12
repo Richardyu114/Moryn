@@ -2200,13 +2200,13 @@ export const OPERATION_CONTRACTS = [
   operationContract({
     operation: "activation_apply",
     category: "lifecycle",
-    summary: "Generate and safely activate Moryn-owned Claude Code lifecycle hooks.",
+    summary: "Generate and safely activate Moryn-owned Claude Code or Codex lifecycle hooks.",
     safe_to_run: false,
-    required_when: "Only when Claude activation diagnosis says the local project settings are safely repairable.",
+    required_when: "When Claude or Codex activation diagnosis says the local project hook configuration is safely repairable.",
     required_fields: ["host"],
     argument_sources: userInputSources(["host"]),
     arguments_by_name: { ...projectContextArguments, host: installArguments.host },
-    interfaces: { cli: { command: "moryn activation apply --host claude --project <path>", argv: ["activation", "apply", "--host", "claude", "--project", "<path>"] }, mcp: { tool: "activation_apply", arguments: { host: "claude" } } }
+    interfaces: { cli: { command: "moryn activation apply --host <claude|codex> --project <path>", argv: ["activation", "apply", "--host", "<claude|codex>", "--project", "<path>"] }, mcp: { tool: "activation_apply", arguments: { host: "<claude|codex>" } } }
   }),
   operationContract({
     operation: "health_check",
