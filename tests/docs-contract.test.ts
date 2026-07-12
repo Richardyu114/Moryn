@@ -841,6 +841,7 @@ describe("documentation contracts", () => {
     expectText(workflow, "use `/hooks` once to review and trust the project hooks");
     expectText(workflow, "Codex `Stop` is turn-scoped, so Moryn records it as a status rather than a final handoff");
     expectText(workflow, "After the active-session window expires, the latest status without a newer final summary is recovered into the next agent's handoff inbox");
+    expectText(workflow, "When a turn has no durable checkpoint or authored summary, Moryn records the activation receipt but skips the empty status write");
     expect(installPrompt).toContain("`.codex/hooks.json`");
     expectText(installPrompt, "use `/hooks` once to review and trust the project hooks");
     expect(roadmap).toContain("default_autocapture_policy");

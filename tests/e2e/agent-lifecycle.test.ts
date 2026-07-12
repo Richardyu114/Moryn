@@ -11,6 +11,7 @@ import { initializeProjectConfig } from "../../src/core/project.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "../../src/core/agent-lifecycle.js";
 import { initializeGitSync, pullGitSync, pushGitSync } from "../../src/sync/git.js";
 import { runHostHook } from "../../src/core/host-hook-runner.js";
+import { buildHostIntegrationArtifact } from "../../src/core/host-integration-artifacts.js";
 import { learningRecordIdentity } from "../../src/core/learning-ingestion.js";
 import { appendEventIfAbsent } from "../../src/core/store.js";
 import { readEvents } from "../../src/core/store.js";
@@ -3177,6 +3178,27 @@ describe("agent lifecycle", () => {
       const stoppedText = (stopped.details as { record: { content: { text: string } } }).record.content.text;
       expect(stoppedText).toContain("Task: Continue autonomous work");
       expect(stoppedText).toContain("Progress: Implemented evidence synthesis.");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("skips repeated Codex Stop status when no durable evidence exists", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-host-empty-stop-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(store, { id: () => "device-codex" });
+      const artifact = buildHostIntegrationArtifact({ host: "codex", project_id: "moryn", project_path: project, store_path: store });
+      const base = { host: "codex" as const, session_id: "codex-empty", device_id: "device-codex", cwd: project };
+      const first = await runHostHook({ storePath: store, project_path: project, activation_id: artifact.activation_id, push: false, hook: { ...base, event: "stop", occurred_at: "2026-07-12T03:00:00.000Z" } });
+      const second = await runHostHook({ storePath: store, project_path: project, activation_id: artifact.activation_id, push: false, hook: { ...base, event: "stop", occurred_at: "2026-07-12T03:05:00.000Z" } });
+
+      expect(first).toMatchObject({ action: "skip_empty_status", skipped: { reason: "no_durable_session_evidence" }, activation_receipt: { created: true } });
+      expect(second).toMatchObject({ action: "skip_empty_status", skipped: { reason: "no_durable_session_evidence" }, activation_receipt: { created: true } });
+      const records = (await createEngine({ storePath: store }).recall({ project_id: "moryn", kinds: ["session_summary"], limit: 20 })).results;
+      expect(records).toEqual([]);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

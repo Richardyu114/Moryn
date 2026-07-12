@@ -10754,6 +10754,18 @@ describe("host hook CLI", () => {
       expect(record.source.device_id).toBe(initialized.config.device_id);
     });
   });
+
+  it("skips empty turn-scoped Stop writes while preserving activation evidence", async () => {
+    await withTempDir(async (store) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      const project = join(store, "project");
+      await exec("node", ["--import", tsxLoader, cliPath, "project", "init", "--path", project, "--project-id", "moryn"]);
+      const installed = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "install", "--host", "codex", "--project", project, "--apply"])).stdout);
+      const payload = JSON.stringify({ hook_event_name: "Stop", session_id: "codex-empty-stop", cwd: project });
+      const parsed = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "host", "hook", "--host", "codex", "--project", project, "--activation-id", installed.integration_artifact.artifact.activation_id, "--input-json", payload, "--no-push"])).stdout);
+      expect(parsed).toMatchObject({ action: "skip_empty_status", skipped: { reason: "no_durable_session_evidence" }, activation_receipt: { created: true } });
+    });
+  });
 });
 
 describe("official host integration install", () => {

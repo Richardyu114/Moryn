@@ -99,6 +99,11 @@ newer final summary is recovered into the next agent's handoff inbox. This
 preserves an interrupted Codex session without turning every completed turn
 into a noisy final handoff.
 
+When a turn has no durable checkpoint or authored summary, Moryn records the
+activation receipt but skips the empty status write. This keeps hook health
+auditable without filling the event store and Git history with repeated
+minimal-fallback summaries.
+
 ## Startup
 
 Use `agent enter` as the default entrypoint:

@@ -27,12 +27,13 @@ export interface RunHostHookInput {
 export interface HostHookRunResult {
   ok: true;
   event: NormalizedHostHookEvent["event"];
-  action: "agent_start" | "checkpoint_before_compaction" | "resume_from_checkpoint" | "agent_status" | "agent_finish";
+  action: "agent_start" | "checkpoint_before_compaction" | "resume_from_checkpoint" | "agent_status" | "agent_finish" | "skip_empty_status";
   degradation: { mode: "native" } | { mode: "fallback"; reason: "host_hook_unavailable" };
   hook_output: { additional_context: string };
   checkpoint?: { idempotent_replay: boolean; record: { id: string } };
   activation_receipt?: Awaited<ReturnType<typeof recordActivationReceipt>>;
   activation_warning?: { code: "ACTIVATION_RECEIPT_FAILED"; reason: string };
+  skipped?: { reason: "no_durable_session_evidence" };
   details?: unknown;
 }
 
@@ -134,6 +135,17 @@ export async function runHostHook(input: RunHostHookInput): Promise<HostHookRunR
     return { ok: true, event: input.hook.event, action: "agent_finish", degradation, details: result, hook_output: { additional_context: `Moryn handoff saved: ${result.record.id}` }, ...activationEvidence };
   }
   const synthesis = await sessionSynthesis(input, project.project_id);
+  if (input.hook.event === "stop" && synthesis.mode === "minimal_fallback") {
+    return {
+      ok: true,
+      event: input.hook.event,
+      action: "skip_empty_status",
+      degradation,
+      skipped: { reason: "no_durable_session_evidence" },
+      hook_output: { additional_context: "Moryn skipped an empty turn status because no durable session evidence was available." },
+      ...activationEvidence
+    };
+  }
   const result = await agentStatus({ ...common, status: synthesis.summary, synthesis, push: input.push });
   return { ok: true, event: input.hook.event, action: "agent_status", degradation, details: result, hook_output: { additional_context: `Moryn status saved: ${result.record.id}` }, ...activationEvidence };
 }
