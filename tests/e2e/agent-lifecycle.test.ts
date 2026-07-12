@@ -851,6 +851,8 @@ describe("agent lifecycle", () => {
         inbox_next_action_required_input: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
         inbox_next_action_required_input_argument_path: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
         inbox_next_action_argument_source: "handoff.inbox_by_record_id.<record_id>.next_action.argument_sources.<field>",
+        recovered_status_entry: "handoff.recovered_statuses_by_record_id.<record_id>",
+        recovered_status_record_id: "handoff.recovered_statuses_by_record_id.<record_id>.record_id",
         active_session_entry: "handoff.active_sessions_by_record_id.<record_id>",
         active_session_record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
         active_session_next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action",
@@ -1310,6 +1312,8 @@ describe("agent lifecycle", () => {
         inbox_next_action_required_input: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
         inbox_next_action_required_input_argument_path: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
         inbox_next_action_argument_source: "handoff.inbox_by_record_id.<record_id>.next_action.argument_sources.<field>",
+        recovered_status_entry: "handoff.recovered_statuses_by_record_id.<record_id>",
+        recovered_status_record_id: "handoff.recovered_statuses_by_record_id.<record_id>.record_id",
         active_session_entry: "handoff.active_sessions_by_record_id.<record_id>",
         active_session_record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
         active_session_next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action",
@@ -1546,6 +1550,53 @@ describe("agent lifecycle", () => {
         agent: { client: "gemini", session_id: "gemini-doctor" }
       });
       await expect(access(join(store, "config.json"))).rejects.toMatchObject({ code: "ENOENT" });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("recovers the latest expired Codex Stop status as handoff context", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-expired-stop-handoff-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(store);
+      const status = await agentStatus({ storePath: store, projectPath: project, agent: { client: "codex", session_id: "codex-stop", device_id: "device-a" }, status: "Implemented parser recovery; next run integration tests.", currentTask: "parser recovery", push: false });
+      const future = new Date(Date.parse(status.record.updated_at) + 3 * 60 * 60 * 1000).toISOString();
+
+      const start = await agentStart({ storePath: store, projectPath: project, agent: { client: "claude", session_id: "claude-next", device_id: "device-b" }, currentTask: "continue parser recovery", pull: false }, { now: () => future });
+
+      expect(start.handoff.active_sessions).toEqual([]);
+      expect(start.handoff.inbox).toContainEqual(expect.objectContaining({
+        record_id: status.record.id,
+        type: "status",
+        text: "Implemented parser recovery; next run integration tests.",
+        recommended_action: "review_recovered_status"
+      }));
+      expect(start.handoff.recovered_statuses).toEqual([expect.objectContaining({ record_id: status.record.id })]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("suppresses expired status recovery after a later final handoff", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-expired-stop-final-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(store);
+      const identity = { client: "codex", session_id: "codex-stop", device_id: "device-a" };
+      const status = await agentStatus({ storePath: store, projectPath: project, agent: identity, status: "Work still in progress.", currentTask: "finish parser", push: false });
+      const finished = await agentFinish({ storePath: store, projectPath: project, agent: identity, summary: "Parser work finished and verified.", currentTask: "finish parser", push: false });
+      const future = new Date(Date.parse(finished.record.updated_at) + 3 * 60 * 60 * 1000).toISOString();
+
+      const start = await agentStart({ storePath: store, projectPath: project, agent: { client: "claude", session_id: "claude-next", device_id: "device-b" }, currentTask: "consume final handoff", pull: false }, { now: () => future });
+
+      expect(start.handoff.inbox.map((entry) => entry.record_id)).toContain(finished.record.id);
+      expect(start.handoff.inbox.map((entry) => entry.record_id)).not.toContain(status.record.id);
+      expect(start.handoff.recovered_statuses).toEqual([]);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

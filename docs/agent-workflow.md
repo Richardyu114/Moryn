@@ -92,6 +92,13 @@ content-addressed backups and atomic replacement while preserving unrelated
 host settings. Codex requires one exceptional host-side step: use `/hooks` once
 to review and trust the project hooks. Moryn never bypasses that trust check.
 
+Codex `Stop` is turn-scoped, so Moryn records it as a status rather than a final
+handoff. During the active-session window it appears only as coordination
+context. After the active-session window expires, the latest status without a
+newer final summary is recovered into the next agent's handoff inbox. This
+preserves an interrupted Codex session without turning every completed turn
+into a noisy final handoff.
+
 ## Startup
 
 Use `agent enter` as the default entrypoint:

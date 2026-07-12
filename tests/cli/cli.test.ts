@@ -7423,6 +7423,8 @@ describe("moryn CLI", () => {
         inbox_next_action_required_input: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
         inbox_next_action_required_input_argument_path: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
         inbox_next_action_argument_source: "handoff.inbox_by_record_id.<record_id>.next_action.argument_sources.<field>",
+        recovered_status_entry: "handoff.recovered_statuses_by_record_id.<record_id>",
+        recovered_status_record_id: "handoff.recovered_statuses_by_record_id.<record_id>.record_id",
         active_session_entry: "handoff.active_sessions_by_record_id.<record_id>",
         active_session_record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
         active_session_next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action",

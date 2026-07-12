@@ -534,6 +534,8 @@ export const HANDOFF_SELECTION_SOURCES = {
   inbox_next_action_required_input: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
   inbox_next_action_required_input_argument_path: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
   inbox_next_action_argument_source: "handoff.inbox_by_record_id.<record_id>.next_action.argument_sources.<field>",
+  recovered_status_entry: "handoff.recovered_statuses_by_record_id.<record_id>",
+  recovered_status_record_id: "handoff.recovered_statuses_by_record_id.<record_id>.record_id",
   active_session_entry: "handoff.active_sessions_by_record_id.<record_id>",
   active_session_record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
   active_session_next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action",
@@ -717,7 +719,7 @@ interface AgentHandoffEntry {
   agent: RecordSource;
   updated_at: string;
   active_until?: string;
-  recommended_action: "review_handoff_summary" | "coordinate_with_active_session";
+  recommended_action: "review_handoff_summary" | "review_recovered_status" | "coordinate_with_active_session";
   next_action: HandoffEntryNextAction;
 }
 
@@ -2377,6 +2379,8 @@ function isFreshActiveStatus(record: MorynRecord, now: Date): boolean {
 function buildHandoff(records: MorynRecord[], projectId: string, input: AgentLifecycleInput, now = new Date()): {
   inbox: AgentHandoffEntry[];
   inbox_by_record_id: Record<string, AgentHandoffEntry>;
+  recovered_statuses: AgentHandoffEntry[];
+  recovered_statuses_by_record_id: Record<string, AgentHandoffEntry>;
   active_sessions: AgentHandoffEntry[];
   active_sessions_by_record_id: Record<string, AgentHandoffEntry>;
   selection_sources: typeof HANDOFF_SELECTION_SOURCES;
@@ -2394,6 +2398,7 @@ function buildHandoff(records: MorynRecord[], projectId: string, input: AgentLif
   }
   const seenActiveActors = new Set<string>();
   const activeSessions: AgentHandoffEntry[] = [];
+  const recoveredStatuses: AgentHandoffEntry[] = [];
 
   for (const record of sorted.filter((record) => record.type === "status")) {
     if (isSameAgentSession(record.source, agentIdentityFromInput(input))) continue;
@@ -2410,15 +2415,35 @@ function buildHandoff(records: MorynRecord[], projectId: string, input: AgentLif
     if (activeSessions.length >= 5) break;
   }
 
-  const inbox = finalSummaries
+  const seenRecoveredActors = new Set<string>();
+  for (const record of sorted.filter((record) => record.type === "status")) {
+    if (isSameAgentSession(record.source, agentIdentityFromInput(input))) continue;
+    if (isFreshActiveStatus(record, now)) continue;
+    const sessionFinal = finalSummaryBySession.get(sourceSessionKey(record.source));
+    if (sessionFinal && sessionFinal.updated_at >= record.updated_at) continue;
+    const actorKey = sourceActorKey(record.source);
+    const actorFinal = finalSummaryByActor.get(actorKey);
+    if (actorFinal && actorFinal.updated_at >= record.updated_at) continue;
+    if (seenRecoveredActors.has(actorKey)) continue;
+    seenRecoveredActors.add(actorKey);
+    recoveredStatuses.push(handoffEntry(record, projectId, "review_recovered_status"));
+    if (recoveredStatuses.length >= 5) break;
+  }
+
+  const finalInbox = finalSummaries
     .filter((record) => !isSameAgentSession(record.source, agentIdentityFromInput(input)))
     .slice(0, 5)
     .map((record) => handoffEntry(record, projectId, "review_handoff_summary"));
+  const inbox = [...finalInbox, ...recoveredStatuses]
+    .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.record_id.localeCompare(right.record_id))
+    .slice(0, 5);
   const nextAction = activeSessions[0]?.next_action ?? inbox[0]?.next_action;
 
   return {
     inbox,
     inbox_by_record_id: Object.fromEntries(inbox.map((entry) => [entry.record_id, entry])),
+    recovered_statuses: recoveredStatuses,
+    recovered_statuses_by_record_id: Object.fromEntries(recoveredStatuses.map((entry) => [entry.record_id, entry])),
     active_sessions: activeSessions,
     active_sessions_by_record_id: Object.fromEntries(activeSessions.map((entry) => [entry.record_id, entry])),
     selection_sources: HANDOFF_SELECTION_SOURCES,

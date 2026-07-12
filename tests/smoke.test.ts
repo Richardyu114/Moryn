@@ -147,6 +147,8 @@ describe("package smoke test", () => {
     expect(HANDOFF_SELECTION_SOURCES.active_session_next_action_cli_args).toBe("handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.args[]");
     expect(HANDOFF_SELECTION_SOURCES.active_session_next_action_argument).toBe("handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>");
     expect(HANDOFF_SELECTION_SOURCES.active_session_next_action_argument_source).toBe("handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>");
+    expect(HANDOFF_SELECTION_SOURCES.recovered_status_entry).toBe("handoff.recovered_statuses_by_record_id.<record_id>");
+    expect(HANDOFF_SELECTION_SOURCES.recovered_status_record_id).toBe("handoff.recovered_statuses_by_record_id.<record_id>.record_id");
     expect(HANDOFF_PACK_SELECTION_SOURCES.quality_gate).toBe("handoff_pack.quality_gate");
     expect(HANDOFF_QUALITY_GATE_SELECTION_SOURCES.check).toBe("handoff_pack.quality_gate.checks_by_id.<check_id>");
     expect(CAPTURE_SESSION_SELECTION_SOURCES.policy_decision).toBe("policy_decision");
