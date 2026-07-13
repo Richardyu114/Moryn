@@ -183,7 +183,7 @@ function syncRemoteObjectPathAliases(): McpObjectPathAlias[] {
       target: "sync_remote",
       contractArgument: "sync_remote",
       conflictKind: "nested_vs_literal_path",
-      normalize: (value) => value
+      normalize: syncRemoteValue
     }
   ];
 }
@@ -250,7 +250,11 @@ function syncModeFromProjectSyncObject(value: unknown): unknown {
 }
 
 function syncRemoteFromSyncObject(value: unknown): unknown {
-  return isMcpObject(value) ? value.remote : value;
+  return syncRemoteValue(isMcpObject(value) ? value.remote : value);
+}
+
+function syncRemoteValue(value: unknown): unknown {
+  return value === false ? undefined : value;
 }
 
 function snakeToCamel(value: string): string {
@@ -853,9 +857,11 @@ function mcpObjectPathAliasConflict(tool: string, input: Record<string, unknown>
     for (const alias of aliases) {
       const aliasValue = input[alias.alias];
       if (aliasValue === undefined) continue;
+      const normalizedAliasValue = alias.normalize(aliasValue);
+      if (normalizedAliasValue === undefined) continue;
       objectPathAliasInputs += 1;
       valuesByInput[displayNameForObjectPathAlias(alias.alias)] = aliasValue;
-      stableValues.push(stableMcpValueKey(alias.normalize(aliasValue)));
+      stableValues.push(stableMcpValueKey(normalizedAliasValue));
     }
     if (objectPathAliasInputs === 0) continue;
     if (Object.keys(valuesByInput).length <= 1) continue;

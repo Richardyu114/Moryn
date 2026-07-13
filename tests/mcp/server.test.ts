@@ -7896,6 +7896,43 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it.each([
+    ["nested object", { sync: { remote: false } }],
+    ["scalar shorthand", { sync: false }],
+    ["literal path", { "sync.remote": false }]
+  ])("treats sync.remote false from %s as no lifecycle remote override", async (_label, syncArguments) => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-sync-disabled-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const started = parseTextContent(await client.callTool({
+          name: "agent_start",
+          arguments: {
+            projectId: "moryn",
+            currentTask: "start without a remote override",
+            pull: false,
+            ...syncArguments,
+            agent: "claude",
+            agentSessionId: "sync-disabled-session"
+          }
+        })) as {
+          ok?: false;
+          error?: { message: string };
+          agent?: { client: string; session_id: string };
+          sync?: { before?: { configured?: boolean }; after?: { configured?: boolean } };
+        };
+
+        expect(started.error?.message).toBeUndefined();
+        expect(started.agent).toMatchObject({ client: "claude", session_id: "sync-disabled-session" });
+        expect(started.sync?.before?.configured).toBe(false);
+        expect(started.sync?.after?.configured).toBe(false);
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("accepts singular MCP recall filter aliases without broadening the query", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-recall-singular-aliases-"));
     try {

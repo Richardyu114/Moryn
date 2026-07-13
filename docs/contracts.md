@@ -714,6 +714,7 @@ Examples:
 
 - `projectId` -> `project_id`
 - `currentTask` -> `current_task`
+- `sync: { remote: false }` -> no remote override for this call
 - `agent: "codex"` -> `agent.client: "codex"` for lifecycle and `project_list`
 - `agentClient` -> `agent.client`
 - `agent_client` -> `agent.client`
@@ -728,6 +729,11 @@ Conflicting aliases are rejected with structured `INVALID_ARGUMENT` recovery
 hints instead of silently choosing one value. The `agent` client shorthand can
 be combined with session/model/device aliases, but a different `agentClient`
 value is still rejected.
+
+`sync: false`, `sync: { remote: false }`, and `"sync.remote": false` are
+equivalent MCP conveniences. They omit the optional `sync_remote` override for
+that call; they do not remove an existing store remote. Use `pull: false` or
+`push: false` to suppress the corresponding network operation.
 
 ## Error Envelopes
 

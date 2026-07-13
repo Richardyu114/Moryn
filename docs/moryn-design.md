@@ -2212,6 +2212,11 @@ sync object shape `sync: { "remote": "git@..." }` or literal path form
 `"sync.remote": "git@..."`; both normalize to the canonical `sync_remote`
 argument, and conflicting sync remote forms return `single_value` alias
 recovery instead of silently choosing one.
+For host SDKs that serialize disabled optional configuration as booleans,
+`sync: false`, `sync: { remote: false }`, and `"sync.remote": false` normalize
+to an omitted remote override. This is call-local only: it never removes an
+already configured store remote, and callers still use `pull: false` or
+`push: false` when they want to suppress network activity.
 The response keeps `projects[]` as the ordered display list and also returns
 `projects_by_id` for direct keyed selection. Each
 `projects_by_id.<project_id>` value mirrors the matching `projects[]` record,
