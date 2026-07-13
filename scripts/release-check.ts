@@ -91,14 +91,14 @@ export function v03AcceptanceMatrix(completedSteps: readonly GateStepId[]): Reco
 export function assertSafePackageFiles(files: string[]): void {
   const unsafe = files.filter((file) => {
     const normalized = file.replace(/\\/g, "/").replace(/^package\//, "");
-    return normalized === "config.json" || normalized === ".moryn.json" || normalized.startsWith(".moryn/") || normalized.startsWith(".gemini/") || normalized.startsWith("docs/superpowers/") || normalized === "docs/v0.2-phase-plan.md" || normalized.startsWith("events/") || normalized.startsWith("snapshots/") || normalized.startsWith("indexes/") || normalized.endsWith(".tgz");
+    return normalized === "config.json" || normalized === ".moryn.json" || normalized.startsWith(".moryn/") || normalized.startsWith(".gemini/") || normalized.startsWith("docs/superpowers/") || normalized.startsWith("docs/releases/") || normalized === "docs/v0.2-phase-plan.md" || normalized.startsWith("events/") || normalized.startsWith("snapshots/") || normalized.startsWith("indexes/") || normalized.endsWith(".tgz");
   });
   if (unsafe.length) throw new Error(`Package contains private Moryn store data: ${unsafe.join(", ")}`);
 }
 
 export function assertPackageFilesComplete(files: string[]): void {
   const normalized = new Set(files.map((file) => file.replace(/\\/g, "/").replace(/^package\//, "")));
-  const required = ["package.json", "LICENSE", "README.md", "CHANGELOG.md", "docs/agent-install-prompt.md", "docs/agent-workflow.md", "docs/contracts.md", "docs/development.md", "docs/implementation-roadmap.md", "docs/moryn-design.md", "dist/cli.js", "dist/index.js", "dist/mcp/server.js", "scripts/agent-lifecycle-smoke.js", "scripts/host-runtime-binding-smoke.js", "scripts/transcript-compact-safety-smoke.js", "scripts/official-host-handoff-smoke.js", "scripts/dogfood-demo-smoke.js", "scripts/upgrade-compat-smoke.js", "scripts/sync-resilience-smoke.js", "scripts/sync-conflict-smoke.js", "scripts/permission-recovery-smoke.js", "scripts/large-store-smoke.js"];
+  const required = ["package.json", "LICENSE", "README.md", "CHANGELOG.md", "docs/agent-install-prompt.md", "docs/agent-workflow.md", "docs/contracts.md", "docs/development.md", "docs/implementation-roadmap.md", "docs/moryn-design.md", "dist/cli.js", "dist/index.js", "dist/mcp/server.js", "scripts/agent-lifecycle-smoke.js", "scripts/host-runtime-binding-smoke.js", "scripts/transcript-compact-safety-smoke.js", "scripts/official-host-handoff-smoke.js", "scripts/learning-inbox-smoke.js", "scripts/finalization-assurance-smoke.js", "scripts/dogfood-demo-smoke.js", "scripts/upgrade-compat-smoke.js", "scripts/sync-resilience-smoke.js", "scripts/sync-conflict-smoke.js", "scripts/permission-recovery-smoke.js", "scripts/large-store-smoke.js"];
   const missing = required.filter((file) => !normalized.has(file));
   if (missing.length) throw new Error(`Package is missing required package files: ${missing.join(", ")}`);
 }

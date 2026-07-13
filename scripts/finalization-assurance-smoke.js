@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,7 +8,16 @@ import { promisify } from "node:util";
 
 const exec = promisify(execFile);
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const cli = [process.execPath, ["--import", "tsx", join(packageRoot, "src", "cli.ts")]];
+async function resolveCli() {
+  const sourceCli = join(packageRoot, "src", "cli.ts");
+  try {
+    await access(sourceCli);
+    return [process.execPath, ["--import", "tsx", sourceCli]];
+  } catch {
+    return [process.execPath, [join(packageRoot, "dist", "cli.js")]];
+  }
+}
+const cli = await resolveCli();
 async function run(command, args, cwd = packageRoot) { return (await exec(command, args, { cwd })).stdout; }
 async function json(store, args) { return JSON.parse(await run(cli[0], [...cli[1], "--store", store, ...args])); }
 

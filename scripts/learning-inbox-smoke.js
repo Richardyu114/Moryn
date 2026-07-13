@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,7 +8,16 @@ import { promisify } from "node:util";
 
 const exec = promisify(execFile);
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const cli = [process.execPath, ["--import", "tsx", join(rootDir, "src", "cli.ts")]];
+async function resolveCli() {
+  const sourceCli = join(rootDir, "src", "cli.ts");
+  try {
+    await access(sourceCli);
+    return [process.execPath, ["--import", "tsx", sourceCli]];
+  } catch {
+    return [process.execPath, [join(rootDir, "dist", "cli.js")]];
+  }
+}
+const cli = await resolveCli();
 async function json(store, args) { return JSON.parse((await exec(cli[0], [...cli[1], "--store", store, ...args], { cwd: rootDir })).stdout); }
 
 const root = await mkdtemp(join(tmpdir(), "moryn-learning-inbox-"));

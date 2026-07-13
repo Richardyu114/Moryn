@@ -891,6 +891,27 @@ describe("published package smoke", () => {
     });
   }, 120000);
 
+  it("runs learning and finalization smokes from the installed package without dev dependencies", async () => {
+    await withTempDir(async (dir) => {
+      const pack = await exec("npm", ["pack", "--silent"], { cwd: process.cwd() });
+      const tarball = join(process.cwd(), pack.stdout.trim().split(/\s+/).at(-1) ?? "");
+
+      try {
+        await exec("npm", ["init", "-y"], { cwd: dir });
+        await exec("npm", ["install", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--silent", tarball], { cwd: dir });
+
+        const packageRoot = join(dir, "node_modules", "@richardyu114", "moryn");
+        const learning = await exec("node", [join(packageRoot, "scripts", "learning-inbox-smoke.js")], { cwd: dir });
+        const finalization = await exec("node", [join(packageRoot, "scripts", "finalization-assurance-smoke.js")], { cwd: dir });
+
+        expect(learning.stdout).toContain("learning inbox smoke passed");
+        expect(finalization.stdout).toContain("finalization assurance smoke passed");
+      } finally {
+        await rm(tarball, { force: true });
+      }
+    });
+  }, 120000);
+
   it("runs setup health check and context pack from the installed package without dev dependencies", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");

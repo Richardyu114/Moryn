@@ -32,6 +32,10 @@ describe("release check", () => {
     ])).toThrow(/private Moryn store data/);
 
     expect(() => assertSafePackageFiles([
+      "package/docs/releases/v0.3-roadmap.md"
+    ])).toThrow(/private Moryn store data/);
+
+    expect(() => assertSafePackageFiles([
       "package/dist/cli.js",
       "package/docs/moryn-design.md",
       "package/assets/moryn-hero.png"
@@ -57,6 +61,8 @@ describe("release check", () => {
       "package/scripts/host-runtime-binding-smoke.js",
       "package/scripts/transcript-compact-safety-smoke.js",
       "package/scripts/official-host-handoff-smoke.js",
+      "package/scripts/learning-inbox-smoke.js",
+      "package/scripts/finalization-assurance-smoke.js",
       "package/scripts/dogfood-demo-smoke.js",
       "package/scripts/upgrade-compat-smoke.js",
       "package/scripts/sync-resilience-smoke.js",
@@ -64,6 +70,32 @@ describe("release check", () => {
       "package/scripts/permission-recovery-smoke.js",
       "package/scripts/large-store-smoke.js"
     ])).not.toThrow();
+
+    expect(() => assertPackageFilesComplete([
+      "package/package.json", "package/LICENSE", "package/README.md", "package/CHANGELOG.md",
+      "package/docs/agent-install-prompt.md", "package/docs/agent-workflow.md", "package/docs/contracts.md",
+      "package/docs/development.md", "package/docs/implementation-roadmap.md", "package/docs/moryn-design.md",
+      "package/dist/cli.js", "package/dist/index.js", "package/dist/mcp/server.js",
+      "package/scripts/agent-lifecycle-smoke.js", "package/scripts/host-runtime-binding-smoke.js",
+      "package/scripts/transcript-compact-safety-smoke.js", "package/scripts/official-host-handoff-smoke.js",
+      "package/scripts/finalization-assurance-smoke.js", "package/scripts/dogfood-demo-smoke.js",
+      "package/scripts/upgrade-compat-smoke.js", "package/scripts/sync-resilience-smoke.js",
+      "package/scripts/sync-conflict-smoke.js", "package/scripts/permission-recovery-smoke.js",
+      "package/scripts/large-store-smoke.js"
+    ])).toThrow(/missing required package files: .*scripts\/learning-inbox-smoke\.js/);
+
+    expect(() => assertPackageFilesComplete([
+      "package/package.json", "package/LICENSE", "package/README.md", "package/CHANGELOG.md",
+      "package/docs/agent-install-prompt.md", "package/docs/agent-workflow.md", "package/docs/contracts.md",
+      "package/docs/development.md", "package/docs/implementation-roadmap.md", "package/docs/moryn-design.md",
+      "package/dist/cli.js", "package/dist/index.js", "package/dist/mcp/server.js",
+      "package/scripts/agent-lifecycle-smoke.js", "package/scripts/host-runtime-binding-smoke.js",
+      "package/scripts/transcript-compact-safety-smoke.js", "package/scripts/official-host-handoff-smoke.js",
+      "package/scripts/learning-inbox-smoke.js", "package/scripts/dogfood-demo-smoke.js",
+      "package/scripts/upgrade-compat-smoke.js", "package/scripts/sync-resilience-smoke.js",
+      "package/scripts/sync-conflict-smoke.js", "package/scripts/permission-recovery-smoke.js",
+      "package/scripts/large-store-smoke.js"
+    ])).toThrow(/missing required package files: .*scripts\/finalization-assurance-smoke\.js/);
 
     expect(() => assertPackageFilesComplete([
       "package/package.json",
