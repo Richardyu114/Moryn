@@ -27,6 +27,9 @@ import type { MorynEvent, MorynRecord, RecordKind, RecordSource } from "../core/
 import { summarizeWorkingSet } from "../core/working-set-report.js";
 import { getGitSyncStatus, type GitSyncStatus } from "../sync/git.js";
 import { approveMaintenancePlan, buildDashboardMaintenance, type DashboardMaintenanceData, type DashboardMaintenancePlan } from "./dashboard-maintenance.js";
+import { renderDashboardWorkspace } from "./dashboard-workspace.js";
+import { dashboardWorkspaceCss } from "./dashboard-workspace.css.js";
+import { dashboardWorkspaceScript } from "./dashboard-workspace-script.js";
 
 const exec = promisify(execFile);
 const DEFAULT_LIMIT = 20;
@@ -70,6 +73,15 @@ declare global {
     currentDashboardLanguage?: () => "en" | "zh";
     restoreActionReceipt?: () => void;
     renderActionReceipt?: (result: unknown) => void;
+    initializeDashboardWorkspace?: () => void;
+    dashboardWorkspaceState?: {
+      activateView: (view: string) => void;
+      openDrawer: (id: string, trigger?: HTMLElement | null, options?: { focus?: boolean }) => boolean;
+      closeDrawer: (options?: { restoreFocus?: boolean }) => void;
+      capture: () => { view: string; drawer: string | null; scrollY: number };
+      restore: (state?: { view?: string; drawer?: string | null; scrollY?: number }) => void;
+      initialize: () => void;
+    };
   }
   }
 
@@ -8587,22 +8599,7 @@ function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderO
   const promotedStoreSignals = shouldPromoteStoreSignals ? promotedStoreSignalsPanel(data) : "";
   const displayHealth = dashboardDisplayHealth(data);
   const healthLabelZh = dashboardHealthZh(displayHealth.status === "local_ready" ? "local_only" : displayHealth.status, displayHealth.label);
-  return `
-    <header>
-      <div>
-        <h1>Moryn Dashboard</h1>
-        <p class="store-path" title="${escapeHtml(data.store.path)}" data-i18n-en="Local memory" data-i18n-zh="本机记忆">Local memory</p>
-        <p class="dashboard-generated-at"><time datetime="${escapeHtml(data.generated_at)}" title="${escapeHtml(data.generated_at)}">${escapeHtml(dashboardGeneratedAtLabel(data.generated_at))}</time></p>
-      </div>
-      <div class="dashboard-header-actions">
-        <span class="health-badge ${healthClass(displayHealth.status)}" ${i18nAttribute(displayHealth.label, healthLabelZh)}>${escapeHtml(displayHealth.label)}</span>
-        ${dashboardLanguageToggle()}
-      </div>
-    </header>
-
-    <section id="last-action-receipt" class="panel last-action-receipt" data-action-receipt-anchor aria-live="polite" hidden></section>
-    ${quietDashboardFirstScreen(data)}
-    <details class="audit-details" data-dashboard-detail="audit-details">
+  const auditHtml = `<details class="audit-details" data-dashboard-detail="audit-details">
       <summary>${i18nText("Audit Details", "审计细节", "span")}${i18nText("Records, events, diagnostics, and maintenance", "记录、事件、诊断和维护", "small")}</summary>
       <div class="audit-details-content">
         ${semanticConsolidationAudit(data)}
@@ -8628,8 +8625,17 @@ function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderO
           auditOnly: hasPendingDecisions
         })}
       </div>
-    </details>
-  `;
+    </details>`;
+  const memoryHtml = `<section class="panel"><h2>${i18nText("Saved knowledge", "已保存知识")}</h2><p>${i18nText("Use Workspace for the current working set. Open Audit Details for full search, lifecycle, and governance evidence.", "在工作区查看当前工作记忆；完整搜索、生命周期和治理证据位于审计细节。")}</p><dl><div><dt>${i18nText("Active", "活跃")}</dt><dd>${data.logical_memory.active_working_set_records}</dd></div><div><dt>${i18nText("Learned", "已学习")}</dt><dd>${data.logical_memory.learned_records}</dd></div><div><dt>${i18nText("Stored", "已存储")}</dt><dd>${data.totals.records}</dd></div></dl></section>`;
+  const historyHtml = `<section class="panel"><h2>${i18nText("Recent activity", "近期活动")}</h2><p>${i18nText("The Workspace highlights the newest meaningful events. Full citations, diagnostics, and raw history remain in Audit Details.", "工作区突出显示最新的重要事件；完整引用、诊断和原始历史仍保留在审计细节。")}</p><dl><div><dt>${i18nText("Events", "事件")}</dt><dd>${data.totals.events}</dd></div><div><dt>${i18nText("Recent", "近期")}</dt><dd>${data.recent_events.length}</dd></div><div><dt>${i18nText("Generated", "生成时间")}</dt><dd>${escapeHtml(data.generated_at)}</dd></div></dl></section>`;
+  return `<div hidden aria-hidden="true"><header><span class="health-badge ${healthClass(displayHealth.status)}" ${i18nAttribute(displayHealth.label, healthLabelZh)}>${escapeHtml(displayHealth.label)}</span></header>${quietDashboardFirstScreen(data)}<span data-quiet-dashboard-end></span></div>
+    ${renderDashboardWorkspace(data, {
+    memory_html: memoryHtml,
+    history_html: historyHtml,
+    audit_html: auditHtml,
+    language_toggle_html: dashboardLanguageToggle()
+  })}
+    <section id="last-action-receipt" class="panel last-action-receipt" data-action-receipt-anchor aria-live="polite" hidden></section>`;
 }
 
 function dashboardRefreshScript(refreshIntervalMs: number | undefined): string {
@@ -8663,12 +8669,15 @@ function dashboardRefreshScript(refreshIntervalMs: number | undefined): string {
       const refresh = async () => {
         try {
           if (window.shouldPauseStoredContentRefresh?.()) return;
+          const workspaceState = window.dashboardWorkspaceState?.capture();
           const hadStoredContentSearchFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.matches("[data-memory-search-input]");
           const memorySearchScrollState = window.captureMemorySearchScrollState?.();
           const response = await fetch("fragment", { cache: "no-store" });
           if (!response.ok) return;
           main.innerHTML = await response.text();
           restoreDetailState(detailState);
+          window.initializeDashboardWorkspace?.();
+          window.dashboardWorkspaceState?.restore(workspaceState);
           window.applyDashboardLanguage?.();
           window.restoreStoredContentState?.({ focusSearch: hadStoredContentSearchFocus });
           window.restoreMemorySearchScrollState?.(memorySearchScrollState);
@@ -9927,7 +9936,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
   <title>Moryn Dashboard</title>
   <style>
     :root {
-      color-scheme: dark;
+      color-scheme: light;
       --canvas: #050505;
       --surface: #101216;
       --surface-2: #161a20;
@@ -9970,7 +9979,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     html, body { max-width: 100%; overflow-x: hidden; }
     body {
       margin: 0;
-      background: linear-gradient(180deg, #050505 0, #0a0c0f 360px, var(--canvas) 100%);
+      background: var(--canvas);
       color: var(--text);
       font: 14px/1.55 Inter, "Aptos", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       letter-spacing: 0;
@@ -14269,6 +14278,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       .quiet-context-list { grid-template-columns: 1fr; }
       .quiet-current-task { font-size: 26px !important; }
     }
+    ${dashboardWorkspaceCss()}
   </style>
 </head>
 <body class="neutral-intelligence">
@@ -14281,6 +14291,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
   ${dashboardMaintenanceScript()}
   ${dashboardCaptureInboxScript()}
   ${dashboardCandidateTriageScript()}
+  ${dashboardWorkspaceScript()}
 </body>
 </html>
 `;

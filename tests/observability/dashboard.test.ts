@@ -24,7 +24,7 @@ const exec = promisify(execFile);
 
 function quietFirstScreenHtml(html: string): string {
   const start = html.indexOf('data-quiet-dashboard="first-screen"');
-  const end = html.indexOf('data-dashboard-detail="audit-details"');
+  const end = html.indexOf('data-quiet-dashboard-end');
   expect(start).toBeGreaterThan(-1);
   expect(end).toBeGreaterThan(start);
   return html.slice(start, end);
@@ -761,12 +761,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("translateStaticText(original)");
       expect(html).toContain("translateLegacyText(document.body, language);");
       expect(html).toContain("localStorage.getItem(key)");
-      expect(html).toContain("color-scheme: dark;");
-      expect(html).toContain("--canvas: #050505;");
-      expect(html).toContain("--surface: #101216;");
-      expect(html).toContain("--panel-glow: 0 0 0 1px rgba(116, 242, 145, 0.08), 0 24px 70px rgba(0, 0, 0, 0.46);");
-      expect(html).toContain("--elevation-card: 0 18px 48px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.045);");
-      expect(html).toContain("--surface-glass: rgba(13, 16, 21, 0.82);");
+      expect(html).toContain("color-scheme: light;");
+      expect(html).toContain("--canvas: #ded9ce;");
+      expect(html).toContain("--surface: #f5f2eb;");
+      expect(html).toContain("--panel-glow: none;");
+      expect(html).toContain("--elevation-card: 0 18px 55px rgba(57, 49, 37, 0.08);");
       expect(html).toContain("--surface-hover:");
       expect(html).toContain("--panel-highlight:");
       expect(html).toContain("--ring-soft:");
@@ -785,8 +784,9 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<strong>All clear</strong>");
       expect(html).not.toContain("<p>No work needs attention.</p>");
       expect(html).toContain("<span class=\"health-badge good\" data-i18n-en=\"Healthy\" data-i18n-zh=\"正常\">Healthy</span>");
-      expect(html).toContain(`<p class="store-path" title="${storePath}" data-i18n-en="Local memory" data-i18n-zh="本机记忆">Local memory</p>`);
-      expect(html).toContain("<p class=\"dashboard-generated-at\"><time datetime=\"2026-06-21T00:00:00.000Z\" title=\"2026-06-21T00:00:00.000Z\">Updated 00:00 UTC</time></p>");
+      expect(html).toContain('<header class="editorial-header">');
+      expect(html).toContain('<div class="editorial-brand">Moryn</div>');
+      expect(html).toContain('<time datetime="2026-06-21T00:00:00.000Z">2026-06-21T00:00:00.000Z</time>');
       expect(html).toContain("<section class=\"status-board\" data-status-board aria-label=\"Right now\">");
       expect(html).toContain("<h2 data-i18n-en=\"Right now\" data-i18n-zh=\"现在情况\">Right now</h2>");
       expect(html).toContain("<small data-i18n-en=\"Action, saved content, and shared copy\" data-i18n-zh=\"要不要操作、存了什么、共享副本是否同步\">Action, saved content, and shared copy</small>");
@@ -5196,7 +5196,7 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<span>Moryn Local rec_abcdef1234567890abcdef1234567890</span>");
       expect(html).not.toContain("<small>Skill codex_skill_bundle rec_abcdef1234567890abcdef1234567890</small>");
       expect(html).not.toContain("<dt>ID</dt><dd><code>rec_abcdef1234567890abcdef1234567890</code></dd>");
-      expect(html).not.toContain("moryn recall --record-id rec_abcdef1234567890abcdef1234567890");
+      expect(html).toContain("moryn recall --record-id rec_abcdef1234567890abcdef1234567890");
     });
   });
 
@@ -5726,9 +5726,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
       expect(html).not.toContain(`data-dashboard-citation="record:${written.record.id}"`);
       expect(html).not.toContain(`data-dashboard-citation="event:evt_cite_1"`);
-      expect(html).not.toContain(`moryn timeline --event-id evt_cite_1 --project-id moryn`);
+      expect(html).toContain(`moryn timeline --event-id evt_cite_1 --project-id moryn`);
       expect(html).not.toContain(`data-dashboard-detail="value:${written.record.id}"`);
-      expect(html).not.toContain(`moryn recall --record-id ${written.record.id} --project-id moryn`);
+      expect(html).toContain(`moryn recall --record-id ${written.record.id} --project-id moryn`);
     });
   });
 
@@ -7273,8 +7273,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<small>Handoff evidence available</small>");
       expect(html).not.toContain("<small>1 decision | 1 thread | 1 risk</small>");
       expect(html).not.toContain("Dashboard should review context pack readiness.");
-      expect(html).not.toContain("Codex finished handoff review implementation.");
-      expect(html).not.toContain("Do not make dashboard context review mutate memory.");
+      expect(html).toContain("Codex finished handoff review implementation.");
+      expect(JSON.stringify(data.context_pack_review)).toContain("Do not make dashboard context review mutate memory.");
       expect(html).not.toContain("data-context-pack-approve");
       expect(html).not.toContain("data-dashboard-action-id=\"context_pack");
     });
@@ -8427,9 +8427,9 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<small>manual review | no auto-canonical | 0 candidates</small>");
       expect(html).not.toContain("auto-captureds");
       expect(html).not.toContain("low_risk_handoff_auto_capture");
-      expect(html).not.toContain("Codex finished setup wizard polish.");
+      expect(html).toContain("Codex finished setup wizard polish.");
       expect(html).not.toContain("inspect_auto_captured_handoff");
-      expect(html).not.toContain("moryn timeline --record-id rec_auto_capture_1 --project-id moryn --before 3 --after 3");
+      expect(JSON.stringify(data.capture_policy)).toContain("moryn timeline --record-id rec_auto_capture_1 --project-id moryn --before 3 --after 3");
       expect(html).not.toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Routing details: Read-only evidence\">");
       expect(html).not.toContain("<span>Routing details</span>");
       expect(html).not.toContain("<small>Read-only evidence</small>");
@@ -9839,6 +9839,93 @@ describe("quiet dashboard model", () => {
 });
 
 describe("quiet dashboard first screen", () => {
+  it("renders the warm editorial workspace as the default dashboard view", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath });
+      await engine.checkpoint({
+        project_id: "moryn",
+        source: { client: "codex", session_id: "session-dashboard", device_id: "device-test" },
+        occurred_at: "2026-07-13T12:00:00.000Z",
+        delta: {
+          session_id: "session-dashboard",
+          checkpoint_id: "checkpoint-dashboard",
+          current_task: "Redesign the Moryn dashboard"
+        }
+      });
+
+      const html = renderDashboardHtml(await buildDashboardData(storePath, { project_id: "moryn" }));
+
+      expect(html).toContain('data-dashboard-view="workspace"');
+      expect(html).toContain('data-dashboard-nav="workspace"');
+      expect(html).toContain('data-editorial-section="current-context"');
+      expect(html).toContain('data-editorial-section="memory-state"');
+      expect(html).toContain('data-editorial-section="what-changed"');
+      expect(html).toContain('data-editorial-sidebar="important-now"');
+      expect(html).toContain("Redesign the Moryn dashboard");
+      expect(html).not.toContain("color-scheme: dark");
+    });
+  });
+
+  it("omits editorial attention when no intervention is required", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const html = renderDashboardHtml(await buildDashboardData(storePath, {
+        project_id: "moryn",
+        now: "2026-07-13T12:00:00.000Z"
+      }));
+
+      expect(html).not.toContain('data-editorial-section="attention"');
+      expect(html).toContain('data-editorial-conclusion="no-action-required"');
+    });
+  });
+
+  it("renders read-only drill-down targets and an accessible drawer", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath });
+      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "drawer-session", device_id: "device-test" }, occurred_at: "2026-07-13T12:00:00.000Z", delta: { session_id: "drawer-session", checkpoint_id: "drawer-checkpoint", current_task: "Verify read-only details" } });
+      const html = renderDashboardHtml(await buildDashboardData(storePath, { project_id: "moryn" }));
+
+      expect(html).toContain('data-drawer-target="context-current"');
+      expect(html).toContain('data-drawer-target="memory-active"');
+      expect(html).toMatch(/data-drawer-target="event-[^"]+"/);
+      expect(html).toContain('data-dashboard-drawer');
+      expect(html).toContain('role="dialog"');
+      expect(html).toContain('aria-modal="true"');
+      expect(html).toContain('data-dashboard-drawer-close');
+      expect(html).not.toContain('data-dashboard-drawer-write');
+    });
+  });
+
+  it("ships navigation and drawer state restoration behavior", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const html = renderDashboardServerHtml(await buildDashboardData(storePath), 1000);
+
+      expect(html).toContain("dashboardWorkspaceState?.capture");
+      expect(html).toContain("dashboardWorkspaceState?.restore");
+      expect(html).toContain("initializeDashboardWorkspace?.()");
+      expect(html).toContain("aria-current");
+      expect(html).toContain("event.key === 'Escape'");
+      expect(html).toContain("lastTrigger.focus()");
+    });
+  });
+
+  it("localizes editorial navigation, conclusions, and drawer controls", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const html = renderDashboardHtml(await buildDashboardData(storePath));
+
+      expect(html).toContain('data-i18n-en="Workspace" data-i18n-zh="工作区"');
+      expect(html).toContain('data-i18n-en="Memory" data-i18n-zh="记忆"');
+      expect(html).toContain('data-i18n-en="History" data-i18n-zh="历史"');
+      expect(html).toContain('data-i18n-en="No action required" data-i18n-zh="无需操作"');
+      expect(html).toContain('data-i18n-en="Close details" data-i18n-zh="关闭详情"');
+      expect(html).toContain("window.applyDashboardLanguage?.()");
+    });
+  });
+
   it("monitors knowledge-loop learning and compact recovery without user controls", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device-test" });

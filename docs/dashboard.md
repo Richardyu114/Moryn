@@ -18,67 +18,47 @@ local store and never uploads dashboard data.
 
 ## First Screen
 
-The v0.3 first screen is one continuous monitoring surface. It is optimized for
-one-glance reading, not for browsing a project tool or maintaining the store.
-Its hierarchy is deliberately typography-led instead of presenting several
-equally weighted cards:
+The v0.3 default is a warm-white editorial workspace with medium information
+density. It is a quiet, read-only monitoring surface rather than a management
+console. The first screen answers what the current task is, whether continuity
+is protected, what memory is available, what changed recently, and whether the
+user genuinely needs to intervene.
 
-- `System Pulse` is a quiet horizontal status band. Store, sync, protected
-  context, and Autopilot remain visible as compact signals; healthy signals use
-  neutral color and exceptional state uses a narrow status accent.
-- `Current Context` is the visual anchor and gives the active task the largest
-  type. Project, agent, device, checkpoint, and handoff evidence remain muted
-  metadata rather than competing headlines.
-- `Memory Flow` is a compact metric strip rather than a peer card. It summarizes
-  active knowledge, consolidation, and learned conclusions while raw event and
-  relationship totals stay behind its folded details.
-- Healthy pages do not render an `Attention Needed` zero state. The section
-  exists only for genuine user-dependent exceptions such as authentication,
-  conflicts, sensitive confirmation, or project repair.
+- Current Context is the primary reading block. The active task receives the
+  largest type, while project, agent, device, update time, checkpoint, and
+  handoff status remain restrained metadata.
+- Memory State uses restrained figures rather than KPI tiles. Active knowledge,
+  learned conclusions, material conflicts, and consolidation stay visible
+  without decorative charts.
+- What Changed shows three to five prioritized events. Checkpoints, handoffs,
+  sync, learning, consolidation, and exceptional events are favored over raw
+  low-value activity.
+- Important Now is a narrow supporting column for the active task, directly
+  related continuity evidence, and shared-copy status.
+- Healthy pages do not render an Attention zero state. Attention appears only
+  for authentication, unsafe sync divergence, sensitive confirmation, project
+  repair, or material memory conflict that truly requires user input.
 
-The older `Right now`, `At a glance`, saved-content, and maintenance surfaces
-remain available inside collapsed `Audit Details`. They preserve compatibility,
-search, and audit depth without dominating the normal first screen.
+The top navigation switches between `Workspace`, `Memory`, and `History`
+without reloading the page. Memory and History are dedicated read-only views;
+they provide calm summaries while the complete saved-content search,
+diagnostics, governance, maintenance, citations, and raw evidence remain in
+`Audit Details`.
 
-The detailed compatibility surfaces use a black high-contrast surface with
-visible status colors and chart cards before any evidence folds. Within
-that layer a user can answer these questions:
+Clicking Current Context, a memory figure, an important item, or a recent event
+opens a reading drawer. The reading drawer is read-only and includes an
+explanation, literal metadata, and evidence commands. It closes with its button,
+Escape, or the backdrop and returns keyboard focus to the trigger. On narrow
+screens the drawer becomes a full-screen detail sheet.
 
-- Do I need to act? -> the `Right now` action card plus a visible
-  `Needs your confirmation` panel only when approval is waiting.
-- What is stored? -> the `Right now` memory card, `At a glance` chart,
-  `Find what Moryn saved`, and `What Moryn stores`.
-- Is everything synced? -> the `Right now` shared-copy card, `This device`,
-  and the sync rail.
+Live refresh preserves the active top-level view, language, scroll position,
+and open drawer when the referenced item still exists. If the item disappears,
+the drawer closes without disturbing the refreshed page.
 
-The visual system uses soft glass surfaces, restrained glow, stable grid row
-heights, and shared hover/focus elevation tokens for the first-screen answer
-cards and saved-content blocks. Status colors act as narrow signals rather than
-full-card color washes, so the black dashboard still feels calm while hover,
-focus, and active states remain visible.
-
-The `Right now`, `Needs your confirmation`, `Saved and searchable`, `At a glance`, and
-`Find what Moryn saved` rows are visible above `More details` in the live
-non-private dashboard.
-`Needs your confirmation` routes users to the owning approval rows only when a real
-write is waiting. If the state is only `Saved for later`, the visible
-saved-and-searchable panel opens `Find what Moryn saved`, expands saved previews,
-and keeps search visible without writing. Its button says `Search saved content`
-so the user reads it as lookup, not a required review. Approve and reject buttons
-stay on the owning row beside the relevant evidence.
-`At a glance` shows a clickable memory state meter, content-type bars,
-shared-copy state, and recent source activity. Clicking a memory state filters
-`Find what Moryn saved` to the matching saved items. This saved-content area combines recent
-saved text previews, keyword search, memory-state/source filters, and a detail
-pane with full text, source, and status. A compact search summary shows the
-searchable total, currently visible results, and currently selected item beside
-a read-only reminder. The detail pane defaults to the first visible item and
-starts with a `Full text` reading block plus a `What this means` summary before
-metadata and history links. Filtering updates the search summary and detail
-pane to the first matching visible item. It never writes.
-Collapsed sections are for audit evidence, raw trace details, and
-optional checks; they should not be required to understand the current dashboard
-state.
+Existing approval actions remain in Audit Details. The redesign does not add a
+write path to Workspace, Memory, History, or the reading drawer. Existing
+privacy filtering, static snapshots, live server behavior, localization, and
+action endpoints remain compatible.
 
 ## Quick Start
 
