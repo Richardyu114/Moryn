@@ -718,9 +718,9 @@ describe("observability dashboard", () => {
       expect(data.health.explanation).toBe("Everything is synced and no action is waiting.");
       expect(html).not.toContain("<p class=\"dashboard-status-line good\" data-dashboard-status=\"healthy\">");
       expect(html).not.toContain("Sync is clean and no urgent safety items were detected in this snapshot.");
-      expect(html).toContain("<span class=\"language-toggle-label\" data-i18n-en=\"Language\" data-i18n-zh=\"语言\">Language</span>");
-      expect(html).toContain("<button type=\"button\" class=\"language-option active\" data-dashboard-language-option=\"en\" aria-pressed=\"true\">EN</button>");
-      expect(html).toContain("<button type=\"button\" class=\"language-option\" data-dashboard-language-option=\"zh\" aria-pressed=\"false\">中文</button>");
+      expect(html).toContain("<span class=\"editorial-language-label\" data-i18n-en=\"Language\" data-i18n-zh=\"语言\">Language</span>");
+      expect(html).toContain("<button type=\"button\" class=\"language-option active\" data-dashboard-language-option=\"en\" aria-pressed=\"true\"><span>EN</span></button>");
+      expect(html).toContain("<button type=\"button\" class=\"language-option\" data-dashboard-language-option=\"zh\" aria-pressed=\"false\"><span>中文</span></button>");
       expect(html).toContain("const key = \"moryn.dashboard.language\";");
       expect(html).toContain("const staticTranslations = new Map(");
       expect(html).toContain("[\"Background checks\", \"后台检查\"]");
@@ -1403,7 +1403,7 @@ describe("observability dashboard", () => {
       expect(serverHtml).toContain("section.classList.add(\"stored-content-active\");");
       expect(serverHtml).toContain("window.restoreStoredContentState = applyStoredContentState;");
       expect(serverHtml).toContain("const hadStoredContentSearchFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.matches(\"[data-memory-search-input]\");");
-      expect(serverHtml).toContain("if (window.shouldPauseStoredContentRefresh?.()) return;");
+      expect(serverHtml).toContain("if (window.shouldPauseStoredContentRefresh?.() || window.dashboardWorkspaceInteraction?.isActive()) return;");
       expect(serverHtml).toContain("window.restoreStoredContentState?.({ focusSearch: hadStoredContentSearchFocus });");
     });
   });
@@ -9929,6 +9929,28 @@ describe("quiet dashboard first screen", () => {
       expect(html).toContain('data-i18n-en="The bounded working set currently available for agent context." data-i18n-zh="当前可供 Agent 上下文使用的有界工作记忆。"');
       expect(html).toContain('data-i18n-en="context" data-i18n-zh="上下文"');
       expect(html).toContain("window.applyDashboardLanguage?.()");
+    });
+  });
+
+  it("keeps interaction smooth and unifies audit and language surfaces", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const html = renderDashboardServerHtml(await buildDashboardData(storePath), 2000);
+
+      expect(html).toContain("dashboardWorkspaceInteraction?.isActive()");
+      expect(html).toContain("data-drawer-state=\"open\"");
+      expect(html).toContain("data-drawer-state=\"closing\"");
+      expect(html).toContain("const wasHidden = drawer.hidden;");
+      expect(html).toContain('drawer.dataset.drawerState = "open";');
+      expect(html).toContain("document.documentElement.classList.add('dashboard-drawer-open')");
+      expect(html).toContain("overscroll-behavior: contain");
+      expect(html).toContain("touch-action: pan-y");
+      expect(html).toContain("transition: opacity 220ms ease");
+      expect(html).toContain("transform: translate3d(100%, 0, 0)");
+      expect(html).toContain(".editorial-audit .panel");
+      expect(html).toContain(".editorial-audit .audit-details-content");
+      expect(html).toContain(".editorial-language-switch");
+      expect(html).toContain('data-dashboard-language-toggle class="editorial-language-switch"');
     });
   });
 

@@ -75,6 +75,10 @@ declare global {
     renderActionReceipt?: (result: unknown) => void;
     initializeDashboardWorkspace?: () => void;
     restoreDashboardWorkspaceAfterFragment?: (state?: { view?: string; drawer?: string | null; scrollY?: number }) => void;
+    dashboardWorkspaceInteraction?: {
+      mark: () => void;
+      isActive: () => boolean;
+    };
     dashboardWorkspaceState?: {
       activateView: (view: string) => void;
       openDrawer: (id: string, trigger?: HTMLElement | null, options?: { focus?: boolean }) => boolean;
@@ -7111,11 +7115,11 @@ function dashboardGeneratedAtLabel(generatedAt: string): string {
 
 function dashboardLanguageToggle(): string {
   return `
-      <div class="language-toggle" data-dashboard-language-toggle aria-label="Language">
-        <span class="language-toggle-label" data-i18n-en="Language" data-i18n-zh="语言">Language</span>
-        <div class="language-options" role="group" aria-label="Language">
-          <button type="button" class="language-option active" data-dashboard-language-option="en" aria-pressed="true">EN</button>
-          <button type="button" class="language-option" data-dashboard-language-option="zh" aria-pressed="false">中文</button>
+      <div data-dashboard-language-toggle class="editorial-language-switch" aria-label="Language">
+        <span class="editorial-language-label" data-i18n-en="Language" data-i18n-zh="语言">Language</span>
+        <div class="editorial-language-options" role="group" aria-label="Language">
+          <button type="button" class="language-option active" data-dashboard-language-option="en" aria-pressed="true"><span>EN</span></button>
+          <button type="button" class="language-option" data-dashboard-language-option="zh" aria-pressed="false"><span>中文</span></button>
         </div>
       </div>
   `;
@@ -8669,7 +8673,7 @@ function dashboardRefreshScript(refreshIntervalMs: number | undefined): string {
       };
       const refresh = async () => {
         try {
-          if (window.shouldPauseStoredContentRefresh?.()) return;
+          if (window.shouldPauseStoredContentRefresh?.() || window.dashboardWorkspaceInteraction?.isActive()) return;
           const workspaceState = window.dashboardWorkspaceState?.capture();
           const hadStoredContentSearchFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.matches("[data-memory-search-input]");
           const memorySearchScrollState = window.captureMemorySearchScrollState?.();
