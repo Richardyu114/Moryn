@@ -177,8 +177,8 @@ describe("host hook runner", () => {
         prompt_recall: { outcome: { status: "knowledge_gap" }, injected: true, record_count: 0 }
       });
       expect(result.hook_output.additional_context).toContain("knowledge_gap");
-      expect(result.hook_output.additional_context).toContain("Learning Delta");
-      expect(result.hook_output.additional_context).toContain("checkpoint or finish");
+      expect(result.hook_output.additional_context).toContain("queue_learning");
+      expect(result.hook_output.additional_context).toContain("automatic_on_checkpoint_or_finish");
       expect(after).toBe(before);
     });
   });

@@ -36,6 +36,7 @@ import type { ContextDeltaInput, KnowledgeInvestigationInput, LearningDeltaInput
 import { LOGICAL_RELATIONSHIP_TYPES, type LogicalRelationshipType } from "./core/logical-memory.js";
 import { rebuildDerivedViews } from "./core/derived.js";
 import { createEngine } from "./core/engine.js";
+import { queueLearning } from "./core/learning-inbox.js";
 import {
   commandForAgentEnterContext,
   commandForAgentFinishContext,
@@ -119,6 +120,7 @@ type CliWriteSource = {
 };
 type CliRequiredOperation =
   | "write"
+  | "learn"
   | "revise"
   | "promote"
   | "archive"
@@ -145,6 +147,7 @@ type CliParserOperation =
   | "capture_session"
   | "context_pack"
   | "write"
+  | "learn"
   | "boot"
   | "recall"
   | "timeline"
@@ -2985,6 +2988,48 @@ consolidate.command("semantic")
       source: { client: options.sourceClient, session_id: options.sessionId }
     });
     printJson(result);
+  });
+
+program.command("learn")
+  .option("--project-id <id>")
+  .option("--project <path>")
+  .requiredOption("--question <question>")
+  .requiredOption("--conclusion <conclusion>")
+  .requiredOption("--evidence-type <type>")
+  .option("--scope <scope>", "Learning scope", "project")
+  .option("--confidence <number>", "Learning confidence", "0.8")
+  .option("--valid-until <timestamp>")
+  .option("--recommended-kind <kind>", "Recommended record kind", "memory")
+  .option("--recommended-type <type>", "Recommended record type", "fact")
+  .option("--related-record-id <id>", "Related record id", collectNonEmptyOption("--related-record-id"), [])
+  .option("--current-task <task>")
+  .option("--agent <client>", "Agent client name", "cli")
+  .option("--session-id <id>")
+  .option("--model <model>")
+  .option("--device-id <id>")
+  .option("--occurred-at <timestamp>")
+  .action(async (options) => {
+    const project = await resolveProjectOptions(options, "learn");
+    printJson(await queueLearning(storePath(), {
+      project_id: project.project_id,
+      question: options.question,
+      conclusion: options.conclusion,
+      evidence_type: options.evidenceType,
+      scope: options.scope,
+      confidence: parseConfidence(options.confidence),
+      valid_until: options.validUntil,
+      recommended_kind: options.recommendedKind,
+      recommended_type: options.recommendedType,
+      related_record_ids: options.relatedRecordId,
+      current_task: options.currentTask,
+      source: {
+        client: options.agent,
+        session_id: options.sessionId,
+        model: options.model,
+        device_id: options.deviceId
+      },
+      occurred_at: options.occurredAt ?? new Date().toISOString()
+    }));
   });
 
 agent.command("checkpoint")

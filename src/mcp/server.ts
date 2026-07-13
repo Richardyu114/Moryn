@@ -19,6 +19,7 @@ import {
   inspectHostActivation,
   writeHostIntegrationArtifact
 } from "../index.js";
+import { queueLearning } from "../core/learning-inbox.js";
 import type { HostRuntimeDescriptor } from "../core/host-integration-artifacts.js";
 import {
   OperationContractLookupConflictError,
@@ -511,6 +512,7 @@ type McpProjectContextOperation =
   | "recall"
   | "timeline"
   | "write"
+  | "learn"
   | "dashboard"
   | "refresh"
   | "memory_doctor"
@@ -2252,6 +2254,50 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         command: commandForAgentFinishContext(contextInput),
         arguments: contextArguments
       };
+    })
+  );
+
+  server.registerTool(
+    "learn",
+    {
+      title: "Queue Reusable Learning",
+      description: "Queue one reusable Learning Delta for automatic checkpoint or finish consumption.",
+      inputSchema: mcpInputSchema({
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
+        question: z.unknown(),
+        conclusion: z.unknown(),
+        evidence_type: z.unknown(),
+        scope: z.unknown().optional(),
+        confidence: z.unknown().optional(),
+        valid_until: z.unknown().optional(),
+        recommended_kind: z.unknown().optional(),
+        recommended_type: z.unknown().optional(),
+        related_record_ids: z.unknown().optional(),
+        current_task: z.unknown().optional(),
+        source: coreValidatedSourceSchema.optional(),
+        occurred_at: z.unknown().optional(),
+        ...sourceAliasInputSchema,
+        ...camelCaseAliasInputSchema("learn")
+      })
+    },
+    async (input) => toolResultWithNormalizedInput("learn", input, async (normalizedInput) => {
+      const project = await resolveProjectInput("learn", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
+      return queueLearning(options.storePath, {
+        project_id: project.project_id,
+        question: normalizedInput.question,
+        conclusion: normalizedInput.conclusion,
+        evidence_type: normalizedInput.evidence_type,
+        scope: normalizedInput.scope,
+        confidence: normalizedInput.confidence,
+        valid_until: normalizedInput.valid_until,
+        recommended_kind: normalizedInput.recommended_kind,
+        recommended_type: normalizedInput.recommended_type,
+        related_record_ids: normalizedInput.related_record_ids,
+        current_task: normalizedInput.current_task,
+        source: withDefaultSource(normalizedInput.source) as RecordSource,
+        occurred_at: normalizedInput.occurred_at as string | undefined ?? new Date().toISOString()
+      });
     })
   );
 

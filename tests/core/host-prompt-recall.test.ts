@@ -44,35 +44,18 @@ describe("host prompt recall context", () => {
           recommended_type: "fact",
           related_record_ids: []
         },
-        capture_targets: [
-          {
-            mcp_tool: "checkpoint",
-            mcp_arguments: {
-              project_id: "moryn",
-              source: { client: "codex", session_id: "session-a", device_id: "device-a" },
-              occurred_at: "<current ISO timestamp>",
-              delta: {
-                session_id: "session-a",
-                checkpoint_id: "<stable checkpoint id>",
-                current_task: "verify rollback",
-                progress: ["<concise learning progress>"],
-                decisions: [], changed_facts: [], blockers: [], next_steps: [], files: [], candidate_memories: [], candidate_skills: [],
-                learnings: ["<filled learning_delta_template>"],
-                knowledge_investigations: [], semantic_consolidation_proposals: []
-              }
-            }
+        queue_learning: {
+          mcp_tool: "learn",
+          mcp_arguments: {
+            project_id: "moryn",
+            question: "<current user question or situation>",
+            conclusion: "<supported reusable conclusion>",
+            evidence_type: "<user_confirmed|source_code|documentation|web|inference>",
+            current_task: "verify rollback",
+            source: { client: "codex", session_id: "session-a", device_id: "device-a" }
           },
-          {
-            mcp_tool: "agent_finish",
-            mcp_arguments: {
-              project_id: "moryn",
-              current_task: "verify rollback",
-              agent: { client: "codex", session_id: "session-a", device_id: "device-a" },
-              summary: "<concise final handoff summary>",
-              learnings: ["<filled learning_delta_template>"]
-            }
-          }
-        ]
+          lifecycle_consumption: "automatic_on_checkpoint_or_finish"
+        }
       }
     });
     expect(context.additional_context).not.toContain(question);
@@ -99,7 +82,8 @@ describe("host prompt recall context", () => {
         learning_delta_template: {
           question: "<verified question or situation>",
           related_record_ids: ["rec_candidate"]
-        }
+        },
+        queue_learning: expect.objectContaining({ mcp_tool: "learn" })
       }
     });
   });

@@ -11,7 +11,7 @@ import { actionExecution, actionSafety, type ActionExecution, type ActionSafety 
 import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js";
 import { requiredFieldsByName, withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
 import { operationArgumentsByTool, type OperationArgumentMetadata } from "../operation-contracts.js";
-import type { LearningDeltaInput, SemanticConsolidationProposalInput } from "./context-delta.js";
+import { learningDeltaSchema, type LearningDeltaInput, type SemanticConsolidationProposalInput } from "./context-delta.js";
 import { normalizeHostId } from "./host-adapter-registry.js";
 import { knowledgeProtocolForHost, type KnowledgeProtocol } from "./knowledge-protocol.js";
 import { inspectHostActivation, type HostActivationStatus } from "./host-activation.js";
@@ -21,6 +21,8 @@ import { activateCodexHooks } from "./codex-activation.js";
 import type { SessionSynthesis } from "./session-synthesis.js";
 import { assessSyncCompensation, writeSyncCompensationReceipt, type SyncCompensationAssessment } from "./sync-compensation.js";
 import { buildLearningCandidateReviewWorkflow, unresolvedLearningCandidates } from "./learning-candidate-review.js";
+import { consumeLearningInbox, learningInboxForLifecycle } from "./learning-inbox.js";
+import { learningRecordIdentity } from "./learning-ingestion.js";
 
 interface AgentIdentity {
   client: string;
@@ -2972,9 +2974,18 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     },
     source: sourceFromAgent(input.agent)
   });
+  const pendingInbox = await learningInboxForLifecycle(input.storePath, {
+    project_id: project.project_id,
+    session_id: sourceFromAgent(input.agent).session_id,
+    consumed_by_record_id: record.record.id
+  });
+  const combinedLearnings = [...new Map([
+    ...(input.learnings ?? []),
+    ...pendingInbox.map((inboxRecord) => inboxRecord.content.learning_delta)
+  ].map((learning) => [learningRecordIdentity({ project_id: project.project_id, learning: learningDeltaSchema.parse(learning) }).record_id, learning])).values()];
   const learningIngestion = await engine.ingestLearnings({
     project_id: project.project_id,
-    learnings: input.learnings ?? [],
+    learnings: combinedLearnings,
     occurred_at: lifecycleNow,
     source: sourceFromAgent(input.agent),
     origin_record_id: record.record.id
@@ -2986,6 +2997,14 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     source: sourceFromAgent(input.agent),
     occurred_at: lifecycleNow
   });
+  const inboxConsumption = await consumeLearningInbox(input.storePath, {
+    inbox_records: pendingInbox,
+    consumed_at: new Date(Date.parse(lifecycleNow) + 1).toISOString(),
+    consumed_by_record_id: record.record.id,
+    produced_record_ids: learningIngestion.dispositions.map((disposition) => disposition.record_id),
+    source: sourceFromAgent(input.agent)
+  });
+  const learningInbox = { selected: pendingInbox.length, ...inboxConsumption };
   const shouldPush = input.push ?? projectInfo.sync_mode !== "manual";
   const sync: {
     push?: GitSyncResult;
@@ -3018,6 +3037,7 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     record: record.record,
     warning: record.warning,
     learning_ingestion: learningIngestion,
+    learning_inbox: learningInbox,
     semantic_consolidation: semanticConsolidation,
     sync,
     next: {

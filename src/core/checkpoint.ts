@@ -85,6 +85,12 @@ export interface CheckpointResult {
     candidate_review?: LearningCandidateReviewWorkflow;
   };
   semantic_consolidation: SemanticConsolidationReceipt;
+  learning_inbox: {
+    selected: number;
+    consumed: number;
+    already_consumed: number;
+    inbox_record_ids: string[];
+  };
   selection_sources: typeof CHECKPOINT_SELECTION_SOURCES;
 }
 
@@ -97,6 +103,7 @@ export const CHECKPOINT_SELECTION_SOURCES = {
   warning: "warnings[]",
   recovery_pack: "recovery_pack",
   learning_ingestion: "learning_ingestion",
+  learning_inbox: "learning_inbox",
   semantic_consolidation: "semantic_consolidation"
 } as const;
 

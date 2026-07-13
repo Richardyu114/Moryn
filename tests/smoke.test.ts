@@ -189,6 +189,9 @@ describe("package smoke test", () => {
 
   it("exports the authored local checkpoint operation contract", () => {
     const checkpoint = getOperationContract("checkpoint");
+    const learn = getOperationContract("learn");
+    expect(learn?.operation).toMatchObject({ operation: "learn", required_fields: ["question", "conclusion", "evidence_type"], interfaces: { cli: { command: "moryn learn --question <question> --conclusion <conclusion> --evidence-type <evidence_type>" }, mcp: { tool: "learn" } } });
+    expect(getOperationContractByMcpTool("learn")?.operation.operation).toBe("learn");
     expect(checkpoint?.operation).toMatchObject({
       safe_to_run: true,
       required_fields: ["occurred_at", "delta"],

@@ -9,6 +9,7 @@ import { createEngine } from "../../src/core/engine.js";
 import { toErrorEnvelope } from "../../src/core/errors.js";
 import { initializeProjectConfig } from "../../src/core/project.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "../../src/core/agent-lifecycle.js";
+import { pendingLearningInbox, queueLearning } from "../../src/core/learning-inbox.js";
 import { initializeGitSync, pullGitSync, pushGitSync } from "../../src/sync/git.js";
 import { runHostHook } from "../../src/core/host-hook-runner.js";
 import { buildHostIntegrationArtifact } from "../../src/core/host-integration-artifacts.js";
@@ -560,6 +561,35 @@ function expectDiscoveredLifecycleStepSelectionSources(action: {
 }
 
 describe("agent lifecycle", () => {
+  it("agent finish automatically consumes pending Learning Inbox items", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-learning-inbox-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(store, { now: () => "2026-05-27T00:00:00.000Z", id: () => "device_codex" });
+      const source = { client: "codex", session_id: "learn-session", device_id: "device_codex" };
+      const queued = await queueLearning(store, {
+        project_id: "moryn",
+        question: "How is learned context preserved?",
+        conclusion: "Agent finish consumes durable Learning Inbox items.",
+        evidence_type: "source_code",
+        source,
+        occurred_at: "2026-07-11T00:00:00.000Z"
+      });
+
+      const result = await agentFinish({ storePath: store, projectPath: project, agent: source, summary: "Finished Learning Inbox verification.", push: false }, { now: () => "2026-07-11T00:01:00.000Z" });
+
+      expect(result).toMatchObject({
+        learning_ingestion: { learnings_received: 1, records_created: 1 },
+        learning_inbox: { selected: 1, consumed: 1, already_consumed: 0, inbox_record_ids: [queued.record.id] }
+      });
+      expect(await pendingLearningInbox(store, { project_id: "moryn" })).toHaveLength(0);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("rejects invalid required lifecycle text with operation contract recovery hints", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-agent-lifecycle-invalid-text-"));
     const store = join(root, "store");
@@ -3263,7 +3293,7 @@ describe("agent lifecycle", () => {
 
       const gap = await runHostHook({ storePath: store, project_path: project, hook: { ...hookBase, event: "user_prompt_submit", prompt: question } });
       expect(gap).toMatchObject({ prompt_recall: { outcome: { status: "knowledge_gap" }, injected: true } });
-      expect(gap.hook_output.additional_context).toContain("Learning Delta");
+      expect(gap.hook_output.additional_context).toContain("queue_learning");
 
       const checkpoint = await runHostHook({
         storePath: store,

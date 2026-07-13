@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { createEngine } from "../../src/core/engine.js";
 import { buildCheckpointRecoveryPack, checkpointIdentity, normalizeCheckpointInput, recoveryPack } from "../../src/core/checkpoint.js";
 import { learningRecordIdentity } from "../../src/core/learning-ingestion.js";
+import { pendingLearningInbox, queueLearning } from "../../src/core/learning-inbox.js";
 import { appendEvent, appendEventIfAbsent, readEvents } from "../../src/core/store.js";
 import type { MorynRecord } from "../../src/core/types.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
@@ -188,6 +189,37 @@ describe("buildCheckpointRecoveryPack", () => {
 });
 
 describe("engine.checkpoint", () => {
+  it("automatically consumes queued learning and preserves idempotent replay evidence", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createTestEngine(storePath);
+      const queued = await queueLearning(storePath, {
+        project_id: "project-a",
+        question: "What protects a learning before compact?",
+        conclusion: "Learning Inbox persists supported conclusions before compact.",
+        evidence_type: "source_code",
+        source: authored.source,
+        occurred_at: "2026-07-10T23:59:00.000Z"
+      });
+      const input = { project_id: "project-a", ...authored, delta: { ...baseDelta, checkpoint_id: "learning-inbox", learnings: [] } };
+
+      const first = await engine.checkpoint(input);
+      const replay = await engine.checkpoint(input);
+
+      expect(first).toMatchObject({
+        learning_ingestion: { learnings_received: 1, records_created: 1 },
+        learning_inbox: { selected: 1, consumed: 1, already_consumed: 0, inbox_record_ids: [queued.record.id] }
+      });
+      expect(replay).toMatchObject({
+        idempotent_replay: true,
+        learning_ingestion: { learnings_received: 1, records_created: 0 },
+        learning_inbox: { selected: 1, consumed: 0, already_consumed: 1, inbox_record_ids: [queued.record.id] }
+      });
+      expect(await pendingLearningInbox(storePath, { project_id: "project-a" })).toHaveLength(0);
+      const [consumed] = await pendingLearningInbox(storePath, { project_id: "project-a", include_consumed: true });
+      expect(consumed).toMatchObject({ content: { status: "consumed", consumed_by_record_id: first.record.id, produced_record_ids: first.learning_ingestion.dispositions.map((item) => item.record_id) } });
+    });
+  });
+
   it("consolidates authored proposals after durable learning ingestion", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createTestEngine(storePath);

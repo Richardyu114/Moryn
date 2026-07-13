@@ -113,6 +113,8 @@ export {
 } from "./observability/dashboard.js";
 import { SYNC_RESULT_SELECTION_SOURCES, SYNC_STATUS_SELECTION_SOURCES } from "./sync/git.js";
 export type { MorynRecord } from "./core/types.js";
+export { consumeLearningInbox, learningInboxForLifecycle, learningInboxIdentity, pendingLearningInbox, queueLearning } from "./core/learning-inbox.js";
+export type { LearningInboxRecord, QueueLearningInput } from "./core/learning-inbox.js";
 
 export const version = "0.2.0";
 

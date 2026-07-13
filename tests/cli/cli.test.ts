@@ -1055,6 +1055,23 @@ async function createCliSyncConflict(input: {
 }
 
 describe("moryn CLI", () => {
+  it("queues a reusable learning with one short idempotent CLI command", async () => {
+    await withTempDir(async (dir) => {
+      const project = join(dir, "project");
+      const store = join(dir, "store");
+      await mkdir(project, { recursive: true });
+      await writeFile(join(project, ".moryn.json"), `${JSON.stringify({ project_id: "moryn" })}\n`);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      const args = ["--import", "tsx", "src/cli.ts", "--store", store, "learn", "--project", project, "--question", "What survives compact?", "--conclusion", "Learning Inbox survives compact until lifecycle consumption.", "--evidence-type", "source_code", "--agent", "codex", "--session-id", "learn-cli", "--device-id", "device-a", "--occurred-at", "2026-07-13T01:00:00.000Z"];
+
+      const first = JSON.parse((await exec("node", args)).stdout);
+      const second = JSON.parse((await exec("node", args)).stdout);
+
+      expect(first).toMatchObject({ created: true, record: { type: "learning_inbox", content: { learning_delta: { scope: "project", confidence: 0.8, recommended_kind: "memory", recommended_type: "fact" } } } });
+      expect(second).toMatchObject({ created: false, record: { id: first.record.id } });
+    });
+  });
+
   it("returns selection source contracts from the CLI", async () => {
     const result = await exec("node", [
       "--import", tsxLoader, cliPath,
@@ -10783,7 +10800,7 @@ describe("host hook CLI", () => {
       const output = JSON.parse(result.stdout);
       expect(output).toMatchObject({ hookSpecificOutput: { hookEventName: "UserPromptSubmit" } });
       expect(output.hookSpecificOutput.additionalContext).toContain("knowledge_gap");
-      expect(output.hookSpecificOutput.additionalContext).toContain("Learning Delta");
+      expect(output.hookSpecificOutput.additionalContext).toContain("queue_learning");
       expect(JSON.parse(output.hookSpecificOutput.additionalContext)).toMatchObject({
         learning_bridge: {
           version: 1,
@@ -10799,30 +10816,17 @@ describe("host hook CLI", () => {
             recommended_type: "fact",
             related_record_ids: []
           },
-          capture_targets: [
-            expect.objectContaining({
-              mcp_tool: "checkpoint",
-              mcp_arguments: expect.objectContaining({
-                project_id: "moryn",
-                source: { client: "claude", session_id: "prompt-miss", device_id: "device-a" },
-                occurred_at: "<current ISO timestamp>",
-                delta: expect.objectContaining({
-                  session_id: "prompt-miss",
-                  checkpoint_id: "<stable checkpoint id>",
-                  learnings: ["<filled learning_delta_template>"]
-                })
-              })
+          queue_learning: {
+            mcp_tool: "learn",
+            mcp_arguments: expect.objectContaining({
+              project_id: "moryn",
+              question: "<current user question or situation>",
+              conclusion: "<supported reusable conclusion>",
+              evidence_type: "<user_confirmed|source_code|documentation|web|inference>",
+              source: { client: "claude", session_id: "prompt-miss", device_id: "device-a" }
             }),
-            expect.objectContaining({
-              mcp_tool: "agent_finish",
-              mcp_arguments: expect.objectContaining({
-                project_id: "moryn",
-                agent: { client: "claude", session_id: "prompt-miss", device_id: "device-a" },
-                summary: "<concise final handoff summary>",
-                learnings: ["<filled learning_delta_template>"]
-              })
-            })
-          ]
+            lifecycle_consumption: "automatic_on_checkpoint_or_finish"
+          }
         }
       });
       expect(result.stdout).not.toContain("unknown lunar deployment protocol");

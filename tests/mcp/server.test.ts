@@ -1008,6 +1008,22 @@ async function expectInvalidMcpArguments(action: () => Promise<Awaited<ReturnTyp
 }
 
 describe("MCP stdio server", () => {
+  it("queues Learning Inbox items through the discoverable learn tool", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const client = new Client({ name: "moryn-learning-inbox-test", version: "1.0.0" });
+      const transport = new StdioClientTransport({ command: process.execPath, args: [tsxCliPath, cliPath, "--store", storePath, "mcp"] });
+      await client.connect(transport);
+      try {
+        const tools = await client.listTools();
+        expect(tools.tools.some((tool) => tool.name === "learn")).toBe(true);
+        const result = await client.callTool({ name: "learn", arguments: { project_id: "moryn", question: "What is queued?", conclusion: "MCP learn queues a durable Learning Inbox item.", evidence_type: "source_code", source: { client: "claude", session_id: "learn-mcp", device_id: "device-b" }, occurred_at: "2026-07-13T01:05:00.000Z" } });
+        expect(JSON.parse((result.content[0] as { text: string }).text)).toMatchObject({ created: true, record: { type: "learning_inbox" } });
+      } finally {
+        await client.close();
+      }
+    });
+  });
+
   it("accepts Learning Deltas in agent_finish", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-finish-learning-"));
     try {
@@ -3166,6 +3182,7 @@ describe("MCP stdio server", () => {
           "health_check",
           "init",
           "install",
+          "learn",
           "link",
           "list_recent",
           "logical_link",

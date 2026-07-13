@@ -1218,6 +1218,34 @@ export const OPERATION_CONTRACTS = [
     }
   }),
   operationContract({
+    operation: "learn",
+    category: "lifecycle",
+    summary: "Queue one reusable Learning Delta for automatic checkpoint or finish consumption.",
+    safe_to_run: false,
+    required_when: "After an agent resolves a knowledge gap that should survive compaction and become reusable memory.",
+    required_fields: ["question", "conclusion", "evidence_type"],
+    argument_sources: userInputSources(["question", "conclusion", "evidence_type"]),
+    arguments_by_name: {
+      ...projectContextArguments,
+      question: { type: "string", required: true, cli: { flag: "--question" }, mcp: { argument: "question" } },
+      conclusion: { type: "string", required: true, cli: { flag: "--conclusion" }, mcp: { argument: "conclusion" } },
+      evidence_type: { type: "string", required: true, cli: { flag: "--evidence-type" }, mcp: { argument: "evidence_type" } },
+      scope: { type: "string", required: false, default: "project", cli: { flag: "--scope", default: "project" }, mcp: { argument: "scope" } },
+      confidence: { type: "number", required: false, default: 0.8, cli: { flag: "--confidence", default: 0.8 }, mcp: { argument: "confidence" } },
+      valid_until: { type: "string", required: false, cli: { flag: "--valid-until" }, mcp: { argument: "valid_until" } },
+      recommended_kind: { type: "string", required: false, default: "memory", cli: { flag: "--recommended-kind", default: "memory" }, mcp: { argument: "recommended_kind" } },
+      recommended_type: { type: "string", required: false, default: "fact", cli: { flag: "--recommended-type", default: "fact" }, mcp: { argument: "recommended_type" } },
+      related_record_ids: { type: "string", required: false, cli: { flag: "--related-record-id", repeatable: true }, mcp: { argument: "related_record_ids" } },
+      current_task: { type: "string", required: false, cli: { flag: "--current-task" }, mcp: { argument: "current_task" } },
+      ...checkpointSourceArguments,
+      occurred_at: { type: "string", required: false, cli: { flag: "--occurred-at" }, mcp: { argument: "occurred_at" } }
+    },
+    interfaces: {
+      cli: { command: "moryn learn --question <question> --conclusion <conclusion> --evidence-type <evidence_type>", argv: ["learn", "--question", "<question>", "--conclusion", "<conclusion>", "--evidence-type", "<evidence_type>"] },
+      mcp: { tool: "learn", arguments: { question: "<question>", conclusion: "<conclusion>", evidence_type: "<evidence_type>" } }
+    }
+  }),
+  operationContract({
     operation: "agent_finish",
     category: "lifecycle",
     summary: "Write a final session summary and push sync when appropriate.",

@@ -21,48 +21,29 @@ function learningBridge(input: PromptRecallInput): Record<string, unknown> {
   const candidateRecordId = input.outcome.best_record_id;
   const question = candidateRecordId ? "<verified question or situation>" : "<current user question or situation>";
   const captureContext = input.capture_context;
-  const learningPlaceholder = "<filled learning_delta_template>";
-  const captureTargets = captureContext ? [{
-    mcp_tool: "checkpoint",
+  const queueLearning = captureContext ? {
+    mcp_tool: "learn",
     mcp_arguments: {
       project_id: captureContext.project_id,
-      source: captureContext.agent,
-      occurred_at: "<current ISO timestamp>",
-      delta: {
-        session_id: captureContext.agent.session_id,
-        checkpoint_id: "<stable checkpoint id>",
-        ...(captureContext.current_task ? { current_task: captureContext.current_task } : {}),
-        progress: ["<concise learning progress>"],
-        decisions: [],
-        changed_facts: [],
-        blockers: [],
-        next_steps: [],
-        files: [],
-        candidate_memories: [],
-        candidate_skills: [],
-        learnings: [learningPlaceholder],
-        knowledge_investigations: [],
-        semantic_consolidation_proposals: []
-      }
-    }
-  }, {
-    mcp_tool: "agent_finish",
-    mcp_arguments: {
-      project_id: captureContext.project_id,
+      question,
+      conclusion: "<supported reusable conclusion>",
+      evidence_type: "<user_confirmed|source_code|documentation|web|inference>",
       ...(captureContext.current_task ? { current_task: captureContext.current_task } : {}),
-      agent: captureContext.agent,
-      summary: "<concise final handoff summary>",
-      learnings: [learningPlaceholder]
-    }
-  }] : [{
-    mcp_tool: "checkpoint",
-    mcp_argument: "learnings",
-    requires_lifecycle_context: true
-  }, {
-    mcp_tool: "agent_finish",
-    mcp_argument: "learnings",
-    requires_lifecycle_context: true
-  }];
+      source: captureContext.agent,
+      ...(candidateRecordId ? { related_record_ids: [candidateRecordId] } : {})
+    },
+    lifecycle_consumption: "automatic_on_checkpoint_or_finish"
+  } : {
+    mcp_tool: "learn",
+    mcp_arguments: {
+      question,
+      conclusion: "<supported reusable conclusion>",
+      evidence_type: "<user_confirmed|source_code|documentation|web|inference>",
+      ...(candidateRecordId ? { related_record_ids: [candidateRecordId] } : {})
+    },
+    requires_lifecycle_context: true,
+    lifecycle_consumption: "automatic_on_checkpoint_or_finish"
+  };
   return {
     version: 1,
     question_source: "current_user_prompt",
@@ -79,7 +60,7 @@ function learningBridge(input: PromptRecallInput): Record<string, unknown> {
       recommended_type: "fact",
       related_record_ids: candidateRecordId ? [candidateRecordId] : []
     },
-    capture_targets: captureTargets
+    queue_learning: queueLearning
   };
 }
 
@@ -102,7 +83,7 @@ export function buildPromptRecallContext(input: PromptRecallInput): PromptRecall
       additional_context: JSON.stringify({
         source: "moryn",
         status: "knowledge_gap",
-        instruction: "Moryn has no trusted answer. Investigate project files, local tools, web sources, or ask the user as needed. When a reusable conclusion is supported, fill the evidence-backed Learning Delta in learning_bridge.learning_delta_template and pass it to one checkpoint or finish capture target. If still unresolved before compaction, preserve the question, evidence, blocker, and exact next verification step.",
+        instruction: "Moryn has no trusted answer. Investigate project files, local tools, web sources, or ask the user as needed. When a reusable conclusion is supported, call learning_bridge.queue_learning once. Moryn will consume it automatically at checkpoint or finish. If still unresolved before compaction, preserve the question, evidence, blocker, and exact next verification step.",
         learning_bridge: learningBridge(input)
       })
     };
@@ -115,7 +96,7 @@ export function buildPromptRecallContext(input: PromptRecallInput): PromptRecall
         source: "moryn",
         status: "verification_required",
         ...(input.outcome.best_record_id ? { candidate_record_id: input.outcome.best_record_id } : {}),
-        instruction: "Moryn found only unverified knowledge. Inspect the candidate timeline and verify it with project files, local tools, web sources, or the user before relying on it. Only after the conclusion is supported, fill learning_bridge.learning_delta_template and pass it to one capture target.",
+        instruction: "Moryn found only unverified knowledge. Inspect the candidate timeline and verify it with project files, local tools, web sources, or the user before relying on it. Only after the conclusion is supported, call learning_bridge.queue_learning once.",
         learning_bridge: learningBridge(input)
       })
     };

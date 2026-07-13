@@ -34,6 +34,7 @@ import { readCurrentRecords, type CurrentRecordReadResult } from "./record-read-
 import { readRetrievalCandidates, type ReadRetrievalCandidatesInput, type RetrievalCandidateReadResult } from "./retrieval-index.js";
 import { readSyncCompensationReceipt } from "./sync-compensation.js";
 import { buildLearningCandidateReviewWorkflow, unresolvedLearningCandidates } from "./learning-candidate-review.js";
+import { consumeLearningInbox, learningInboxForLifecycle } from "./learning-inbox.js";
 
 interface EngineDeps {
   storePath: string;
@@ -3145,9 +3146,18 @@ export function createEngine(deps: EngineDeps) {
         return { record: appended.event.record, idempotent_replay: !appended.created, durability: appended.durability, append_warnings: appended.warnings ?? [] };
       })();
       const warnings: NonNullable<CheckpointResult["warnings"]> = [...outcome.append_warnings];
+      const inboxRecords = await learningInboxForLifecycle(deps.storePath, {
+        project_id: normalized.project_id,
+        session_id: normalized.source.session_id,
+        consumed_by_record_id: outcome.record.id
+      });
+      const combinedLearnings = [...new Map([
+        ...normalized.delta.learnings,
+        ...inboxRecords.map((record) => record.content.learning_delta)
+      ].map((learning) => [learningRecordIdentity({ project_id: normalized.project_id, learning }).record_id, learning])).values()];
       const learningIngestion = await engine.ingestLearnings({
         project_id: normalized.project_id,
-        learnings: normalized.delta.learnings,
+        learnings: combinedLearnings,
         occurred_at: normalized.occurred_at,
         source: normalized.source,
         origin_record_id: outcome.record.id
@@ -3168,13 +3178,21 @@ export function createEngine(deps: EngineDeps) {
         ...learningIngestion,
         ...(candidateReview ? { candidate_review: candidateReview } : {})
       };
+      const inboxConsumption = await consumeLearningInbox(deps.storePath, {
+        inbox_records: inboxRecords,
+        consumed_at: new Date(Date.parse(normalized.occurred_at) + 1).toISOString(),
+        consumed_by_record_id: outcome.record.id,
+        produced_record_ids: learningIngestion.dispositions.map((disposition) => disposition.record_id),
+        source: normalized.source
+      });
+      const learningInbox = { selected: inboxRecords.length, ...inboxConsumption };
       const recoveryPack = buildCheckpointRecoveryPack(
         [...replayEvents(await readEvents(deps.storePath)).values()],
         { project_id: normalized.project_id, session_id: normalized.delta.session_id, include_private: normalized.include_private }
       );
       try {
         await checkpointRebuild(deps.storePath);
-        return { record: outcome.record, idempotent_replay: outcome.idempotent_replay, committed: true, durability: outcome.durability, derived_views_refreshed: true, ...(warnings.length ? { warnings } : {}), recovery_pack: recoveryPack, learning_ingestion: learningIngestionResult, semantic_consolidation: semanticConsolidation, selection_sources: CHECKPOINT_SELECTION_SOURCES };
+        return { record: outcome.record, idempotent_replay: outcome.idempotent_replay, committed: true, durability: outcome.durability, derived_views_refreshed: true, ...(warnings.length ? { warnings } : {}), recovery_pack: recoveryPack, learning_ingestion: learningIngestionResult, learning_inbox: learningInbox, semantic_consolidation: semanticConsolidation, selection_sources: CHECKPOINT_SELECTION_SOURCES };
       } catch (error) {
         warnings.push({ code: "DERIVED_VIEW_REBUILD_FAILED", reason: error instanceof Error ? error.message : String(error) });
         return {
@@ -3186,6 +3204,7 @@ export function createEngine(deps: EngineDeps) {
           warnings,
           recovery_pack: recoveryPack,
           learning_ingestion: learningIngestionResult,
+          learning_inbox: learningInbox,
           semantic_consolidation: semanticConsolidation,
           selection_sources: CHECKPOINT_SELECTION_SOURCES
         };
