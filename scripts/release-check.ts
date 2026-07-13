@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 
 const exec = promisify(execFile);
 
-export type GateStepId = "build" | "typecheck" | "tests" | "dogfood_smoke" | "lifecycle_smoke" | "learning_inbox_smoke" | "host_runtime_binding_smoke" | "transcript_compact_safety_smoke" | "official_host_handoff_smoke" | "upgrade_compat_smoke" | "sync_resilience_smoke" | "sync_conflict_smoke" | "permission_recovery_smoke" | "large_store_smoke" | "package" | "private_remote";
+export type GateStepId = "build" | "typecheck" | "tests" | "dogfood_smoke" | "lifecycle_smoke" | "learning_inbox_smoke" | "finalization_assurance_smoke" | "host_runtime_binding_smoke" | "transcript_compact_safety_smoke" | "official_host_handoff_smoke" | "upgrade_compat_smoke" | "sync_resilience_smoke" | "sync_conflict_smoke" | "permission_recovery_smoke" | "large_store_smoke" | "package" | "private_remote";
 type GateStepMode = "required" | "skipped" | "optional_skipped";
 export interface ReleaseGateStep { id: GateStepId; mode: GateStepMode }
 export type V03AcceptanceArea = "autopilot" | "sync" | "working_set" | "consolidation" | "learning" | "hosts" | "dashboard" | "audit" | "reliability";
@@ -47,6 +47,7 @@ export function releaseGateSteps(skipSlowChecks: boolean, hasPrivateRemote: bool
     { id: "dogfood_smoke", mode: "required" },
     { id: "lifecycle_smoke", mode: "required" },
     { id: "learning_inbox_smoke", mode: "required" },
+    { id: "finalization_assurance_smoke", mode: "required" },
     { id: "host_runtime_binding_smoke", mode: "required" },
     { id: "transcript_compact_safety_smoke", mode: "required" },
     { id: "official_host_handoff_smoke", mode: "required" },
@@ -61,15 +62,15 @@ export function releaseGateSteps(skipSlowChecks: boolean, hasPrivateRemote: bool
 }
 
 const V03_ACCEPTANCE_EVIDENCE: Record<V03AcceptanceArea, GateStepId[]> = {
-  autopilot: ["build", "typecheck", "tests", "lifecycle_smoke", "transcript_compact_safety_smoke", "official_host_handoff_smoke"],
-  sync: ["tests", "lifecycle_smoke", "official_host_handoff_smoke", "sync_resilience_smoke", "sync_conflict_smoke", "permission_recovery_smoke"],
+  autopilot: ["build", "typecheck", "tests", "lifecycle_smoke", "finalization_assurance_smoke", "transcript_compact_safety_smoke", "official_host_handoff_smoke"],
+  sync: ["tests", "lifecycle_smoke", "finalization_assurance_smoke", "official_host_handoff_smoke", "sync_resilience_smoke", "sync_conflict_smoke", "permission_recovery_smoke"],
   working_set: ["tests", "large_store_smoke"],
   consolidation: ["tests", "lifecycle_smoke", "large_store_smoke"],
-  learning: ["tests", "lifecycle_smoke", "learning_inbox_smoke"],
-  hosts: ["build", "tests", "lifecycle_smoke", "host_runtime_binding_smoke", "transcript_compact_safety_smoke", "official_host_handoff_smoke", "upgrade_compat_smoke", "package"],
+  learning: ["tests", "lifecycle_smoke", "learning_inbox_smoke", "finalization_assurance_smoke"],
+  hosts: ["build", "tests", "lifecycle_smoke", "finalization_assurance_smoke", "host_runtime_binding_smoke", "transcript_compact_safety_smoke", "official_host_handoff_smoke", "upgrade_compat_smoke", "package"],
   dashboard: ["tests", "large_store_smoke", "package"],
   audit: ["tests", "dogfood_smoke", "transcript_compact_safety_smoke", "package"],
-  reliability: ["tests", "lifecycle_smoke", "host_runtime_binding_smoke", "transcript_compact_safety_smoke", "official_host_handoff_smoke", "sync_resilience_smoke", "sync_conflict_smoke", "permission_recovery_smoke", "large_store_smoke", "package"]
+  reliability: ["tests", "lifecycle_smoke", "finalization_assurance_smoke", "host_runtime_binding_smoke", "transcript_compact_safety_smoke", "official_host_handoff_smoke", "sync_resilience_smoke", "sync_conflict_smoke", "permission_recovery_smoke", "large_store_smoke", "package"]
 };
 
 export function v03AcceptanceMatrix(completedSteps: readonly GateStepId[]): Record<V03AcceptanceArea, V03AcceptanceEvidence> {
@@ -135,7 +136,7 @@ export async function runReleaseGate(options: ReleaseGateOptions = {}): Promise<
   const completed: GateStepId[] = [];
   const skipped: GateStepId[] = [];
   const commands: Partial<Record<GateStepId, [string, string[]]>> = {
-    build: ["npm", ["run", "build"]], typecheck: ["npm", ["run", "typecheck"]], tests: ["npm", ["test"]], dogfood_smoke: ["npm", ["run", "smoke:dogfood-demo"]], lifecycle_smoke: ["npm", ["run", "smoke:agent-lifecycle"]], learning_inbox_smoke: ["npm", ["run", "smoke:learning-inbox"]], host_runtime_binding_smoke: ["npm", ["run", "smoke:host-runtime-binding"]], transcript_compact_safety_smoke: ["npm", ["run", "smoke:transcript-compact-safety"]], official_host_handoff_smoke: ["npm", ["run", "smoke:official-host-handoff"]], upgrade_compat_smoke: ["npm", ["run", "smoke:upgrade-compat"]], sync_resilience_smoke: ["npm", ["run", "smoke:sync-resilience"]], sync_conflict_smoke: ["npm", ["run", "smoke:sync-conflict"]], permission_recovery_smoke: ["npm", ["run", "smoke:permission-recovery"]], large_store_smoke: ["npm", ["run", "smoke:large-store"]]
+    build: ["npm", ["run", "build"]], typecheck: ["npm", ["run", "typecheck"]], tests: ["npm", ["test"]], dogfood_smoke: ["npm", ["run", "smoke:dogfood-demo"]], lifecycle_smoke: ["npm", ["run", "smoke:agent-lifecycle"]], learning_inbox_smoke: ["npm", ["run", "smoke:learning-inbox"]], finalization_assurance_smoke: ["npm", ["run", "smoke:finalization-assurance"]], host_runtime_binding_smoke: ["npm", ["run", "smoke:host-runtime-binding"]], transcript_compact_safety_smoke: ["npm", ["run", "smoke:transcript-compact-safety"]], official_host_handoff_smoke: ["npm", ["run", "smoke:official-host-handoff"]], upgrade_compat_smoke: ["npm", ["run", "smoke:upgrade-compat"]], sync_resilience_smoke: ["npm", ["run", "smoke:sync-resilience"]], sync_conflict_smoke: ["npm", ["run", "smoke:sync-conflict"]], permission_recovery_smoke: ["npm", ["run", "smoke:permission-recovery"]], large_store_smoke: ["npm", ["run", "smoke:large-store"]]
   };
   for (const step of steps) {
     if (step.mode !== "required") { skipped.push(step.id); continue; }

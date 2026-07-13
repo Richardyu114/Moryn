@@ -81,6 +81,20 @@ describe("learning inbox", () => {
     });
   });
 
+  it("orders consumption after a future-dated inbox event so replay remains valid under clock skew", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath, now: () => "2026-07-13T00:05:00.000Z", id: (() => { let index = 0; return (prefix) => `${prefix}_${++index}`; })() });
+      const checkpoint = await engine.write({ kind: "session_summary", type: "checkpoint", scope: "project", project_id: "moryn", content: { text: "Checkpoint" }, source });
+      const learning = await engine.write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Learning" }, source });
+      const queued = await queueLearning(storePath, input({ occurred_at: "2026-07-13T02:01:00.000Z" }));
+
+      await consumeLearningInbox(storePath, { inbox_records: [queued.record], consumed_at: "2026-07-13T01:00:00.000Z", consumed_by_record_id: checkpoint.record.id, produced_record_ids: [learning.record.id], source });
+
+      const [record] = await pendingLearningInbox(storePath, { project_id: "moryn", include_consumed: true });
+      expect(record.content).toMatchObject({ status: "consumed", consumed_at: "2026-07-13T02:01:00.001Z" });
+    });
+  });
+
   it("rejects project learning without project identity", async () => {
     await withInitializedTempStore(async (storePath) => {
       await expect(queueLearning(storePath, input({ project_id: undefined }))).rejects.toThrow("project learning requires project_id");

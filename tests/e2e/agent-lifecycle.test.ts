@@ -3660,3 +3660,54 @@ describe("agent lifecycle", () => {
     }
   });
 });
+
+describe("finalization assurance", () => {
+  it("recovers an unfinalized prior Codex checkpoint and consumes its Learning Inbox on next start", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-finalization-assurance-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn", sync: { mode: "manual" } });
+      await initializeStore(store);
+      const engine = createEngine({ storePath: store, now: () => "2026-07-13T00:05:00.000Z" });
+      await engine.checkpoint({
+        project_id: "moryn",
+        source: { client: "codex", session_id: "prior-session", device_id: "device-a" },
+        occurred_at: "2026-07-13T00:05:00.000Z",
+        delta: { session_id: "prior-session", checkpoint_id: "prior-compact", current_task: "Finish resilient finalization", progress: ["Implemented detector"], decisions: [], changed_facts: [], blockers: [], next_steps: ["Start a new Codex session"], files: [], candidate_memories: [], candidate_skills: [], learnings: [], knowledge_investigations: [], semantic_consolidation_proposals: [] }
+      });
+      const queued = await queueLearning(store, { project_id: "moryn", question: "How are abandoned sessions sealed?", conclusion: "The next session recovers an abandoned prior session.", evidence_type: "source_code", source: { client: "codex", session_id: "prior-session", device_id: "device-a" }, occurred_at: "2026-07-13T00:06:00.000Z" });
+
+      const first = await agentStart({ storePath: store, projectPath: project, currentTask: "Continue finalization work", agent: { client: "codex", session_id: "current-session", device_id: "device-a" }, pull: false }, { now: () => "2026-07-13T00:10:00.000Z" });
+      const second = await agentStart({ storePath: store, projectPath: project, currentTask: "Continue finalization work", agent: { client: "codex", session_id: "current-session", device_id: "device-a" }, pull: false }, { now: () => "2026-07-13T00:11:00.000Z" });
+
+      expect(first).toMatchObject({ finalization_assurance: { status: "recovered", prior_session: { session_id: "prior-session" }, evidence_record_ids: [expect.stringMatching(/^rec_checkpoint_/)], recovered_handoff_record_id: expect.stringMatching(/^rec_/), learning_inbox: { selected: 1, consumed: 1 } } });
+      expect(second).toMatchObject({ finalization_assurance: { status: "already_finalized", prior_session: { session_id: "prior-session" }, final_record_id: first.finalization_assurance?.recovered_handoff_record_id } });
+      const [inbox] = await pendingLearningInbox(store, { project_id: "moryn", include_consumed: true });
+      expect(inbox).toMatchObject({ id: queued.record.id, content: { status: "consumed", consumed_by_record_id: first.finalization_assurance?.recovered_handoff_record_id } });
+      const summaries = (await createEngine({ storePath: store }).recall({ project_id: "moryn", kinds: ["session_summary"], types: ["summary"], limit: 20 })).results;
+      expect(summaries).toHaveLength(1);
+      expect(summaries[0]?.record.content).toMatchObject({ finalization_assurance_version: 1, finalization_recovery_key: expect.stringMatching(/^finalize_/), synthesis_mode: "evidence_synthesized" });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("recovers a status-only prior Codex session without changing Stop semantics", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-finalization-status-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn", sync: { mode: "manual" } });
+      await initializeStore(store);
+      const stopped = await runHostHook({ storePath: store, project_path: project, current_task: "Implement status recovery", push: false, hook: { host: "codex", event: "stop", session_id: "prior-status", device_id: "device-a", cwd: project, occurred_at: "2026-07-13T01:00:00.000Z", last_assistant_message: "Implemented status-only finalization evidence." } });
+      expect(stopped).toMatchObject({ action: "agent_status" });
+
+      const started = await runHostHook({ storePath: store, project_path: project, current_task: "Continue work", pull: false, hook: { host: "codex", event: "session_start", session_id: "current-status", device_id: "device-a", cwd: project, occurred_at: "2026-07-13T01:05:00.000Z" } });
+      expect(started).toMatchObject({ action: "agent_start", details: { finalization_assurance: { status: "recovered", prior_session: { session_id: "prior-status" }, recovered_handoff_record_id: expect.stringMatching(/^rec_/) } } });
+      expect(started.hook_output.additional_context).toContain("finalization_assurance");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});

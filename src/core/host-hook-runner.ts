@@ -260,7 +260,21 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
     const safeCompactSummary = input.hook.event === "post_compact" && input.hook.compact_summary && !detectSensitiveContent(input.hook.compact_summary).sensitive
       ? input.hook.compact_summary
       : undefined;
-    const restoreContext = contextText({ current_task: input.current_task, ...(safeCompactSummary ? { host_compact_summary: safeCompactSummary } : {}), startup_overview: result.startup_overview, checkpoint_recovery_pack: result.boot.checkpoint_recovery_pack, active_checkpoint: result.boot.active_checkpoint });
+    const restoreContext = contextText({
+      current_task: input.current_task,
+      ...(safeCompactSummary ? { host_compact_summary: safeCompactSummary } : {}),
+      startup_overview: result.startup_overview,
+      finalization_assurance: result.finalization_assurance.status === "recovered"
+        ? {
+            status: result.finalization_assurance.status,
+            prior_session: result.finalization_assurance.prior_session,
+            recovered_handoff_record_id: result.finalization_assurance.recovered_handoff_record_id,
+            learning_inbox: result.finalization_assurance.learning_inbox
+          }
+        : { status: result.finalization_assurance.status },
+      checkpoint_recovery_pack: result.boot.checkpoint_recovery_pack,
+      active_checkpoint: result.boot.active_checkpoint
+    });
     return {
       ok: true as const,
       event: input.hook.event,

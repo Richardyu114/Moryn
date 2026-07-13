@@ -5,6 +5,7 @@ import { resolveProjectContext, type ProjectContext, type SyncMode } from "./pro
 import { displayRecordText } from "./content-text.js";
 import type { MorynRecord, RecordSource } from "./types.js";
 import type { RecoveryPack } from "./checkpoint.js";
+import { buildCheckpointRecoveryPack } from "./checkpoint.js";
 import { getGitSyncStatus, getPendingSyncEvidence, initializeGitSync, pullGitSync, pushGitSync, SYNC_STATUS_SELECTION_SOURCES, type GitSyncResult, type GitSyncStatus } from "../sync/git.js";
 import { toErrorEnvelope, type MorynErrorEnvelope } from "./errors.js";
 import { actionExecution, actionSafety, type ActionExecution, type ActionSafety } from "./action-safety.js";
@@ -18,11 +19,13 @@ import { inspectHostActivation, type HostActivationStatus } from "./host-activat
 import { writeHostIntegrationArtifact, type HostRuntimeDescriptor } from "./host-integration-artifacts.js";
 import { activateClaudeSettings } from "./claude-activation.js";
 import { activateCodexHooks } from "./codex-activation.js";
-import type { SessionSynthesis } from "./session-synthesis.js";
+import { synthesizeSession, type SessionSynthesis } from "./session-synthesis.js";
 import { assessSyncCompensation, writeSyncCompensationReceipt, type SyncCompensationAssessment } from "./sync-compensation.js";
 import { buildLearningCandidateReviewWorkflow, unresolvedLearningCandidates } from "./learning-candidate-review.js";
 import { consumeLearningInbox, learningInboxForLifecycle } from "./learning-inbox.js";
 import { learningRecordIdentity } from "./learning-ingestion.js";
+import { readCurrentRecords } from "./record-read-model.js";
+import { selectPriorSessionForFinalization, type FinalizationAssuranceSelection } from "./finalization-assurance.js";
 
 interface AgentIdentity {
   client: string;
@@ -67,6 +70,7 @@ export interface AgentLifecycleDeps {
   createEngine?: typeof createEngine;
   pushGitSync?: typeof pushGitSync;
   handoffPayloadFingerprint?: string;
+  finalizationRecovery?: { recovery_key: string; evidence_record_ids: string[] };
 }
 
 export type AgentSyncCompensation = Omit<SyncCompensationAssessment, "decision"> & {
@@ -75,6 +79,26 @@ export type AgentSyncCompensation = Omit<SyncCompensationAssessment, "decision">
   error?: string;
   error_details?: MorynErrorEnvelope["error"];
 };
+
+export type FinalizationAssuranceReceipt = (FinalizationAssuranceSelection | {
+  status: "recovered";
+  prior_session: { host: string; session_id: string; device_id: string };
+  evidence_record_ids: string[];
+  recovery_key: string;
+  recovered_handoff_record_id: string;
+  learning_inbox: { selected: number; consumed: number; already_consumed: number; inbox_record_ids: string[] };
+  sync: unknown;
+}) & { selection_sources: typeof FINALIZATION_ASSURANCE_SELECTION_SOURCES };
+
+export const FINALIZATION_ASSURANCE_SELECTION_SOURCES = {
+  receipt: "finalization_assurance",
+  status: "finalization_assurance.status",
+  prior_session: "finalization_assurance.prior_session",
+  evidence_record_ids: "finalization_assurance.evidence_record_ids[]",
+  recovered_handoff_record_id: "finalization_assurance.recovered_handoff_record_id",
+  learning_inbox: "finalization_assurance.learning_inbox",
+  sync: "finalization_assurance.sync"
+} as const;
 
 type DoctorSeverity = "ok" | "notice" | "warning";
 type DoctorCheck = { name: string; ok: boolean; severity: DoctorSeverity; message: string };
@@ -2827,6 +2851,60 @@ export async function agentGuide(input: AgentGuideInput) {
   };
 }
 
+async function assurePriorSessionFinalization(input: AgentStartInput, project: ProjectContext, nowIso: string, deps: AgentLifecycleDeps): Promise<FinalizationAssuranceReceipt> {
+  const incoming = sourceFromAgent(input.agent);
+  if (!incoming.session_id || !incoming.device_id) return { status: "nothing_to_finalize", selection_sources: FINALIZATION_ASSURANCE_SELECTION_SOURCES };
+  const current = await readCurrentRecords(input.storePath);
+  const selection = selectPriorSessionForFinalization(current.records, {
+    project_id: project.project_id,
+    host: incoming.client,
+    session_id: incoming.session_id,
+    device_id: incoming.device_id
+  });
+  if (selection.status !== "eligible") return { ...selection, selection_sources: FINALIZATION_ASSURANCE_SELECTION_SOURCES };
+  const recoveryPack = buildCheckpointRecoveryPack(current.records, {
+    project_id: project.project_id,
+    session_id: selection.prior_session.session_id,
+    include_private: input.includePrivate
+  });
+  const statusEvidence = current.records
+    .filter((record) => selection.evidence_record_ids.includes(record.id) && record.type === "status")
+    .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id))[0];
+  const synthesis = recoveryPack.available
+    ? synthesizeSession({ recovery_pack: recoveryPack })
+    : synthesizeSession({ host_summary: statusEvidence ? displayRecordText(statusEvidence) : undefined });
+  if (synthesis.mode === "minimal_fallback") return { status: "nothing_to_finalize", selection_sources: FINALIZATION_ASSURANCE_SELECTION_SOURCES };
+  const recovered = await agentFinish({
+    storePath: input.storePath,
+    projectPath: project.project_path,
+    projectId: project.project_id,
+    currentTask: synthesis.current_task,
+    agent: {
+      client: selection.prior_session.host,
+      session_id: selection.prior_session.session_id,
+      device_id: selection.prior_session.device_id
+    },
+    summary: synthesis.summary,
+    synthesis
+  }, {
+    now: () => nowIso,
+    createEngine: deps.createEngine,
+    pushGitSync: deps.pushGitSync,
+    handoffPayloadFingerprint: selection.recovery_key,
+    finalizationRecovery: { recovery_key: selection.recovery_key, evidence_record_ids: selection.evidence_record_ids }
+  });
+  return {
+    status: "recovered",
+    prior_session: selection.prior_session,
+    evidence_record_ids: selection.evidence_record_ids,
+    recovery_key: selection.recovery_key,
+    recovered_handoff_record_id: recovered.record.id,
+    learning_inbox: recovered.learning_inbox,
+    sync: recovered.sync,
+    selection_sources: FINALIZATION_ASSURANCE_SELECTION_SOURCES
+  };
+}
+
 export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDeps = {}) {
   validateAgentIdentity(input.agent, "agent_start");
   validateLifecycleCurrentTask(input.currentTask, "agent_start");
@@ -2878,6 +2956,7 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
     }
   }
   sync.after = await assertSyncNotConflicted(input.storePath);
+  const finalizationAssurance = await assurePriorSessionFinalization(input, project, nowIso, deps);
 
   const engine = createEngine({
     storePath: input.storePath,
@@ -2915,6 +2994,7 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
     project: projectInfo,
     bootstrap,
     sync,
+    finalization_assurance: finalizationAssurance,
     startup_overview: startupOverview,
     boot,
     refresh,
@@ -2970,7 +3050,12 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
         synthesis_unresolved_investigations: input.synthesis.unresolved_investigations,
         synthesis_source_record_ids: input.synthesis.source_record_ids
       } : {}),
-      ...(deps.handoffPayloadFingerprint ? { handoff_payload_fingerprint: deps.handoffPayloadFingerprint } : {})
+      ...(deps.handoffPayloadFingerprint ? { handoff_payload_fingerprint: deps.handoffPayloadFingerprint } : {}),
+      ...(deps.finalizationRecovery ? {
+        finalization_assurance_version: 1,
+        finalization_recovery_key: deps.finalizationRecovery.recovery_key,
+        finalization_evidence_record_ids: deps.finalizationRecovery.evidence_record_ids
+      } : {})
     },
     source: sourceFromAgent(input.agent)
   });

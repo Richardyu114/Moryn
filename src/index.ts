@@ -18,6 +18,8 @@ import { HEALTH_CHECK_SELECTION_SOURCES } from "./core/health-check.js";
 import { MEMORY_LIFECYCLE_SELECTION_SOURCES } from "./core/memory-lifecycle.js";
 import { WORKING_SET_REPORT_SELECTION_SOURCES } from "./core/working-set-report.js";
 export { createEngine } from "./core/engine.js";
+export { selectPriorSessionForFinalization } from "./core/finalization-assurance.js";
+export type { FinalizationAssuranceSelection, IncomingSessionIdentity } from "./core/finalization-assurance.js";
 export { buildWorkingSetReport, summarizeWorkingSet } from "./core/working-set-report.js";
 export type { WorkingSetReportOptions, WorkingSetSummaryOptions } from "./core/working-set-report.js";
 export { contextDeltaSchema, learningDeltaSchema, semanticConsolidationDifferenceSchema, semanticConsolidationProposalSchema, validateContextDelta } from "./core/context-delta.js";

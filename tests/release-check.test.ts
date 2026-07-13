@@ -273,7 +273,7 @@ describe("release check", () => {
         }
       });
 
-      expect(result.stdout).toContain('"completed":["dogfood_smoke","lifecycle_smoke","learning_inbox_smoke","host_runtime_binding_smoke","transcript_compact_safety_smoke","official_host_handoff_smoke","upgrade_compat_smoke","sync_resilience_smoke","sync_conflict_smoke","permission_recovery_smoke","large_store_smoke","package"]');
+      expect(result.stdout).toContain('"completed":["dogfood_smoke","lifecycle_smoke","learning_inbox_smoke","finalization_assurance_smoke","host_runtime_binding_smoke","transcript_compact_safety_smoke","official_host_handoff_smoke","upgrade_compat_smoke","sync_resilience_smoke","sync_conflict_smoke","permission_recovery_smoke","large_store_smoke","package"]');
     } finally {
       await rm(root, { recursive: true, force: true });
     }

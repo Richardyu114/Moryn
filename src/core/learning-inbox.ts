@@ -152,7 +152,7 @@ function linkEventId(recordId: string, linkedRecordId: string, linkType: string)
 }
 
 export async function consumeLearningInbox(storePath: string, input: { inbox_records: LearningInboxRecord[]; consumed_at: string; consumed_by_record_id: string; produced_record_ids: string[]; source: RecordSource }) {
-  const consumedAt = parseTimestamp(input.consumed_at, "consumed_at");
+  const requestedConsumedAt = parseTimestamp(input.consumed_at, "consumed_at");
   const current = new Map((await readCurrentRecords(storePath)).records.map((record) => [record.id, record]));
   let consumed = 0;
   let alreadyConsumed = 0;
@@ -163,6 +163,7 @@ export async function consumeLearningInbox(storePath: string, input: { inbox_rec
       alreadyConsumed += 1;
       continue;
     }
+    const consumedAt = new Date(Math.max(Date.parse(requestedConsumedAt), Date.parse(record.updated_at) + 1)).toISOString();
     const revision: MorynEvent = {
       event_id: revisionEventId(record.id, input.consumed_by_record_id),
       op: "revise_record",
