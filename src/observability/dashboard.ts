@@ -67,7 +67,6 @@ const CAPTURE_INBOX_POLICY: DashboardCaptureInboxPolicy = {
 declare global {
   interface Window {
     applyDashboardLanguage?: () => void;
-    applyDashboardDisclosureDefaults?: (root?: ParentNode) => void;
     currentDashboardLanguage?: () => "en" | "zh";
     restoreActionReceipt?: () => void;
     renderActionReceipt?: (result: unknown) => void;
@@ -8669,7 +8668,6 @@ function dashboardRefreshScript(refreshIntervalMs: number | undefined): string {
           const response = await fetch("fragment", { cache: "no-store" });
           if (!response.ok) return;
           main.innerHTML = await response.text();
-          window.applyDashboardDisclosureDefaults?.(main);
           restoreDetailState(detailState);
           window.applyDashboardLanguage?.();
           window.restoreStoredContentState?.({ focusSearch: hadStoredContentSearchFocus });
@@ -8680,30 +8678,6 @@ function dashboardRefreshScript(refreshIntervalMs: number | undefined): string {
         }
       };
       window.setInterval(refresh, interval);
-    })();
-  </script>`;
-}
-
-function dashboardDisclosureScript(): string {
-  return `
-  <script>
-    (() => {
-      const selector = [
-        "details.panel",
-        "details.quiet-flow-details",
-        "details.maintenance-review-summary",
-        "details.evidence-library",
-        "details.reference-library-routes"
-      ].join(",");
-      window.applyDashboardDisclosureDefaults = (root = document) => {
-        root.querySelectorAll(selector).forEach((detail) => {
-          if (!(detail instanceof HTMLDetailsElement)) return;
-          if (detail.dataset.dashboardDisclosureInitialized === "true") return;
-          detail.open = true;
-          detail.dataset.dashboardDisclosureInitialized = "true";
-        });
-      };
-      window.applyDashboardDisclosureDefaults();
     })();
   </script>`;
 }
@@ -9711,7 +9685,6 @@ function dashboardMaintenanceScript(): string {
         const response = await fetch("fragment", { cache: "no-store" });
         if (!response.ok) return;
         main.innerHTML = await response.text();
-        window.applyDashboardDisclosureDefaults?.(main);
         hideRejectedPlans();
         window.applyDashboardLanguage?.();
         window.restoreStoredContentState?.({ focusSearch: hadStoredContentSearchFocus });
@@ -9788,7 +9761,6 @@ function dashboardCaptureInboxScript(): string {
         const response = await fetch("fragment", { cache: "no-store" });
         if (!response.ok) return;
         main.innerHTML = await response.text();
-        window.applyDashboardDisclosureDefaults?.(main);
         window.applyDashboardLanguage?.();
         window.restoreStoredContentState?.({ focusSearch: hadStoredContentSearchFocus });
         window.restoreMemorySearchScrollState?.(memorySearchScrollState);
@@ -9881,7 +9853,6 @@ function dashboardCandidateTriageScript(): string {
         const response = await fetch("fragment", { cache: "no-store" });
         if (!response.ok) return;
         main.innerHTML = await response.text();
-        window.applyDashboardDisclosureDefaults?.(main);
         window.applyDashboardLanguage?.();
         window.restoreStoredContentState?.({ focusSearch: hadStoredContentSearchFocus });
         window.restoreMemorySearchScrollState?.(memorySearchScrollState);
@@ -9956,44 +9927,43 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
   <title>Moryn Dashboard</title>
   <style>
     :root {
-      color-scheme: light;
-      --canvas: #eeece7;
-      --surface: #fbfaf7;
-      --surface-2: #f5f3ee;
-      --surface-3: #ebe8e1;
-      --surface-glass: rgba(251, 250, 247, 0.92);
-      --ink: #202522;
-      --ink-2: #3b443f;
-      --muted: #68716c;
-      --subtle: #8a928d;
-      --border: #d7d3ca;
-      --hairline: #e5e1d9;
-      --signal-blue: #3f6f78;
-      --signal-blue-soft: rgba(63, 111, 120, 0.1);
-      --signal-green: #176b5b;
-      --signal-green-soft: rgba(23, 107, 91, 0.1);
-      --signal-amber: #a56a1f;
-      --signal-amber-soft: rgba(165, 106, 31, 0.11);
-      --signal-red: #b34949;
-      --signal-red-soft: rgba(179, 73, 73, 0.1);
-      --signal-violet: #756486;
-      --signal-slate: #747c77;
-      --surface-hover: #f7f5f0;
-      --panel-highlight: rgba(23, 107, 91, 0.28);
-      --ring-soft: 0 0 0 3px rgba(23, 107, 91, 0.1);
-      --panel-glow: 0 1px 2px rgba(42, 49, 45, 0.05), 0 14px 34px rgba(42, 49, 45, 0.07);
-      --elevation-card: 0 1px 2px rgba(42, 49, 45, 0.05), 0 10px 28px rgba(42, 49, 45, 0.06);
-      --elevation-hover: 0 2px 4px rgba(42, 49, 45, 0.06), 0 14px 34px rgba(42, 49, 45, 0.09);
-      --texture-line: rgba(53, 59, 55, 0.035);
+      color-scheme: dark;
+      --canvas: #050505;
+      --surface: #101216;
+      --surface-2: #161a20;
+      --surface-3: #20262e;
+      --surface-glass: rgba(13, 16, 21, 0.82);
+      --ink: #f5f7fb;
+      --ink-2: #dce3eb;
+      --muted: #9da8b6;
+      --subtle: #6f7a88;
+      --border: #2b333d;
+      --hairline: #202832;
+      --signal-blue: #45b9ff;
+      --signal-blue-soft: rgba(69, 185, 255, 0.14);
+      --signal-green: #74f291;
+      --signal-green-soft: rgba(116, 242, 145, 0.13);
+      --signal-amber: #ffd166;
+      --signal-amber-soft: rgba(255, 209, 102, 0.16);
+      --signal-red: #ff5c74;
+      --signal-red-soft: rgba(255, 92, 116, 0.15);
+      --signal-violet: #d38cff;
+      --signal-slate: #9aa6b2;
+      --surface-hover: linear-gradient(145deg, rgba(69, 185, 255, 0.075), rgba(116, 242, 145, 0.026)), rgba(15, 19, 25, 0.96);
+      --panel-highlight: rgba(69, 185, 255, 0.42);
+      --ring-soft: 0 0 0 1px rgba(69, 185, 255, 0.18);
+      --panel-glow: 0 0 0 1px rgba(116, 242, 145, 0.08), 0 24px 70px rgba(0, 0, 0, 0.46);
+      --elevation-card: 0 18px 48px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.045);
+      --elevation-hover: 0 18px 44px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.055);
       --text: var(--ink);
       --main: var(--surface);
-      --accent: #176b5b;
+      --accent: var(--signal-green);
       --accent-2: var(--signal-blue);
       --warning: var(--signal-amber);
       --critical: var(--signal-red);
       --good: var(--signal-green);
       --info: var(--signal-blue);
-      --code: #e9e6df;
+      --code: #0b0d10;
     }
     * { box-sizing: border-box; }
     [hidden] { display: none !important; }
@@ -14299,169 +14269,10 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       .quiet-context-list { grid-template-columns: 1fr; }
       .quiet-current-task { font-size: 26px !important; }
     }
-    /* Editorial light theme: quieter surfaces, clearer hierarchy, less chrome. */
-    body {
-      background-color: var(--canvas);
-      background-image:
-        linear-gradient(var(--texture-line) 1px, transparent 1px),
-        linear-gradient(90deg, var(--texture-line) 1px, transparent 1px),
-        radial-gradient(circle at 16% -8%, rgba(23, 107, 91, 0.09), transparent 32rem);
-      background-size: 32px 32px, 32px 32px, auto;
-      color: var(--ink);
-    }
-    main { max-width: 1320px; padding: 38px 24px 64px; }
-    header { margin-bottom: 26px; }
-    h1 { font-size: clamp(30px, 3vw, 42px); font-weight: 720; letter-spacing: -0.035em; }
-    h2 { font-size: 16px; letter-spacing: -0.012em; }
-    h3 { font-size: 13px; }
-    code { color: #35403a; border: 1px solid #ddd9d0; }
-    button, input, select { font: inherit; }
-    button {
-      border-color: #cbc6bc;
-      background: #f8f6f1;
-      color: var(--ink);
-      box-shadow: 0 1px 1px rgba(42, 49, 45, 0.04);
-    }
-    button:hover { border-color: #9aa79f; background: #fff; }
-    .panel,
-    .status-board,
-    .stored-content,
-    .memory-search-panel,
-    .answer-card,
-    .dashboard-work-lane,
-    .memory-inventory-card,
-    .stored-content-item,
-    .memory-search-result,
-    .maintenance-plan,
-    .reference-library-index,
-    .neutral-intelligence {
-      border-color: var(--border) !important;
-      background: var(--surface) !important;
-      background-image: none !important;
-      box-shadow: var(--elevation-card) !important;
-    }
-    .panel,
-    .status-board,
-    .stored-content,
-    .memory-search-panel,
-    .neutral-intelligence { border-radius: 14px !important; }
-    .answer-card,
-    .dashboard-work-lane,
-    .memory-inventory-card,
-    .stored-content-item,
-    .memory-search-result,
-    .maintenance-plan { border-radius: 10px !important; }
-    .panel:hover,
-    .answer-card:hover,
-    .memory-inventory-card:hover,
-    .stored-content-item:hover,
-    .memory-search-result:hover {
-      border-color: #c5c0b6 !important;
-      background: #fff !important;
-      box-shadow: var(--elevation-hover) !important;
-    }
-    .health-badge, .pill, .status-chip, .type-label {
-      border-radius: 6px !important;
-      box-shadow: none !important;
-      background: #f2f0ea !important;
-      border-color: #d5d1c8 !important;
-      color: #535d57 !important;
-    }
-    .good, .health-badge.good, .pill.good, .status-chip.good {
-      color: #176b5b !important;
-      border-color: rgba(23, 107, 91, 0.25) !important;
-      background: rgba(23, 107, 91, 0.08) !important;
-    }
-    .warning, .health-badge.warning, .pill.warning, .status-chip.warning {
-      color: #8b591a !important;
-      border-color: rgba(165, 106, 31, 0.28) !important;
-      background: rgba(165, 106, 31, 0.08) !important;
-    }
-    .critical, .health-badge.critical, .pill.critical, .status-chip.critical {
-      color: #a03f3f !important;
-      border-color: rgba(179, 73, 73, 0.27) !important;
-      background: rgba(179, 73, 73, 0.07) !important;
-    }
-    .dashboard-fold-summary {
-      color: var(--ink) !important;
-      border-color: transparent !important;
-      background: transparent !important;
-      padding: 16px 18px !important;
-    }
-    details.panel > .dashboard-fold-summary::after { content: ""; }
-    details.panel[open] > .dashboard-fold-summary {
-      border-bottom: 1px solid var(--hairline) !important;
-      margin-bottom: 0 !important;
-    }
-    .dashboard-fold-summary::-webkit-details-marker { display: none; }
-    details.panel > .dashboard-fold-summary,
-    details.quiet-flow-details > summary,
-    details.maintenance-review-summary > summary,
-    details.evidence-library > summary,
-    details.reference-library-routes > summary {
-      cursor: default !important;
-      pointer-events: none;
-      user-select: text;
-    }
-    .memory-search-input,
-    .memory-search-select,
-    input,
-    select {
-      background: #fff !important;
-      color: var(--ink) !important;
-      border-color: #d2cdc4 !important;
-      box-shadow: inset 0 1px 2px rgba(42, 49, 45, 0.04) !important;
-    }
-    .memory-search-chip,
-    .stored-content-filter,
-    .memory-state-filter {
-      background: #f3f1eb !important;
-      color: #4c5751 !important;
-      border-color: #d8d3ca !important;
-      border-radius: 7px !important;
-    }
-    .memory-search-chip:hover,
-    .stored-content-filter:hover,
-    .memory-state-filter:hover,
-    .memory-search-chip.selected,
-    .stored-content-filter.selected,
-    .memory-state-filter.selected {
-      background: rgba(23, 107, 91, 0.09) !important;
-      color: #176b5b !important;
-      border-color: rgba(23, 107, 91, 0.3) !important;
-      transform: none !important;
-    }
-    .status-board-explain span,
-    .memory-search-meta span[data-memory-search-status],
-    .memory-search-summary-readonly,
-    .memory-search-active-filters > span,
-    .memory-state-guide > span {
-      color: #315f55 !important;
-    }
-    .memory-state-guide,
-    .memory-search-active-filters,
-    .memory-search-summary-card,
-    .memory-search-summary-readonly,
-    .status-board-explain {
-      background: #f5f3ee !important;
-      border-color: #d8d3ca !important;
-      box-shadow: none !important;
-    }
-    .bar-track, .type-track { background: #e8e4dc !important; }
-    .bar-fill, .type-fill { background: #51877b !important; box-shadow: none !important; }
-    .activity-trend-day, .answer-memory-segment { filter: saturate(0.62); }
-    a { color: #176b5b; }
-    ::selection { background: rgba(23, 107, 91, 0.18); }
-    @media (max-width: 720px) {
-      main { padding: 24px 12px 44px; }
-      h1 { font-size: 30px; }
-      .panel, .status-board, .stored-content, .memory-search-panel { border-radius: 11px !important; }
-    }
   </style>
 </head>
 <body class="neutral-intelligence">
   <main${refreshAttributes}>${renderDashboardBody(data, { showStoredContent: options.showStoredContent })}</main>
-  ${dashboardDisclosureScript()}
   ${dashboardLanguageScript()}
   ${dashboardRefreshScript(options.refreshIntervalMs)}
   ${dashboardActionBoardScript()}
