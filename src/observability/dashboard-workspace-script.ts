@@ -53,7 +53,7 @@ export function dashboardWorkspaceScript(): string {
 
         const restore = (state) => {
           activateView(state?.view || 'workspace');
-          if (state?.drawer) openDrawer(state.drawer, null, { focus: false });
+          if (state?.drawer) openDrawer(state.drawer, null, { focus: true });
           window.scrollTo({ top: Number(state?.scrollY || 0), behavior: 'auto' });
           window.applyDashboardLanguage?.();
         };
@@ -93,6 +93,10 @@ export function dashboardWorkspaceScript(): string {
         window.dashboardWorkspaceState = { activateView, openDrawer, closeDrawer, capture, restore, initialize };
       };
       window.initializeDashboardWorkspace = initialize;
+      window.restoreDashboardWorkspaceAfterFragment = (state) => {
+        initialize();
+        window.dashboardWorkspaceState?.restore(state);
+      };
       initialize();
     })();
   </script>`;

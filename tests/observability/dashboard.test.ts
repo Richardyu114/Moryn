@@ -9905,10 +9905,12 @@ describe("quiet dashboard first screen", () => {
 
       expect(html).toContain("dashboardWorkspaceState?.capture");
       expect(html).toContain("dashboardWorkspaceState?.restore");
-      expect(html).toContain("initializeDashboardWorkspace?.()");
+      expect(html).toContain("restoreDashboardWorkspaceAfterFragment?.(workspaceState)");
       expect(html).toContain("aria-current");
       expect(html).toContain("event.key === 'Escape'");
       expect(html).toContain("lastTrigger.focus()");
+      expect(html).toContain("restoreDashboardWorkspaceAfterFragment");
+      expect(html).toContain("openDrawer(state.drawer, null, { focus: true })");
     });
   });
 
@@ -9922,6 +9924,10 @@ describe("quiet dashboard first screen", () => {
       expect(html).toContain('data-i18n-en="History" data-i18n-zh="历史"');
       expect(html).toContain('data-i18n-en="No action required" data-i18n-zh="无需操作"');
       expect(html).toContain('data-i18n-en="Close details" data-i18n-zh="关闭详情"');
+      expect(html).toContain('data-i18n-en="Local only" data-i18n-zh="仅保存在本机"');
+      expect(html).toContain('data-i18n-en="Active knowledge" data-i18n-zh="活跃知识"');
+      expect(html).toContain('data-i18n-en="The bounded working set currently available for agent context." data-i18n-zh="当前可供 Agent 上下文使用的有界工作记忆。"');
+      expect(html).toContain('data-i18n-en="context" data-i18n-zh="上下文"');
       expect(html).toContain("window.applyDashboardLanguage?.()");
     });
   });

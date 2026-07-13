@@ -74,6 +74,7 @@ declare global {
     restoreActionReceipt?: () => void;
     renderActionReceipt?: (result: unknown) => void;
     initializeDashboardWorkspace?: () => void;
+    restoreDashboardWorkspaceAfterFragment?: (state?: { view?: string; drawer?: string | null; scrollY?: number }) => void;
     dashboardWorkspaceState?: {
       activateView: (view: string) => void;
       openDrawer: (id: string, trigger?: HTMLElement | null, options?: { focus?: boolean }) => boolean;
@@ -8676,8 +8677,7 @@ function dashboardRefreshScript(refreshIntervalMs: number | undefined): string {
           if (!response.ok) return;
           main.innerHTML = await response.text();
           restoreDetailState(detailState);
-          window.initializeDashboardWorkspace?.();
-          window.dashboardWorkspaceState?.restore(workspaceState);
+          window.restoreDashboardWorkspaceAfterFragment?.(workspaceState);
           window.applyDashboardLanguage?.();
           window.restoreStoredContentState?.({ focusSearch: hadStoredContentSearchFocus });
           window.restoreMemorySearchScrollState?.(memorySearchScrollState);
@@ -9689,12 +9689,14 @@ function dashboardMaintenanceScript(): string {
         });
       };
       const refreshFragment = async () => {
+        const workspaceState = window.dashboardWorkspaceState?.capture();
         const hadStoredContentSearchFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.matches("[data-memory-search-input]");
         const memorySearchScrollState = window.captureMemorySearchScrollState?.();
         const response = await fetch("fragment", { cache: "no-store" });
         if (!response.ok) return;
         main.innerHTML = await response.text();
         hideRejectedPlans();
+        window.restoreDashboardWorkspaceAfterFragment?.(workspaceState);
         window.applyDashboardLanguage?.();
         window.restoreStoredContentState?.({ focusSearch: hadStoredContentSearchFocus });
         window.restoreMemorySearchScrollState?.(memorySearchScrollState);
@@ -9765,11 +9767,13 @@ function dashboardCaptureInboxScript(): string {
       const main = document.querySelector("main");
       if (!main) return;
       const refreshFragment = async () => {
+        const workspaceState = window.dashboardWorkspaceState?.capture();
         const hadStoredContentSearchFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.matches("[data-memory-search-input]");
         const memorySearchScrollState = window.captureMemorySearchScrollState?.();
         const response = await fetch("fragment", { cache: "no-store" });
         if (!response.ok) return;
         main.innerHTML = await response.text();
+        window.restoreDashboardWorkspaceAfterFragment?.(workspaceState);
         window.applyDashboardLanguage?.();
         window.restoreStoredContentState?.({ focusSearch: hadStoredContentSearchFocus });
         window.restoreMemorySearchScrollState?.(memorySearchScrollState);
@@ -9857,11 +9861,13 @@ function dashboardCandidateTriageScript(): string {
       const main = document.querySelector("main");
       if (!main) return;
       const refreshFragment = async () => {
+        const workspaceState = window.dashboardWorkspaceState?.capture();
         const hadStoredContentSearchFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.matches("[data-memory-search-input]");
         const memorySearchScrollState = window.captureMemorySearchScrollState?.();
         const response = await fetch("fragment", { cache: "no-store" });
         if (!response.ok) return;
         main.innerHTML = await response.text();
+        window.restoreDashboardWorkspaceAfterFragment?.(workspaceState);
         window.applyDashboardLanguage?.();
         window.restoreStoredContentState?.({ focusSearch: hadStoredContentSearchFocus });
         window.restoreMemorySearchScrollState?.(memorySearchScrollState);
