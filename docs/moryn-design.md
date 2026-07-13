@@ -574,6 +574,10 @@ Direct MCP `project_list` and lifecycle tools
 also expose and accept those agent identity aliases, so a host can call
 `agent_enter` with `agent_client`, `"agent.session_id"`, `agentClient`, or
 `agentSessionId` instead of first reconstructing the nested `agent` object.
+For the most common host-owned call, `agent` may also be the client shorthand
+string (`"codex"` or `"claude"`) and can be combined with session, model, and
+device child aliases; Moryn normalizes it to `agent.client` before conflict
+checking and execution.
 Those lifecycle calls also accept camelCase context spellings such as
 `projectId`, `projectPath`, `currentTask`, `syncRemote`, and `refreshSince`.
 Direct MCP mutation tools also expose and accept source identity aliases such as
@@ -587,10 +591,10 @@ The same conflict rule applies to literal path and flattened agent identity
 aliases in `project_list` and lifecycle tools, such as `"agent.client"` versus
 `agent_client`. Recovery hints distinguish nested object paths from top-level
 literal path keys by reporting the literal key as `"\"agent.client\""`, so a
-caller can remove the exact duplicate input. A scalar parent paired with a child alias, such as
-`source: "codex"` plus `source_client` or `agent: "codex"` plus `agent_client`,
-is rejected as the same single-value conflict so invalid object shape is not
-hidden by alias normalization.
+caller can remove the exact duplicate input. A scalar `source` parent paired
+with a child alias remains invalid. The lifecycle `agent` parent is the one
+intentional exception: a non-empty string is treated as the agent client
+shorthand, and only a different child client value is rejected as a conflict.
 Alias conflict hints also include `conflicting_argument.conflict_kind`, with
 values such as `nested_vs_flattened`, `literal_path_vs_flattened`,
 `nested_vs_literal_path`, or `parent_scalar_vs_child_alias`, and their first

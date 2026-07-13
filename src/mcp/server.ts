@@ -709,9 +709,18 @@ function compactUndefined<T extends Record<string, unknown>>(input: T): Record<s
 }
 
 function normalizeMcpToolArguments(tool: string, input: Record<string, unknown>): Record<string, unknown> {
-  assertKnownMcpArguments(tool, input);
-  assertNoMcpAliasConflicts(tool, input);
-  return mcpArgumentsForAction(tool, normalizeObjectPathMcpAliases(tool, normalizeExplicitMcpAliases(tool, normalizeMcpCamelCaseAliases(tool, input))));
+  const ergonomicInput = normalizeAgentClientShorthand(input);
+  assertKnownMcpArguments(tool, ergonomicInput);
+  assertNoMcpAliasConflicts(tool, ergonomicInput);
+  return mcpArgumentsForAction(tool, normalizeObjectPathMcpAliases(tool, normalizeExplicitMcpAliases(tool, normalizeMcpCamelCaseAliases(tool, ergonomicInput))));
+}
+
+function normalizeAgentClientShorthand(input: Record<string, unknown>): Record<string, unknown> {
+  if (typeof input.agent !== "string") return input;
+  return {
+    ...input,
+    agent: { client: input.agent }
+  };
 }
 
 function assertKnownMcpArguments(tool: string, input: Record<string, unknown>): void {

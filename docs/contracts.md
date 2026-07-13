@@ -714,6 +714,7 @@ Examples:
 
 - `projectId` -> `project_id`
 - `currentTask` -> `current_task`
+- `agent: "codex"` -> `agent.client: "codex"` for lifecycle and `project_list`
 - `agentClient` -> `agent.client`
 - `agent_client` -> `agent.client`
 - `"agent.session_id"` -> `agent.session_id`
@@ -724,7 +725,9 @@ Examples:
 - `linkedRecordId` -> `linked_record_id`
 
 Conflicting aliases are rejected with structured `INVALID_ARGUMENT` recovery
-hints instead of silently choosing one value.
+hints instead of silently choosing one value. The `agent` client shorthand can
+be combined with session/model/device aliases, but a different `agentClient`
+value is still rejected.
 
 ## Error Envelopes
 

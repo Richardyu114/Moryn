@@ -7862,6 +7862,40 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("accepts an agent client shorthand alongside lifecycle child aliases", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-agent-shorthand-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const started = parseTextContent(await client.callTool({
+          name: "agent_start",
+          arguments: {
+            projectId: "moryn",
+            currentTask: "accept ergonomic agent shorthand",
+            pull: false,
+            agent: "codex",
+            agentSessionId: "agent-shorthand-session",
+            agentDeviceId: "agent-shorthand-device"
+          }
+        })) as {
+          ok?: false;
+          error?: { message: string };
+          agent?: { client: string; session_id: string; device_id: string };
+        };
+
+        expect(started.error?.message).toBeUndefined();
+        expect(started.agent).toMatchObject({
+          client: "codex",
+          session_id: "agent-shorthand-session",
+          device_id: "agent-shorthand-device"
+        });
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("accepts singular MCP recall filter aliases without broadening the query", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-recall-singular-aliases-"));
     try {
@@ -9943,7 +9977,7 @@ describe("MCP stdio server", () => {
         }
         const invalidLifecycleAgentShape = parseTextContent(await client.callTool({
           name: "agent_enter",
-          arguments: { agent: "codex" }
+          arguments: { agent: 42 }
         })) as McpInvalidArgument;
         expect(invalidLifecycleAgentShape.ok).toBe(false);
         expect(invalidLifecycleAgentShape.error.code).toBe("INVALID_ARGUMENT");
@@ -10087,7 +10121,7 @@ describe("MCP stdio server", () => {
           name: "agent_enter",
           arguments: {
             agent: "codex",
-            agent_client: "codex"
+            agent_client: "claude"
           }
         })) as McpInvalidArgument;
         expect(conflictingLifecycleAgentShape.ok).toBe(false);
@@ -10098,10 +10132,10 @@ describe("MCP stdio server", () => {
           operation_contract: "operations_by_id.agent_enter",
           conflicting_argument: {
             argument: "agent.client",
-            conflict_kind: "parent_scalar_vs_child_alias",
+            conflict_kind: "nested_vs_flattened",
             values_by_input: {
-              agent: "codex",
-              agent_client: "codex"
+              "agent.client": "codex",
+              agent_client: "claude"
             }
           },
           expected: { kind: "single_value" },
@@ -10109,7 +10143,7 @@ describe("MCP stdio server", () => {
             "agent.client": "operations_by_id.agent_enter.arguments_by_name.agent_client"
           },
           retry_with: { argument: "agent.client", value_placeholder: "<client>" },
-          do_not: ["provide_parent_scalar_with_child_aliases", "retry_with_conflicting_alias_values"]
+          do_not: ["provide_both_nested_and_flattened_aliases", "retry_with_conflicting_alias_values"]
         });
         const conflictingLifecycleSyncRemote = parseTextContent(await client.callTool({
           name: "agent_enter",
@@ -10158,7 +10192,7 @@ describe("MCP stdio server", () => {
         });
         const invalidProjectListAgentShape = parseTextContent(await client.callTool({
           name: "project_list",
-          arguments: { agent: "codex" }
+          arguments: { agent: 42 }
         })) as McpInvalidArgument;
         expect(invalidProjectListAgentShape.ok).toBe(false);
         expect(invalidProjectListAgentShape.error.code).toBe("INVALID_ARGUMENT");
