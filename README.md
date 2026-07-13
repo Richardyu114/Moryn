@@ -20,6 +20,22 @@ history.
 > v0.3 Context Autopilot lifecycle for Codex and Claude Code. It is not released
 > until the version, changelog, and release process are updated explicitly.
 
+The v0.3 development path is agent-operated by default. When a prompt exposes a
+reusable knowledge gap, the agent can queue it with one short command:
+
+```bash
+moryn learn --project . \
+  --question "What did we learn?" \
+  --conclusion "The supported reusable conclusion." \
+  --evidence-type source_code
+```
+
+Moryn consumes queued learning automatically at the next checkpoint or finish,
+then applies the existing state policy, deduplication, and consolidation flow.
+Finalization Assurance recovers an unfinalized prior Codex session at the next
+startup when durable checkpoint or status evidence exists. Codex `Stop` remains
+an in-progress signal and is not treated as session completion.
+
 ## Default path
 
 ```text

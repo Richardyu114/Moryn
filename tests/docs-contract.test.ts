@@ -34,10 +34,11 @@ describe("documentation contracts", () => {
     expectText(workflow, "Routine `agent_status` and `agent_finish` actions use `agent_authored.status` and `agent_authored.summary`");
     expectText(workflow, "Once the agent has composed the required field, it can run the returned lifecycle action without routine user approval");
     expectText(workflow, "A prompt recall miss does not write a store record by itself");
-    expectText(workflow, "`learning_bridge.learning_delta_template` is schema-compatible with the `learnings` argument on `checkpoint` and `agent_finish`");
+    expectText(workflow, "`learning_bridge.queue_learning` points to the one-call `learn` operation");
     expectText(workflow, "The bridge references `current_user_prompt` instead of echoing prompt text into hook output");
-    expectText(workflow, "Capture targets contain the resolved project plus current host, session, and device identity");
-    expectText(workflow, "Only the current ISO timestamp, stable checkpoint id, concise progress or final summary, and filled Learning Delta remain agent-authored placeholders");
+    expectText(workflow, "Moryn consumes queued learning automatically at the next checkpoint or finish");
+    expectText(workflow, "Finalization Assurance seals a prior same-host session when durable checkpoint or status evidence exists without a final handoff");
+    expectText(workflow, "Codex Stop remains an in-progress status signal; it is not treated as session completion");
     expectText(workflow, "Learning ingestion folds high-confidence duplicates automatically");
     expectText(workflow, "`semantic_candidates` returns at most three candidates per new record and twelve candidates per ingestion");
     expectText(workflow, "Candidate feedback contains record ids, scores, and signals, but not record text");
@@ -53,6 +54,24 @@ describe("documentation contracts", () => {
       expect(document).not.toContain("Canonical memory still requires explicit Capture Inbox user action.");
       expect(document).not.toContain("canonical memory still requires approval");
     }
+  });
+
+  it("keeps v0.3 release preparation explicit without claiming publication", async () => {
+    const [readme, changelog, development] = await Promise.all([
+      readFile("README.md", "utf8"),
+      readFile("CHANGELOG.md", "utf8"),
+      readFile("docs/development.md", "utf8")
+    ]);
+
+    expect(readme).toContain("Published package: v0.2.0");
+    expect(readme).toContain("moryn learn --project .");
+    expect(readme).toContain("--question \"What did we learn?\"");
+    expectText(readme, "Finalization Assurance recovers an unfinalized prior Codex session at the next startup");
+    expect(changelog).toContain("## Unreleased (v0.3 development)");
+    expectText(changelog, "Learning Inbox and the one-call `learn` operation");
+    expectText(changelog, "Finalization Assurance");
+    expect(development).toContain("npm run release:readiness");
+    expectText(development, "does not bump the version, create a tag, push, or publish");
   });
 
   it("keeps deployment-private addresses out of public docs", async () => {

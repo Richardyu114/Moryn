@@ -258,7 +258,7 @@ describe("release check", () => {
     expect(result.stdout).toContain("$ npm run smoke:permission-recovery");
     expect(result.stdout).toContain("$ npm run smoke:large-store");
     expect(result.stdout).toContain('"status":"passed"');
-  }, 120_000);
+  }, 180_000);
 
   it("runs from a checkout path containing spaces", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn release check "));
@@ -273,9 +273,9 @@ describe("release check", () => {
         }
       });
 
-      expect(result.stdout).toContain('"completed":["dogfood_smoke","lifecycle_smoke","learning_inbox_smoke","finalization_assurance_smoke","host_runtime_binding_smoke","transcript_compact_safety_smoke","official_host_handoff_smoke","upgrade_compat_smoke","sync_resilience_smoke","sync_conflict_smoke","permission_recovery_smoke","large_store_smoke","package"]');
+      expect(result.stdout).toContain('"completed":["release_readiness","dogfood_smoke","lifecycle_smoke","learning_inbox_smoke","finalization_assurance_smoke","host_runtime_binding_smoke","transcript_compact_safety_smoke","official_host_handoff_smoke","upgrade_compat_smoke","sync_resilience_smoke","sync_conflict_smoke","permission_recovery_smoke","large_store_smoke","package"]');
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  }, 120_000);
+  }, 180_000);
 });

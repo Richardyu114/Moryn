@@ -301,9 +301,9 @@ user knowledge is uncertain:
    with its record id as evidence. A verification-required result must be
    checked. A knowledge gap moves exploration to project files, local tools,
    web sources when needed, or the user when needed.
-3. Queue only a supported, reusable conclusion as a Learning Delta in the next
-   checkpoint or `agent finish`. Unsupported inference, unresolved conflict,
-   transient text, and secrets are not canonicalized.
+3. Queue only a supported, reusable conclusion with the one-call `learn`
+   operation. Unsupported inference, unresolved conflict, transient text, and
+   secrets are not canonicalized.
 4. Before host compaction, write resolved Learning Deltas and preserve every
    unresolved material question with evidence and an exact next step.
 
@@ -311,20 +311,29 @@ A prompt recall miss does not write a store record by itself. The Codex and
 Claude Code `UserPromptSubmit` hook returns a bounded `learning_bridge` only for
 `knowledge_gap` or `verification_required`. The bridge references
 `current_user_prompt` instead of echoing prompt text into hook output.
-`learning_bridge.learning_delta_template` is schema-compatible with the
-`learnings` argument on `checkpoint` and `agent_finish`; after research or user
-dialogue supports a reusable conclusion, the agent fills that template and
-uses one returned capture target. If the question remains unresolved, the
-agent preserves a `knowledge_investigation` at the next checkpoint instead of
-creating speculative memory.
+`learning_bridge.queue_learning` points to the one-call `learn` operation and
+contains the resolved project plus current host, session, and device identity.
+After research or user dialogue supports a reusable conclusion, the agent fills
+only `question`, `conclusion`, and `evidence_type`. Moryn consumes queued
+learning automatically at the next checkpoint or finish, then applies learning
+policy, exact deduplication, and semantic consolidation. If the question
+remains unresolved, the agent preserves a `knowledge_investigation` at the next
+checkpoint instead of creating speculative memory.
 
-Capture targets contain the resolved project plus current host, session, and
-device identity, so the agent does not reconstruct provenance or accidentally
-write into another project. The checkpoint target includes a complete Context
-Delta shape; the finish target includes the current task, agent identity,
-summary, and `learnings` arguments. Only the current ISO timestamp, stable
-checkpoint id, concise progress or final summary, and filled Learning Delta
-remain agent-authored placeholders.
+```bash
+moryn learn \
+  --project . \
+  --question "How is rollback protected?" \
+  --conclusion "Production rollback requires a signed release tag." \
+  --evidence-type source_code
+```
+
+Finalization Assurance seals a prior same-host session when durable checkpoint
+or status evidence exists without a final handoff. It runs during the next
+startup, reuses the normal finish pipeline, consumes pending Learning Inbox
+items, and remains replay-safe. Codex Stop remains an in-progress status signal;
+it is not treated as session completion. Claude Code SessionEnd continues to
+create the normal final handoff immediately.
 
 An unresolved investigation can be checkpointed without creating memory:
 

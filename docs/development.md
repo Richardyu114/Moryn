@@ -21,9 +21,12 @@ npm install
 npm run build
 npm run typecheck
 npm test
+npm run release:readiness
 npm run release:check
 npm run smoke:dogfood-demo
 npm run smoke:agent-lifecycle
+npm run smoke:learning-inbox
+npm run smoke:finalization-assurance
 npm run smoke:host-runtime-binding
 npm run smoke:transcript-compact-safety
 npm run smoke:official-host-handoff
@@ -32,6 +35,13 @@ npm run smoke:sync-resilience
 npm run smoke:sync-conflict
 npm run smoke:permission-recovery
 ```
+
+`npm run release:readiness` is a read-only v0.3 preparation check. It verifies
+the package version against the README, requires an unreleased v0.3 CHANGELOG
+section, checks required smoke/package coverage, and rejects private release
+planning paths from npm contents. It does not bump the version, create a tag,
+push, or publish. Those four actions remain unauthorized until explicit release
+approval.
 
 `npm run release:check` is the authoritative local release gate. It runs build,
 typecheck, the full test suite, dogfood, cross-host lifecycle, v0.2 in-place
