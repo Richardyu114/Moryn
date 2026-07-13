@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
   getOperationContract,
@@ -705,6 +706,25 @@ async function withOptionalMcpDashboard<T extends object>(storePath: string, res
   return {
     ...result,
     dashboard: await mcpDashboardMetadata(storePath, open)
+  };
+}
+
+function withMcpRuntime<T extends object>(result: T, runtime: HostRuntimeDescriptor | undefined) {
+  if (!runtime) return result;
+  const packageVersion = runtime.package_version ?? version;
+  const identity = createHash("sha256")
+    .update(JSON.stringify({ package_version: packageVersion, exec_file: runtime.exec_file, cli_entry: runtime.cli_entry }))
+    .digest("hex");
+  return {
+    ...result,
+    runtime: {
+      transport: "mcp_stdio",
+      package_version: packageVersion,
+      exec_file: runtime.exec_file,
+      cli_entry: runtime.cli_entry,
+      identity: `moryn-runtime-sha256:${identity}`,
+      restart_hint: "Restart the host MCP connection after changing the Moryn installation or build."
+    }
   };
 }
 
@@ -2046,13 +2066,13 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
     },
     async (input) => toolResultWithNormalizedInput("agent_doctor", input, async (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
-      return agentDoctor({
+      return withMcpRuntime(await agentDoctor({
         storePath: options.storePath,
         ...lifecycleProjectContextInput("agent_doctor", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path }),
         syncRemote: normalizedInput.sync_remote as string | undefined,
         currentTask: normalizedInput.current_task as string | undefined,
         agent: lifecycleAgent
-      });
+      }), options.hostRuntime);
     })
   );
 
@@ -2090,7 +2110,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         agent: lifecycleAgent,
         hostRuntime: options.hostRuntime
       });
-      return withOptionalMcpDashboard(options.storePath, result, normalizedInput.open);
+      return withOptionalMcpDashboard(options.storePath, withMcpRuntime(result, options.hostRuntime), normalizedInput.open);
     }, (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
       const coreValidatedPull = normalizedInput.pull as boolean | undefined;
@@ -2130,13 +2150,13 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
     },
     async (input) => toolResultWithNormalizedInput("agent_guide", input, async (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
-      return agentGuide({
+      return withMcpRuntime(await agentGuide({
         storePath: options.storePath,
         ...lifecycleProjectContextInput("agent_guide", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path }),
         syncRemote: normalizedInput.sync_remote as string | undefined,
         currentTask: normalizedInput.current_task as string | undefined,
         agent: lifecycleAgent
-      });
+      }), options.hostRuntime);
     })
   );
 
@@ -2173,7 +2193,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         pull: coreValidatedPull,
         agent: lifecycleAgent
       });
-      return withOptionalMcpDashboard(options.storePath, result, normalizedInput.open);
+      return withOptionalMcpDashboard(options.storePath, withMcpRuntime(result, options.hostRuntime), normalizedInput.open);
     }, (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
       const coreValidatedPull = normalizedInput.pull as boolean | undefined;
@@ -2249,7 +2269,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         learnings: normalizedInput.learnings as never[] | undefined,
         semanticConsolidationProposals: normalizedInput.semantic_consolidation_proposals as never[] | undefined
       });
-      return withOptionalMcpDashboard(options.storePath, result, normalizedInput.open);
+      return withOptionalMcpDashboard(options.storePath, withMcpRuntime(result, options.hostRuntime), normalizedInput.open);
     }, (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
       const coreValidatedPush = normalizedInput.push as boolean | undefined;
@@ -2385,7 +2405,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         push: coreValidatedPush,
         agent: lifecycleAgent
       });
-      return withOptionalMcpDashboard(options.storePath, result, normalizedInput.open);
+      return withOptionalMcpDashboard(options.storePath, withMcpRuntime(result, options.hostRuntime), normalizedInput.open);
     }, (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
       const coreValidatedPush = normalizedInput.push as boolean | undefined;

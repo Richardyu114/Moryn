@@ -7882,6 +7882,14 @@ describe("MCP stdio server", () => {
           ok?: false;
           error?: { message: string };
           agent?: { client: string; session_id: string; device_id: string };
+          runtime?: {
+            transport: string;
+            package_version: string;
+            cli_entry: string;
+            exec_file: string;
+            identity: string;
+            restart_hint: string;
+          };
         };
 
         expect(started.error?.message).toBeUndefined();
@@ -7890,6 +7898,27 @@ describe("MCP stdio server", () => {
           session_id: "agent-shorthand-session",
           device_id: "agent-shorthand-device"
         });
+        expect(started.runtime).toMatchObject({
+          transport: "mcp_stdio",
+          package_version: "0.2.0",
+          exec_file: process.execPath,
+          restart_hint: "Restart the host MCP connection after changing the Moryn installation or build."
+        });
+        expect(started.runtime?.cli_entry).toMatch(/(?:src|dist)\/cli\.(?:ts|js)$/);
+        expect(started.runtime?.identity).toMatch(/^moryn-runtime-sha256:/);
+
+        for (const [name, arguments_] of [
+          ["agent_doctor", { projectId: "moryn", agent: "codex" }],
+          ["agent_guide", { projectId: "moryn", agent: "codex" }],
+          ["agent_status", { projectId: "moryn", status: "runtime identity", push: false, agent: "codex" }],
+          ["agent_finish", { projectId: "moryn", summary: "runtime identity", push: false, agent: "codex" }]
+        ] as const) {
+          const response = parseTextContent(await client.callTool({ name, arguments: arguments_ })) as {
+            runtime?: { identity: string; cli_entry: string };
+          };
+          expect(response.runtime?.identity).toBe(started.runtime?.identity);
+          expect(response.runtime?.cli_entry).toBe(started.runtime?.cli_entry);
+        }
       });
     } finally {
       await rm(store, { recursive: true, force: true });

@@ -2217,6 +2217,14 @@ For host SDKs that serialize disabled optional configuration as booleans,
 to an omitted remote override. This is call-local only: it never removes an
 already configured store remote, and callers still use `pull: false` or
 `push: false` when they want to suppress network activity.
+
+Every successful MCP lifecycle response also carries a bounded `runtime`
+identity for the currently connected stdio server. It includes the package
+version, Node executable, CLI entry path, a stable SHA-256 identity derived
+from those fields, and an explicit restart hint. It intentionally omits process
+arguments and environment data. This makes a stale long-lived Codex or Claude
+Code MCP connection observable even when the old and new development builds
+share the same prerelease package version.
 The response keeps `projects[]` as the ordered display list and also returns
 `projects_by_id` for direct keyed selection. Each
 `projects_by_id.<project_id>` value mirrors the matching `projects[]` record,

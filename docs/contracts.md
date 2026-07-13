@@ -735,6 +735,14 @@ equivalent MCP conveniences. They omit the optional `sync_remote` override for
 that call; they do not remove an existing store remote. Use `pull: false` or
 `push: false` to suppress the corresponding network operation.
 
+Successful MCP lifecycle responses (`agent_doctor`, `agent_enter`,
+`agent_guide`, `agent_start`, `agent_status`, and `agent_finish`) include a
+read-only `runtime` object. `runtime.package_version`, `runtime.cli_entry`,
+`runtime.exec_file`, and the stable `runtime.identity` identify the process
+serving the current MCP connection. If an installation or local build changes
+but these values still describe the old process, restart the Codex or Claude
+Code MCP connection before relying on newly added contracts.
+
 ## Error Envelopes
 
 Errors use structured envelopes:
