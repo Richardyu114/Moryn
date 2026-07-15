@@ -27,7 +27,7 @@ import type { MorynEvent, MorynRecord, RecordKind, RecordSource } from "../core/
 import { summarizeWorkingSet } from "../core/working-set-report.js";
 import { getGitSyncStatus, type GitSyncStatus } from "../sync/git.js";
 import { approveMaintenancePlan, buildDashboardMaintenance, type DashboardMaintenanceData, type DashboardMaintenancePlan } from "./dashboard-maintenance.js";
-import { renderDashboardWorkspace } from "./dashboard-workspace.js";
+import { renderDashboardWorkspace, renderMemorySearch } from "./dashboard-workspace.js";
 import { dashboardWorkspaceCss } from "./dashboard-workspace.css.js";
 import { dashboardWorkspaceScript } from "./dashboard-workspace-script.js";
 
@@ -208,6 +208,7 @@ export interface DashboardAgentActivity {
 export interface DashboardRecordCitation {
   record_id: string;
   event_id?: string;
+  event_path?: string;
   timeline_command: string;
   recall_command: string;
 }
@@ -923,6 +924,7 @@ export interface DashboardData {
   stored_content_preview: DashboardValueRecord[];
   recent_value: DashboardValueRecord[];
   recent_records: DashboardRecordSummary[];
+  all_records: DashboardRecordSummary[];
   recent_events: DashboardEventSummary[];
   agent_activity: DashboardAgentActivity[];
   maintenance: DashboardMaintenanceData;
@@ -1054,11 +1056,17 @@ function latestEventsByRecord(events: MorynEvent[]): Map<string, MorynEvent> {
   return byRecord;
 }
 
+function eventRepoPath(event: MorynEvent): string {
+  const deviceId = event.source.device_id ?? "device_default";
+  const month = event.created_at.slice(0, 7);
+  return `events/${deviceId}/${month}/${event.event_id}.json`;
+}
+
 function recordCitation(record: MorynRecord, eventsByRecord: Map<string, MorynEvent>): DashboardRecordCitation {
   const event = eventsByRecord.get(record.id);
   return {
     record_id: record.id,
-    ...(event ? { event_id: event.event_id } : {}),
+    ...(event ? { event_id: event.event_id, event_path: eventRepoPath(event) } : {}),
     timeline_command: timelineRecordCommand(record.id, record.project_id),
     recall_command: recallCommand(record.id, record.project_id)
   };
@@ -1195,7 +1203,7 @@ function titleCase(value: string): string {
     .replace(/\b\w/g, (match) => match.toUpperCase());
 }
 
-function dashboardRecordTitleLabel(kind: MorynRecord["kind"], type?: string): { en: string; zh: string } {
+export function dashboardRecordTitleLabel(kind: MorynRecord["kind"], type?: string): { en: string; zh: string } {
   const raw = type || kind;
   const normalized = raw.toLowerCase();
   const en = titleCase(raw);
@@ -1515,7 +1523,7 @@ function buildRecordTypeChart(records: MorynRecord[]): DashboardRecordTypeChartI
     .filter((item) => item.count > 0);
 }
 
-function memoryKindLabel(kind: RecordKind): { en: string; zh: string } {
+export function memoryKindLabel(kind: RecordKind): { en: string; zh: string } {
   if (kind === "memory") return { en: "Memories", zh: "记忆" };
   if (kind === "skill") return { en: "Skills", zh: "技能" };
   if (kind === "soul") return { en: "Preferences", zh: "偏好" };
@@ -3265,9 +3273,9 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     return !recordId || visibleRecordIds.has(recordId);
   });
   const eventsByRecord = latestEventsByRecord(visibleEvents);
-  const recentRecords = [...records]
-    .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id))
-    .slice(0, limit);
+  const allRecordsSorted = [...records]
+    .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id));
+  const recentRecords = allRecordsSorted.slice(0, limit);
   const recentEvents = [...visibleEvents]
     .sort((left, right) => right.created_at.localeCompare(left.created_at) || left.event_id.localeCompare(right.event_id))
     .slice(0, limit);
@@ -3469,7 +3477,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     const text = `${allRecordsById.get(event.record_id)?.content.text ?? ""} ${allRecordsById.get(event.linked_record_id)?.content.text ?? ""}`.toLocaleLowerCase();
     return [...currentTaskTokens].some((token) => token.length > 3 && text.includes(token));
   });
-  exceptionalAttention.push(...materialSemanticConflicts.map(() => ({ severity: "warning" as const, title: "Semantic memory conflict", description: "A material memory conflict overlaps the current task. Inspect the conflicting records in Audit Details." })));
+  exceptionalAttention.push(...materialSemanticConflicts.map(() => ({ severity: "warning" as const, title: "Semantic memory conflict", description: "A material memory conflict overlaps the current task. Inspect the conflicting records under Technical details." })));
 
   return {
     generated_at: generatedAt,
@@ -3576,6 +3584,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     stored_content_preview: buildStoredContentPreview(records, generatedAt, 4, eventsByRecord),
     recent_value: buildRecentValue(records, generatedAt, Math.min(limit, RECENT_VALUE_LIMIT), eventsByRecord),
     recent_records: recentRecords.map((record) => summarizeRecord(record, eventsByRecord)),
+    all_records: allRecordsSorted.map((record) => summarizeRecord(record, eventsByRecord)),
     recent_events: recentEvents.map((event) => summarizeEvent(event, recordsById)),
     agent_activity: agentActivity,
     maintenance: maintenanceData,
@@ -7759,10 +7768,12 @@ function dashboardDecisionPanel(data: DashboardData): string {
   `;
 }
 
-function memoryStateLabelFromRecordState(state: MorynRecord["state"]): { en: string; zh: string } {
+export function memoryStateLabelFromRecordState(state: MorynRecord["state"]): { en: string; zh: string } {
   if (state === "canonical") return { en: "Ready to use", zh: "可直接使用" };
   if (state === "candidate") return { en: "Saved for later", zh: "已保存，稍后整理" };
   if (state === "raw") return { en: "Saved briefly", zh: "临时保存" };
+  if (state === "archived") return { en: "Archived", zh: "已归档" };
+  if (state === "quarantined") return { en: "Set aside", zh: "已隔离" };
   return { en: "Set aside", zh: "已放一边" };
 }
 
@@ -8587,110 +8598,96 @@ function quietDashboardFirstScreen(data: DashboardData): string {
     </section>`;
 }
 
+function plainEventSentence(event: DashboardEventSummary): { en: string; zh: string } {
+  const source = humanSourceLabel(event.source);
+  const sourceZh = sourceLabelZh(source);
+  const byEn = source && source !== "unknown" ? ` from ${source}` : "";
+  const byZh = sourceZh && sourceZh !== "unknown" ? `${sourceZh} ` : "";
+  const map: Partial<Record<DashboardEventSummary["op"], { en: string; zh: string }>> = {
+    upsert_record: { en: `Saved a memory${byEn}`, zh: `${byZh}保存了一条记忆` },
+    revise_record: { en: `Updated a memory${byEn}`, zh: `${byZh}更新了一条记忆` },
+    promote_record: { en: `Confirmed a memory as ready${byEn}`, zh: `${byZh}将一条记忆确认为可用` },
+    archive_record: { en: `Archived a memory${byEn}`, zh: `${byZh}归档了一条记忆` },
+    quarantine_record: { en: `Set a memory aside for review${byEn}`, zh: `${byZh}将一条记忆搁置待查` },
+    link_records: { en: `Linked related memories${byEn}`, zh: `${byZh}关联了相关记忆` }
+  };
+  return map[event.op] ?? { en: `${titleCase(event.op)}${byEn}`, zh: `${byZh}${titleCase(event.op)}` };
+}
+
+function plainHistoryTimeline(data: DashboardData): string {
+  const events = data.recent_events.slice(0, 12);
+  if (events.length === 0) {
+    return `<section class="history-timeline" data-history-timeline aria-label="Recent activity"><p class="history-empty" data-i18n-en="Nothing has happened yet. New saves and changes will appear here." data-i18n-zh="还没有任何动态。新的保存和变化会显示在这里。">Nothing has happened yet. New saves and changes will appear here.</p></section>`;
+  }
+  const rows = events.map((event) => {
+    const sentence = plainEventSentence(event);
+    const relative = relativeTime(event.created_at, data.generated_at);
+    const relativeZh = relativeTimeZh(relative);
+    return `
+        <li class="history-row">
+          <time class="history-when" datetime="${escapeHtml(event.created_at)}" ${i18nAttribute(relative, relativeZh)}>${escapeHtml(relative)}</time>
+          <span class="history-what" ${i18nAttribute(sentence.en, sentence.zh)}>${escapeHtml(sentence.en)}</span>
+        </li>`;
+  }).join("");
+  return `
+    <section class="history-timeline" data-history-timeline aria-label="Recent activity">
+      <ol class="history-list">${rows}</ol>
+    </section>`;
+}
+
 function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderOptions, "showStoredContent"> = {}): string {
-  const hasActionSignals = data.attention_items.some(isReviewAttentionItem);
-  const actionSignalsPanel = hasActionSignals ? needsAttentionPanel(data.attention_items) : "";
-  const hasPendingDecisions = data.decision_summary.total_decisions > 0;
-  const shouldHideQuietInfoPanel = data.health.status === "sync_pending" || data.health.status === "conflict";
-  const isAllClearOverview = data.dashboard_overview.headline === "All clear";
-  const shortcutPanel = hasPendingDecisions || isAllClearOverview ? "" : actionBoard(data.action_board);
-  const shouldRenderQuietInfoPanel = !hasActionSignals && !hasPendingDecisions && !shouldHideQuietInfoPanel && !isAllClearOverview;
-  const quietInfoPanel = shouldRenderQuietInfoPanel ? needsAttentionPanel(data.attention_items) : "";
-  const showBackgroundStatus = !hasPendingDecisions && !shouldHideQuietInfoPanel && !isAllClearOverview;
-  const shouldPromoteStoreSignals = !hasPendingDecisions && !hasActionSignals && data.health.status === "sync_pending";
-  const isSavedForLaterOverview = data.dashboard_overview.primary_action.source === "memory_inventory";
-  const shouldRenderOverview = !isAllClearOverview && !isSavedForLaterOverview;
-  const shouldRenderWorkLanes = !shouldPromoteStoreSignals && !isAllClearOverview && !isSavedForLaterOverview;
-  const promotedStoreSignals = shouldPromoteStoreSignals ? promotedStoreSignalsPanel(data) : "";
   const displayHealth = dashboardDisplayHealth(data);
   const healthLabelZh = dashboardHealthZh(displayHealth.status === "local_ready" ? "local_only" : displayHealth.status, displayHealth.label);
-  const auditHtml = `<details class="audit-details" data-dashboard-detail="audit-details">
-      <summary>${i18nText("Audit Details", "审计细节", "span")}${i18nText("Records, events, diagnostics, and maintenance", "记录、事件、诊断和维护", "small")}</summary>
-      <div class="audit-details-content">
-        ${semanticConsolidationAudit(data)}
-        ${shouldRenderOverview ? dashboardOverview(data.dashboard_overview, { showBackgroundStatus, showSafety: true }) : ""}
-        ${dashboardDecisionPanel(data)}
-        ${statusBoard(data)}
-        ${dashboardGlanceBoard(data)}
-        ${options.showStoredContent === true ? storedContentPanel(data) : ""}
-        ${memoryInventoryPanel(data.memory_inventory)}
-        ${recentStatusPanel(data)}
-        ${shouldRenderWorkLanes ? dashboardWorkLanes(data, { showBackgroundLanes: !hasPendingDecisions }) : ""}
-        ${promotedStoreSignals}
-        ${decisionSummary(data.decision_summary)}
-        ${actionSignalsPanel}
-        ${maintenanceReviewQueue(data.maintenance.plans)}
-        ${captureInbox(data.capture_inbox)}
-        ${quietInfoPanel}
-        ${isSavedForLaterOverview ? "" : shortcutPanel}
-        ${evidenceLibrary(data, {
-          includeStoreSignals: !shouldPromoteStoreSignals,
-          showEvidenceIndex: !hasPendingDecisions,
-          compactBackground: shouldPromoteStoreSignals || isAllClearOverview || isSavedForLaterOverview,
-          auditOnly: hasPendingDecisions
-        })}
-      </div>
-    </details>`;
-  const memoryHtml = `<section class="panel"><h2>${i18nText("Saved knowledge", "已保存知识")}</h2><p>${i18nText("Use Workspace for the current working set. Open Audit Details for full search, lifecycle, and governance evidence.", "在工作区查看当前工作记忆；完整搜索、生命周期和治理证据位于审计细节。")}</p><dl><div><dt>${i18nText("Active", "活跃")}</dt><dd>${data.logical_memory.active_working_set_records}</dd></div><div><dt>${i18nText("Learned", "已学习")}</dt><dd>${data.logical_memory.learned_records}</dd></div><div><dt>${i18nText("Stored", "已存储")}</dt><dd>${data.totals.records}</dd></div></dl></section>`;
-  const historyHtml = `<section class="panel"><h2>${i18nText("Recent activity", "近期活动")}</h2><p>${i18nText("The Workspace highlights the newest meaningful events. Full citations, diagnostics, and raw history remain in Audit Details.", "工作区突出显示最新的重要事件；完整引用、诊断和原始历史仍保留在审计细节。")}</p><dl><div><dt>${i18nText("Events", "事件")}</dt><dd>${data.totals.events}</dd></div><div><dt>${i18nText("Recent", "近期")}</dt><dd>${data.recent_events.length}</dd></div><div><dt>${i18nText("Generated", "生成时间")}</dt><dd>${escapeHtml(data.generated_at)}</dd></div></dl></section>`;
+  const memoryHtml = renderMemorySearch(data);
+  const historyHtml = plainHistoryTimeline(data);
   return `<div hidden aria-hidden="true"><header><span class="health-badge ${healthClass(displayHealth.status)}" ${i18nAttribute(displayHealth.label, healthLabelZh)}>${escapeHtml(displayHealth.label)}</span></header>${quietDashboardFirstScreen(data)}<span data-quiet-dashboard-end></span></div>
     ${renderDashboardWorkspace(data, {
     memory_html: memoryHtml,
     history_html: historyHtml,
-    audit_html: auditHtml,
     language_toggle_html: dashboardLanguageToggle()
   })}
     <section id="last-action-receipt" class="panel last-action-receipt" data-action-receipt-anchor aria-live="polite" hidden></section>`;
 }
 
-function dashboardRefreshScript(refreshIntervalMs: number | undefined): string {
-  if (refreshIntervalMs === undefined) return "";
+function dashboardRefreshScript(_refreshIntervalMs: number | undefined): string {
   return `
   <script>
     (() => {
-      const main = document.querySelector("main[data-dashboard-refresh]");
-      const interval = Number(main?.dataset.dashboardRefresh || 0);
-      if (!main || !Number.isFinite(interval) || interval <= 0) return;
-      const captureDetailState = () => {
-        const state = new Map();
-        main.querySelectorAll("details[data-dashboard-detail]").forEach((detail) => {
-          state.set(detail.dataset.dashboardDetail, detail.open);
-        });
-        return state;
-      };
-      const detailState = captureDetailState();
-      main.addEventListener("toggle", (event) => {
-        const detail = event.target;
-        if (!(detail instanceof HTMLDetailsElement)) return;
-        const key = detail.dataset.dashboardDetail;
-        if (key) detailState.set(key, detail.open);
-      }, true);
-      const restoreDetailState = (state) => {
-        main.querySelectorAll("details[data-dashboard-detail]").forEach((detail) => {
-          const key = detail.dataset.dashboardDetail;
-          if (state.has(key)) detail.open = state.get(key);
+      const main = document.querySelector("main");
+      if (!main) return;
+      let refreshing = false;
+      const setButtonState = (state) => {
+        document.querySelectorAll("[data-dashboard-refresh-button]").forEach((button) => {
+          if (button instanceof HTMLElement) button.dataset.refreshing = state ? "true" : "false";
         });
       };
       const refresh = async () => {
+        if (refreshing) return;
+        refreshing = true;
+        setButtonState(true);
         try {
-          if (window.shouldPauseStoredContentRefresh?.() || window.dashboardWorkspaceInteraction?.isActive()) return;
           const workspaceState = window.dashboardWorkspaceState?.capture();
-          const hadStoredContentSearchFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.matches("[data-memory-search-input]");
-          const memorySearchScrollState = window.captureMemorySearchScrollState?.();
           const response = await fetch("fragment", { cache: "no-store" });
           if (!response.ok) return;
           main.innerHTML = await response.text();
-          restoreDetailState(detailState);
           window.restoreDashboardWorkspaceAfterFragment?.(workspaceState);
           window.applyDashboardLanguage?.();
-          window.restoreStoredContentState?.({ focusSearch: hadStoredContentSearchFocus });
-          window.restoreMemorySearchScrollState?.(memorySearchScrollState);
           window.restoreActionReceipt?.();
         } catch {
           // Keep the last successful render visible if a refresh fails.
+        } finally {
+          refreshing = false;
+          setButtonState(false);
         }
       };
-      window.setInterval(refresh, interval);
+      window.refreshDashboard = refresh;
+      document.addEventListener("click", (event) => {
+        const target = event.target;
+        if (target instanceof Element && target.closest("[data-dashboard-refresh-button]")) {
+          event.preventDefault();
+          refresh();
+        }
+      });
     })();
   </script>`;
 }

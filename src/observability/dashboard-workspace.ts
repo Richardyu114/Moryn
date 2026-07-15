@@ -2,13 +2,17 @@ import type {
   DashboardAttentionItem,
   DashboardData,
   DashboardEventSummary,
-  DashboardRecordSummary
+  DashboardRecordSummary,
+  DashboardMemoryStateChartItem,
+  DashboardRecordTypeChartItem,
+  DashboardActivityTrendChart,
+  DashboardAgentChartItem
 } from "./dashboard.js";
+import { dashboardRecordTitleLabel, memoryStateLabelFromRecordState, memoryKindLabel } from "./dashboard.js";
 
 export interface DashboardWorkspaceFragments {
   memory_html: string;
   history_html: string;
-  audit_html: string;
   language_toggle_html: string;
 }
 
@@ -19,6 +23,12 @@ export interface DashboardDrawerItem {
   title_zh: string;
   summary_en: string;
   summary_zh: string;
+  body_en?: string;
+  body_zh?: string;
+  truncated?: boolean;
+  github_url?: string;
+  recall_command?: string;
+  store_path?: string;
   metadata: Array<{ label_en: string; label_zh: string; value_en: string; value_zh?: string }>;
   evidence_html: string;
 }
@@ -50,6 +60,14 @@ function escapeHtml(value: unknown): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function githubBaseFromRemote(remote: string | undefined, branch: string | undefined): string | undefined {
+  if (!remote) return undefined;
+  const match = remote.match(/github\.com[:/]([^/]+)\/(.+?)(?:\.git)?$/);
+  if (!match) return undefined;
+  const [, owner, repo] = match;
+  return `https://github.com/${owner}/${repo}/blob/${branch || "main"}`;
 }
 
 function safeDomId(value: string): string {
@@ -116,6 +134,9 @@ function buildDrawerItems(data: DashboardData, task: string, project: string, ag
   const context = data.quiet_dashboard.current_context;
   const flow = data.quiet_dashboard.memory_flow;
   const contextCopy = contextSummary(data);
+  const githubBase = githubBaseFromRemote(data.sync.remote, data.sync.branch);
+  const storePath = data.store.path;
+  const BODY_LIMIT = 4000;
   const items: DashboardDrawerItem[] = [{
     id: "context-current",
     kind: "context",
@@ -160,26 +181,84 @@ function buildDrawerItems(data: DashboardData, task: string, project: string, ag
     });
   }
 
+  const recordDrawer = (record: DashboardRecordSummary, kind: DashboardDrawerItem["kind"]): DashboardDrawerItem => {
+    const titleLabel = dashboardRecordTitleLabel(record.kind, record.type);
+    const fullText = record.text || "";
+    const truncated = fullText.length > BODY_LIMIT;
+    const eventPath = record.citation.event_path;
+    const githubUrl = githubBase && eventPath ? `${githubBase}/${eventPath}` : undefined;
+    return {
+    id: `record-${safeDomId(record.id)}`,
+    kind,
+    title_en: titleLabel.en,
+    title_zh: titleLabel.zh,
+    summary_en: `A ${record.state} ${record.kind} from ${sourceLabel(record.source)}.`,
+    summary_zh: `来自 ${sourceLabel(record.source)} 的 ${record.state} ${record.kind}。`,
+    body_en: clip(fullText, BODY_LIMIT),
+    body_zh: clip(fullText, BODY_LIMIT),
+    truncated,
+    github_url: githubUrl,
+    recall_command: record.citation.recall_command,
+    store_path: storePath,
+    metadata: [
+      { label_en: "Kind", label_zh: "类别", value_en: record.kind },
+      { label_en: "Type", label_zh: "类型", value_en: record.type },
+      { label_en: "State", label_zh: "状态", value_en: record.state },
+      { label_en: "Updated", label_zh: "更新时间", value_en: record.updated_at },
+      { label_en: "Record id", label_zh: "记录 ID", value_en: record.id }
+    ],
+    evidence_html: `<code>${escapeHtml(record.citation.timeline_command)}</code> <code>${escapeHtml(record.citation.recall_command)}</code>`
+    };
+  };
+
+  const seenRecordIds = new Set<string>();
   for (const record of importantRecords) {
-    items.push({
-      id: `record-${safeDomId(record.id)}`,
-      kind: "important",
-      title_en: record.text || `${record.kind} · ${record.type}`,
-      title_zh: record.text || `${record.kind} · ${record.type}`,
-      summary_en: `A ${record.state} ${record.kind} from ${sourceLabel(record.source)}.`,
-      summary_zh: `来自 ${sourceLabel(record.source)} 的 ${record.state} ${record.kind}。`,
-      metadata: [
-        { label_en: "Kind", label_zh: "类别", value_en: record.kind },
-        { label_en: "Type", label_zh: "类型", value_en: record.type },
-        { label_en: "State", label_zh: "状态", value_en: record.state },
-        { label_en: "Updated", label_zh: "更新时间", value_en: record.updated_at },
-        { label_en: "Record id", label_zh: "记录 ID", value_en: record.id }
-      ],
-      evidence_html: `<code>${escapeHtml(record.citation.timeline_command)}</code> <code>${escapeHtml(record.citation.recall_command)}</code>`
-    });
+    items.push(recordDrawer(record, "important"));
+    seenRecordIds.add(record.id);
+  }
+  for (const record of data.all_records) {
+    if (seenRecordIds.has(record.id)) continue;
+    items.push(recordDrawer(record, "memory"));
+    seenRecordIds.add(record.id);
   }
 
   return items;
+}
+
+export interface DashboardMemorySearchEntry {
+  id: string;
+  drawer_id: string;
+  kind: DashboardRecordSummary["kind"];
+  title_en: string;
+  title_zh: string;
+  meta_en: string;
+  meta_zh: string;
+  search_text: string;
+}
+
+function clip(text: string, limit: number): string {
+  if (text.length <= limit) return text;
+  return `${text.slice(0, limit).replace(/\s+\S*$/, "").trim()}…`;
+}
+
+function buildMemorySearchEntries(data: DashboardData): DashboardMemorySearchEntry[] {
+  return data.all_records.map((record) => {
+    const source = sourceLabel(record.source);
+    const rawTitle = record.text || `${record.kind} · ${record.type}`;
+    const title = clip(rawTitle.replace(/\s+/g, " "), 120);
+    const metaEn = `${record.kind} · ${record.state} · ${source}`;
+    const metaZh = `${record.kind} · ${record.state} · ${source}`;
+    return {
+      id: record.id,
+      drawer_id: `record-${safeDomId(record.id)}`,
+      kind: record.kind,
+      title_en: title,
+      title_zh: title,
+      meta_en: metaEn,
+      meta_zh: metaZh,
+      search_text: `${clip(rawTitle.replace(/\s+/g, " "), 400)} ${record.kind} ${record.type} ${record.state} ${source}`.toLowerCase()
+    };
+  });
 }
 
 export function buildDashboardWorkspaceModel(data: DashboardData): DashboardWorkspaceModel {
@@ -249,6 +328,119 @@ function renderImportant(records: DashboardRecordSummary[], model: DashboardWork
   </aside>`;
 }
 
+function stateSwatchClass(state: DashboardMemoryStateChartItem["state"]): string {
+  return `swatch-${state}`;
+}
+
+function renderMemoryCompositionChart(items: DashboardMemoryStateChartItem[]): string {
+  const shown = items.filter((item) => item.count > 0);
+  if (shown.length === 0) return "";
+  const bar = shown.map((item) => `<span class="glance-bar-seg ${stateSwatchClass(item.state)}" style="width:${item.percent}%" title="${escapeHtml(memoryStateLabelFromRecordState(item.state).en)} ${item.count}"></span>`).join("");
+  const legend = shown.map((item) => {
+    const label = memoryStateLabelFromRecordState(item.state);
+    return `<li><span class="glance-dot ${stateSwatchClass(item.state)}"></span><span class="glance-legend-label" data-i18n-en="${escapeHtml(label.en)}" data-i18n-zh="${escapeHtml(label.zh)}">${escapeHtml(label.en)}</span><span class="glance-legend-value">${item.count}</span></li>`;
+  }).join("");
+  return `<article class="glance-card">
+      <div class="glance-card-title" data-i18n-en="Memory composition" data-i18n-zh="记忆组成">Memory composition</div>
+      <div class="glance-stack">${bar}</div>
+      <ul class="glance-legend">${legend}</ul>
+    </article>`;
+}
+
+function renderContentTypeChart(items: DashboardRecordTypeChartItem[]): string {
+  const shown = items.filter((item) => item.count > 0).slice(0, 5);
+  if (shown.length === 0) return "";
+  const rows = shown.map((item) => `<li class="glance-row">
+      <span class="glance-row-label">${escapeHtml(item.label)}</span>
+      <span class="glance-row-track"><span class="glance-row-fill" style="width:${item.percent}%"></span></span>
+      <span class="glance-row-value">${item.count}</span>
+    </li>`).join("");
+  return `<article class="glance-card">
+      <div class="glance-card-title" data-i18n-en="Content types" data-i18n-zh="内容类型">Content types</div>
+      <ul class="glance-rows">${rows}</ul>
+    </article>`;
+}
+
+function renderTrendChart(trend: DashboardActivityTrendChart): string {
+  if (!trend.days || trend.days.length === 0 || trend.total === 0) return "";
+  const peak = Math.max(1, trend.peak);
+  const bars = trend.days.map((day) => {
+    const h = Math.round((day.count / peak) * 100);
+    return `<span class="glance-trend-bar" style="height:${Math.max(3, h)}%" title="${escapeHtml(day.label)}: ${day.count}"></span>`;
+  }).join("");
+  return `<article class="glance-card">
+      <div class="glance-card-title" data-i18n-en="Recent saves" data-i18n-zh="近期保存">Recent saves</div>
+      <div class="glance-trend">${bars}</div>
+      <div class="glance-trend-caption"><span data-i18n-en="Last ${trend.days.length} days" data-i18n-zh="最近 ${trend.days.length} 天">Last ${trend.days.length} days</span><span class="glance-legend-value">${trend.total}</span></div>
+    </article>`;
+}
+
+function renderSourceChart(agents: DashboardAgentChartItem[]): string {
+  const shown = [...agents].sort((a, b) => (b.records + b.events) - (a.records + a.events)).slice(0, 4);
+  const withSignal = shown.filter((agent) => agent.records + agent.events > 0);
+  if (withSignal.length === 0) return "";
+  const peak = Math.max(1, ...withSignal.map((agent) => agent.records + agent.events));
+  const rows = withSignal.map((agent) => {
+    const signals = agent.records + agent.events;
+    return `<li class="glance-row">
+      <span class="glance-row-label">${escapeHtml(agent.client)}</span>
+      <span class="glance-row-track"><span class="glance-row-fill" style="width:${Math.round((signals / peak) * 100)}%"></span></span>
+      <span class="glance-row-value">${signals}</span>
+    </li>`;
+  }).join("");
+  return `<article class="glance-card">
+      <div class="glance-card-title" data-i18n-en="Where it comes from" data-i18n-zh="来源分布">Where it comes from</div>
+      <ul class="glance-rows">${rows}</ul>
+    </article>`;
+}
+
+function renderGlance(data: DashboardData): string {
+  const cards = [
+    renderMemoryCompositionChart(data.charts.memory_states),
+    renderContentTypeChart(data.charts.record_types),
+    renderTrendChart(data.charts.activity_trend),
+    renderSourceChart(data.charts.agent_activity)
+  ].filter((card) => card.length > 0);
+  if (cards.length === 0) return "";
+  return `<section class="editorial-section" data-editorial-section="glance">
+      <div class="editorial-section-heading"><div class="editorial-section-title">${i18n("At a Glance", "一眼概览")}</div><p>${i18n("How your memory breaks down", "记忆的构成一览")}</p></div>
+      <div class="glance-grid">${cards.join("")}</div>
+    </section>`;
+}
+
+export function renderMemorySearch(data: DashboardData): string {
+  const entries = buildMemorySearchEntries(data);
+  if (entries.length === 0) {
+    return `<div class="memory-search"><p class="memory-search-empty" data-i18n-en="Nothing has been saved yet. Saved memories will be searchable here." data-i18n-zh="还没有保存任何内容。保存的记忆会在这里可搜索。">Nothing has been saved yet. Saved memories will be searchable here.</p></div>`;
+  }
+  const countLabel = (n: number) => ({ en: `${n} ${n === 1 ? "memory" : "memories"}`, zh: `${n} 条记忆` });
+  const total = countLabel(entries.length);
+  const results = entries.map((entry) => `
+        <button type="button" class="memory-result" data-memory-result data-search-text="${escapeHtml(entry.search_text)}" data-kind="${escapeHtml(entry.kind)}" data-drawer-target="${escapeHtml(entry.drawer_id)}" aria-haspopup="dialog">
+          <span class="memory-result-title" data-i18n-en="${escapeHtml(entry.title_en)}" data-i18n-zh="${escapeHtml(entry.title_zh)}">${escapeHtml(entry.title_en)}</span>
+          <span class="memory-result-meta" data-i18n-en="${escapeHtml(entry.meta_en)}" data-i18n-zh="${escapeHtml(entry.meta_zh)}">${escapeHtml(entry.meta_en)}</span>
+        </button>`).join("");
+  const kindOrder: DashboardRecordSummary["kind"][] = ["memory", "skill", "soul", "session_summary", "agent_note"];
+  const kindCounts = new Map<string, number>();
+  for (const entry of entries) kindCounts.set(entry.kind, (kindCounts.get(entry.kind) ?? 0) + 1);
+  const presentKinds = kindOrder.filter((kind) => (kindCounts.get(kind) ?? 0) > 0);
+  const allChip = `<button type="button" class="memory-chip" data-memory-chip data-chip-kind="all" aria-pressed="true"><span data-i18n-en="All" data-i18n-zh="全部">All</span><span class="memory-chip-count">${entries.length}</span></button>`;
+  const kindChips = presentKinds.map((kind) => {
+    const label = memoryKindLabel(kind);
+    return `<button type="button" class="memory-chip" data-memory-chip data-chip-kind="${escapeHtml(kind)}" aria-pressed="false"><span data-i18n-en="${escapeHtml(label.en)}" data-i18n-zh="${escapeHtml(label.zh)}">${escapeHtml(label.en)}</span><span class="memory-chip-count">${kindCounts.get(kind) ?? 0}</span></button>`;
+  }).join("");
+  return `
+    <div class="memory-search" data-memory-search>
+      <div class="memory-search-field">
+        <input type="search" data-memory-search-input placeholder="Search saved memories" aria-label="Search saved memories" data-i18n-placeholder-en="Search saved memories" data-i18n-placeholder-zh="搜索已保存的记忆" data-i18n-aria-label-en="Search saved memories" data-i18n-aria-label-zh="搜索已保存的记忆">
+      </div>
+      <div class="memory-chips" data-memory-chips>${allChip}${kindChips}</div>
+      <p class="memory-search-count" data-memory-search-count role="status" aria-live="polite" data-total="${entries.length}" data-i18n-en="${escapeHtml(total.en)}" data-i18n-zh="${escapeHtml(total.zh)}">${escapeHtml(total.en)}</p>
+      <div class="ms-results" data-memory-search-results>${results}</div>
+      <p class="memory-search-empty" data-memory-search-noresults hidden role="status" aria-live="polite" data-i18n-en="No memories match your search." data-i18n-zh="没有匹配的记忆。">No memories match your search.</p>
+    </div>`;
+}
+
 function renderDrawer(drawers: DashboardDrawerItem[]): string {
   return `<div data-dashboard-drawer hidden>
     <aside class="editorial-drawer-panel" role="dialog" aria-modal="true" aria-label="Details" tabindex="-1">
@@ -257,6 +449,14 @@ function renderDrawer(drawers: DashboardDrawerItem[]): string {
         <div class="editorial-eyebrow">${i18n(drawer.kind, drawer.kind === "context" ? "上下文" : drawer.kind === "memory" ? "记忆" : drawer.kind === "event" ? "事件" : "重要内容")}</div>
         <h2 class="editorial-drawer-title" data-i18n-en="${escapeHtml(drawer.title_en)}" data-i18n-zh="${escapeHtml(drawer.title_zh)}">${escapeHtml(drawer.title_en)}</h2>
         <p class="editorial-drawer-summary" data-i18n-en="${escapeHtml(drawer.summary_en)}" data-i18n-zh="${escapeHtml(drawer.summary_zh)}">${escapeHtml(drawer.summary_en)}</p>
+        ${drawer.body_en ? `<div class="editorial-drawer-body" data-i18n-en="${escapeHtml(drawer.body_en)}" data-i18n-zh="${escapeHtml(drawer.body_zh ?? drawer.body_en)}">${escapeHtml(drawer.body_en)}</div>` : ""}
+        ${drawer.truncated ? `<p class="editorial-drawer-truncated" data-i18n-en="Content truncated — open the full memory below." data-i18n-zh="内容已截断 —— 可在下方查看完整记忆。">Content truncated — open the full memory below.</p>` : ""}
+        ${(drawer.github_url || drawer.recall_command || drawer.store_path) ? `<div class="editorial-drawer-source">
+          <div class="editorial-section-title">${i18n("View full memory", "查看完整记忆")}</div>
+          ${drawer.github_url ? `<a class="editorial-drawer-link" href="${escapeHtml(drawer.github_url)}" target="_blank" rel="noopener noreferrer" data-i18n-en="Open on GitHub" data-i18n-zh="在 GitHub 打开">Open on GitHub</a><small class="editorial-drawer-hint" data-i18n-en="If newly saved, it may need a sync first." data-i18n-zh="若为新记忆，可能需要先同步。">If newly saved, it may need a sync first.</small>` : ""}
+          ${drawer.recall_command ? `<div class="editorial-drawer-cmd"><span data-i18n-en="Or via CLI" data-i18n-zh="或通过 CLI">Or via CLI</span><code lang="en">${escapeHtml(drawer.recall_command)}</code></div>` : ""}
+          ${drawer.store_path ? `<div class="editorial-drawer-cmd"><span data-i18n-en="Local store" data-i18n-zh="本地存储">Local store</span><code lang="en">${escapeHtml(drawer.store_path)}</code></div>` : ""}
+        </div>` : ""}
         <dl class="editorial-drawer-meta">${drawer.metadata.map((item) => `<div><dt data-i18n-en="${escapeHtml(item.label_en)}" data-i18n-zh="${escapeHtml(item.label_zh)}">${escapeHtml(item.label_en)}</dt><dd data-i18n-en="${escapeHtml(item.value_en)}" data-i18n-zh="${escapeHtml(item.value_zh ?? item.value_en)}">${escapeHtml(item.value_en)}</dd></div>`).join("")}</dl>
         <div class="editorial-drawer-evidence"><div class="editorial-section-title">${i18n("Evidence", "证据")}</div><p>${drawer.evidence_html}</p></div>
       </section>`).join("")}
@@ -275,7 +475,7 @@ export function renderDashboardWorkspace(data: DashboardData, fragments: Dashboa
         <button type="button" class="editorial-nav-button" data-dashboard-nav="memory">${i18n("Memory", "记忆")}</button>
         <button type="button" class="editorial-nav-button" data-dashboard-nav="history">${i18n("History", "历史")}</button>
       </nav>
-      <div class="editorial-header-status"><span class="editorial-sync">● ${i18n(model.sync_label_en, model.sync_label_zh)}</span>${fragments.language_toggle_html}</div>
+      <div class="editorial-header-status"><span class="editorial-sync">● ${i18n(model.sync_label_en, model.sync_label_zh)}</span><button type="button" class="editorial-refresh" data-dashboard-refresh-button><span data-i18n-en="Refresh" data-i18n-zh="刷新">Refresh</span></button>${fragments.language_toggle_html}</div>
     </header>
     <div class="editorial-shell-body">
       <section data-dashboard-view="workspace">
@@ -295,14 +495,14 @@ export function renderDashboardWorkspace(data: DashboardData, fragments: Dashboa
               ${renderMetric("memory-conflicts", "Conflicts", "冲突", model.memory.conflicts)}
               ${renderMetric("memory-compaction", "Consolidated", "已收敛", compaction)}
             </div></section>
+            ${renderGlance(data)}
             <section class="editorial-section" data-editorial-section="what-changed"><div class="editorial-section-heading"><div class="editorial-section-title">${i18n("What Changed", "近期变化")}</div><p>${i18n("The latest meaningful local events", "最新的重要本地事件")}</p></div>${renderEvents(model.recent_events)}</section>
           </article>
           ${renderImportant(model.important_records, model)}
         </div>
       </section>
-      <section class="editorial-view-page" data-dashboard-view="memory" hidden><header><div class="editorial-eyebrow">${i18n("Knowledge library", "知识库")}</div><h1>${i18n("Memory", "记忆")}</h1><p>${i18n("Search and read what Moryn has saved. This view remains read-only.", "搜索并阅读 Moryn 保存的内容。此视图保持只读。")}</p></header><div class="editorial-compatibility">${fragments.memory_html}</div></section>
-      <section class="editorial-view-page" data-dashboard-view="history" hidden><header><div class="editorial-eyebrow">${i18n("Audit history", "审计历史")}</div><h1>${i18n("History", "历史")}</h1><p>${i18n("Recent events, evidence, diagnostics, and traceability.", "近期事件、证据、诊断与追踪信息。")}</p></header><div class="editorial-compatibility">${fragments.history_html}</div></section>
-      <div class="editorial-audit">${fragments.audit_html}</div>
+      <section class="editorial-view-page" data-dashboard-view="memory" hidden><header><div class="editorial-eyebrow">${i18n("Knowledge library", "知识库")}</div><h1>${i18n("Memory", "记忆")}</h1><p>${i18n("Search what Moryn has saved, then open any item to read it in full. Nothing is written here.", "搜索 Moryn 保存的内容，点开任意一条即可查看全文。此处不会写入。")}</p></header>${fragments.memory_html}</section>
+      <section class="editorial-view-page" data-dashboard-view="history" hidden><header><div class="editorial-eyebrow">${i18n("Recent activity", "近期动态")}</div><h1>${i18n("History", "历史")}</h1><p>${i18n("A plain-language record of what has happened, newest first.", "用日常语言记录发生过的事，最新在前。")}</p></header>${fragments.history_html}</section>
     </div>
     ${renderDrawer(model.drawers)}
   </div>`;

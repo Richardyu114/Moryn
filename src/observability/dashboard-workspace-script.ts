@@ -33,10 +33,24 @@ export function dashboardWorkspaceScript(): string {
           window.scrollTo({ top: lockedScrollY, behavior: 'auto' });
         };
 
+        const replayEntrance = (section) => {
+          if (!(section instanceof HTMLElement)) return;
+          if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+          const targets = section.querySelectorAll('[data-editorial-section], .editorial-sidebar, .editorial-view-page > header, .editorial-view-page > .memory-search, .editorial-view-page > .history-timeline');
+          targets.forEach((el) => {
+            if (!(el instanceof HTMLElement)) return;
+            el.style.animation = 'none';
+            void el.offsetWidth;
+            el.style.animation = '';
+          });
+        };
         const activateView = (view) => {
           markInteraction();
+          let shown = null;
           root.querySelectorAll('[data-dashboard-view]').forEach((section) => {
-            section.hidden = section.dataset.dashboardView !== view;
+            const active = section.dataset.dashboardView === view;
+            section.hidden = !active;
+            if (active) shown = section;
           });
           root.querySelectorAll('[data-dashboard-nav]').forEach((button) => {
             if (!(button instanceof HTMLElement)) return;
@@ -44,6 +58,7 @@ export function dashboardWorkspaceScript(): string {
             if (active) button.setAttribute('aria-current', 'page');
             else button.removeAttribute('aria-current');
           });
+          replayEntrance(shown);
           window.applyDashboardLanguage?.();
         };
 
@@ -148,6 +163,50 @@ export function dashboardWorkspaceScript(): string {
           if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
           else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
         });
+
+        const setupMemorySearch = () => {
+          const container = root.querySelector('[data-memory-search]');
+          if (!(container instanceof HTMLElement)) return;
+          const input = container.querySelector('[data-memory-search-input]');
+          const results = Array.from(container.querySelectorAll('[data-memory-result]'));
+          const countEl = container.querySelector('[data-memory-search-count]');
+          const noResults = container.querySelector('[data-memory-search-noresults]');
+          const chips = Array.from(container.querySelectorAll('[data-memory-chip]'));
+          if (!(input instanceof HTMLInputElement)) return;
+          const total = Number(countEl?.dataset.total || results.length);
+          let activeKind = 'all';
+          const apply = () => {
+            const query = input.value.trim().toLowerCase();
+            let shown = 0;
+            results.forEach((result) => {
+              if (!(result instanceof HTMLElement)) return;
+              const text = result.dataset.searchText || '';
+              const kind = result.dataset.kind || '';
+              const match = (query === '' || text.includes(query)) && (activeKind === 'all' || kind === activeKind);
+              result.hidden = !match;
+              if (match) shown += 1;
+            });
+            if (noResults instanceof HTMLElement) noResults.hidden = shown !== 0;
+            if (countEl instanceof HTMLElement) {
+              const filtered = query !== '' || activeKind !== 'all';
+              const en = filtered ? shown + ' of ' + total : total + (total === 1 ? ' memory' : ' memories');
+              const zh = filtered ? total + ' 条中的 ' + shown + ' 条' : total + ' 条记忆';
+              countEl.dataset.i18nEn = en;
+              countEl.dataset.i18nZh = zh;
+              countEl.textContent = en;
+              window.applyDashboardLanguage?.();
+            }
+          };
+          chips.forEach((chip) => {
+            chip.addEventListener('click', () => {
+              activeKind = chip.dataset.chipKind || 'all';
+              chips.forEach((other) => other.setAttribute('aria-pressed', other === chip ? 'true' : 'false'));
+              apply();
+            });
+          });
+          input.addEventListener('input', apply);
+        };
+        setupMemorySearch();
 
         window.dashboardWorkspaceState = { activateView, openDrawer, closeDrawer, capture, restore, initialize };
       };
