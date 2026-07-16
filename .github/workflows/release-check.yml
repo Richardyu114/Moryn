@@ -1,0 +1,22 @@
+name: Release check
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Nightly at 03:17 UTC (off the top of the hour on purpose)
+    - cron: "17 3 * * *"
+
+jobs:
+  release-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run full release gate (build, typecheck, tests, smokes)
+        env:
+          MORYN_SKIP_SLOW_CHECKS: "1"
+        run: npm run release:check
