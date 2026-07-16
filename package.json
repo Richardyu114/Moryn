@@ -73,7 +73,9 @@
     "smoke:permission-recovery": "node scripts/permission-recovery-smoke.js",
     "smoke:large-store": "node scripts/large-store-smoke.js",
     "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "biome check",
+    "format": "biome format --write"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
@@ -81,6 +83,7 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.4",
     "@types/node": "^24.10.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
