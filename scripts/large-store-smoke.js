@@ -144,11 +144,16 @@ const smokeScript = `
   if (dashboard.quiet_dashboard.attention_needed.length !== 0) {
     throw new Error("healthy large-store dashboard created exceptional attention: " + JSON.stringify(dashboard.quiet_dashboard.attention_needed));
   }
-  for (const marker of ["System Pulse", "Current Context", "Memory Flow", "data-dashboard-detail=\\\"evidence-library\\\""]) {
+  for (const marker of ["System Pulse", "Current Context", "Memory Flow", "data-dashboard-editorial-shell"]) {
     if (!dashboardHtml.includes(marker)) throw new Error("dashboard omitted monitoring marker: " + marker);
   }
   const budgetMs = 5000;
-  const dashboardByteBudget = 1000000;
+  // The dashboard embeds ~1.95MB of base64 serif fonts (latin + CJK subset) so
+  // it renders identically offline / as a static file. That fixed overhead puts
+  // an empty dashboard around ~2.2MB; the memory search list is capped at 600
+  // rendered entries (see renderMemorySearch) so it no longer grows unbounded
+  // with store size. Budget reflects that fixed cost plus the capped list.
+  const dashboardByteBudget = 5000000;
   if (recallMs > budgetMs || bootMs > budgetMs || dashboardMs > budgetMs) {
     throw new Error("large-store hot path exceeded budget: recall=" + recallMs.toFixed(1) + "ms boot=" + bootMs.toFixed(1) + "ms dashboard=" + dashboardMs.toFixed(1) + "ms");
   }

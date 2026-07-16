@@ -216,7 +216,11 @@ function buildDrawerItems(data: DashboardData, task: string, project: string, ag
     items.push(recordDrawer(record, "important"));
     seenRecordIds.add(record.id);
   }
-  for (const record of data.all_records) {
+  // Only build drawer payloads for the records the Memory view can actually open
+  // (the capped, newest-first search set). Without this bound the single-file
+  // dashboard embeds a full-text payload per record and grows without limit on
+  // large stores. Older records stay reachable via CLI recall.
+  for (const record of data.all_records.slice(0, MEMORY_SEARCH_RENDER_LIMIT)) {
     if (seenRecordIds.has(record.id)) continue;
     items.push(recordDrawer(record, "memory"));
     seenRecordIds.add(record.id);
@@ -408,13 +412,25 @@ function renderGlance(data: DashboardData): string {
     </section>`;
 }
 
+const MEMORY_SEARCH_RENDER_LIMIT = 600;
+
 export function renderMemorySearch(data: DashboardData): string {
-  const entries = buildMemorySearchEntries(data);
-  if (entries.length === 0) {
+  const allEntries = buildMemorySearchEntries(data);
+  if (allEntries.length === 0) {
     return `<div class="memory-search"><p class="memory-search-empty" data-i18n-en="Nothing has been saved yet. Saved memories will be searchable here." data-i18n-zh="还没有保存任何内容。保存的记忆会在这里可搜索。">Nothing has been saved yet. Saved memories will be searchable here.</p></div>`;
   }
+  // Bound the embedded result set so the single-file dashboard stays small even
+  // for very large stores. all_records is newest-first, so this keeps the most
+  // recent memories searchable; older ones remain reachable via CLI recall.
+  const capped = allEntries.length > MEMORY_SEARCH_RENDER_LIMIT;
+  const entries = capped ? allEntries.slice(0, MEMORY_SEARCH_RENDER_LIMIT) : allEntries;
   const countLabel = (n: number) => ({ en: `${n} ${n === 1 ? "memory" : "memories"}`, zh: `${n} 条记忆` });
-  const total = countLabel(entries.length);
+  const total = capped
+    ? { en: `${entries.length} of ${allEntries.length} memories`, zh: `${allEntries.length} 条中的 ${entries.length} 条` }
+    : countLabel(entries.length);
+  const cappedNotice = capped
+    ? `<p class="memory-search-capped" data-i18n-en="Showing the ${MEMORY_SEARCH_RENDER_LIMIT} most recent memories. Use the CLI (moryn recall) to search the full store." data-i18n-zh="仅显示最近 ${MEMORY_SEARCH_RENDER_LIMIT} 条记忆。要搜索完整存储，请使用命令行 moryn recall。">Showing the ${MEMORY_SEARCH_RENDER_LIMIT} most recent memories. Use the CLI (moryn recall) to search the full store.</p>`
+    : "";
   const results = entries.map((entry) => `
         <button type="button" class="memory-result" data-memory-result data-search-text="${escapeHtml(entry.search_text)}" data-kind="${escapeHtml(entry.kind)}" data-drawer-target="${escapeHtml(entry.drawer_id)}" aria-haspopup="dialog">
           <span class="memory-result-title" data-i18n-en="${escapeHtml(entry.title_en)}" data-i18n-zh="${escapeHtml(entry.title_zh)}">${escapeHtml(entry.title_en)}</span>
@@ -436,6 +452,7 @@ export function renderMemorySearch(data: DashboardData): string {
       </div>
       <div class="memory-chips" data-memory-chips>${allChip}${kindChips}</div>
       <p class="memory-search-count" data-memory-search-count role="status" aria-live="polite" data-total="${entries.length}" data-i18n-en="${escapeHtml(total.en)}" data-i18n-zh="${escapeHtml(total.zh)}">${escapeHtml(total.en)}</p>
+      ${cappedNotice}
       <div class="ms-results" data-memory-search-results>${results}</div>
       <p class="memory-search-empty" data-memory-search-noresults hidden role="status" aria-live="polite" data-i18n-en="No memories match your search." data-i18n-zh="没有匹配的记忆。">No memories match your search.</p>
     </div>`;

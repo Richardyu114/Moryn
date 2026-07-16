@@ -228,7 +228,7 @@ async function main() {
     if (!dashboardHtml.includes("Capture Inbox") || !dashboardHtml.includes("Review Queue") || !dashboardHtml.includes("Decision: require approval")) {
       throw new Error("dashboard snapshot did not expose the review path");
     }
-    if (!dashboardHtml.includes("Reference Library")) {
+    if (!dashboardHtml.includes("Read-only details")) {
       throw new Error("dashboard snapshot did not keep evidence in the read-only layer");
     }
     if (!dashboardHtml.includes('data-quiet-flow-summary')

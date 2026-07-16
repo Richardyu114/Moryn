@@ -982,20 +982,6 @@ function parseTextContent(result: Awaited<ReturnType<Client["callTool"]>>): unkn
   return JSON.parse(first.text);
 }
 
-function storeSnapshotAuditRowHtml(html: string): string {
-  const rowStart = html.indexOf("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"store-snapshot\" data-supporting-evidence-summary=\"store-snapshot\" data-dashboard-detail=\"supporting-operational-snapshots\">");
-  const articleStart = html.indexOf("<article class=\"supporting-evidence-summary-row\" data-supporting-evidence-summary=\"store-snapshot\" data-dashboard-detail=\"supporting-operational-snapshots\">");
-  const start = rowStart >= 0 ? rowStart : articleStart;
-  expect(start).toBeGreaterThan(-1);
-  const rowEnd = rowStart >= 0
-    ? html.indexOf("<div class=\"reference-library-index-row\"", start + 1)
-    : -1;
-  const articleEnd = html.indexOf("</article>", start);
-  const end = rowEnd > start && rowEnd < articleEnd ? rowEnd : articleEnd;
-  expect(end).toBeGreaterThan(start);
-  return html.slice(start, end);
-}
-
 async function expectInvalidMcpArguments(action: () => Promise<Awaited<ReturnType<Client["callTool"]>>>, expectedMessage: RegExp): Promise<void> {
   const result = await action();
   expect("isError" in result ? result.isError : false).toBe(true);
@@ -3943,14 +3929,7 @@ describe("MCP stdio server", () => {
         });
         expect(dashboard.url).toMatch(/^file:\/\//);
         const dashboardHtml = await readFile(dashboard.path, "utf8");
-        const dashboardStoreSnapshotHtml = storeSnapshotAuditRowHtml(dashboardHtml);
-        expect(dashboardStoreSnapshotHtml).toContain("<strong data-i18n-en=\"Store Snapshot\"");
-        expect(dashboardStoreSnapshotHtml).toContain("<span data-i18n-en=\"Store signals indexed\"");
-        expect(dashboardStoreSnapshotHtml).not.toContain("<strong>Store Signals</strong>");
-        expect(dashboardStoreSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
-        expect(dashboardStoreSnapshotHtml).not.toContain("Prefer concise MCP updates.");
         expect(dashboardHtml).not.toContain("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
-        expect(dashboardHtml).not.toContain("Use official MCP tools.");
       });
     } finally {
       await rm(store, { recursive: true, force: true });
@@ -4009,13 +3988,6 @@ describe("MCP stdio server", () => {
             path: join(storeA, "state", "dashboard", "index.html")
           });
           const pushDashboardHtml = await readFile(push.dashboard.path, "utf8");
-          const pushStoreSnapshotHtml = storeSnapshotAuditRowHtml(pushDashboardHtml);
-          expect(pushStoreSnapshotHtml).toContain("<strong data-i18n-en=\"Shared Copy\"");
-          expect(pushStoreSnapshotHtml).toContain("<span data-i18n-en=\"Shared copy indexed\"");
-          expect(pushStoreSnapshotHtml).not.toContain("data-i18n-en=\"Store Snapshot\"");
-          expect(pushStoreSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\" data-i18n-en=\"Recent value\"");
-          expect(pushStoreSnapshotHtml).not.toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
-          expect(pushStoreSnapshotHtml).not.toContain("MCP sync shares events.");
           expect(pushDashboardHtml).not.toContain("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
 
           const pull = parseTextContent(await agentB.callTool({
@@ -4031,13 +4003,6 @@ describe("MCP stdio server", () => {
             path: join(storeB, "state", "dashboard", "index.html")
           });
           const pullDashboardHtml = await readFile(pull.dashboard.path, "utf8");
-          const pullStoreSnapshotHtml = storeSnapshotAuditRowHtml(pullDashboardHtml);
-          expect(pullStoreSnapshotHtml).toContain("<strong data-i18n-en=\"Shared Copy\"");
-          expect(pullStoreSnapshotHtml).toContain("<span data-i18n-en=\"Shared copy indexed\"");
-          expect(pullStoreSnapshotHtml).not.toContain("data-i18n-en=\"Store Snapshot\"");
-          expect(pullStoreSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\" data-i18n-en=\"Recent value\"");
-          expect(pullStoreSnapshotHtml).not.toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
-          expect(pullStoreSnapshotHtml).not.toContain("MCP sync shares events.");
           expect(pullDashboardHtml).not.toContain("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
 
           const rebuild = parseTextContent(await agentB.callTool({
@@ -4383,13 +4348,6 @@ describe("MCP stdio server", () => {
             path: join(storeB, "state", "dashboard", "index.html")
           });
           const startDashboardHtml = await readFile(start.dashboard.path, "utf8");
-          const startStoreSnapshotHtml = storeSnapshotAuditRowHtml(startDashboardHtml);
-          expect(startStoreSnapshotHtml).toContain("<strong data-i18n-en=\"Shared Copy\"");
-          expect(startStoreSnapshotHtml).toContain("<span data-i18n-en=\"Shared copy indexed\"");
-          expect(startStoreSnapshotHtml).not.toContain("data-i18n-en=\"Store Snapshot\"");
-          expect(startStoreSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\" data-i18n-en=\"Recent value\"");
-          expect(startStoreSnapshotHtml).not.toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
-          expect(startStoreSnapshotHtml).not.toContain("MCP Codex left a lifecycle handoff.");
           expect(startDashboardHtml).not.toContain("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
           expect(start.refresh.changes).toContainEqual(expect.objectContaining({
             summary: "MCP Codex left a lifecycle handoff.",

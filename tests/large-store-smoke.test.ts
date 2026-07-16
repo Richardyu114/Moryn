@@ -38,7 +38,10 @@ describe("large-store smoke", () => {
       attention_items: 0
     });
     expect(evidence.dashboard!.milliseconds).toBeLessThanOrEqual(5000);
-    expect(evidence.dashboard!.html_bytes).toBeLessThanOrEqual(1_000_000);
+    // Dashboard embeds ~1.95MB of base64 serif fonts (offline/static rendering)
+    // and a memory-search list capped at 600 entries, so it stays bounded on
+    // large stores. Budget reflects that fixed font cost plus the capped list.
+    expect(evidence.dashboard!.html_bytes).toBeLessThanOrEqual(5_000_000);
     expect(evidence.sync).toMatchObject({
       first_device_events: 2000,
       second_device_events: 2000,

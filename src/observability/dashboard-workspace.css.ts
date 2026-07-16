@@ -273,6 +273,7 @@ export function dashboardWorkspaceCss(): string {
     .memory-chip[aria-pressed="true"] .memory-chip-count { color: var(--surface); opacity: 0.7; }
     .memory-chip:focus-visible { outline: none; box-shadow: var(--ring); }
     .memory-search-count { margin: 16px 0 6px; color: var(--muted); font-size: 14px; }
+    .memory-search-capped { margin: 0 0 10px; padding: 8px 12px; border-left: 2px solid var(--brand); background: var(--brand-soft); color: var(--brand-ink); font-size: 13px; line-height: 1.5; }
     .ms-results { border-top: 1px solid var(--border); }
     .memory-result {
       appearance: none; width: 100%; display: block; padding: 18px 0; border: 0; border-bottom: 1px solid var(--hairline);

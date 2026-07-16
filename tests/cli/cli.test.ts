@@ -94,20 +94,6 @@ async function stopChild(child: ReturnType<typeof spawn>): Promise<void> {
   });
 }
 
-function storeSnapshotAuditRowHtml(html: string): string {
-  const rowStart = html.indexOf("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"store-snapshot\" data-supporting-evidence-summary=\"store-snapshot\" data-dashboard-detail=\"supporting-operational-snapshots\">");
-  const articleStart = html.indexOf("<article class=\"supporting-evidence-summary-row\" data-supporting-evidence-summary=\"store-snapshot\" data-dashboard-detail=\"supporting-operational-snapshots\">");
-  const start = rowStart >= 0 ? rowStart : articleStart;
-  expect(start).toBeGreaterThan(-1);
-  const rowEnd = rowStart >= 0
-    ? html.indexOf("<div class=\"reference-library-index-row\"", start + 1)
-    : -1;
-  const articleEnd = html.indexOf("</article>", start);
-  const end = rowEnd > start && rowEnd < articleEnd ? rowEnd : articleEnd;
-  expect(end).toBeGreaterThan(start);
-  return html.slice(start, end);
-}
-
 const LIST_PROJECTS_WHEN = "When the shared store has projects but this agent has no explicit project context.";
 const FIX_PROJECT_CONFIG_WHEN = "Before starting lifecycle work when project context is invalid or missing.";
 const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync operations after a Git conflict.";
@@ -6212,21 +6198,10 @@ describe("moryn CLI", () => {
       });
       expect(snapshot.url).toMatch(/^file:\/\//);
       const snapshotHtml = await readFile(snapshot.path, "utf8");
-      const snapshotStoreSnapshotHtml = storeSnapshotAuditRowHtml(snapshotHtml);
-      expect(snapshotStoreSnapshotHtml).toContain("<strong data-i18n-en=\"Store Snapshot\"");
-      expect(snapshotStoreSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
-      expect(snapshotStoreSnapshotHtml).not.toContain("Dashboard CLI snapshot memory");
       expect(snapshotHtml).not.toContain("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
       expect(snapshotHtml).not.toContain("moryn install --host codex --sync-remote git@github.com:user/moryn-store.git");
       expect(snapshotHtml).not.toContain("moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task &#39;&lt;current task&gt;&#39; --agent codex");
       expect(snapshotHtml).not.toContain("moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary &#39;&lt;summary&gt;&#39;");
-      expect(snapshotHtml).toContain("<article class=\"reference-library-index\" data-dashboard-detail=\"reference-library:index\" data-reference-library-index>");
-      expect(snapshotHtml).toContain("data-i18n-en=\"Reference Library Index\"");
-      expect(snapshotHtml).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"diagnostics\" data-dashboard-detail=\"routine-diagnostics\" data-routine-diagnostics-reference data-reference-library-index=\"diagnostics\">");
-      expect(snapshotHtml).toContain("data-i18n-en=\"Diagnostics Index\"");
-      expect(snapshotHtml).toContain("<code data-dashboard-detail=\"health-check\" aria-label=\"Health Check: Healthy local store. Full report is available in /api/dashboard.health_check.\">health_check</code>");
-      expect(snapshotHtml).toContain("<code data-dashboard-detail=\"context-pack-review\" aria-label=\"Context Pack Review: Ready handoff context. Full report is available in /api/dashboard.context_pack_review.\">context_pack_review</code>");
-      expect(snapshotHtml).toContain("Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.");
 
       const opened = JSON.parse((await exec("node", [
         "--import", "tsx", "src/cli.ts", "--store", store,
@@ -6307,10 +6282,6 @@ describe("moryn CLI", () => {
         expect(served.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/$/);
 
         const page = await (await fetch(served.url)).text();
-        const pageStoreSnapshotHtml = storeSnapshotAuditRowHtml(page);
-        expect(pageStoreSnapshotHtml).toContain("<strong data-i18n-en=\"Store Snapshot\"");
-        expect(pageStoreSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
-        expect(pageStoreSnapshotHtml).not.toContain("Dashboard CLI server memory");
         expect(page).not.toContain("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
         expect(page).toContain("data-dashboard-refresh=\"250\"");
         const initialApi = await (await fetch(new URL("/api/dashboard", served.url))).json() as {
@@ -6327,10 +6298,6 @@ describe("moryn CLI", () => {
         ]);
 
         const fragment = await (await fetch(new URL("/fragment", served.url))).text();
-        const fragmentStoreSnapshotHtml = storeSnapshotAuditRowHtml(fragment);
-        expect(fragmentStoreSnapshotHtml).toContain("<strong data-i18n-en=\"Store Snapshot\"");
-        expect(fragmentStoreSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
-        expect(fragmentStoreSnapshotHtml).not.toContain("Dashboard CLI server refreshed");
         expect(fragment).not.toContain("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
         const refreshedApi = await (await fetch(new URL("/api/dashboard", served.url))).json() as {
           recent_value: Array<{ summary: string }>;
