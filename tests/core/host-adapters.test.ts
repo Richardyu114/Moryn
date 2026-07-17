@@ -1,20 +1,21 @@
-import { describe, expect, it } from "vitest";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { captureSession, contextPack, getHostAdapter, getHostAdapters, normalizeHostId, planInstall } from "../../src/core/host-adapters.js";
+import { describe, expect, it } from "vitest";
 import { createEngine } from "../../src/core/engine.js";
+import {
+  captureSession,
+  contextPack,
+  getHostAdapter,
+  getHostAdapters,
+  normalizeHostId,
+  planInstall
+} from "../../src/core/host-adapters.js";
 import { initializeProjectConfig } from "../../src/core/project.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
 describe("host adapters", () => {
   it("lists stable first-version host adapters", () => {
-    expect(getHostAdapters().map((adapter) => adapter.id)).toEqual([
-      "claude",
-      "codex",
-      "gemini",
-      "cursor",
-      "shell"
-    ]);
+    expect(getHostAdapters().map((adapter) => adapter.id)).toEqual(["claude", "codex", "gemini", "cursor", "shell"]);
   });
 
   it("normalizes common host aliases to stable client identities", () => {
@@ -63,7 +64,14 @@ describe("host adapters", () => {
     expect(plan.mode).toBe("dry_run");
     expect(plan.adapters.map((adapter) => adapter.id)).toEqual(["codex"]);
     expect(plan.actions.map((action) => action.action)).toContain("register_mcp");
-    expect(plan.actions).toContainEqual(expect.objectContaining({ action: "configure_lifecycle_hooks", adapter: "codex", safe_to_auto_run: true, writes: "project_config" }));
+    expect(plan.actions).toContainEqual(
+      expect.objectContaining({
+        action: "configure_lifecycle_hooks",
+        adapter: "codex",
+        safe_to_auto_run: true,
+        writes: "project_config"
+      })
+    );
     expect(plan.actions.map((action) => action.action)).toContain("capture_session");
     expect(plan.next.command).toContain("moryn context pack");
     expect(plan.next.command).toContain("--agent codex");
@@ -182,7 +190,8 @@ describe("host adapters", () => {
       const result = await captureSession({
         storePath,
         projectPath,
-        summary: "Dashboard approve slice completed. Review Queue copy, the Approve button, and Pending Decisions routing were updated. Verified dashboard suite, typecheck, build, release check, commit pushed, and dashboard service restarted.",
+        summary:
+          "Dashboard approve slice completed. Review Queue copy, the Approve button, and Pending Decisions routing were updated. Verified dashboard suite, typecheck, build, release check, commit pushed, and dashboard service restarted.",
         agent: { client: "codex", session_id: "dashboard-complete-1" },
         currentTask: "dashboard approve review controls"
       });
@@ -211,7 +220,8 @@ describe("host adapters", () => {
       const result = await captureSession({
         storePath,
         projectPath,
-        summary: "Dashboard UI decluttering slice completed on main. The Overview now prioritizes explicit Pending Decisions over sync warnings when both are present: focusBriefPrimaryItem priority changed to confirm -> review -> sync. Sync pending remains visible through health badge, Store Signals, Action Board review/sync entries, and dashboard_overview cards/API evidence, but the first-screen headline and primary action stay on Review decisions / decision-summary when user confirmation is waiting. Added regression coverage for the combined pending decision + dirty sync scenario, preserved sync-only overview behavior, updated dashboard docs/docs-contract, verified dashboard suite, docs-contract suite, typecheck, build, release check, git diff check, live dashboard API, commit pushed, and dashboard service restarted.",
+        summary:
+          "Dashboard UI decluttering slice completed on main. The Overview now prioritizes explicit Pending Decisions over sync warnings when both are present: focusBriefPrimaryItem priority changed to confirm -> review -> sync. Sync pending remains visible through health badge, Store Signals, Action Board review/sync entries, and dashboard_overview cards/API evidence, but the first-screen headline and primary action stay on Review decisions / decision-summary when user confirmation is waiting. Added regression coverage for the combined pending decision + dirty sync scenario, preserved sync-only overview behavior, updated dashboard docs/docs-contract, verified dashboard suite, docs-contract suite, typecheck, build, release check, git diff check, live dashboard API, commit pushed, and dashboard service restarted.",
         agent: { client: "codex", session_id: "dashboard-route-1" },
         currentTask: "Moryn v0.2.0 dashboard UI decluttering and prioritization"
       });
@@ -239,7 +249,8 @@ describe("host adapters", () => {
       const result = await captureSession({
         storePath,
         projectPath,
-        summary: "Autocapture policy slice completed. Added regression tests for dashboard review-control wording, ran focused CLI smoke, host-adapters tests, typecheck, build, release check, pushed commit, and restarted dashboard.",
+        summary:
+          "Autocapture policy slice completed. Added regression tests for dashboard review-control wording, ran focused CLI smoke, host-adapters tests, typecheck, build, release check, pushed commit, and restarted dashboard.",
         agent: { client: "codex", session_id: "verified-tests-1" },
         currentTask: "autocapture policy"
       });
@@ -268,7 +279,8 @@ describe("host adapters", () => {
       const result = await captureSession({
         storePath,
         projectPath,
-        summary: "Dashboard implementation completed and verified. Decision: make automatic capture the default for all future handoffs.",
+        summary:
+          "Dashboard implementation completed and verified. Decision: make automatic capture the default for all future handoffs.",
         agent: { client: "codex", session_id: "dashboard-decision-1" },
         currentTask: "dashboard policy decision"
       });
@@ -295,7 +307,8 @@ describe("host adapters", () => {
       const result = await captureSession({
         storePath,
         projectPath,
-        summary: "Dashboard copy update completed and verified. Preference: keep dashboard approvals sparse and avoid repeated status panels.",
+        summary:
+          "Dashboard copy update completed and verified. Preference: keep dashboard approvals sparse and avoid repeated status panels.",
         agent: { client: "codex", session_id: "dashboard-preference-1" },
         currentTask: "dashboard polish"
       });
@@ -329,12 +342,9 @@ describe("host adapters", () => {
 
       expect(result.record.state).toBe("archived");
       expect(result.record.visibility).toBe("archived");
-      expect(result.record.tags).toEqual(expect.arrayContaining([
-        "autocapture",
-        "host:codex",
-        "policy-archived",
-        "noise:smoke_test_marker"
-      ]));
+      expect(result.record.tags).toEqual(
+        expect.arrayContaining(["autocapture", "host:codex", "policy-archived", "noise:smoke_test_marker"])
+      );
       expect(result.record.tags).not.toContain("review");
       expect(result.policy_decision).toMatchObject({
         policy_id: "default_autocapture_policy",
@@ -382,12 +392,9 @@ describe("host adapters", () => {
       expect(first.record.tags).not.toContain("review");
       expect(duplicate.record.state).toBe("archived");
       expect(duplicate.record.visibility).toBe("archived");
-      expect(duplicate.record.tags).toEqual(expect.arrayContaining([
-        "autocapture",
-        "host:codex",
-        "policy-archived",
-        "noise:duplicate_text"
-      ]));
+      expect(duplicate.record.tags).toEqual(
+        expect.arrayContaining(["autocapture", "host:codex", "policy-archived", "noise:duplicate_text"])
+      );
       expect(duplicate.record.tags).not.toContain("review");
       expect(duplicate.policy_decision).toMatchObject({
         decision: "archive",
@@ -575,7 +582,9 @@ describe("host adapters", () => {
       expect(pack.handoff_pack.quality_gate).toMatchObject({
         status: "needs_review",
         failed_check_ids: ["current_goal"],
-        warnings: expect.arrayContaining(["Context pack has no current goal; pass --current-task when starting focused work."]),
+        warnings: expect.arrayContaining([
+          "Context pack has no current goal; pass --current-task when starting focused work."
+        ]),
         checks_by_id: expect.objectContaining({
           current_goal: expect.objectContaining({
             status: "warn",

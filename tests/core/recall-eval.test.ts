@@ -16,16 +16,19 @@ const RECALL_EVAL_SELECTION_SOURCES = {
 };
 
 describe("recall eval", () => {
-  async function writeFixtureRecord(engine: ReturnType<typeof createEngine>, input: {
-    kind: RecordKind;
-    type: string;
-    scope: RecordScope;
-    project_id?: string;
-    tags?: string[];
-    text: string;
-    state?: RecordState;
-    confirmed?: boolean;
-  }) {
+  async function writeFixtureRecord(
+    engine: ReturnType<typeof createEngine>,
+    input: {
+      kind: RecordKind;
+      type: string;
+      scope: RecordScope;
+      project_id?: string;
+      tags?: string[];
+      text: string;
+      state?: RecordState;
+      confirmed?: boolean;
+    }
+  ) {
     return engine.write({
       kind: input.kind,
       type: input.type,
@@ -36,7 +39,10 @@ describe("recall eval", () => {
       state: input.state ?? "canonical",
       confirmed: input.confirmed ?? true,
       source: { client: "test" },
-      provenance: { method: input.confirmed === false ? "agent-proposed" : "user-confirmed", reason: "Golden eval fixture" }
+      provenance: {
+        method: input.confirmed === false ? "agent-proposed" : "user-confirmed",
+        reason: "Golden eval fixture"
+      }
     });
   }
 
@@ -121,12 +127,14 @@ describe("recall eval", () => {
         leaked_private_record_ids: [],
         leak_count: 0
       });
-      expect(report.suggested_actions).toContainEqual(expect.objectContaining({
-        action_id: "revise-golden-case:missing-private",
-        recommended_action: "revise_golden_case_or_memory",
-        tool: "recall",
-        command: "moryn recall \"private credential\" --project-id moryn --limit 5"
-      }));
+      expect(report.suggested_actions).toContainEqual(
+        expect.objectContaining({
+          action_id: "revise-golden-case:missing-private",
+          recommended_action: "revise_golden_case_or_memory",
+          tool: "recall",
+          command: 'moryn recall "private credential" --project-id moryn --limit 5'
+        })
+      );
       expect(report.suggested_actions_by_id["revise-golden-case:missing-private"]).toEqual(report.suggested_actions[0]);
       expect(JSON.stringify(report)).not.toContain("Private dashboard credential rotation details");
     });
@@ -253,7 +261,13 @@ describe("recall eval", () => {
           {
             case_id: "default-hidden",
             query: "raw archived quarantined private other project",
-            expected_record_ids: [raw.record.id, archived.record.id, quarantined.record.id, privateRecord.record.id, otherProject.record.id],
+            expected_record_ids: [
+              raw.record.id,
+              archived.record.id,
+              quarantined.record.id,
+              privateRecord.record.id,
+              otherProject.record.id
+            ],
             limit: 10
           },
           {
@@ -329,13 +343,25 @@ describe("recall eval", () => {
           otherProject.record.id
         ])
       });
-      expect(report.suggested_actions_by_id["inspect-hidden-records:default-hidden"]?.command).toContain(`--record-id ${raw.record.id}`);
+      expect(report.suggested_actions_by_id["inspect-hidden-records:default-hidden"]?.command).toContain(
+        `--record-id ${raw.record.id}`
+      );
       expect(report.suggested_actions_by_id["inspect-hidden-records:default-hidden"]?.command).toContain("--state raw");
-      expect(report.suggested_actions_by_id["inspect-hidden-records:default-hidden"]?.command).toContain("--state archived");
-      expect(report.suggested_actions_by_id["inspect-hidden-records:default-hidden"]?.command).toContain("--state quarantined");
-      expect(report.suggested_actions_by_id["inspect-hidden-records:default-hidden"]?.command).toContain("--state canonical");
-      expect(report.suggested_actions_by_id["inspect-hidden-records:default-hidden"]?.command).toContain("--include-private");
-      expect(report.suggested_actions_by_id["inspect-hidden-records:default-hidden"]?.command).not.toContain('moryn recall ""');
+      expect(report.suggested_actions_by_id["inspect-hidden-records:default-hidden"]?.command).toContain(
+        "--state archived"
+      );
+      expect(report.suggested_actions_by_id["inspect-hidden-records:default-hidden"]?.command).toContain(
+        "--state quarantined"
+      );
+      expect(report.suggested_actions_by_id["inspect-hidden-records:default-hidden"]?.command).toContain(
+        "--state canonical"
+      );
+      expect(report.suggested_actions_by_id["inspect-hidden-records:default-hidden"]?.command).toContain(
+        "--include-private"
+      );
+      expect(report.suggested_actions_by_id["inspect-hidden-records:default-hidden"]?.command).not.toContain(
+        'moryn recall ""'
+      );
       expect(report.suggested_actions_by_id["revise-golden-case:default-hidden"]).toBeUndefined();
       expect(JSON.stringify(report)).not.toContain("Private eval token rotation note");
     });

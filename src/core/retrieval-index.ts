@@ -1,9 +1,9 @@
-import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { buildActiveLogicalMemoryView } from "./logical-memory.js";
-import { parseRecord } from "./schema.js";
 import type { EventManifest } from "./record-read-model.js";
-import { readCurrentRecords, type CurrentRecordReadResult } from "./record-read-model.js";
+import { type CurrentRecordReadResult, readCurrentRecords } from "./record-read-model.js";
+import { parseRecord } from "./schema.js";
 import { readEventFileManifest } from "./store.js";
 import type { MorynRecord } from "./types.js";
 
@@ -60,8 +60,8 @@ export function retrievalProjectShardName(projectId: string): string {
 }
 
 export function buildRetrievalIndex(records: MorynRecord[], eventManifest: EventManifest): BuiltRetrievalIndex {
-  const active = buildActiveLogicalMemoryView(records).active_records
-    .filter((record) => record.state !== "archived" && record.state !== "quarantined")
+  const active = buildActiveLogicalMemoryView(records)
+    .active_records.filter((record) => record.state !== "archived" && record.state !== "quarantined")
     .sort((left, right) => left.id.localeCompare(right.id));
   const globalRecords = active.filter((record) => record.scope === "global");
   const projects: Record<string, RetrievalIndexShardV1> = {};
@@ -77,10 +77,17 @@ export function buildRetrievalIndex(records: MorynRecord[], eventManifest: Event
     shard.records.push(record);
     projects[record.project_id] = shard;
   }
-  const projectMetadata = Object.fromEntries(Object.keys(projects).sort().map((projectId) => [projectId, {
-    shard: retrievalProjectShardName(projectId),
-    records: projects[projectId]!.records.length
-  }]));
+  const projectMetadata = Object.fromEntries(
+    Object.keys(projects)
+      .sort()
+      .map((projectId) => [
+        projectId,
+        {
+          shard: retrievalProjectShardName(projectId),
+          records: projects[projectId]!.records.length
+        }
+      ])
+  );
   return {
     metadata: {
       version: 1,
@@ -106,7 +113,15 @@ function parseMetadata(value: unknown): RetrievalIndexMetadataV1 {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid");
   const metadata = value as Record<string, unknown>;
   if (metadata.version !== 1) throw new Error("version_mismatch");
-  if (typeof metadata.active_records !== "number" || typeof metadata.global_records !== "number" || typeof metadata.project_buckets !== "number" || !metadata.projects || typeof metadata.projects !== "object" || Array.isArray(metadata.projects)) throw new Error("invalid");
+  if (
+    typeof metadata.active_records !== "number" ||
+    typeof metadata.global_records !== "number" ||
+    typeof metadata.project_buckets !== "number" ||
+    !metadata.projects ||
+    typeof metadata.projects !== "object" ||
+    Array.isArray(metadata.projects)
+  )
+    throw new Error("invalid");
   const projects: RetrievalIndexMetadataV1["projects"] = {};
   for (const [projectId, raw] of Object.entries(metadata.projects as Record<string, unknown>)) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("invalid");
@@ -115,17 +130,34 @@ function parseMetadata(value: unknown): RetrievalIndexMetadataV1 {
     if (entry.shard !== retrievalProjectShardName(projectId)) throw new Error("invalid");
     projects[projectId] = { shard: entry.shard, records: entry.records };
   }
-  return { version: 1, event_manifest: parseManifest(metadata.event_manifest), active_records: metadata.active_records, global_records: metadata.global_records, project_buckets: metadata.project_buckets, projects };
+  return {
+    version: 1,
+    event_manifest: parseManifest(metadata.event_manifest),
+    active_records: metadata.active_records,
+    global_records: metadata.global_records,
+    project_buckets: metadata.project_buckets,
+    projects
+  };
 }
 
-function parseShard(value: unknown, expectedScope: RetrievalIndexShardV1["scope"], expectedProjectId?: string): RetrievalIndexShardV1 {
+function parseShard(
+  value: unknown,
+  expectedScope: RetrievalIndexShardV1["scope"],
+  expectedProjectId?: string
+): RetrievalIndexShardV1 {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid");
   const shard = value as Record<string, unknown>;
   if (shard.version !== 1) throw new Error("version_mismatch");
   if (shard.scope !== expectedScope || !Array.isArray(shard.records)) throw new Error("invalid");
   if (expectedScope === "project" && shard.project_id !== expectedProjectId) throw new Error("invalid");
   const records = shard.records.map((record) => parseRecord(record));
-  if (records.some((record) => record.scope !== expectedScope || (expectedScope === "project" && record.project_id !== expectedProjectId))) throw new Error("invalid");
+  if (
+    records.some(
+      (record) =>
+        record.scope !== expectedScope || (expectedScope === "project" && record.project_id !== expectedProjectId)
+    )
+  )
+    throw new Error("invalid");
   return {
     version: 1,
     event_manifest: parseManifest(shard.event_manifest),
@@ -168,7 +200,10 @@ function selectedRecords(index: BuiltRetrievalIndex, projectId: string): MorynRe
   return [...index.global.records, ...(index.projects[projectId]?.records ?? [])];
 }
 
-export async function readRetrievalCandidates(storePath: string, input: ReadRetrievalCandidatesInput): Promise<RetrievalCandidateReadResult> {
+export async function readRetrievalCandidates(
+  storePath: string,
+  input: ReadRetrievalCandidatesInput
+): Promise<RetrievalCandidateReadResult> {
   const root = join(storePath, "snapshots", "retrieval");
   const readManifest = input.read_event_manifest ?? readEventFileManifest;
   const readRecords = input.read_current_records ?? readCurrentRecords;
@@ -182,13 +217,26 @@ export async function readRetrievalCandidates(storePath: string, input: ReadRetr
     const projectEntry = metadata.projects[input.project_id];
     let project: RetrievalIndexShardV1 | undefined;
     if (projectEntry) {
-      project = parseShard(JSON.parse(await readFile(join(root, "projects", projectEntry.shard), "utf8")), "project", input.project_id);
+      project = parseShard(
+        JSON.parse(await readFile(join(root, "projects", projectEntry.shard), "utf8")),
+        "project",
+        input.project_id
+      );
       if (!sameManifest(project.event_manifest, before)) throw new Error("stale");
     }
     const after = await readManifest(storePath);
     if (!sameManifest(before, after)) throw new Error("stale");
     const records = [...global.records, ...(project?.records ?? [])];
-    return { records, source: "retrieval_index", repaired: false, event_manifest: after, total_active_records: metadata.active_records, global_records: metadata.global_records, project_buckets: metadata.project_buckets, candidate_count: records.length };
+    return {
+      records,
+      source: "retrieval_index",
+      repaired: false,
+      event_manifest: after,
+      total_active_records: metadata.active_records,
+      global_records: metadata.global_records,
+      project_buckets: metadata.project_buckets,
+      candidate_count: records.length
+    };
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") fallbackReason = "missing";
     else if (error instanceof Error && error.message === "version_mismatch") fallbackReason = "version_mismatch";

@@ -16,33 +16,52 @@ describe("action interfaces", () => {
 
     expect(interfaces.cli).toEqual({
       command: "moryn agent finish --summary <summary>",
-      command_line: "moryn agent finish --summary '<summary>' --project '/workspace/My Project' --current-task 'fix Bob'\\''s parser' --agent codex --session-id 'session 1'",
+      command_line:
+        "moryn agent finish --summary '<summary>' --project '/workspace/My Project' --current-task 'fix Bob'\\''s parser' --agent codex --session-id 'session 1'",
       argv: [
-        "agent", "finish",
-        "--summary", "<summary>",
-        "--project", "/workspace/My Project",
-        "--current-task", "fix Bob's parser",
-        "--agent", "codex",
-        "--session-id", "session 1"
+        "agent",
+        "finish",
+        "--summary",
+        "<summary>",
+        "--project",
+        "/workspace/My Project",
+        "--current-task",
+        "fix Bob's parser",
+        "--agent",
+        "codex",
+        "--session-id",
+        "session 1"
       ],
       executable: "moryn",
       args: [
-        "agent", "finish",
-        "--summary", "<summary>",
-        "--project", "/workspace/My Project",
-        "--current-task", "fix Bob's parser",
-        "--agent", "codex",
-        "--session-id", "session 1"
+        "agent",
+        "finish",
+        "--summary",
+        "<summary>",
+        "--project",
+        "/workspace/My Project",
+        "--current-task",
+        "fix Bob's parser",
+        "--agent",
+        "codex",
+        "--session-id",
+        "session 1"
       ],
       exec_file: {
         executable: "moryn",
         args: [
-          "agent", "finish",
-          "--summary", "<summary>",
-          "--project", "/workspace/My Project",
-          "--current-task", "fix Bob's parser",
-          "--agent", "codex",
-          "--session-id", "session 1"
+          "agent",
+          "finish",
+          "--summary",
+          "<summary>",
+          "--project",
+          "/workspace/My Project",
+          "--current-task",
+          "fix Bob's parser",
+          "--agent",
+          "codex",
+          "--session-id",
+          "session 1"
         ]
       },
       placeholders: ["summary"],
@@ -63,13 +82,20 @@ describe("action interfaces", () => {
     });
 
     expect(interfaces.cli.argv).toEqual([
-      "agent", "status",
-      "--status", "Working",
-      "--agent", "codex",
-      "--session-id", "session 1",
-      "--model", "gpt-5"
+      "agent",
+      "status",
+      "--status",
+      "Working",
+      "--agent",
+      "codex",
+      "--session-id",
+      "session 1",
+      "--model",
+      "gpt-5"
     ]);
-    expect(interfaces.cli.command_line).toBe("moryn agent status --status Working --agent codex --session-id 'session 1' --model gpt-5");
+    expect(interfaces.cli.command_line).toBe(
+      "moryn agent status --status Working --agent codex --session-id 'session 1' --model gpt-5"
+    );
   });
 
   it("normalizes flattened nested argument fields when generating MCP arguments", () => {
@@ -207,10 +233,14 @@ describe("action interfaces", () => {
     });
 
     expect(interfaces.cli.argv).toEqual([
-      "agent", "status",
-      "--status", "Working",
-      "--agent", "codex",
-      "--session-id", "session 1"
+      "agent",
+      "status",
+      "--status",
+      "Working",
+      "--agent",
+      "codex",
+      "--session-id",
+      "session 1"
     ]);
   });
 
@@ -226,10 +256,14 @@ describe("action interfaces", () => {
     });
 
     expect(interfaces.cli.argv).toEqual([
-      "agent", "status",
-      "--status", "Working",
-      "--agent", "codex",
-      "--session-id", "session 1"
+      "agent",
+      "status",
+      "--status",
+      "Working",
+      "--agent",
+      "codex",
+      "--session-id",
+      "session 1"
     ]);
   });
 
@@ -247,12 +281,18 @@ describe("action interfaces", () => {
 
     expect(interfaces.cli.argv).toEqual([
       "write",
-      "--kind", "memory",
-      "--type", "decision",
-      "--scope", "project",
-      "--content-json", "{\"text\":\"Use structured memory.\",\"format\":\"json\"}"
+      "--kind",
+      "memory",
+      "--type",
+      "decision",
+      "--scope",
+      "project",
+      "--content-json",
+      '{"text":"Use structured memory.","format":"json"}'
     ]);
-    expect(interfaces.cli.command_line).toContain("--content-json '{\"text\":\"Use structured memory.\",\"format\":\"json\"}'");
+    expect(interfaces.cli.command_line).toContain(
+      '--content-json \'{"text":"Use structured memory.","format":"json"}\''
+    );
   });
 
   it("merges flattened content fields into one JSON CLI flag", () => {
@@ -270,10 +310,14 @@ describe("action interfaces", () => {
 
     expect(interfaces.cli.argv).toEqual([
       "write",
-      "--kind", "memory",
-      "--type", "decision",
-      "--scope", "project",
-      "--content-json", "{\"text\":\"Use flattened content.\",\"format\":\"json\"}"
+      "--kind",
+      "memory",
+      "--type",
+      "decision",
+      "--scope",
+      "project",
+      "--content-json",
+      '{"text":"Use flattened content.","format":"json"}'
     ]);
     expect(interfaces.mcp.arguments).toEqual({
       kind: "memory",
@@ -298,10 +342,14 @@ describe("action interfaces", () => {
 
     expect(interfaces.cli.argv).toEqual([
       "write",
-      "--kind", "memory",
-      "--type", "decision",
-      "--scope", "project",
-      "--content-json", "{\"text\":\"Use recovery hint paths.\",\"format\":\"json\"}"
+      "--kind",
+      "memory",
+      "--type",
+      "decision",
+      "--scope",
+      "project",
+      "--content-json",
+      '{"text":"Use recovery hint paths.","format":"json"}'
     ]);
     expect(interfaces.mcp.arguments).toEqual({
       kind: "memory",
@@ -327,10 +375,14 @@ describe("action interfaces", () => {
 
     expect(interfaces.cli.argv).toEqual([
       "write",
-      "--kind", "memory",
-      "--type", "decision",
-      "--scope", "project",
-      "--text", "Use explicit source metadata."
+      "--kind",
+      "memory",
+      "--type",
+      "decision",
+      "--scope",
+      "project",
+      "--text",
+      "Use explicit source metadata."
     ]);
     expect(interfaces.mcp.arguments).toEqual({
       kind: "memory",

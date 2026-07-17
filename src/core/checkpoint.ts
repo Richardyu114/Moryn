@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
-import { validateContextDelta, type ContextDelta, type ContextDeltaInput } from "./context-delta.js";
-import { isPrivateTags } from "./sensitive.js";
-import type { MorynRecord, RecordSource } from "./types.js";
+import { type ContextDelta, type ContextDeltaInput, validateContextDelta } from "./context-delta.js";
+import type { LearningCandidateReviewWorkflow } from "./learning-candidate-review.js";
 import type { SemanticConsolidationReceipt } from "./semantic-consolidation.js";
 import type { SemanticConsolidationCandidate } from "./semantic-consolidation-candidates.js";
-import type { LearningCandidateReviewWorkflow } from "./learning-candidate-review.js";
+import { isPrivateTags } from "./sensitive.js";
+import type { MorynRecord, RecordSource } from "./types.js";
 
 export interface LearningSemanticCandidatesReceipt {
   candidates: SemanticConsolidationCandidate[];
@@ -68,7 +68,15 @@ export interface CheckpointResult {
   committed: true;
   durability: "confirmed" | "best_effort" | "failed";
   derived_views_refreshed: boolean;
-  warnings?: Array<{ code: "DERIVED_VIEW_REBUILD_FAILED" | "IDEMPOTENT_EVENT_DIRECTORY_SYNC_UNSUPPORTED" | "IDEMPOTENT_EVENT_DIRECTORY_SYNC_FAILED" | "IDEMPOTENT_EVENT_DIRECTORY_CLOSE_FAILED" | "IDEMPOTENT_EVENT_TEMP_CLEANUP_FAILED"; reason: string }>;
+  warnings?: Array<{
+    code:
+      | "DERIVED_VIEW_REBUILD_FAILED"
+      | "IDEMPOTENT_EVENT_DIRECTORY_SYNC_UNSUPPORTED"
+      | "IDEMPOTENT_EVENT_DIRECTORY_SYNC_FAILED"
+      | "IDEMPOTENT_EVENT_DIRECTORY_CLOSE_FAILED"
+      | "IDEMPOTENT_EVENT_TEMP_CLEANUP_FAILED";
+    reason: string;
+  }>;
   recovery_pack: RecoveryPack;
   learning_ingestion: {
     learnings_received: number;
@@ -119,10 +127,12 @@ export interface NormalizedCheckpointInput {
 function canonicalValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalValue);
   if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value as Record<string, unknown>)
-      .filter(([, nested]) => nested !== undefined)
-      .sort(([left], [right]) => compareCodeUnits(left, right))
-      .map(([key, nested]) => [key, canonicalValue(nested)]));
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([, nested]) => nested !== undefined)
+        .sort(([left], [right]) => compareCodeUnits(left, right))
+        .map(([key, nested]) => [key, canonicalValue(nested)])
+    );
   }
   return value;
 }
@@ -132,10 +142,15 @@ function compareCodeUnits(left: string, right: string): number {
 }
 
 function sha256(value: unknown): string {
-  return createHash("sha256").update(JSON.stringify(canonicalValue(value))).digest("hex");
+  return createHash("sha256")
+    .update(JSON.stringify(canonicalValue(value)))
+    .digest("hex");
 }
 
-export function checkpointIdentity(input: Pick<NormalizedCheckpointInput, "project_id" | "source" | "delta">): { event_id: string; record_id: string } {
+export function checkpointIdentity(input: Pick<NormalizedCheckpointInput, "project_id" | "source" | "delta">): {
+  event_id: string;
+  record_id: string;
+} {
   const key = JSON.stringify({
     version: 1,
     project_id: input.project_id,
@@ -159,7 +174,8 @@ export function checkpointPayloadDigest(input: NormalizedCheckpointInput): strin
 }
 
 function requiredString(value: unknown, name: string): string {
-  if (typeof value !== "string" || !value.trim()) throw new Error(`Invalid argument: ${name} must be a non-empty string`);
+  if (typeof value !== "string" || !value.trim())
+    throw new Error(`Invalid argument: ${name} must be a non-empty string`);
   return value.trim();
 }
 
@@ -168,9 +184,11 @@ function optionalString(value: string | undefined): string | undefined {
 }
 
 export function normalizeCheckpointInput(input: CheckpointInput): NormalizedCheckpointInput {
-  if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Invalid argument: checkpoint input must be an object");
+  if (!input || typeof input !== "object" || Array.isArray(input))
+    throw new Error("Invalid argument: checkpoint input must be an object");
   const projectId = requiredString(input.project_id, "project_id");
-  if (!input.source || typeof input.source !== "object" || Array.isArray(input.source)) throw new Error("Invalid argument: source must be an object");
+  if (!input.source || typeof input.source !== "object" || Array.isArray(input.source))
+    throw new Error("Invalid argument: source must be an object");
   const source = {
     client: requiredString(input.source.client, "source.client"),
     session_id: requiredString(input.source.session_id, "source.session_id"),
@@ -183,7 +201,8 @@ export function normalizeCheckpointInput(input: CheckpointInput): NormalizedChec
     throw new Error("Invalid argument: occurred_at must be a canonical ISO timestamp");
   }
   const delta = validateContextDelta(input.delta);
-  if (source.session_id !== delta.session_id) throw new Error("Invalid argument: source.session_id must equal delta.session_id");
+  if (source.session_id !== delta.session_id)
+    throw new Error("Invalid argument: source.session_id must equal delta.session_id");
   if (input.tags !== undefined && (!Array.isArray(input.tags) || !input.tags.every((tag) => typeof tag === "string"))) {
     throw new Error("Invalid argument: tags must be an array of strings");
   }
@@ -192,22 +211,31 @@ export function normalizeCheckpointInput(input: CheckpointInput): NormalizedChec
     if (!tags.includes(tag)) tags.push(tag);
   }
   tags.sort(compareCodeUnits);
-  return { project_id: projectId, source, occurred_at: occurredAt, delta, tags, include_private: input.include_private === true };
+  return {
+    project_id: projectId,
+    source,
+    occurred_at: occurredAt,
+    delta,
+    tags,
+    include_private: input.include_private === true
+  };
 }
 
 export function matchesCheckpoint(record: MorynRecord, input: NormalizedCheckpointInput): boolean {
   const checkpoint = parseCheckpointContent(record.content);
-  return record.visibility === "active"
-    && record.state !== "archived"
-    && record.state !== "quarantined"
-    && record.kind === "session_summary"
-    && record.type === "checkpoint"
-    && record.scope === "project"
-    && record.project_id === input.project_id
-    && record.source.client === input.source.client
-    && record.source.session_id === input.source.session_id
-    && checkpoint?.checkpoint_id === input.delta.checkpoint_id
-    && checkpoint.session_id === input.delta.session_id;
+  return (
+    record.visibility === "active" &&
+    record.state !== "archived" &&
+    record.state !== "quarantined" &&
+    record.kind === "session_summary" &&
+    record.type === "checkpoint" &&
+    record.scope === "project" &&
+    record.project_id === input.project_id &&
+    record.source.client === input.source.client &&
+    record.source.session_id === input.source.session_id &&
+    checkpoint?.checkpoint_id === input.delta.checkpoint_id &&
+    checkpoint.session_id === input.delta.session_id
+  );
 }
 
 export function parseCheckpointContent(content: MorynRecord["content"]): ContextDelta | undefined {
@@ -221,38 +249,54 @@ export function parseCheckpointContent(content: MorynRecord["content"]): Context
 
 export function matchesCheckpointPayload(record: MorynRecord, input: NormalizedCheckpointInput): boolean {
   const checkpoint = parseCheckpointContent(record.content);
-  return Boolean(checkpoint)
-    && record.content.checkpoint_payload_digest === checkpointPayloadDigest(input)
-    && JSON.stringify(canonicalValue(checkpoint)) === JSON.stringify(canonicalValue(input.delta))
-    && record.project_id === input.project_id
-    && record.created_at === input.occurred_at
-    && JSON.stringify(canonicalValue(record.source)) === JSON.stringify(canonicalValue(input.source));
+  return (
+    Boolean(checkpoint) &&
+    record.content.checkpoint_payload_digest === checkpointPayloadDigest(input) &&
+    JSON.stringify(canonicalValue(checkpoint)) === JSON.stringify(canonicalValue(input.delta)) &&
+    record.project_id === input.project_id &&
+    record.created_at === input.occurred_at &&
+    JSON.stringify(canonicalValue(record.source)) === JSON.stringify(canonicalValue(input.source))
+  );
 }
 
 export function checkpointSummary(delta: ContextDelta): string {
   const parts = [
     delta.current_task ? `Task: ${delta.current_task}` : undefined,
     delta.progress.length ? `Progress: ${delta.progress.join("; ")}` : undefined,
-    delta.knowledge_investigations.length ? `Knowledge investigations: ${delta.knowledge_investigations.length}` : undefined,
-    delta.semantic_consolidation_proposals.length ? `Semantic consolidation proposals: ${delta.semantic_consolidation_proposals.length}` : undefined
+    delta.knowledge_investigations.length
+      ? `Knowledge investigations: ${delta.knowledge_investigations.length}`
+      : undefined,
+    delta.semantic_consolidation_proposals.length
+      ? `Semantic consolidation proposals: ${delta.semantic_consolidation_proposals.length}`
+      : undefined
   ];
   return parts.filter(Boolean).join(" | ");
 }
 
-function newestPriorityExactValues(checkpoints: readonly ContextDelta[], field: keyof Pick<ContextDelta, "progress" | "decisions" | "changed_facts" | "files" | "candidate_memories" | "candidate_skills">): string[] {
+function newestPriorityExactValues(
+  checkpoints: readonly ContextDelta[],
+  field: keyof Pick<
+    ContextDelta,
+    "progress" | "decisions" | "changed_facts" | "files" | "candidate_memories" | "candidate_skills"
+  >
+): string[] {
   const selected = new Set<string>();
   for (const checkpoint of [...checkpoints].reverse()) {
     for (const value of checkpoint[field]) {
       if (selected.size < 10) selected.add(value);
     }
   }
-  return checkpoints.flatMap((checkpoint) => checkpoint[field]).filter((value, index, values) => selected.has(value) && values.indexOf(value) === index);
+  return checkpoints
+    .flatMap((checkpoint) => checkpoint[field])
+    .filter((value, index, values) => selected.has(value) && values.indexOf(value) === index);
 }
 
 function checkpointOrder(left: MorynRecord, right: MorynRecord): number {
-  return compareCodeUnits(left.created_at, right.created_at)
-    || compareCodeUnits(left.updated_at, right.updated_at)
-    || compareCodeUnits(left.id, right.id);
+  return (
+    compareCodeUnits(left.created_at, right.created_at) ||
+    compareCodeUnits(left.updated_at, right.updated_at) ||
+    compareCodeUnits(left.id, right.id)
+  );
 }
 
 function canonicalLearning(learning: ContextDelta["learnings"][number]): unknown {
@@ -267,12 +311,14 @@ function newestPriorityLearnings(checkpoints: readonly ContextDelta[]): ContextD
     }
   }
   const displayedKeys = new Set<string>();
-  return checkpoints.flatMap((checkpoint) => checkpoint.learnings).filter((learning) => {
-    const key = JSON.stringify(canonicalLearning(learning));
-    if (!selectedKeys.has(key) || displayedKeys.has(key)) return false;
-    displayedKeys.add(key);
-    return true;
-  });
+  return checkpoints
+    .flatMap((checkpoint) => checkpoint.learnings)
+    .filter((learning) => {
+      const key = JSON.stringify(canonicalLearning(learning));
+      if (!selectedKeys.has(key) || displayedKeys.has(key)) return false;
+      displayedKeys.add(key);
+      return true;
+    });
 }
 
 function latestKnowledgeInvestigations(checkpoints: readonly ContextDelta[]): ContextDelta["knowledge_investigations"] {
@@ -285,7 +331,9 @@ function latestKnowledgeInvestigations(checkpoints: readonly ContextDelta[]): Co
   return [...latestByResolutionId.values()].slice(-10);
 }
 
-function canonicalSemanticConsolidationProposal(proposal: ContextDelta["semantic_consolidation_proposals"][number]): unknown {
+function canonicalSemanticConsolidationProposal(
+  proposal: ContextDelta["semantic_consolidation_proposals"][number]
+): unknown {
   return canonicalValue({
     ...proposal,
     evidence_record_ids: [...proposal.evidence_record_ids].sort(compareCodeUnits),
@@ -293,7 +341,9 @@ function canonicalSemanticConsolidationProposal(proposal: ContextDelta["semantic
   });
 }
 
-function newestPrioritySemanticConsolidationProposals(checkpoints: readonly ContextDelta[]): ContextDelta["semantic_consolidation_proposals"] {
+function newestPrioritySemanticConsolidationProposals(
+  checkpoints: readonly ContextDelta[]
+): ContextDelta["semantic_consolidation_proposals"] {
   const selectedKeys = new Set<string>();
   for (const checkpoint of [...checkpoints].reverse()) {
     for (const proposal of checkpoint.semantic_consolidation_proposals) {
@@ -301,15 +351,20 @@ function newestPrioritySemanticConsolidationProposals(checkpoints: readonly Cont
     }
   }
   const displayedKeys = new Set<string>();
-  return checkpoints.flatMap((checkpoint) => checkpoint.semantic_consolidation_proposals).filter((proposal) => {
-    const key = JSON.stringify(canonicalSemanticConsolidationProposal(proposal));
-    if (!selectedKeys.has(key) || displayedKeys.has(key)) return false;
-    displayedKeys.add(key);
-    return true;
-  });
+  return checkpoints
+    .flatMap((checkpoint) => checkpoint.semantic_consolidation_proposals)
+    .filter((proposal) => {
+      const key = JSON.stringify(canonicalSemanticConsolidationProposal(proposal));
+      if (!selectedKeys.has(key) || displayedKeys.has(key)) return false;
+      displayedKeys.add(key);
+      return true;
+    });
 }
 
-export function buildCheckpointRecoveryPack(records: readonly MorynRecord[], input: CheckpointRecoveryPackInput): RecoveryPack {
+export function buildCheckpointRecoveryPack(
+  records: readonly MorynRecord[],
+  input: CheckpointRecoveryPackInput
+): RecoveryPack {
   if (input.limit !== undefined && (!Number.isInteger(input.limit) || input.limit < 1 || input.limit > 5)) {
     throw new Error("Invalid argument: limit must be an integer between 1 and 5");
   }
@@ -320,7 +375,9 @@ export function buildCheckpointRecoveryPack(records: readonly MorynRecord[], inp
     .filter((record) => record.project_id === input.project_id)
     .filter((record) => input.include_private === true || !isPrivateTags(record.tags))
     .map((record) => ({ record, checkpoint: parseCheckpointContent(record.content) }))
-    .filter((candidate): candidate is { record: MorynRecord; checkpoint: ContextDelta } => Boolean(candidate.checkpoint))
+    .filter((candidate): candidate is { record: MorynRecord; checkpoint: ContextDelta } =>
+      Boolean(candidate.checkpoint)
+    )
     .filter(({ checkpoint }) => checkpoint.session_id === input.session_id)
     .sort((left, right) => checkpointOrder(left.record, right.record))
     .slice(-limit);
@@ -331,7 +388,9 @@ export function buildCheckpointRecoveryPack(records: readonly MorynRecord[], inp
     bounded: true,
     project_id: input.project_id,
     session_id: input.session_id,
-    ...(latest ? { latest_checkpoint_id: latest.checkpoint.checkpoint_id, latest_occurred_at: latest.record.created_at } : {}),
+    ...(latest
+      ? { latest_checkpoint_id: latest.checkpoint.checkpoint_id, latest_occurred_at: latest.record.created_at }
+      : {}),
     source_record_ids: selected.map(({ record }) => record.id),
     checkpoint_count: selected.length
   };
@@ -339,7 +398,8 @@ export function buildCheckpointRecoveryPack(records: readonly MorynRecord[], inp
 
   const checkpoints = selected.map(({ checkpoint }) => checkpoint);
   const latestVisible = selected.at(-1)?.checkpoint;
-  const currentTask = [...selected].reverse().find(({ checkpoint }) => checkpoint.current_task)?.checkpoint.current_task;
+  const currentTask = [...selected].reverse().find(({ checkpoint }) => checkpoint.current_task)
+    ?.checkpoint.current_task;
   return {
     ...base,
     ...(currentTask ? { current_task: currentTask } : {}),

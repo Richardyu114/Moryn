@@ -25,20 +25,20 @@ export const recordSourceSchema = z.object({
   device_id: z.string().min(1).optional()
 });
 
-const revisionPatchSchema = z.record(z.string(), z.unknown()).refine(
-  (patch) => Object.keys(patch).length > 0,
-  { message: "Patch must not be empty" }
-).refine(
-  (patch) => Object.keys(patch).every(isValidPatchPath),
-  { message: "Patch paths must not be empty" }
-);
+const revisionPatchSchema = z
+  .record(z.string(), z.unknown())
+  .refine((patch) => Object.keys(patch).length > 0, { message: "Patch must not be empty" })
+  .refine((patch) => Object.keys(patch).every(isValidPatchPath), { message: "Patch paths must not be empty" });
 
-const recordContentSchema = z.record(z.string(), z.unknown())
+const recordContentSchema = z
+  .record(z.string(), z.unknown())
   .refine((content) => Object.keys(content).length > 0, { message: "Content must not be empty" })
-  .and(z.object({
-    text: nonEmptyStringSchema.optional(),
-    format: z.enum(CONTENT_FORMATS).optional()
-  }));
+  .and(
+    z.object({
+      text: nonEmptyStringSchema.optional(),
+      format: z.enum(CONTENT_FORMATS).optional()
+    })
+  );
 
 export function isValidPatchPath(path: string): boolean {
   return path.split(".").every((part) => part.length > 0);
@@ -72,12 +72,14 @@ export const recordSchema = z.object({
   created_at: isoDateTimeSchema,
   updated_at: isoDateTimeSchema,
   source: recordSourceSchema,
-  provenance: z.object({
-    derived_from: z.array(nonEmptyStringSchema).optional(),
-    reason: nonEmptyStringSchema.optional(),
-    method: z.enum(PROVENANCE_METHODS).optional(),
-    promoted_at: isoDateTimeSchema.optional()
-  }).optional(),
+  provenance: z
+    .object({
+      derived_from: z.array(nonEmptyStringSchema).optional(),
+      reason: nonEmptyStringSchema.optional(),
+      method: z.enum(PROVENANCE_METHODS).optional(),
+      promoted_at: isoDateTimeSchema.optional()
+    })
+    .optional(),
   conflict: recordConflictSchema.optional(),
   links: z.array(recordLinkSchema).optional()
 });
@@ -165,7 +167,7 @@ function pathString(path: Array<string | number | symbol>): string {
 function validationIssue(issue: z.core.$ZodIssue): SchemaValidationIssue {
   const output: SchemaValidationIssue = {
     code: issue.code,
-    path: issue.path.map((part) => typeof part === "symbol" ? String(part) : part),
+    path: issue.path.map((part) => (typeof part === "symbol" ? String(part) : part)),
     path_string: pathString(issue.path),
     message: issue.message
   };

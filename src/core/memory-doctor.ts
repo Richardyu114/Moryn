@@ -1,10 +1,16 @@
 import { operationArgumentsByTool } from "../operation-contracts.js";
+import { type ActionInterfaces, actionInterfaces } from "./action-interfaces.js";
 import { actionExecution, actionSafety } from "./action-safety.js";
-import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js";
-import { commandForArchiveContext, commandForLinkContext, commandForPromoteContext, commandForReviseContext, commandForTimelineContext } from "./errors.js";
 import { displayRecordText } from "./content-text.js";
+import {
+  commandForArchiveContext,
+  commandForLinkContext,
+  commandForPromoteContext,
+  commandForReviseContext,
+  commandForTimelineContext
+} from "./errors.js";
 import type { MorynRecord, RecordKind, RecordState } from "./types.js";
-import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
+import { type RequiredFieldMetadata, withPhasesByName, withRequiredFieldsByName } from "./workflow.js";
 
 export interface MemoryDoctorInput {
   project_id?: string;
@@ -47,19 +53,21 @@ export interface MemoryDoctorSuggestedAction {
   interfaces: ActionInterfaces<Record<string, unknown>>;
   safety: ReturnType<typeof actionSafety>;
   execution: ReturnType<typeof actionExecution>;
-  workflow: ReturnType<typeof withPhasesByName<{
-    version: 1;
-    start: "suggested_action";
-    continue_from: string[];
-    phases: Array<{
-      phase: string;
-      order: number;
-      action_source: string;
-      tool: MemoryDoctorActionTool;
-      required_when: string;
-      required_fields: string[];
-    }>;
-  }>>;
+  workflow: ReturnType<
+    typeof withPhasesByName<{
+      version: 1;
+      start: "suggested_action";
+      continue_from: string[];
+      phases: Array<{
+        phase: string;
+        order: number;
+        action_source: string;
+        tool: MemoryDoctorActionTool;
+        required_when: string;
+        required_fields: string[];
+      }>;
+    }>
+  >;
 }
 
 export interface MemoryDoctorStats {
@@ -119,11 +127,13 @@ function stats(records: MorynRecord[], excludedPrivateRecords: number): MemoryDo
     states: countBy(records.map((record) => record.state)),
     kinds: countBy(records.map((record) => record.kind)),
     projects: Object.fromEntries(
-      [...records.reduce((counts, record) => {
-        const projectId = record.project_id ?? PROJECT_ID_UNKNOWN;
-        counts.set(projectId, (counts.get(projectId) ?? 0) + 1);
-        return counts;
-      }, new Map<string, number>())].sort(([left], [right]) => left.localeCompare(right))
+      [
+        ...records.reduce((counts, record) => {
+          const projectId = record.project_id ?? PROJECT_ID_UNKNOWN;
+          counts.set(projectId, (counts.get(projectId) ?? 0) + 1);
+          return counts;
+        }, new Map<string, number>())
+      ].sort(([left], [right]) => left.localeCompare(right))
     ),
     candidate_records: records.filter((record) => record.state === "candidate").length,
     canonical_records: records.filter((record) => record.state === "canonical").length
@@ -326,7 +336,11 @@ function duplicateCandidateGroups(records: MorynRecord[]): MorynRecord[][] {
     groups.set(key, [...(groups.get(key) ?? []), record]);
   }
   return [...groups.values()]
-    .map((group) => [...group].sort((left, right) => left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id)))
+    .map((group) =>
+      [...group].sort(
+        (left, right) => left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id)
+      )
+    )
     .filter((group) => group.length > 1);
 }
 
@@ -361,9 +375,10 @@ function conflictingCandidateFinding(records: MorynRecord[]): MemoryDoctorFindin
 
 function candidateBacklogFinding(memoryStats: MemoryDoctorStats): MemoryDoctorFinding | undefined {
   if (memoryStats.candidate_records < 3) return undefined;
-  const ratio = memoryStats.canonical_records === 0
-    ? memoryStats.candidate_records
-    : memoryStats.candidate_records / memoryStats.canonical_records;
+  const ratio =
+    memoryStats.canonical_records === 0
+      ? memoryStats.candidate_records
+      : memoryStats.candidate_records / memoryStats.canonical_records;
   if (ratio < 1.25) return undefined;
   return {
     id: "candidate_backlog",
@@ -376,20 +391,30 @@ function candidateBacklogFinding(memoryStats: MemoryDoctorStats): MemoryDoctorFi
 
 function sharedMeaningfulTags(left: MorynRecord[], right: MorynRecord[]): string[] {
   const generic = new Set(["javascript", "node", "nodejs", "typescript"]);
-  const leftTags = new Set(left.flatMap((record) => record.tags.map((tag) => tag.toLowerCase())).filter((tag) => !generic.has(tag)));
-  const rightTags = new Set(right.flatMap((record) => record.tags.map((tag) => tag.toLowerCase())).filter((tag) => !generic.has(tag)));
+  const leftTags = new Set(
+    left.flatMap((record) => record.tags.map((tag) => tag.toLowerCase())).filter((tag) => !generic.has(tag))
+  );
+  const rightTags = new Set(
+    right.flatMap((record) => record.tags.map((tag) => tag.toLowerCase())).filter((tag) => !generic.has(tag))
+  );
   return [...leftTags].filter((tag) => rightTags.has(tag)).sort();
 }
 
-function projectIdentityFinding(records: MorynRecord[], projectId: string | undefined): MemoryDoctorFinding | undefined {
+function projectIdentityFinding(
+  records: MorynRecord[],
+  projectId: string | undefined
+): MemoryDoctorFinding | undefined {
   if (!projectId) return undefined;
   const currentProject = records.filter((record) => record.project_id === projectId);
   if (!currentProject.length) return undefined;
-  const relatedProjectIds = [...new Set(records
-    .filter((record) => record.project_id && record.project_id !== projectId)
-    .filter((record) => sharedMeaningfulTags(currentProject, [record]).length > 0)
-    .map((record) => record.project_id as string))]
-    .sort();
+  const relatedProjectIds = [
+    ...new Set(
+      records
+        .filter((record) => record.project_id && record.project_id !== projectId)
+        .filter((record) => sharedMeaningfulTags(currentProject, [record]).length > 0)
+        .map((record) => record.project_id as string)
+    )
+  ].sort();
   if (!relatedProjectIds.length) return undefined;
   return {
     id: "project_identity_split",
@@ -453,25 +478,30 @@ export function diagnoseMemory(input: MemoryDoctorDiagnoseInput): MemoryDoctorRe
     conflictingCandidateFinding(conflictRecords),
     ...actionFindings(promotable, markerNoise)
   ].filter((finding): finding is MemoryDoctorFinding => finding !== undefined);
-  const actions = uniqueActions([
-    ...promotable.map(promoteAction),
-    ...markerNoise.map(archiveAction),
-    ...duplicateGroups.flatMap((group) => group.slice(1).flatMap((record) => [
-      linkDuplicateAction(record, group[0]!),
-      archiveDuplicateAction(record)
-    ])),
-    ...conflictRecords.flatMap((record) => [
-      reviseConflictAction(record),
-      inspectConflictAction(record, input.project_id)
-    ]),
-    ...(findings.some((finding) => finding.id === "project_identity_split") ? [projectListAction()] : [])
-  ], limit);
+  const actions = uniqueActions(
+    [
+      ...promotable.map(promoteAction),
+      ...markerNoise.map(archiveAction),
+      ...duplicateGroups.flatMap((group) =>
+        group.slice(1).flatMap((record) => [linkDuplicateAction(record, group[0]!), archiveDuplicateAction(record)])
+      ),
+      ...conflictRecords.flatMap((record) => [
+        reviseConflictAction(record),
+        inspectConflictAction(record, input.project_id)
+      ]),
+      ...(findings.some((finding) => finding.id === "project_identity_split") ? [projectListAction()] : [])
+    ],
+    limit
+  );
   const referencedRecordIds = new Set([
     ...findings.flatMap((finding) => finding.record_ids ?? (finding.record_id ? [finding.record_id] : [])),
-    ...actions.flatMap((action) => typeof action.arguments.record_id === "string" ? [action.arguments.record_id] : [])
+    ...actions.flatMap((action) => (typeof action.arguments.record_id === "string" ? [action.arguments.record_id] : []))
   ]);
   const recordSelection = records
-    .filter((record) => referencedRecordIds.has(record.id) || duplicateRecordsForActions.some((duplicate) => duplicate.id === record.id))
+    .filter(
+      (record) =>
+        referencedRecordIds.has(record.id) || duplicateRecordsForActions.some((duplicate) => duplicate.id === record.id)
+    )
     .slice(0, limit);
   return {
     read_only: true,

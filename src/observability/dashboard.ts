@@ -6,37 +6,48 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { normalizeAgentIdentity } from "../core/agent-identity.js";
-import { DEFAULT_AUTOCAPTURE_POLICY, type AutocapturePolicyDecision, type AutocapturePolicyRuleId } from "../core/autocapture-policy.js";
-import { diagnoseCapturePolicy, type CapturePolicyResult } from "../core/capture-policy-report.js";
-import { currentAutocaptureDecisionForRecord, currentPolicyTreatsAsLowRiskCapture, isCaptureReviewCandidate } from "../core/capture-review.js";
+import {
+  type AutocapturePolicyDecision,
+  type AutocapturePolicyRuleId,
+  DEFAULT_AUTOCAPTURE_POLICY
+} from "../core/autocapture-policy.js";
+import { type CapturePolicyResult, diagnoseCapturePolicy } from "../core/capture-policy-report.js";
+import {
+  currentAutocaptureDecisionForRecord,
+  currentPolicyTreatsAsLowRiskCapture,
+  isCaptureReviewCandidate
+} from "../core/capture-review.js";
 import { displayRecordText } from "../core/content-text.js";
-import { diagnoseDogfood, type DogfoodReportResult } from "../core/dogfood-report.js";
+import { type DogfoodReportResult, diagnoseDogfood } from "../core/dogfood-report.js";
 import { createEngine } from "../core/engine.js";
 import { commandForPromoteContext } from "../core/errors.js";
 import { diagnoseHealthCheck, type HealthCheckReport } from "../core/health-check.js";
-import { diagnoseMemoryLifecycle, type MemoryLifecycleResult } from "../core/memory-lifecycle.js";
-import { diagnoseMemory, type MemoryDoctorResult } from "../core/memory-doctor.js";
 import { buildActiveLogicalMemoryView } from "../core/logical-memory.js";
-import { readCurrentRecords } from "../core/record-read-model.js";
-import { readRetrievalCandidates } from "../core/retrieval-index.js";
-import { readSyncCompensationReceipt } from "../core/sync-compensation.js";
+import { diagnoseMemory, type MemoryDoctorResult } from "../core/memory-doctor.js";
+import { diagnoseMemoryLifecycle, type MemoryLifecycleResult } from "../core/memory-lifecycle.js";
 import type { RecallEvalReport } from "../core/recall-eval.js";
+import { readCurrentRecords } from "../core/record-read-model.js";
 import { replayEvents } from "../core/replay.js";
+import { readRetrievalCandidates } from "../core/retrieval-index.js";
 import { readEvents } from "../core/store.js";
+import { readSyncCompensationReceipt } from "../core/sync-compensation.js";
 import type { MorynEvent, MorynRecord, RecordKind, RecordSource } from "../core/types.js";
 import { summarizeWorkingSet } from "../core/working-set-report.js";
-import { getGitSyncStatus, type GitSyncStatus } from "../sync/git.js";
-import { approveMaintenancePlan, buildDashboardMaintenance, type DashboardMaintenanceData, type DashboardMaintenancePlan } from "./dashboard-maintenance.js";
-import { renderDashboardWorkspace, renderMemorySearch } from "./dashboard-workspace.js";
+import { type GitSyncStatus, getGitSyncStatus } from "../sync/git.js";
+import {
+  approveMaintenancePlan,
+  buildDashboardMaintenance,
+  type DashboardMaintenanceData,
+  type DashboardMaintenancePlan
+} from "./dashboard-maintenance.js";
 import { dashboardWorkspaceCss } from "./dashboard-workspace.css.js";
+import { renderDashboardWorkspace, renderMemorySearch } from "./dashboard-workspace.js";
 import { dashboardWorkspaceScript } from "./dashboard-workspace-script.js";
 
 const exec = promisify(execFile);
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 const RECENT_VALUE_LIMIT = 8;
-const DASHBOARD_TEXT_EXCERPT_LIMIT = 240;
-const MAINTENANCE_RAW_SAMPLE_LIMIT = 3;
 const CAPTURE_NOISE_RULES: DashboardCaptureNoiseRule[] = [
   {
     id: "smoke_test_marker",
@@ -64,7 +75,8 @@ const CAPTURE_INBOX_POLICY: DashboardCaptureInboxPolicy = {
     stale_batch_protection: true
   },
   noise_rules: CAPTURE_NOISE_RULES,
-  explanation: "Capture Inbox groups reduce review clicks, but candidates become canonical only after explicit user approval."
+  explanation:
+    "Capture Inbox groups reduce review clicks, but candidates become canonical only after explicit user approval."
 };
 
 declare global {
@@ -74,7 +86,11 @@ declare global {
     restoreActionReceipt?: () => void;
     renderActionReceipt?: (result: unknown) => void;
     initializeDashboardWorkspace?: () => void;
-    restoreDashboardWorkspaceAfterFragment?: (state?: { view?: string; drawer?: string | null; scrollY?: number }) => void;
+    restoreDashboardWorkspaceAfterFragment?: (state?: {
+      view?: string;
+      drawer?: string | null;
+      scrollY?: number;
+    }) => void;
     dashboardWorkspaceInteraction?: {
       mark: () => void;
       isActive: () => boolean;
@@ -88,7 +104,7 @@ declare global {
       initialize: () => void;
     };
   }
-  }
+}
 
 export type DashboardActionSurface = "capture_inbox" | "capture_policy" | "maintenance_review" | "candidate_triage";
 export type DashboardActionKind = "dashboard_api" | "cli_command";
@@ -279,7 +295,10 @@ export interface DashboardDecisionSummaryItem {
   requires_user_confirmation: true;
   writes: "append_only_events";
   safety_note: string;
-  evidence_path: "capture_inbox.groups[]" | "maintenance.plans[]" | `candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.${string}`;
+  evidence_path:
+    | "capture_inbox.groups[]"
+    | "maintenance.plans[]"
+    | `candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.${string}`;
 }
 
 export interface DashboardDecisionSummary {
@@ -444,7 +463,13 @@ export const DASHBOARD_CANDIDATE_TRIAGE_SELECTION_SOURCES = {
 const CANDIDATE_TRIAGE_SAMPLE_LIMIT = 3;
 const CANDIDATE_TRIAGE_PROMOTION_REASON = "User approved Candidate Triage promotion draft.";
 
-export type DashboardGovernanceSource = "capture_policy" | "memory_doctor" | "memory_lifecycle" | "maintenance" | "recall_eval" | "dogfood_report";
+export type DashboardGovernanceSource =
+  | "capture_policy"
+  | "memory_doctor"
+  | "memory_lifecycle"
+  | "maintenance"
+  | "recall_eval"
+  | "dogfood_report";
 export type DashboardGovernanceCategory =
   | "capture_review"
   | "auto_capture"
@@ -1029,7 +1054,11 @@ function timelineEventCommand(eventId: string, projectId: string | undefined): s
   return parts.join(" ");
 }
 
-function actionTrace(eventId: string, recordId: string, projectId: string | undefined): { timeline_command: string; recall_command: string } {
+function actionTrace(
+  eventId: string,
+  recordId: string,
+  projectId: string | undefined
+): { timeline_command: string; recall_command: string } {
   return {
     timeline_command: timelineEventCommand(eventId, projectId),
     recall_command: recallCommand(recordId, projectId)
@@ -1049,7 +1078,9 @@ function actionBatchTrace(
 
 function latestEventsByRecord(events: MorynEvent[]): Map<string, MorynEvent> {
   const byRecord = new Map<string, MorynEvent>();
-  for (const event of [...events].sort((left, right) => left.created_at.localeCompare(right.created_at) || left.event_id.localeCompare(right.event_id))) {
+  for (const event of [...events].sort(
+    (left, right) => left.created_at.localeCompare(right.created_at) || left.event_id.localeCompare(right.event_id)
+  )) {
     byRecord.set(targetRecordId(event) ?? "", event);
   }
   byRecord.delete("");
@@ -1111,10 +1142,6 @@ function summarizeEvent(event: MorynEvent, recordsById: Map<string, MorynRecord>
   };
 }
 
-function latestIso(left: string, right: string): string {
-  return left.localeCompare(right) >= 0 ? left : right;
-}
-
 function displayClient(rawClient: string): string {
   return normalizeAgentIdentity(rawClient).client;
 }
@@ -1148,16 +1175,33 @@ function agentEventCitation(event: MorynEvent, recordsById: Map<string, MorynRec
   };
 }
 
-function summarizeAgentActivity(events: MorynEvent[], records: MorynRecord[], recordsById: Map<string, MorynRecord>, eventsByRecord: Map<string, MorynEvent>): DashboardAgentActivity[] {
+function summarizeAgentActivity(
+  events: MorynEvent[],
+  records: MorynRecord[],
+  recordsById: Map<string, MorynRecord>,
+  eventsByRecord: Map<string, MorynEvent>
+): DashboardAgentActivity[] {
   const activity = new Map<string, DashboardAgentActivity>();
 
   for (const event of events) {
-    updateAgentActivity(activity, event.source.client, "events", event.created_at, agentEventCitation(event, recordsById));
+    updateAgentActivity(
+      activity,
+      event.source.client,
+      "events",
+      event.created_at,
+      agentEventCitation(event, recordsById)
+    );
   }
 
   for (const record of records) {
     const event = eventsByRecord.get(record.id);
-    updateAgentActivity(activity, record.source.client, "records", record.updated_at, event ? agentEventCitation(event, recordsById) : undefined);
+    updateAgentActivity(
+      activity,
+      record.source.client,
+      "records",
+      record.updated_at,
+      event ? agentEventCitation(event, recordsById) : undefined
+    );
   }
 
   return [...activity.values()].sort((left, right) => {
@@ -1183,24 +1227,8 @@ function sourceLabelZh(label: string): string {
   return label;
 }
 
-function memoryExplorerSourceDisplay(sourceLabel: string, sourceDetail?: string): { en: string; zh: string } {
-  const detail = sourceDetail?.trim();
-  if (detail && detail !== sourceLabel && detail.includes("/")) {
-    return {
-      en: `${sourceLabel} session`,
-      zh: `${sourceLabelZh(sourceLabel)} 会话`
-    };
-  }
-  return {
-    en: sourceLabel,
-    zh: sourceLabelZh(sourceLabel)
-  };
-}
-
 function titleCase(value: string): string {
-  return value
-    .replace(/[_-]+/g, " ")
-    .replace(/\b\w/g, (match) => match.toUpperCase());
+  return value.replace(/[_-]+/g, " ").replace(/\b\w/g, (match) => match.toUpperCase());
 }
 
 export function dashboardRecordTitleLabel(kind: MorynRecord["kind"], type?: string): { en: string; zh: string } {
@@ -1244,18 +1272,6 @@ function relativeTimeZh(relative: string): string {
   const days = relative.match(/^(\d+)d ago$/);
   if (days) return `${days[1]} 天前`;
   return relative;
-}
-
-function sourceRelativePair(source: string, relative: string): { en: string; zh: string } {
-  return {
-    en: `${source} | ${relative}`,
-    zh: `${source} | ${relativeTimeZh(relative)}`
-  };
-}
-
-function relativeTimeElement(iso: string, nowIso: string): string {
-  const relative = relativeTime(iso, nowIso);
-  return `<time datetime="${escapeHtml(iso)}" title="${escapeHtml(iso)}" ${i18nAttribute(relative, relativeTimeZh(relative))}>${escapeHtml(relative)}</time>`;
 }
 
 function utcDayKey(iso: string): string | undefined {
@@ -1323,10 +1339,6 @@ function supersededQuarantinedCount(records: MorynRecord[]): number {
   return records.filter((record) => isQuarantined(record) && superseded.has(record.id)).length;
 }
 
-function quarantinedCount(records: MorynRecord[]): number {
-  return records.filter(isQuarantined).length;
-}
-
 function buildHealth(sync: GitSyncStatus, records: MorynRecord[], generatedAt: string): DashboardHealth {
   const hidden = unresolvedQuarantinedRecords(records).length;
   if (sync.sync_state === "conflict") {
@@ -1341,7 +1353,8 @@ function buildHealth(sync: GitSyncStatus, records: MorynRecord[], generatedAt: s
     return {
       status: "local_only",
       label: "Local Only",
-      explanation: "Sync is not configured; this snapshot is useful locally, but other devices will not see these records yet.",
+      explanation:
+        "Sync is not configured; this snapshot is useful locally, but other devices will not see these records yet.",
       generated_at: generatedAt
     };
   }
@@ -1615,7 +1628,11 @@ function recordValueScore(record: MorynRecord): number {
   return score;
 }
 
-function summarizeValueRecord(record: MorynRecord, generatedAt: string, eventsByRecord: Map<string, MorynEvent>): DashboardValueRecord {
+function summarizeValueRecord(
+  record: MorynRecord,
+  generatedAt: string,
+  eventsByRecord: Map<string, MorynEvent>
+): DashboardValueRecord {
   const title = dashboardRecordTitleLabel(record.kind, record.type);
   return {
     id: record.id,
@@ -1638,21 +1655,30 @@ function summarizeValueRecord(record: MorynRecord, generatedAt: string, eventsBy
 }
 
 function valueRecordsNewestFirst(records: MorynRecord[]): MorynRecord[] {
-  return [...records]
-    .sort((left, right) => {
-      const timeDiff = right.updated_at.localeCompare(left.updated_at);
-      const scoreDiff = recordValueScore(right) - recordValueScore(left);
-      return timeDiff || scoreDiff || left.id.localeCompare(right.id);
-    });
+  return [...records].sort((left, right) => {
+    const timeDiff = right.updated_at.localeCompare(left.updated_at);
+    const scoreDiff = recordValueScore(right) - recordValueScore(left);
+    return timeDiff || scoreDiff || left.id.localeCompare(right.id);
+  });
 }
 
-function buildRecentValue(records: MorynRecord[], generatedAt: string, limit: number, eventsByRecord: Map<string, MorynEvent>): DashboardValueRecord[] {
+function buildRecentValue(
+  records: MorynRecord[],
+  generatedAt: string,
+  limit: number,
+  eventsByRecord: Map<string, MorynEvent>
+): DashboardValueRecord[] {
   return valueRecordsNewestFirst(records)
     .slice(0, limit)
     .map((record) => summarizeValueRecord(record, generatedAt, eventsByRecord));
 }
 
-function buildStoredContentPreview(records: MorynRecord[], generatedAt: string, limit: number, eventsByRecord: Map<string, MorynEvent>): DashboardValueRecord[] {
+function buildStoredContentPreview(
+  records: MorynRecord[],
+  generatedAt: string,
+  limit: number,
+  eventsByRecord: Map<string, MorynEvent>
+): DashboardValueRecord[] {
   const sorted = valueRecordsNewestFirst(records);
   const selected = new Map<string, MorynRecord>();
   const stateOrder: MorynRecord["state"][] = ["candidate", "canonical", "raw", "archived", "quarantined"];
@@ -1771,11 +1797,13 @@ function capturePolicyRuleIds(record: MorynRecord): AutocapturePolicyRuleId[] {
   const ruleIds = (policy as Record<string, unknown>).rule_ids;
   if (!Array.isArray(ruleIds)) return [];
   return ruleIds.filter((ruleId): ruleId is AutocapturePolicyRuleId => {
-    return ruleId === "low_risk_handoff_auto_capture"
-      || ruleId === "review_risk_marker"
-      || ruleId === "default_review_for_agent_handoff"
-      || ruleId === "smoke_test_marker"
-      || ruleId === "duplicate_text";
+    return (
+      ruleId === "low_risk_handoff_auto_capture" ||
+      ruleId === "review_risk_marker" ||
+      ruleId === "default_review_for_agent_handoff" ||
+      ruleId === "smoke_test_marker" ||
+      ruleId === "duplicate_text"
+    );
   });
 }
 
@@ -1793,9 +1821,8 @@ function captureEvidenceForRecord(record: MorynRecord): {
   }
   const captureObject = capture as Record<string, unknown>;
   const policy = captureObject.policy;
-  const policyObject = typeof policy === "object" && policy !== null && !Array.isArray(policy)
-    ? policy as Record<string, unknown>
-    : {};
+  const policyObject =
+    typeof policy === "object" && policy !== null && !Array.isArray(policy) ? (policy as Record<string, unknown>) : {};
   const files = Array.isArray(captureObject.files)
     ? captureObject.files.filter((file): file is string => typeof file === "string" && file.length > 0)
     : [];
@@ -1804,9 +1831,10 @@ function captureEvidenceForRecord(record: MorynRecord): {
     : [];
   const decision = typeof policyObject.decision === "string" ? policyObject.decision : undefined;
   const route = typeof policyObject.route === "string" ? policyObject.route : undefined;
-  const currentTask = typeof captureObject.current_task === "string" && captureObject.current_task.length > 0
-    ? captureObject.current_task
-    : undefined;
+  const currentTask =
+    typeof captureObject.current_task === "string" && captureObject.current_task.length > 0
+      ? captureObject.current_task
+      : undefined;
   return {
     ...(currentTask ? { current_task: currentTask } : {}),
     ...(files.length ? { files } : {}),
@@ -1818,21 +1846,23 @@ function captureEvidenceForRecord(record: MorynRecord): {
 }
 
 function isAutoCapturedAutocapture(record: MorynRecord): boolean {
-  return record.state === "candidate"
-    && record.visibility === "active"
-    && record.tags.some((tag) => tag.toLowerCase() === "autocapture")
-    && (
-      record.tags.some((tag) => tag.toLowerCase() === "auto-captured")
-      || recordCapturePolicyDecision(record) === "capture"
-      || currentPolicyTreatsAsLowRiskCapture(record)
-    );
+  return (
+    record.state === "candidate" &&
+    record.visibility === "active" &&
+    record.tags.some((tag) => tag.toLowerCase() === "autocapture") &&
+    (record.tags.some((tag) => tag.toLowerCase() === "auto-captured") ||
+      recordCapturePolicyDecision(record) === "capture" ||
+      currentPolicyTreatsAsLowRiskCapture(record))
+  );
 }
 
 function isPolicyArchivedAutocapture(record: MorynRecord): boolean {
-  return record.state === "archived"
-    && record.visibility === "archived"
-    && record.tags.some((tag) => tag.toLowerCase() === "autocapture")
-    && record.tags.some((tag) => tag.toLowerCase() === "policy-archived");
+  return (
+    record.state === "archived" &&
+    record.visibility === "archived" &&
+    record.tags.some((tag) => tag.toLowerCase() === "autocapture") &&
+    record.tags.some((tag) => tag.toLowerCase() === "policy-archived")
+  );
 }
 
 function buildAutocapturePolicySummary(records: MorynRecord[], limit: number): DashboardAutocapturePolicySummary {
@@ -1925,7 +1955,12 @@ function summarizeCaptureInboxItem(
   };
 }
 
-function buildCaptureInbox(records: MorynRecord[], generatedAt: string, limit: number, eventsByRecord: Map<string, MorynEvent>): DashboardCaptureInbox {
+function buildCaptureInbox(
+  records: MorynRecord[],
+  generatedAt: string,
+  limit: number,
+  eventsByRecord: Map<string, MorynEvent>
+): DashboardCaptureInbox {
   const candidates = records
     .filter(isCaptureInboxCandidate)
     .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id));
@@ -1948,44 +1983,41 @@ function buildCaptureInbox(records: MorynRecord[], generatedAt: string, limit: n
     groups.set(groupKey, existing);
     itemInputs.push({ record, groupId, noise });
   }
-  const grouped = [...groups.values()]
-    .sort((left, right) => {
-      const leftLatest = left.records[0]!.updated_at;
-      const rightLatest = right.records[0]!.updated_at;
-      return rightLatest.localeCompare(leftLatest) || left.groupId.localeCompare(right.groupId);
-    });
+  const grouped = [...groups.values()].sort((left, right) => {
+    const leftLatest = left.records[0]!.updated_at;
+    const rightLatest = right.records[0]!.updated_at;
+    return rightLatest.localeCompare(leftLatest) || left.groupId.localeCompare(right.groupId);
+  });
   const displayedGroups = grouped.slice(0, limit);
   const displayedItems = displayedGroups.flatMap((group) => group.records);
-  const groupSummaries = displayedGroups
-    .map((group): DashboardCaptureInboxGroup => {
-      const latest = group.records[0]!;
-      const groupNoise = mergeCaptureNoise(group.noises);
-      return {
-        id: group.groupId,
-        total: group.records.length,
-        record_ids: group.records.map((record) => record.id),
-        source_label: humanSourceLabel(latest.source),
-        source_detail: humanSourceDetail(latest.source),
-        project_id: latest.project_id,
-        latest_at: latest.updated_at,
-        relative_time: relativeTime(latest.updated_at, generatedAt),
-        summary: group.records.map((record) => recordText(record)).join(" "),
-        noise: groupNoise,
-        approve_endpoint: captureInboxGroupApproveEndpoint(group.groupId),
-        reject_endpoint: captureInboxGroupRejectEndpoint(group.groupId)
-      };
-    });
+  const groupSummaries = displayedGroups.map((group): DashboardCaptureInboxGroup => {
+    const latest = group.records[0]!;
+    const groupNoise = mergeCaptureNoise(group.noises);
+    return {
+      id: group.groupId,
+      total: group.records.length,
+      record_ids: group.records.map((record) => record.id),
+      source_label: humanSourceLabel(latest.source),
+      source_detail: humanSourceDetail(latest.source),
+      project_id: latest.project_id,
+      latest_at: latest.updated_at,
+      relative_time: relativeTime(latest.updated_at, generatedAt),
+      summary: group.records.map((record) => recordText(record)).join(" "),
+      noise: groupNoise,
+      approve_endpoint: captureInboxGroupApproveEndpoint(group.groupId),
+      reject_endpoint: captureInboxGroupRejectEndpoint(group.groupId)
+    };
+  });
   return {
     total: candidates.length,
     group_total: grouped.length,
     policy: CAPTURE_INBOX_POLICY,
     autocapture_policy: buildAutocapturePolicySummary(records, limit),
     groups: groupSummaries,
-    items: displayedItems
-      .map((record) => {
-        const item = itemInputs.find((candidate) => candidate.record.id === record.id)!;
-        return summarizeCaptureInboxItem(record, item.groupId, generatedAt, item.noise, eventsByRecord);
-      })
+    items: displayedItems.map((record) => {
+      const item = itemInputs.find((candidate) => candidate.record.id === record.id)!;
+      return summarizeCaptureInboxItem(record, item.groupId, generatedAt, item.noise, eventsByRecord);
+    })
   };
 }
 
@@ -2044,9 +2076,10 @@ function buildContextPackReviewQualityGate(input: {
       source: "context_pack_review.handoff_pack.recent_decisions[]",
       status: "pass",
       count: input.recentDecisions.length,
-      message: input.recentDecisions.length > 0
-        ? "Recent decisions include evidence paths."
-        : "No recent decisions are currently available."
+      message:
+        input.recentDecisions.length > 0
+          ? "Recent decisions include evidence paths."
+          : "No recent decisions are currently available."
     }),
     contextPackReviewCheck({
       id: "open_threads",
@@ -2054,9 +2087,10 @@ function buildContextPackReviewQualityGate(input: {
       source: "context_pack_review.handoff_pack.open_threads[]",
       status: "pass",
       count: input.openThreads.length,
-      message: input.openThreads.length > 0
-        ? "Open handoff threads include evidence paths."
-        : "No open handoff threads are currently available."
+      message:
+        input.openThreads.length > 0
+          ? "Open handoff threads include evidence paths."
+          : "No open handoff threads are currently available."
     }),
     contextPackReviewCheck({
       id: "risks",
@@ -2064,9 +2098,7 @@ function buildContextPackReviewQualityGate(input: {
       source: "context_pack_review.handoff_pack.risks[]",
       status: "pass",
       count: input.risks.length,
-      message: input.risks.length > 0
-        ? "Risks include evidence paths."
-        : "No explicit risks are currently available."
+      message: input.risks.length > 0 ? "Risks include evidence paths." : "No explicit risks are currently available."
     }),
     contextPackReviewCheck({
       id: "evidence_paths",
@@ -2090,7 +2122,10 @@ function buildContextPackReviewQualityGate(input: {
     status: failedCheckIds.length > 0 ? "needs_review" : "ready",
     read_only: true,
     checks,
-    checks_by_id: Object.fromEntries(checks.map((check) => [check.id, check])) as Record<DashboardContextPackReviewCheckId, DashboardContextPackReviewCheck>,
+    checks_by_id: Object.fromEntries(checks.map((check) => [check.id, check])) as Record<
+      DashboardContextPackReviewCheckId,
+      DashboardContextPackReviewCheck
+    >,
     failed_check_ids: failedCheckIds,
     warnings: checks.filter((check) => check.status === "warn").map((check) => check.message)
   };
@@ -2114,7 +2149,9 @@ function buildContextPackReview(records: MorynRecord[], options: DashboardOption
 
   const projectRecords = records
     .filter((record) => record.scope === "project" && record.project_id === projectId)
-    .filter((record) => record.visibility === "active" && record.state !== "archived" && record.state !== "quarantined");
+    .filter(
+      (record) => record.visibility === "active" && record.state !== "archived" && record.state !== "quarantined"
+    );
   const canonicalProjectMemory = projectRecords
     .filter((record) => record.kind === "memory" && record.state === "canonical")
     .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id));
@@ -2134,15 +2171,17 @@ function buildContextPackReview(records: MorynRecord[], options: DashboardOption
     CONTEXT_PACK_REVIEW_SELECTION_SOURCES.open_thread
   );
   const captureCommand = dashboardCaptureSessionCommand(projectId);
-  const nextActions: DashboardContextPackReviewNextAction[] = [{
-    id: "capture_session",
-    command: captureCommand,
-    required_when: "Before ending a host session, capture a handoff summary for the next agent.",
-    evidence: {
-      source: "next.actions_by_id.capture_session",
-      command: captureCommand
+  const nextActions: DashboardContextPackReviewNextAction[] = [
+    {
+      id: "capture_session",
+      command: captureCommand,
+      required_when: "Before ending a host session, capture a handoff summary for the next agent.",
+      evidence: {
+        source: "next.actions_by_id.capture_session",
+        command: captureCommand
+      }
     }
-  }];
+  ];
   const qualityGate = buildContextPackReviewQualityGate({
     currentGoal: Boolean(projectId),
     recentDecisions,
@@ -2179,109 +2218,121 @@ function buildContextPackReview(records: MorynRecord[], options: DashboardOption
 
 function captureInboxActions(inbox: DashboardCaptureInbox): DashboardAction[] {
   return [
-    ...inbox.items.flatMap((item) => [
-      {
-        action_id: captureInboxRecordActionId("approve", item.id),
-        surface: "capture_inbox",
-        kind: "dashboard_api",
-        label: "Approve Memory",
-        intent: "approve",
-        target: { type: "record", id: item.id },
-        method: "POST",
-        endpoint: item.approve_endpoint,
-        request_body: {},
-        safety: {
-          safe_to_auto_run: false,
-          requires_user_confirmation: true,
-          writes: "append_only_events",
-          stale_guard: "active_candidate_record"
-        },
-        source_path: "capture_inbox.items[]"
-      },
-      {
-        action_id: captureInboxRecordActionId("reject", item.id),
-        surface: "capture_inbox",
-        kind: "dashboard_api",
-        label: "Reject",
-        intent: "reject",
-        target: { type: "record", id: item.id },
-        method: "POST",
-        endpoint: item.reject_endpoint,
-        request_body: { reason: "User rejected Capture Inbox candidate." },
-        safety: {
-          safe_to_auto_run: false,
-          requires_user_confirmation: true,
-          writes: "append_only_events",
-          stale_guard: "active_candidate_record"
-        },
-        source_path: "capture_inbox.items[]"
-      }
-    ] satisfies DashboardAction[]),
-    ...inbox.groups.flatMap((group) => [
-      {
-        action_id: captureInboxGroupActionId("approve", group.id),
-        surface: "capture_inbox",
-        kind: "dashboard_api",
-        label: "Approve Group",
-        intent: "approve",
-        target: { type: "record_group", id: group.id, record_ids: group.record_ids },
-        method: "POST",
-        endpoint: group.approve_endpoint,
-        request_body: { record_ids: group.record_ids },
-        safety: {
-          safe_to_auto_run: false,
-          requires_user_confirmation: true,
-          writes: "append_only_events",
-          stale_guard: "active_candidate_group"
-        },
-        source_path: "capture_inbox.groups[]"
-      },
-      {
-        action_id: captureInboxGroupActionId("reject", group.id),
-        surface: "capture_inbox",
-        kind: "dashboard_api",
-        label: "Reject Group",
-        intent: "reject",
-        target: { type: "record_group", id: group.id, record_ids: group.record_ids },
-        method: "POST",
-        endpoint: group.reject_endpoint,
-        request_body: {
-          record_ids: group.record_ids,
-          reason: "User rejected Capture Inbox group."
-        },
-        safety: {
-          safe_to_auto_run: false,
-          requires_user_confirmation: true,
-          writes: "append_only_events",
-          stale_guard: "active_candidate_group"
-        },
-        source_path: "capture_inbox.groups[]"
-      }
-    ] satisfies DashboardAction[])
+    ...inbox.items.flatMap(
+      (item) =>
+        [
+          {
+            action_id: captureInboxRecordActionId("approve", item.id),
+            surface: "capture_inbox",
+            kind: "dashboard_api",
+            label: "Approve Memory",
+            intent: "approve",
+            target: { type: "record", id: item.id },
+            method: "POST",
+            endpoint: item.approve_endpoint,
+            request_body: {},
+            safety: {
+              safe_to_auto_run: false,
+              requires_user_confirmation: true,
+              writes: "append_only_events",
+              stale_guard: "active_candidate_record"
+            },
+            source_path: "capture_inbox.items[]"
+          },
+          {
+            action_id: captureInboxRecordActionId("reject", item.id),
+            surface: "capture_inbox",
+            kind: "dashboard_api",
+            label: "Reject",
+            intent: "reject",
+            target: { type: "record", id: item.id },
+            method: "POST",
+            endpoint: item.reject_endpoint,
+            request_body: { reason: "User rejected Capture Inbox candidate." },
+            safety: {
+              safe_to_auto_run: false,
+              requires_user_confirmation: true,
+              writes: "append_only_events",
+              stale_guard: "active_candidate_record"
+            },
+            source_path: "capture_inbox.items[]"
+          }
+        ] satisfies DashboardAction[]
+    ),
+    ...inbox.groups.flatMap(
+      (group) =>
+        [
+          {
+            action_id: captureInboxGroupActionId("approve", group.id),
+            surface: "capture_inbox",
+            kind: "dashboard_api",
+            label: "Approve Group",
+            intent: "approve",
+            target: { type: "record_group", id: group.id, record_ids: group.record_ids },
+            method: "POST",
+            endpoint: group.approve_endpoint,
+            request_body: { record_ids: group.record_ids },
+            safety: {
+              safe_to_auto_run: false,
+              requires_user_confirmation: true,
+              writes: "append_only_events",
+              stale_guard: "active_candidate_group"
+            },
+            source_path: "capture_inbox.groups[]"
+          },
+          {
+            action_id: captureInboxGroupActionId("reject", group.id),
+            surface: "capture_inbox",
+            kind: "dashboard_api",
+            label: "Reject Group",
+            intent: "reject",
+            target: { type: "record_group", id: group.id, record_ids: group.record_ids },
+            method: "POST",
+            endpoint: group.reject_endpoint,
+            request_body: {
+              record_ids: group.record_ids,
+              reason: "User rejected Capture Inbox group."
+            },
+            safety: {
+              safe_to_auto_run: false,
+              requires_user_confirmation: true,
+              writes: "append_only_events",
+              stale_guard: "active_candidate_group"
+            },
+            source_path: "capture_inbox.groups[]"
+          }
+        ] satisfies DashboardAction[]
+    )
   ];
 }
 
 function capturePolicyActions(report: CapturePolicyResult): DashboardAction[] {
   return report.suggested_actions
-    .filter((action) => action.recommended_action === "inspect_policy_archived_record" || action.recommended_action === "inspect_auto_captured_handoff")
+    .filter(
+      (action) =>
+        action.recommended_action === "inspect_policy_archived_record" ||
+        action.recommended_action === "inspect_auto_captured_handoff"
+    )
     .flatMap((action): DashboardAction[] => {
       const recordId = typeof action.arguments.record_id === "string" ? action.arguments.record_id : undefined;
       if (!recordId) return [];
-      return [{
-        action_id: capturePolicyInspectActionId(recordId),
-        surface: "capture_policy",
-        kind: "cli_command",
-        label: action.recommended_action,
-        intent: "inspect",
-        target: { type: "policy_decision", id: recordId },
-        command: action.command,
-        safety: {
-          safe_to_auto_run: true,
-          requires_user_confirmation: false,
-          writes: "none"
-        },
-        source_path: `capture_policy.suggested_actions_by_id.${action.action_id}`
-      }];
+      return [
+        {
+          action_id: capturePolicyInspectActionId(recordId),
+          surface: "capture_policy",
+          kind: "cli_command",
+          label: action.recommended_action,
+          intent: "inspect",
+          target: { type: "policy_decision", id: recordId },
+          command: action.command,
+          safety: {
+            safe_to_auto_run: true,
+            requires_user_confirmation: false,
+            writes: "none"
+          },
+          source_path: `capture_policy.suggested_actions_by_id.${action.action_id}`
+        }
+      ];
     });
 }
 
@@ -2312,25 +2363,27 @@ function maintenanceActions(plans: DashboardMaintenancePlan[]): DashboardAction[
 
 function candidateTriageActions(triage: DashboardCandidateTriage): DashboardAction[] {
   return Object.values(triage.groups_by_id)
-    .flatMap((group) => group ? Object.values(group.promotion_drafts_by_id) : [])
-    .map((draft): DashboardAction => ({
-      action_id: draft.action_id,
-      surface: "candidate_triage",
-      kind: "dashboard_api",
-      label: "Approve Memory",
-      intent: "approve",
-      target: { type: "record", id: draft.record_id },
-      method: "POST",
-      endpoint: draft.approve_endpoint,
-      request_body: {},
-      safety: {
-        safe_to_auto_run: false,
-        requires_user_confirmation: true,
-        writes: "append_only_events",
-        stale_guard: "active_candidate_record"
-      },
-      source_path: draft.source_path
-    }));
+    .flatMap((group) => (group ? Object.values(group.promotion_drafts_by_id) : []))
+    .map(
+      (draft): DashboardAction => ({
+        action_id: draft.action_id,
+        surface: "candidate_triage",
+        kind: "dashboard_api",
+        label: "Approve Memory",
+        intent: "approve",
+        target: { type: "record", id: draft.record_id },
+        method: "POST",
+        endpoint: draft.approve_endpoint,
+        request_body: {},
+        safety: {
+          safe_to_auto_run: false,
+          requires_user_confirmation: true,
+          writes: "append_only_events",
+          stale_guard: "active_candidate_record"
+        },
+        source_path: draft.source_path
+      })
+    );
 }
 
 function dashboardActions(input: {
@@ -2356,51 +2409,57 @@ function buildDecisionSummary(input: {
   maintenance: DashboardMaintenanceData;
   candidateTriage: DashboardCandidateTriage;
 }): DashboardDecisionSummary {
-  const captureInboxItems = input.captureInbox.groups.map((group): DashboardDecisionSummaryItem => ({
-    id: `capture_inbox:${group.id}`,
-    surface: "capture_inbox",
-    title: `Review ${group.source_label} capture group`,
-    summary: `${pluralize(group.total, "candidate")} from ${group.source_detail}. ${group.noise.level === "likely_noise" ? "Noise signals detected before approval." : "No noise signals detected."}`,
-    decision_label: "Approve Group or Reject Group",
-    target: "capture-inbox",
-    target_label: "Open Capture Inbox",
-    primary_action_id: captureInboxGroupActionId("approve", group.id),
-    secondary_action_id: captureInboxGroupActionId("reject", group.id),
-    requires_user_confirmation: true,
-    writes: "append_only_events",
-    safety_note: "Approve Group promotes candidates; Reject Group archives them. Both append audit events.",
-    evidence_path: "capture_inbox.groups[]"
-  }));
-  const maintenanceItems = input.maintenance.plans.map((plan): DashboardDecisionSummaryItem => ({
-    id: `maintenance_review:${plan.plan_hash.replace(/^sha256:/, "")}`,
-    surface: "maintenance_review",
-    title: plan.decision_card.title,
-    summary: maintenanceDecisionSummaryText(plan),
-    decision_label: maintenancePrimaryActionLabel(plan),
-    target: "maintenance-review-queue",
-    target_label: "Open Review Queue",
-    primary_action_id: maintenanceApproveActionId(plan),
-    requires_user_confirmation: true,
-    writes: "append_only_events",
-    safety_note: maintenanceActionSafetyNote(plan),
-    evidence_path: "maintenance.plans[]"
-  }));
-  const candidateTriagePromotionItems = Object.values(input.candidateTriage.groups_by_id)
-    .flatMap((group) => group ? Object.values(group.promotion_drafts_by_id) : [])
-    .map((draft): DashboardDecisionSummaryItem => ({
-      id: `candidate_triage:promotion:${draft.record_id}`,
-      surface: "candidate_triage",
-      title: "Approve Candidate Triage promotion",
-      summary: `Promote ${recordLabel(draft.record_id)} to ${draft.target_state}.`,
-      decision_label: "Approve Memory",
-      target: "candidate-triage",
-      target_label: "Open Candidate Triage",
-      primary_action_id: draft.action_id,
+  const captureInboxItems = input.captureInbox.groups.map(
+    (group): DashboardDecisionSummaryItem => ({
+      id: `capture_inbox:${group.id}`,
+      surface: "capture_inbox",
+      title: `Review ${group.source_label} capture group`,
+      summary: `${pluralize(group.total, "candidate")} from ${group.source_detail}. ${group.noise.level === "likely_noise" ? "Noise signals detected before approval." : "No noise signals detected."}`,
+      decision_label: "Approve Group or Reject Group",
+      target: "capture-inbox",
+      target_label: "Open Capture Inbox",
+      primary_action_id: captureInboxGroupActionId("approve", group.id),
+      secondary_action_id: captureInboxGroupActionId("reject", group.id),
       requires_user_confirmation: true,
       writes: "append_only_events",
-      safety_note: "Approve Memory appends a promotion event only after the active candidate guard passes.",
-      evidence_path: draft.source_path
-    }));
+      safety_note: "Approve Group promotes candidates; Reject Group archives them. Both append audit events.",
+      evidence_path: "capture_inbox.groups[]"
+    })
+  );
+  const maintenanceItems = input.maintenance.plans.map(
+    (plan): DashboardDecisionSummaryItem => ({
+      id: `maintenance_review:${plan.plan_hash.replace(/^sha256:/, "")}`,
+      surface: "maintenance_review",
+      title: plan.decision_card.title,
+      summary: maintenanceDecisionSummaryText(plan),
+      decision_label: maintenancePrimaryActionLabel(plan),
+      target: "maintenance-review-queue",
+      target_label: "Open Review Queue",
+      primary_action_id: maintenanceApproveActionId(plan),
+      requires_user_confirmation: true,
+      writes: "append_only_events",
+      safety_note: maintenanceActionSafetyNote(plan),
+      evidence_path: "maintenance.plans[]"
+    })
+  );
+  const candidateTriagePromotionItems = Object.values(input.candidateTriage.groups_by_id)
+    .flatMap((group) => (group ? Object.values(group.promotion_drafts_by_id) : []))
+    .map(
+      (draft): DashboardDecisionSummaryItem => ({
+        id: `candidate_triage:promotion:${draft.record_id}`,
+        surface: "candidate_triage",
+        title: "Approve Candidate Triage promotion",
+        summary: `Promote ${recordLabel(draft.record_id)} to ${draft.target_state}.`,
+        decision_label: "Approve Memory",
+        target: "candidate-triage",
+        target_label: "Open Candidate Triage",
+        primary_action_id: draft.action_id,
+        requires_user_confirmation: true,
+        writes: "append_only_events",
+        safety_note: "Approve Memory appends a promotion event only after the active candidate guard passes.",
+        evidence_path: draft.source_path
+      })
+    );
   const items = [...captureInboxItems, ...maintenanceItems, ...candidateTriagePromotionItems];
   return {
     read_only: true,
@@ -2422,7 +2481,10 @@ function maintenanceDecisionSummaryText(plan: DashboardMaintenancePlan): string 
   return `${maintenanceMoveSummary(plan)} from the old project id into ${plan.to_project_id ?? "the current project"}.`;
 }
 
-function actionBoardSeverity(count: number, fallback: DashboardActionBoardSeverity = "good"): DashboardActionBoardSeverity {
+function actionBoardSeverity(
+  count: number,
+  fallback: DashboardActionBoardSeverity = "good"
+): DashboardActionBoardSeverity {
   return count > 0 ? "warning" : fallback;
 }
 
@@ -2466,14 +2528,18 @@ function buildActionBoard(input: {
   const reviewCount = input.attentionItems.filter(isReviewAttentionItem).length;
   const reviewCopy = reviewActionCopy(input.attentionItems);
   const inspectCount = input.governance.summary.safe_inspections;
-  const syncNeedsAction = input.health.status === "sync_pending" || input.health.status === "conflict" || input.health.status === "local_only";
-  const syncSeverity: DashboardActionBoardSeverity = input.health.status === "conflict"
-    ? "critical"
-    : input.health.status === "sync_pending"
-      ? "warning"
-      : input.health.status === "local_only"
-        ? "info"
-        : "good";
+  const syncNeedsAction =
+    input.health.status === "sync_pending" ||
+    input.health.status === "conflict" ||
+    input.health.status === "local_only";
+  const syncSeverity: DashboardActionBoardSeverity =
+    input.health.status === "conflict"
+      ? "critical"
+      : input.health.status === "sync_pending"
+        ? "warning"
+        : input.health.status === "local_only"
+          ? "info"
+          : "good";
   const items: DashboardActionBoardItem[] = [
     {
       id: "confirm",
@@ -2522,7 +2588,10 @@ function buildActionBoard(input: {
   ];
   return {
     items,
-    items_by_id: Object.fromEntries(items.map((item) => [item.id, item])) as Record<DashboardActionBoardItemId, DashboardActionBoardItem>
+    items_by_id: Object.fromEntries(items.map((item) => [item.id, item])) as Record<
+      DashboardActionBoardItemId,
+      DashboardActionBoardItem
+    >
   };
 }
 
@@ -2552,25 +2621,29 @@ function buildDashboardOverview(input: {
   captureInbox: DashboardCaptureInbox;
 }): DashboardOverview {
   const actionPrimary = focusBriefPrimaryItem(input.actionBoard);
-  const primary = actionPrimary.next_action_label === "All clear" && input.memoryInventory.review_suggested
-    ? memoryInventoryReviewItem(input.memoryInventory, input.captureInbox)
-    : actionPrimary;
+  const primary =
+    actionPrimary.next_action_label === "All clear" && input.memoryInventory.review_suggested
+      ? memoryInventoryReviewItem(input.memoryInventory, input.captureInbox)
+      : actionPrimary;
   const isAllClearPrimary = primary.next_action_label === "All clear";
   const actionCardPrimary = isAllClearPrimary
     ? {
-      ...primary,
-      next_action_label: input.actionBoard.items_by_id.inspect.value > 0 ? "Inspect checks" : "Check attention",
-      target: input.actionBoard.items_by_id.inspect.value > 0 ? "governance-hub" : "needs-attention"
-    }
+        ...primary,
+        next_action_label: input.actionBoard.items_by_id.inspect.value > 0 ? "Inspect checks" : "Check attention",
+        target: input.actionBoard.items_by_id.inspect.value > 0 ? "governance-hub" : "needs-attention"
+      }
     : primary;
-  const primaryTargetLabel = primary.id === "confirm" && primary.value > 0
-    ? "Review approvals"
-    : actionCardPrimary.next_action_label;
+  const primaryTargetLabel =
+    primary.id === "confirm" && primary.value > 0 ? "Review approvals" : actionCardPrimary.next_action_label;
   const headline = primary.next_action_label;
-  const primaryActionLabel = primary.id === "confirm" && primary.value > 0
-    ? "Review approvals"
-    : primary.source === "memory_inventory" ? primary.hint : actionCardPrimary.next_action_label;
-  const zhDetail = primary.source === "memory_inventory" ? memoryInventoryReviewDetailZh(input.memoryInventory) : undefined;
+  const primaryActionLabel =
+    primary.id === "confirm" && primary.value > 0
+      ? "Review approvals"
+      : primary.source === "memory_inventory"
+        ? primary.hint
+        : actionCardPrimary.next_action_label;
+  const zhDetail =
+    primary.source === "memory_inventory" ? memoryInventoryReviewDetailZh(input.memoryInventory) : undefined;
   const contextGate = input.contextPackReview.handoff_pack?.quality_gate.status;
   const cards: DashboardOverviewCard[] = [
     {
@@ -2599,7 +2672,7 @@ function buildDashboardOverview(input: {
       value: input.contextPackReview.available ? titleCase(contextGate ?? "available") : "Unavailable",
       summary: input.contextPackReview.available
         ? "Handoff evidence stays read-only"
-        : input.contextPackReview.unavailable_reason ?? "Project context is required for Context Pack Review.",
+        : (input.contextPackReview.unavailable_reason ?? "Project context is required for Context Pack Review."),
       severity: overviewContextStatus(input.contextPackReview),
       target: "context-pack-review",
       target_label: "Open context",
@@ -2631,7 +2704,10 @@ function buildDashboardOverview(input: {
       mutation_surfaces: ["Capture Inbox", "Review Queue", "Candidate Triage"]
     },
     cards,
-    cards_by_id: Object.fromEntries(cards.map((card) => [card.id, card])) as Record<DashboardOverviewCardId, DashboardOverviewCard>,
+    cards_by_id: Object.fromEntries(cards.map((card) => [card.id, card])) as Record<
+      DashboardOverviewCardId,
+      DashboardOverviewCard
+    >,
     evidence_sources: {
       action_board: "action_board",
       health_check: "health_check",
@@ -2685,13 +2761,19 @@ function governanceReviewLog(input: {
   ];
 }
 
-function firstActionForRecords<T extends { action_id: string; arguments: Record<string, unknown> }>(actions: T[], recordIds: string[]): T | undefined {
+function firstActionForRecords<T extends { action_id: string; arguments: Record<string, unknown> }>(
+  actions: T[],
+  recordIds: string[]
+): T | undefined {
   const recordIdSet = new Set(recordIds);
   return actions.find((action) => {
     const recordId = action.arguments.record_id;
     if (typeof recordId === "string" && recordIdSet.has(recordId)) return true;
     const recordIdsArg = action.arguments.record_ids;
-    return Array.isArray(recordIdsArg) && recordIdsArg.some((candidate) => typeof candidate === "string" && recordIdSet.has(candidate));
+    return (
+      Array.isArray(recordIdsArg) &&
+      recordIdsArg.some((candidate) => typeof candidate === "string" && recordIdSet.has(candidate))
+    );
   });
 }
 
@@ -2701,7 +2783,9 @@ function governanceFromCapturePolicy(report: CapturePolicyResult): DashboardGove
     const isReview = finding.id === "review_required";
     const category = finding.category === "review_queue" ? "capture_review" : finding.category;
     const evidencePath = `capture_policy.findings_by_id.${finding.id}`;
-    const actionLabel = isReview ? "Review in Capture Inbox" : firstAction?.recommended_action ?? "Inspect capture policy finding";
+    const actionLabel = isReview
+      ? "Review in Capture Inbox"
+      : (firstAction?.recommended_action ?? "Inspect capture policy finding");
     const writes = isReview ? "append_only_events" : "none";
     return {
       id: governanceItemId("capture_policy", finding.id),
@@ -2713,7 +2797,9 @@ function governanceFromCapturePolicy(report: CapturePolicyResult): DashboardGove
       record_ids: finding.record_ids,
       evidence_path: evidencePath,
       action_label: actionLabel,
-      ...(firstAction && !isReview ? { action_id: capturePolicyInspectActionId(String(firstAction.arguments.record_id)) } : {}),
+      ...(firstAction && !isReview
+        ? { action_id: capturePolicyInspectActionId(String(firstAction.arguments.record_id)) }
+        : {}),
       safe_to_run: !isReview,
       requires_user_confirmation: isReview,
       writes,
@@ -2764,20 +2850,22 @@ function governanceFromMemoryLifecycle(report: MemoryLifecycleResult): Dashboard
 function governanceFromMemoryDoctor(report: MemoryDoctorResult): DashboardGovernanceItem[] {
   return report.findings.map((finding) => {
     const evidencePath = `memory_doctor.findings_by_id.${finding.id}`;
-    const category: DashboardGovernanceCategory = finding.id === "candidate_backlog"
-      ? "candidate_backlog"
-      : finding.category === "candidate_quality"
-        ? "candidate_quality"
-        : finding.category === "project_identity"
-          ? "project_identity"
-          : "candidate_backlog";
-    const actionLabel = finding.id === "candidate_backlog"
-      ? "Review candidate backlog"
-      : finding.id === "duplicate_candidates"
-        ? "Review duplicate candidates"
-        : finding.id === "conflicting_candidates"
-          ? "Review conflicting candidates"
-          : "Review memory doctor finding";
+    const category: DashboardGovernanceCategory =
+      finding.id === "candidate_backlog"
+        ? "candidate_backlog"
+        : finding.category === "candidate_quality"
+          ? "candidate_quality"
+          : finding.category === "project_identity"
+            ? "project_identity"
+            : "candidate_backlog";
+    const actionLabel =
+      finding.id === "candidate_backlog"
+        ? "Review candidate backlog"
+        : finding.id === "duplicate_candidates"
+          ? "Review duplicate candidates"
+          : finding.id === "conflicting_candidates"
+            ? "Review conflicting candidates"
+            : "Review memory doctor finding";
     return {
       id: governanceItemId("memory_doctor", finding.id),
       source: "memory_doctor",
@@ -2807,40 +2895,41 @@ function governanceFromMaintenance(maintenance: DashboardMaintenanceData): Dashb
   return maintenance.plans
     .filter((plan) => !plan.approval.requires_user_confirmation)
     .map((plan): DashboardGovernanceItem => {
-    const evidencePath = `maintenance.plans_by_id.${plan.plan_id}`;
-    const actionLabel = maintenancePrimaryActionLabel(plan);
-    return {
-      id: governanceItemId("maintenance", plan.plan_id),
-      source: "maintenance",
-      category: plan.type === "candidate_noise_archive" ? "candidate_backlog" : "project_identity",
-      severity: "warning",
-      title: plan.decision_card.issue,
-      summary: plan.decision_card.impact,
-      record_ids: plan.record_ids,
-      evidence_path: evidencePath,
-      action_label: actionLabel,
-      action_id: maintenanceApproveActionId(plan),
-      safe_to_run: false,
-      requires_user_confirmation: true,
-      writes: "append_only_events",
-      review_log: governanceReviewLog({
+      const evidencePath = `maintenance.plans_by_id.${plan.plan_id}`;
+      const actionLabel = maintenancePrimaryActionLabel(plan);
+      return {
+        id: governanceItemId("maintenance", plan.plan_id),
         source: "maintenance",
         category: plan.type === "candidate_noise_archive" ? "candidate_backlog" : "project_identity",
-        actionLabel,
-        evidencePath,
-        requiresUserConfirmation: true,
-        writes: "append_only_events"
-      })
-    };
-  });
+        severity: "warning",
+        title: plan.decision_card.issue,
+        summary: plan.decision_card.impact,
+        record_ids: plan.record_ids,
+        evidence_path: evidencePath,
+        action_label: actionLabel,
+        action_id: maintenanceApproveActionId(plan),
+        safe_to_run: false,
+        requires_user_confirmation: true,
+        writes: "append_only_events",
+        review_log: governanceReviewLog({
+          source: "maintenance",
+          category: plan.type === "candidate_noise_archive" ? "candidate_backlog" : "project_identity",
+          actionLabel,
+          evidencePath,
+          requiresUserConfirmation: true,
+          writes: "append_only_events"
+        })
+      };
+    });
 }
 
 function governanceFromDogfood(report: DogfoodReportResult): DashboardGovernanceItem[] {
   return report.findings.map((finding): DashboardGovernanceItem => {
     const recordIds = finding.record_ids ?? (finding.record_id ? [finding.record_id] : []);
-    const firstAction = finding.id === "capture_review_backlog"
-      ? report.suggested_actions_by_id.review_capture_inbox
-      : firstActionForRecords(report.suggested_actions, recordIds);
+    const firstAction =
+      finding.id === "capture_review_backlog"
+        ? report.suggested_actions_by_id.review_capture_inbox
+        : firstActionForRecords(report.suggested_actions, recordIds);
     const evidencePath = `dogfood_report.findings_by_id.${finding.id}`;
     const actionLabel = firstAction?.recommended_action ?? "Inspect dogfood finding";
     return {
@@ -2871,35 +2960,38 @@ function governanceFromDogfood(report: DogfoodReportResult): DashboardGovernance
 function governanceFromRecallEval(review: DashboardRecallEval): DashboardGovernanceItem[] {
   const report = review.report;
   if (!report) return [];
-  return report.cases.filter((testCase) => testCase.status === "fail").map((testCase): DashboardGovernanceItem => {
-    const action = report.suggested_actions_by_id[`revise-golden-case:${testCase.case_id}`]
-      ?? report.suggested_actions_by_id[`inspect-hidden-records:${testCase.case_id}`];
-    const evidencePath = `recall_eval.report.cases_by_id.${testCase.case_id}`;
-    const actionLabel = action?.recommended_action ?? "Inspect recall eval case";
-    const recordIds = recallEvalCaseRecordIds(testCase);
-    return {
-      id: governanceItemId("recall_eval", testCase.case_id),
-      source: "recall_eval",
-      category: "recall_quality",
-      severity: "warning",
-      title: `Recall eval missed ${testCase.case_id}`,
-      summary: `Query "${testCase.query}" ${recallEvalCaseFindingText(testCase)}.`,
-      record_ids: recordIds,
-      evidence_path: evidencePath,
-      action_label: actionLabel,
-      safe_to_run: true,
-      requires_user_confirmation: false,
-      writes: "none",
-      review_log: governanceReviewLog({
+  return report.cases
+    .filter((testCase) => testCase.status === "fail")
+    .map((testCase): DashboardGovernanceItem => {
+      const action =
+        report.suggested_actions_by_id[`revise-golden-case:${testCase.case_id}`] ??
+        report.suggested_actions_by_id[`inspect-hidden-records:${testCase.case_id}`];
+      const evidencePath = `recall_eval.report.cases_by_id.${testCase.case_id}`;
+      const actionLabel = action?.recommended_action ?? "Inspect recall eval case";
+      const recordIds = recallEvalCaseRecordIds(testCase);
+      return {
+        id: governanceItemId("recall_eval", testCase.case_id),
         source: "recall_eval",
         category: "recall_quality",
-        actionLabel,
-        evidencePath,
-        requiresUserConfirmation: false,
-        writes: "none"
-      })
-    };
-  });
+        severity: "warning",
+        title: `Recall eval missed ${testCase.case_id}`,
+        summary: `Query "${testCase.query}" ${recallEvalCaseFindingText(testCase)}.`,
+        record_ids: recordIds,
+        evidence_path: evidencePath,
+        action_label: actionLabel,
+        safe_to_run: true,
+        requires_user_confirmation: false,
+        writes: "none",
+        review_log: governanceReviewLog({
+          source: "recall_eval",
+          category: "recall_quality",
+          actionLabel,
+          evidencePath,
+          requiresUserConfirmation: false,
+          writes: "none"
+        })
+      };
+    });
 }
 
 function recallEvalCaseRecordIds(testCase: RecallEvalReport["cases"][number]): string[] {
@@ -2908,7 +3000,9 @@ function recallEvalCaseRecordIds(testCase: RecallEvalReport["cases"][number]): s
 
 function recallEvalCaseFindingText(testCase: RecallEvalReport["cases"][number]): string {
   const parts = [
-    testCase.missing_record_ids.length ? `missed ${pluralize(testCase.missing_record_ids.length, "expected record")}` : "",
+    testCase.missing_record_ids.length
+      ? `missed ${pluralize(testCase.missing_record_ids.length, "expected record")}`
+      : "",
     testCase.hidden_record_ids.length ? `hid ${pluralize(testCase.hidden_record_ids.length, "expected record")}` : ""
   ].filter(Boolean);
   return parts.length ? parts.join(" and ") : "failed without listed missing or hidden records";
@@ -2947,7 +3041,10 @@ function toCandidateTriageRecord(
   };
 }
 
-function candidateTriagePromotionDraft(groupId: "promotable", record: DashboardCandidateTriageRecord): DashboardCandidateTriagePromotionDraft {
+function candidateTriagePromotionDraft(
+  groupId: "promotable",
+  record: DashboardCandidateTriageRecord
+): DashboardCandidateTriagePromotionDraft {
   const args = {
     record_id: record.id,
     target_state: "canonical",
@@ -2975,22 +3072,31 @@ function toCandidateTriageGroup(input: {
   records: DashboardCandidateTriageRecord[];
 }): DashboardCandidateTriageGroup {
   const sampleRecords = input.records.slice(0, CANDIDATE_TRIAGE_SAMPLE_LIMIT);
-  const promotionDrafts = input.id === "promotable"
-    ? Object.fromEntries(input.records.map((record) => [record.id, candidateTriagePromotionDraft("promotable", record)]))
-    : {};
+  const promotionDrafts =
+    input.id === "promotable"
+      ? Object.fromEntries(
+          input.records.map((record) => [record.id, candidateTriagePromotionDraft("promotable", record)])
+        )
+      : {};
   return {
     ...input,
     records: sampleRecords,
     writes: "none",
     requires_user_confirmation: false,
     record_ids: input.records.map((record) => record.id),
-    records_by_id: Object.fromEntries(input.records.map((record, index) => [record.id, {
-      id: record.id,
-      record_index: index,
-      evidence_path: index < CANDIDATE_TRIAGE_SAMPLE_LIMIT
-        ? `candidate_triage.groups_by_id.${input.id}.records[${index}]`
-        : `candidate_triage.groups_by_id.${input.id}.record_ids[${index}]`
-    }])),
+    records_by_id: Object.fromEntries(
+      input.records.map((record, index) => [
+        record.id,
+        {
+          id: record.id,
+          record_index: index,
+          evidence_path:
+            index < CANDIDATE_TRIAGE_SAMPLE_LIMIT
+              ? `candidate_triage.groups_by_id.${input.id}.records[${index}]`
+              : `candidate_triage.groups_by_id.${input.id}.record_ids[${index}]`
+        }
+      ])
+    ),
     promotion_drafts_by_id: promotionDrafts,
     evidence_path: `candidate_triage.groups_by_id.${input.id}`
   };
@@ -3008,8 +3114,15 @@ function toCandidateTriageGroupSummary(group: DashboardCandidateTriageGroup): Da
   };
 }
 
-function candidateTriageReviewFocus(groups: DashboardCandidateTriageGroup[]): DashboardCandidateTriageReviewFocus | undefined {
-  const focusOrder: DashboardCandidateTriageGroupId[] = ["promotable", "likely_noise", "needs_inspection", "session_summaries"];
+function candidateTriageReviewFocus(
+  groups: DashboardCandidateTriageGroup[]
+): DashboardCandidateTriageReviewFocus | undefined {
+  const focusOrder: DashboardCandidateTriageGroupId[] = [
+    "promotable",
+    "likely_noise",
+    "needs_inspection",
+    "session_summaries"
+  ];
   const group = focusOrder
     .map((id) => groups.find((candidateGroup) => candidateGroup.id === id))
     .find((candidateGroup): candidateGroup is DashboardCandidateTriageGroup => candidateGroup !== undefined);
@@ -3025,13 +3138,6 @@ function candidateTriageReviewFocus(groups: DashboardCandidateTriageGroup[]): Da
   };
 }
 
-function candidateTriageVisibleFocus(summary?: string): string {
-  if (!summary) return "";
-  const match = /^Start with ([^:]+): (.+)$/.exec(summary);
-  if (!match) return `Audit focus: ${summary}`;
-  return `Audit focus: ${match[1]} - ${match[2]}`;
-}
-
 function buildCandidateTriage(
   records: MorynRecord[],
   eventsByRecord: Map<string, MorynEvent>,
@@ -3042,10 +3148,7 @@ function buildCandidateTriage(
     .filter((record) => record.state === "candidate" && record.visibility === "active")
     .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id));
   const grouped = new Set<string>();
-  const takeGroup = (
-    predicate: (record: MorynRecord) => boolean,
-    reason: string
-  ): DashboardCandidateTriageRecord[] => {
+  const takeGroup = (predicate: (record: MorynRecord) => boolean, reason: string): DashboardCandidateTriageRecord[] => {
     const group = candidateRecords
       .filter((record) => !grouped.has(record.id))
       .filter(predicate)
@@ -3055,10 +3158,7 @@ function buildCandidateTriage(
     return group;
   };
 
-  const likelyNoise = takeGroup(
-    isCandidateTriageNoise,
-    "Matches smoke, test, fixture, e2e, or marker language."
-  );
+  const likelyNoise = takeGroup(isCandidateTriageNoise, "Matches smoke, test, fixture, e2e, or marker language.");
   const promotable = takeGroup(
     isCandidateTriagePromotable,
     "Looks durable enough for promotion review, but still needs explicit user approval."
@@ -3081,7 +3181,8 @@ function buildCandidateTriage(
       review_handoff: {
         label: "Archive review",
         existing_control: "Capture Inbox or Memory Doctor",
-        guidance: "Reject eligible Capture Inbox candidates; archive confirmed noise only through explicit Memory Doctor guidance.",
+        guidance:
+          "Reject eligible Capture Inbox candidates; archive confirmed noise only through explicit Memory Doctor guidance.",
         write_boundary: "Review first; approve only through draft rows"
       },
       records: likelyNoise
@@ -3107,7 +3208,8 @@ function buildCandidateTriage(
       review_handoff: {
         label: "Handoff review",
         existing_control: "Capture Inbox or timeline",
-        guidance: "Keep useful handoff summaries available for context; promote only when they describe durable memory.",
+        guidance:
+          "Keep useful handoff summaries available for context; promote only when they describe durable memory.",
         write_boundary: "Review first; approve only through draft rows"
       },
       records: sessionSummaries
@@ -3163,11 +3265,13 @@ async function buildDashboardRecallEval(
     .filter(isRecallEvalCaseRecord)
     .sort((left, right) => left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id));
   const caseSources = caseRecords
-    .map((record): DashboardRecallEvalCaseSource => ({
-      record_id: record.id,
-      case_count: recallEvalRecordCases(record).length,
-      evidence_path: `recent_records.${record.id}.content.cases`
-    }))
+    .map(
+      (record): DashboardRecallEvalCaseSource => ({
+        record_id: record.id,
+        case_count: recallEvalRecordCases(record).length,
+        evidence_path: `recent_records.${record.id}.content.cases`
+      })
+    )
     .filter((source) => source.case_count > 0);
   const cases = caseRecords.flatMap(recallEvalRecordCases);
   const base = {
@@ -3273,42 +3377,68 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     return !recordId || visibleRecordIds.has(recordId);
   });
   const eventsByRecord = latestEventsByRecord(visibleEvents);
-  const allRecordsSorted = [...records]
-    .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id));
+  const allRecordsSorted = [...records].sort(
+    (left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id)
+  );
   const recentRecords = allRecordsSorted.slice(0, limit);
   const recentEvents = [...visibleEvents]
-    .sort((left, right) => right.created_at.localeCompare(left.created_at) || left.event_id.localeCompare(right.event_id))
+    .sort(
+      (left, right) => right.created_at.localeCompare(left.created_at) || left.event_id.localeCompare(right.event_id)
+    )
     .slice(0, limit);
   const generatedAt = options.now ?? new Date().toISOString();
   const activationReceipts = allRecords
-    .filter((record) => record.type === "activation_receipt" && (!options.project_id || record.project_id === options.project_id))
+    .filter(
+      (record) =>
+        record.type === "activation_receipt" && (!options.project_id || record.project_id === options.project_id)
+    )
     .sort((left, right) => right.created_at.localeCompare(left.created_at) || left.id.localeCompare(right.id));
   const latestActivationReceipt = activationReceipts[0];
-  const activationHost: "codex" | "claude" | "unknown" = latestActivationReceipt?.content.host === "codex" || latestActivationReceipt?.content.host === "claude"
-    ? latestActivationReceipt.content.host
-    : "unknown";
+  const activationHost: "codex" | "claude" | "unknown" =
+    latestActivationReceipt?.content.host === "codex" || latestActivationReceipt?.content.host === "claude"
+      ? latestActivationReceipt.content.host
+      : "unknown";
   const activationFresh = latestActivationReceipt
     ? Date.parse(generatedAt) - Date.parse(latestActivationReceipt.created_at) <= 24 * 60 * 60 * 1000
     : false;
   const autopilot: DashboardData["quiet_dashboard"]["system_pulse"]["autopilot"] = latestActivationReceipt
     ? {
-        status: activationFresh ? "active" as const : "degraded" as const,
+        status: activationFresh ? ("active" as const) : ("degraded" as const),
         host: activationHost,
-        ...(typeof latestActivationReceipt.content.event === "string" ? { last_event: latestActivationReceipt.content.event } : {}),
+        ...(typeof latestActivationReceipt.content.event === "string"
+          ? { last_event: latestActivationReceipt.content.event }
+          : {}),
         last_seen_at: latestActivationReceipt.created_at
       }
     : { status: "not_installed" as const, host: "unknown" as const };
-  const semanticLinkEvents = visibleEvents.filter((event) => event.op === "link_records" && event.event_id.startsWith("evt_semantic_consolidation_"));
-  const semanticLinkKeys = new Set(semanticLinkEvents.map((event) => event.op === "link_records" ? `${event.record_id}\u0000${event.linked_record_id}\u0000${event.link_type}` : ""));
+  const semanticLinkEvents = visibleEvents.filter(
+    (event) => event.op === "link_records" && event.event_id.startsWith("evt_semantic_consolidation_")
+  );
+  const semanticLinkKeys = new Set(
+    semanticLinkEvents.map((event) =>
+      event.op === "link_records" ? `${event.record_id}\u0000${event.linked_record_id}\u0000${event.link_type}` : ""
+    )
+  );
   const checkpointProposals = records.flatMap((record) => {
     const checkpoint = record.content.checkpoint;
     if (!checkpoint || typeof checkpoint !== "object" || Array.isArray(checkpoint)) return [];
     const proposals = (checkpoint as Record<string, unknown>).semantic_consolidation_proposals;
-    return Array.isArray(proposals) ? proposals.filter((proposal): proposal is Record<string, unknown> => Boolean(proposal && typeof proposal === "object" && !Array.isArray(proposal))) : [];
+    return Array.isArray(proposals)
+      ? proposals.filter((proposal): proposal is Record<string, unknown> =>
+          Boolean(proposal && typeof proposal === "object" && !Array.isArray(proposal))
+        )
+      : [];
   });
-  const semanticRejectedProposals = checkpointProposals.filter((proposal) => !semanticLinkKeys.has(`${proposal.source_record_id}\u0000${proposal.target_record_id}\u0000${proposal.relationship}`)).length;
+  const semanticRejectedProposals = checkpointProposals.filter(
+    (proposal) =>
+      !semanticLinkKeys.has(
+        `${proposal.source_record_id}\u0000${proposal.target_record_id}\u0000${proposal.relationship}`
+      )
+  ).length;
   const investigationsById = new Map<string, Record<string, unknown>>();
-  for (const record of [...records].sort((left, right) => left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id))) {
+  for (const record of [...records].sort(
+    (left, right) => left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id)
+  )) {
     const checkpoint = record.content.checkpoint;
     if (!checkpoint || typeof checkpoint !== "object" || Array.isArray(checkpoint)) continue;
     const investigations = (checkpoint as Record<string, unknown>).knowledge_investigations;
@@ -3316,7 +3446,8 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     for (const investigation of investigations) {
       if (!investigation || typeof investigation !== "object" || Array.isArray(investigation)) continue;
       const resolutionId = (investigation as Record<string, unknown>).resolution_id;
-      if (typeof resolutionId === "string") investigationsById.set(resolutionId, investigation as Record<string, unknown>);
+      if (typeof resolutionId === "string")
+        investigationsById.set(resolutionId, investigation as Record<string, unknown>);
     }
   }
   const knowledgeInvestigations = [...investigationsById.values()];
@@ -3324,11 +3455,15 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
   const sync = await getGitSyncStatus(storePath);
   const agentActivity = summarizeAgentActivity(visibleEvents, records, recordsById, eventsByRecord);
   const lifecycleAllRecords = allRecords.filter((record) => recordProjectMatchesDashboard(record, options.project_id));
-  const lifecycleRecords = lifecycleAllRecords.filter((record) => isVisibleForDashboard(record, options.include_private));
+  const lifecycleRecords = lifecycleAllRecords.filter((record) =>
+    isVisibleForDashboard(record, options.include_private)
+  );
   const capturePolicyAllRecords = allRecords.filter((record) => {
     return !options.project_id || record.project_id === options.project_id;
   });
-  const capturePolicyRecords = capturePolicyAllRecords.filter((record) => isVisibleForDashboard(record, options.include_private));
+  const capturePolicyRecords = capturePolicyAllRecords.filter((record) =>
+    isVisibleForDashboard(record, options.include_private)
+  );
   const captureInboxData = buildCaptureInbox(records, generatedAt, limit, eventsByRecord);
   const contextPackReviewData = buildContextPackReview(records, options);
   const capturePolicyData = diagnoseCapturePolicy({
@@ -3352,8 +3487,12 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     private_record_ids: lifecycleAllRecords.filter(isPrivateRecord).map((record) => record.id),
     excluded_private_records: lifecycleAllRecords.length - lifecycleRecords.length
   });
-  const memoryDoctorAllRecords = allRecords.filter((record) => recordProjectMatchesDashboard(record, options.project_id));
-  const memoryDoctorRecords = memoryDoctorAllRecords.filter((record) => isVisibleForDashboard(record, options.include_private));
+  const memoryDoctorAllRecords = allRecords.filter((record) =>
+    recordProjectMatchesDashboard(record, options.project_id)
+  );
+  const memoryDoctorRecords = memoryDoctorAllRecords.filter((record) =>
+    isVisibleForDashboard(record, options.include_private)
+  );
   const memoryDoctorData = diagnoseMemory({
     records: memoryDoctorRecords,
     project_id: options.project_id,
@@ -3377,17 +3516,22 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     include_private: options.include_private === true,
     excluded_private_records: dogfoodAllRecords.length - dogfoodRecords.length
   });
-  const healthCheckAllRecords = allRecords.filter((record) => recordProjectMatchesDashboard(record, options.project_id));
-  const healthCheckRecords = healthCheckAllRecords.filter((record) => isVisibleForDashboard(record, options.include_private));
+  const healthCheckAllRecords = allRecords.filter((record) =>
+    recordProjectMatchesDashboard(record, options.project_id)
+  );
+  const healthCheckRecords = healthCheckAllRecords.filter((record) =>
+    isVisibleForDashboard(record, options.include_private)
+  );
   const healthCheckRecordIds = new Set(healthCheckRecords.map((record) => record.id));
   const healthCheckEvents = events.filter((event) => {
     const recordId = targetRecordId(event);
     return !recordId || healthCheckRecordIds.has(recordId);
   });
   const latestSyncCompensation = await readSyncCompensationReceipt(storePath);
-  const syncCompensation = latestSyncCompensation && (!options.project_id || latestSyncCompensation.project_id === options.project_id)
-    ? latestSyncCompensation
-    : undefined;
+  const syncCompensation =
+    latestSyncCompensation && (!options.project_id || latestSyncCompensation.project_id === options.project_id)
+      ? latestSyncCompensation
+      : undefined;
   const healthCheckData = diagnoseHealthCheck({
     records: healthCheckRecords,
     events: healthCheckEvents,
@@ -3398,7 +3542,14 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     include_private: options.include_private === true,
     excluded_private_records: healthCheckAllRecords.length - healthCheckRecords.length,
     record_read_model: currentRecordRead,
-    ...(options.project_id ? { retrieval_index: await readRetrievalCandidates(storePath, { project_id: options.project_id, read_current_records: async () => currentRecordRead }) } : {}),
+    ...(options.project_id
+      ? {
+          retrieval_index: await readRetrievalCandidates(storePath, {
+            project_id: options.project_id,
+            read_current_records: async () => currentRecordRead
+          })
+        }
+      : {}),
     ...(syncCompensation ? { sync_compensation: syncCompensation } : {})
   });
   const recallEvalData = await buildDashboardRecallEval(storePath, records, options);
@@ -3440,29 +3591,48 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     memoryInventory,
     captureInbox: captureInboxData
   });
-  const latestCheckpoint = recentRecords.find((record) => record.kind === "session_summary" && record.type === "checkpoint");
+  const latestCheckpoint = recentRecords.find(
+    (record) => record.kind === "session_summary" && record.type === "checkpoint"
+  );
   const latestHandoff = recentRecords.find((record) => record.kind === "session_summary" && record.type === "summary");
   const activeContextRecord = latestCheckpoint ?? latestHandoff ?? recentRecords[0];
   const checkpointContent = latestCheckpoint ? allRecordsById.get(latestCheckpoint.id)?.content.checkpoint : undefined;
-  const checkpointTask = checkpointContent && typeof checkpointContent === "object" && checkpointContent !== null && typeof (checkpointContent as Record<string, unknown>).current_task === "string"
-    ? (checkpointContent as Record<string, unknown>).current_task as string
-    : undefined;
+  const checkpointTask =
+    checkpointContent &&
+    typeof checkpointContent === "object" &&
+    checkpointContent !== null &&
+    typeof (checkpointContent as Record<string, unknown>).current_task === "string"
+      ? ((checkpointContent as Record<string, unknown>).current_task as string)
+      : undefined;
   const sessionSynthesis = {
-    host_authored: records.filter((record) => record.kind === "session_summary" && record.content.synthesis_mode === "host_authored").length,
-    evidence_synthesized: records.filter((record) => record.kind === "session_summary" && record.content.synthesis_mode === "evidence_synthesized").length,
-    minimal_fallback: records.filter((record) => record.kind === "session_summary" && record.content.synthesis_mode === "minimal_fallback").length
+    host_authored: records.filter(
+      (record) => record.kind === "session_summary" && record.content.synthesis_mode === "host_authored"
+    ).length,
+    evidence_synthesized: records.filter(
+      (record) => record.kind === "session_summary" && record.content.synthesis_mode === "evidence_synthesized"
+    ).length,
+    minimal_fallback: records.filter(
+      (record) => record.kind === "session_summary" && record.content.synthesis_mode === "minimal_fallback"
+    ).length
   };
-  const routineMaintenanceDecisionIds = new Set(maintenanceData.plans
-    .filter((plan) => plan.type === "candidate_noise_archive")
-    .map((plan) => `maintenance_review:${plan.plan_hash.replace(/^sha256:/, "")}`));
+  const routineMaintenanceDecisionIds = new Set(
+    maintenanceData.plans
+      .filter((plan) => plan.type === "candidate_noise_archive")
+      .map((plan) => `maintenance_review:${plan.plan_hash.replace(/^sha256:/, "")}`)
+  );
   const exceptionalAttention: DashboardAttentionItem[] = [
-    ...attentionItems.filter((item) => (item.severity === "warning" || item.severity === "critical") && item.title !== "Sync changes not pushed"),
-    ...decisionSummaryData.items.filter((item) => !routineMaintenanceDecisionIds.has(item.id)).map((item) => ({
-      severity: "warning" as const,
-      title: item.title,
-      description: item.summary,
-      action_label: item.target_label
-    }))
+    ...attentionItems.filter(
+      (item) =>
+        (item.severity === "warning" || item.severity === "critical") && item.title !== "Sync changes not pushed"
+    ),
+    ...decisionSummaryData.items
+      .filter((item) => !routineMaintenanceDecisionIds.has(item.id))
+      .map((item) => ({
+        severity: "warning" as const,
+        title: item.title,
+        description: item.summary,
+        action_label: item.target_label
+      }))
   ];
   if (sessionSynthesis.minimal_fallback >= 2) {
     exceptionalAttention.push({
@@ -3474,10 +3644,18 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
   const currentTaskTokens = new Set((checkpointTask ?? "").toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []);
   const materialSemanticConflicts = semanticLinkEvents.filter((event) => {
     if (event.op !== "link_records" || event.link_type !== "conflicts_with" || !currentTaskTokens.size) return false;
-    const text = `${allRecordsById.get(event.record_id)?.content.text ?? ""} ${allRecordsById.get(event.linked_record_id)?.content.text ?? ""}`.toLocaleLowerCase();
+    const text =
+      `${allRecordsById.get(event.record_id)?.content.text ?? ""} ${allRecordsById.get(event.linked_record_id)?.content.text ?? ""}`.toLocaleLowerCase();
     return [...currentTaskTokens].some((token) => token.length > 3 && text.includes(token));
   });
-  exceptionalAttention.push(...materialSemanticConflicts.map(() => ({ severity: "warning" as const, title: "Semantic memory conflict", description: "A material memory conflict overlaps the current task. Inspect the conflicting records under Technical details." })));
+  exceptionalAttention.push(
+    ...materialSemanticConflicts.map(() => ({
+      severity: "warning" as const,
+      title: "Semantic memory conflict",
+      description:
+        "A material memory conflict overlaps the current task. Inspect the conflicting records under Technical details."
+    }))
+  );
 
   return {
     generated_at: generatedAt,
@@ -3511,9 +3689,20 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
       conflict_records: logicalView.conflict_record_ids.length,
       cycle_findings: logicalView.findings.length,
       learned_records: records.filter((record) => record.tags.includes("learning")).length,
-      learned_canonical_records: records.filter((record) => record.tags.includes("learning") && record.state === "canonical").length,
-      learned_candidate_records: records.filter((record) => record.tags.includes("learning") && record.state === "candidate").length,
-      learning_evidence_links: records.reduce((count, record) => count + (record.links?.filter((link) => link.link_type === "supports" && link.reason?.startsWith("Learning evidence:")).length ?? 0), 0)
+      learned_canonical_records: records.filter(
+        (record) => record.tags.includes("learning") && record.state === "canonical"
+      ).length,
+      learned_candidate_records: records.filter(
+        (record) => record.tags.includes("learning") && record.state === "candidate"
+      ).length,
+      learning_evidence_links: records.reduce(
+        (count, record) =>
+          count +
+          (record.links?.filter(
+            (link) => link.link_type === "supports" && link.reason?.startsWith("Learning evidence:")
+          ).length ?? 0),
+        0
+      )
     },
     quiet_dashboard: {
       system_pulse: {
@@ -3539,7 +3728,10 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
         store_events: workingSetReport.total_events,
         store_records: workingSetReport.total_records,
         active_working_set_records: workingSetReport.active_logical_records,
-        hidden_logical_records: workingSetReport.hidden_duplicate_records + workingSetReport.hidden_superseded_records + workingSetReport.hidden_revised_records,
+        hidden_logical_records:
+          workingSetReport.hidden_duplicate_records +
+          workingSetReport.hidden_superseded_records +
+          workingSetReport.hidden_revised_records,
         hidden_duplicate_records: workingSetReport.hidden_duplicate_records,
         hidden_superseded_records: workingSetReport.hidden_superseded_records,
         hidden_revised_records: workingSetReport.hidden_revised_records,
@@ -3548,10 +3740,18 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
         default_boot_records: workingSetReport.default_boot_records,
         compaction_ratio: workingSetReport.compaction_ratio,
         learned_records: records.filter((record) => record.tags.includes("learning")).length,
-        semantic_equivalent_links: semanticLinkEvents.filter((event) => event.op === "link_records" && event.link_type === "duplicate_of").length,
-        semantic_revision_links: semanticLinkEvents.filter((event) => event.op === "link_records" && event.link_type === "revises").length,
-        semantic_superseded_links: semanticLinkEvents.filter((event) => event.op === "link_records" && event.link_type === "supersedes").length,
-        semantic_conflict_links: semanticLinkEvents.filter((event) => event.op === "link_records" && event.link_type === "conflicts_with").length,
+        semantic_equivalent_links: semanticLinkEvents.filter(
+          (event) => event.op === "link_records" && event.link_type === "duplicate_of"
+        ).length,
+        semantic_revision_links: semanticLinkEvents.filter(
+          (event) => event.op === "link_records" && event.link_type === "revises"
+        ).length,
+        semantic_superseded_links: semanticLinkEvents.filter(
+          (event) => event.op === "link_records" && event.link_type === "supersedes"
+        ).length,
+        semantic_conflict_links: semanticLinkEvents.filter(
+          (event) => event.op === "link_records" && event.link_type === "conflicts_with"
+        ).length,
         semantic_rejected_proposals: semanticRejectedProposals,
         recent_records: recentRecords.length,
         recent_events: recentEvents.length,
@@ -3562,9 +3762,14 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
         learned_canonical_records: learnedRecords.filter((record) => record.state === "canonical").length,
         learned_candidate_records: learnedRecords.filter((record) => record.state === "candidate").length,
         investigations: knowledgeInvestigations.length,
-        resolved_investigations: knowledgeInvestigations.filter((investigation) => investigation.status === "resolved").length,
-        unresolved_investigations: knowledgeInvestigations.filter((investigation) => investigation.status === "unresolved").length,
-        preserved_before_compact: knowledgeInvestigations.filter((investigation) => investigation.status === "unresolved" && typeof investigation.next_step === "string").length
+        resolved_investigations: knowledgeInvestigations.filter((investigation) => investigation.status === "resolved")
+          .length,
+        unresolved_investigations: knowledgeInvestigations.filter(
+          (investigation) => investigation.status === "unresolved"
+        ).length,
+        preserved_before_compact: knowledgeInvestigations.filter(
+          (investigation) => investigation.status === "unresolved" && typeof investigation.next_step === "string"
+        ).length
       },
       session_synthesis: sessionSynthesis,
       attention_needed: exceptionalAttention
@@ -3609,19 +3814,6 @@ function i18nAttribute(en: string, zh: string): string {
   return `data-i18n-en="${escapeHtml(en)}" data-i18n-zh="${escapeHtml(zh)}"`;
 }
 
-function i18nAriaAndTitle(en: string, zh: string): string {
-  const escapedEn = escapeHtml(en);
-  const escapedZh = escapeHtml(zh);
-  return [
-    `aria-label="${escapedEn}"`,
-    `title="${escapedEn}"`,
-    `data-i18n-aria-label-en="${escapedEn}"`,
-    `data-i18n-aria-label-zh="${escapedZh}"`,
-    `data-i18n-title-en="${escapedEn}"`,
-    `data-i18n-title-zh="${escapedZh}"`
-  ].join(" ");
-}
-
 function dashboardHealthZh(status: DashboardHealthStatus, label: string): string {
   if (status === "healthy" || label === "Healthy") return "正常";
   if (label === "Local Ready") return "本机可用";
@@ -3639,206 +3831,10 @@ function dashboardDisplayHealth(data: DashboardData): { label: string; status: D
   return { label: data.health.label, status: data.health.status };
 }
 
-function dashboardActionLabelZh(label: string): string {
-  if (label === "Health") return "健康";
-  if (label === "Next") return "下一步";
-  if (label === "Context") return "上下文";
-  if (label === "Decide") return "决定";
-  if (label === "Evidence") return "依据";
-  if (label === "Sync") return "共享副本";
-  if (label === "Healthy") return "正常";
-  if (label === "Sync Pending") return "等待同步";
-  if (label === "Needs Review") return "需要查看";
-  if (label === "Conflict") return "需要处理冲突";
-  if (label === "Local Only") return "仅本机";
-  if (label === "Local only") return "仅本机";
-  if (label === "Ready") return "已就绪";
-  if (label === "Available") return "可用";
-  if (label === "Unavailable") return "不可用";
-  if (label === "Configured") return "已配置";
-  if (label === "Not configured") return "未配置";
-  if (label === "Local changes") return "本机有新变化";
-  if (label === "Approval needed") return "需要确认";
-  if (label === "Review approvals") return "查看确认项";
-  if (label === "Review what changed") return "查看变化";
-  if (label === "Review health") return "查看健康状态";
-  if (label === "Open checks") return "打开检查";
-  if (label === "Open context") return "查看上下文";
-  if (label === "Open governance") return "查看安全检查";
-  if (label === "Check attention") return "查看需要注意的内容";
-  if (label === "Inspect checks") return "查看检查";
-  if (label === "Inspect sync") return "检查共享副本";
-  if (label === "Browse saved notes") return "浏览已保存内容";
-  if (label === "Search saved content") return "搜索已保存内容";
-  if (label === "Saved for later") return "已保存，可稍后整理";
-  if (label === "Saved, not remembered") return "已保存，未记住";
-  if (label === "To organize") return "待整理";
-  if (label === "No action needed") return "无需操作";
-  if (label === "All clear") return "暂时不用管";
-  if (label === "View checks") return "查看检查";
-  if (label === "View details") return "查看详情";
-  if (label === "Inspect decision surfaces") return "查看可确认的地方";
-  if (label === "Open handoff review") return "打开交接查看";
-  if (label === "Open read-only evidence") return "打开只读依据";
-  return label;
-}
-
-function dashboardDisplayZh(label: string): string {
-  const safeCheckAvailable = label.match(/^(\d+) safe check(s)? available$/);
-  if (safeCheckAvailable) return `${safeCheckAvailable[1]} 项安全检查可查看`;
-  return dashboardActionLabelZh(label);
-}
-
-function dashboardActionDetailZh(detail: string): string {
-  const savedItems = detail.match(/^(\d+) saved item(s)?$/);
-  if (savedItems) return `${savedItems[1]} 条已保存内容`;
-  const approvalWaiting = detail.match(/^(\d+) approval(s)? waiting$/);
-  if (approvalWaiting) return `${approvalWaiting[1]} 个确认项待处理`;
-  const attentionItems = detail.match(/^(\d+) attention item(s)?$/);
-  if (attentionItems) return `${attentionItems[1]} 条提醒`;
-  const safeChecks = detail.match(/^(\d+) safe check(s)?$/);
-  if (safeChecks) return `${safeChecks[1]} 项安全检查`;
-  if (detail === "Clean") return "已同步";
-  if (detail === "No action needed") return "无需操作";
-  if (detail === "No urgent review") return "没有紧急提醒";
-  if (detail === "No approvals waiting") return "没有等待确认的内容";
-  if (detail === "No safe checks") return "没有安全检查";
-  if (detail === "Context unavailable") return "暂无上下文";
-  if (detail === "Ready handoff context") return "交接上下文已就绪";
-  if (detail === "Ready handoff context | no handoff evidence") return "交接上下文已就绪 | 暂无交接依据";
-  if (detail === "Read-only reference material") return "只读参考资料";
-  if (detail === "Explicit approvals stay in Capture Inbox, Review Queue, and Candidate Triage.") {
-    return "需要明确确认的操作会保留在 Capture Inbox、Review Queue 和 Candidate Triage 中。";
-  }
-  if (detail === "Sync is not configured; this snapshot is useful locally, but other devices will not see these records yet.") {
-    return "同步还没有连接；这份快照在本机可用，但其他设备还看不到这些记录。";
-  }
-  if (detail === "Local sync changes are waiting to be pushed or pulled; memory data remains usable on this device.") {
-    return "本机同步变化还在等待上传或拉取；这台设备上的记忆仍可使用。";
-  }
-  if (detail === "Everything is synced and no action is waiting.") {
-    return "已同步，没有等待处理的事项。";
-  }
-  if (detail === "Important checks stay visible in Needs a look.") {
-    return "重要检查会继续显示在需要看一下区域。";
-  }
-  if (detail === "Sync pending is shown in the Sync lane and Shared copy details.") {
-    return "同步事项会显示在共享副本和共享副本详情中。";
-  }
-  if (detail === "Handoff evidence stays read-only") {
-    return "交接依据保持只读。";
-  }
-  if (detail === "Project context is required for Context Pack Review.") {
-    return "需要项目上下文才能查看交接上下文。";
-  }
-  if (detail === "No confirmations, warnings, or sync actions need attention. Read-only inspections remain available below.") {
-    return "没有需要确认、提醒或同步的事项；只读检查仍保留在下方。";
-  }
-  return detail;
-}
-
-function statusClass(sync: GitSyncStatus): string {
-  if (sync.sync_state === "clean") return "good";
-  if (sync.sync_state === "conflict") return "critical";
-  if (sync.sync_state === "dirty") return "warning";
-  return sync.configured ? "info" : "muted";
-}
-
 function syncLabel(sync: GitSyncStatus): string {
   if (sync.sync_state === "dirty") return "Local changes";
   if (sync.sync_state) return titleCase(sync.sync_state);
   return sync.configured ? "Configured" : "Not configured";
-}
-
-function sharedCopyLabel(sync: GitSyncStatus): { label: string; zh: string; detail: string; zhDetail: string; severity: DashboardOverviewStatus } {
-  const ahead = sync.ahead ?? 0;
-  const behind = sync.behind ?? 0;
-  if (!sync.configured) {
-    return {
-      label: "Not connected",
-      zh: "未连接",
-      detail: "This device only",
-      zhDetail: "仅本机可见",
-      severity: "info"
-    };
-  }
-  if (sync.sync_state === "conflict") {
-    return {
-      label: "Needs help",
-      zh: "需要处理",
-      detail: "Both sides changed",
-      zhDetail: "两边都有变化",
-      severity: "critical"
-    };
-  }
-  if (sync.sync_state === "dirty") {
-    return {
-      label: "Waiting to upload",
-      zh: "等待上传",
-      detail: `${behind} behind · ${ahead} ahead`,
-      zhDetail: `落后 ${behind} · 待上传 ${ahead}`,
-      severity: "warning"
-    };
-  }
-  if (behind > 0) {
-    return {
-      label: "New shared updates",
-      zh: "共享副本有更新",
-      detail: `${behind} behind · ${ahead} ahead`,
-      zhDetail: `落后 ${behind} · 待上传 ${ahead}`,
-      severity: "warning"
-    };
-  }
-  if (ahead > 0) {
-    return {
-      label: "Waiting to upload",
-      zh: "等待上传",
-      detail: `${behind} behind · ${ahead} ahead`,
-      zhDetail: `落后 ${behind} · 待上传 ${ahead}`,
-      severity: "info"
-    };
-  }
-  return {
-    label: "Up to date",
-    zh: "已同步",
-    detail: "0 behind · 0 ahead",
-    zhDetail: "落后 0 · 待上传 0",
-    severity: "good"
-  };
-}
-
-function syncPositionLabel(sync: DashboardSyncPositionChart): string {
-  if (sync.state === "dirty") return "Local Changes";
-  return titleCase(sync.state);
-}
-
-function shortText(text: string): string {
-  return text.length > 180 ? `${text.slice(0, 177)}...` : text;
-}
-
-function textExcerpt(text: string, limit = DASHBOARD_TEXT_EXCERPT_LIMIT): { text: string; truncated: boolean } {
-  if (text.length <= limit) return { text, truncated: false };
-  const clipped = text.slice(0, limit).replace(/\s+\S*$/, "").trim();
-  return {
-    text: `${clipped || text.slice(0, limit).trim()}...`,
-    truncated: true
-  };
-}
-
-function textExcerptBlock(text: string, truncatedAttribute = "data-full-text-hidden"): string {
-  const excerpt = textExcerpt(text);
-  return `
-    <p${excerpt.truncated ? ` ${truncatedAttribute}="true"` : ""}>${escapeHtml(excerpt.text)}</p>
-    ${excerpt.truncated ? `<small>Full text available through timeline/recall.</small>` : ""}
-  `;
-}
-
-function memorySearchPreviewBlock(text: string): string {
-  const excerpt = textExcerpt(text, 170);
-  return `
-            <p class="memory-search-result-preview" data-memory-search-preview>${escapeHtml(excerpt.text)}</p>
-            ${excerpt.truncated ? `<small class="memory-search-result-full-hint" data-i18n-en="Full text opens in the detail pane." data-i18n-zh="全文可在右侧详情中打开。">Full text opens in the detail pane.</small>` : ""}
-  `;
 }
 
 function recordLabel(recordId: string): string {
@@ -3850,68 +3846,6 @@ function recordLabel(recordId: string): string {
 function deviceLabel(deviceId: string): string {
   const generated = deviceId.match(/^device_([0-9a-f]{12,})$/i);
   return generated ? `device · ${generated[1]?.slice(0, 6)}` : deviceId;
-}
-
-function isReadOnlyInspectActionBoardItem(item: DashboardActionBoardItem): boolean {
-  return item.id === "inspect" && item.severity === "info";
-}
-
-function isActiveActionBoardItem(item: DashboardActionBoardItem): boolean {
-  if (isReadOnlyInspectActionBoardItem(item)) return false;
-  return item.value > 0 || item.severity !== "good";
-}
-
-function isDuplicatedDecisionShortcut(item: DashboardActionBoardItem): boolean {
-  return item.id === "confirm" && item.value > 0;
-}
-
-function actionBoardItemButton(item: DashboardActionBoardItem, dataAttribute = "data-action-board-item"): string {
-  const hint = item.hint === item.next_action_label ? "" : `<small>${escapeHtml(item.hint)}</small>`;
-  return `
-    <button type="button" class="action-board-item ${escapeHtml(item.severity)}" ${dataAttribute}="${escapeHtml(item.id)}" data-action-board-target="${escapeHtml(item.target)}" aria-controls="${escapeHtml(item.target)}">
-      <span>${escapeHtml(item.label)}</span>
-      <strong>${escapeHtml(item.value)}</strong>
-      <p>${escapeHtml(item.summary)}</p>
-      ${hint}
-      <em class="action-board-next">${escapeHtml(item.next_action_label)}</em>
-    </button>
-  `;
-}
-
-function actionBoardBackgroundShortcuts(items: DashboardActionBoardItem[]): string {
-  if (items.length === 0) return "";
-  return `
-    <details class="action-board-background" aria-label="Background Shortcuts" data-dashboard-detail="action-board" data-dashboard-background-shortcuts>
-      <summary class="dashboard-fold-summary action-board-background-fold">
-        <span>Background Shortcuts</span>
-        <small>Optional section links</small>
-      </summary>
-      <div class="action-board-background-list" data-dashboard-detail="action-board-quiet-targets">
-        ${items.map((item) => actionBoardItemButton(item, "data-action-board-quiet-item")).join("")}
-      </div>
-    </details>
-  `;
-}
-
-function actionBoard(data: DashboardActionBoard): string {
-  const shortcutItems = data.items.filter((item) => !isDuplicatedDecisionShortcut(item));
-  const activeItems = shortcutItems.filter(isActiveActionBoardItem);
-  const quietItems = shortcutItems.filter((item) => !isActiveActionBoardItem(item));
-  if (activeItems.length === 1) return "";
-  if (activeItems.length === 0) return actionBoardBackgroundShortcuts(quietItems);
-  return `
-    <details class="action-board action-board-secondary" aria-label="Page Shortcuts" data-dashboard-detail="action-board" data-action-board-nav>
-      <summary class="dashboard-fold-summary action-board-fold">
-        <span>Page Shortcuts</span>
-        <small>Optional section links</small>
-      </summary>
-      ${activeItems.length === 0 ? "" : `
-        <div class="action-board-grid">
-          ${activeItems.map((item) => actionBoardItemButton(item)).join("")}
-        </div>
-      `}
-    </details>
-  `;
 }
 
 type DashboardPrimaryFocusItem = DashboardActionBoardItem & { source?: string };
@@ -3951,9 +3885,7 @@ function memoryInventoryReviewItem(
   captureInbox: DashboardCaptureInbox
 ): DashboardPrimaryFocusItem {
   const reviewCount = inventory.summary.new_items + inventory.summary.temporary + inventory.summary.set_aside;
-  const target = captureInbox.total > 0
-    ? "capture-inbox"
-    : "stored-content";
+  const target = captureInbox.total > 0 ? "capture-inbox" : "stored-content";
   return {
     id: "review",
     label: "Review",
@@ -3971,710 +3903,27 @@ function memoryInventoryReviewItem(
 function focusBriefPrimaryItem(actionBoardData: DashboardActionBoard): DashboardPrimaryFocusItem {
   const priority = ["confirm", "review", "sync"] as const;
   const inspectCount = actionBoardData.items_by_id.inspect.value;
-  return priority
-    .map((id) => actionBoardData.items_by_id[id])
-    .find((item) => item.value > 0 && item.severity !== "good")
-    ?? {
+  return (
+    priority
+      .map((id) => actionBoardData.items_by_id[id])
+      .find((item) => item.value > 0 && item.severity !== "good") ?? {
       ...actionBoardData.items_by_id.inspect,
       value: 0,
       severity: "good",
       summary: inspectCount > 0 ? `${pluralize(inspectCount, "safe check")} available` : "No action needed",
       hint: "No action needed",
-      detail: "No confirmations, warnings, or sync actions need attention. Read-only inspections remain available below.",
+      detail:
+        "No confirmations, warnings, or sync actions need attention. Read-only inspections remain available below.",
       next_action_label: "All clear",
       target: inspectCount > 0 ? "governance-hub" : "needs-attention"
-    };
-}
-
-function isPrimaryDashboardOverviewCard(card: DashboardOverviewCard, data: DashboardOverview): boolean {
-  return card.source === data.primary_action.source;
-}
-
-function dashboardOverviewCardButton(card: DashboardOverviewCard, dataAttribute = "data-dashboard-overview-card"): string {
-  return `
-          <button type="button" class="dashboard-overview-card ${escapeHtml(card.severity)}" ${dataAttribute}="${escapeHtml(card.id)}" data-action-board-target="${escapeHtml(card.target)}" aria-controls="${escapeHtml(card.target)}" data-dashboard-overview-source="${escapeHtml(card.source)}">
-            <span ${i18nAttribute(card.label, dashboardActionLabelZh(card.label))}>${escapeHtml(card.label)}</span>
-            <strong ${i18nAttribute(card.value, dashboardDisplayZh(card.value))}>${escapeHtml(card.value)}</strong>
-            <p ${i18nAttribute(card.summary, dashboardActionDetailZh(card.summary))}>${escapeHtml(card.summary)}</p>
-            <small ${i18nAttribute(card.target_label, dashboardActionLabelZh(card.target_label))}>${escapeHtml(card.target_label)}</small>
-          </button>
-        `;
-}
-
-function dashboardOverviewQuietCards(cards: DashboardOverviewCard[]): string {
-  if (cards.length === 0) return "";
-  return `
-      <details class="dashboard-overview-quiet" data-dashboard-detail="dashboard-overview-quiet-cards">
-        <summary class="dashboard-fold-summary dashboard-overview-quiet-fold" aria-label="Other status: supporting signals are ready">
-          ${i18nText("Other status", "其他状态")}
-          ${i18nText("Ready if needed", "需要时可查看", "small")}
-        </summary>
-        <div class="dashboard-overview-quiet-list">
-          ${cards.map((card) => dashboardOverviewCardButton(card, "data-dashboard-overview-quiet-card")).join("")}
-        </div>
-      </details>
-  `;
+    }
+  );
 }
 
 function joinHumanList(items: readonly string[]): string {
   if (items.length <= 1) return items[0] ?? "";
   if (items.length === 2) return `${items[0]} and ${items[1]}`;
   return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
-}
-
-function dashboardOverview(
-  data: DashboardOverview,
-  options: { showBackgroundStatus?: boolean; showSafety?: boolean } = {}
-): string {
-  const visibleCards = data.cards.filter((card) => !isPrimaryDashboardOverviewCard(card, data));
-  const showBackgroundStatus = options.showBackgroundStatus ?? true;
-  const showSafety = options.showSafety ?? true;
-  const isAllClear = data.headline === "All clear";
-  const visibleDetail = isAllClear ? "No work needs attention." : data.detail;
-  const actionClass = isAllClear
-    ? "dashboard-overview-action dashboard-overview-action-quiet"
-    : "dashboard-overview-action";
-  const actionLabel = isAllClear
-    ? data.primary_action.label === "Inspect checks" ? "View checks" : "View details"
-    : data.primary_action.label;
-  const headlineZh = dashboardActionLabelZh(data.headline);
-  const detailZh = data.zh_detail
-    ?? (data.headline === "Saved, not remembered" || data.headline === "Saved for later"
-      ? data.detail
-      .replace("1 saved item and 1 session note are searchable now. They become long-term memory only if you organize them later.", "1 条保存内容和 1 条会话笔记现在可搜索；只有稍后整理后才会进入长期记忆。")
-      .replace("1 saved item is searchable now. It becomes long-term memory only if you organize it later.", "1 条保存内容现在可搜索；只有稍后整理后才会进入长期记忆。")
-      .replace("1 session note is searchable now. It becomes long-term memory only if you organize it later.", "1 条会话笔记现在可搜索；只有稍后整理后才会进入长期记忆。")
-      : dashboardActionDetailZh(visibleDetail));
-  const actionLabelZh = dashboardActionLabelZh(actionLabel);
-  return `
-    <section class="dashboard-overview ${escapeHtml(data.status)}" data-dashboard-overview aria-label="Dashboard Overview">
-      <div class="dashboard-overview-main">
-        <div>
-          <h2>${i18nText("Do I need to act?", "我需要操作吗？")}</h2>
-          ${i18nText(data.headline, headlineZh, "strong")}
-          <p ${i18nAttribute(visibleDetail, detailZh)}>${escapeHtml(visibleDetail)}</p>
-        </div>
-        <button type="button" class="${escapeHtml(actionClass)}" data-action-board-target="${escapeHtml(data.primary_action.target)}" aria-controls="${escapeHtml(data.primary_action.target)}" ${i18nAttribute(actionLabel, actionLabelZh)}>${escapeHtml(actionLabel)}</button>
-      </div>
-      ${showBackgroundStatus ? dashboardOverviewQuietCards(visibleCards) : ""}
-      ${showSafety ? `<div class="dashboard-overview-safety" aria-label="Dashboard safety">
-        ${i18nText("Read-only summary", "只读摘要")}
-        ${i18nText(`Approvals stay in ${joinHumanList(data.safety.mutation_surfaces)}`, `确认操作仍在 ${joinHumanList(data.safety.mutation_surfaces)} 中完成`)}
-      </div>` : ""}
-    </section>
-  `;
-}
-
-function workLaneButton(input: {
-  id: "decide" | "context" | "health" | "evidence";
-  label: string;
-  summary: string;
-  nextStep: string;
-  target: string;
-  severity: DashboardActionBoardSeverity;
-}, dataAttribute = "data-dashboard-work-lane"): string {
-  const labelZh = dashboardActionLabelZh(input.label);
-  const summaryZh = dashboardActionDetailZh(input.summary);
-  const nextStepZh = dashboardActionLabelZh(input.nextStep);
-  return `
-        <button type="button" class="dashboard-work-lane ${escapeHtml(input.severity)}" ${dataAttribute}="${escapeHtml(input.id)}" data-action-board-target="${escapeHtml(input.target)}" aria-controls="${escapeHtml(input.target)}">
-          <span ${i18nAttribute(input.label, labelZh)}>${escapeHtml(input.label)}</span>
-          <strong ${i18nAttribute(input.summary, summaryZh)}>${escapeHtml(input.summary)}</strong>
-          <em ${i18nAttribute(input.nextStep, nextStepZh)}>${escapeHtml(input.nextStep)}</em>
-        </button>
-  `;
-}
-
-function dashboardHealthWorkLaneItem(board: DashboardActionBoard): DashboardActionBoardItem {
-  const review = board.items_by_id.review;
-  const sync = board.items_by_id.sync;
-  if (review.value === 0 && sync.value > 0) return sync;
-  if (review.detail === "Sync pending is shown in the Sync lane and Shared copy details.") return sync;
-  return review;
-}
-
-function dashboardEvidenceLibrarySummary(data: DashboardData): { summary: string; hasFindings: boolean } {
-  const reviewPanelCount = [
-    isRoutineHealthCheck(data.health_check) ? undefined : "health",
-    isRoutineRecallEval(data.recall_eval) ? undefined : "recall",
-    data.dogfood_report.findings.length > 0 ? "dogfood" : undefined,
-    data.governance.summary.total_items > 0 ? "governance" : undefined,
-    data.candidate_triage.available ? "candidate-triage" : undefined,
-    isRoutineContextPackReview(data.context_pack_review) ? undefined : "context"
-  ].filter((panel): panel is string => panel !== undefined).length;
-  const backgroundPanelCount = [
-    "routine-diagnostics",
-    "supporting-evidence"
-  ].length;
-  return {
-    summary: evidenceLibrarySummary(reviewPanelCount > 0 ? 1 : 0, backgroundPanelCount > 0 ? 1 : 0),
-    hasFindings: reviewPanelCount > 0
-  };
-}
-
-function dashboardWorkLanes(
-  data: DashboardData,
-  options: { showBackgroundLanes?: boolean } = {}
-): string {
-  const confirm = data.action_board.items_by_id.confirm;
-  const healthLane = dashboardHealthWorkLaneItem(data.action_board);
-  const evidence = dashboardEvidenceLibrarySummary(data);
-  const showBackgroundLanes = options.showBackgroundLanes ?? true;
-  const contextSummary = data.context_pack_review.available
-    ? contextPackReviewSummary(data.context_pack_review)
-    : "Context unavailable";
-  const lanes = [
-    {
-      id: "decide" as const,
-      label: "Decide",
-      summary: confirm.summary,
-      nextStep: confirm.value > 0 ? confirm.next_action_label : "Inspect decision surfaces",
-      target: confirm.target,
-      severity: confirm.severity
-    },
-    {
-      id: "context" as const,
-      label: "Context",
-      summary: contextSummary,
-      nextStep: "Open handoff review",
-      target: "context-pack-review",
-      severity: overviewContextStatus(data.context_pack_review)
-    },
-    {
-      id: "health" as const,
-      label: "Health",
-      summary: healthLane.summary,
-      nextStep: healthLane.next_action_label,
-      target: healthLane.target,
-      severity: healthLane.severity
-    },
-    {
-      id: "evidence" as const,
-      label: "Evidence",
-      summary: evidence.summary,
-      nextStep: "Open read-only evidence",
-      target: "evidence-library",
-      severity: evidence.hasFindings ? "info" as const : "good" as const
-    }
-  ];
-  const activeLanes = lanes.filter((lane) => lane.severity === "warning" || lane.severity === "critical");
-  const defaultLanes = activeLanes;
-  const backgroundLanes = lanes.filter((lane) => !activeLanes.includes(lane));
-  const backgroundLaneNames = backgroundLanes.map((lane) => lane.label);
-  const backgroundLaneSummary = backgroundLaneNames.length <= 1
-    ? `${backgroundLaneNames.join("")} is quiet`
-    : `${backgroundLaneNames.slice(0, -1).join(", ")}, and ${backgroundLaneNames.at(-1)} are quiet`;
-  return `
-    <section class="dashboard-work-lanes" data-dashboard-work-lanes aria-label="Dashboard Work Lanes">
-      ${defaultLanes.map((lane) => workLaneButton(lane)).join("")}
-      ${!showBackgroundLanes || backgroundLanes.length === 0 ? "" : `
-        <details class="dashboard-work-lanes-quiet" data-dashboard-detail="dashboard-work-lanes-background">
-          <summary class="dashboard-fold-summary dashboard-work-lanes-quiet-fold" aria-label="Other paths: ${escapeHtml(backgroundLaneSummary)}">
-            ${i18nText("Other paths", "其他入口")}
-            ${i18nText("Ready if needed", "需要时可查看", "small")}
-          </summary>
-          <div class="dashboard-work-lanes-quiet-list">
-            ${backgroundLanes.map((lane) => workLaneButton(lane, "data-dashboard-work-lane-quiet")).join("")}
-          </div>
-        </details>
-      `}
-    </section>
-  `;
-}
-
-function decisionSummaryChips(summary: DashboardDecisionSummary): string {
-  const chips = [
-    summary.summary.capture_inbox_groups > 0 ? `${summary.summary.capture_inbox_groups} Capture Inbox` : undefined,
-    summary.summary.review_queue_plans > 0 ? `${summary.summary.review_queue_plans} Review Queue` : undefined,
-    summary.summary.candidate_triage_promotions > 0 ? `${summary.summary.candidate_triage_promotions} Candidate Triage` : undefined
-  ].filter((chip): chip is string => chip !== undefined);
-  return chips.map((chip) => `<span>${escapeHtml(chip)}</span>`).join("");
-}
-
-function decisionSummaryIntro(data: DashboardDecisionSummary): string {
-  return `Review ${pluralize(data.total_decisions, "explicit approval")} before any memory write.`;
-}
-
-interface DashboardDecisionRoute {
-  id: "capture-inbox" | "maintenance-review" | "candidate-triage";
-  label: "Capture Inbox" | "Review Queue" | "Candidate Triage";
-  count: number;
-  target: "capture-inbox" | "maintenance-review-queue" | "candidate-triage";
-  target_label: "Open Capture Inbox" | "Open Review Queue" | "Open Candidate Triage";
-  items: DashboardDecisionSummaryItem[];
-}
-
-function decisionSummaryRoutes(data: DashboardDecisionSummary): DashboardDecisionRoute[] {
-  const routes: DashboardDecisionRoute[] = [];
-  const itemsBySurface = (surface: DashboardDecisionSummarySurface) => data.items.filter((item) => item.surface === surface);
-  if (data.summary.capture_inbox_groups > 0) {
-    routes.push({
-      id: "capture-inbox",
-      label: "Capture Inbox",
-      count: data.summary.capture_inbox_groups,
-      target: "capture-inbox",
-      target_label: "Open Capture Inbox",
-      items: itemsBySurface("capture_inbox")
-    });
-  }
-  if (data.summary.review_queue_plans > 0) {
-    routes.push({
-      id: "maintenance-review",
-      label: "Review Queue",
-      count: data.summary.review_queue_plans,
-      target: "maintenance-review-queue",
-      target_label: "Open Review Queue",
-      items: itemsBySurface("maintenance_review")
-    });
-  }
-  if (data.summary.candidate_triage_promotions > 0) {
-    routes.push({
-      id: "candidate-triage",
-      label: "Candidate Triage",
-      count: data.summary.candidate_triage_promotions,
-      target: "candidate-triage",
-      target_label: "Open Candidate Triage",
-      items: itemsBySurface("candidate_triage")
-    });
-  }
-  return routes;
-}
-
-function decisionSummaryRouteCard(route: DashboardDecisionRoute): string {
-  return `
-          <article class="decision-summary-item" data-decision-summary-route="${escapeHtml(route.id)}">
-            <div class="decision-summary-item-main">
-              <div>
-                <strong>${escapeHtml(route.label)}</strong>
-                <p>${escapeHtml(`${pluralize(route.count, "explicit approval")} waiting in ${route.label}.`)}</p>
-              </div>
-              <button type="button" class="decision-summary-link" data-action-board-target="${escapeHtml(route.target)}" aria-controls="${escapeHtml(route.target)}">${escapeHtml(route.target_label)}</button>
-            </div>
-            <div class="decision-summary-route" aria-label="Decision route">
-              <small>Append-only, guarded in owning surface</small>
-            </div>
-          </article>
-  `;
-}
-
-function decisionSummary(data: DashboardDecisionSummary): string {
-  if (data.total_decisions === 0) return "";
-  const routes = decisionSummaryRoutes(data);
-  return `
-    <section id="decision-summary" class="panel decision-summary" data-dashboard-detail="decision-summary" aria-label="Decision Summary">
-      <div class="decision-summary-heading">
-        <div>
-          <h2>Pending Decisions</h2>
-          <p>${escapeHtml(decisionSummaryIntro(data))}</p>
-        </div>
-        <div class="decision-summary-counts">
-          ${decisionSummaryChips(data)}
-        </div>
-      </div>
-      <div class="decision-summary-list">
-        ${routes.map(decisionSummaryRouteCard).join("")}
-      </div>
-    </section>
-  `;
-}
-
-function healthCheckClass(status: HealthCheckReport["status"]): string {
-  if (status === "healthy") return "good";
-  if (status === "unhealthy") return "critical";
-  return "warning";
-}
-
-function healthCheckSummary(report: HealthCheckReport): string {
-  const status = report.status.replace(/_/g, " ");
-  if (report.summary.warning_checks === 0 && report.summary.failing_checks === 0) {
-    return report.status === "healthy" ? "Healthy local store" : status;
-  }
-
-  return [
-    status,
-    report.summary.warning_checks > 0 ? pluralize(report.summary.warning_checks, "warning") : undefined,
-    report.summary.failing_checks > 0 ? pluralize(report.summary.failing_checks, "failed check") : undefined
-  ].filter((part): part is string => Boolean(part)).join(" | ");
-}
-
-function healthCheckStatusZh(status: HealthCheckReport["status"]): string {
-  if (status === "healthy") return "正常";
-  if (status === "needs_attention") return "需要看一下";
-  return "需要处理";
-}
-
-function healthCheckSummaryZh(report: HealthCheckReport): string {
-  if (report.summary.warning_checks === 0 && report.summary.failing_checks === 0) {
-    return report.status === "healthy" ? "本机存储正常" : healthCheckStatusZh(report.status);
-  }
-
-  return [
-    healthCheckStatusZh(report.status),
-    report.summary.warning_checks > 0 ? `${report.summary.warning_checks} 条提醒` : undefined,
-    report.summary.failing_checks > 0 ? `${report.summary.failing_checks} 项失败检查` : undefined
-  ].filter((part): part is string => Boolean(part)).join(" | ");
-}
-
-function healthCheckActionSummary(report: HealthCheckReport): { safe: number; needsInput: number } {
-  return {
-    safe: report.suggested_actions.filter((action) => action.safe_to_run).length,
-    needsInput: report.suggested_actions.filter((action) => !action.safe_to_run || action.required_fields.length > 0).length
-  };
-}
-
-function healthCheckSetupCommandSummary(report: HealthCheckReport): string {
-  const summary = healthCheckActionSummary(report);
-  return `${pluralize(summary.safe, "safe check")} | ${pluralize(summary.needsInput, "manual input")}`;
-}
-
-function healthCheckSetupCommandSummaryZh(report: HealthCheckReport): string {
-  const summary = healthCheckActionSummary(report);
-  return `${summary.safe} 条安全检查 | ${summary.needsInput} 项需要输入`;
-}
-
-function healthCheckDisplayCopy(check: HealthCheckReport["checks"][number]): {
-  label: string;
-  labelZh: string;
-  summary: string;
-  summaryZh: string;
-  reason: string;
-  reasonZh: string;
-} {
-  if (check.id === "mcp_runtime") {
-    return {
-      label: "Connection may need restart",
-      labelZh: "连接可能需要重启",
-      summary: "Long-running app connections load Moryn when they start.",
-      summaryZh: "长时间运行的应用连接会在启动时加载 Moryn。",
-      reason: "After an upgrade or local rebuild, restart the connected app if its tool output disagrees with the CLI or dashboard.",
-      reasonZh: "升级或本地重建后，如果连接应用的工具输出和 CLI 或 dashboard 不一致，请重启这个应用。"
-    };
-  }
-  return {
-    label: check.label,
-    labelZh: check.label,
-    summary: check.summary,
-    summaryZh: check.summary,
-    reason: check.reason,
-    reasonZh: check.reason
-  };
-}
-
-function healthCheckInstallTrust(report: HealthCheckReport): string {
-  const summary = healthCheckActionSummary(report);
-  const status = report.summary.failing_checks > 0 ? "Needs setup review" : "Safe to inspect";
-  const statusZh = report.summary.failing_checks > 0 ? "需要检查设置" : "可安全查看";
-  const safeChecks = pluralize(summary.safe, "safe check");
-  const manualInput = pluralize(summary.needsInput, "manual input");
-  return `
-        <section class="health-check-install-trust" aria-label="Install Trust" data-i18n-aria-label-en="Install Trust" data-i18n-aria-label-zh="安装信任说明">
-          <div>
-            ${i18nText("Install Trust", "安装信任说明", "h4")}
-            ${i18nText("Review readiness commands before setup", "设置前先查看准备命令", "p")}
-          </div>
-          <strong ${i18nAttribute(status, statusZh)}>${escapeHtml(status)}</strong>
-          <div class="health-check-install-trust-chips">
-            <span ${i18nAttribute(safeChecks, `${summary.safe} 条安全检查`)}>${escapeHtml(safeChecks)}</span>
-            <span ${i18nAttribute(manualInput, `${summary.needsInput} 项需要输入`)}>${escapeHtml(manualInput)}</span>
-            ${i18nText("No host config writes from dashboard", "dashboard 不会写入主机配置")}
-          </div>
-        </section>
-  `;
-}
-
-function healthCheckCheckSummary(report: HealthCheckReport): string {
-  return [
-    report.summary.passing_checks > 0 ? pluralize(report.summary.passing_checks, "pass", "pass") : undefined,
-    report.summary.info_checks > 0 ? pluralize(report.summary.info_checks, "info", "info") : undefined,
-    report.summary.warning_checks > 0 ? pluralize(report.summary.warning_checks, "warning") : undefined,
-    report.summary.failing_checks > 0 ? pluralize(report.summary.failing_checks, "failed check") : undefined
-  ].filter((part): part is string => Boolean(part)).join(" | ");
-}
-
-function healthCheckCheckSummaryZh(report: HealthCheckReport): string {
-  return [
-    report.summary.passing_checks > 0 ? `${report.summary.passing_checks} 项通过` : undefined,
-    report.summary.info_checks > 0 ? `${report.summary.info_checks} 条信息` : undefined,
-    report.summary.warning_checks > 0 ? `${report.summary.warning_checks} 条提醒` : undefined,
-    report.summary.failing_checks > 0 ? `${report.summary.failing_checks} 项失败检查` : undefined
-  ].filter((part): part is string => Boolean(part)).join(" | ");
-}
-
-function healthCheckActionRequirement(action: HealthCheckReport["suggested_actions"][number]): string {
-  if (action.required_fields.length === 0) return action.safe_to_run ? "Read-only" : "Needs review";
-  return `Requires ${action.required_fields.map((field) => field.replace(/_/g, " ")).join(", ")}`;
-}
-
-function healthCheckActionRequirementZh(action: HealthCheckReport["suggested_actions"][number]): string {
-  if (action.required_fields.length === 0) return action.safe_to_run ? "只读" : "需要查看";
-  return `需要填写 ${action.required_fields.map((field) => field.replace(/_/g, " ")).join("、")}`;
-}
-
-function healthCheckRequiredWhenZh(requiredWhen: string): string {
-  if (requiredWhen === "When Health Check finds capture candidates waiting for explicit review.") {
-    return "当健康检查发现有捕获内容等待明确确认时。";
-  }
-  if (requiredWhen === "When Health Check runs without an explicit project id and project-specific readiness is needed.") {
-    return "当健康检查没有明确项目 id，但需要项目级准备情况时。";
-  }
-  if (requiredWhen === "When setup readiness needs browser-mediated review.") {
-    return "当设置准备情况需要在浏览器中查看时。";
-  }
-  if (requiredWhen === "After install or host changes, review the host adapter plan before editing host configuration.") {
-    return "安装或主机变更后，先查看主机适配计划，再修改主机配置。";
-  }
-  if (requiredWhen === "At the start of an agent session, after setup readiness checks are reviewed.") {
-    return "在 agent 会话开始时，并且已查看设置准备检查之后。";
-  }
-  if (requiredWhen === "At the end of a meaningful agent session, with a user-authored or agent-authored summary.") {
-    return "在一次有意义的 agent 会话结束时，填写用户或 agent 写的总结。";
-  }
-  if (requiredWhen === "When cross-device handoff matters and no sync remote was supplied.") {
-    return "需要跨设备交接，但还没有提供共享副本地址时。";
-  }
-  return requiredWhen;
-}
-
-function shouldRenderHealthCheckActionCommand(action: HealthCheckReport["suggested_actions"][number]): boolean {
-  return !action.safe_to_run || action.required_fields.length > 0;
-}
-
-function healthCheckStatRow(label: string, zhLabel: string, value: number): string {
-  return `<div>${i18nText(label, zhLabel, "dt")}<dd>${escapeHtml(value)}</dd></div>`;
-}
-
-function healthCheckActionList(actions: HealthCheckReport["suggested_actions"]): string {
-  if (actions.length === 0) {
-    return `<div class="empty-state">No readiness actions in this group.</div>`;
-  }
-  return `
-    <div class="health-check-action-list">
-      ${actions.map((action) => {
-        const requirement = healthCheckActionRequirement(action);
-        const requirementZh = healthCheckActionRequirementZh(action);
-        const requiredWhenZh = healthCheckRequiredWhenZh(action.required_when);
-        return `
-        <article class="health-check-action ${action.safe_to_run ? "safe" : "input"}" data-health-check-action="${escapeHtml(action.action_id)}">
-          <div>
-            <span class="pill ${action.safe_to_run ? "state-canonical" : "warning"}" ${i18nAttribute(requirement, requirementZh)}>${escapeHtml(requirement)}</span>
-            <strong>${escapeHtml(titleCase(action.recommended_action))}</strong>
-          </div>
-          <small ${i18nAttribute(action.required_when, requiredWhenZh)}>${escapeHtml(action.required_when)}</small>
-          ${shouldRenderHealthCheckActionCommand(action) ? `
-          <details class="health-check-action-command" data-dashboard-detail="health-check-action-command:${escapeHtml(action.action_id)}">
-            <summary class="dashboard-fold-summary">
-              ${i18nText("CLI command", "命令行命令")}
-              ${i18nText("copy from CLI", "从命令行复制", "small")}
-            </summary>
-            <code>${escapeHtml(action.command)}</code>
-          </details>
-          ` : ""}
-        </article>
-      `;
-      }).join("")}
-    </div>
-  `;
-}
-
-function healthCheckReadinessActions(report: HealthCheckReport): string {
-  if (report.suggested_actions.length === 0) return "";
-  const summary = healthCheckActionSummary(report);
-  const safeActions = report.suggested_actions.filter((action) => action.safe_to_run);
-  const inputActions = report.suggested_actions.filter((action) => !action.safe_to_run || action.required_fields.length > 0);
-  return `
-    <details class="health-check-readiness-actions" data-dashboard-detail="health-check-readiness-actions">
-      <summary class="dashboard-fold-summary">
-        ${i18nText("Setup Commands", "设置命令")}
-        <small ${i18nAttribute(healthCheckSetupCommandSummary(report), healthCheckSetupCommandSummaryZh(report))}>${escapeHtml(healthCheckSetupCommandSummary(report))}</small>
-      </summary>
-      <div class="health-check-action-groups">
-        <section class="health-check-action-group">
-          ${i18nText("Safe checks", "安全检查", "h4")}
-          ${healthCheckActionList(safeActions)}
-        </section>
-        <section class="health-check-action-group">
-          ${i18nText("Manual input", "需要输入", "h4")}
-          ${healthCheckActionList(inputActions)}
-        </section>
-      </div>
-    </details>
-  `;
-}
-
-function healthCheckDetails(report: HealthCheckReport): string {
-  if (report.checks.length === 0) return "";
-  return `
-        <details class="health-check-details" data-dashboard-detail="health-check-details">
-          <summary class="dashboard-fold-summary">
-            ${i18nText("Check Details", "检查详情")}
-            <small ${i18nAttribute(healthCheckCheckSummary(report), healthCheckCheckSummaryZh(report))}>${escapeHtml(healthCheckCheckSummary(report))}</small>
-          </summary>
-          <div class="health-check-list">
-            ${report.checks.map((check) => {
-              const copy = healthCheckDisplayCopy(check);
-              return `
-              <article class="health-check-item ${escapeHtml(check.status)}">
-                <span>${escapeHtml(titleCase(check.status))}</span>
-                <strong ${i18nAttribute(copy.label, copy.labelZh)} data-health-check-raw-label="${escapeHtml(check.label)}">${escapeHtml(copy.label)}</strong>
-                <p ${i18nAttribute(copy.summary, copy.summaryZh)} data-health-check-raw-summary="${escapeHtml(check.summary)}">${escapeHtml(copy.summary)}</p>
-                <small ${i18nAttribute(copy.reason, copy.reasonZh)} data-health-check-raw-reason="${escapeHtml(check.reason)}">${escapeHtml(copy.reason)}</small>
-              </article>
-            `;
-            }).join("")}
-          </div>
-        </details>
-  `;
-}
-
-function healthCheckPanel(report: HealthCheckReport): string {
-  const summary = healthCheckSummary(report);
-  const summaryZh = healthCheckSummaryZh(report);
-  const actionSummary = healthCheckActionSummary(report);
-  const safeSuggestions = pluralize(actionSummary.safe, "safe suggestion");
-  const needsInput = `${actionSummary.needsInput} need input`;
-  return `
-    <details class="panel health-check-panel" data-dashboard-detail="health-check" data-dashboard-section="health-check">
-      <summary class="dashboard-fold-summary">
-        ${i18nText("Moryn Health Check", "Moryn 健康检查")}
-        <small ${i18nAttribute(summary, summaryZh)}>${escapeHtml(summary)}</small>
-      </summary>
-      <div class="health-check-body">
-        <div class="health-check-brief">
-          <strong class="${healthCheckClass(report.status)}">${escapeHtml(titleCase(report.status))}</strong>
-          ${i18nText("Read-only", "只读")}
-          <span ${i18nAttribute(safeSuggestions, `${actionSummary.safe} 条安全建议`)}>${escapeHtml(safeSuggestions)}</span>
-          <span ${i18nAttribute(needsInput, `${actionSummary.needsInput} 条需要输入`)}>${escapeHtml(needsInput)}</span>
-        </div>
-        <dl class="health-check-stats">
-          ${healthCheckStatRow("Visible records", "可见内容", report.stats.visible_records)}
-          ${healthCheckStatRow("Private hidden", "已隐藏私有内容", report.stats.excluded_private_records)}
-          ${healthCheckStatRow("Events", "事件", report.stats.total_events)}
-          ${healthCheckStatRow("Capture review", "待确认捕获内容", report.stats.capture_review_candidates)}
-        </dl>
-        ${healthCheckInstallTrust(report)}
-        ${healthCheckReadinessActions(report)}
-        ${healthCheckDetails(report)}
-      </div>
-    </details>
-  `;
-}
-
-function recallEvalSummary(review: DashboardRecallEval): string {
-  if (!review.available || !review.report) {
-    return review.errors.length > 0 ? "Recall eval case error" : "No recall eval cases yet";
-  }
-  const summary = review.report.summary;
-  return `${pluralize(summary.total_cases, "case")} | ${pluralize(summary.failed_cases, "miss")} | ${pluralize(summary.privacy_leaks, "privacy leak")}`;
-}
-
-function recallEvalStatusClass(review: DashboardRecallEval): "good" | "warning" | "critical" | "info" {
-  if (review.errors.length > 0) return "warning";
-  if (!review.available || !review.report) return "info";
-  if (review.report.summary.privacy_leaks > 0) return "critical";
-  return review.report.summary.failed_cases > 0 ? "warning" : "good";
-}
-
-function recallEvalPanel(review: DashboardRecallEval): string {
-  const status = recallEvalStatusClass(review);
-  const report = review.report;
-  const failedCases = report?.cases.filter((testCase) => testCase.status === "fail") ?? [];
-  return `
-    <details class="panel recall-eval-panel" data-dashboard-detail="recall-eval" data-dashboard-section="recall-eval">
-      <summary class="dashboard-fold-summary">
-        <span>Recall Eval</span>
-        <small>${escapeHtml(recallEvalSummary(review))}</small>
-      </summary>
-      <div class="recall-eval-body">
-        <div class="health-check-brief">
-          <strong class="${escapeHtml(status)}">${escapeHtml(review.available ? titleCase(status) : "Unavailable")}</strong>
-          <span>Read-only</span>
-          <code>${escapeHtml(review.available ? "Stored golden cases evaluated through normal recall." : review.unavailable_reason ?? "No recall eval data available.")}</code>
-        </div>
-        <dl class="health-check-stats">
-          <div><dt>Case sources</dt><dd>${escapeHtml(review.case_sources.length)}</dd></div>
-          <div><dt>Total cases</dt><dd>${escapeHtml(report?.summary.total_cases ?? 0)}</dd></div>
-          <div><dt>Misses</dt><dd>${escapeHtml(report?.summary.failed_cases ?? 0)}</dd></div>
-          <div><dt>Privacy leaks</dt><dd>${escapeHtml(report?.summary.privacy_leaks ?? 0)}</dd></div>
-        </dl>
-        ${review.case_sources.length === 0 ? "" : `
-          <details class="recall-eval-sources" data-dashboard-detail="recall-eval-sources">
-            <summary>Case Sources</summary>
-            <dl>
-              ${review.case_sources.map((source) => `
-                <div><dt><code>${escapeHtml(source.record_id)}</code></dt><dd>${escapeHtml(pluralize(source.case_count, "case"))} | <code>${escapeHtml(source.evidence_path)}</code></dd></div>
-              `).join("")}
-            </dl>
-          </details>
-        `}
-        ${failedCases.length === 0 ? "" : `
-          <div class="health-check-list">
-            ${failedCases.map((testCase) => `
-              <article class="health-check-item warning" data-dashboard-detail="recall-eval:${escapeHtml(testCase.case_id)}">
-                <span>Miss</span>
-                <strong>${escapeHtml(testCase.case_id)}</strong>
-                <p>${escapeHtml(testCase.query)}</p>
-                <small>${escapeHtml([
-                  testCase.missing_record_ids.length ? `Missing ${testCase.missing_record_ids.join(", ")}` : "",
-                  testCase.hidden_record_ids.length ? `Hidden ${testCase.hidden_record_ids.join(", ")}` : ""
-                ].filter(Boolean).join(" | ") || "No missing or hidden records listed")}</small>
-              </article>
-            `).join("")}
-          </div>
-        `}
-        ${review.errors.length === 0 ? "" : `
-          <div class="health-check-list">
-            ${review.errors.map((error) => `
-              <article class="health-check-item warning">
-                <span>Error</span>
-                <strong>Stored case could not be evaluated</strong>
-                <p>${escapeHtml(error.reason)}</p>
-              </article>
-            `).join("")}
-          </div>
-        `}
-      </div>
-    </details>
-  `;
-}
-
-function dogfoodReviewSummary(report: DogfoodReportResult): string {
-  return report.findings.length === 1 ? "Read-only note" : "Read-only notes";
-}
-
-function dogfoodReviewReference(report: DogfoodReportResult): string {
-  const findingsLabel = `${pluralize(report.findings.length, "finding")} indexed`;
-  const findingsLabelZh = `${report.findings.length} 条产品记录已建立索引`;
-  return `
-        <article class="dogfood-review-reference" data-dashboard-detail="dogfood-review:index" data-dogfood-review-reference>
-          <strong ${i18nAttribute("Dogfood Notes Index", "产品记录索引")}>Dogfood Notes Index</strong>
-          <span ${i18nAttribute(findingsLabel, findingsLabelZh)}>${escapeHtml(findingsLabel)}</span>
-          <code>dogfood_report</code>
-        </article>
-        <p>Open <code>/api/dashboard</code> for dogfood findings, impact notes, evidence paths, affected records, and safe inspection commands.</p>
-  `;
-}
-
-function dogfoodReviewPanel(report: DogfoodReportResult): string {
-  if (report.findings.length === 0) return "";
-  const highestSeverity = report.findings.some((finding) => finding.severity === "warning") ? "warning" : "info";
-  const reviewSummary = dogfoodReviewSummary(report);
-  const reviewSummaryZh = "只读记录";
-  return `
-    <details class="panel dogfood-review" data-dashboard-detail="dogfood-review" aria-label="Dogfood Notes">
-      <summary class="dashboard-fold-summary">
-        ${i18nText("Dogfood Notes", "产品记录")}
-        ${i18nText(reviewSummary, reviewSummaryZh, "small")}
-      </summary>
-      <div class="dogfood-review-body">
-        <div class="health-check-brief">
-          <strong class="${escapeHtml(highestSeverity)}" ${i18nAttribute("Note", "记录")}>Note</strong>
-          ${i18nText("Read-only", "只读")}
-          <code>dogfood_report.findings_by_id</code>
-        </div>
-        ${dogfoodReviewReference(report)}
-      </div>
-    </details>
-  `;
 }
 
 function healthClass(status: DashboardHealthStatus | "local_ready"): string {
@@ -4684,780 +3933,13 @@ function healthClass(status: DashboardHealthStatus | "local_ready"): string {
   return "info";
 }
 
-function attentionItem(item: DashboardAttentionItem): string {
-  const title = attentionDisplayTitle(item.title);
-  const severity = titleCase(item.severity);
-  const description = attentionDisplayDescription(item.description);
-  return `
-    <details class="attention ${escapeHtml(item.severity)}" data-dashboard-detail="attention:${escapeHtml(item.title)}">
-      <summary class="attention-summary">
-        <strong ${i18nAttribute(title, attentionTitleZh(title))}>${escapeHtml(title)}</strong>
-        <span ${i18nAttribute(severity, attentionSeverityZh(item.severity))}>${escapeHtml(severity)}</span>
-      </summary>
-      <div class="attention-body">
-        <p ${i18nAttribute(description, attentionDescriptionZh(description))}>${escapeHtml(description)}</p>
-        ${item.action_command ? `<code>${escapeHtml(item.action_command)}</code>` : ""}
-      </div>
-    </details>
-  `;
-}
-
-function attentionDisplayTitle(title: string): string {
-  if (title === "Quarantined records hidden") return "Some saved content is paused";
-  if (title === "Quarantined records superseded") return "Paused content has a safe replacement";
-  return title;
-}
-
-function attentionDisplayDescription(description: string): string {
-  const hiddenMatch = description.match(/^(\d+) record\(s\) are hidden because they may contain sensitive or unsafe content\.$/);
-  if (hiddenMatch) return `${hiddenMatch[1]} saved item(s) are paused because they may contain sensitive or unsafe content.`;
-  const supersededMatch = description.match(/^(\d+) quarantined record\(s\) have active safe replacement index records\.$/);
-  if (supersededMatch) return `${supersededMatch[1]} paused item(s) already have a safe replacement.`;
-  return description;
-}
-
-function attentionSeverityZh(severity: DashboardAttentionSeverity): string {
-  if (severity === "critical") return "严重";
-  if (severity === "warning") return "提醒";
-  return "信息";
-}
-
-function attentionTitleZh(title: string): string {
-  if (title === "Sync is not configured") return "共享副本未连接";
-  if (title === "Sync conflict") return "共享副本有冲突";
-  if (title === "Sync changes not pushed") return "本机改动还没上传";
-  if (title === "Remote position changed") return "共享副本位置已变化";
-  if (title === "Some saved content is paused") return "部分保存内容已暂停使用";
-  if (title === "Paused content has a safe replacement") return "暂停内容已有安全替代";
-  if (title === "Temporary notes waiting") return "临时笔记待整理";
-  if (title === "Many recently saved items") return "较多最近保存内容";
-  if (title === "Session notes not remembered") return "会话笔记未记住";
-  if (title === "Many items to organize") return "较多内容待整理";
-  return title;
-}
-
-function attentionDescriptionZh(description: string): string {
-  if (description === "This store is local-only until a private Git remote is configured.") {
-    return "还没有连接私有共享副本；当前记忆只在这台设备可见。";
-  }
-  if (description === "Git sync reports a conflict. Resolve it before relying on cross-device handoff.") {
-    return "共享副本有冲突；跨设备交接前需要先处理。";
-  }
-  if (description === "Local event history has changes that are not committed or pushed yet.") {
-    return "本机事件历史还有未上传的变化。";
-  }
-  const remoteMatch = description.match(/^This store is (\d+) commit\(s\) ahead and (\d+) commit\(s\) behind the configured remote\.$/);
-  if (remoteMatch) return `这份记忆比共享副本超前 ${remoteMatch[1]} 次提交、落后 ${remoteMatch[2]} 次提交。`;
-  const hiddenMatch = description.match(/^(\d+) saved item\(s\) are paused because they may contain sensitive or unsafe content\.$/);
-  if (hiddenMatch) return `${hiddenMatch[1]} 条保存内容已暂停使用，因为它们可能包含敏感或不安全内容。`;
-  const supersededMatch = description.match(/^(\d+) paused item\(s\) already have a safe replacement\.$/);
-  if (supersededMatch) return `${supersededMatch[1]} 条暂停内容已有安全替代版本。`;
-  const rawMatch = description.match(/^(\d+) temporary note\(s\) are preserved but excluded from normal recall\.$/);
-  if (rawMatch) return `${rawMatch[1]} 条临时内容已保留，但不会被当作长期记忆使用。`;
-  const sessionNoteMatch = description.match(/^(\d+) session note\(s\) are searchable for context but not treated as long-term memory\.$/);
-  if (sessionNoteMatch) return `${sessionNoteMatch[1]} 条会话笔记可作为上下文搜索，但不会被当作长期记忆。`;
-  const candidateMatch = description.match(/^(\d+) recently saved item\(s\) may need long-term memory, archive, or cleanup\.$/);
-  if (candidateMatch) return `${candidateMatch[1]} 条最近保存内容可以稍后整理：记住、继续保留，或放一边。`;
-  const toOrganizeMatch = description.match(/^(\d+) item\(s\) are saved and searchable\. Organize later if they should become long-term memory\.$/);
-  if (toOrganizeMatch) return `${toOrganizeMatch[1]} 条内容已保存并可搜索；如果应该成为长期记忆，可以稍后整理。`;
-  const searchableUntilChosenMatch = description.match(/^(\d+) item\(s\) are saved and searchable\. They stay searchable unless you choose to make them long-term memory\.$/);
-  if (searchableUntilChosenMatch) return `${searchableUntilChosenMatch[1]} 条内容已保存并可搜索；除非你决定整理为长期记忆，否则会保持可搜索。`;
-  const savedNotRememberedMatch = description.match(/^(\d+) saved item\(s\) are searchable but not long-term memory yet\.$/);
-  if (savedNotRememberedMatch) return `${savedNotRememberedMatch[1]} 条内容已保存并可搜索，但还不是长期记忆。`;
-  return description;
-}
-
-function routineCheckCountZh(count: number): string {
-  return `${count} 项日常检查`;
-}
-
-function attentionFocusNextAction(items: DashboardAttentionItem[]): string {
-  const reviewItems = items.filter(isReviewAttentionItem);
-  const critical = reviewItems.filter((item) => item.severity === "critical").length;
-  const warning = reviewItems.filter((item) => item.severity === "warning").length;
-  if (critical > 0) return "Review what changed";
-  if (warning > 0) return "Review what changed";
-  return "Inspect checks";
-}
-
-function attentionFocus(items: DashboardAttentionItem[]): string {
-  const reviewItems = items.filter(isReviewAttentionItem);
-  const critical = reviewItems.filter((item) => item.severity === "critical").length;
-  const warning = reviewItems.filter((item) => item.severity === "warning").length;
-  const info = items.filter((item) => item.severity === "info").length;
-  const actionSignals = critical + warning;
-  const next = attentionFocusNextAction(items);
-  const chips: Array<{ severity: DashboardAttentionItem["severity"]; count: number }> = [
-    { severity: "critical" as const, count: critical },
-    { severity: "warning" as const, count: warning },
-    { severity: "info" as const, count: info }
-  ].filter((chip) => chip.count > 0);
-  const chipLabel = (chip: { severity: DashboardAttentionItem["severity"]; count: number }) =>
-    chip.severity === "info" ? pluralize(chip.count, "info check") : pluralize(chip.count, chip.severity);
-  const focusLabel = actionSignals === 1 ? "thing to check" : "things to check";
-  const nextZh = next === "Review what changed" ? "查看变化" : "查看检查";
-  return `
-    <div class="attention-focus" aria-label="Needs a look summary">
-      <span data-attention-focus-count><strong>${escapeHtml(actionSignals)}</strong> ${escapeHtml(focusLabel)}</span>
-      ${chips.map((chip) => `<span class="attention-focus-count ${escapeHtml(chip.severity)}">${escapeHtml(chipLabel(chip))}</span>`).join("")}
-      <span class="attention-next-action" data-attention-next-action ${i18nAttribute(next, nextZh)}>${escapeHtml(next)}</span>
-    </div>
-  `;
-}
-
-function attentionItems(items: DashboardAttentionItem[]): string {
-  if (items.length === 0) {
-    return `<div class="empty-state">No issues detected in the current snapshot.</div>`;
-  }
-  const primary = items.filter(isReviewAttentionItem);
-  const info = items.filter((item) => item.severity === "info");
-  return `
-    <div class="attention-list">
-      ${attentionFocus(items)}
-      ${primary.map(attentionItem).join("")}
-      ${infoChecksGroup(info)}
-    </div>
-  `;
-}
-
-function infoChecksGroup(items: DashboardAttentionItem[], options: { quiet?: boolean } = {}): string {
-  if (items.length === 0) return "";
-  const list = `
-          <div class="attention-info-list">
-            ${items.map(attentionItem).join("")}
-          </div>
-  `;
-  return `
-        <details class="attention-info-group" data-dashboard-detail="attention-info-checks">
-          <summary class="dashboard-fold-summary">
-            ${i18nText("Background checks", "后台检查")}
-            ${i18nText("Routine checks", "日常检查", "small")}
-          </summary>
-          ${options.quiet ? `
-            <details class="attention-info-details" data-dashboard-detail="attention-info-details">
-              <summary class="dashboard-fold-summary">
-                ${i18nText("Check details", "检查详情")}
-                <small ${i18nAttribute(pluralize(items.length, "routine check"), routineCheckCountZh(items.length))}>${escapeHtml(pluralize(items.length, "routine check"))}</small>
-              </summary>
-              ${list}
-            </details>
-          ` : list}
-        </details>
-  `;
-}
-
-function needsAttentionPanel(items: DashboardAttentionItem[]): string {
-  const actionSignals = items.filter(isReviewAttentionItem).length;
-  if (actionSignals === 0) {
-    const info = items.filter((item) => item.severity === "info");
-    return `
-      <section id="needs-attention" class="needs-attention-quiet-line" data-dashboard-section="needs-attention" data-dashboard-detail="needs-attention">
-        ${infoChecksGroup(info, { quiet: true })}
-      </section>
-    `;
-  }
-  return `
-    <section id="needs-attention" class="panel action-signals" data-dashboard-section="needs-attention" data-dashboard-detail="needs-attention">
-      <div class="action-signals-heading">
-        <h2 data-i18n-en="Needs a look" data-i18n-zh="需要看一下">Needs a look</h2>
-        <small data-i18n-en="Warnings and important checks" data-i18n-zh="提醒和重要检查">Warnings and important checks</small>
-      </div>
-      ${attentionItems(items)}
-    </section>
-  `;
-}
-
-function governanceSafetyLabel(item: DashboardGovernanceItem): string {
-  if (item.requires_user_confirmation) return "User confirmation";
-  if (item.safe_to_run && item.writes === "none") return "Safe inspection";
-  return "Review";
-}
-
-function isSafeGovernanceInspection(item: DashboardGovernanceItem): boolean {
-  return !item.requires_user_confirmation && item.safe_to_run && item.writes === "none";
-}
-
-function reviewLogList(items: string[], dataAttribute: string): string {
-  return `
-    <div class="review-log" ${dataAttribute}>
-      <h4>Review notes</h4>
-      <ol>
-        ${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
-      </ol>
-    </div>
-  `;
-}
-
-function governanceFindingSummary(item: DashboardGovernanceItem): string {
-  return `
-    <div class="governance-finding-summary" data-governance-finding-summary>
-      <h4>Finding summary</h4>
-      <dl>
-        <div><dt>Records affected</dt><dd>${escapeHtml(pluralize(item.record_ids.length, "record"))}</dd></div>
-        <div><dt>Safe next step</dt><dd>${escapeHtml(item.action_label)}</dd></div>
-        <div><dt>Write boundary</dt><dd>${escapeHtml(item.writes === "none" ? "No memory writes" : "Append-only after approval")}</dd></div>
-        <div><dt>Evidence source</dt><dd><code>${escapeHtml(item.evidence_path)}</code></dd></div>
-      </dl>
-    </div>
-  `;
-}
-
-function governanceItem(item: DashboardGovernanceItem): string {
-  return `
-    <details class="governance-item ${escapeHtml(item.severity)}" data-dashboard-detail="governance:${escapeHtml(item.id)}" data-governance-item="${escapeHtml(item.id)}">
-      <summary class="governance-item-summary">
-        <span class="governance-item-main">
-          <strong>${escapeHtml(item.title)}</strong>
-          <small>${escapeHtml(item.action_label)}</small>
-        </span>
-        <span class="governance-meta">
-          <span>${escapeHtml(governanceSafetyLabel(item))}</span>
-          <span>${escapeHtml(item.writes === "none" ? "Read-only" : "Append-only")}</span>
-        </span>
-      </summary>
-      <div class="governance-item-body">
-        <p>${escapeHtml(item.summary)}</p>
-        ${governanceFindingSummary(item)}
-        ${reviewLogList(item.review_log, "data-governance-review-log")}
-        <details class="raw-audit-fields" data-dashboard-detail="governance-raw:${escapeHtml(item.id)}">
-          <summary>Raw audit fields</summary>
-          <dl>
-            <div><dt>Source</dt><dd>${escapeHtml(item.source)}</dd></div>
-            <div><dt>Category</dt><dd>${escapeHtml(item.category)}</dd></div>
-            <div><dt>Action</dt><dd>${escapeHtml(item.action_label)}${item.action_id ? ` <code>${escapeHtml(item.action_id)}</code>` : ""}</dd></div>
-            <div data-governance-evidence><dt>Evidence</dt><dd><code>${escapeHtml(item.evidence_path)}</code></dd></div>
-            <div><dt>Records</dt><dd>${item.record_ids.length ? item.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ") : "none"}</dd></div>
-          </dl>
-        </details>
-      </div>
-    </details>
-  `;
-}
-
-function governanceSourceDisplayLabel(source: DashboardGovernanceSource): string {
-  if (source === "capture_policy") return "Capture Policy";
-  if (source === "memory_lifecycle") return "Memory Lifecycle";
-  if (source === "maintenance") return "Review Queue";
-  if (source === "recall_eval") return "Recall Eval";
-  if (source === "dogfood_report") return "Dogfood Review";
-  return titleCase(source);
-}
-
-function governanceActionDisplayLabel(actionLabel: string): string {
-  return titleCase(actionLabel);
-}
-
-function governanceSafeRowTitle(item: DashboardGovernanceItem): string {
-  if (item.source === "memory_doctor" && item.category === "candidate_backlog") return "Candidate backlog";
-  if (item.source === "dogfood_report" && item.category === "dogfood_friction") {
-    if (item.action_label === "inspect_failure_signals") return "Failure signals";
-    if (item.action_label === "review_capture_inbox") return "Capture review backlog";
-  }
-  return item.title;
-}
-
-function governanceSafeReviewNote(note: string): string {
-  const evidencePrefix = "Evidence source: ";
-  if (note.startsWith(evidencePrefix)) {
-    return `Evidence source: <code>${escapeHtml(note.slice(evidencePrefix.length))}</code>`;
-  }
-  return escapeHtml(note);
-}
-
-function governanceReferenceAudit(items: DashboardGovernanceItem[]): string {
-  if (items.length === 0) return "";
-  return `
-    <details class="governance-reference-audit" data-dashboard-detail="governance-reference-audit">
-      <summary class="dashboard-fold-summary">
-        <span>Reference audit</span>
-        <small>Detection, boundary, and evidence</small>
-      </summary>
-      <div class="governance-reference-audit-list">
-        ${items.map((item) => `
-          <article class="governance-reference-audit-item" data-dashboard-detail="governance-audit:${escapeHtml(item.id)}">
-            <h4>${escapeHtml(governanceSafeRowTitle(item))}</h4>
-            <ol>
-              ${item.review_log.map((note) => `<li>${governanceSafeReviewNote(note)}</li>`).join("")}
-            </ol>
-          </article>
-        `).join("")}
-      </div>
-    </details>
-  `;
-}
-
-function governanceSafeRow(item: DashboardGovernanceItem): string {
-  return `
-    <div class="governance-safe-row ${escapeHtml(item.severity)}" data-dashboard-detail="governance:${escapeHtml(item.id)}" data-governance-safe-item="${escapeHtml(item.id)}">
-      <span>${escapeHtml(governanceSourceDisplayLabel(item.source))}</span>
-      <strong>${escapeHtml(governanceSafeRowTitle(item))}</strong>
-      <small>${escapeHtml(`${governanceActionDisplayLabel(item.action_label)} | Read-only`)}</small>
-    </div>
-  `;
-}
-
-function isSafeOnlyGovernance(governance: DashboardGovernance): boolean {
-  return (
-    governance.summary.needs_user_action === 0
-    && governance.summary.hidden_private_records === 0
-    && governance.summary.safe_inspections > 0
-  );
-}
-
-function governanceNeedsReview(governance: DashboardGovernance): boolean {
-  return governance.summary.needs_user_action > 0;
-}
-
-function governanceHubSummaryText(governance: DashboardGovernance): string {
-  if (isSafeOnlyGovernance(governance)) return "Reference checks";
-  const counts = [
-    governance.summary.needs_user_action > 0 ? pluralize(governance.summary.needs_user_action, "need confirmation", "need confirmation") : undefined,
-    governance.summary.safe_inspections > 0 ? pluralize(governance.summary.safe_inspections, "safe check") : undefined,
-    governance.summary.hidden_private_records > 0 ? pluralize(governance.summary.hidden_private_records, "private hidden", "private hidden") : undefined
-  ].filter((count): count is string => count !== undefined);
-  return counts.length > 0 ? counts.join(" | ") : "All clear";
-}
-
-function governanceHubSummaryZh(governance: DashboardGovernance, summary: string): string {
-  if (isSafeOnlyGovernance(governance)) return "参考检查";
-  return summary;
-}
-
-function governanceCountChips(governance: DashboardGovernance): string {
-  const chips = [
-    governance.summary.needs_user_action > 0 ? `${governance.summary.needs_user_action} need confirmation` : undefined,
-    governance.summary.safe_inspections > 0 ? pluralize(governance.summary.safe_inspections, "safe check") : undefined,
-    governance.summary.hidden_private_records > 0 ? `${governance.summary.hidden_private_records} private hidden` : undefined
-  ].filter((chip): chip is string => chip !== undefined);
-  if (chips.length === 0) return `<span>All clear</span>`;
-  return chips.map((chip) => `<span>${escapeHtml(chip)}</span>`).join("");
-}
-
-function governanceReferenceIndex(safeInspections: DashboardGovernanceItem[]): string {
-  const title = "Governance Index";
-  const titleZh = "治理索引";
-  const summary = `${pluralize(safeInspections.length, "read-only check")} indexed`;
-  const summaryZh = `${safeInspections.length} 项只读检查已建立索引`;
-  return `
-        <article class="governance-reference" data-dashboard-detail="governance:index" data-governance-reference>
-          <strong ${i18nAttribute(title, titleZh)}>${escapeHtml(title)}</strong>
-          <span ${i18nAttribute(summary, summaryZh)}>${escapeHtml(summary)}</span>
-          <code>governance</code>
-        </article>
-        <p>Open <code>/api/dashboard</code> for governance items, evidence paths, review logs, and safe inspection commands.</p>
-  `;
-}
-
-function governanceHubBody(governance: DashboardGovernance): string {
-  const safeInspections = governance.items.filter(isSafeGovernanceInspection);
-  const primaryItems = governance.items.filter((item) => !isSafeGovernanceInspection(item));
-  const safeOnly = isSafeOnlyGovernance(governance);
-  const title = safeOnly ? "Read-only Governance" : "Governance Hub";
-  const titleZh = safeOnly ? "只读治理" : "治理中心";
-  const subtitle = safeOnly ? "API-backed governance index" : "Read-only inspection index";
-  const subtitleZh = safeOnly ? "API 支持的治理索引" : "只读检查索引";
-  const safeGroupTitle = safeOnly ? "Reference Checks" : "Safe Inspections";
-  const safeGroupTitleZh = safeOnly ? "参考检查" : "安全检查";
-  const safeGroupSummary = safeOnly ? "Read-only, no writes" : "Background checks, read-only";
-  const safeGroupSummaryZh = safeOnly ? "只读，不写入" : "后台检查，只读";
-  return `
-    <div class="governance-hub-body">
-      <div class="governance-heading">
-        <div>
-          <h2 ${i18nAttribute(title, titleZh)}>${escapeHtml(title)}</h2>
-          <p ${i18nAttribute(subtitle, subtitleZh)}>${escapeHtml(subtitle)}</p>
-        </div>
-        <div class="governance-counts">
-          ${safeOnly ? "" : governanceCountChips(governance)}
-        </div>
-      </div>
-      <div class="governance-list">
-        ${primaryItems.map(governanceItem).join("")}
-        ${safeOnly ? governanceReferenceIndex(safeInspections) : ""}
-        ${safeInspections.length === 0 ? "" : `
-          <details class="governance-safe-group" data-dashboard-detail="governance-safe-inspections">
-            <summary class="dashboard-fold-summary">
-              <span ${i18nAttribute(safeGroupTitle, safeGroupTitleZh)}>${escapeHtml(safeGroupTitle)}</span>
-              <small ${i18nAttribute(safeGroupSummary, safeGroupSummaryZh)}>${escapeHtml(safeGroupSummary)}</small>
-            </summary>
-            <div class="governance-safe-list" data-governance-safe-list>
-              ${safeInspections.map(governanceSafeRow).join("")}
-            </div>
-            ${governanceReferenceAudit(safeInspections)}
-          </details>
-        `}
-      </div>
-    </div>
-  `;
-}
-
-function governanceHub(governance: DashboardGovernance): string {
-  if (governance.summary.total_items === 0) return "";
-  const body = governanceHubBody(governance);
-  const safeOnly = isSafeOnlyGovernance(governance);
-  if (governance.summary.needs_user_action === 0) {
-    const title = safeOnly ? "Read-only Governance" : "Governance Hub";
-    const titleZh = safeOnly ? "只读治理" : "治理中心";
-    const summary = governanceHubSummaryText(governance);
-    return `
-      <details id="governance-hub" class="panel governance-hub" data-dashboard-detail="governance-hub" aria-label="Governance Hub">
-        <summary class="dashboard-fold-summary governance-hub-fold">
-          <span ${i18nAttribute(title, titleZh)}>${escapeHtml(title)}</span>
-          <small ${i18nAttribute(summary, governanceHubSummaryZh(governance, summary))}>${escapeHtml(summary)}</small>
-        </summary>
-        ${body}
-      </details>
-    `;
-  }
-  return `
-    <section id="governance-hub" class="panel governance-hub" aria-label="Governance Hub">
-      ${body}
-    </section>
-  `;
-}
-
-function candidateTriageSummary(triage: DashboardCandidateTriage): string {
-  if (!triage.available) return "No candidate backlog";
-  const promotionDrafts = candidateTriagePromotionDraftCount(triage);
-  if (promotionDrafts > 0) return `${pluralize(promotionDrafts, "promotion draft")} waiting`;
-  return "Read-only backlog";
-}
-
-function candidateTriagePromotionDraftCount(triage: DashboardCandidateTriage): number {
-  if (!triage.available) return 0;
-  return Object.values(triage.groups_by_id)
-    .reduce((count, group) => count + (group ? Object.keys(group.promotion_drafts_by_id).length : 0), 0);
-}
-
-function candidateTriageHasPromotionDrafts(triage: DashboardCandidateTriage): boolean {
-  return candidateTriagePromotionDraftCount(triage) > 0;
-}
-
-function candidateTriageRecordSampleTitle(record: DashboardCandidateTriageRecord): string {
-  const label = record.kind.replace(/[_-]+/g, " ");
-  return `${label.charAt(0).toUpperCase()}${label.slice(1)} sample ${recordLabel(record.id)}`;
-}
-
-function candidateTriageRecordVisibleTitle(record: DashboardCandidateTriageRecord): string {
-  return "Sample";
-}
-
-function candidateTriageRecordAccessibleTitle(record: DashboardCandidateTriageRecord): string {
-  return `${candidateTriageRecordSampleTitle(record)} from ${record.source_label}, ${record.relative_time}`;
-}
-
-function renderCandidateTriageRecord(record: DashboardCandidateTriageRecord): string {
-  return `
-    <details class="candidate-triage-record" data-dashboard-detail="candidate-triage-record:${escapeHtml(record.id)}">
-      <summary class="candidate-triage-record-summary" aria-label="${escapeHtml(candidateTriageRecordAccessibleTitle(record))}">
-        <span>
-          <strong>${escapeHtml(candidateTriageRecordVisibleTitle(record))}</strong>
-          <small>Trace ready</small>
-        </span>
-        <span class="candidate-triage-record-meta">${escapeHtml(titleCase(record.kind))}</span>
-      </summary>
-      <dl>
-        <div><dt>Content</dt><dd>${escapeHtml(record.text)}</dd></div>
-        <div><dt>Reason</dt><dd>${escapeHtml(record.reason)}</dd></div>
-        <div><dt>Source</dt><dd>${escapeHtml(record.source_detail)}</dd></div>
-        <div><dt>Priority</dt><dd>${escapeHtml(record.priority)}</dd></div>
-        <div><dt>Confidence</dt><dd>${escapeHtml(record.confidence.toFixed(2))}</dd></div>
-        <div><dt>Record</dt><dd><code>${escapeHtml(record.id)}</code></dd></div>
-        <div><dt>Timeline</dt><dd><code>${escapeHtml(record.citation.timeline_command)}</code></dd></div>
-        <div><dt>Recall</dt><dd><code>${escapeHtml(record.citation.recall_command)}</code></dd></div>
-      </dl>
-    </details>
-  `;
-}
-
-function candidateTriageSampleSummary(group: DashboardCandidateTriageGroup): string {
-  const shownRecords = group.records.length;
-  const totalRecords = group.record_ids.length;
-  if (shownRecords === totalRecords) return `${group.label}: ${pluralize(shownRecords, "sample")} with trace commands`;
-  return `${group.label}: ${shownRecords} of ${pluralize(totalRecords, "sample")} with trace commands`;
-}
-
-function candidateTriageSampleVisibleSummary(group: DashboardCandidateTriageGroup): string {
-  return `${pluralize(group.records.length, "sample")}, trace ready`;
-}
-
-function renderCandidateTriageOverflow(group: DashboardCandidateTriageGroup): string {
-  const hiddenRecords = Math.max(0, group.record_ids.length - group.records.length);
-  if (hiddenRecords === 0) return "";
-  const overflowSummary = `${group.label}: ${hiddenRecords} hidden with record index available`;
-  return `
-    <div class="candidate-triage-overflow">
-      <span class="candidate-triage-overflow-count">${escapeHtml(`${pluralize(hiddenRecords, "more record")} indexed`)}</span>
-      <details class="candidate-triage-overflow-path" data-dashboard-detail="candidate-triage-overflow:${escapeHtml(group.id)}">
-        <summary class="dashboard-fold-summary" aria-label="${escapeHtml(`More samples: ${overflowSummary}`)}">
-          <span>More samples</span>
-          <small>${escapeHtml(`${hiddenRecords} hidden, indexed`)}</small>
-        </summary>
-        <p>Open the hidden record index when the displayed samples are not enough.</p>
-        <details class="candidate-triage-overflow-evidence" data-dashboard-detail="candidate-triage-overflow-evidence:${escapeHtml(group.id)}">
-          <summary class="dashboard-fold-summary">
-            <span>Hidden record index</span>
-            <small>${escapeHtml(`${group.label} index`)}</small>
-          </summary>
-          <code>${escapeHtml(`${group.evidence_path}.records_by_id`)}</code>
-        </details>
-      </details>
-    </div>
-  `;
-}
-
-function renderCandidateTriageHandoff(group: DashboardCandidateTriageGroup): string {
-  const reviewPath = `${group.review_handoff.label} via ${group.review_handoff.existing_control}`;
-  return `
-    <details class="candidate-triage-review-path" data-dashboard-detail="candidate-triage-review-path:${escapeHtml(group.id)}" data-candidate-triage-handoff="${escapeHtml(group.id)}">
-      <summary class="dashboard-fold-summary" aria-label="${escapeHtml(`Review path: ${reviewPath}`)}">
-        <span>Review path</span>
-        <small>${escapeHtml(group.review_handoff.label)}</small>
-      </summary>
-      <dl>
-        <div><dt>Next step</dt><dd>${escapeHtml(group.review_handoff.label)}</dd></div>
-        <div><dt>Existing control</dt><dd>${escapeHtml(group.review_handoff.existing_control)}</dd></div>
-        <div><dt>Write boundary</dt><dd>${escapeHtml(group.review_handoff.write_boundary)}</dd></div>
-      </dl>
-      <p>${escapeHtml(group.review_handoff.guidance)}</p>
-    </details>
-  `;
-}
-
-function renderCandidateTriageAuditBoundary(group: DashboardCandidateTriageGroup): string {
-  return `
-    <details class="candidate-triage-audit-boundary" data-dashboard-detail="candidate-triage-audit:${escapeHtml(group.id)}">
-      <summary class="dashboard-fold-summary">
-        <span>Audit boundary</span>
-        <small>${escapeHtml(`${group.label} audit boundary`)}</small>
-      </summary>
-      <div class="candidate-triage-approval-brief" data-candidate-triage-audit-brief>
-        <h4>Approval brief</h4>
-        <dl class="candidate-triage-brief-list" aria-label="Approval brief">
-          <div><dt>Change</dt><dd>Review candidate group boundary</dd></div>
-          <div><dt>Scope</dt><dd>${escapeHtml(group.label)}</dd></div>
-          <div><dt>Guard</dt><dd>Promotion drafts recheck active candidates before writing</dd></div>
-          <div><dt>Writes</dt><dd>Group review is read-only; draft approve appends promotion events only</dd></div>
-          <div><dt>Evidence</dt><dd><code>${escapeHtml(group.evidence_path)}</code></dd></div>
-          <div><dt>Trace</dt><dd>Record samples keep timeline and recall commands</dd></div>
-        </dl>
-      </div>
-    </details>
-  `;
-}
-
-function renderCandidateTriagePromotionDrafts(group: DashboardCandidateTriageGroup): string {
-  const drafts = Object.values(group.promotion_drafts_by_id);
-  if (drafts.length === 0) return "";
-  return `
-    <details class="candidate-triage-promotion-drafts" data-dashboard-detail="candidate-triage-promotion-drafts:${escapeHtml(group.id)}">
-      <summary class="dashboard-fold-summary">
-        <span>Promotion draft</span>
-        <small>${escapeHtml(`${pluralize(drafts.length, "candidate")} ready`)}</small>
-      </summary>
-      <div class="candidate-triage-promotion-list">
-        ${drafts.map((draft) => `
-          <article class="candidate-triage-promotion-draft" data-candidate-triage-promotion-draft="${escapeHtml(draft.record_id)}">
-            ${approvalBriefHtml({
-              className: "candidate-triage-approval-brief",
-              dataAttribute: "data-candidate-triage-approval-brief",
-              listClassName: "candidate-triage-brief-list",
-              rows: [
-                { label: "Change", value: "Promote 1 candidate" },
-                { label: "Scope", value: `${recordLabel(draft.record_id)} to ${draft.target_state}` },
-                { label: "Guard", value: "Server rechecks active candidate before writing" },
-                { label: "Writes", value: "Approve Memory appends an append-only promotion event" },
-                { label: "Evidence", value: "Command and source path stay in Draft evidence" },
-                { label: "Trace", value: "Promotion event remains inspectable through timeline" }
-              ]
-            })}
-            <details class="candidate-triage-promotion-evidence" data-dashboard-detail="candidate-triage-promotion-evidence:${escapeHtml(draft.record_id)}">
-              <summary class="dashboard-fold-summary">
-                <span>Draft evidence</span>
-                <small>Command and source</small>
-              </summary>
-              <dl>
-                <div><dt>Record</dt><dd><code>${escapeHtml(draft.record_id)}</code></dd></div>
-                <div><dt>Reason</dt><dd>${escapeHtml(draft.reason)}</dd></div>
-                <div><dt>Command</dt><dd><code>${escapeHtml(draft.command)}</code></dd></div>
-                <div><dt>Evidence</dt><dd><code>${escapeHtml(draft.source_path)}</code></dd></div>
-              </dl>
-            </details>
-            <div class="candidate-triage-promotion-actions">
-              <button
-                type="button"
-                class="primary"
-                data-candidate-triage-promotion-approve
-                data-dashboard-action-id="${escapeHtml(draft.action_id)}"
-                data-endpoint="${escapeHtml(draft.approve_endpoint)}"
-              >Approve Memory</button>
-            </div>
-            <p class="candidate-triage-promotion-status" data-candidate-triage-promotion-status role="status" aria-live="polite"></p>
-          </article>
-        `).join("")}
-      </div>
-    </details>
-  `;
-}
-
-function candidateTriageGroupFace(group: DashboardCandidateTriageGroup): { label: string; hint: string } {
-  if (Object.keys(group.promotion_drafts_by_id).length > 0) {
-    return { label: group.review_handoff.label, hint: "Promotion draft ready" };
-  }
-  if (group.id === "likely_noise") return { label: "Likely noise", hint: "Review before archive" };
-  if (group.id === "session_summaries") return { label: "Handoff evidence", hint: "Keep as context" };
-  if (group.id === "needs_inspection") return { label: "Needs inspection", hint: "Timeline check" };
-  return { label: "Read-only evidence", hint: "Trace indexed" };
-}
-
-function renderCandidateTriageGroupContext(group: DashboardCandidateTriageGroup): string {
-  return `
-    <details class="candidate-triage-group-context" data-dashboard-detail="candidate-triage-context:${escapeHtml(group.id)}">
-      <summary class="dashboard-fold-summary">
-        <span>Group context</span>
-        <small>${escapeHtml(`${group.label}, ${pluralize(group.record_ids.length, "record")}`)}</small>
-      </summary>
-      <p>${escapeHtml(group.description)}</p>
-    </details>
-  `;
-}
-
-function renderCandidateTriageAuditNotes(group: DashboardCandidateTriageGroup): string {
-  return `
-    <details class="candidate-triage-audit-notes" data-dashboard-detail="candidate-triage-audit-notes:${escapeHtml(group.id)}">
-      <summary class="dashboard-fold-summary">
-        <span>Audit notes</span>
-        <small>Context and boundary</small>
-      </summary>
-      ${renderCandidateTriageGroupContext(group)}
-      ${renderCandidateTriageAuditBoundary(group)}
-    </details>
-  `;
-}
-
-function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): string {
-  const sampleSummary = candidateTriageSampleSummary(group);
-  const groupSummary = `${group.label}, ${pluralize(group.record_ids.length, "record")}, ${group.recommended_next_step}`;
-  const face = candidateTriageGroupFace(group);
-  return `
-    <details class="candidate-triage-group" data-dashboard-detail="candidate-triage:${escapeHtml(group.id)}">
-      <summary class="dashboard-fold-summary" aria-label="${escapeHtml(`Candidate group: ${groupSummary}`)}">
-        <span>${escapeHtml(group.label)}</span>
-        <strong>${escapeHtml(face.label)}</strong>
-        <small>${escapeHtml(face.hint)}</small>
-      </summary>
-      <div class="candidate-triage-group-body">
-        <details class="candidate-triage-group-details" data-dashboard-detail="candidate-triage-details:${escapeHtml(group.id)}">
-          <summary class="dashboard-fold-summary">
-            <span>Triage details</span>
-            <small>Review path, audit notes, samples</small>
-          </summary>
-          ${renderCandidateTriageHandoff(group)}
-          ${renderCandidateTriageAuditNotes(group)}
-          ${renderCandidateTriagePromotionDrafts(group)}
-          <details class="candidate-triage-record-samples" data-dashboard-detail="candidate-triage-records:${escapeHtml(group.id)}">
-            <summary class="dashboard-fold-summary" aria-label="Record samples: ${escapeHtml(sampleSummary)}">
-              <span>Record samples</span>
-              <small>${escapeHtml(candidateTriageSampleVisibleSummary(group))}</small>
-            </summary>
-            <div class="candidate-triage-records">
-              ${group.records.map(renderCandidateTriageRecord).join("")}
-            </div>
-            ${renderCandidateTriageOverflow(group)}
-          </details>
-        </details>
-      </div>
-    </details>
-  `;
-}
-
-function renderCandidateBacklogReference(triage: DashboardCandidateTriage): string {
-  const summary = `${pluralize(triage.summary.total_candidates, "candidate")} across ${pluralize(triage.summary.groups, "group")} indexed`;
-  const visibleFocus = candidateTriageVisibleFocus(triage.review_focus?.summary);
-  const focus = visibleFocus
-    ? `<span data-candidate-triage-focus>${escapeHtml(visibleFocus)}</span>`
-    : "";
-  return `
-    <article class="candidate-triage-reference" data-dashboard-detail="candidate-triage:index" data-candidate-triage-reference>
-      ${i18nText("Candidate Backlog Index", "待整理内容索引", "strong")}
-      <span>${escapeHtml(summary)}</span>
-      ${focus}
-      <code>candidate_triage</code>
-    </article>
-    <p>Open <code>/api/dashboard</code> for candidate groups, record order, evidence paths, and trace commands.</p>
-  `;
-}
-
-function renderCandidateTriageGroupList(triage: DashboardCandidateTriage): string {
-  return `
-    <div class="candidate-triage-list">
-      ${triage.groups.map((group) => triage.groups_by_id[group.id]).filter((group): group is DashboardCandidateTriageGroup => group !== undefined).map(renderCandidateTriageGroup).join("")}
-    </div>
-  `;
-}
-
-function candidateTriagePanel(triage: DashboardCandidateTriage): string {
-  if (!triage.available) return "";
-  const hasPromotionDrafts = candidateTriageHasPromotionDrafts(triage);
-  const panelLabel = hasPromotionDrafts ? "Candidate Triage" : "Candidate Backlog";
-  const ariaLabel = hasPromotionDrafts ? "Candidate Triage Queue" : "Candidate Backlog";
-  return `
-    <details class="panel candidate-triage" data-dashboard-detail="candidate-triage" aria-label="${escapeHtml(ariaLabel)}">
-      <summary class="dashboard-fold-summary candidate-triage-fold">
-        <span>${escapeHtml(panelLabel)}</span>
-        <small>${escapeHtml(candidateTriageSummary(triage))}</small>
-      </summary>
-      <div class="candidate-triage-body">
-        ${hasPromotionDrafts ? `
-          <div class="candidate-triage-heading">
-            <div>
-              <h2>Candidate Triage Queue</h2>
-              <p>Review grouping for memory doctor backlog.</p>
-            </div>
-            <div class="candidate-triage-counts">
-              <span>${escapeHtml(pluralize(triage.summary.total_candidates, "candidate"))}</span>
-              <span>${escapeHtml(pluralize(triage.summary.groups, "group"))}</span>
-            </div>
-          </div>
-          ${renderCandidateTriageGroupList(triage)}
-        ` : renderCandidateBacklogReference(triage)}
-      </div>
-    </details>
-  `;
-}
 
 function maintenancePlanEndpoint(plan: DashboardMaintenancePlan): string {
   return `api/maintenance/plans/${encodeURIComponent(plan.plan_id)}/approve`;
 }
 
-function maintenanceStateSummary(states: DashboardMaintenancePlan["dry_run"]["states"]): string {
-  const order: Array<keyof typeof states> = ["canonical", "candidate", "raw", "archived", "quarantined"];
-  return order
-    .filter((state) => states[state])
-    .map((state) => `${states[state]} ${state}`)
-    .join(", ");
-}
-
 function pluralize(count: number, singular: string, plural = `${singular}s`): string {
   return `${count} ${count === 1 ? singular : plural}`;
-}
-
-function maintenancePrivateSummary(plan: DashboardMaintenancePlan): string {
-  if (plan.dry_run.included_private_records > 0) {
-    return `${pluralize(plan.dry_run.included_private_records, "private record")} included`;
-  }
-  if (plan.dry_run.skipped_private_records > 0) {
-    return `${pluralize(plan.dry_run.skipped_private_records, "private record")} skipped`;
-  }
-  return "No private records included";
-}
-
-function maintenanceEvidenceList(plan: DashboardMaintenancePlan): string {
-  return `
-    <ul class="maintenance-evidence">
-      ${plan.decision_card.evidence.map((evidence) => `<li>${escapeHtml(evidence)}</li>`).join("")}
-    </ul>
-  `;
 }
 
 function maintenancePrimaryActionLabel(plan: DashboardMaintenancePlan): string {
@@ -5480,1648 +3962,6 @@ function maintenanceMoveSummary(plan: DashboardMaintenancePlan): string {
   return `Move ${pluralize(plan.dry_run.matched_records, "record")}`;
 }
 
-function maintenanceChangeDetail(plan: DashboardMaintenancePlan): string {
-  if (plan.type === "candidate_noise_archive") {
-    return "confirmed smoke/e2e marker noise to archived";
-  }
-  return `${plan.from_project_id ?? ""} to ${plan.to_project_id ?? ""}`;
-}
-
-function maintenanceAuditPath(plan: DashboardMaintenancePlan): string {
-  return plan.type === "candidate_noise_archive"
-    ? "Raw plan, record ids, equivalent archive commands, and plan_hash stay below."
-    : "Raw plan, record ids, rollback path, equivalent CLI command, and plan_hash stay below.";
-}
-
-function maintenanceAuditPathHtml(plan: DashboardMaintenancePlan): string {
-  const [before, after = ""] = maintenanceAuditPath(plan).split("plan_hash");
-  return `${escapeHtml(before)}<code>plan_hash</code>${escapeHtml(after)}`;
-}
-
-function maintenanceReviewBrief(plan: DashboardMaintenancePlan): string {
-  const change = maintenanceMoveSummary(plan);
-  const scope = plan.type === "candidate_noise_archive" ? "Marker noise" : maintenanceChangeDetail(plan);
-  const eventName = maintenanceApprovalEventName(plan);
-  return approvalBriefHtml({
-    className: "maintenance-brief",
-    dataAttribute: "data-maintenance-brief",
-    listClassName: "maintenance-brief-list",
-    rows: [
-      { label: "Change", value: change },
-      { label: "Scope", value: scope },
-      { label: "Guard", value: "Server rechecks plan hash before writing" },
-      { label: "Writes", value: `append-only ${eventName} events` },
-      { label: "Evidence", value: "Plan hash, command, and record ids stay in Decision details" },
-      { label: "Trace", value: "Written events remain inspectable through timeline" }
-    ],
-    footerHtml: `<p>${escapeHtml(`${maintenancePrivateSummary(plan)}.`)}</p>`
-  });
-}
-
-function maintenanceReviewWhy(plan: DashboardMaintenancePlan): string {
-  return plan.type === "candidate_noise_archive"
-    ? "Memory Doctor found smoke/e2e marker candidates."
-    : "Memory Doctor found records under an old project id.";
-}
-
-function maintenanceReviewChange(plan: DashboardMaintenancePlan): string {
-  if (plan.type === "candidate_noise_archive") {
-    return `${maintenanceMoveSummary(plan)} after you confirm they are test noise.`;
-  }
-  return `${maintenanceMoveSummary(plan)} from <code>${escapeHtml(plan.from_project_id ?? "")}</code> to <code>${escapeHtml(plan.to_project_id ?? "")}</code>.`;
-}
-
-function maintenanceReviewSafety(plan: DashboardMaintenancePlan): string {
-  return `No write happens until ${maintenancePrimaryActionLabel(plan)}; the server re-runs the dry run and checks <code>plan_hash</code> before writing.`;
-}
-
-function maintenanceReviewAudit(plan: DashboardMaintenancePlan): string {
-  return plan.type === "candidate_noise_archive"
-    ? "Raw record ids, equivalent archive commands, and <code>plan_hash</code> stay in Evidence trace."
-    : "Raw record ids, rollback path, equivalent CLI command, and <code>plan_hash</code> stay in Evidence trace.";
-}
-
-function maintenanceReviewNotes(plan: DashboardMaintenancePlan): string {
-  return `
-    <div class="maintenance-review-notes" data-maintenance-approval-context>
-      <h4>Approval context</h4>
-      <dl>
-        <div><dt>Why</dt><dd>${escapeHtml(maintenanceReviewWhy(plan))}</dd></div>
-        <div><dt>Change</dt><dd>${maintenanceReviewChange(plan)}</dd></div>
-        <div><dt>Guard</dt><dd>${maintenanceReviewSafety(plan)}</dd></div>
-        <div><dt>Trace</dt><dd>${maintenanceReviewAudit(plan)}</dd></div>
-      </dl>
-    </div>
-  `;
-}
-
-function maintenanceRecordIdsDetail(plan: DashboardMaintenancePlan): string {
-  const recordIds = plan.decision_card.raw_evidence.record_ids;
-  const visibleRecordIds = recordIds.slice(0, MAINTENANCE_RAW_SAMPLE_LIMIT);
-  const hiddenRecordIds = recordIds.length - visibleRecordIds.length;
-  return `
-    <div class="maintenance-record-id-summary">
-      <div class="maintenance-record-id-preview">
-        ${visibleRecordIds.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ")}
-      </div>
-      ${hiddenRecordIds > 0 ? `<span class="maintenance-overflow-count">${escapeHtml(`${pluralize(hiddenRecordIds, "more record id")} kept below`)}</span>` : ""}
-      <details class="maintenance-raw-overflow" data-dashboard-detail="maintenance-record-ids:${escapeHtml(plan.plan_id)}">
-        <summary class="dashboard-fold-summary" aria-label="${escapeHtml(`All record ids: ${pluralize(recordIds.length, "record id")}`)}">
-          <span>All record ids</span>
-          <small>${escapeHtml(`${recordIds.length} ids, audit ready`)}</small>
-        </summary>
-        <div class="maintenance-record-id-list">
-          ${recordIds.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ")}
-        </div>
-      </details>
-    </div>
-  `;
-}
-
-function maintenanceCommandCount(plan: DashboardMaintenancePlan): string {
-  if (plan.type === "candidate_noise_archive") {
-    return pluralize(plan.record_ids.length, "archive command");
-  }
-  return "1 migration command";
-}
-
-function maintenanceCommandDetail(plan: DashboardMaintenancePlan): string {
-  const commandCount = maintenanceCommandCount(plan);
-  return `
-    <div class="maintenance-command-summary">
-      <code>${escapeHtml(commandCount)}</code>
-      <details class="maintenance-raw-overflow" data-dashboard-detail="maintenance-command:${escapeHtml(plan.plan_id)}">
-        <summary class="dashboard-fold-summary" aria-label="${escapeHtml(`Full command: ${commandCount}, copy button uses full command`)}">
-          <span>Full command</span>
-          <small>copy button uses full command</small>
-        </summary>
-        <div class="maintenance-command-detail">
-          <code>${escapeHtml(plan.decision_card.raw_evidence.command)}</code>
-          <button type="button" data-maintenance-copy data-command="${escapeHtml(plan.command)}">Copy command</button>
-        </div>
-      </details>
-    </div>
-  `;
-}
-
-function maintenancePlanEvidence(plan: DashboardMaintenancePlan): string {
-  return `
-    <details class="maintenance-plan-evidence" data-dashboard-detail="maintenance-plan-evidence:${escapeHtml(plan.plan_id)}">
-      <summary class="dashboard-fold-summary maintenance-plan-evidence-fold">
-        <span>Evidence trace</span>
-        <small>Rollback, raw plan, command</small>
-      </summary>
-      <div class="maintenance-detail-grid">
-        <section data-maintenance-detail="evidence">
-          <h4>Evidence</h4>
-          ${maintenanceEvidenceList(plan)}
-          <ul class="maintenance-checks">
-            ${plan.decision_card.raw_evidence.safety_checks.map((check) => `
-              <li class="${check.ok ? "good" : "warning"}">
-                <span>${check.ok ? "ok" : "review"}</span>
-                ${escapeHtml(check.label)}
-              </li>
-            `).join("")}
-          </ul>
-        </section>
-        <section data-maintenance-detail="rollback">
-          <h4>Rollback path</h4>
-          <p>${escapeHtml(plan.decision_card.rollback_path)}</p>
-        </section>
-        <section data-maintenance-detail="raw-plan">
-          <h4>Raw plan</h4>
-          <dl>
-            <div><dt>Plan</dt><dd><code>${escapeHtml(plan.plan_id)}</code></dd></div>
-            <div><dt>plan_hash</dt><dd><code>${escapeHtml(plan.decision_card.raw_evidence.plan_hash)}</code></dd></div>
-            ${plan.type === "candidate_noise_archive"
-              ? `<div><dt>Reason</dt><dd><code>Memory doctor: e2e marker/noise candidate</code></dd></div>
-            <div><dt>Project</dt><dd><code>${escapeHtml(plan.to_project_id ?? "")}</code></dd></div>`
-              : `<div><dt>Old project id</dt><dd><code>${escapeHtml(plan.from_project_id ?? "")}</code></dd></div>
-            <div><dt>Target project</dt><dd><code>${escapeHtml(plan.to_project_id ?? "")}</code></dd></div>`}
-            <div><dt>Records</dt><dd>${escapeHtml(maintenanceStateSummary(plan.dry_run.states) || "none")}</dd></div>
-            <div><dt>Private records</dt><dd>${escapeHtml(maintenancePrivateSummary(plan))}</dd></div>
-            <div><dt>Record ids</dt><dd>${maintenanceRecordIdsDetail(plan)}</dd></div>
-            <div><dt>Command</dt><dd>${maintenanceCommandDetail(plan)}</dd></div>
-          </dl>
-        </section>
-      </div>
-    </details>
-  `;
-}
-
-function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
-  if (plans.length === 0) return "";
-  return `
-    <section class="panel maintenance-review" aria-label="Maintenance review queue">
-      <details id="maintenance-review-queue" class="maintenance-review-summary" data-dashboard-detail="maintenance-review-queue">
-        <summary class="dashboard-fold-summary maintenance-review-fold">
-          <span>Review Queue</span>
-          <small>Approval required</small>
-        </summary>
-        <div class="maintenance-review-body">
-          <div class="maintenance-list">
-            ${plans.map((plan) => `
-              <article
-                class="maintenance-plan"
-                data-maintenance-plan="${escapeHtml(plan.plan_id)}"
-                data-plan-hash="${escapeHtml(plan.plan_hash)}"
-              >
-                <div class="maintenance-plan-main">
-                  <div>
-                    <h3>${escapeHtml(plan.decision_card.title)}</h3>
-                  </div>
-                </div>
-                ${maintenanceReviewBrief(plan)}
-                <details class="maintenance-audit-details" data-dashboard-detail="maintenance-audit:${escapeHtml(plan.plan_id)}">
-                  <summary class="dashboard-fold-summary maintenance-audit-details-fold">
-                    <span>Decision details</span>
-                    <small>Context and evidence</small>
-                  </summary>
-                  ${maintenanceReviewNotes(plan)}
-                  ${maintenancePlanEvidence(plan)}
-                </details>
-                <div class="maintenance-actions">
-                  <button type="button" data-maintenance-reject>Reject</button>
-                  <button
-                    type="button"
-                    class="primary"
-                    data-maintenance-approve
-                    data-dashboard-action-id="${escapeHtml(maintenanceApproveActionId(plan))}"
-                    data-endpoint="${escapeHtml(maintenancePlanEndpoint(plan))}"
-                    data-plan-hash="${escapeHtml(plan.plan_hash)}"
-                    data-loading-label="${escapeHtml(plan.type === "candidate_noise_archive" ? "Archiving noise..." : "Applying repair...")}"
-                  >${escapeHtml(maintenancePrimaryActionLabel(plan))}</button>
-                </div>
-                <p class="maintenance-status" data-maintenance-status role="status" aria-live="polite"></p>
-              </article>
-            `).join("")}
-          </div>
-        </div>
-      </details>
-    </section>
-  `;
-}
-function contextPackReviewChecks(review: DashboardContextPackReview): string {
-  const checks = review.handoff_pack?.quality_gate.checks ?? [];
-  if (checks.length === 0) return `<div class="empty-state">No context pack checks available.</div>`;
-  const passed = checks.filter((check) => check.status === "pass").length;
-  const needsReview = checks.length - passed;
-  const summary = needsReview === 0
-    ? "All quality checks passed"
-    : `${pluralize(needsReview, "check")} needs review`;
-  return `
-    <details class="context-pack-checks-fold" data-dashboard-detail="context-pack-checks">
-      <summary class="dashboard-fold-summary">
-        <span>Quality Checks</span>
-        <small>${escapeHtml(summary)}</small>
-      </summary>
-      <ul class="context-pack-checks">
-        ${checks.map((check) => `
-          <li class="${check.status === "pass" ? "good" : "warning"}">
-            <span>${escapeHtml(check.status)}</span>
-            <strong>${escapeHtml(check.label)}</strong>
-            ${check.count === undefined ? "" : `<em>${escapeHtml(check.count)}</em>`}
-            <small>${escapeHtml(check.message)}</small>
-            <code>${escapeHtml(check.source)}</code>
-          </li>
-        `).join("")}
-      </ul>
-    </details>
-  `;
-}
-
-function contextPackReviewItemColumn(title: string, items: DashboardContextPackReviewItem[]): string {
-  return `
-    <div>
-      <h3>${escapeHtml(title)}</h3>
-      ${items.length === 0 ? `<div class="empty-state">None in this snapshot.</div>` : `
-        <div class="context-pack-items">
-          ${items.map((item) => `
-            <article class="context-pack-item">
-              ${textExcerptBlock(item.text)}
-              <small><code>${escapeHtml(item.evidence.source)}</code>${item.evidence.record_id ? ` <code>${escapeHtml(item.evidence.record_id)}</code>` : ""}</small>
-            </article>
-          `).join("")}
-        </div>
-      `}
-    </div>
-  `;
-}
-
-function contextPackReviewSummary(review: DashboardContextPackReview): string {
-  const pack = review.handoff_pack;
-  if (!pack) return "unavailable";
-  const gate = pack.quality_gate;
-  if (gate.status === "ready" && gate.failed_check_ids.length === 0 && gate.warnings.length === 0) {
-    return contextPackEvidenceSummary(pack) === "No handoff evidence"
-      ? "Ready handoff context | no handoff evidence"
-      : "Ready handoff context";
-  }
-  const checkSummary = gate.failed_check_ids.length === 0 && gate.warnings.length === 0 ? "all checks passed" : `${pluralize(gate.failed_check_ids.length, "failed check")} | ${pluralize(gate.warnings.length, "warning")}`;
-  const evidenceSummary = contextPackEvidenceSummary(pack).toLowerCase();
-  return `${gate.status} | ${checkSummary} | ${evidenceSummary}`;
-}
-
-function contextPackReadinessSentence(gate: DashboardContextPackReviewQualityGate): string {
-  if (gate.status === "ready" && gate.failed_check_ids.length === 0 && gate.warnings.length === 0) {
-    return "Ready to hand off: all checks passed.";
-  }
-  const reviewItems = [
-    ...gate.failed_check_ids.map((id) => id.replace(/_/g, " ")),
-    ...gate.warnings
-  ];
-  return `Review before handoff: ${reviewItems.length > 0 ? reviewItems.join(" | ") : "quality gate needs review"}.`;
-}
-
-function contextPackQualityBrief(gate: DashboardContextPackReviewQualityGate): string {
-  const checks = gate.checks;
-  const passedChecks = checks.filter((check) => check.status === "pass").length;
-  const needsReview = checks.length - passedChecks;
-  return needsReview === 0
-    ? "Quality checks passed."
-    : `Quality checks: ${passedChecks} passed | ${needsReview} review.`;
-}
-
-function contextPackReviewBrief(review: DashboardContextPackReview): string {
-  const pack = review.handoff_pack;
-  if (!pack) return "";
-  const gate = pack.quality_gate;
-  const captureCommand = pack.next_actions.find((action) => action.id === "capture_session")?.command ?? "missing";
-  return `
-        <div class="context-pack-brief" data-context-pack-brief>
-          <h4>Handoff readiness</h4>
-          <ul>
-            <li>${escapeHtml(contextPackReadinessSentence(gate))}</li>
-            <li>${escapeHtml(contextPackQualityBrief(gate))}</li>
-            <li>Evidence available: ${escapeHtml(contextPackEvidenceSummary(pack))}.</li>
-            <li>Capture action: <code>${escapeHtml(captureCommand)}</code>.</li>
-          </ul>
-        </div>
-  `;
-}
-
-function contextPackReadinessChips(review: DashboardContextPackReview): string {
-  const pack = review.handoff_pack;
-  if (!pack) return "";
-  const gate = pack.quality_gate;
-  const checks = gate.checks;
-  const passedChecks = checks.filter((check) => check.status === "pass").length;
-  const evidenceCount = pack.recent_decisions.length + pack.open_threads.length + pack.risks.length;
-  const captureActionVisible = pack.next_actions.some((action) => action.id === "capture_session");
-  return `
-        <div class="context-pack-readiness" aria-label="Context Pack readiness">
-          <span class="context-pack-chip ${gate.status === "ready" ? "good" : "warning"}">${escapeHtml(titleCase(gate.status))}</span>
-          <span class="context-pack-chip ${passedChecks === checks.length ? "good" : "warning"}">${escapeHtml(passedChecks)}/${escapeHtml(checks.length)} checks</span>
-          <span class="context-pack-chip info">${escapeHtml(pluralize(evidenceCount, "evidence item"))}</span>
-          <span class="context-pack-chip ${captureActionVisible ? "good" : "warning"}">${escapeHtml(captureActionVisible ? "Capture action visible" : "Capture action missing")}</span>
-        </div>
-  `;
-}
-
-function contextPackReviewOpenAttribute(review: DashboardContextPackReview): string {
-  const gate = review.handoff_pack?.quality_gate;
-  if (!gate) return "";
-  return gate.status === "ready" && gate.failed_check_ids.length === 0 && gate.warnings.length === 0 ? "" : " open";
-}
-
-function contextPackEvidenceSummary(pack: DashboardContextPackReview["handoff_pack"]): string {
-  if (!pack) return "No handoff evidence";
-  const counts = [
-    pack.recent_decisions.length > 0 ? pluralize(pack.recent_decisions.length, "decision") : undefined,
-    pack.open_threads.length > 0 ? pluralize(pack.open_threads.length, "thread") : undefined,
-    pack.risks.length > 0 ? pluralize(pack.risks.length, "risk") : undefined
-  ].filter((count): count is string => count !== undefined);
-  return counts.length > 0 ? counts.join(" | ") : "No handoff evidence";
-}
-
-function contextPackEvidenceFoldSummary(pack: DashboardContextPackReview["handoff_pack"]): string {
-  return contextPackEvidenceSummary(pack) === "No handoff evidence"
-    ? "No handoff evidence"
-    : "Handoff evidence available";
-}
-
-function contextPackReviewPanel(review: DashboardContextPackReview): string {
-  if (!review.available || !review.handoff_pack) {
-    return `
-      <details class="panel context-pack-review" data-dashboard-detail="context-pack-review" data-context-pack-state="unavailable" aria-label="Context Pack Review">
-        <summary class="dashboard-fold-summary context-pack-review-fold">
-          <span>Context Pack Review</span>
-          <small>unavailable</small>
-        </summary>
-        <div class="empty-state">${escapeHtml(review.unavailable_reason ?? "Project context is required for Context Pack Review.")}</div>
-      </details>
-    `;
-  }
-  const pack = review.handoff_pack;
-  const gate = pack.quality_gate;
-  return `
-    <details${contextPackReviewOpenAttribute(review)} class="panel context-pack-review" data-dashboard-detail="context-pack-review" data-context-pack-state="${escapeHtml(gate.status)}" aria-label="Context Pack Review">
-      <summary class="dashboard-fold-summary context-pack-review-fold">
-        <span>Context Pack Review</span>
-        <small>${escapeHtml(contextPackReviewSummary(review))}</small>
-      </summary>
-      <div class="context-pack-review-body">
-        ${contextPackReadinessChips(review)}
-        <div class="context-pack-heading">
-          <h2>Context Pack Review</h2>
-          <span>${escapeHtml(gate.status)}</span>
-        </div>
-        <div class="lifecycle-policy">
-          <div>
-            <strong>${escapeHtml(pack.purpose)}</strong>
-            <code>${escapeHtml(review.project_id ?? "unknown")}</code>
-          </div>
-          <span>Read-only</span>
-          <span>${escapeHtml(review.generated_from.store)}</span>
-          <span>writes: ${escapeHtml(review.generated_from.writes)}</span>
-          <span>sync pull: ${escapeHtml(review.generated_from.sync_pull)}</span>
-        </div>
-        ${contextPackReviewBrief(review)}
-        <dl class="context-pack-summary">
-          <div><dt>Current goal</dt><dd>${escapeHtml(pack.current_goal?.text ?? "none")}<small>${escapeHtml(pack.current_goal?.source ?? "missing")}</small></dd></div>
-          <div><dt>Quality gate</dt><dd>${escapeHtml(gate.status)}<small>${escapeHtml(gate.failed_check_ids.length ? gate.failed_check_ids.join(", ") : "no failed checks")}</small></dd></div>
-          <div><dt>End action</dt><dd><code>${escapeHtml(pack.next_actions[0]?.command ?? "missing")}</code><small>${escapeHtml(pack.next_actions[0]?.evidence.source ?? "missing")}</small></dd></div>
-          <div><dt>Evidence</dt><dd><code>${escapeHtml(pack.evidence.records)}</code> <code>${escapeHtml(pack.evidence.events)}</code> <code>${escapeHtml(pack.evidence.next)}</code></dd></div>
-        </dl>
-        ${contextPackReviewChecks(review)}
-        <details class="context-pack-evidence" data-dashboard-detail="context-pack-evidence">
-          <summary class="dashboard-fold-summary">
-            <span>Context Evidence</span>
-            <small>${escapeHtml(contextPackEvidenceFoldSummary(pack))}</small>
-          </summary>
-          <div class="context-pack-grid">
-            ${contextPackReviewItemColumn("Recent Decisions", pack.recent_decisions)}
-            ${contextPackReviewItemColumn("Open Threads", pack.open_threads)}
-            ${contextPackReviewItemColumn("Risks", pack.risks)}
-          </div>
-        </details>
-      </div>
-    </details>
-  `;
-}
-
-function hasAuditReportData(memoryLifecycle: MemoryLifecycleResult, capturePolicy: CapturePolicyResult): boolean {
-  return memoryLifecycle.stats.total_records > 0
-    || memoryLifecycle.findings.length > 0
-    || memoryLifecycle.suggested_actions.length > 0
-    || capturePolicy.stats.total_autocapture_records > 0;
-}
-
-function agentBars(agents: DashboardAgentChartItem[]): string {
-  if (agents.length === 0) return `<div class="empty-state">No agent activity recorded yet.</div>`;
-  return `
-    <div class="agent-bars">
-      ${agents.map((agent) => `
-        <div class="bar-row"${agent.citation ? ` data-dashboard-citation="event:${escapeHtml(agent.citation.event_id)}"` : ""}>
-          <div class="bar-label">
-            <strong>${escapeHtml(agent.client)}</strong>
-            <span>${escapeHtml(agent.events)} events | ${escapeHtml(agent.records)} records | ${escapeHtml(agent.relative_time)}</span>
-          </div>
-          <div class="bar-track" aria-hidden="true"><span style="width: ${escapeHtml(agent.weight)}%"></span></div>
-          ${agent.citation ? `<small>${escapeHtml(agent.citation.timeline_command)}</small>` : ""}
-        </div>
-      `).join("")}
-    </div>
-  `;
-}
-
-function memoryStateStack(states: DashboardMemoryStateChartItem[]): string {
-  if (states.length === 0) return `<div class="empty-state">No records yet.</div>`;
-  return `
-    <div class="state-stack" aria-label="Record state distribution">
-      <div class="stack-bar">
-        ${states.map((state) => `<span class="state-${escapeHtml(state.state)}" style="width: ${escapeHtml(state.percent)}%" title="${escapeHtml(state.state)}: ${escapeHtml(state.count)}"></span>`).join("")}
-      </div>
-      <div class="stack-legend">
-        ${states.map((state) => `<span><i class="state-${escapeHtml(state.state)}"></i>${escapeHtml(state.state)} | ${escapeHtml(state.count)}</span>`).join("")}
-      </div>
-    </div>
-  `;
-}
-
-function recordTypeBars(types: DashboardRecordTypeChartItem[]): string {
-  if (types.length === 0) return `<div class="empty-state">No record types yet.</div>`;
-  return `
-    <div class="type-bars" aria-label="Record type distribution">
-      ${types.map((type) => `
-        <div class="type-row type-${escapeHtml(type.kind)}">
-          <div class="type-label">
-            <strong>${escapeHtml(type.label)}</strong>
-            <span>${escapeHtml(type.count)} | ${escapeHtml(type.percent)}%</span>
-          </div>
-          <div class="type-track" aria-hidden="true"><span style="width: ${escapeHtml(type.percent)}%"></span></div>
-        </div>
-      `).join("")}
-    </div>
-  `;
-}
-
-function syncRail(sync: DashboardSyncPositionChart): string {
-  const behindWidth = Math.min(100, sync.behind * 20);
-  const aheadWidth = Math.min(100, sync.ahead * 20);
-  return `
-    <div class="sync-rail ${sync.conflict ? "critical" : sync.dirty ? "warning" : ""}">
-      <div class="rail-labels"><span>Remote</span><strong>${escapeHtml(syncPositionLabel(sync))}</strong><span>Local</span></div>
-      <div class="rail">
-        <span class="behind" style="width: ${escapeHtml(behindWidth)}%"></span>
-        <i></i>
-        <span class="ahead" style="width: ${escapeHtml(aheadWidth)}%"></span>
-      </div>
-      <p>${escapeHtml(sync.behind)} behind | ${escapeHtml(sync.ahead)} ahead</p>
-    </div>
-  `;
-}
-
-function citationCommands(citation: DashboardRecordCitation | DashboardEventCitation | DashboardAgentCitation): string {
-  return `
-    <div class="citation-links">
-      <code>${escapeHtml(citation.timeline_command)}</code>
-      ${"recall_command" in citation && citation.recall_command ? `<code>${escapeHtml(citation.recall_command)}</code>` : ""}
-    </div>
-  `;
-}
-
-type ApprovalBriefLabel = "Change" | "Scope" | "Guard" | "Writes" | "Evidence" | "Trace";
-
-interface ApprovalBriefRow {
-  label: ApprovalBriefLabel;
-  value: string;
-  valueZh?: string;
-}
-
-function approvalBriefLabelZh(label: ApprovalBriefLabel): string {
-  if (label === "Change") return "变化";
-  if (label === "Scope") return "范围";
-  if (label === "Guard") return "保护";
-  if (label === "Writes") return "写入";
-  if (label === "Evidence") return "证据";
-  return "追踪";
-}
-
-function approvalBriefHtml(input: {
-  className: string;
-  dataAttribute: string;
-  listClassName: string;
-  rows: ApprovalBriefRow[];
-  translated?: boolean;
-  footerHtml?: string;
-}): string {
-  const title = input.translated ? i18nText("Approval brief", "确认摘要", "h4") : "<h4>Approval brief</h4>";
-  const rows = input.rows.map((row) => {
-    if (input.translated) {
-      const valueZh = row.valueZh ?? row.value;
-      return `<div>${i18nText(row.label, approvalBriefLabelZh(row.label), "dt")}<dd ${i18nAttribute(row.value, valueZh)}>${escapeHtml(row.value)}</dd></div>`;
-    }
-    return `<div><dt>${escapeHtml(row.label)}</dt><dd>${escapeHtml(row.value)}</dd></div>`;
-  }).join("\n        ");
-  return `
-    <div class="${escapeHtml(input.className)}" ${input.dataAttribute}>
-      ${title}
-      <dl class="${escapeHtml(input.listClassName)}" aria-label="Approval brief">
-        ${rows}
-      </dl>
-      ${input.footerHtml ?? ""}
-    </div>
-  `;
-}
-
-function captureInboxAuditSummary(items: DashboardCaptureInbox): string {
-  return [
-    "manual review",
-    "no auto-canonical",
-    pluralize(items.total, "candidate"),
-    `auto-captured ${items.autocapture_policy.auto_captured_total}`,
-    `policy archived ${items.autocapture_policy.archived_total}`
-  ].join(" | ");
-}
-
-function captureInboxAudit(items: DashboardCaptureInbox): string {
-  const auditSummary = captureInboxAuditSummary(items);
-  return `
-      <details class="capture-inbox-audit" data-dashboard-detail="capture-inbox-audit">
-        <summary class="dashboard-fold-summary" aria-label="Capture Audit: ${escapeHtml(auditSummary)}">
-          <span>Capture Audit</span>
-          <small>Manual review, no auto-canonical</small>
-        </summary>
-        <div class="capture-policy">
-          <div>
-            <strong>Capture Policy</strong>
-            <code>${escapeHtml(items.policy.id)}</code>
-          </div>
-          <span>Review Policy</span>
-          <span>Manual review</span>
-          <span>No auto-canonical</span>
-          <span>Trust disabled</span>
-          <span>User action required</span>
-          <span>${escapeHtml(items.policy.grouping.group_by.join(" / "))}</span>
-          <span>stale batch protection</span>
-        </div>
-        <div class="capture-policy">
-          <div>
-            <strong>Autocapture Policy</strong>
-            <code>${escapeHtml(items.autocapture_policy.id)}</code>
-          </div>
-          <span>No auto-canonical</span>
-          <span>Auto-captured ${escapeHtml(items.autocapture_policy.auto_captured_total)}</span>
-          <span>Policy archived ${escapeHtml(items.autocapture_policy.archived_total)}</span>
-          <span>${escapeHtml(Object.entries(items.autocapture_policy.captured_by_rule).map(([ruleId, count]) => `${ruleId}: ${count}`).join(" / ") || "no auto-captured handoffs")}</span>
-          <span>${escapeHtml(Object.entries(items.autocapture_policy.archived_by_rule).map(([ruleId, count]) => `${ruleId}: ${count}`).join(" / ") || "no archived noise")}</span>
-        </div>
-      ${items.autocapture_policy.auto_captured_examples.length ? `
-        <details class="capture-policy-rules" data-dashboard-detail="autocapture-policy-captured:${escapeHtml(items.autocapture_policy.id)}">
-          <summary>Auto-captured handoffs</summary>
-          <ul class="capture-policy-rule-list">
-            ${items.autocapture_policy.auto_captured_examples.map((example) => `
-              <li>
-                <code>${escapeHtml(example.id)}</code>
-                <strong>${escapeHtml(example.rule_ids.join(", ") || "policy")}</strong>
-                <span>${escapeHtml(textExcerpt(`${example.text}${example.reason ? ` ${example.reason}` : ""}`).text)}</span>
-              </li>
-            `).join("")}
-          </ul>
-        </details>
-      ` : ""}
-      ${items.autocapture_policy.archived_examples.length ? `
-        <details class="capture-policy-rules" data-dashboard-detail="autocapture-policy:${escapeHtml(items.autocapture_policy.id)}">
-          <summary>Policy archived captures</summary>
-          <ul class="capture-policy-rule-list">
-            ${items.autocapture_policy.archived_examples.map((example) => `
-              <li>
-                <code>${escapeHtml(example.id)}</code>
-                <strong>${escapeHtml(example.rule_ids.join(", ") || "policy")}</strong>
-                <span>${escapeHtml(textExcerpt(`${example.text}${example.reason ? ` ${example.reason}` : ""}`).text)}</span>
-              </li>
-            `).join("")}
-          </ul>
-        </details>
-      ` : ""}
-      <details class="capture-policy-rules" data-dashboard-detail="capture-policy:${escapeHtml(items.policy.id)}">
-        <summary>Policy rules</summary>
-        <p>${escapeHtml(items.policy.explanation)}</p>
-        <dl>
-          <div><dt>Version</dt><dd>${escapeHtml(items.policy.version)}</dd></div>
-          <div><dt>Mode</dt><dd>${escapeHtml(items.policy.mode)}</dd></div>
-          <div><dt>Grouping</dt><dd>${escapeHtml(items.policy.grouping.group_by.join(", "))}</dd></div>
-        </dl>
-        <ul class="capture-policy-rule-list">
-          ${items.policy.noise_rules.map((rule) => `
-            <li>
-              <code>${escapeHtml(rule.id)}</code>
-              <strong>${escapeHtml(rule.label)}</strong>
-              <span>${escapeHtml(rule.description)}</span>
-            </li>
-          `).join("")}
-        </ul>
-      </details>
-      </details>
-    `;
-}
-
-function captureInboxDecisionBrief(item: DashboardCaptureInboxItem): string {
-  const reason = item.provenance_reason ?? "Candidate memory is waiting for review.";
-  const reasonZh = reason === "Captured through Moryn host adapter autocapture."
-    ? "由 Moryn 主机适配器自动捕获。"
-    : reason === "Candidate memory is waiting for review."
-      ? "候选记忆正在等待查看。"
-      : reason;
-  return approvalBriefHtml({
-    className: "capture-inbox-brief",
-    dataAttribute: "data-capture-inbox-brief",
-    listClassName: "capture-inbox-brief-list",
-    translated: true,
-    rows: [
-      { label: "Change", value: "Review 1 candidate", valueZh: "查看 1 条候选内容" },
-      { label: "Scope", value: reason, valueZh: reasonZh },
-      {
-        label: "Guard",
-        value: "Server rechecks active candidate before writing",
-        valueZh: "写入前服务器会重新检查当前候选内容"
-      },
-      {
-        label: "Writes",
-        value: "Approve appends memory; Reject appends archive",
-        valueZh: "批准会追加记忆；拒绝会追加归档"
-      },
-      {
-        label: "Evidence",
-        value: "Candidate text and policy details stay in Item review",
-        valueZh: "候选文本和策略细节保留在逐条查看中"
-      },
-      {
-        label: "Trace",
-        value: "Timeline and recall commands stay below",
-        valueZh: "时间线和召回命令保留在下方"
-      }
-    ]
-  });
-}
-
-function captureInboxGroupBrief(group: DashboardCaptureInboxGroup): string {
-  const scope = group.noise.level === "likely_noise" ? "Likely noise" : "Normal review";
-  const scopeZh = group.noise.level === "likely_noise" ? "可能是噪音" : "正常查看";
-  const change = `Review ${pluralize(group.total, "candidate")}`;
-  const changeZh = `查看 ${group.total} 条候选内容`;
-  return approvalBriefHtml({
-    className: "capture-inbox-brief",
-    dataAttribute: "data-capture-inbox-group-brief",
-    listClassName: "capture-inbox-brief-list",
-    translated: true,
-    rows: [
-      { label: "Change", value: change, valueZh: changeZh },
-      { label: "Scope", value: scope, valueZh: scopeZh },
-      {
-        label: "Guard",
-        value: "Server rechecks selected group records before writing",
-        valueZh: "写入前服务器会重新检查所选分组记录"
-      },
-      {
-        label: "Writes",
-        value: "Approve Group appends memory; Reject Group appends archive",
-        valueZh: "批准分组会追加记忆；拒绝分组会追加归档"
-      },
-      {
-        label: "Evidence",
-        value: "Group ids, records, rules, and noise stay in Trace details",
-        valueZh: "分组、记录、规则和噪音证据保留在追踪详情中"
-      },
-      {
-        label: "Trace",
-        value: "Timeline and recall commands stay with each item",
-        valueZh: "每条内容都保留时间线和召回命令"
-      }
-    ]
-  });
-}
-
-function captureInboxNoiseRuleLabel(ruleId: DashboardCaptureNoiseRule["id"]): string {
-  return CAPTURE_NOISE_RULES.find((rule) => rule.id === ruleId)?.label ?? ruleId;
-}
-
-function captureInboxGroupReviewSignal(group: DashboardCaptureInboxGroup): string {
-  if (group.noise.level !== "likely_noise" || group.noise.rule_ids.length === 0) return "";
-  const ruleLabels = group.noise.rule_ids.map((ruleId) => `<span>${escapeHtml(captureInboxNoiseRuleLabel(ruleId))}</span>`).join("");
-  const reasons = group.noise.reasons.length ? group.noise.reasons.join(" ") : "Noise signals detected before approval.";
-  return `
-            <div class="capture-inbox-review-signal" data-capture-inbox-review-signal>
-              ${i18nText("Review signal", "查看信号", "strong")}
-              <div>${ruleLabels}</div>
-              <small>${escapeHtml(reasons)}</small>
-            </div>`;
-}
-
-function captureInboxGroupFaceTitle(group: DashboardCaptureInboxGroup): string {
-  return `Review ${pluralize(group.total, "capture")}`;
-}
-
-function captureInboxGroupFaceTitleZh(group: DashboardCaptureInboxGroup): string {
-  return `查看 ${group.total} 条捕获内容`;
-}
-
-function captureInboxGroupFaceHint(group: DashboardCaptureInboxGroup): string {
-  return group.noise.level === "likely_noise" ? "Archive likely noise or inspect items." : "Approve or reject this group.";
-}
-
-function captureInboxGroupFaceHintZh(group: DashboardCaptureInboxGroup): string {
-  return group.noise.level === "likely_noise" ? "把可能的噪音归档，或先查看内容。" : "批准或拒绝这个分组。";
-}
-
-function captureInboxQueueSummary(items: DashboardCaptureInbox): string {
-  const likelyNoise = items.items.filter((item) => item.noise.level === "likely_noise").length;
-  const normalReview = Math.max(0, items.total - likelyNoise);
-  const queueSummary = `${pluralize(items.total, "candidate")} grouped into ${pluralize(items.group_total, "review group")}.`;
-  const queueSummaryZh = `${items.total} 条候选内容分成 ${items.group_total} 个查看分组。`;
-  return `
-      <div class="capture-inbox-queue-summary" data-capture-inbox-queue-summary>
-        <div>
-          ${i18nText("Queue summary", "队列摘要", "h3")}
-          <p ${i18nAttribute(queueSummary, queueSummaryZh)}>${escapeHtml(queueSummary)}</p>
-          <p ${i18nAttribute("Review groups first; open item details only when needed. Candidates in this compatibility queue require approval; reliable low-risk Learning Deltas follow the automatic v0.3 policy instead.", "先按分组查看；只有需要时再打开逐条详情。这个兼容队列中的候选项需要确认；可靠、低风险的 Learning Delta 则按 v0.3 自动策略处理。")}>Review groups first; open item details only when needed. Candidates in this compatibility queue require approval; reliable low-risk Learning Deltas follow the automatic v0.3 policy instead.</p>
-        </div>
-        <div class="capture-inbox-queue-chips" aria-label="Capture Inbox queue counts">
-          <span ${i18nAttribute(`${normalReview} normal review`, `${normalReview} 条正常查看`)}>${escapeHtml(normalReview)} normal review</span>
-          <span ${i18nAttribute(`${likelyNoise} likely noise`, `${likelyNoise} 条可能是噪音`)}>${escapeHtml(likelyNoise)} likely noise</span>
-        </div>
-      </div>
-  `;
-}
-
-function captureInbox(items: DashboardCaptureInbox): string {
-  if (items.total === 0) return "";
-  return `
-    <section id="capture-inbox" class="panel capture-inbox" aria-label="Capture Inbox">
-      <div class="capture-inbox-heading">
-        ${i18nText("Capture Inbox", "捕获收件箱", "h2")}
-        ${i18nText("Manual approval", "手动确认")}
-      </div>
-      ${items.total > 0 ? captureInboxQueueSummary(items) : ""}
-      <div class="capture-inbox-list">
-        ${items.groups.map((group) => {
-          const groupItems = items.items.filter((item) => item.group_id === group.id);
-          const faceTitle = captureInboxGroupFaceTitle(group);
-          const faceHint = captureInboxGroupFaceHint(group);
-          const facePill = group.noise.level === "likely_noise" ? "Likely noise" : "candidate";
-          const facePillZh = group.noise.level === "likely_noise" ? "可能是噪音" : "候选内容";
-          return `
-          <article class="capture-inbox-group" data-capture-inbox-group="${escapeHtml(group.id)}">
-            <div class="capture-inbox-main">
-              <div>
-                <h3 ${i18nAttribute(faceTitle, captureInboxGroupFaceTitleZh(group))}>${escapeHtml(faceTitle)}</h3>
-                <p ${i18nAttribute(faceHint, captureInboxGroupFaceHintZh(group))}>${escapeHtml(faceHint)}</p>
-              </div>
-              <span class="pill ${group.noise.level === "likely_noise" ? "warning" : "state-candidate"}" ${i18nAttribute(facePill, facePillZh)}>${escapeHtml(facePill)}</span>
-            </div>
-            ${captureInboxGroupBrief(group)}
-            ${captureInboxGroupReviewSignal(group)}
-            <details class="capture-inbox-context" data-dashboard-detail="capture-inbox-context:${escapeHtml(group.id)}">
-              ${i18nText("Review context", "查看上下文", "summary")}
-              <dl class="capture-inbox-summary" data-capture-inbox-group-summary>
-                <div><dt>Source</dt><dd>${escapeHtml(group.source_label)}<small>${escapeHtml(group.source_detail)}</small></dd></div>
-                <div><dt>Project</dt><dd><code>${escapeHtml(group.project_id ?? "global")}</code></dd></div>
-                <div><dt>Items</dt><dd>${escapeHtml(pluralize(group.total, "candidate"))}<small>${escapeHtml(group.noise.suggested_action)} suggested</small></dd></div>
-                <div><dt>Captured</dt><dd><time title="${escapeHtml(group.latest_at)}">${escapeHtml(group.relative_time)}</time></dd></div>
-              </dl>
-            </details>
-            <details class="capture-inbox-item-review" data-dashboard-detail="capture-group:${escapeHtml(group.id)}">
-              ${i18nText("Item review", "逐条查看", "summary")}
-              <details class="capture-inbox-evidence-index" data-dashboard-detail="capture-inbox-evidence-index:${escapeHtml(group.id)}">
-                ${i18nText("Trace details", "追踪详情", "summary")}
-                <dl>
-                  <div><dt>Group</dt><dd><code>${escapeHtml(group.id)}</code></dd></div>
-                  <div><dt>Records</dt><dd>${group.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ")}</dd></div>
-                  <div><dt>Rules</dt><dd>${group.noise.rule_ids.length ? group.noise.rule_ids.map((ruleId) => `<code>${escapeHtml(ruleId)}</code>`).join(" ") : "none"}</dd></div>
-                  <div><dt>Noise</dt><dd>${escapeHtml(group.noise.reasons.length ? group.noise.reasons.join(" ") : "No noise signals detected.")}</dd></div>
-                </dl>
-              </details>
-              <div class="capture-inbox-items">
-                ${groupItems.map((item) => `
-                  <details class="capture-inbox-item" data-capture-inbox-record="${escapeHtml(item.id)}">
-                    <summary class="capture-inbox-item-summary">
-                      <span class="capture-inbox-item-main">
-                        <h3>${escapeHtml(titleCase(item.type || item.kind))}</h3>
-                        ${textExcerptBlock(item.text)}
-                      </span>
-                      <span class="capture-inbox-item-meta">
-                        <span>${escapeHtml(item.relative_time)}</span>
-                        <span ${i18nAttribute(item.noise.level === "likely_noise" ? "Likely noise" : "candidate", item.noise.level === "likely_noise" ? "可能是噪音" : "候选内容")}>${escapeHtml(item.noise.level === "likely_noise" ? "Likely noise" : "candidate")}</span>
-                      </span>
-                    </summary>
-                    <div class="capture-inbox-item-body">
-                      <span class="pill ${item.noise.level === "likely_noise" ? "warning" : "state-candidate"}" ${i18nAttribute(item.noise.level === "likely_noise" ? "Likely noise" : "candidate", item.noise.level === "likely_noise" ? "可能是噪音" : "候选内容")}>${escapeHtml(item.noise.level === "likely_noise" ? "Likely noise" : "candidate")}</span>
-                      ${captureInboxDecisionBrief(item)}
-                      <dl class="capture-inbox-summary">
-                        <div><dt>Confidence</dt><dd>${escapeHtml(item.confidence)}<small>${escapeHtml(item.priority)} priority</small></dd></div>
-                        <div><dt>Captured</dt><dd><time title="${escapeHtml(item.exact_time)}">${escapeHtml(item.relative_time)}</time></dd></div>
-                        <div><dt>Reason</dt><dd>${escapeHtml(item.provenance_reason ?? "Candidate memory is waiting for review.")}</dd></div>
-                        ${item.current_task ? `<div><dt>Task</dt><dd>${escapeHtml(item.current_task)}</dd></div>` : ""}
-                        ${item.files?.length ? `<div><dt>Files</dt><dd>${item.files.map((file) => `<code>${escapeHtml(file)}</code>`).join(" ")}</dd></div>` : ""}
-                        ${item.policy_decision || item.policy_route || item.policy_rule_ids.length || item.policy_reasons.length ? `<div><dt>Policy</dt><dd>${[
-                          item.policy_decision,
-                          item.policy_route,
-                          ...item.policy_rule_ids,
-                          ...item.policy_reasons
-                        ].filter(Boolean).map((value) => `<code>${escapeHtml(value)}</code>`).join(" ")}</dd></div>` : ""}
-                        <div><dt>Trace</dt><dd>${citationCommands(item.citation)}</dd></div>
-                      </dl>
-                      <div class="capture-inbox-actions">
-                        <button
-                          type="button"
-                          data-capture-inbox-reject
-                          data-dashboard-action-id="${escapeHtml(captureInboxRecordActionId("reject", item.id))}"
-                          data-endpoint="${escapeHtml(item.reject_endpoint)}"
-                          ${i18nAttribute("Reject", "拒绝")}
-                        >Reject</button>
-                        <button
-                          type="button"
-                          class="primary"
-                          data-capture-inbox-approve
-                          data-dashboard-action-id="${escapeHtml(captureInboxRecordActionId("approve", item.id))}"
-                          data-endpoint="${escapeHtml(item.approve_endpoint)}"
-                          ${i18nAttribute("Approve Memory", "批准为记忆")}
-                        >Approve Memory</button>
-                      </div>
-                      <p class="capture-inbox-status" data-capture-inbox-status role="status" aria-live="polite"></p>
-                    </div>
-                  </details>
-                `).join("")}
-              </div>
-            </details>
-            <div class="capture-inbox-actions">
-              <button
-                type="button"
-                data-capture-inbox-group-reject
-                data-dashboard-action-id="${escapeHtml(captureInboxGroupActionId("reject", group.id))}"
-                data-endpoint="${escapeHtml(group.reject_endpoint)}"
-                data-record-ids="${escapeHtml(group.record_ids.join(","))}"
-                ${i18nAttribute("Reject Group", "拒绝分组")}
-              >Reject Group</button>
-              <button
-                type="button"
-                class="primary"
-                data-capture-inbox-group-approve
-                data-dashboard-action-id="${escapeHtml(captureInboxGroupActionId("approve", group.id))}"
-                data-endpoint="${escapeHtml(group.approve_endpoint)}"
-                data-record-ids="${escapeHtml(group.record_ids.join(","))}"
-                ${i18nAttribute("Approve Group", "批准分组")}
-              >Approve Group</button>
-            </div>
-            <p class="capture-inbox-status" data-capture-inbox-status role="status" aria-live="polite"></p>
-          </article>
-        `;
-        }).join("")}
-      </div>
-      ${captureInboxAudit(items)}
-    </section>
-  `;
-}
-
-function syncActionBrief(data: DashboardData): string {
-  const syncLane = data.action_board.items_by_id.sync;
-  if (syncLane.value === 0 || (syncLane.severity !== "warning" && syncLane.severity !== "critical")) return "";
-  const syncAction = data.attention_items.find((item) => item.severity !== "info" && isSyncAttentionItem(item));
-  if (!syncAction?.action_command) return "";
-  const sync = data.sync;
-  return `
-    <section class="sync-action-brief ${escapeHtml(syncAction.severity)}" data-dashboard-sync-action>
-      <div class="sync-action-main">
-        <h3>Sync Action</h3>
-        <strong>${escapeHtml(syncAction.action_label)}</strong>
-        <small>${escapeHtml(syncLane.detail)}</small>
-      </div>
-      <code>${escapeHtml(syncAction.action_command)}</code>
-      <div class="sync-action-context" aria-label="Sync action context">
-        <span>${sync.remote ? "Remote configured" : "Remote not configured"}</span>
-        <span>Branch ${escapeHtml(sync.branch ?? "unknown")}</span>
-        <span>${escapeHtml(sync.behind ?? 0)} behind</span>
-        <span>${escapeHtml(sync.ahead ?? 0)} ahead</span>
-      </div>
-    </section>
-  `;
-}
-
-function syncPositionFocus(data: DashboardData): string {
-  return `
-    <details class="store-sync-details" data-dashboard-detail="store-sync-details">
-      <summary class="dashboard-fold-summary">
-        <span>Sync details</span>
-        <small>Position rail</small>
-      </summary>
-      <section class="signal-card sync-position-focus" data-dashboard-sync-position-focus>
-        <h2>Sync Position</h2>
-        ${syncRail(data.charts.sync_position)}
-      </section>
-    </details>
-  `;
-}
-
-function storeTelemetryContext(data: DashboardData): string {
-  return `
-    <details class="store-telemetry-context" data-dashboard-detail="store-telemetry-context">
-      <summary class="dashboard-fold-summary">
-        <span>Telemetry Context</span>
-        <small>Agent and record signals</small>
-      </summary>
-      <section class="visual-grid">
-        <div class="signal-card">
-          <h2>Agent Activity</h2>
-          ${agentBars(data.charts.agent_activity)}
-        </div>
-        <div class="signal-card">
-          <h2>Record Quality</h2>
-          ${memoryStateStack(data.charts.memory_states)}
-        </div>
-        <div class="signal-card">
-          <h2>Record Types</h2>
-          ${recordTypeBars(data.charts.record_types)}
-        </div>
-      </section>
-    </details>
-  `;
-}
-
-function storeSignalsSummary(data: DashboardData): string {
-  const syncLane = data.action_board.items_by_id.sync;
-  if (syncLane.value > 0 && (syncLane.severity === "warning" || syncLane.severity === "critical")) {
-    return "Sync action ready";
-  }
-  return "Sync details and local status";
-}
-
-function storeSignalsSummaryZh(summary: string): string {
-  if (summary === "Sync action ready") return "同步操作已就绪";
-  if (summary === "Sync details and local status") return "同步详情和本机状态";
-  return summary;
-}
-
-function storeSignalsPanel(data: DashboardData, options: { open?: boolean; includeTelemetry?: boolean } = {}): string {
-  const openAttribute = options.open ? " open" : "";
-  const includeTelemetry = options.includeTelemetry ?? true;
-  return `
-    <details${openAttribute} id="store-signals" class="panel store-signals" data-dashboard-detail="store-signals">
-      <summary class="dashboard-fold-summary">
-        ${i18nText("Shared copy details", "共享副本详情")}
-        <small ${i18nAttribute(storeSignalsSummary(data), storeSignalsSummaryZh(storeSignalsSummary(data)))}>${escapeHtml(storeSignalsSummary(data))}</small>
-      </summary>
-      ${syncActionBrief(data)}
-      ${syncPositionFocus(data)}
-      ${includeTelemetry ? storeTelemetryContext(data) : ""}
-    </details>
-  `;
-}
-
-function promotedStoreSignalsPanel(data: DashboardData): string {
-  const summary = storeSignalsSummary(data);
-  return `
-    <section id="store-signals" class="panel store-signals store-signals-promoted" data-dashboard-detail="store-signals" data-dashboard-promoted-store-signals aria-label="Shared copy details">
-      <div class="store-signals-promoted-head">
-        ${i18nText("Shared copy details", "共享副本详情")}
-        <small ${i18nAttribute(summary, storeSignalsSummaryZh(summary))}>${escapeHtml(summary)}</small>
-      </div>
-      ${syncActionBrief(data)}
-      ${syncPositionFocus(data)}
-    </section>
-  `;
-}
-
-function supportingEvidenceSummary(): string {
-  return "Optional trace data";
-}
-
-type SupportingEvidenceSummaryRow = {
-  id: "audit-reports" | "store-snapshot" | "raw-store";
-  label: string;
-  summary: string;
-  route: string;
-  paths: Array<{ label: string; route: string }>;
-};
-
-function supportingEvidenceSummaryRow(row: SupportingEvidenceSummaryRow): string {
-  const labelZh: Record<SupportingEvidenceSummaryRow["label"], string> = {
-    "Audit Reports": "审计报告",
-    "Store Snapshot": "存储快照",
-    "Raw Store": "原始存储"
-  };
-  const summaryZh: Record<SupportingEvidenceSummaryRow["summary"], string> = {
-    "Lifecycle checks indexed": "生命周期检查已建立索引",
-    "Store signals indexed": "存储信号已建立索引",
-    "Raw evidence indexed": "原始依据已建立索引"
-  };
-  return `
-        <article class="supporting-evidence-summary-row" data-supporting-evidence-summary="${escapeHtml(row.id)}" data-dashboard-detail="${escapeHtml(row.route)}">
-          <div>
-            <strong ${i18nAttribute(row.label, labelZh[row.label])}>${escapeHtml(row.label)}</strong>
-            <span ${i18nAttribute(row.summary, summaryZh[row.summary])}>${escapeHtml(row.summary)}</span>
-          </div>
-          <small>${row.paths.map((path) => `<code data-dashboard-detail="${escapeHtml(path.route)}">${escapeHtml(path.label)}</code>`).join("")}</small>
-        </article>
-  `;
-}
-
-function supportingEvidencePanel(data: DashboardData, options: { includeStoreSignals?: boolean } = {}): string {
-  const includeStoreSignals = options.includeStoreSignals ?? true;
-  const hasAuditReports = hasAuditReportData(data.memory_lifecycle, data.capture_policy);
-  const summaryRows: SupportingEvidenceSummaryRow[] = [
-    ...(hasAuditReports ? [{
-      id: "audit-reports" as const,
-      label: "Audit Reports",
-      summary: "Lifecycle checks indexed",
-      route: "supporting-operational-evidence",
-      paths: [
-        { label: "memory_lifecycle", route: "memory-lifecycle-audit" },
-        { label: "capture_policy", route: "capture-policy-audit" }
-      ]
-    }] : []),
-    ...(includeStoreSignals || data.recent_value.length > 0 ? [{
-      id: "store-snapshot" as const,
-      label: "Store Snapshot",
-      summary: "Store signals indexed",
-      route: "supporting-operational-snapshots",
-      paths: [
-        { label: "sync", route: "store-signals" },
-        { label: "recent_value", route: "recent-value" }
-      ]
-    }] : []),
-    {
-      id: "raw-store" as const,
-      label: "Raw Store",
-      summary: "Raw evidence indexed",
-      route: "debug-inspector",
-      paths: [
-        { label: "recent_records", route: "inspector:records" },
-        { label: "recent_events", route: "inspector:events" },
-        { label: "sync", route: "inspector:sync" }
-      ]
-    }
-  ];
-  return `
-    <details class="panel supporting-evidence" data-dashboard-detail="supporting-evidence" aria-label="Supporting Evidence">
-      <summary class="dashboard-fold-summary supporting-evidence-fold">
-        <span>Audit Trail</span>
-        <small>${escapeHtml(supportingEvidenceSummary())}</small>
-      </summary>
-      <div class="supporting-evidence-list">
-        <div class="supporting-evidence-index" aria-label="Audit Trail API index">
-          ${summaryRows.map(supportingEvidenceSummaryRow).join("")}
-          <p>Open <code>/api/dashboard</code> for full audit reports, store snapshots, raw records, recent events, sync metadata, and trace commands.</p>
-        </div>
-      </div>
-    </details>
-  `;
-}
-
-function evidenceLibrarySummary(reviewGroupCount: number, backgroundGroupCount: number): string {
-  if (reviewGroupCount === 0 && backgroundGroupCount > 0) return "Reference evidence only";
-  if (reviewGroupCount > 0) return "Read-only reference material";
-  return "No evidence groups";
-}
-
-function evidenceLibraryVisibleSummary(
-  reviewGroupCount: number,
-  backgroundGroupCount: number,
-  options: { auditOnly?: boolean } = {}
-): string {
-  if (options.auditOnly && (reviewGroupCount > 0 || backgroundGroupCount > 0)) return "Audit evidence only";
-  if (reviewGroupCount > 0) return "Reference material";
-  return evidenceLibrarySummary(reviewGroupCount, backgroundGroupCount);
-}
-
-function isRoutineHealthCheck(report: HealthCheckReport): boolean {
-  return report.status === "healthy" && report.summary.warning_checks === 0 && report.summary.failing_checks === 0;
-}
-
-function isRoutineRecallEval(review: DashboardRecallEval): boolean {
-  if (review.errors.length > 0) return false;
-  if (!review.available || !review.report) return true;
-  return review.report.summary.failed_cases === 0 && review.report.summary.privacy_leaks === 0;
-}
-
-function isRoutineContextPackReview(review: DashboardContextPackReview): boolean {
-  const gate = review.handoff_pack?.quality_gate;
-  if (!review.available || !gate) return true;
-  return gate.status === "ready" && gate.failed_check_ids.length === 0 && gate.warnings.length === 0;
-}
-
-type RoutineDiagnosticPanel = {
-  id: "health-check" | "recall-eval" | "context-pack-review";
-  label: string;
-  summary: string;
-  status: "good" | "info";
-};
-
-function routineDiagnosticRoute(panel: RoutineDiagnosticPanel): string {
-  const source = panel.id === "health-check"
-    ? "health_check"
-    : panel.id === "recall-eval"
-      ? "recall_eval"
-      : "context_pack_review";
-  const labelZh: Record<RoutineDiagnosticPanel["id"], string> = {
-    "health-check": "健康检查",
-    "recall-eval": "召回检查",
-    "context-pack-review": "交接上下文"
-  };
-  return `
-          <button type="button" class="routine-diagnostics-route ${escapeHtml(panel.status)}" data-dashboard-detail="${escapeHtml(panel.id)}" data-action-board-target="${escapeHtml(panel.id)}" aria-controls="${escapeHtml(panel.id)}" aria-label="${escapeHtml(`${panel.label}: ${panel.summary}. Full report is available in /api/dashboard.${source}.`)}">
-            <span ${i18nAttribute(panel.label, labelZh[panel.id])}>${escapeHtml(panel.label)}</span>
-            <code>${escapeHtml(source)}</code>
-          </button>
-  `;
-}
-
-function routineDiagnosticsPanel(panels: RoutineDiagnosticPanel[]): string {
-  if (panels.length === 0) return "";
-  const sources = panels
-    .map((panel) => panel.id === "health-check" ? "health_check" : panel.id === "recall-eval" ? "recall_eval" : "context_pack_review");
-  return `
-    <details class="panel routine-diagnostics" data-dashboard-detail="routine-diagnostics" aria-label="Routine Diagnostics">
-      <summary class="dashboard-fold-summary routine-diagnostics-fold" aria-label="Routine Diagnostics: Healthy checks and handoff readiness">
-        ${i18nText("Routine Diagnostics", "日常诊断")}
-        ${i18nText("Checks ready", "检查已就绪", "small")}
-      </summary>
-      <div class="routine-diagnostics-list">
-        <article class="routine-diagnostics-reference" data-dashboard-detail="routine-diagnostics:index" data-routine-diagnostics-reference>
-          ${i18nText("Routine Diagnostics Index", "日常诊断索引", "strong")}
-          ${i18nText("Health, recall, and handoff readiness indexed", "健康、召回和交接状态已建立索引")}
-          ${i18nText("API-backed", "API 支持", "small")}
-          <div class="routine-diagnostics-routebar" role="list" aria-label="Routine diagnostic API routes">
-${panels.map(routineDiagnosticRoute).join("")}
-          </div>
-        </article>
-        <p>Open <code>/api/dashboard</code> for full routine diagnostic reports, commands, and evidence paths.</p>
-        <p class="routine-diagnostics-sources" aria-label="Routine diagnostic API sources">${sources.map((source) => `<code>${escapeHtml(source)}</code>`).join("")}</p>
-      </div>
-    </details>
-  `;
-}
-
-function evidenceLibraryReviewGroup(panels: string[]): string {
-  if (panels.length === 0) return "";
-  return `
-    <details class="evidence-library-group evidence-library-review" data-dashboard-detail="evidence-review-evidence">
-      <summary class="dashboard-fold-summary evidence-library-group-heading">
-        ${i18nText("Review Notes", "审查记录")}
-        ${i18nText("Reference notes", "参考记录", "small")}
-      </summary>
-      <div class="evidence-library-group-list">
-        ${panels.join("")}
-      </div>
-    </details>
-  `;
-}
-
-function evidenceLibraryBackgroundGroup(panels: string[]): string {
-  if (panels.length === 0) return "";
-  return `
-    <details class="evidence-library-group evidence-library-background" data-dashboard-detail="evidence-background-evidence">
-      <summary class="dashboard-fold-summary evidence-library-group-heading" aria-label="Routine Reference: Routine checks and audit trail">
-        ${i18nText("Routine Reference", "日常参考")}
-        ${i18nText("Checks and audit", "检查和追踪", "small")}
-      </summary>
-      <div class="evidence-library-group-list">
-        ${panels.join("")}
-      </div>
-    </details>
-  `;
-}
-
-function evidenceLibraryRoute(input: {
-  id: "findings" | "diagnostics" | "audit";
-  target: string;
-  title: string;
-  summary: string;
-  note: string;
-}): string {
-  const titleZh: Record<typeof input.id, string> = {
-    findings: "发现",
-    diagnostics: "诊断",
-    audit: "追踪"
-  };
-  const summaryZh: Record<string, string> = {
-    "Reference notes": "参考记录",
-    "Healthy checks and handoff readiness": "健康检查和交接状态",
-    "Optional trace data": "可选追踪数据"
-  };
-  const ariaLabel = `${input.title}: ${input.summary}. ${input.note}`;
-  return `
-          <button type="button" class="evidence-library-route" data-evidence-library-route="${escapeHtml(input.id)}" role="listitem" data-action-board-target="${escapeHtml(input.target)}" aria-controls="${escapeHtml(input.target)}" aria-label="${escapeHtml(ariaLabel)}">
-            <strong ${i18nAttribute(input.title, titleZh[input.id])}>${escapeHtml(input.title)}</strong><span ${i18nAttribute(input.summary, summaryZh[input.summary] ?? input.summary)}>${escapeHtml(input.summary)}</span>
-          </button>
-  `;
-}
-
-function evidenceLibraryBrief(input: { reviewCount: number; routineCount: number; backgroundCount: number }): string {
-  const routes = [
-    input.reviewCount > 0 ? evidenceLibraryRoute({
-      id: "findings",
-      target: "evidence-review-evidence",
-      title: "Findings",
-      summary: "Reference notes",
-      note: "Read-only dogfood, governance, or non-routine checks."
-    }) : "",
-    input.routineCount > 0 ? evidenceLibraryRoute({
-      id: "diagnostics",
-      target: "routine-diagnostics",
-      title: "Diagnostics",
-      summary: "Healthy checks and handoff readiness",
-      note: "Routine health, recall, and handoff context checks."
-    }) : "",
-    input.backgroundCount > 0 ? evidenceLibraryRoute({
-      id: "audit",
-      target: "supporting-evidence",
-      title: "Audit",
-      summary: supportingEvidenceSummary(),
-      note: "Clean audits, store signals, recent value, and raw store."
-    }) : ""
-  ].filter((route) => route.length > 0);
-
-  if (routes.length === 0) return "";
-  return `
-      <div class="evidence-library-brief" data-evidence-library-brief>
-        <h3 data-i18n-en="Evidence index" data-i18n-zh="依据索引">Evidence index</h3>
-        <div class="evidence-library-routebar" role="list" aria-label="Evidence index">
-${routes.join("")}
-        </div>
-      </div>
-  `;
-}
-
-function referenceLibraryIndex(input: {
-  routinePanels: RoutineDiagnosticPanel[];
-  hasDogfood: boolean;
-  hasGovernance: boolean;
-  hasCandidateTriage: boolean;
-  hasAuditTrail: boolean;
-  includeStoreSignals: boolean;
-  hasRecentValue: boolean;
-  hasAuditReports: boolean;
-  compact?: boolean;
-  dogfoodSummary: string;
-  governanceSummary: string;
-  candidateTriageSummary: string;
-  candidateTriageFocus?: string;
-}): string {
-  const routes = [
-    input.routinePanels.length > 0 ? {
-      label: "diagnostics",
-      route: "routine-diagnostics"
-    } : undefined,
-    input.hasDogfood ? {
-      label: "dogfood_report",
-      route: "dogfood-review"
-    } : undefined,
-    input.hasGovernance ? {
-      label: "governance",
-      route: "governance-hub"
-    } : undefined,
-    input.hasCandidateTriage ? {
-      label: "candidate_triage",
-      route: "candidate-triage"
-    } : undefined,
-    input.hasAuditTrail ? {
-      label: "audit_trail",
-      route: "supporting-evidence"
-    } : undefined
-  ].filter((route): route is { label: string; route: string } => route !== undefined);
-  if (routes.length === 0) return "";
-  const diagnosticRoutes = input.routinePanels.map((panel) => {
-    const source = panel.id === "health-check"
-      ? "health_check"
-      : panel.id === "recall-eval"
-        ? "recall_eval"
-        : "context_pack_review";
-    return {
-      label: source,
-      route: panel.id,
-      description: `${panel.label}: ${panel.summary}. Full report is available in /api/dashboard.${source}.`
-    };
-  });
-  const diagnosticSummary = "Routine checks indexed";
-  const routeLabel = (route: { label: string; route: string }): string => {
-    if (!input.compact) return route.label;
-    if (route.route === "routine-diagnostics") return "Store status";
-    if (route.route === "dogfood-review") return "Product notes";
-    if (route.route === "governance-hub") return "Safety checks";
-    if (route.route === "candidate-triage") return "Saved notes";
-    if (route.route === "supporting-evidence") return "History";
-    return route.label;
-  };
-  const uiLabelZh = (label: string): string => {
-    if (label === "Store status") return "存储状态";
-    if (label === "Store Status") return "存储状态";
-    if (label === "Store check") return "存储检查";
-    if (label === "Search check") return "搜索检查";
-    if (label === "Handoff check") return "交接检查";
-    if (label === "Status sources ready") return "状态来源已就绪";
-    if (label === "Health checks") return "健康检查";
-    if (label === "Product notes") return "产品记录";
-    if (label === "Safety checks") return "安全检查";
-    if (label === "Saved notes") return "已保存内容";
-    if (label === "History") return "历史记录";
-    if (label === "Health Checks") return "健康检查";
-    if (label === "Saved Notes") return "已保存内容";
-    if (label === "Safety Checks") return "安全检查";
-    if (label === "Product Notes") return "产品记录";
-    if (label === "Cleanup Checks") return "清理检查";
-    if (label === "Shared Copy") return "共享副本";
-    if (label === "Health check") return "健康检查";
-    if (label === "Recall check") return "召回检查";
-    if (label === "Handoff context") return "交接上下文";
-    if (label === "Cleanup checks") return "清理检查";
-    if (label === "Capture checks") return "捕获检查";
-    if (label === "Recent value") return "最近重点";
-    if (label === "Recent records") return "最近记录";
-    if (label === "Recent events") return "最近事件";
-    if (label === "Shared copy") return "共享副本";
-    if (label === "Routine checks indexed") return "日常检查已建立索引";
-    if (label === "Saved notes indexed") return "已保存内容已建立索引";
-    if (label === "Safety checks indexed") return "安全检查已建立索引";
-    if (label === "Product notes indexed") return "产品记录已建立索引";
-    if (label === "Cleanup checks indexed") return "清理检查已建立索引";
-    if (label === "Shared copy indexed") return "共享副本已建立索引";
-    if (label === "History indexed") return "历史记录已建立索引";
-    if (label === "Diagnostics Index") return "诊断索引";
-    if (label === "Candidate Backlog Index") return "待整理内容索引";
-    if (label === "Dogfood Notes Index") return "产品记录索引";
-    if (label === "Audit Reports") return "审计报告";
-    if (label === "Lifecycle checks indexed") return "生命周期检查已建立索引";
-    if (label === "Store Snapshot") return "存储快照";
-    if (label === "Store signals indexed") return "存储信号已建立索引";
-    if (label === "Raw Store") return "原始存储";
-    if (label === "Raw evidence indexed") return "原始依据已建立索引";
-    return label;
-  };
-  const i18nInline = (label: string, tag: string, attributes = ""): string => {
-    const translation = uiLabelZh(label);
-    const translationAttributes = translation !== label ? ` ${i18nAttribute(label, translation)}` : "";
-    return `<${tag}${attributes}${translationAttributes}>${escapeHtml(label)}</${tag}>`;
-  };
-  const routeChips = routes.map((route) => {
-    const label = routeLabel(route);
-    return i18nInline(label, "code", ` data-reference-library-route="${escapeHtml(route.route)}"`);
-  }).join("");
-  const indexTitle = input.compact ? "Inspect saved content" : "Reference Library Index";
-  const indexTitleZh = input.compact ? "查看保存内容" : "参考资料索引";
-  const indexSummary = input.compact ? "Read-only, no memory changes" : "Background reports indexed";
-  const indexSummaryZh = input.compact ? "只查看，不改记忆" : "后台报告已建立索引";
-  const routeFaceSummary = input.compact ? "Helpful context" : routeChips;
-  const routeFaceSummaryZh = input.compact ? "补充上下文" : "";
-  const routeFoldTitle = input.compact ? "Open related views" : "Reference routes";
-  const routeFoldTitleZh = input.compact ? "打开相关内容" : "参考入口";
-  const routeFoldSummary = input.compact ? "Sources and status" : "Indexed background sources";
-  const routeFoldSummaryZh = input.compact ? "来源和状态" : "已索引的后台来源";
-  const detailedApiReferenceHint = "Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.";
-  const compactApiReferenceHint = "Raw technical details stay in <code>/api/dashboard</code>.";
-  const diagnosticsTitle = input.compact ? "Store Status" : "Diagnostics Index";
-  const candidateTriageTitle = input.compact ? "Saved Notes" : "Candidate Backlog Index";
-  const governanceTitle = input.compact ? "Safety Checks" : "Governance Index";
-  const dogfoodTitle = input.compact ? "Product Notes" : "Dogfood Notes Index";
-  const governanceTitleZh = input.compact ? "安全检查" : "治理索引";
-  const candidateTriageSummary = input.compact ? "Saved notes indexed" : input.candidateTriageSummary;
-  const governanceSummary = input.compact ? "Safety checks indexed" : input.governanceSummary;
-  const governanceSummaryZh = input.compact ? "安全检查已建立索引" : input.governanceSummary.replace(/^(\d+) governance note(s)? indexed$/, "$1 条治理记录已建立索引");
-  const dogfoodSummary = input.compact ? "Product notes indexed" : input.dogfoodSummary;
-  const candidateTriageFocus = input.compact ? "" : input.candidateTriageFocus;
-  const auditReportsTitle = input.compact ? "Cleanup Checks" : "Audit Reports";
-  const auditReportsSummary = input.compact ? "Cleanup checks indexed" : "Lifecycle checks indexed";
-  const storeSnapshotTitle = input.compact ? "Shared Copy" : "Store Snapshot";
-  const storeSnapshotSummary = input.compact ? "Shared copy indexed" : "Store signals indexed";
-  const rawStoreTitle = input.compact ? "History" : "Raw Store";
-  const rawStoreSummary = input.compact ? "History indexed" : "Raw evidence indexed";
-  const evidenceLabel = (label: string): string => {
-    if (!input.compact) return label;
-    if (label === "health_check") return "Store check";
-    if (label === "recall_eval") return "Search check";
-    if (label === "context_pack_review") return "Handoff check";
-    if (label === "candidate_triage") return "Saved notes";
-    if (label === "governance") return "Safety checks";
-    if (label === "dogfood_report") return "Product notes";
-    if (label === "memory_lifecycle") return "Cleanup checks";
-    if (label === "capture_policy") return "Capture checks";
-    if (label === "recent_value") return "Recent value";
-    if (label === "recent_records") return "Recent records";
-    if (label === "recent_events") return "Recent events";
-    if (label === "audit_trail") return "History";
-    if (label === "sync") return "Shared copy";
-    return label;
-  };
-  const evidenceCode = (label: string, attributes = ""): string => {
-    const visibleLabel = evidenceLabel(label);
-    return i18nInline(visibleLabel, "code", attributes);
-  };
-  const routeChipsRow = input.compact ? `
-                <div class="reference-library-route-chips" data-reference-library-route-chips>
-                  ${routeChips}
-                </div>
-                <p class="reference-library-api-hint">${compactApiReferenceHint}</p>` : "";
-  const indexFooter = input.compact ? "" : `<p>${detailedApiReferenceHint}</p>`;
-  const rows = [
-    diagnosticRoutes.length > 0 ? `
-            <div class="reference-library-index-row" data-reference-library-index-row="diagnostics" data-dashboard-detail="routine-diagnostics" data-routine-diagnostics-reference data-reference-library-index="diagnostics">
-              <div>
-                ${i18nInline(diagnosticsTitle, "strong")}
-                ${i18nInline(input.compact ? "Status sources ready" : diagnosticSummary, "span")}
-              </div>
-              <small>${diagnosticRoutes.map((route) => evidenceCode(route.label, ` data-dashboard-detail="${escapeHtml(route.route)}" aria-label="${escapeHtml(route.description)}"`)).join("")}</small>
-            </div>` : "",
-    input.hasCandidateTriage ? `
-            <div class="reference-library-index-row" data-reference-library-index-row="candidate-triage" data-dashboard-detail="candidate-triage" data-candidate-triage-reference data-reference-library-index="candidate-triage">
-              <div>
-                ${i18nInline(candidateTriageTitle, "strong")}
-                ${i18nInline(candidateTriageSummary, "span")}
-                ${candidateTriageFocus ? `<span data-candidate-triage-focus>${escapeHtml(candidateTriageFocus)}</span>` : ""}
-              </div>
-              <small>${evidenceCode("candidate_triage", ` data-dashboard-detail="candidate-triage:index"`)}</small>
-            </div>` : "",
-    input.hasGovernance ? `
-            <div class="reference-library-index-row" data-reference-library-index-row="governance" data-dashboard-detail="governance-hub" data-governance-reference data-reference-library-index="governance">
-              <div>
-                <strong ${i18nAttribute(governanceTitle, governanceTitleZh)}>${escapeHtml(governanceTitle)}</strong>
-                <span ${i18nAttribute(governanceSummary, governanceSummaryZh)}>${escapeHtml(governanceSummary)}</span>
-              </div>
-              <small>${evidenceCode("governance")}</small>
-            </div>` : "",
-    input.hasDogfood ? `
-            <div class="reference-library-index-row" data-reference-library-index-row="dogfood" data-dashboard-detail="dogfood-review" data-dogfood-review-reference data-reference-library-index="dogfood">
-              <div>
-                ${i18nInline(dogfoodTitle, "strong")}
-                ${i18nInline(dogfoodSummary, "span")}
-              </div>
-              <small>${evidenceCode("dogfood_report")}</small>
-            </div>` : "",
-    input.hasAuditTrail && input.hasAuditReports ? `
-            <div class="reference-library-index-row" data-reference-library-index-row="audit-reports" data-supporting-evidence-summary="audit-reports" data-dashboard-detail="supporting-operational-evidence">
-              <div>
-                ${i18nInline(auditReportsTitle, "strong")}
-                ${i18nInline(auditReportsSummary, "span")}
-              </div>
-              <small>${evidenceCode("memory_lifecycle", ` data-dashboard-detail="memory-lifecycle-audit"`)}${evidenceCode("capture_policy", ` data-dashboard-detail="capture-policy-audit"`)}</small>
-            </div>` : "",
-    input.hasAuditTrail && (input.includeStoreSignals || input.hasRecentValue) ? `
-            <div class="reference-library-index-row" data-reference-library-index-row="store-snapshot" data-supporting-evidence-summary="store-snapshot" data-dashboard-detail="supporting-operational-snapshots">
-              <div>
-                ${i18nInline(storeSnapshotTitle, "strong")}
-                ${i18nInline(storeSnapshotSummary, "span")}
-              </div>
-              <small>${evidenceCode("sync", ` data-dashboard-detail="store-signals"`)}${evidenceCode("recent_value", ` data-dashboard-detail="recent-value"`)}</small>
-            </div>` : "",
-    input.hasAuditTrail ? `
-            <div class="reference-library-index-row" data-reference-library-index-row="raw-store" data-supporting-evidence-summary="raw-store" data-dashboard-detail="debug-inspector">
-              <div>
-                ${i18nInline(rawStoreTitle, "strong")}
-                ${i18nInline(rawStoreSummary, "span")}
-              </div>
-              <small>${evidenceCode("audit_trail", ` data-dashboard-detail="supporting-evidence"`)}${evidenceCode("recent_records", ` data-dashboard-detail="inspector:records"`)}${evidenceCode("recent_events", ` data-dashboard-detail="inspector:events"`)}${evidenceCode("sync", ` data-dashboard-detail="inspector:sync"`)}</small>
-            </div>` : ""
-  ].filter((row) => row.length > 0).join("");
-  return `
-        <div class="reference-library-index-wrap">
-          <article class="reference-library-index" data-dashboard-detail="reference-library:index" data-reference-library-index>
-            <strong ${i18nAttribute(indexTitle, indexTitleZh)}>${escapeHtml(indexTitle)}</strong>
-            <span ${i18nAttribute(indexSummary, indexSummaryZh)}>${escapeHtml(indexSummary)}</span>
-            ${input.compact
-              ? `<small ${i18nAttribute(routeFaceSummary, routeFaceSummaryZh)}>${escapeHtml(routeFaceSummary)}</small>`
-              : `<small>${routeFaceSummary}</small>`}
-            <details class="reference-library-routes" data-dashboard-detail="reference-library:routes">
-              <summary class="dashboard-fold-summary reference-library-routes-fold">
-                <span ${i18nAttribute(routeFoldTitle, routeFoldTitleZh)}>${escapeHtml(routeFoldTitle)}</span>
-                <small ${i18nAttribute(routeFoldSummary, routeFoldSummaryZh)}>${escapeHtml(routeFoldSummary)}</small>
-              </summary>
-${routeChipsRow}
-              <div class="reference-library-index-rows">
-${rows}
-              </div>
-            </details>
-          </article>
-          ${indexFooter}
-        </div>
-  `;
-}
-
-function evidenceLibrary(
-  data: DashboardData,
-  options: { includeStoreSignals?: boolean; showEvidenceIndex?: boolean; compactBackground?: boolean; auditOnly?: boolean } = {}
-): string {
-  const includeStoreSignals = options.includeStoreSignals ?? true;
-  const showEvidenceIndex = options.showEvidenceIndex ?? true;
-  const compactBackground = options.compactBackground ?? false;
-  const auditOnly = options.auditOnly ?? false;
-  const routinePanels: RoutineDiagnosticPanel[] = [];
-  if (isRoutineHealthCheck(data.health_check)) {
-    routinePanels.push({
-      id: "health-check" as const,
-      label: "Health Check",
-      summary: healthCheckSummary(data.health_check),
-      status: "good" as const
-    });
-  }
-  if (isRoutineRecallEval(data.recall_eval)) {
-    routinePanels.push({
-      id: "recall-eval" as const,
-      label: "Recall Eval",
-      summary: recallEvalSummary(data.recall_eval),
-      status: data.recall_eval.available ? "good" as const : "info" as const
-    });
-  }
-  if (isRoutineContextPackReview(data.context_pack_review)) {
-    routinePanels.push({
-      id: "context-pack-review" as const,
-      label: "Context Pack Review",
-      summary: contextPackReviewSummary(data.context_pack_review),
-      status: data.context_pack_review.available ? "good" as const : "info" as const
-    });
-  }
-  const candidateTriageNeedsDecision = candidateTriageHasPromotionDrafts(data.candidate_triage);
-  const candidateTriage = candidateTriagePanel(data.candidate_triage);
-  const governanceNeedsDecision = governanceNeedsReview(data.governance);
-  const governance = governanceHub(data.governance);
-  const dogfood = dogfoodReviewPanel(data.dogfood_report);
-  const hasDogfood = data.dogfood_report.findings.length > 0;
-  const hasGovernance = data.governance.summary.total_items > 0;
-  const hasCandidateTriage = data.candidate_triage.available;
-  const reviewPanels = [
-    isRoutineHealthCheck(data.health_check) ? undefined : healthCheckPanel(data.health_check),
-    isRoutineRecallEval(data.recall_eval) ? undefined : recallEvalPanel(data.recall_eval),
-    governanceNeedsDecision ? governance : undefined,
-    candidateTriageNeedsDecision ? candidateTriage : undefined,
-    isRoutineContextPackReview(data.context_pack_review) ? undefined : contextPackReviewPanel(data.context_pack_review)
-  ].filter((panel): panel is string => panel !== undefined && panel.length > 0);
-  const backgroundPanels = [
-    routineDiagnosticsPanel(routinePanels),
-    dogfood,
-    governanceNeedsDecision ? undefined : governance,
-    candidateTriageNeedsDecision ? undefined : candidateTriage,
-    supportingEvidencePanel(data, { includeStoreSignals })
-  ].filter((panel): panel is string => panel !== undefined && panel.length > 0);
-  const showRouteIndex = showEvidenceIndex && reviewPanels.length > 0;
-  const evidenceSummary = evidenceLibrarySummary(reviewPanels.length > 0 ? 1 : 0, backgroundPanels.length > 0 ? 1 : 0);
-  const visibleEvidenceSummary = evidenceLibraryVisibleSummary(
-    reviewPanels.length > 0 ? 1 : 0,
-    backgroundPanels.length > 0 ? 1 : 0,
-    { auditOnly }
-  );
-  const indexOnly = reviewPanels.length === 0;
-  const detailClass = compactBackground ? "evidence-library evidence-library-compact" : "panel evidence-library";
-  const ariaLabel = compactBackground ? "More details" : "Reference Library";
-  const summaryClass = compactBackground ? "dashboard-fold-summary evidence-library-fold evidence-library-compact-fold" : "dashboard-fold-summary evidence-library-fold";
-  const summaryLabel = compactBackground ? "More details" : "Reference Library";
-  const visibleSummary = compactBackground ? "Extra context" : visibleEvidenceSummary;
-  const accessibleSummary = compactBackground ? "Extra context" : evidenceSummary;
-  const backgroundReferenceAttribute = compactBackground ? " data-dashboard-background-reference" : "";
-  return `
-    <details class="${detailClass}" data-dashboard-detail="evidence-library"${backgroundReferenceAttribute} aria-label="${escapeHtml(ariaLabel)}">
-      <summary class="${summaryClass}" aria-label="${escapeHtml(`${summaryLabel}: ${accessibleSummary}`)}">
-        ${compactBackground ? i18nText(summaryLabel, "更多细节") : `<span>${escapeHtml(summaryLabel)}</span>`}
-        ${compactBackground ? i18nText(visibleSummary, "补充信息", "small") : `<small>${escapeHtml(visibleSummary)}</small>`}
-      </summary>
-      ${showRouteIndex ? evidenceLibraryBrief({ reviewCount: reviewPanels.length, routineCount: routinePanels.length, backgroundCount: backgroundPanels.length }) : ""}
-      ${indexOnly ? referenceLibraryIndex({
-        routinePanels,
-        hasDogfood,
-        hasGovernance,
-        hasCandidateTriage,
-        hasAuditTrail: backgroundPanels.length > 0,
-        includeStoreSignals,
-        hasRecentValue: data.recent_value.length > 0,
-        hasAuditReports: hasAuditReportData(data.memory_lifecycle, data.capture_policy),
-        compact: compactBackground,
-        dogfoodSummary: `${pluralize(data.dogfood_report.findings.length, "finding")} indexed`,
-        governanceSummary: `${pluralize(data.governance.summary.total_items, "governance note")} indexed`,
-        candidateTriageSummary: `${pluralize(data.candidate_triage.summary.total_candidates, "candidate")} across ${pluralize(data.candidate_triage.summary.groups, "group")} indexed`,
-        candidateTriageFocus: candidateTriageVisibleFocus(data.candidate_triage.review_focus?.summary)
-      }) : `<div class="evidence-library-list">
-        ${evidenceLibraryReviewGroup(reviewPanels)}
-        ${evidenceLibraryBackgroundGroup(backgroundPanels)}
-      </div>`}
-    </details>
-  `;
-}
-
-function dashboardStatusSummary(data: DashboardData, options: { hideHealthyLine?: boolean } = {}): string {
-  const health = data.health;
-  const statusClass = healthClass(health.status);
-  const healthZh = dashboardHealthZh(health.status, health.label);
-  if (health.status === "healthy") {
-    if (options.hideHealthyLine) return "";
-    return `
-    <p class="dashboard-status-line ${statusClass}" data-dashboard-status="${escapeHtml(health.status)}"><strong ${i18nAttribute(health.label, healthZh)}>${escapeHtml(health.label)}</strong><span ${i18nAttribute(health.explanation, dashboardActionDetailZh(health.explanation))}>${escapeHtml(health.explanation)}</span></p>
-  `;
-}
-  if (health.status === "sync_pending") return "";
-  return `
-    <section class="status-strip ${statusClass}" data-dashboard-status="${escapeHtml(health.status)}">
-      <strong>Dashboard Status</strong>
-      <span ${i18nAttribute(health.label, healthZh)}>${escapeHtml(health.label)}</span>
-      <p>${escapeHtml(health.explanation)}</p>
-    </section>
-  `;
-}
-
-function dashboardGeneratedAtLabel(generatedAt: string): string {
-  const date = new Date(generatedAt);
-  if (Number.isNaN(date.getTime())) return "Updated";
-  const hours = date.getUTCHours().toString().padStart(2, "0");
-  const minutes = date.getUTCMinutes().toString().padStart(2, "0");
-  return `Updated ${hours}:${minutes} UTC`;
-}
-
 function dashboardLanguageToggle(): string {
   return `
       <div data-dashboard-language-toggle class="editorial-language-switch" aria-label="Language">
@@ -7134,640 +3974,6 @@ function dashboardLanguageToggle(): string {
   `;
 }
 
-function statusBoardExplainText(data: DashboardData): { en: string; zh: string } {
-  const count = data.memory_inventory.summary.total_visible;
-  if (count <= 0) {
-    return {
-      en: "Saved content will appear here first.",
-      zh: "保存的内容会先显示在这里。"
-    };
-  }
-  return {
-    en: "Only confirmation buttons can change long-term memory.",
-    zh: "只有确认按钮会改变长期记忆。"
-  };
-}
-
-function actionAnswerConclusion(data: DashboardData): { en: string; zh: string } {
-  const decisions = data.decision_summary.total_decisions;
-  if (decisions > 0) {
-    return {
-      en: `${pluralize(decisions, "confirmation")} waiting before memory changes.`,
-      zh: `${decisions} 个确认项等待处理，之后才会改变记忆。`
-    };
-  }
-  if (data.memory_inventory.summary.total_visible > 0) {
-    return {
-      en: "Saved items are searchable; no confirmation is waiting.",
-      zh: "内容已保存可搜索；没有等待确认的操作。"
-    };
-  }
-  if (data.dashboard_overview.status === "warning" || data.dashboard_overview.status === "critical") {
-    return {
-      en: "No confirmation is waiting; check the highlighted issue.",
-      zh: "没有等待确认的操作；请查看高亮提醒。"
-    };
-  }
-  return {
-    en: "No confirmation is waiting.",
-    zh: "没有等待确认的操作。"
-  };
-}
-
-function memoryAnswerConclusion(inventory: DashboardMemoryInventory): { en: string; zh: string } {
-  const ready = inventory.summary.remembered;
-  const later = inventory.summary.new_items + inventory.summary.temporary;
-  const history = inventory.summary.set_aside;
-  const enParts = [
-    ready > 0 ? `${ready} ready to use` : "",
-    later > 0 ? `${later} searchable` : "",
-    history > 0 ? `${history} kept for history` : ""
-  ].filter(Boolean);
-  const zhParts = [
-    ready > 0 ? `${ready} 条可直接使用` : "",
-    later > 0 ? `${later} 条可搜索` : "",
-    history > 0 ? `${history} 条历史留存` : ""
-  ].filter(Boolean);
-  return {
-    en: enParts.length > 0 ? enParts.join(" · ") : "No visible saved content yet",
-    zh: zhParts.length > 0 ? zhParts.join(" · ") : "还没有可见保存内容"
-  };
-}
-
-function syncAnswerConclusion(sync: GitSyncStatus): { en: string; zh: string } {
-  const ahead = sync.ahead ?? 0;
-  const behind = sync.behind ?? 0;
-  if (!sync.configured) {
-    return {
-      en: "Only this device has this memory view.",
-      zh: "这份记忆视图目前只在本机可见。"
-    };
-  }
-  if (sync.sync_state === "conflict") {
-    return {
-      en: "Shared copy needs conflict help.",
-      zh: "共享副本需要处理冲突。"
-    };
-  }
-  if (sync.sync_state === "dirty" || ahead > 0) {
-    return {
-      en: "This device has changes waiting to upload.",
-      zh: "这台设备有变化等待上传。"
-    };
-  }
-  if (behind > 0) {
-    return {
-      en: "Shared copy has updates to pull.",
-      zh: "共享副本有更新等待拉取。"
-    };
-  }
-  return {
-    en: "Shared copy is current on this device.",
-    zh: "这台设备上的共享副本是最新的。"
-  };
-}
-
-function recentAnswer(data: DashboardData): { valueHtml: string; conclusion: { en: string; zh: string }; note: { en: string; zh: string } } {
-  const latestRecord = data.recent_records[0];
-  if (!latestRecord) {
-    return {
-      valueHtml: `<strong ${i18nAttribute("No saves yet", "还没有保存")}>No saves yet</strong>`,
-      conclusion: {
-        en: "No saved content has changed yet.",
-        zh: "还没有保存内容变化。"
-      },
-      note: {
-        en: "Waiting for saved content",
-        zh: "等待保存内容"
-      }
-    };
-  }
-  const source = humanSourceLabel(latestRecord.source);
-  return {
-    valueHtml: `<strong>${relativeTimeElement(latestRecord.updated_at, data.generated_at)}</strong>`,
-    conclusion: {
-      en: `Latest saved content came from ${source}.`,
-      zh: `最近保存内容来自 ${source}。`
-    },
-    note: {
-      en: "Latest saved content",
-      zh: "最近保存的内容"
-    }
-  };
-}
-
-function answerCardConclusionText(conclusion: { en: string; zh: string }): string {
-  return `<p class="answer-card-conclusion" ${i18nAttribute(conclusion.en, conclusion.zh)}>${escapeHtml(conclusion.en)}</p>`;
-}
-
-function memoryExplorerIntentAttributes(input: {
-  storedFilter?: string;
-  stateFilter?: string;
-  selectedId?: string;
-  focusSearch?: boolean;
-}): string {
-  const attributes = [
-    input.storedFilter ? `data-memory-explorer-stored-filter="${escapeHtml(input.storedFilter)}"` : "",
-    input.stateFilter ? `data-memory-explorer-state-filter="${escapeHtml(input.stateFilter)}"` : "",
-    input.selectedId ? `data-memory-explorer-selected-id="${escapeHtml(input.selectedId)}"` : "",
-    input.focusSearch ? `data-memory-explorer-focus-search="true"` : ""
-  ].filter(Boolean);
-  return attributes.join(" ");
-}
-
-function statusBoard(data: DashboardData): string {
-  const shared = sharedCopyLabel(data.sync);
-  const actionConclusion = actionAnswerConclusion(data);
-  const memoryConclusion = memoryAnswerConclusion(data.memory_inventory);
-  const syncConclusion = syncAnswerConclusion(data.sync);
-  const recent = recentAnswer(data);
-  const savedForLaterFilter = "candidate,raw,archived,quarantined";
-  const actionExplorerIntent = data.dashboard_overview.primary_action.target === "stored-content"
-    ? ` ${memoryExplorerIntentAttributes({ storedFilter: savedForLaterFilter, stateFilter: savedForLaterFilter, focusSearch: true })}`
-    : "";
-  const memoryExplorerIntent = memoryExplorerIntentAttributes({ storedFilter: "all", stateFilter: "all", focusSearch: true });
-  const recentExplorerIntent = memoryExplorerIntentAttributes({
-    storedFilter: "all",
-    stateFilter: "all",
-    selectedId: data.recent_records[0]?.id,
-    focusSearch: data.recent_records.length === 0
-  });
-  const actionIsCalm = data.decision_summary.total_decisions === 0 && ((data.dashboard_overview.headline === "Saved, not remembered" || data.dashboard_overview.headline === "Saved for later") || (data.dashboard_overview.status !== "critical" && data.dashboard_overview.status !== "warning"));
-  const actionClass = actionIsCalm ? "calm" : escapeHtml(data.dashboard_overview.status);
-  const healthLabel = data.health.status === "healthy" ? "Healthy" : data.health.label;
-  const healthZh = dashboardHealthZh(data.health.status, healthLabel);
-  const headlineZh = dashboardActionLabelZh(data.dashboard_overview.headline);
-  const primaryActionZh = dashboardActionLabelZh(data.dashboard_overview.primary_action.label);
-  const explain = statusBoardExplainText(data);
-  return `
-    <section class="status-board" data-status-board aria-label="Right now">
-      <div class="section-heading status-board-heading">
-        <h2 data-i18n-en="Right now" data-i18n-zh="现在情况">Right now</h2>
-        ${i18nText("Action, saved content, and shared copy", "要不要操作、存了什么、共享副本是否同步", "small")}
-      </div>
-      <div class="status-board-rail" data-status-board-rail aria-label="Local and shared status">
-        <article class="status-chip ${escapeHtml(overviewStatusFromHealth(data.health.status))}" data-status-chip="device">
-          ${i18nText("This device", "本机记忆")}
-          ${i18nText(healthLabel, healthZh, "strong")}
-          ${i18nText("Local memory is ready", "本机记忆可用", "small")}
-        </article>
-        <article class="status-chip ${escapeHtml(shared.severity)}" data-status-chip="shared-copy">
-          ${i18nText("Shared copy", "共享副本")}
-          ${i18nText(shared.label, shared.zh, "strong")}
-          <small ${i18nAttribute(shared.detail, shared.zhDetail)}>${escapeHtml(shared.detail)}</small>
-        </article>
-      </div>
-      <div class="status-board-answers" data-status-board-answers>
-        <button type="button" class="answer-card action ${actionClass}" data-dashboard-priority="action" data-action-board-target="${escapeHtml(data.dashboard_overview.primary_action.target)}" aria-controls="${escapeHtml(data.dashboard_overview.primary_action.target)}"${actionExplorerIntent}>
-          ${i18nText("Do I need to act?", "我需要操作吗？")}
-          <strong data-i18n-en="${escapeHtml(data.dashboard_overview.headline)}" data-i18n-zh="${escapeHtml(headlineZh)}">${escapeHtml(data.dashboard_overview.headline)}</strong>
-          ${answerCardConclusionText(actionConclusion)}
-          <small data-i18n-en="${escapeHtml(data.dashboard_overview.primary_action.label)}" data-i18n-zh="${escapeHtml(primaryActionZh)}">${escapeHtml(data.dashboard_overview.primary_action.label)}</small>
-        </button>
-        <button type="button" class="answer-card memory" data-dashboard-priority="memory" data-action-board-target="stored-content" aria-controls="stored-content" ${memoryExplorerIntent}>
-          ${i18nText("What is stored?", "存了什么？")}
-          <strong>${escapeHtml(data.memory_inventory.summary.total_visible)}</strong>
-          ${answerCardConclusionText(memoryConclusion)}
-          ${i18nText("saved items", "条保存内容", "small")}
-          ${answerMemoryMix(data.memory_inventory)}
-        </button>
-        <button type="button" class="answer-card recent" data-dashboard-priority="recent" data-action-board-target="stored-content" aria-controls="stored-content" ${recentExplorerIntent}>
-          ${i18nText("What changed recently?", "最近有什么变化？")}
-          ${recent.valueHtml}
-          ${answerCardConclusionText(recent.conclusion)}
-          <small data-i18n-en="${escapeHtml(recent.note.en)}" data-i18n-zh="${escapeHtml(recent.note.zh)}">${escapeHtml(recent.note.en)}</small>
-        </button>
-        <button type="button" class="answer-card sync ${escapeHtml(shared.severity)}" data-dashboard-priority="sync" data-action-board-target="store-signals" aria-controls="store-signals">
-          ${i18nText("Is everything synced?", "都同步了吗？")}
-          ${i18nText(shared.label, shared.zh, "strong")}
-          ${answerCardConclusionText(syncConclusion)}
-          <small data-i18n-en="${escapeHtml(shared.detail)}" data-i18n-zh="${escapeHtml(shared.zhDetail)}">${escapeHtml(shared.detail)}</small>
-        </button>
-      </div>
-      <div class="status-board-explain" data-status-board-explain>
-        ${i18nText("Write safety", "写入边界")}
-        <p ${i18nAttribute(explain.en, explain.zh)}>${escapeHtml(explain.en)}</p>
-      </div>
-    </section>
-  `;
-}
-
-function chartPercent(count: number, total: number): string {
-  if (count <= 0 || total <= 0) return "0";
-  const percent = (count / total) * 100;
-  return (percent >= 10 ? percent.toFixed(0) : percent.toFixed(1)).replace(/\.0$/, "");
-}
-
-function chartWholePercent(count: number, total: number): number {
-  if (count <= 0 || total <= 0) return 0;
-  return Math.round((count / total) * 100);
-}
-
-function chartPercentLabel(count: number, total: number): string {
-  return `${chartWholePercent(count, total)}%`;
-}
-
-function memoryStateClass(id: DashboardMemoryInventoryStateId): string {
-  if (id === "remembered") return "memory-state-remembered";
-  if (id === "new_items") return "memory-state-to-organize";
-  if (id === "temporary") return "memory-state-temporary";
-  return "memory-state-set-aside";
-}
-
-function memoryInventoryStateExplanation(state: DashboardMemoryInventoryState): { en: string; zh: string } {
-  if (state.id === "remembered") return {
-    en: "Moryn can use these as long-term memory.",
-    zh: "Moryn 可以把这些作为长期记忆使用。"
-  };
-  if (state.id === "new_items") return {
-    en: "Saved and searchable; organize later only if useful.",
-    zh: "已保存并可搜索；有用时再整理。"
-  };
-  if (state.id === "temporary") return {
-    en: "Context from this session kept for lookup.",
-    zh: "本次会话上下文已保留，可供查找。"
-  };
-  return {
-    en: "Archived or replaced items kept for traceability.",
-    zh: "为追溯保留的归档或已替换内容。"
-  };
-}
-
-function memoryInventoryFilterValue(state: DashboardMemoryInventoryState): string {
-  return state.source_states.join(",");
-}
-
-function memoryStateHintAttributes(state: DashboardMemoryInventoryState): string {
-  const explanation = memoryInventoryStateExplanation(state);
-  const label = `${state.label}: ${explanation.en}`;
-  const zhLabel = `${state.zh_label}：${explanation.zh}`;
-  return [
-    `aria-label="${escapeHtml(label)}"`,
-    `title="${escapeHtml(label)}"`,
-    `data-i18n-aria-label-en="${escapeHtml(label)}"`,
-    `data-i18n-aria-label-zh="${escapeHtml(zhLabel)}"`,
-    `data-i18n-title-en="${escapeHtml(label)}"`,
-    `data-i18n-title-zh="${escapeHtml(zhLabel)}"`
-  ].join(" ");
-}
-
-function answerMemoryCountLabel(state: DashboardMemoryInventoryState): { en: string; zh: string } {
-  if (state.id === "remembered") return {
-    en: `${state.count} ready to use`,
-    zh: `${state.count} 条可直接使用`
-  };
-  if (state.id === "new_items") return {
-    en: `${state.count} saved for later`,
-    zh: `${state.count} 条已保存，稍后整理`
-  };
-  if (state.id === "temporary") return {
-    en: `${state.count} saved briefly`,
-    zh: `${state.count} 条临时保存`
-  };
-  return {
-    en: `${state.count} set aside`,
-    zh: `${state.count} 条已放一边`
-  };
-}
-
-function answerMemoryMix(inventory: DashboardMemoryInventory): string {
-  const total = Math.max(1, inventory.summary.total_visible);
-  const visibleStates = inventory.states.filter((state) => state.count > 0);
-  return `
-          <div class="answer-memory-mix" data-answer-memory-mix aria-label="Stored content mix">
-            <div class="answer-memory-track" aria-hidden="true">
-              ${visibleStates.map((state) => {
-                const percent = Math.max(4, Math.round((state.count / total) * 100));
-                return `<span class="answer-memory-segment ${memoryStateClass(state.id)}" style="width: ${escapeHtml(percent)}%" title="${escapeHtml(`${state.label} ${state.count}`)}"></span>`;
-              }).join("")}
-            </div>
-            <div class="answer-memory-counts" data-answer-memory-counts>
-              ${visibleStates.slice(0, 3).map((state) => {
-                const label = answerMemoryCountLabel(state);
-                return `<span ${i18nAttribute(label.en, label.zh)}>${escapeHtml(label.en)}</span>`;
-              }).join("")}
-            </div>
-          </div>
-  `;
-}
-
-function memoryStateMeter(inventory: DashboardMemoryInventory): string {
-  const total = inventory.summary.total_visible;
-  const rememberedPercent = chartPercentLabel(inventory.summary.remembered, total);
-  const savedForLaterCount = reviewableSavedItemsCount(inventory);
-  const savedForLaterPercent = chartPercentLabel(savedForLaterCount, total);
-  const insight = total > 0
-    ? {
-      en: `${rememberedPercent} ready to use · ${savedForLaterPercent} searchable`,
-      zh: `${rememberedPercent} 可直接使用 · ${savedForLaterPercent} 可搜索`
-    }
-    : {
-      en: "No stored content yet",
-      zh: "还没有保存内容"
-    };
-  const segments = inventory.states
-    .filter((state) => state.count > 0)
-    .map((state) => {
-      const percent = chartPercent(state.count, total);
-      return `<span class="${escapeHtml(memoryStateClass(state.id))}" data-memory-state-segment="${escapeHtml(state.id)}" style="width: ${escapeHtml(percent)}%" title="${escapeHtml(`${state.label}: ${state.count}`)}"></span>`;
-    })
-    .join("");
-  return `
-      <p class="glance-chart-insight" ${i18nAttribute(insight.en, insight.zh)}>${escapeHtml(insight.en)}</p>
-      <div class="memory-state-meter" aria-label="Memory state chart">
-        ${segments || `<span class="memory-state-empty" style="width: 100%" title="No stored content"></span>`}
-      </div>
-      <div class="memory-state-key">
-        ${inventory.states.map((state) => `
-          <button type="button" class="memory-state-filter ${escapeHtml(memoryStateClass(state.id))}" data-memory-state-filter="${escapeHtml(memoryInventoryFilterValue(state))}" data-action-board-target="stored-content" aria-controls="stored-content" ${memoryStateHintAttributes(state)}>
-            <i></i>
-            <strong>${escapeHtml(state.count)}</strong>
-            <span data-i18n-en="${escapeHtml(state.label)}" data-i18n-zh="${escapeHtml(state.zh_label)}">${escapeHtml(state.label)}</span>
-            <span data-memory-state-percent="${escapeHtml(state.id)}" ${i18nAttribute(chartPercentLabel(state.count, total), chartPercentLabel(state.count, total))}>${escapeHtml(chartPercentLabel(state.count, total))}</span>
-          </button>
-        `).join("")}
-      </div>
-  `;
-}
-
-function memoryKindBars(inventory: DashboardMemoryInventory): string {
-  if (inventory.kind_summary.length === 0) return `<div class="empty-state">No stored content yet.</div>`;
-  const max = Math.max(1, ...inventory.kind_summary.map((kind) => kind.count));
-  const total = Math.max(1, inventory.summary.total_visible);
-  const topKind = inventory.kind_summary.reduce((top, kind) => {
-    if (kind.count !== top.count) return kind.count > top.count ? kind : top;
-    return top;
-  }, inventory.kind_summary[0]);
-  const topKindInsight = {
-    en: `Most are ${topKind.label}: ${pluralize(topKind.count, "item")}`,
-    zh: `最多的是${topKind.zh_label}，共 ${topKind.count} 条`
-  };
-  return `
-      <p class="glance-chart-insight" ${i18nAttribute(topKindInsight.en, topKindInsight.zh)}>${escapeHtml(topKindInsight.en)}</p>
-      <div class="kind-bars" aria-label="Stored content types">
-        ${inventory.kind_summary.map((kind) => {
-          const percent = chartPercent(kind.count, max);
-          const share = chartPercentLabel(kind.count, total);
-          const countShare = `${kind.count} · ${share}`;
-          const countShareZh = `${kind.count} 条 · ${share}`;
-          return `
-            <div class="kind-row type-${escapeHtml(kind.kind)}">
-              <div class="type-label">
-                <strong data-i18n-en="${escapeHtml(kind.label)}" data-i18n-zh="${escapeHtml(kind.zh_label)}">${escapeHtml(kind.label)}</strong>
-                <span ${i18nAttribute(countShare, countShareZh)}>${escapeHtml(countShare)}</span>
-              </div>
-              <div class="type-track" aria-hidden="true"><span style="width: ${escapeHtml(percent)}%"></span></div>
-            </div>
-          `;
-        }).join("")}
-      </div>
-  `;
-}
-
-function recentActivityBars(agents: DashboardAgentChartItem[]): string {
-  if (agents.length === 0) return `<div class="empty-state">No recent activity yet.</div>`;
-  const totalSignals = agents.reduce((sum, agent) => sum + agent.records + agent.events, 0);
-  const topAgent = agents.reduce((top, agent) => {
-    const topSignals = top.records + top.events;
-    const agentSignals = agent.records + agent.events;
-    if (agentSignals !== topSignals) return agentSignals > topSignals ? agent : top;
-    return agent.latest_at.localeCompare(top.latest_at) > 0 ? agent : top;
-  }, agents[0]);
-  const topAgentShare = chartPercentLabel(topAgent.records + topAgent.events, totalSignals);
-  const insight = {
-    en: `Top source: ${topAgent.client}, ${topAgentShare} of recent activity`,
-    zh: `主要来源：${topAgent.client}，占最近活动的 ${topAgentShare}`
-  };
-  return `
-      <p class="glance-chart-insight" ${i18nAttribute(insight.en, insight.zh)}>${escapeHtml(insight.en)}</p>
-      <div class="activity-bars" aria-label="Recent source activity">
-        ${agents.map((agent) => {
-          const savedEn = `${agent.records} saved | ${agent.relative_time}`;
-          const savedZh = `${agent.records} 条保存内容 | ${relativeTimeZh(agent.relative_time)}`;
-          const signalShare = chartPercentLabel(agent.records + agent.events, totalSignals);
-          return `
-          <div class="activity-row">
-            <div class="type-label">
-              <strong>${escapeHtml(agent.client)}</strong>
-              <span ${i18nAttribute(savedEn, savedZh)}>${escapeHtml(savedEn)}</span>
-              <span ${i18nAttribute(signalShare, signalShare)}>${escapeHtml(signalShare)}</span>
-            </div>
-            <div class="bar-track" aria-hidden="true"><span style="width: ${escapeHtml(agent.weight)}%"></span></div>
-          </div>
-        `;
-        }).join("")}
-      </div>
-  `;
-}
-
-function activityTrendBars(trend: DashboardActivityTrendChart): string {
-  const totalLabel = trend.total === 0 ? "No saved items" : `${trend.total} saved`;
-  const totalZh = trend.total === 0 ? "没有保存内容" : `${trend.total} 条保存内容`;
-  return `
-      <div class="activity-trend-summary">
-        <span data-i18n-en="Last 7 days" data-i18n-zh="最近 7 天">Last 7 days</span>
-        <strong data-i18n-en="${escapeHtml(totalLabel)}" data-i18n-zh="${escapeHtml(totalZh)}">${escapeHtml(totalLabel)}</strong>
-      </div>
-      <div class="activity-trend-bars" aria-label="Saved content by day">
-        ${trend.days.map((day) => `
-          <div class="activity-trend-day">
-            <i style="height: ${escapeHtml(day.percent)}%" title="${escapeHtml(`${day.date}: ${pluralize(day.count, "saved item")}`)}"></i>
-            <span>${escapeHtml(day.label)}</span>
-          </div>
-        `).join("")}
-      </div>
-  `;
-}
-
-function glanceSummaryStrip(data: DashboardData): string {
-  const recentWrites = data.recent_records.length;
-  const remembered = data.memory_inventory.summary.remembered;
-  const toOrganize = reviewableSavedItemsCount(data.memory_inventory);
-  const topSource = data.charts.agent_activity.reduce<DashboardAgentChartItem | undefined>((best, agent) => {
-    if (!best) return agent;
-    const score = agent.records + agent.events;
-    const bestScore = best.records + best.events;
-    if (score !== bestScore) return score > bestScore ? agent : best;
-    return agent.latest_at.localeCompare(best.latest_at) > 0 ? agent : best;
-  }, undefined);
-  const topSourceSignals = topSource ? topSource.records + topSource.events : 0;
-  const topSourceLabel = topSource?.client ?? "No source";
-  const topSourceLabelZh = topSource?.client ?? "暂无来源";
-  const recentWritesLabel = pluralize(recentWrites, "saved item");
-  const recentWritesZh = `${recentWrites} 条保存内容`;
-  const topSourceDetail = topSource ? pluralize(topSourceSignals, "recent signal") : "No recent signals";
-  const topSourceDetailZh = topSource ? `${topSourceSignals} 条最近信号` : "暂无最近信号";
-  const topSourceFilter = topSource?.client ?? "all";
-  return `
-      <div class="glance-summary-strip" data-glance-summary-strip aria-label="Recent activity summary">
-        <button type="button" data-glance-summary="recent-saves" data-action-board-target="stored-content" aria-controls="stored-content" data-glance-filter="all">
-          <span data-i18n-en="Recent saves" data-i18n-zh="最近保存">Recent saves</span>
-          <strong>${escapeHtml(recentWrites)}</strong>
-          <small ${i18nAttribute(recentWritesLabel, recentWritesZh)}>${escapeHtml(recentWritesLabel)}</small>
-        </button>
-        <button type="button" data-glance-summary="remembered-now" data-action-board-target="stored-content" aria-controls="stored-content" data-glance-filter="canonical">
-          <span data-i18n-en="Ready to use" data-i18n-zh="可直接使用">Ready to use</span>
-          <strong>${escapeHtml(remembered)}</strong>
-          <small data-i18n-en="Moryn can use now" data-i18n-zh="Moryn 现在可用">Moryn can use now</small>
-        </button>
-        <button type="button" data-glance-summary="to-organize" data-action-board-target="stored-content" aria-controls="stored-content" data-glance-filter="candidate,raw,archived,quarantined">
-          <span data-i18n-en="Searchable" data-i18n-zh="可搜索内容">Searchable</span>
-          <strong>${escapeHtml(toOrganize)}</strong>
-          <small data-i18n-en="Saved, not final" data-i18n-zh="已保存，未定稿">Saved, not final</small>
-        </button>
-        <button type="button" data-glance-summary="top-source" data-action-board-target="stored-content" aria-controls="stored-content" data-glance-source="${escapeHtml(topSourceFilter)}">
-          <span data-i18n-en="Top source" data-i18n-zh="主要来源">Top source</span>
-          <strong data-i18n-en="${escapeHtml(topSourceLabel)}" data-i18n-zh="${escapeHtml(topSourceLabelZh)}">${escapeHtml(topSourceLabel)}</strong>
-          <small ${i18nAttribute(topSourceDetail, topSourceDetailZh)}>${escapeHtml(topSourceDetail)}</small>
-        </button>
-      </div>
-  `;
-}
-
-function dashboardGlanceBoard(data: DashboardData): string {
-  const shared = sharedCopyLabel(data.sync);
-  const latestRecord = data.recent_records[0];
-  const latestSource = latestRecord ? humanSourceLabel(latestRecord.source) : "No saves yet";
-  const latestSourceZh = latestRecord ? latestSource : "还没有保存";
-  const latestWhen = latestRecord ? relativeTime(latestRecord.updated_at, data.generated_at) : "None";
-  const latestWhenZh = latestRecord ? relativeTimeZh(latestWhen) : "暂无保存";
-  return `
-    <section class="glance-board" data-dashboard-glance aria-label="At a glance">
-      <div class="section-heading">
-        <h2 data-i18n-en="At a glance" data-i18n-zh="一眼看懂">At a glance</h2>
-        ${i18nText("Memory, changes, and shared copy", "记忆、变化和共享副本", "small")}
-      </div>
-      ${glanceSummaryStrip(data)}
-      <div class="glance-grid">
-        <article class="glance-chart memory-shape" data-memory-state-chart>
-          <h3 data-i18n-en="Stored what?" data-i18n-zh="存了什么？">Stored what?</h3>
-          <strong>${escapeHtml(data.memory_inventory.summary.total_visible)}</strong>
-          ${i18nText("saved items", "条保存内容", "small")}
-          ${memoryStateMeter(data.memory_inventory)}
-        </article>
-        <article class="glance-chart memory-types" data-memory-kind-chart>
-          <h3 data-i18n-en="Content mix" data-i18n-zh="内容类型">Content mix</h3>
-          ${memoryKindBars(data.memory_inventory)}
-        </article>
-        <article class="glance-chart activity-trend" data-activity-trend-chart>
-          <h3 data-i18n-en="Saved trend" data-i18n-zh="保存趋势">Saved trend</h3>
-          ${activityTrendBars(data.charts.activity_trend)}
-        </article>
-        <article class="glance-chart shared-copy ${escapeHtml(shared.severity)}" data-shared-copy-chart>
-          <h3 data-i18n-en="Shared copy" data-i18n-zh="共享副本">Shared copy</h3>
-          <strong data-i18n-en="${escapeHtml(shared.label)}" data-i18n-zh="${escapeHtml(shared.zh)}">${escapeHtml(shared.label)}</strong>
-          <small data-i18n-en="${escapeHtml(shared.detail)}" data-i18n-zh="${escapeHtml(shared.zhDetail)}">${escapeHtml(shared.detail)}</small>
-          ${syncRail(data.charts.sync_position)}
-        </article>
-        <article class="glance-chart recent-activity" data-recent-activity-chart>
-          <h3 data-i18n-en="Recent activity" data-i18n-zh="最近动态">Recent activity</h3>
-          <div class="recent-activity-focus">
-            <span data-i18n-en="Last saved" data-i18n-zh="最近保存">Last saved</span>
-            <strong data-i18n-en="${escapeHtml(latestWhen)}" data-i18n-zh="${escapeHtml(latestWhenZh)}">${escapeHtml(latestWhen)}</strong>
-            <small data-i18n-en="${escapeHtml(latestSource)}" data-i18n-zh="${escapeHtml(latestSourceZh)}">${escapeHtml(latestSource)}</small>
-          </div>
-          ${recentActivityBars(data.charts.agent_activity.slice(0, 4))}
-        </article>
-      </div>
-    </section>
-  `;
-}
-
-function reviewableSavedItemsCount(inventory: DashboardMemoryInventory): number {
-  return inventory.summary.new_items + inventory.summary.temporary + inventory.summary.set_aside;
-}
-
-function decisionPanelItem(input: {
-  kind: "write" | "review";
-  status: string;
-  zhStatus: string;
-  title: string;
-  zhTitle: string;
-  detail: string;
-  zhDetail: string;
-  target: string;
-  actionLabel: string;
-  zhActionLabel: string;
-  note: string;
-  zhNote: string;
-  feedback?: string;
-  zhFeedback?: string;
-  explorerIntent?: string;
-}): string {
-  const explorerIntent = input.explorerIntent ? ` ${input.explorerIntent}` : "";
-  return `
-        <article class="decision-panel-item ${escapeHtml(input.kind)}">
-          <div>
-            <span data-i18n-en="${escapeHtml(input.status)}" data-i18n-zh="${escapeHtml(input.zhStatus)}">${escapeHtml(input.status)}</span>
-            <strong data-i18n-en="${escapeHtml(input.title)}" data-i18n-zh="${escapeHtml(input.zhTitle)}">${escapeHtml(input.title)}</strong>
-            <p data-i18n-en="${escapeHtml(input.detail)}" data-i18n-zh="${escapeHtml(input.zhDetail)}">${escapeHtml(input.detail)}</p>
-            <small data-i18n-en="${escapeHtml(input.note)}" data-i18n-zh="${escapeHtml(input.zhNote)}">${escapeHtml(input.note)}</small>
-          </div>
-          <button type="button" class="decision-panel-link" data-action-board-target="${escapeHtml(input.target)}" aria-controls="${escapeHtml(input.target)}"${explorerIntent} data-i18n-en="${escapeHtml(input.actionLabel)}" data-i18n-zh="${escapeHtml(input.zhActionLabel)}">${escapeHtml(input.actionLabel)}</button>
-          ${input.feedback ? `<p class="decision-panel-feedback" data-dashboard-action-feedback data-i18n-en="${escapeHtml(input.feedback)}" data-i18n-zh="${escapeHtml(input.zhFeedback ?? input.feedback)}" hidden>${escapeHtml(input.feedback)}</p>` : ""}
-        </article>
-  `;
-}
-
-function dashboardDecisionPanel(data: DashboardData): string {
-  const explicitDecisions = data.decision_summary.total_decisions;
-  const reviewable = reviewableSavedItemsCount(data.memory_inventory);
-  const items: string[] = [];
-  if (explicitDecisions > 0) {
-    for (const route of decisionSummaryRoutes(data.decision_summary)) {
-      const title = `${pluralize(route.count, "approval")} in ${route.label}`;
-      items.push(decisionPanelItem({
-        kind: "write",
-        status: "Approval required",
-        zhStatus: "需要确认",
-        title,
-        zhTitle: `${route.count} 个确认项在 ${route.label}`,
-        detail: "Review this before Moryn changes stored memory.",
-        zhDetail: "Moryn 改写存储记忆前，需要你先确认。",
-        target: route.target,
-        actionLabel: route.target_label,
-        zhActionLabel: route.label === "Capture Inbox" ? "打开捕获收件箱" : route.label === "Review Queue" ? "打开审核队列" : "打开候选内容",
-        note: "Approve or reject buttons live inside the owning row, next to the evidence.",
-        zhNote: "批准或拒绝按钮会出现在对应条目旁边，和证据放在一起。"
-      }));
-  }
-  } else if (reviewable > 0) {
-    const title = `${reviewable} searchable ${reviewable === 1 ? "item" : "items"}`;
-    const savedForLaterFilter = "candidate,raw,archived,quarantined";
-    items.push(decisionPanelItem({
-      kind: "review",
-      status: "No action needed",
-      zhStatus: "无需操作",
-      title,
-      zhTitle: `${reviewable} 条可搜索内容`,
-      detail: "These items are already saved. Open them only when you want to read or organize them.",
-      zhDetail: "这些内容已经保存；只有想查看或整理时再打开。",
-      target: "stored-content",
-      actionLabel: "Search saved content",
-      zhActionLabel: "搜索已保存内容",
-      note: "Opening this is read-only; it will not change long-term memory.",
-      zhNote: "打开这里只是只读查看，不会改变长期记忆。",
-      feedback: "Nothing to open here yet.",
-      zhFeedback: "这里暂时没有可打开的内容。",
-      explorerIntent: memoryExplorerIntentAttributes({ storedFilter: savedForLaterFilter, stateFilter: savedForLaterFilter, focusSearch: true })
-    }));
-  }
-  if (items.length === 0) return "";
-  const panelLabel = explicitDecisions > 0 ? "Needs your confirmation" : "Saved and searchable";
-  const panelLabelZh = explicitDecisions > 0 ? "需要你确认" : "已保存可搜索";
-  return `
-    <section class="decision-panel${explicitDecisions > 0 ? "" : " saved-later"}" data-dashboard-decision-panel aria-label="${escapeHtml(panelLabel)}">
-      <div class="section-heading">
-        <h2 data-i18n-en="${escapeHtml(panelLabel)}" data-i18n-zh="${escapeHtml(panelLabelZh)}">${escapeHtml(panelLabel)}</h2>
-        ${i18nText(explicitDecisions > 0 ? "Actions are explicit" : "Nothing writes from this summary", explicitDecisions > 0 ? "操作需要明确确认" : "这里不会直接写入", "small")}
-      </div>
-      <div class="decision-panel-list">
-        ${items.join("")}
-      </div>
-    </section>
-  `;
-}
-
 export function memoryStateLabelFromRecordState(state: MorynRecord["state"]): { en: string; zh: string } {
   if (state === "canonical") return { en: "Ready to use", zh: "可直接使用" };
   if (state === "candidate") return { en: "Saved for later", zh: "已保存，稍后整理" };
@@ -7777,748 +3983,27 @@ export function memoryStateLabelFromRecordState(state: MorynRecord["state"]): { 
   return { en: "Set aside", zh: "已放一边" };
 }
 
-function storedContentNextStep(item: DashboardValueRecord): { label: string; zhLabel: string; detail: string; zhDetail: string } {
-  if (item.state === "canonical") {
-    return {
-      label: "Ready to use",
-      zhLabel: "可直接使用",
-      detail: "Moryn can use this now as long-term memory.",
-      zhDetail: "Moryn 现在可把这条作为长期记忆使用。"
-    };
-  }
-  if (item.state === "candidate") {
-    return {
-      label: "Organize later if useful",
-      zhLabel: "需要时再整理",
-      detail: "Already saved and searchable. Organize it only if it should become long-term memory.",
-      zhDetail: "已保存并可搜索；只有需要成为长期记忆时再整理。"
-    };
-  }
-  if (item.state === "raw") {
-    return {
-      label: "Keep for context",
-      zhLabel: "作为上下文保留",
-      detail: "Session notes stay searchable for context but are not long-term memory.",
-      zhDetail: "会话记录可作为上下文搜索，但不是长期记忆。"
-    };
-  }
-  return {
-    label: "Set aside",
-    zhLabel: "已放一边",
-    detail: "This stays searchable here without changing long-term memory.",
-    zhDetail: "这条仍可在这里搜索，不会改变长期记忆。"
-  };
-}
-
-function storedContentMeaning(item: DashboardValueRecord): { label: string; zhLabel: string; detail: string; zhDetail: string } {
-  if (item.state === "canonical") {
-    return {
-      label: "Long-term memory",
-      zhLabel: "长期记忆",
-      detail: "Moryn can use this automatically when this project needs context.",
-      zhDetail: "项目需要上下文时，Moryn 可以自动使用这条。"
-    };
-  }
-  if (item.state === "candidate") {
-    return {
-      label: "Saved and searchable",
-      zhLabel: "已保存并可搜索",
-      detail: "Useful context is kept here, but it is not long-term memory yet.",
-      zhDetail: "有用上下文保存在这里，但还不是长期记忆。"
-    };
-  }
-  if (item.state === "raw") {
-    return {
-      label: "Session context",
-      zhLabel: "会话上下文",
-      detail: "Kept for lookup during this work, not used as durable memory.",
-      zhDetail: "用于本次工作中查找，不会作为长期记忆使用。"
-    };
-  }
-  return {
-    label: "Kept for traceability",
-    zhLabel: "用于追踪",
-    detail: "Kept so the history remains inspectable without changing memory.",
-    zhDetail: "保留用于查看历史，不会改变记忆。"
-  };
-}
-
-function storedContentReasonZh(reason: string): string {
-  if (reason === "Captured through Moryn host adapter autocapture.") {
-    return "Moryn 自动保存了这条内容，稍后可整理。";
-  }
-  if (reason === "Autocapture policy retained this low-risk handoff without canonical promotion.") {
-    return "低风险交接已保存为本地依据，但不会自动变成长期记忆。";
-  }
-  if (reason === "User confirmed this as durable project memory.") {
-    return "用户已确认这条可作为长期项目记忆。";
-  }
-  if (reason === "User approved Capture Inbox candidate.") {
-    return "用户已批准这条内容成为记忆。";
-  }
-  return reason;
-}
-
-function storedContentWhySaved(item: DashboardValueRecord): { label: string; zhLabel: string } {
-  if (item.provenance_reason) {
-    return {
-      label: item.provenance_reason,
-      zhLabel: storedContentReasonZh(item.provenance_reason)
-    };
-  }
-  if (item.provenance_method === "user-confirmed" || item.source_label === "User") {
-    return {
-      label: "Saved because a user confirmed it.",
-      zhLabel: "用户确认后保存。"
-    };
-  }
-  if (item.state === "raw") {
-    return {
-      label: `Saved as session context by ${item.source_label}.`,
-      zhLabel: `${item.source_label} 保存为会话上下文。`
-    };
-  }
-  if (item.state === "canonical") {
-    return {
-      label: "Saved as long-term memory.",
-      zhLabel: "已保存为长期记忆。"
-    };
-  }
-  if (item.state === "candidate") {
-    return {
-      label: `Saved by ${item.source_label} for later organization.`,
-      zhLabel: `${item.source_label} 保存，稍后可整理。`
-    };
-  }
-  return {
-    label: "Kept searchable without changing long-term memory.",
-    zhLabel: "保持可搜索，但不改变长期记忆。"
-  };
-}
-
-function storedContentExplainCard(kind: "why-saved" | "status" | "next-step", label: string, zhLabel: string, value: string, zhValue: string, detail?: string, zhDetail?: string): string {
-  return `
-                <div class="stored-content-explain-card" data-stored-content-explain-card="${escapeHtml(kind)}">
-                  <span data-i18n-en="${escapeHtml(label)}" data-i18n-zh="${escapeHtml(zhLabel)}">${escapeHtml(label)}</span>
-                  <strong data-i18n-en="${escapeHtml(value)}" data-i18n-zh="${escapeHtml(zhValue)}">${escapeHtml(value)}</strong>
-                  ${detail ? `<small data-i18n-en="${escapeHtml(detail)}" data-i18n-zh="${escapeHtml(zhDetail ?? detail)}">${escapeHtml(detail)}</small>` : ""}
-                </div>
-  `;
-}
-
-function memoryExplorerGuidanceCard(kind: "why-saved" | "next-step", label: string, zhLabel: string, value: string, zhValue: string, detail?: string, zhDetail?: string): string {
-  const valueAttribute = kind === "why-saved" ? "data-memory-explorer-detail-why" : "data-memory-explorer-detail-next-step";
-  return `
-        <div class="memory-explorer-guidance-card" data-memory-explorer-guidance-card="${escapeHtml(kind)}">
-          <span data-i18n-en="${escapeHtml(label)}" data-i18n-zh="${escapeHtml(zhLabel)}">${escapeHtml(label)}</span>
-          <strong ${valueAttribute} data-i18n-en="${escapeHtml(value)}" data-i18n-zh="${escapeHtml(zhValue)}">${escapeHtml(value)}</strong>
-          ${kind === "next-step" ? `<small data-memory-explorer-detail-next-step-detail data-i18n-en="${escapeHtml(detail ?? "")}" data-i18n-zh="${escapeHtml(zhDetail ?? detail ?? "")}">${escapeHtml(detail ?? "")}</small>` : ""}
-        </div>
-  `;
-}
-
-function memoryExplorerGuidanceAttributes(input: {
-  state: MorynRecord["state"];
-  sourceLabel: string;
-  provenanceMethod?: NonNullable<MorynRecord["provenance"]>["method"];
-  provenanceReason?: string;
-}): string {
-  const item = {
-    state: input.state,
-    source_label: input.sourceLabel,
-    provenance_method: input.provenanceMethod,
-    provenance_reason: input.provenanceReason
-  } as DashboardValueRecord;
-  const whySaved = storedContentWhySaved(item);
-  const meaning = storedContentMeaning(item);
-  const nextStep = storedContentNextStep(item);
-  return [
-    `data-memory-explorer-why-saved="${escapeHtml(whySaved.label)}"`,
-    `data-memory-explorer-why-saved-zh="${escapeHtml(whySaved.zhLabel)}"`,
-    `data-memory-explorer-meaning="${escapeHtml(meaning.label)}"`,
-    `data-memory-explorer-meaning-zh="${escapeHtml(meaning.zhLabel)}"`,
-    `data-memory-explorer-meaning-detail="${escapeHtml(meaning.detail)}"`,
-    `data-memory-explorer-meaning-detail-zh="${escapeHtml(meaning.zhDetail)}"`,
-    `data-memory-explorer-next-step="${escapeHtml(nextStep.label)}"`,
-    `data-memory-explorer-next-step-zh="${escapeHtml(nextStep.zhLabel)}"`,
-    `data-memory-explorer-next-step-detail="${escapeHtml(nextStep.detail)}"`,
-    `data-memory-explorer-next-step-detail-zh="${escapeHtml(nextStep.zhDetail)}"`
-  ].join(" ");
-}
-
-function storedContentItem(item: DashboardValueRecord, selected = false): string {
-  const state = memoryStateLabelFromRecordState(item.state);
-  const nextStep = storedContentNextStep(item);
-  const whySaved = storedContentWhySaved(item);
-  const sourceDisplay = memoryExplorerSourceDisplay(item.source_label, item.source_detail);
-  const sourceRelative = sourceRelativePair(item.source_label, item.relative_time);
-  const updatedEn = `${item.relative_time} | ${item.exact_time}`;
-  const updatedZh = `${relativeTimeZh(item.relative_time)} | ${item.exact_time}`;
-  const guidanceAttributes = memoryExplorerGuidanceAttributes({
-    state: item.state,
-    sourceLabel: item.source_label,
-    provenanceMethod: item.provenance_method,
-    provenanceReason: item.provenance_reason
-  });
-  return `
-            <article class="stored-content-item state-${escapeHtml(item.state)}${selected ? " selected" : ""}" data-stored-content-item="${escapeHtml(item.id)}" data-stored-content-state="${escapeHtml(item.state)}" data-stored-content-source="${escapeHtml(item.source_label)}" data-memory-explorer-item-id="${escapeHtml(item.id)}" data-memory-explorer-title="${escapeHtml(item.title)}" data-memory-explorer-title-zh="${escapeHtml(item.title_zh)}" data-memory-explorer-full-text="${escapeHtml(item.summary)}" data-memory-explorer-state="${escapeHtml(state.en)}" data-memory-explorer-state-en="${escapeHtml(state.en)}" data-memory-explorer-state-zh="${escapeHtml(state.zh)}" data-memory-explorer-source="${escapeHtml(sourceDisplay.en)}" data-memory-explorer-source-zh="${escapeHtml(sourceDisplay.zh)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" ${guidanceAttributes} data-memory-explorer-timeline="${escapeHtml(item.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(item.citation.recall_command)}" tabindex="0">
-              <div class="stored-content-item-head">
-                <span data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}">${escapeHtml(state.en)}</span>
-                <small ${i18nAttribute(sourceRelative.en, sourceRelative.zh)}>${escapeHtml(sourceRelative.en)}</small>
-              </div>
-              <strong ${i18nAttribute(item.title, item.title_zh)}>${escapeHtml(item.title)}</strong>
-              ${textExcerptBlock(item.summary)}
-              <div class="stored-content-explain" data-stored-content-explain>
-                ${storedContentExplainCard("why-saved", "Why saved", "为什么保存", whySaved.label, whySaved.zhLabel)}
-                ${storedContentExplainCard("status", "Status", "状态", state.en, state.zh)}
-                ${storedContentExplainCard("next-step", "Next step", "下一步", nextStep.label, nextStep.zhLabel, nextStep.detail, nextStep.zhDetail)}
-              </div>
-              <button type="button" class="stored-content-open" data-memory-explorer-open data-i18n-en="Open details" data-i18n-zh="打开详情">Open details</button>
-            </article>
-  `;
-}
-
-function storedContentFilterBar(items: DashboardValueRecord[]): string {
-  const stateOrder: MorynRecord["state"][] = ["canonical", "candidate", "raw", "archived", "quarantined"];
-  const states = stateOrder.filter((state) => items.some((item) => item.state === state));
-  return `
-      <div class="stored-content-filterbar" data-stored-content-filterbar aria-label="Stored content filters">
-        <button type="button" class="stored-content-filter active" data-stored-content-filter="all" aria-pressed="true" data-i18n-en="All" data-i18n-zh="全部">All</button>
-        ${states.map((state) => {
-          const label = memoryStateLabelFromRecordState(state);
-          return `<button type="button" class="stored-content-filter" data-stored-content-filter="${escapeHtml(state)}" aria-pressed="false" data-i18n-en="${escapeHtml(label.en)}" data-i18n-zh="${escapeHtml(label.zh)}">${escapeHtml(label.en)}</button>`;
-        }).join("")}
-      </div>
-  `;
-}
-
-function memoryStateGuideCard(
-  className: string,
-  filter: string,
-  label: string,
-  zhLabel: string,
-  detail: string,
-  zhDetail: string
-): string {
-  return `
-          <button type="button" class="memory-state-guide-card ${escapeHtml(className)}" data-memory-state-filter="${escapeHtml(filter)}" data-action-board-target="stored-content" aria-controls="stored-content">
-            <strong ${i18nAttribute(label, zhLabel)}>${escapeHtml(label)}</strong>
-            <small ${i18nAttribute(detail, zhDetail)}>${escapeHtml(detail)}</small>
-          </button>
-  `;
-}
-
-function memoryStateGuide(): string {
-  return `
-        <div class="memory-state-guide" data-memory-state-guide aria-label="Memory status guide">
-          <span data-i18n-en="Memory status guide" data-i18n-zh="记忆状态说明">Memory status guide</span>
-          <div class="memory-state-guide-grid">
-            ${memoryStateGuideCard(
-              "memory-state-remembered",
-              "canonical",
-              "Ready to use",
-              "可直接使用",
-              "Moryn can already use this as long-term memory.",
-              "Moryn 已经可以把这些作为长期记忆使用。"
-            )}
-            ${memoryStateGuideCard(
-              "memory-state-to-organize",
-              "candidate",
-              "Saved for later",
-              "已保存，稍后整理",
-              "Saved and searchable; organize later only if useful.",
-              "已保存并可搜索；有用时再整理。"
-            )}
-            ${memoryStateGuideCard(
-              "memory-state-temporary",
-              "raw",
-              "Saved briefly",
-              "临时保存",
-              "Kept as session context for lookup.",
-              "作为会话上下文保留，可供查找。"
-            )}
-            ${memoryStateGuideCard(
-              "memory-state-set-aside",
-              "archived,quarantined",
-              "Set aside",
-              "已放一边",
-              "Archived or replaced items kept for traceability.",
-              "为追溯保留的归档或已替换内容。"
-            )}
-          </div>
-        </div>
-  `;
-}
-
-function memorySearchText(parts: unknown[]): string {
-  return parts
-    .filter((part) => part !== undefined && part !== null)
-    .map((part) => String(part))
-    .join(" ")
-    .toLowerCase();
-}
-
-function memorySearchRecordEntry(record: DashboardRecordSummary, generatedAt: string): string {
-  const source = humanSourceLabel(record.source);
-  const sourceDisplay = memoryExplorerSourceDisplay(source, humanSourceDetail(record.source));
-  const stateLabel = memoryStateLabelFromRecordState(record.state);
-  const relative = relativeTime(record.updated_at, generatedAt);
-  const metaEn = `${stateLabel.en} | ${source} | ${relative}`;
-  const metaZh = `${stateLabel.zh} | ${source} | ${relativeTimeZh(relative)}`;
-  const title = dashboardRecordTitleLabel(record.kind, record.type);
-  const updatedEn = `${relative} | ${record.updated_at}`;
-  const updatedZh = `${relativeTimeZh(relative)} | ${record.updated_at}`;
-  const guidanceAttributes = memoryExplorerGuidanceAttributes({
-    state: record.state,
-    sourceLabel: source
-  });
-  const searchText = memorySearchText([
-    "record",
-    record.id,
-    record.kind,
-    record.type,
-    record.scope,
-    record.project_id,
-    record.state,
-    source,
-    record.text
-  ]);
-  return `
-          <article class="memory-search-result record" data-memory-search-entry="record:${escapeHtml(record.id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="${escapeHtml(record.state)}" data-memory-search-source="${escapeHtml(source)}" data-memory-search-kind="${escapeHtml(record.kind)}" data-memory-search-record-type="${escapeHtml(record.type)}" data-memory-search-updated-at="${escapeHtml(record.updated_at)}" data-memory-explorer-item-id="record:${escapeHtml(record.id)}" data-memory-explorer-title="${escapeHtml(title.en)}" data-memory-explorer-title-zh="${escapeHtml(title.zh)}" data-memory-explorer-full-text="${escapeHtml(record.text)}" data-memory-explorer-state="${escapeHtml(stateLabel.en)}" data-memory-explorer-state-en="${escapeHtml(stateLabel.en)}" data-memory-explorer-state-zh="${escapeHtml(stateLabel.zh)}" data-memory-explorer-source="${escapeHtml(sourceDisplay.en)}" data-memory-explorer-source-zh="${escapeHtml(sourceDisplay.zh)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" ${guidanceAttributes} data-memory-explorer-timeline="${escapeHtml(record.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(record.citation.recall_command)}" tabindex="0">
-            <span ${i18nAttribute("Memory", "记忆")}>Memory</span>
-            <strong ${i18nAttribute(title.en, title.zh)}>${escapeHtml(title.en)}</strong>
-            ${memorySearchPreviewBlock(record.text)}
-            <small ${i18nAttribute(metaEn, metaZh)}>${escapeHtml(metaEn)}</small>
-          </article>
-  `;
-}
-
-function memorySearchEventEntry(event: DashboardEventSummary, generatedAt: string): string {
-  const source = humanSourceLabel(event.source);
-  const sourceDisplay = memoryExplorerSourceDisplay(source, humanSourceDetail(event.source));
-  const relative = relativeTime(event.created_at, generatedAt);
-  const meta = sourceRelativePair(source, relative);
-  const updatedEn = `${relative} | ${event.created_at}`;
-  const updatedZh = `${relativeTimeZh(relative)} | ${event.created_at}`;
-  const detailText = event.record_id ? `Saved item ${event.record_id}` : "Store-level event";
-  const detailTextZh = event.record_id ? `保存内容 ${event.record_id}` : "全局事件";
-  const eventTarget = event.record_id
-    ? `<span ${i18nAttribute("Saved item", "保存内容")}>Saved item</span> <code>${escapeHtml(event.record_id)}</code>`
-    : i18nText("Store-level event", "全局事件", "span");
-  const searchText = memorySearchText([
-    "event",
-    event.event_id,
-    event.op,
-    event.record_id,
-    source
-  ]);
-  return `
-          <article class="memory-search-result event" data-memory-search-entry="event:${escapeHtml(event.event_id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="event" data-memory-search-source="${escapeHtml(source)}" data-memory-search-kind="event" data-memory-search-record-type="${escapeHtml(event.op)}" data-memory-search-updated-at="${escapeHtml(event.created_at)}" data-memory-explorer-item-id="event:${escapeHtml(event.event_id)}" data-memory-explorer-title="${escapeHtml(event.op)}" data-memory-explorer-full-text="${escapeHtml(detailText)}" data-memory-explorer-full-text-zh="${escapeHtml(detailTextZh)}" data-memory-explorer-state="Event" data-memory-explorer-state-en="Event" data-memory-explorer-state-zh="事件" data-memory-explorer-source="${escapeHtml(sourceDisplay.en)}" data-memory-explorer-source-zh="${escapeHtml(sourceDisplay.zh)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" data-memory-explorer-has-guidance="false" data-memory-explorer-timeline="${escapeHtml(event.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(event.citation.recall_command ?? "")}" tabindex="0">
-            <span ${i18nAttribute("Event", "事件")}>Event</span>
-            <strong>${escapeHtml(event.op)}</strong>
-            <p>${eventTarget}</p>
-            <small ${i18nAttribute(meta.en, meta.zh)}>${escapeHtml(meta.en)}</small>
-          </article>
-  `;
-}
-
-function memorySearchStatusLabel(count: number, filtered = false): { en: string; zh: string } {
-  if (filtered) {
-    return {
-      en: `${pluralize(count, "item")} shown`,
-      zh: `显示 ${count} 条内容`
-    };
-  }
-  return {
-    en: `${pluralize(count, "item")} to search`,
-    zh: `可搜索 ${count} 条内容`
-  };
-}
-
-function memorySearchMixItem(state: MorynRecord["state"] | "event", count: number): string {
-  const label = state === "event" ? { en: "Event", pluralEn: "Events", zh: "事件" } : (() => {
-    const stateLabel = memoryStateLabelFromRecordState(state);
-    return { en: stateLabel.en, pluralEn: stateLabel.en, zh: stateLabel.zh };
-  })();
-  const en = `${count} ${count === 1 ? label.en : label.pluralEn}`;
-  const zh = `${count} 条${label.zh}`;
-  return `<button type="button" class="memory-search-mix-item" data-memory-search-mix-item="${escapeHtml(state)}" data-memory-search-mix-filter="${escapeHtml(state)}" aria-pressed="false" data-i18n-singular-en="${escapeHtml(label.en)}" data-i18n-plural-en="${escapeHtml(label.pluralEn)}" data-i18n-label-zh="${escapeHtml(label.zh)}" ${i18nAttribute(en, zh)}${count === 0 ? " hidden" : ""}>${escapeHtml(en)}</button>`;
-}
-
-function memorySearchMix(records: DashboardRecordSummary[], events: DashboardEventSummary[]): string {
-  const counts: Record<MorynRecord["state"] | "event", number> = {
-    canonical: 0,
-    candidate: 0,
-    raw: 0,
-    archived: 0,
-    quarantined: 0,
-    event: events.length
-  };
-  for (const record of records) {
-    counts[record.state] = (counts[record.state] ?? 0) + 1;
-  }
-  return `
-        <div class="memory-search-mix" data-memory-search-mix aria-label="Search result mix">
-          ${(["canonical", "candidate", "raw", "archived", "quarantined", "event"] as Array<MorynRecord["state"] | "event">).map((state) => memorySearchMixItem(state, counts[state] ?? 0)).join("")}
-        </div>
-  `;
-}
-
-function memorySearchChip(query: string, label: string, zhLabel: string): string {
-  return `<button type="button" class="memory-search-chip" data-memory-search-chip="${escapeHtml(query)}" data-i18n-en="${escapeHtml(label)}" data-i18n-zh="${escapeHtml(zhLabel)}">${escapeHtml(label)}</button>`;
-}
-
-function memorySearchShortcutChips(input: { sources: string[]; recordStates: MorynRecord["state"][]; hasEvents: boolean }): string {
-  const sourceChips = input.sources.slice(0, 3).map((source) => memorySearchChip(`source:${source}`, source, source));
-  const stateChips = [
-    input.recordStates.includes("canonical") ? memorySearchChip("state:long-term", "Ready to use", "可直接使用") : "",
-    input.recordStates.includes("candidate") ? memorySearchChip("state:recently-saved", "Saved for later", "已保存，稍后整理") : "",
-    input.recordStates.includes("raw") ? memorySearchChip("state:for-this-session", "Saved briefly", "临时保存") : "",
-    (input.recordStates.includes("archived") || input.recordStates.includes("quarantined")) ? memorySearchChip("state:kept-for-history", "Set aside", "已放一边") : ""
-  ].filter(Boolean);
-  const eventChip = input.hasEvents ? memorySearchChip("type:event", "Events", "事件") : "";
-  const chips = [
-    ...sourceChips,
-    ...stateChips,
-    eventChip,
-    memorySearchChip("recent:7d", "Recent 7d", "最近 7 天")
-  ].filter(Boolean);
-  if (chips.length === 0) return "";
-  return `
-        <div class="memory-search-chips" data-memory-search-chips aria-label="Search shortcuts">
-          ${chips.join("")}
-        </div>
-  `;
-}
-
-function memorySearchItemCountLabel(count: number): { en: string; zh: string } {
-  return {
-    en: `${count} ${count === 1 ? "item" : "items"}`,
-    zh: `${count} 条内容`
-  };
-}
-
-function memorySearchSummary(totalCount: number, selectedTitle: string, selectedTitleZh: string): string {
-  const total = memorySearchItemCountLabel(totalCount);
-  return `
-        <div class="memory-search-summary" data-memory-search-summary aria-label="Search summary">
-          <article class="memory-search-summary-card">
-            <span data-i18n-en="Searchable" data-i18n-zh="可搜索">Searchable</span>
-            <strong data-memory-search-summary-total data-i18n-en="${escapeHtml(total.en)}" data-i18n-zh="${escapeHtml(total.zh)}">${escapeHtml(total.en)}</strong>
-          </article>
-          <article class="memory-search-summary-card">
-            <span data-i18n-en="Showing" data-i18n-zh="当前显示">Showing</span>
-            <strong data-memory-search-summary-visible data-i18n-en="${escapeHtml(total.en)}" data-i18n-zh="${escapeHtml(total.zh)}">${escapeHtml(total.en)}</strong>
-          </article>
-          <article class="memory-search-summary-card">
-            <span data-i18n-en="Selected" data-i18n-zh="当前选择">Selected</span>
-            <strong data-memory-search-summary-selected data-i18n-en="${escapeHtml(selectedTitle)}" data-i18n-zh="${escapeHtml(selectedTitleZh)}">${escapeHtml(selectedTitle)}</strong>
-          </article>
-          <small class="memory-search-summary-readonly" data-i18n-en="Read-only: opening an item only updates this detail view." data-i18n-zh="只读：打开内容只会更新详情视图。">Read-only: opening an item only updates this detail view.</small>
-        </div>
-        <div class="memory-search-active-filters" data-memory-search-active-filters aria-label="Active memory filters">
-          <span data-i18n-en="Current view" data-i18n-zh="当前视图">Current view</span>
-          <div class="memory-search-active-filter">
-            <small data-i18n-en="Query" data-i18n-zh="关键词">Query</small>
-            <strong data-memory-search-active-query data-i18n-en="All keywords" data-i18n-zh="全部关键词">All keywords</strong>
-          </div>
-          <div class="memory-search-active-filter">
-            <small data-i18n-en="Status" data-i18n-zh="状态">Status</small>
-            <strong data-memory-search-active-state data-i18n-en="All statuses" data-i18n-zh="全部状态">All statuses</strong>
-          </div>
-          <div class="memory-search-active-filter">
-            <small data-i18n-en="Source" data-i18n-zh="来源">Source</small>
-            <strong data-memory-search-active-source data-i18n-en="All sources" data-i18n-zh="全部来源">All sources</strong>
-          </div>
-        </div>
-  `;
-}
-
-function memorySearchPanel(data: DashboardData): string {
-  const entries = [
-    ...data.recent_records.map((record) => memorySearchRecordEntry(record, data.generated_at)),
-    ...data.recent_events.map((event) => memorySearchEventEntry(event, data.generated_at))
-  ];
-  if (entries.length === 0) return "";
-  const recordStates = [...new Set(data.recent_records.map((record) => record.state))];
-  const sources = [...new Set([
-    ...data.recent_records.map((record) => humanSourceLabel(record.source)),
-    ...data.recent_events.map((event) => humanSourceLabel(event.source))
-  ])].sort((left, right) => left.localeCompare(right));
-  const statusLabel = memorySearchStatusLabel(entries.length);
-  const chips = memorySearchShortcutChips({
-    sources,
-    recordStates,
-    hasEvents: data.recent_events.length > 0
-  });
-  const selectedTitle = data.recent_records[0]
-    ? dashboardRecordTitleLabel(data.recent_records[0].kind, data.recent_records[0].type)
-    : { en: "Selected item", zh: "当前内容" };
-  return `
-      <div id="memory-search-panel" class="memory-search-panel primary-memory-search" data-memory-search-panel data-memory-search-now="${escapeHtml(data.generated_at)}" aria-label="Find memory">
-        <label class="memory-search-label" for="memory-search-input" data-i18n-en="Find memory or events" data-i18n-zh="查找记忆或事件">Find memory or events</label>
-        <div class="memory-search-controls" data-memory-search-controls>
-          <input id="memory-search-input" class="memory-search-input" type="search" data-memory-search-input placeholder="Type a keyword, source, or topic" aria-label="Find memory or events" data-i18n-placeholder-en="Type a keyword, source, or topic" data-i18n-placeholder-zh="输入关键词、来源或主题" data-i18n-aria-label-en="Find memory or events" data-i18n-aria-label-zh="查找记忆或事件">
-          <select class="memory-search-select" data-memory-search-state aria-label="Filter search by memory state">
-            <option value="all" ${i18nAttribute("All statuses", "全部状态")}>All statuses</option>
-            ${recordStates.map((state) => {
-              const label = memoryStateLabelFromRecordState(state);
-              return `<option value="${escapeHtml(state)}" ${i18nAttribute(label.en, label.zh)}>${escapeHtml(label.en)}</option>`;
-            }).join("")}
-            <option value="event" ${i18nAttribute("Events", "事件")}>Events</option>
-          </select>
-          <select class="memory-search-select" data-memory-search-source aria-label="Filter search by source">
-            <option value="all" ${i18nAttribute("All sources", "全部来源")}>All sources</option>
-            ${sources.map((source) => `<option value="${escapeHtml(source)}">${escapeHtml(source)}</option>`).join("")}
-          </select>
-        </div>
-        ${chips}
-        <div class="memory-search-meta">
-          <span data-memory-search-status ${i18nAttribute(statusLabel.en, statusLabel.zh)}>${escapeHtml(statusLabel.en)}</span>
-          <small data-i18n-en="Local search only; no writes happen here." data-i18n-zh="仅本地搜索；这里不会写入。">Local search only; no writes happen here.</small>
-        </div>
-        ${memorySearchSummary(entries.length, selectedTitle.en, selectedTitle.zh)}
-        ${memoryStateGuide()}
-        ${memorySearchMix(data.recent_records, data.recent_events)}
-        <div class="memory-search-results" data-memory-search-results>
-          ${entries.join("")}
-        </div>
-      </div>
-  `;
-}
-
-function memoryExplorerDetailPanel(item?: DashboardValueRecord): string {
-  const state = item ? memoryStateLabelFromRecordState(item.state) : undefined;
-  const meaning = item ? storedContentMeaning(item) : undefined;
-  const nextStep = item ? storedContentNextStep(item) : undefined;
-  const whySaved = item ? storedContentWhySaved(item) : undefined;
-  const sourceDisplay = item ? memoryExplorerSourceDisplay(item.source_label, item.source_detail) : undefined;
-  const updatedEn = item ? `${item.relative_time} | ${item.exact_time}` : "";
-  const updatedZh = item ? `${relativeTimeZh(item.relative_time)} | ${item.exact_time}` : "";
-  const title = item?.title ?? "Select an item";
-  const titleZh = item?.title_zh ?? "选择一条内容";
-  const titleAttrs = ` ${i18nAttribute(title, titleZh)}`;
-  const text = item?.summary ?? "Select a saved item to read its full text, source, and status.";
-  const textAttrs = item ? "" : ` data-i18n-en="Select a saved item to read its full text, source, and status." data-i18n-zh="选择一条保存内容，可查看全文、来源和状态。"`;
-  const gridHidden = item ? "" : " hidden";
-  const guidanceHidden = item ? "" : " hidden";
-  const traceHidden = item ? "" : " hidden";
-  return `
-      <aside class="memory-explorer-detail" data-memory-explorer-detail aria-live="polite">
-        <span data-i18n-en="Selected item" data-i18n-zh="当前内容">Selected item</span>
-        <strong data-memory-explorer-detail-title${titleAttrs}>${escapeHtml(title)}</strong>
-        <div class="memory-explorer-read-first" data-memory-explorer-read-first>
-          <span data-i18n-en="Read first" data-i18n-zh="先看这个">Read first</span>
-          <div class="memory-explorer-read-first-grid">
-            <article><span data-i18n-en="Status" data-i18n-zh="状态">Status</span><strong data-memory-explorer-summary-state${state ? ` data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}"` : ""}>${state ? escapeHtml(state.en) : ""}</strong></article>
-            <article><span data-i18n-en="Meaning" data-i18n-zh="含义">Meaning</span><strong data-memory-explorer-summary-meaning${meaning ? ` data-i18n-en="${escapeHtml(meaning.label)}" data-i18n-zh="${escapeHtml(meaning.zhLabel)}"` : ""}>${meaning ? escapeHtml(meaning.label) : ""}</strong></article>
-            <article><span data-i18n-en="Why saved" data-i18n-zh="为什么保存">Why saved</span><strong data-memory-explorer-summary-why${whySaved ? ` data-i18n-en="${escapeHtml(whySaved.label)}" data-i18n-zh="${escapeHtml(whySaved.zhLabel)}"` : ""}>${whySaved ? escapeHtml(whySaved.label) : ""}</strong></article>
-            <article><span data-i18n-en="Next" data-i18n-zh="下一步">Next</span><strong data-memory-explorer-summary-next${nextStep ? ` data-i18n-en="${escapeHtml(nextStep.label)}" data-i18n-zh="${escapeHtml(nextStep.zhLabel)}"` : ""}>${nextStep ? escapeHtml(nextStep.label) : ""}</strong></article>
-          </div>
-        </div>
-        <div class="memory-explorer-full-text" data-memory-explorer-full-text>
-          <span data-i18n-en="Full text" data-i18n-zh="全文">Full text</span>
-          <p data-memory-explorer-detail-text${textAttrs}>${escapeHtml(text)}</p>
-        </div>
-        <div class="memory-explorer-meaning" data-memory-explorer-meaning${guidanceHidden}>
-          <span data-i18n-en="What this means" data-i18n-zh="这意味着什么">What this means</span>
-          <strong data-memory-explorer-detail-meaning${meaning ? ` data-i18n-en="${escapeHtml(meaning.label)}" data-i18n-zh="${escapeHtml(meaning.zhLabel)}"` : ""}>${meaning ? escapeHtml(meaning.label) : ""}</strong>
-          <small data-memory-explorer-detail-meaning-detail${meaning ? ` data-i18n-en="${escapeHtml(meaning.detail)}" data-i18n-zh="${escapeHtml(meaning.zhDetail)}"` : ""}>${meaning ? escapeHtml(meaning.detail) : ""}</small>
-        </div>
-        <dl class="memory-explorer-detail-grid" data-memory-explorer-detail-grid${gridHidden}>
-          <div><dt data-i18n-en="State" data-i18n-zh="状态">State</dt><dd data-memory-explorer-detail-state${state ? ` data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}"` : ""}>${state ? escapeHtml(state.en) : ""}</dd></div>
-          <div><dt data-i18n-en="Source" data-i18n-zh="来源">Source</dt><dd data-memory-explorer-detail-source${sourceDisplay ? ` data-i18n-en="${escapeHtml(sourceDisplay.en)}" data-i18n-zh="${escapeHtml(sourceDisplay.zh)}"` : ""}>${sourceDisplay ? escapeHtml(sourceDisplay.en) : ""}</dd></div>
-          <div><dt data-i18n-en="Updated" data-i18n-zh="更新时间">Updated</dt><dd data-memory-explorer-detail-updated${item ? ` data-i18n-en="${escapeHtml(updatedEn)}" data-i18n-zh="${escapeHtml(updatedZh)}"` : ""}>${item ? escapeHtml(updatedEn) : ""}</dd></div>
-        </dl>
-        <div class="memory-explorer-guidance" data-memory-explorer-guidance${guidanceHidden}>
-          ${whySaved && nextStep ? `
-          ${memoryExplorerGuidanceCard("why-saved", "Why saved", "为什么保存", whySaved.label, whySaved.zhLabel)}
-          ${memoryExplorerGuidanceCard("next-step", "Next step", "下一步", nextStep.label, nextStep.zhLabel, nextStep.detail, nextStep.zhDetail)}
-          ` : `
-          ${memoryExplorerGuidanceCard("why-saved", "Why saved", "为什么保存", "", "")}
-          ${memoryExplorerGuidanceCard("next-step", "Next step", "下一步", "", "", "", "")}
-          `}
-        </div>
-        <details class="memory-explorer-trace" data-memory-explorer-trace${traceHidden}>
-          <summary data-i18n-en="Trace details" data-i18n-zh="追踪详情">Trace details</summary>
-          <code data-memory-explorer-detail-timeline>${item ? escapeHtml(item.citation.timeline_command) : ""}</code>
-          <code data-memory-explorer-detail-recall>${item ? escapeHtml(item.citation.recall_command) : ""}</code>
-        </details>
-      </aside>
-  `;
-}
-
-function storedContentPanel(data: DashboardData): string {
-  const visibleItems = data.stored_content_preview.length > 0
-    ? data.stored_content_preview
-    : data.recent_value.slice(0, 4);
-  const visibleIds = new Set(visibleItems.map((item) => item.id));
-  const overflowItems = data.recent_value.filter((item) => !visibleIds.has(item.id));
-  if (visibleItems.length === 0) return "";
-  const overflowCount = overflowItems.length;
-  const moreLabel = `View ${overflowCount} more`;
-  const moreLabelZh = `查看更多 ${overflowCount} 条`;
-  return `
-    <section id="stored-content" class="stored-content memory-explorer" data-stored-content data-memory-explorer aria-label="Find what Moryn saved">
-      <div class="section-heading">
-        <h2 data-i18n-en="Find what Moryn saved" data-i18n-zh="查找 Moryn 保存的内容">Find what Moryn saved</h2>
-        <div class="stored-content-tools">
-          ${i18nText("Search first, then open any item for full text. Nothing writes here.", "先搜索，再打开任何内容查看全文；这里不会写入。", "small")}
-        </div>
-      </div>
-      <div class="memory-explorer-layout" data-memory-explorer-layout>
-        <div class="memory-explorer-main" data-memory-explorer-main>
-          ${memorySearchPanel(data)}
-          ${storedContentFilterBar(data.recent_value)}
-          <div class="stored-content-list">
-            ${visibleItems.map((item, index) => storedContentItem(item, index === 0)).join("")}
-          </div>
-          ${overflowItems.length > 0 ? `
-            <div id="stored-content-overflow" class="stored-content-list stored-content-overflow" data-stored-content-overflow hidden>
-              ${overflowItems.map((item) => storedContentItem(item)).join("")}
-            </div>
-            <button type="button" class="stored-content-more" data-stored-content-more aria-expanded="false" aria-controls="stored-content-overflow" data-i18n-en="${escapeHtml(moreLabel)}" data-i18n-zh="${escapeHtml(moreLabelZh)}" data-stored-content-collapsed-en="${escapeHtml(moreLabel)}" data-stored-content-collapsed-zh="${escapeHtml(moreLabelZh)}" data-stored-content-expanded-en="Show fewer" data-stored-content-expanded-zh="收起">${escapeHtml(moreLabel)}</button>
-          ` : ""}
-        </div>
-        ${memoryExplorerDetailPanel(visibleItems[0])}
-      </div>
-    </section>
-  `;
-}
-
-function memoryInventoryPanel(inventory: DashboardMemoryInventory): string {
-  const kindSummary = inventory.kind_summary.length > 0
-    ? inventory.kind_summary.map((kind) => `<span ${i18nAttribute(`${kind.label} ${kind.count}`, `${kind.zh_label} ${kind.count}`)}>${escapeHtml(`${kind.label} ${kind.count}`)}</span>`).join("")
-    : i18nText("No stored content yet", "还没有存储内容", "span");
-  return `
-    <section class="memory-inventory" data-memory-inventory aria-label="What Moryn stores">
-      <div class="section-heading">
-        <h2 data-i18n-en="What Moryn stores" data-i18n-zh="Moryn 存了什么">What Moryn stores</h2>
-        ${i18nText(`${inventory.summary.total_visible} saved items`, `${inventory.summary.total_visible} 条保存内容`, "small")}
-      </div>
-      <div class="memory-inventory-grid">
-        ${inventory.states.map((state) => {
-          const explanation = memoryInventoryStateExplanation(state);
-          return `
-          <button type="button" class="memory-inventory-card memory-inventory-${escapeHtml(state.id)}" data-memory-state-filter="${escapeHtml(memoryInventoryFilterValue(state))}" data-action-board-target="stored-content" aria-controls="stored-content">
-            <span data-i18n-en="${escapeHtml(state.label)}" data-i18n-zh="${escapeHtml(state.zh_label)}">${escapeHtml(state.label)}</span>
-            <strong>${escapeHtml(state.count)}</strong>
-            <small data-i18n-en="${escapeHtml(explanation.en)}" data-i18n-zh="${escapeHtml(explanation.zh)}">${escapeHtml(explanation.en)}</small>
-          </button>
-        `;
-        }).join("")}
-      </div>
-      <div class="memory-kind-strip" aria-label="Memory types">
-        ${kindSummary}
-      </div>
-    </section>
-  `;
-}
-
-function recentChangeRow(record: DashboardRecordSummary, generatedAt: string, selected = false): string {
-  const state = memoryStateLabelFromRecordState(record.state);
-  const source = humanSourceLabel(record.source);
-  const relative = relativeTime(record.updated_at, generatedAt);
-  const sourceRelative = sourceRelativePair(source, relative);
-  const title = dashboardRecordTitleLabel(record.kind, record.type);
-  const actionLabel = `Open saved item: ${title.en} · ${state.en} · ${sourceRelative.en}`;
-  const actionLabelZh = `打开保存内容：${title.zh} · ${state.zh} · ${sourceRelative.zh}`;
-  return `
-        <button type="button" class="recent-change-row state-${escapeHtml(record.state)}${selected ? " selected" : ""}" data-recent-change-record="${escapeHtml(record.id)}" data-recent-change-select="${escapeHtml(record.id)}" data-memory-explorer-item-id="${escapeHtml(record.id)}" data-action-board-target="stored-content" aria-controls="stored-content" aria-pressed="${selected ? "true" : "false"}" ${i18nAriaAndTitle(actionLabel, actionLabelZh)}>
-          <span data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}">${escapeHtml(state.en)}</span>
-          <strong ${i18nAttribute(title.en, title.zh)}>${escapeHtml(title.en)}</strong>
-          <small ${i18nAttribute(sourceRelative.en, sourceRelative.zh)}>${escapeHtml(sourceRelative.en)}</small>
-        </button>
-  `;
-}
-
-function recentChangesList(records: DashboardRecordSummary[], generatedAt: string): string {
-  const rows = records.slice(0, 3).map((record, index) => recentChangeRow(record, generatedAt, index === 0)).join("");
-  if (!rows) return "";
-  return `
-      <div class="recent-changes" data-recent-changes aria-label="Recently saved" data-i18n-aria-label-en="Recently saved" data-i18n-aria-label-zh="最近保存内容">
-        <div class="recent-changes-heading">
-          <span data-i18n-en="Recently saved" data-i18n-zh="最近保存内容">Recently saved</span>
-          <small data-i18n-en="Opens the full saved item" data-i18n-zh="打开保存内容全文">Opens the full saved item</small>
-        </div>
-        <div class="recent-change-list">
-          ${rows}
-        </div>
-      </div>
-  `;
-}
-
-function recentStatusPanel(data: DashboardData): string {
-  const latestRecord = data.recent_records[0];
-  const latestSource = latestRecord ? humanSourceLabel(latestRecord.source) : "No saves yet";
-  const latestSourceZh = latestRecord ? latestSource : "还没有保存";
-  const latestWriteHtml = latestRecord ? `<strong>${relativeTimeElement(latestRecord.updated_at, data.generated_at)}</strong>` : i18nText("None", "暂无保存", "strong");
-  const reviewable = data.memory_inventory.summary.new_items + data.memory_inventory.summary.temporary;
-  const reviewableLabel = reviewable > 0 ? `${reviewable} searchable ${reviewable === 1 ? "item" : "items"}` : "No searchable items";
-  const reviewableZh = reviewable > 0 ? `${reviewable} 条可搜索内容` : "没有可搜索内容";
-  const shared = sharedCopyLabel(data.sync);
-  return `
-    <section class="recent-status" data-recent-status aria-label="Recent status">
-      <div class="section-heading">
-        <h2 data-i18n-en="Recent status" data-i18n-zh="最近状态">Recent status</h2>
-        ${i18nText("Latest changes and sync", "最近变化和同步", "small")}
-      </div>
-      <div class="recent-status-grid">
-        <article>
-          ${i18nText("Last saved", "最近保存")}
-          ${latestWriteHtml}
-        </article>
-        <article>
-          ${i18nText("Latest source", "最近来源")}
-          <strong ${i18nAttribute(latestSource, latestSourceZh)}>${escapeHtml(latestSource)}</strong>
-        </article>
-        <article>
-          ${i18nText("Shared copy", "共享副本")}
-          ${i18nText(shared.label, shared.zh, "strong")}
-        </article>
-        <article>
-          ${i18nText("Searchable", "可搜索内容")}
-          <strong ${i18nAttribute(reviewableLabel, reviewableZh)}>${escapeHtml(reviewableLabel)}</strong>
-        </article>
-      </div>
-      ${recentChangesList(data.recent_records, data.generated_at)}
-    </section>
-  `;
-}
-
-function dashboardCommandFlow(data: DashboardData, options: {
-  showOverview: boolean;
-  showBackgroundStatus: boolean;
-  showStoredContent: boolean;
-}): string {
-  return `
-    <section class="dashboard-command-flow" data-dashboard-command-flow aria-label="Moryn control flow">
-      <div class="dashboard-command-flow-head" data-dashboard-command-flow-head>
-        ${i18nText("Control flow", "控制流")}
-        ${i18nText("Act, inspect, then search", "先看是否要操作，再查看和搜索", "strong")}
-        ${i18nText("No write happens in this flow unless a real confirm button appears.", "这里不会写入；只有真正的确认按钮才会改变记忆。", "small")}
-      </div>
-      ${statusBoard(data)}
-      ${options.showOverview ? dashboardOverview(data.dashboard_overview, { showBackgroundStatus: options.showBackgroundStatus, showSafety: true }) : ""}
-      ${dashboardDecisionPanel(data)}
-      ${dashboardGlanceBoard(data)}
-      ${options.showStoredContent ? storedContentPanel(data) : ""}
-    </section>
-  `;
-}
 
 function quietSystemPulse(data: DashboardData): string {
   const pulse = data.quiet_dashboard.system_pulse;
   const displayHealth = dashboardDisplayHealth(data);
   const pulseLabel = pulse.healthy
-    ? data.health.status === "sync_pending" ? "Local memory ready" : "All systems steady"
+    ? data.health.status === "sync_pending"
+      ? "Local memory ready"
+      : "All systems steady"
     : displayHealth.label;
   const pulseLabelZh = pulse.healthy
-    ? data.health.status === "sync_pending" ? "本机记忆可用" : "系统运行平稳"
-    : dashboardHealthZh(displayHealth.status === "local_ready" ? "local_only" : displayHealth.status, displayHealth.label);
-  const autopilotLabel = pulse.autopilot.status === "not_installed"
-    ? "Not installed"
-    : `${pulse.autopilot.status[0]?.toUpperCase()}${pulse.autopilot.status.slice(1)} · ${pulse.autopilot.host === "claude" ? "Claude" : pulse.autopilot.host === "codex" ? "Codex" : "Unknown"}`;
+    ? data.health.status === "sync_pending"
+      ? "本机记忆可用"
+      : "系统运行平稳"
+    : dashboardHealthZh(
+        displayHealth.status === "local_ready" ? "local_only" : displayHealth.status,
+        displayHealth.label
+      );
+  const autopilotLabel =
+    pulse.autopilot.status === "not_installed"
+      ? "Not installed"
+      : `${pulse.autopilot.status[0]?.toUpperCase()}${pulse.autopilot.status.slice(1)} · ${pulse.autopilot.host === "claude" ? "Claude" : pulse.autopilot.host === "codex" ? "Codex" : "Unknown"}`;
   return `
     <section class="quiet-pulse-band ${pulse.healthy ? "healthy" : "attention"}" data-quiet-section="system-pulse">
       <div class="quiet-panel-heading">
@@ -8572,11 +4057,6 @@ function quietMemoryFlow(data: DashboardData): string {
     </section>`;
 }
 
-function semanticConsolidationAudit(data: DashboardData): string {
-  const flow = data.quiet_dashboard.memory_flow;
-  return `<section class="panel" data-dashboard-detail="semantic-consolidation-audit"><h2>Semantic consolidation</h2><p>${flow.semantic_rejected_proposals} rejected semantic proposal${flow.semantic_rejected_proposals === 1 ? "" : "s"} · ${flow.semantic_conflict_links} conflict link${flow.semantic_conflict_links === 1 ? "" : "s"}</p></section>`;
-}
-
 function quietAttention(data: DashboardData): string {
   const items = data.quiet_dashboard.attention_needed;
   if (!items.length) return "";
@@ -8619,33 +4099,41 @@ function plainHistoryTimeline(data: DashboardData): string {
   if (events.length === 0) {
     return `<section class="history-timeline" data-history-timeline aria-label="Recent activity"><p class="history-empty" data-i18n-en="Nothing has happened yet. New saves and changes will appear here." data-i18n-zh="还没有任何动态。新的保存和变化会显示在这里。">Nothing has happened yet. New saves and changes will appear here.</p></section>`;
   }
-  const rows = events.map((event) => {
-    const sentence = plainEventSentence(event);
-    const relative = relativeTime(event.created_at, data.generated_at);
-    const relativeZh = relativeTimeZh(relative);
-    return `
+  const rows = events
+    .map((event) => {
+      const sentence = plainEventSentence(event);
+      const relative = relativeTime(event.created_at, data.generated_at);
+      const relativeZh = relativeTimeZh(relative);
+      return `
         <li class="history-row">
           <time class="history-when" datetime="${escapeHtml(event.created_at)}" ${i18nAttribute(relative, relativeZh)}>${escapeHtml(relative)}</time>
           <span class="history-what" ${i18nAttribute(sentence.en, sentence.zh)}>${escapeHtml(sentence.en)}</span>
         </li>`;
-  }).join("");
+    })
+    .join("");
   return `
     <section class="history-timeline" data-history-timeline aria-label="Recent activity">
       <ol class="history-list">${rows}</ol>
     </section>`;
 }
 
-function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderOptions, "showStoredContent"> = {}): string {
+function renderDashboardBody(
+  data: DashboardData,
+  _options: Pick<DashboardRenderOptions, "showStoredContent"> = {}
+): string {
   const displayHealth = dashboardDisplayHealth(data);
-  const healthLabelZh = dashboardHealthZh(displayHealth.status === "local_ready" ? "local_only" : displayHealth.status, displayHealth.label);
+  const healthLabelZh = dashboardHealthZh(
+    displayHealth.status === "local_ready" ? "local_only" : displayHealth.status,
+    displayHealth.label
+  );
   const memoryHtml = renderMemorySearch(data);
   const historyHtml = plainHistoryTimeline(data);
   return `<div hidden aria-hidden="true"><header><span class="health-badge ${healthClass(displayHealth.status)}" ${i18nAttribute(displayHealth.label, healthLabelZh)}>${escapeHtml(displayHealth.label)}</span></header>${quietDashboardFirstScreen(data)}<span data-quiet-dashboard-end></span></div>
     ${renderDashboardWorkspace(data, {
-    memory_html: memoryHtml,
-    history_html: historyHtml,
-    language_toggle_html: dashboardLanguageToggle()
-  })}
+      memory_html: memoryHtml,
+      history_html: historyHtml,
+      language_toggle_html: dashboardLanguageToggle()
+    })}
     <section id="last-action-receipt" class="panel last-action-receipt" data-action-receipt-anchor aria-live="polite" hidden></section>`;
 }
 
@@ -9207,7 +4695,7 @@ function dashboardStoredContentScript(): string {
           type: "",
           recentDays: 0
         };
-        const tokens = String(query || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
+        const tokens = String(query || "").trim().toLowerCase().split(/s+/).filter(Boolean);
         for (const token of tokens) {
           const commandMatch = token.match(/^([a-z]+):(.+)$/);
           if (!commandMatch) {
@@ -9932,9 +5420,8 @@ function dashboardCandidateTriageScript(): string {
 }
 
 function renderDashboardShell(data: DashboardData, options: DashboardRenderOptions = {}): string {
-  const refreshAttributes = options.refreshIntervalMs === undefined
-    ? ""
-    : ` data-dashboard-refresh="${escapeHtml(options.refreshIntervalMs)}"`;
+  const refreshAttributes =
+    options.refreshIntervalMs === undefined ? "" : ` data-dashboard-refresh="${escapeHtml(options.refreshIntervalMs)}"`;
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -14304,15 +9791,25 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
 `;
 }
 
-export function renderDashboardHtml(data: DashboardData, options: Pick<DashboardRenderOptions, "showStoredContent"> = {}): string {
+export function renderDashboardHtml(
+  data: DashboardData,
+  options: Pick<DashboardRenderOptions, "showStoredContent"> = {}
+): string {
   return renderDashboardShell(data, options);
 }
 
-export function renderDashboardServerHtml(data: DashboardData, refreshIntervalMs: number, options: Pick<DashboardRenderOptions, "showStoredContent"> = {}): string {
+export function renderDashboardServerHtml(
+  data: DashboardData,
+  refreshIntervalMs: number,
+  options: Pick<DashboardRenderOptions, "showStoredContent"> = {}
+): string {
   return renderDashboardShell(data, { refreshIntervalMs, showStoredContent: options.showStoredContent });
 }
 
-export function renderDashboardFragment(data: DashboardData, options: Pick<DashboardRenderOptions, "showStoredContent"> = {}): string {
+export function renderDashboardFragment(
+  data: DashboardData,
+  options: Pick<DashboardRenderOptions, "showStoredContent"> = {}
+): string {
   return renderDashboardBody(data, options);
 }
 
@@ -14328,7 +9825,10 @@ export function createDashboardDataLoader<T>(build: () => Promise<T>): { load: (
   };
 }
 
-export async function writeDashboardSnapshot(storePath: string, options: DashboardOptions = {}): Promise<DashboardSnapshot> {
+export async function writeDashboardSnapshot(
+  storePath: string,
+  options: DashboardOptions = {}
+): Promise<DashboardSnapshot> {
   const outputPath = join(storePath, "state", "dashboard", "index.html");
   const data = await buildDashboardData(storePath, options);
   await mkdir(join(storePath, "state", "dashboard"), { recursive: true });
@@ -14366,7 +9866,13 @@ function dashboardServerUrl(host: string, port: number): string {
   return `http://${displayHost}:${port}/`;
 }
 
-function sendResponse(response: ServerResponse, statusCode: number, body: string, contentType: string, includeBody = true): void {
+function sendResponse(
+  response: ServerResponse,
+  statusCode: number,
+  body: string,
+  contentType: string,
+  includeBody = true
+): void {
   response.writeHead(statusCode, {
     "Content-Type": contentType,
     "Cache-Control": "no-store"
@@ -14413,17 +9919,31 @@ function candidateTriagePromotionAction(pathname: string): { recordId: string } 
   return { recordId: decodeURIComponent(match[1]) };
 }
 
-async function requireCaptureInboxCandidate(storePath: string, recordId: string, includePrivate: boolean | undefined): Promise<MorynRecord | undefined> {
+async function requireCaptureInboxCandidate(
+  storePath: string,
+  recordId: string,
+  includePrivate: boolean | undefined
+): Promise<MorynRecord | undefined> {
   const records = replayEvents(await readEvents(storePath));
   const record = records.get(recordId);
   if (!record || !isVisibleForDashboard(record, includePrivate) || !isCaptureInboxCandidate(record)) return undefined;
   return record;
 }
 
-async function requireCandidateTriagePromotableRecord(storePath: string, recordId: string, includePrivate: boolean | undefined): Promise<MorynRecord | undefined> {
+async function requireCandidateTriagePromotableRecord(
+  storePath: string,
+  recordId: string,
+  includePrivate: boolean | undefined
+): Promise<MorynRecord | undefined> {
   const records = replayEvents(await readEvents(storePath));
   const record = records.get(recordId);
-  if (!record || !isVisibleForDashboard(record, includePrivate) || record.state !== "candidate" || record.visibility !== "active" || !isCandidateTriagePromotable(record)) {
+  if (
+    !record ||
+    !isVisibleForDashboard(record, includePrivate) ||
+    record.state !== "candidate" ||
+    record.visibility !== "active" ||
+    !isCandidateTriagePromotable(record)
+  ) {
     return undefined;
   }
   return record;
@@ -14431,7 +9951,9 @@ async function requireCandidateTriagePromotableRecord(storePath: string, recordI
 
 function parseCaptureRecordIds(body: unknown): string[] {
   if (!body || typeof body !== "object" || !Array.isArray((body as { record_ids?: unknown }).record_ids)) return [];
-  return (body as { record_ids: unknown[] }).record_ids.filter((value): value is string => typeof value === "string" && value.length > 0);
+  return (body as { record_ids: unknown[] }).record_ids.filter(
+    (value): value is string => typeof value === "string" && value.length > 0
+  );
 }
 
 async function requireCaptureInboxGroup(
@@ -14492,9 +10014,13 @@ async function applyCaptureInboxAction(
     };
   }
 
-  const reason = body && typeof body === "object" && typeof (body as { reason?: unknown }).reason === "string" && (body as { reason: string }).reason.trim()
-    ? (body as { reason: string }).reason.trim()
-    : "User rejected Capture Inbox candidate.";
+  const reason =
+    body &&
+    typeof body === "object" &&
+    typeof (body as { reason?: unknown }).reason === "string" &&
+    (body as { reason: string }).reason.trim()
+      ? (body as { reason: string }).reason.trim()
+      : "User rejected Capture Inbox candidate.";
   const archived = await engine.archive({
     record_id: record.id,
     reason,
@@ -14554,14 +10080,22 @@ async function applyCaptureInboxGroupAction(
         records_changed: records.length,
         record_ids: records.map((record) => record.id),
         event_ids: events,
-        trace: actionBatchTrace(events, records.map((record) => record.id), records[0]?.project_id)
+        trace: actionBatchTrace(
+          events,
+          records.map((record) => record.id),
+          records[0]?.project_id
+        )
       }
     };
   }
 
-  const reason = body && typeof body === "object" && typeof (body as { reason?: unknown }).reason === "string" && (body as { reason: string }).reason.trim()
-    ? (body as { reason: string }).reason.trim()
-    : "User rejected Capture Inbox group.";
+  const reason =
+    body &&
+    typeof body === "object" &&
+    typeof (body as { reason?: unknown }).reason === "string" &&
+    (body as { reason: string }).reason.trim()
+      ? (body as { reason: string }).reason.trim()
+      : "User rejected Capture Inbox group.";
   for (const record of records) {
     const archived = await engine.archive({
       record_id: record.id,
@@ -14579,7 +10113,11 @@ async function applyCaptureInboxGroupAction(
       records_changed: records.length,
       record_ids: records.map((record) => record.id),
       event_ids: events,
-      trace: actionBatchTrace(events, records.map((record) => record.id), records[0]?.project_id)
+      trace: actionBatchTrace(
+        events,
+        records.map((record) => record.id),
+        records[0]?.project_id
+      )
     }
   };
 }
@@ -14622,7 +10160,10 @@ async function applyCandidateTriagePromotionApproval(
   };
 }
 
-export async function startDashboardServer(storePath: string, options: DashboardServerOptions = {}): Promise<DashboardServerHandle> {
+export async function startDashboardServer(
+  storePath: string,
+  options: DashboardServerOptions = {}
+): Promise<DashboardServerHandle> {
   const host = dashboardServerHost(options.host);
   const requestedPort = dashboardServerPort(options.port);
   const refreshIntervalMs = dashboardRefreshInterval(options.refreshIntervalMs);
@@ -14631,13 +10172,15 @@ export async function startDashboardServer(storePath: string, options: Dashboard
   const renderOptions: Pick<DashboardRenderOptions, "showStoredContent"> = {
     showStoredContent: includePrivate !== true
   };
-  const dashboardDataLoader = createDashboardDataLoader(() => buildDashboardData(storePath, {
-    limit,
-    include_private: includePrivate,
-    project_id: options.project_id,
-    readiness_host: options.readiness_host,
-    sync_remote: options.sync_remote
-  }));
+  const dashboardDataLoader = createDashboardDataLoader(() =>
+    buildDashboardData(storePath, {
+      limit,
+      include_private: includePrivate,
+      project_id: options.project_id,
+      readiness_host: options.readiness_host,
+      sync_remote: options.sync_remote
+    })
+  );
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? `${host}:${requestedPort}`}`);
     const includeBody = request.method !== "HEAD";
@@ -14649,11 +10192,29 @@ export async function startDashboardServer(storePath: string, options: Dashboard
           try {
             body = await readRequestJson(request);
           } catch {
-            sendResponse(response, 400, JSON.stringify({ error: "Invalid request: JSON body is required" }), "application/json; charset=utf-8", includeBody);
+            sendResponse(
+              response,
+              400,
+              JSON.stringify({ error: "Invalid request: JSON body is required" }),
+              "application/json; charset=utf-8",
+              includeBody
+            );
             return;
           }
-          const result = await applyCaptureInboxGroupAction(storePath, inboxGroupAction.groupId, inboxGroupAction.action, body, includePrivate);
-          sendResponse(response, result.statusCode, JSON.stringify(result.body), "application/json; charset=utf-8", includeBody);
+          const result = await applyCaptureInboxGroupAction(
+            storePath,
+            inboxGroupAction.groupId,
+            inboxGroupAction.action,
+            body,
+            includePrivate
+          );
+          sendResponse(
+            response,
+            result.statusCode,
+            JSON.stringify(result.body),
+            "application/json; charset=utf-8",
+            includeBody
+          );
           return;
         }
         const inboxAction = captureInboxAction(url.pathname);
@@ -14662,11 +10223,29 @@ export async function startDashboardServer(storePath: string, options: Dashboard
           try {
             body = await readRequestJson(request);
           } catch {
-            sendResponse(response, 400, JSON.stringify({ error: "Invalid request: JSON body is required" }), "application/json; charset=utf-8", includeBody);
+            sendResponse(
+              response,
+              400,
+              JSON.stringify({ error: "Invalid request: JSON body is required" }),
+              "application/json; charset=utf-8",
+              includeBody
+            );
             return;
           }
-          const result = await applyCaptureInboxAction(storePath, inboxAction.recordId, inboxAction.action, body, includePrivate);
-          sendResponse(response, result.statusCode, JSON.stringify(result.body), "application/json; charset=utf-8", includeBody);
+          const result = await applyCaptureInboxAction(
+            storePath,
+            inboxAction.recordId,
+            inboxAction.action,
+            body,
+            includePrivate
+          );
+          sendResponse(
+            response,
+            result.statusCode,
+            JSON.stringify(result.body),
+            "application/json; charset=utf-8",
+            includeBody
+          );
           return;
         }
         const candidatePromotionAction = candidateTriagePromotionAction(url.pathname);
@@ -14675,31 +10254,71 @@ export async function startDashboardServer(storePath: string, options: Dashboard
           try {
             body = await readRequestJson(request);
           } catch {
-            sendResponse(response, 400, JSON.stringify({ error: "Invalid request: JSON body is required" }), "application/json; charset=utf-8", includeBody);
+            sendResponse(
+              response,
+              400,
+              JSON.stringify({ error: "Invalid request: JSON body is required" }),
+              "application/json; charset=utf-8",
+              includeBody
+            );
             return;
           }
           if (!body || typeof body !== "object") {
-            sendResponse(response, 400, JSON.stringify({ error: "Invalid request: JSON body is required" }), "application/json; charset=utf-8", includeBody);
+            sendResponse(
+              response,
+              400,
+              JSON.stringify({ error: "Invalid request: JSON body is required" }),
+              "application/json; charset=utf-8",
+              includeBody
+            );
             return;
           }
-          const result = await applyCandidateTriagePromotionApproval(storePath, candidatePromotionAction.recordId, includePrivate);
-          sendResponse(response, result.statusCode, JSON.stringify(result.body), "application/json; charset=utf-8", includeBody);
+          const result = await applyCandidateTriagePromotionApproval(
+            storePath,
+            candidatePromotionAction.recordId,
+            includePrivate
+          );
+          sendResponse(
+            response,
+            result.statusCode,
+            JSON.stringify(result.body),
+            "application/json; charset=utf-8",
+            includeBody
+          );
           return;
         }
         const planId = approvalPlanId(url.pathname);
         if (!planId) {
-          sendResponse(response, 404, JSON.stringify({ error: "Not found" }), "application/json; charset=utf-8", includeBody);
+          sendResponse(
+            response,
+            404,
+            JSON.stringify({ error: "Not found" }),
+            "application/json; charset=utf-8",
+            includeBody
+          );
           return;
         }
         let body: unknown;
         try {
           body = await readRequestJson(request);
         } catch {
-          sendResponse(response, 400, JSON.stringify({ error: "Invalid request: JSON body is required" }), "application/json; charset=utf-8", includeBody);
+          sendResponse(
+            response,
+            400,
+            JSON.stringify({ error: "Invalid request: JSON body is required" }),
+            "application/json; charset=utf-8",
+            includeBody
+          );
           return;
         }
         if (!body || typeof body !== "object" || typeof (body as { plan_hash?: unknown }).plan_hash !== "string") {
-          sendResponse(response, 400, JSON.stringify({ error: "Invalid request: plan_hash is required" }), "application/json; charset=utf-8", includeBody);
+          sendResponse(
+            response,
+            400,
+            JSON.stringify({ error: "Invalid request: plan_hash is required" }),
+            "application/json; charset=utf-8",
+            includeBody
+          );
           return;
         }
         const approval = await approveMaintenancePlan(
@@ -14723,12 +10342,24 @@ export async function startDashboardServer(storePath: string, options: Dashboard
       }
       if (url.pathname === "/" || url.pathname === "/index.html") {
         const data = await dashboardDataLoader.load();
-        sendResponse(response, 200, renderDashboardServerHtml(data, refreshIntervalMs, renderOptions), "text/html; charset=utf-8", includeBody);
+        sendResponse(
+          response,
+          200,
+          renderDashboardServerHtml(data, refreshIntervalMs, renderOptions),
+          "text/html; charset=utf-8",
+          includeBody
+        );
         return;
       }
       if (url.pathname === "/fragment") {
         const data = await dashboardDataLoader.load();
-        sendResponse(response, 200, renderDashboardFragment(data, renderOptions), "text/html; charset=utf-8", includeBody);
+        sendResponse(
+          response,
+          200,
+          renderDashboardFragment(data, renderOptions),
+          "text/html; charset=utf-8",
+          includeBody
+        );
         return;
       }
       if (url.pathname === "/api/dashboard") {

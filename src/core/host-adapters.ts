@@ -1,15 +1,27 @@
 import { agentStart } from "./agent-lifecycle.js";
-import type { HostActivationStatus } from "./host-activation.js";
-import { evaluateAutocapturePolicy, type AutocapturePolicyResult } from "./autocapture-policy.js";
+import { type AutocapturePolicyResult, evaluateAutocapturePolicy } from "./autocapture-policy.js";
 import { createEngine } from "./engine.js";
-import { getHostAdapter, getHostAdapters, normalizeHostId, type HostAdapter, type HostAdapterId } from "./host-adapter-registry.js";
+import type { HostActivationStatus } from "./host-activation.js";
+import {
+  getHostAdapter,
+  getHostAdapters,
+  type HostAdapter,
+  type HostAdapterId,
+  normalizeHostId
+} from "./host-adapter-registry.js";
 import { resolveProjectContext } from "./project.js";
 import type { MorynRecord, RecordSource } from "./types.js";
 
-export { getHostAdapter, getHostAdapters, normalizeHostId, type HostAdapter, type HostAdapterId };
+export { getHostAdapter, getHostAdapters, type HostAdapter, type HostAdapterId, normalizeHostId };
 
 export type InstallPlanAction = {
-  action: "initialize_store" | "initialize_project" | "register_mcp" | "configure_lifecycle_hooks" | "context_pack" | "capture_session";
+  action:
+    | "initialize_store"
+    | "initialize_project"
+    | "register_mcp"
+    | "configure_lifecycle_hooks"
+    | "context_pack"
+    | "capture_session";
   title: string;
   command: string;
   safe_to_auto_run: boolean;
@@ -235,9 +247,8 @@ export const HANDOFF_QUALITY_GATE_SELECTION_SOURCES = {
 
 export function planInstall(input: InstallPlanInput = {}): InstallPlan {
   const normalizedHost = input.host ? normalizeHostId(input.host) : "all";
-  const adapters = normalizedHost === "all"
-    ? getHostAdapters()
-    : getHostAdapters().filter((adapter) => adapter.id === normalizedHost);
+  const adapters =
+    normalizedHost === "all" ? getHostAdapters() : getHostAdapters().filter((adapter) => adapter.id === normalizedHost);
   const projectPath = input.projectPath;
   const syncRemote = input.syncRemote;
   const firstAdapter = adapters[0] ?? getHostAdapter("shell")!;
@@ -277,9 +288,10 @@ export function planInstall(input: InstallPlanInput = {}): InstallPlan {
     actions.push({
       action: "configure_lifecycle_hooks",
       title: `Generate Moryn lifecycle hooks for ${adapter.display_name}`,
-      command: projectPath && (adapter.id === "codex" || adapter.id === "claude")
-        ? `moryn install --host ${adapter.id} --project ${quoteCli(projectPath)} --apply`
-        : adapter.lifecycle_prompt,
+      command:
+        projectPath && (adapter.id === "codex" || adapter.id === "claude")
+          ? `moryn install --host ${adapter.id} --project ${quoteCli(projectPath)} --apply`
+          : adapter.lifecycle_prompt,
       safe_to_auto_run: Boolean(projectPath && (adapter.id === "codex" || adapter.id === "claude")),
       writes: projectPath && (adapter.id === "codex" || adapter.id === "claude") ? "project_config" : "none",
       adapter: adapter.id
@@ -387,7 +399,9 @@ export async function captureSession(input: CaptureSessionInput): Promise<Captur
           dashboard_surface: policyDecision.dashboard_surface,
           rule_ids: policyDecision.rule_ids,
           reasons: policyDecision.reasons,
-          ...(policyDecision.duplicate_of_record_id ? { duplicate_of_record_id: policyDecision.duplicate_of_record_id } : {})
+          ...(policyDecision.duplicate_of_record_id
+            ? { duplicate_of_record_id: policyDecision.duplicate_of_record_id }
+            : {})
         }
       }
     },
@@ -396,11 +410,12 @@ export async function captureSession(input: CaptureSessionInput): Promise<Captur
     source,
     provenance: {
       method: "agent-proposed",
-      reason: policyDecision.decision === "archive"
-        ? `Autocapture policy archived this handoff: ${policyDecision.reasons.join(", ")}.`
-        : policyDecision.decision === "capture"
-          ? "Autocapture policy retained this low-risk handoff without canonical promotion."
-          : "Captured through Moryn host adapter autocapture."
+      reason:
+        policyDecision.decision === "archive"
+          ? `Autocapture policy archived this handoff: ${policyDecision.reasons.join(", ")}.`
+          : policyDecision.decision === "capture"
+            ? "Autocapture policy retained this low-risk handoff without canonical promotion."
+            : "Captured through Moryn host adapter autocapture."
     }
   });
 
@@ -518,7 +533,9 @@ function buildHandoffPackV2(input: {
   const packWithoutQualityGate: HandoffPackWithoutQualityGate = {
     version: 2,
     purpose: "agent_handoff",
-    ...(input.currentTask ? { current_goal: { text: input.currentTask, source: "context_pack.current_task" as const } } : {}),
+    ...(input.currentTask
+      ? { current_goal: { text: input.currentTask, source: "context_pack.current_task" as const } }
+      : {}),
     recent_decisions: handoffItems(
       recordsAtPath(input.sections.boot, ["project", "important_decisions"]),
       "sections.boot.project.important_decisions[]"
@@ -531,8 +548,14 @@ function buildHandoffPackV2(input: {
       ...handoffItems(recordsAtPath(input.sections.boot, ["task_relevant"]), "sections.boot.task_relevant[]"),
       ...handoffItems(recordsAtPath(input.sections.boot, ["skills"]), "sections.boot.skills[]")
     ]),
-    risks: handoffItems(recordsAtPath(input.sections.boot, ["project", "warnings"]), "sections.boot.project.warnings[]"),
-    user_preferences: handoffItems(recordsAtPath(input.sections.boot, ["profile", "user_preferences"]), "sections.boot.profile.user_preferences[]"),
+    risks: handoffItems(
+      recordsAtPath(input.sections.boot, ["project", "warnings"]),
+      "sections.boot.project.warnings[]"
+    ),
+    user_preferences: handoffItems(
+      recordsAtPath(input.sections.boot, ["profile", "user_preferences"]),
+      "sections.boot.profile.user_preferences[]"
+    ),
     next_actions: Object.entries(input.next.actions_by_id)
       .map(([id, action]) => handoffNextAction(id, action))
       .filter((action): action is HandoffPackNextAction => action !== undefined),
@@ -597,19 +620,22 @@ function buildHandoffQualityGate(pack: HandoffPackWithoutQualityGate): HandoffQu
       id: "capture_next_action",
       label: "Capture next action",
       source: "next.actions_by_id.capture_session",
-      present: pack.next_actions.some((action) => action.id === "capture_session" && action.evidence.source === "next.actions_by_id.capture_session"),
+      present: pack.next_actions.some(
+        (action) => action.id === "capture_session" && action.evidence.source === "next.actions_by_id.capture_session"
+      ),
       passMessage: "Required capture_session end action is present.",
       warnMessage: "Context pack is missing the required capture_session end action."
     })
   ];
-  const failedCheckIds = checks
-    .filter((check) => check.status === "warn")
-    .map((check) => check.id);
+  const failedCheckIds = checks.filter((check) => check.status === "warn").map((check) => check.id);
   return {
     status: failedCheckIds.length > 0 ? "needs_review" : "ready",
     read_only: true,
     checks,
-    checks_by_id: Object.fromEntries(checks.map((check) => [check.id, check])) as Record<HandoffQualityGateCheckId, HandoffQualityGateCheck>,
+    checks_by_id: Object.fromEntries(checks.map((check) => [check.id, check])) as Record<
+      HandoffQualityGateCheckId,
+      HandoffQualityGateCheck
+    >,
     failed_check_ids: failedCheckIds,
     warnings: checks.filter((check) => check.status === "warn").map((check) => check.message),
     selection_sources: HANDOFF_QUALITY_GATE_SELECTION_SOURCES
@@ -649,19 +675,22 @@ function collectionEvidenceCheck(input: {
     source: input.source,
     count: input.items.length,
     status,
-    message: status === "warn"
-      ? `${input.label} include entries without evidence paths.`
-      : input.items.length > 0
-        ? input.passMessage
-        : input.emptyMessage
+    message:
+      status === "warn"
+        ? `${input.label} include entries without evidence paths.`
+        : input.items.length > 0
+          ? input.passMessage
+          : input.emptyMessage
   };
 }
 
 function hasCompleteEvidenceMap(evidence: HandoffPackV2["evidence"]): boolean {
-  return evidence.boot === "sections.boot"
-    && evidence.refresh === "sections.refresh"
-    && evidence.handoff === "sections.handoff"
-    && evidence.next === "next";
+  return (
+    evidence.boot === "sections.boot" &&
+    evidence.refresh === "sections.refresh" &&
+    evidence.handoff === "sections.handoff" &&
+    evidence.next === "next"
+  );
 }
 
 function recordsAtPath(root: unknown, path: string[]): Array<Record<string, unknown>> {
@@ -671,7 +700,9 @@ function recordsAtPath(root: unknown, path: string[]): Array<Record<string, unkn
     value = (value as Record<string, unknown>)[segment];
   }
   return Array.isArray(value)
-    ? value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item))
+    ? value.filter(
+        (item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item)
+      )
     : [];
 }
 

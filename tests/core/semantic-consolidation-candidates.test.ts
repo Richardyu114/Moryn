@@ -25,12 +25,26 @@ function record(overrides: Partial<MorynRecord> = {}): MorynRecord {
 describe("retrieveSemanticConsolidationCandidates", () => {
   it("returns only compatible active logical records", () => {
     const source = record();
-    const compatible = record({ id: "compatible", content: { text: "Agents pull memories when entering", files: ["src/core/agent-lifecycle.ts"] } });
-    const duplicateHistory = record({ id: "duplicate-history", links: [{ record_id: compatible.id, link_type: "duplicate_of", created_at: "2026-07-11T00:01:00.000Z" }] });
+    const compatible = record({
+      id: "compatible",
+      content: { text: "Agents pull memories when entering", files: ["src/core/agent-lifecycle.ts"] }
+    });
+    const duplicateHistory = record({
+      id: "duplicate-history",
+      links: [{ record_id: compatible.id, link_type: "duplicate_of", created_at: "2026-07-11T00:01:00.000Z" }]
+    });
     const superseded = record({ id: "superseded", content: { text: "Old pull behavior" } });
-    const replacement = record({ id: "replacement", content: { text: "New pull behavior" }, links: [{ record_id: superseded.id, link_type: "supersedes", created_at: "2026-07-11T00:02:00.000Z" }] });
+    const replacement = record({
+      id: "replacement",
+      content: { text: "New pull behavior" },
+      links: [{ record_id: superseded.id, link_type: "supersedes", created_at: "2026-07-11T00:02:00.000Z" }]
+    });
     const revisionDraft = record({ id: "revision-draft", content: { text: "Draft pull behavior" } });
-    const revision = record({ id: "revision", content: { text: "Final pull behavior" }, links: [{ record_id: revisionDraft.id, link_type: "revises", created_at: "2026-07-11T00:03:00.000Z" }] });
+    const revision = record({
+      id: "revision",
+      content: { text: "Final pull behavior" },
+      links: [{ record_id: revisionDraft.id, link_type: "revises", created_at: "2026-07-11T00:03:00.000Z" }]
+    });
     const records = [
       source,
       compatible,
@@ -64,21 +78,31 @@ describe("retrieveSemanticConsolidationCandidates", () => {
     const privateTarget = record({ id: "private-target", tags: ["private", "sync"] });
     const records = [publicSource, publicTarget, privateSource, privateTarget];
 
-    expect(retrieveSemanticConsolidationCandidates(records, {
-      source_record_ids: [publicSource.id],
-      include_private: true
-    }).candidates.map((candidate) => candidate.record_id)).toEqual([publicTarget.id]);
-    expect(retrieveSemanticConsolidationCandidates(records, {
-      source_record_ids: [privateSource.id]
-    }).candidates).toEqual([]);
-    expect(retrieveSemanticConsolidationCandidates(records, {
-      source_record_ids: [privateSource.id],
-      include_private: true
-    }).candidates.map((candidate) => candidate.record_id)).toEqual([privateTarget.id]);
+    expect(
+      retrieveSemanticConsolidationCandidates(records, {
+        source_record_ids: [publicSource.id],
+        include_private: true
+      }).candidates.map((candidate) => candidate.record_id)
+    ).toEqual([publicTarget.id]);
+    expect(
+      retrieveSemanticConsolidationCandidates(records, {
+        source_record_ids: [privateSource.id]
+      }).candidates
+    ).toEqual([]);
+    expect(
+      retrieveSemanticConsolidationCandidates(records, {
+        source_record_ids: [privateSource.id],
+        include_private: true
+      }).candidates.map((candidate) => candidate.record_id)
+    ).toEqual([privateTarget.id]);
   });
 
   it("ranks exact fingerprints before shared evidence and token overlap", () => {
-    const source = record({ id: "source", tags: ["sync", "lifecycle"], provenance: { derived_from: ["evidence-a"], method: "agent-proposed" } });
+    const source = record({
+      id: "source",
+      tags: ["sync", "lifecycle"],
+      provenance: { derived_from: ["evidence-a"], method: "agent-proposed" }
+    });
     const exact = record({ id: "z-exact", tags: ["lifecycle", "sync"], source: { client: "claude-code" } });
     const sharedEvidence = record({
       id: "a-evidence",
@@ -86,7 +110,11 @@ describe("retrieveSemanticConsolidationCandidates", () => {
       content: { text: "Load context during startup", files: ["src/core/agent-lifecycle.ts"] },
       provenance: { derived_from: ["evidence-a"], method: "agent-proposed" }
     });
-    const overlap = record({ id: "b-overlap", tags: [], content: { text: "Agent enter should pull local memory context" } });
+    const overlap = record({
+      id: "b-overlap",
+      tags: [],
+      content: { text: "Agent enter should pull local memory context" }
+    });
 
     const candidates = retrieveSemanticConsolidationCandidates([source, overlap, sharedEvidence, exact], {
       source_record_ids: [source.id]
@@ -103,17 +131,25 @@ describe("retrieveSemanticConsolidationCandidates", () => {
     const first = record({ id: "candidate-a", content: { text: "Checkpoint lifecycle flow" }, tags: [] });
     const second = record({ id: "candidate-b", content: { text: "Checkpoint lifecycle flow" }, tags: [] });
 
-    expect(retrieveSemanticConsolidationCandidates([source, second, first], {
-      source_record_ids: [source.id]
-    }).candidates.map((candidate) => candidate.record_id)).toEqual([first.id, second.id]);
+    expect(
+      retrieveSemanticConsolidationCandidates([source, second, first], {
+        source_record_ids: [source.id]
+      }).candidates.map((candidate) => candidate.record_id)
+    ).toEqual([first.id, second.id]);
   });
 
   it("bounds per-source and total candidate counts without mutating records", () => {
-    const sources = [record({ id: "source-a" }), record({ id: "source-b", content: { text: "Push memory on agent finish" } }), record({ id: "source-c", content: { text: "Restore after compaction" } })];
-    const targets = Array.from({ length: 30 }, (_, index) => record({
-      id: `candidate-${String(index).padStart(2, "0")}`,
-      content: { text: index % 2 === 0 ? "Pull memory on agent enter" : "Push memory on agent finish" }
-    }));
+    const sources = [
+      record({ id: "source-a" }),
+      record({ id: "source-b", content: { text: "Push memory on agent finish" } }),
+      record({ id: "source-c", content: { text: "Restore after compaction" } })
+    ];
+    const targets = Array.from({ length: 30 }, (_, index) =>
+      record({
+        id: `candidate-${String(index).padStart(2, "0")}`,
+        content: { text: index % 2 === 0 ? "Pull memory on agent enter" : "Push memory on agent finish" }
+      })
+    );
     const records = [...sources, ...targets];
     const before = JSON.stringify(records);
 

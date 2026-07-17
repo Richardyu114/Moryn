@@ -63,12 +63,14 @@ export const DEFAULT_AUTOCAPTURE_POLICY: AutocapturePolicy = {
     {
       id: "low_risk_handoff_auto_capture",
       decision: "capture",
-      description: "Low-risk agent handoffs are retained locally for context packs without requiring user approval or canonical promotion."
+      description:
+        "Low-risk agent handoffs are retained locally for context packs without requiring user approval or canonical promotion."
     },
     {
       id: "review_risk_marker",
       decision: "review",
-      description: "Handoffs with decisions, risks, blockers, preferences, credentials, or approval language enter Capture Inbox for explicit user review."
+      description:
+        "Handoffs with decisions, risks, blockers, preferences, credentials, or approval language enter Capture Inbox for explicit user review."
     },
     {
       id: "default_review_for_agent_handoff",
@@ -78,12 +80,14 @@ export const DEFAULT_AUTOCAPTURE_POLICY: AutocapturePolicy = {
     {
       id: "smoke_test_marker",
       decision: "archive",
-      description: "Smoke, test, fixture, e2e, or marker captures are archived without review because they are usually verification noise."
+      description:
+        "Smoke, test, fixture, e2e, or marker captures are archived without review because they are usually verification noise."
     },
     {
       id: "duplicate_text",
       decision: "archive",
-      description: "Repeated autocapture text for the same project is archived without review while preserving append-only history."
+      description:
+        "Repeated autocapture text for the same project is archived without review while preserving append-only history."
     }
   ]
 };
@@ -93,8 +97,7 @@ function normalizeText(text: string): string {
 }
 
 function isAutocaptureRecord(record: MorynRecord): boolean {
-  return record.kind === "session_summary"
-    && record.tags.some((tag) => tag.toLowerCase() === "autocapture");
+  return record.kind === "session_summary" && record.tags.some((tag) => tag.toLowerCase() === "autocapture");
 }
 
 function sameProject(record: MorynRecord, projectId: string | undefined): boolean {
@@ -119,25 +122,35 @@ function needsManualReview(input: AutocapturePolicyInput): boolean {
   if (hasExplicitUserReviewMarker(searchable, verifiedImplementationHandoff)) {
     return true;
   }
-  return /\b(decision|decided|risk|risky|blocker|blocked|warning|warn|preference|principle|credential|credentials|secret|token|password|security|permission|approval|approve|confirm|canonical|promote|delete|destructive)\b/.test(searchable);
+  return /\b(decision|decided|risk|risky|blocker|blocked|warning|warn|preference|principle|credential|credentials|secret|token|password|security|permission|approval|approve|confirm|canonical|promote|delete|destructive)\b/.test(
+    searchable
+  );
 }
 
 function isVerifiedImplementationHandoff(searchable: string): boolean {
-  return /\b(completed|complete|finished|implemented|fixed|updated|changed|shipped|landed|merged|committed|pushed|restarted)\b/.test(searchable)
-    && /\b(verified|passing|passed|typecheck|build|release check|suite|regression)\b/.test(searchable);
+  return (
+    /\b(completed|complete|finished|implemented|fixed|updated|changed|shipped|landed|merged|committed|pushed|restarted)\b/.test(
+      searchable
+    ) && /\b(verified|passing|passed|typecheck|build|release check|suite|regression)\b/.test(searchable)
+  );
 }
 
 function hasExplicitUserReviewMarker(searchable: string, verifiedImplementationHandoff = false): boolean {
-  return /\b(credential|credentials|secret|token|password|security|permission|canonical|promote|delete|destructive|blocker|blocked|risky)\b/.test(searchable)
-    || /\b(decision|decided|preference|principle)\s*:/.test(searchable)
-    || /\b(decision|decided|preference|principle)\s+(?:to|that)\b/.test(searchable)
-    || /\brisk\s*:/.test(searchable)
-    || (!verifiedImplementationHandoff && (
-      /\b(needs?|requires?|awaits?|waiting for|pending)\s+(?:user\s+|human\s+|manual\s+)?(?:review|approval|confirmation|confirm|decision)\b/.test(searchable)
-      || /\bmanual\s+review\b/.test(searchable)
-      || /\b(?:approval|confirmation|review)\s+(?:required|needed|pending)\b/.test(searchable)
-      || /\b(?:user|human)\s+(?:must|should|needs?|has to)\s+(?:review|approve|confirm|decide)\b/.test(searchable)
-    ));
+  return (
+    /\b(credential|credentials|secret|token|password|security|permission|canonical|promote|delete|destructive|blocker|blocked|risky)\b/.test(
+      searchable
+    ) ||
+    /\b(decision|decided|preference|principle)\s*:/.test(searchable) ||
+    /\b(decision|decided|preference|principle)\s+(?:to|that)\b/.test(searchable) ||
+    /\brisk\s*:/.test(searchable) ||
+    (!verifiedImplementationHandoff &&
+      (/\b(needs?|requires?|awaits?|waiting for|pending)\s+(?:user\s+|human\s+|manual\s+)?(?:review|approval|confirmation|confirm|decision)\b/.test(
+        searchable
+      ) ||
+        /\bmanual\s+review\b/.test(searchable) ||
+        /\b(?:approval|confirmation|review)\s+(?:required|needed|pending)\b/.test(searchable) ||
+        /\b(?:user|human)\s+(?:must|should|needs?|has to)\s+(?:review|approve|confirm|decide)\b/.test(searchable)))
+  );
 }
 
 export function evaluateAutocapturePolicy(input: AutocapturePolicyInput): AutocapturePolicyResult {

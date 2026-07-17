@@ -42,8 +42,20 @@ describe("cross-agent workflow", () => {
   it("refreshes the verified read model during sync pull", async () => {
     await withTwoAgentStores(async ({ storeA, storeB }) => {
       expect(await readCurrentRecords(storeB)).toMatchObject({ source: "read_model", repaired: false, records: [] });
-      const agentA = createEngine({ storePath: storeA, now: () => "2026-05-27T00:01:00.000Z", id: (prefix) => `${prefix}_synced` });
-      const written = await agentA.write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Synced records invalidate stale read models." }, state: "canonical", source: { client: "agent-a", device_id: "device_a" } });
+      const agentA = createEngine({
+        storePath: storeA,
+        now: () => "2026-05-27T00:01:00.000Z",
+        id: (prefix) => `${prefix}_synced`
+      });
+      const written = await agentA.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Synced records invalidate stale read models." },
+        state: "canonical",
+        source: { client: "agent-a", device_id: "device_a" }
+      });
       await pushGitSync(storeA, { message: "add read model invalidation event" });
       await pullGitSync(storeB);
 

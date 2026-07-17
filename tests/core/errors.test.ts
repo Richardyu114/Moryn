@@ -21,7 +21,8 @@ const NEXT_ACTION_SELECTION_SOURCES = {
   error_required_input: "error.next_action.execution.required_inputs_by_field.<field>",
   warning_required_input: "warning.next_action.execution.required_inputs_by_field.<field>",
   error_required_input_argument_path: "error.next_action.execution.required_inputs_by_argument_path.<argument_path>",
-  warning_required_input_argument_path: "warning.next_action.execution.required_inputs_by_argument_path.<argument_path>",
+  warning_required_input_argument_path:
+    "warning.next_action.execution.required_inputs_by_argument_path.<argument_path>",
   error_argument: "error.next_action.arguments_by_name.<argument>",
   warning_argument: "warning.next_action.arguments_by_name.<argument>",
   error_argument_source: "error.next_action.argument_sources.<field>",
@@ -42,7 +43,14 @@ function expectNextActionInterfaces(action: {
   command: string;
   arguments: Record<string, unknown>;
   interfaces?: {
-    cli?: { command?: string; command_line?: string; argv?: string[]; executable?: string; args?: string[]; exec_file?: { executable?: string; args?: string[] } };
+    cli?: {
+      command?: string;
+      command_line?: string;
+      argv?: string[];
+      executable?: string;
+      args?: string[];
+      exec_file?: { executable?: string; args?: string[] };
+    };
     mcp?: { tool?: string; arguments?: Record<string, unknown> };
   };
 }) {
@@ -94,21 +102,23 @@ function expectNextActionWorkflow(action: {
 }) {
   expect(action.required_when).toEqual(expect.any(String));
   expect(action.required_when).not.toHaveLength(0);
-  expect(action.workflow).toEqual(withPhasesByName({
-    version: 1,
-    start: "next_action",
-    continue_from: ["error.next_action", "warning.next_action"],
-    phases: [
-      {
-        phase: action.recommended_action,
-        order: 1,
-        action_source: "next_action",
-        tool: action.tool,
-        required_when: action.required_when,
-        required_fields: action.required_fields
-      }
-    ]
-  }));
+  expect(action.workflow).toEqual(
+    withPhasesByName({
+      version: 1,
+      start: "next_action",
+      continue_from: ["error.next_action", "warning.next_action"],
+      phases: [
+        {
+          phase: action.recommended_action,
+          order: 1,
+          action_source: "next_action",
+          tool: action.tool,
+          required_when: action.required_when,
+          required_fields: action.required_fields
+        }
+      ]
+    })
+  );
 }
 
 function expectNextActionSafety(action: {
@@ -144,8 +154,47 @@ function expectNextActionExecution(action: {
     ready_to_run?: boolean;
     next_step?: string;
     missing_required_fields?: string[];
-    required_inputs?: Array<{ field?: string; argument_path?: string; argument_paths?: string[]; selection_sources?: Record<string, string>; mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>; cli_targets?: Array<{ flag?: string; flags?: string[]; positional?: string; type?: string; required?: boolean; repeatable?: boolean; preferred?: boolean }> }>;
-    required_inputs_by_field?: Record<string, { field?: string; argument_path?: string; argument_paths?: string[]; selection_sources?: Record<string, string>; mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>; cli_targets?: Array<{ flag?: string; flags?: string[]; positional?: string; type?: string; required?: boolean; repeatable?: boolean; preferred?: boolean }> }>;
+    required_inputs?: Array<{
+      field?: string;
+      argument_path?: string;
+      argument_paths?: string[];
+      selection_sources?: Record<string, string>;
+      mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>;
+      cli_targets?: Array<{
+        flag?: string;
+        flags?: string[];
+        positional?: string;
+        type?: string;
+        required?: boolean;
+        repeatable?: boolean;
+        preferred?: boolean;
+      }>;
+    }>;
+    required_inputs_by_field?: Record<
+      string,
+      {
+        field?: string;
+        argument_path?: string;
+        argument_paths?: string[];
+        selection_sources?: Record<string, string>;
+        mcp_targets?: Array<{
+          argument?: string;
+          path?: string;
+          type?: string;
+          required?: boolean;
+          preferred?: boolean;
+        }>;
+        cli_targets?: Array<{
+          flag?: string;
+          flags?: string[];
+          positional?: string;
+          type?: string;
+          required?: boolean;
+          repeatable?: boolean;
+          preferred?: boolean;
+        }>;
+      }
+    >;
     requires_user_confirmation?: boolean;
     reason?: string;
   };
@@ -153,24 +202,35 @@ function expectNextActionExecution(action: {
     requires_user_confirmation?: boolean;
   };
 }) {
-  const expectedArgumentPaths = action.required_fields.map((field) => action.required_fields_by_name[field]?.argument_path ?? field);
+  const expectedArgumentPaths = action.required_fields.map(
+    (field) => action.required_fields_by_name[field]?.argument_path ?? field
+  );
   const expectedSplitArgumentPaths = expectedArgumentPaths.map((argumentPath) =>
-    argumentPath.split("|").map((path) => path.trim()).filter(Boolean)
+    argumentPath
+      .split("|")
+      .map((path) => path.trim())
+      .filter(Boolean)
   );
   expect(action.execution?.missing_required_fields).toEqual(action.required_fields);
   expect(action.execution?.required_inputs?.map((input) => input.field)).toEqual(action.required_fields);
   expect(action.execution?.required_inputs?.map((input) => input.argument_path)).toEqual(expectedArgumentPaths);
   expect(action.execution?.required_inputs?.map((input) => input.argument_paths)).toEqual(expectedSplitArgumentPaths);
   expect(Object.keys(action.execution?.required_inputs_by_field ?? {})).toEqual(action.required_fields);
-  expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.field)).toEqual(action.required_fields);
-  expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.argument_path)).toEqual(expectedArgumentPaths);
-  expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.argument_paths)).toEqual(expectedSplitArgumentPaths);
-  expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.mcp_targets)).toEqual(
-    action.execution?.required_inputs?.map((input) => input.mcp_targets)
+  expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.field)).toEqual(
+    action.required_fields
   );
-  expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.cli_targets)).toEqual(
-    action.execution?.required_inputs?.map((input) => input.cli_targets)
-  );
+  expect(
+    action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.argument_path)
+  ).toEqual(expectedArgumentPaths);
+  expect(
+    action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.argument_paths)
+  ).toEqual(expectedSplitArgumentPaths);
+  expect(
+    action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.mcp_targets)
+  ).toEqual(action.execution?.required_inputs?.map((input) => input.mcp_targets));
+  expect(
+    action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.cli_targets)
+  ).toEqual(action.execution?.required_inputs?.map((input) => input.cli_targets));
   const expectedRequiredInputSelectionSources = Object.fromEntries(
     Object.entries(action.selection_sources ?? {}).filter(([key]) => key.includes("required_input"))
   );
@@ -178,9 +238,9 @@ function expectNextActionExecution(action: {
     expect(action.execution?.required_inputs?.map((input) => input.selection_sources)).toEqual(
       action.required_fields.map(() => expectedRequiredInputSelectionSources)
     );
-    expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.selection_sources)).toEqual(
-      action.required_fields.map(() => expectedRequiredInputSelectionSources)
-    );
+    expect(
+      action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.selection_sources)
+    ).toEqual(action.required_fields.map(() => expectedRequiredInputSelectionSources));
   }
   expect(action.execution?.requires_user_confirmation).toBe(Boolean(action.safety?.requires_user_confirmation));
   if (action.required_fields.length > 0) {
@@ -246,7 +306,11 @@ describe("error envelopes", () => {
             condition: "derived_views_rebuilt",
             action: "retry_original_read"
           },
-          do_not: ["retry_original_read_before_rebuild", "edit_snapshots_or_indexes_manually", "trust_stale_derived_views"]
+          do_not: [
+            "retry_original_read_before_rebuild",
+            "edit_snapshots_or_indexes_manually",
+            "trust_stale_derived_views"
+          ]
         },
         next_action: {
           recommended_action: "rebuild_derived_views",
@@ -281,7 +345,11 @@ describe("error envelopes", () => {
             safe_to_run: false
           },
           requires_user_confirmation: true,
-          do_not: ["invent_git_remote", "write_sync_config_without_user_confirmation", "retry_sync_until_remote_is_configured"]
+          do_not: [
+            "invent_git_remote",
+            "write_sync_config_without_user_confirmation",
+            "retry_sync_until_remote_is_configured"
+          ]
         },
         next_action: {
           recommended_action: "configure_sync_remote",
@@ -325,14 +393,22 @@ describe("error envelopes", () => {
       argument_sources: { path: "user_input.path" }
     });
 
-    const missingProjectPath = toErrorEnvelope(new Error("Project path does not exist: <path>. Run project_init for a new project, or pass the correct project_path/project_id."));
+    const missingProjectPath = toErrorEnvelope(
+      new Error(
+        "Project path does not exist: <path>. Run project_init for a new project, or pass the correct project_path/project_id."
+      )
+    );
     expect(missingProjectPath.error.next_action).toMatchObject({
       arguments: { path: "<path>" },
       required_fields: ["path"],
       argument_sources: { path: "user_input.path" }
     });
 
-    const projectIdConflict = toErrorEnvelope(new Error("Project id conflict: project_path resolves to , but project_id was other. Use the .moryn.json project_id or update the project config."));
+    const projectIdConflict = toErrorEnvelope(
+      new Error(
+        "Project id conflict: project_path resolves to , but project_id was other. Use the .moryn.json project_id or update the project config."
+      )
+    );
     expect(projectIdConflict.error.next_action).toMatchObject({
       arguments: { project_id: "<project_id_from_config>" },
       required_fields: ["project_id"],
@@ -353,7 +429,8 @@ describe("error envelopes", () => {
     expect(syncSetup.safety?.reasons).toContain("required_fields");
     expect(syncSetup.safety?.reasons).toContain("writes_local_config");
 
-    const statusCheck = toErrorEnvelope(new Error("fatal: 'origin' does not appear to be a git repository")).error.next_action!;
+    const statusCheck = toErrorEnvelope(new Error("fatal: 'origin' does not appear to be a git repository")).error
+      .next_action!;
     expectNextActionSafety(statusCheck);
     expectNextActionExecution(statusCheck);
     expect(statusCheck.safety).toMatchObject({
@@ -364,11 +441,14 @@ describe("error envelopes", () => {
     });
     expect(statusCheck.safety?.reasons).toEqual(["safe_read_or_status_check"]);
 
-    const confirmation = toErrorEnvelope(new Error("Confirmation required: canonical state requires explicit user confirmation"), {
-      tool: "promote",
-      command: "moryn promote rec_123 --state canonical",
-      arguments: { record_id: "rec_123", target_state: "canonical" }
-    }).error.next_action!;
+    const confirmation = toErrorEnvelope(
+      new Error("Confirmation required: canonical state requires explicit user confirmation"),
+      {
+        tool: "promote",
+        command: "moryn promote rec_123 --state canonical",
+        arguments: { record_id: "rec_123", target_state: "canonical" }
+      }
+    ).error.next_action!;
     expect(confirmation.arguments_by_name.target_state).toMatchObject({
       name: "target_state",
       type: "string",
@@ -443,7 +523,11 @@ describe("error envelopes", () => {
             condition: "conflict_resolved",
             action: "retry_original_sync_operation"
           },
-          do_not: ["write_lifecycle_records", "retry_pull_or_push_until_conflict_resolved", "auto_resolve_generated_files"]
+          do_not: [
+            "write_lifecycle_records",
+            "retry_pull_or_push_until_conflict_resolved",
+            "auto_resolve_generated_files"
+          ]
         },
         next_action: {
           recommended_action: "inspect_sync_conflict_before_retrying",
@@ -538,7 +622,9 @@ describe("error envelopes", () => {
   });
 
   it("returns a guarded repair action for invalid store config", () => {
-    const envelope = toErrorEnvelope(new Error("Invalid store config: /home/user/.moryn/config.json: Unexpected end of JSON input"));
+    const envelope = toErrorEnvelope(
+      new Error("Invalid store config: /home/user/.moryn/config.json: Unexpected end of JSON input")
+    );
 
     expect(envelope).toMatchObject({
       ok: false,
@@ -568,7 +654,9 @@ describe("error envelopes", () => {
   });
 
   it("returns a guarded repair action for invalid project config", () => {
-    const envelope = toErrorEnvelope(new Error("Invalid project config: /workspace/moryn/.moryn.json: project_id must be non-empty"));
+    const envelope = toErrorEnvelope(
+      new Error("Invalid project config: /workspace/moryn/.moryn.json: project_id must be non-empty")
+    );
 
     expect(envelope).toMatchObject({
       ok: false,
@@ -633,11 +721,14 @@ describe("error envelopes", () => {
   });
 
   it("returns a confirmation recovery action when retry context is provided", () => {
-    const envelope = toErrorEnvelope(new Error("Confirmation required: canonical state requires explicit user confirmation"), {
-      tool: "promote",
-      command: "moryn promote rec_123 --state canonical",
-      arguments: { record_id: "rec_123", target_state: "canonical" }
-    });
+    const envelope = toErrorEnvelope(
+      new Error("Confirmation required: canonical state requires explicit user confirmation"),
+      {
+        tool: "promote",
+        command: "moryn promote rec_123 --state canonical",
+        arguments: { record_id: "rec_123", target_state: "canonical" }
+      }
+    );
 
     expect(envelope).toMatchObject({
       ok: false,
@@ -677,7 +768,9 @@ describe("error envelopes", () => {
   });
 
   it("classifies invalid replay failures as invalid record history", () => {
-    const envelope = toErrorEnvelope(new Error("Invalid replay target for event evt_missing_revision: Record not found: rec_missing"));
+    const envelope = toErrorEnvelope(
+      new Error("Invalid replay target for event evt_missing_revision: Record not found: rec_missing")
+    );
 
     expect(envelope).toMatchObject({
       ok: false,
@@ -703,10 +796,16 @@ describe("error envelopes", () => {
   });
 
   it("does not suggest rebuild for invalid record input schema failures", () => {
-    const envelope = toErrorEnvelope(new Error("Invalid record: state: Invalid option: expected one of \"raw\"|\"candidate\"|\"canonical\"|\"archived\"|\"quarantined\""));
+    const envelope = toErrorEnvelope(
+      new Error(
+        'Invalid record: state: Invalid option: expected one of "raw"|"candidate"|"canonical"|"archived"|"quarantined"'
+      )
+    );
 
     expect(envelope.error.code).toBe("INVALID_RECORD");
-    expect(envelope.error.recommended_action).toBe("inspect the reported event or record and rebuild from valid history");
+    expect(envelope.error.recommended_action).toBe(
+      "inspect the reported event or record and rebuild from valid history"
+    );
     expect(envelope.error.next_action).toBeUndefined();
   });
 
@@ -771,7 +870,8 @@ describe("error envelopes", () => {
           action_source: "list_recent.records_by_id.<record_id>.id",
           tool: "original_tool",
           replace_arguments: { record_id: "list_recent.records_by_id.<record_id>.id" },
-          required_when: "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
+          required_when:
+            "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
           required_fields: ["record_id"]
         }
       ],
@@ -790,7 +890,8 @@ describe("error envelopes", () => {
           action_source: "list_recent.records_by_id.<record_id>.id",
           tool: "original_tool",
           replace_arguments: { record_id: "list_recent.records_by_id.<record_id>.id" },
-          required_when: "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
+          required_when:
+            "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
           required_fields: ["record_id"]
         }
       }
@@ -799,7 +900,9 @@ describe("error envelopes", () => {
     expect(envelope.error.next_action?.argument_sources).toEqual({
       record_id: "list_recent.records_by_id.<record_id>.id"
     });
-    expect(envelope.error.next_action?.workflow.phases_by_name.retry_original_tool_with_selected_record_id.required_fields).toEqual(["record_id"]);
+    expect(
+      envelope.error.next_action?.workflow.phases_by_name.retry_original_tool_with_selected_record_id.required_fields
+    ).toEqual(["record_id"]);
   });
 
   it("uses error context to make missing-record retry workflows executable", () => {
@@ -817,7 +920,8 @@ describe("error envelopes", () => {
       command: "moryn promote <record_id_from_list_recent> --state canonical",
       arguments: { record_id: "<record_id_from_list_recent>", target_state: "canonical" },
       replace_arguments: { record_id: "list_recent.records_by_id.<record_id>.id" },
-      required_when: "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
+      required_when:
+        "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
       required_fields: ["record_id"]
     });
     expect(envelope.error.next_action?.argument_sources).toEqual({
@@ -898,7 +1002,11 @@ describe("error envelopes", () => {
   });
 
   it("returns machine-readable recovery actions for project context failures", () => {
-    const missingPath = toErrorEnvelope(new Error("Project path does not exist: /tmp/missing. Run project_init for a new project, or pass the correct project_path/project_id."));
+    const missingPath = toErrorEnvelope(
+      new Error(
+        "Project path does not exist: /tmp/missing. Run project_init for a new project, or pass the correct project_path/project_id."
+      )
+    );
     expect(missingPath).toMatchObject({
       ok: false,
       error: {
@@ -939,7 +1047,9 @@ describe("error envelopes", () => {
     expectNextActionInterfaces(missingPath.error.next_action!);
     expectNextActionWorkflow(missingPath.error.next_action!);
 
-    const unknownProjectId = toErrorEnvelope(new Error("Project id is not known in this store: morym. Run project_list and choose one of: moryn."));
+    const unknownProjectId = toErrorEnvelope(
+      new Error("Project id is not known in this store: morym. Run project_list and choose one of: moryn.")
+    );
     expect(unknownProjectId).toMatchObject({
       ok: false,
       error: {
@@ -975,35 +1085,38 @@ describe("error envelopes", () => {
       }
     });
     expectNextActionInterfaces(unknownProjectId.error.next_action!);
-    expect(unknownProjectId.error.next_action?.workflow).toEqual(withPhasesByName({
-      version: 1,
-      start: "next_action",
-      continue_from: [
-        "error.next_action",
-        "warning.next_action",
-        "project_list.projects_by_id.<project_id>.project_id",
-        "project_list.projects[].project_id"
-      ],
-      phases: [
-        {
-          phase: "list_projects_and_retry_with_known_project_id",
-          order: 1,
-          action_source: "next_action",
-          tool: "project_list",
-          required_when: "After a project_id is rejected, before retrying with a known project id.",
-          required_fields: []
-        },
-        {
-          phase: "retry_original_tool_with_selected_project_id",
-          order: 2,
-          action_source: "project_list.projects_by_id.<project_id>.project_id",
-          tool: "original_tool",
-          replace_arguments: { project_id: "project_list.projects_by_id.<project_id>.project_id" },
-          required_when: "After choosing the correct project id from project_list results, retry the original tool with that selected project id.",
-          required_fields: ["project_id"]
-        }
-      ]
-    }));
+    expect(unknownProjectId.error.next_action?.workflow).toEqual(
+      withPhasesByName({
+        version: 1,
+        start: "next_action",
+        continue_from: [
+          "error.next_action",
+          "warning.next_action",
+          "project_list.projects_by_id.<project_id>.project_id",
+          "project_list.projects[].project_id"
+        ],
+        phases: [
+          {
+            phase: "list_projects_and_retry_with_known_project_id",
+            order: 1,
+            action_source: "next_action",
+            tool: "project_list",
+            required_when: "After a project_id is rejected, before retrying with a known project id.",
+            required_fields: []
+          },
+          {
+            phase: "retry_original_tool_with_selected_project_id",
+            order: 2,
+            action_source: "project_list.projects_by_id.<project_id>.project_id",
+            tool: "original_tool",
+            replace_arguments: { project_id: "project_list.projects_by_id.<project_id>.project_id" },
+            required_when:
+              "After choosing the correct project id from project_list results, retry the original tool with that selected project id.",
+            required_fields: ["project_id"]
+          }
+        ]
+      })
+    );
 
     const unknownProjectIdWithContext = toErrorEnvelope(
       new Error("Project id is not known in this store: morym. Run project_list and choose one of: moryn."),
@@ -1018,17 +1131,27 @@ describe("error envelopes", () => {
       order: 2,
       action_source: "project_list.projects_by_id.<project_id>.project_id",
       tool: "agent_start",
-      command: "moryn agent start --project-id <project_id_from_project_list> --current-task 'avoid typo id' --agent codex",
-      arguments: { project_id: "<project_id_from_project_list>", current_task: "avoid typo id", agent: { client: "codex" } },
+      command:
+        "moryn agent start --project-id <project_id_from_project_list> --current-task 'avoid typo id' --agent codex",
+      arguments: {
+        project_id: "<project_id_from_project_list>",
+        current_task: "avoid typo id",
+        agent: { client: "codex" }
+      },
       replace_arguments: { project_id: "project_list.projects_by_id.<project_id>.project_id" },
-      required_when: "After choosing the correct project id from project_list results, retry the original tool with that selected project id.",
+      required_when:
+        "After choosing the correct project id from project_list results, retry the original tool with that selected project id.",
       required_fields: ["project_id"]
     });
     expect(unknownProjectIdWithContext.error.next_action?.argument_sources).toEqual({
       project_id: "project_list.projects_by_id.<project_id>.project_id"
     });
 
-    const projectIdConflict = toErrorEnvelope(new Error("Project id conflict: project_path resolves to moryn, but project_id was other. Use the .moryn.json project_id or update the project config."));
+    const projectIdConflict = toErrorEnvelope(
+      new Error(
+        "Project id conflict: project_path resolves to moryn, but project_id was other. Use the .moryn.json project_id or update the project config."
+      )
+    );
     expect(projectIdConflict).toMatchObject({
       ok: false,
       error: {
@@ -1066,7 +1189,11 @@ describe("error envelopes", () => {
     expectNextActionInterfaces(projectIdConflict.error.next_action!);
     expectNextActionWorkflow(projectIdConflict.error.next_action!);
 
-    const missingContext = toErrorEnvelope(new Error("Project context required: this store already has known projects (moryn). Run project_list or agent_enter, then retry with project_path/project_id."));
+    const missingContext = toErrorEnvelope(
+      new Error(
+        "Project context required: this store already has known projects (moryn). Run project_list or agent_enter, then retry with project_path/project_id."
+      )
+    );
     expect(missingContext).toMatchObject({
       ok: false,
       error: {
@@ -1107,12 +1234,15 @@ describe("error envelopes", () => {
       action_source: "project_list.projects_by_id.<project_id>.project_id",
       tool: "original_tool",
       replace_arguments: { project_id: "project_list.projects_by_id.<project_id>.project_id" },
-      required_when: "After choosing the correct project id from project_list results, retry the original tool with that selected project id.",
+      required_when:
+        "After choosing the correct project id from project_list results, retry the original tool with that selected project id.",
       required_fields: ["project_id"]
     });
 
     const missingContextWithOriginalTool = toErrorEnvelope(
-      new Error("Project context required: this store already has known projects (moryn). Run project_list or agent_enter, then retry with project_path/project_id."),
+      new Error(
+        "Project context required: this store already has known projects (moryn). Run project_list or agent_enter, then retry with project_path/project_id."
+      ),
       {
         tool: "agent_status",
         command: "moryn agent status --status 'still working' --current-task 'avoid missing context' --agent codex",
@@ -1124,7 +1254,8 @@ describe("error envelopes", () => {
       order: 2,
       action_source: "project_list.projects_by_id.<project_id>.project_id",
       tool: "agent_status",
-      command: "moryn agent status --status 'still working' --current-task 'avoid missing context' --agent codex --project-id <project_id_from_project_list>",
+      command:
+        "moryn agent status --status 'still working' --current-task 'avoid missing context' --agent codex --project-id <project_id_from_project_list>",
       arguments: {
         status: "still working",
         current_task: "avoid missing context",
@@ -1132,7 +1263,8 @@ describe("error envelopes", () => {
         project_id: "<project_id_from_project_list>"
       },
       replace_arguments: { project_id: "project_list.projects_by_id.<project_id>.project_id" },
-      required_when: "After choosing the correct project id from project_list results, retry the original tool with that selected project id.",
+      required_when:
+        "After choosing the correct project id from project_list results, retry the original tool with that selected project id.",
       required_fields: ["project_id"]
     });
     expect(missingContextWithOriginalTool.error.next_action?.argument_sources).toEqual({

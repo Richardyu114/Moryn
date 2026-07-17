@@ -30,25 +30,55 @@ describe("documentation contracts", () => {
     expectText(installPrompt, "For Codex and Claude Code, the normal path is the installed Autopilot lifecycle");
     expectText(workflow, "Official Codex and Claude Code sessions use the Autopilot lifecycle by default");
     expectText(workflow, "Routine recovered context is marked `available`, not `review`");
-    expectText(workflow, "`requires_authored_input` means the agent must compose the lifecycle summary; it does not mean the user must supply it");
-    expectText(workflow, "Routine `agent_status` and `agent_finish` actions use `agent_authored.status` and `agent_authored.summary`");
-    expectText(workflow, "Once the agent has composed the required field, it can run the returned lifecycle action without routine user approval");
+    expectText(
+      workflow,
+      "`requires_authored_input` means the agent must compose the lifecycle summary; it does not mean the user must supply it"
+    );
+    expectText(
+      workflow,
+      "Routine `agent_status` and `agent_finish` actions use `agent_authored.status` and `agent_authored.summary`"
+    );
+    expectText(
+      workflow,
+      "Once the agent has composed the required field, it can run the returned lifecycle action without routine user approval"
+    );
     expectText(workflow, "A prompt recall miss does not write a store record by itself");
     expectText(workflow, "`learning_bridge.queue_learning` points to the one-call `learn` operation");
     expectText(workflow, "The bridge references `current_user_prompt` instead of echoing prompt text into hook output");
     expectText(workflow, "Moryn consumes queued learning automatically at the next checkpoint or finish");
-    expectText(workflow, "Finalization Assurance seals a prior same-host session when durable checkpoint or status evidence exists without a final handoff");
+    expectText(
+      workflow,
+      "Finalization Assurance seals a prior same-host session when durable checkpoint or status evidence exists without a final handoff"
+    );
     expectText(workflow, "Codex Stop remains an in-progress status signal; it is not treated as session completion");
     expectText(workflow, "Learning ingestion folds high-confidence duplicates automatically");
-    expectText(workflow, "`semantic_candidates` returns at most three candidates per new record and twelve candidates per ingestion");
+    expectText(
+      workflow,
+      "`semantic_candidates` returns at most three candidates per new record and twelve candidates per ingestion"
+    );
     expectText(workflow, "Candidate feedback contains record ids, scores, and signals, but not record text");
-    expectText(workflow, "Agents recall candidate records before proposing `duplicate_of`, `revises`, `supersedes`, or `conflicts_with`");
+    expectText(
+      workflow,
+      "Agents recall candidate records before proposing `duplicate_of`, `revises`, `supersedes`, or `conflicts_with`"
+    );
     expectText(workflow, "A similarity score alone is not a semantic relationship assertion");
-    expectText(workflow, "Checkpoint and finish lifecycle results promote unresolved candidates into an agent-owned `review_learning_candidates` workflow");
-    expectText(workflow, "Codex and Claude Code follow the supplied record-id recalls without routine user confirmation");
-    expectText(workflow, "When automatic consolidation or an accepted proposal already resolves a pair, the workflow stays absent");
+    expectText(
+      workflow,
+      "Checkpoint and finish lifecycle results promote unresolved candidates into an agent-owned `review_learning_candidates` workflow"
+    );
+    expectText(
+      workflow,
+      "Codex and Claude Code follow the supplied record-id recalls without routine user confirmation"
+    );
+    expectText(
+      workflow,
+      "When automatic consolidation or an accepted proposal already resolves a pair, the workflow stays absent"
+    );
     expectText(workflow, "Official side-effect hooks remain silent when no agent follow-up exists");
-    expectText(workflow, "PreCompact and Claude SessionEnd conditionally inject the bounded workflow into host output only when candidate review is required");
+    expectText(
+      workflow,
+      "PreCompact and Claude SessionEnd conditionally inject the bounded workflow into host output only when candidate review is required"
+    );
     expectText(dashboard, "Capture Inbox is a compatibility and exceptional review surface");
     for (const document of [installPrompt, workflow, dashboard]) {
       expect(document).not.toContain("Canonical memory still requires explicit Capture Inbox user action.");
@@ -65,7 +95,7 @@ describe("documentation contracts", () => {
 
     expect(readme).toContain("Published package: v0.2.0");
     expect(readme).toContain("moryn learn --project .");
-    expect(readme).toContain("--question \"What did we learn?\"");
+    expect(readme).toContain('--question "What did we learn?"');
     expectText(readme, "Finalization Assurance recovers an unfinalized prior Codex session at the next startup");
     expect(changelog).toContain("## Unreleased (v0.3 development)");
     expectText(changelog, "Learning Inbox and the one-call `learn` operation");
@@ -147,7 +177,10 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("moryn dashboard --serve --host 0.0.0.0 --port 8765");
     expect(dashboard).toContain("GET /fragment");
     expect(dashboard).toContain("GET /api/dashboard");
-    expectText(dashboard, "Concurrent `GET /`, `GET /fragment`, and `GET /api/dashboard` requests share the same in-flight dashboard data build");
+    expectText(
+      dashboard,
+      "Concurrent `GET /`, `GET /fragment`, and `GET /api/dashboard` requests share the same in-flight dashboard data build"
+    );
     expectText(dashboard, "After that build settles, the next read request rebuilds from the local store again");
     expect(dashboard).toContain("actions_by_id");
     expect(dashboard).toContain("decision_summary");
@@ -191,13 +224,28 @@ describe("documentation contracts", () => {
     expectText(dashboard, "while keeping the search local and read-only");
     expectText(dashboard, "Search results open the same read-only");
     expectText(dashboard, "detail pane with full text, source, status, and timeline/recall commands");
-    expectText(dashboard, "Memory Search result type labels, event target labels, and memory-state metadata follow the language toggle");
-    expectText(dashboard, "First-screen action labels, health badges, current-answer cards, Work Lane labels, and derived overview cards also follow the language toggle");
-    expectText(dashboard, "Derived overview-card count and status snippets such as `saved items`, `safe check available`, and `Clean` also carry Chinese display text");
-    expectText(dashboard, "Relative-time and empty-save labels such as `2d ago`, `None`, and `No saves yet` also carry Chinese display text");
+    expectText(
+      dashboard,
+      "Memory Search result type labels, event target labels, and memory-state metadata follow the language toggle"
+    );
+    expectText(
+      dashboard,
+      "First-screen action labels, health badges, current-answer cards, Work Lane labels, and derived overview cards also follow the language toggle"
+    );
+    expectText(
+      dashboard,
+      "Derived overview-card count and status snippets such as `saved items`, `safe check available`, and `Clean` also carry Chinese display text"
+    );
+    expectText(
+      dashboard,
+      "Relative-time and empty-save labels such as `2d ago`, `None`, and `No saves yet` also carry Chinese display text"
+    );
     expectText(dashboard, "Source names, exact timestamps, event operation names, and record ids stay literal");
     expectText(dashboard, "saved memory text and event evidence stay in their original wording");
-    expectText(dashboard, "The visible receipt labels, decision sentence, write-boundary summary, changed count, and trace status follow the dashboard language toggle");
+    expectText(
+      dashboard,
+      "The visible receipt labels, decision sentence, write-boundary summary, changed count, and trace status follow the dashboard language toggle"
+    );
     expectText(dashboard, "Record ids, event ids, decision context, and read-only trace commands");
     expectText(dashboard, "stay literal inside the collapsed `Trace details` fold");
     expectText(dashboard, "warm-white editorial workspace");
@@ -238,9 +286,18 @@ describe("documentation contracts", () => {
     expectText(dashboard, "remember,");
     expectText(dashboard, "dismiss, archive, or approval writes appear only beside the real confirmation");
     expectText(dashboard, "rows that already have server endpoints");
-    expectText(dashboard, "Candidate Triage stays a technical/audit route unless it has an explicit promotion approval");
-    expectText(dashboard, "`All clear` now means there are no confirmations, visible warnings, sync tasks, or saved items waiting for later organization");
-    expectText(dashboard, "Directly below the action summary, `What Moryn stores` shows the user-facing memory inventory");
+    expectText(
+      dashboard,
+      "Candidate Triage stays a technical/audit route unless it has an explicit promotion approval"
+    );
+    expectText(
+      dashboard,
+      "`All clear` now means there are no confirmations, visible warnings, sync tasks, or saved items waiting for later organization"
+    );
+    expectText(
+      dashboard,
+      "Directly below the action summary, `What Moryn stores` shows the user-facing memory inventory"
+    );
     expectText(dashboard, "Ready to use <- canonical records");
     expectText(dashboard, "Saved for later <- candidate records");
     expectText(dashboard, "Each inventory state card is clickable");
@@ -250,12 +307,18 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The inventory also groups saved items by kind");
     expectText(dashboard, "`Saved for later` means the item is already saved and searchable");
     expectText(dashboard, "it is not a user decision by itself");
-    expectText(dashboard, "`Recent status` shows the last saved time, latest source, shared-copy state, and the number of searchable saved items");
+    expectText(
+      dashboard,
+      "`Recent status` shows the last saved time, latest source, shared-copy state, and the number of searchable saved items"
+    );
     expectText(dashboard, "Its last-saved relative time follows the language toggle");
     expectText(dashboard, "exact timestamp stays in the `time` title and `datetime` attributes");
     expectText(dashboard, "It also shows a read-only `Recently saved` strip");
     expectText(dashboard, "Rows carry translated labels and tooltips that say they open saved content");
-    expectText(dashboard, "Clicking a row opens `Find what Moryn saved`, selects the matching item, and keeps the row highlighted");
+    expectText(
+      dashboard,
+      "Clicking a row opens `Find what Moryn saved`, selects the matching item, and keeps the row highlighted"
+    );
     expectText(dashboard, "it never writes or approves memory");
     expectText(dashboard, "The top health message stays below the header only when it adds new context");
     expectText(dashboard, "Healthy snapshots render as a lightweight `dashboard-status-line`");
@@ -263,8 +326,14 @@ describe("documentation contracts", () => {
     expectText(dashboard, "waiting.` instead of a full status panel");
     expectText(dashboard, "unless `Right now` already owns the quiet state such as all-clear or");
     expectText(dashboard, "saved-for-later");
-    expectText(dashboard, "Non-healthy states that need a separate explanation, such as local-only, review, or conflict, still render the full status strip");
-    expectText(dashboard, "When a high-priority action owns the first screen, the four derived cards for current health, next action, context, and sync");
+    expectText(
+      dashboard,
+      "Non-healthy states that need a separate explanation, such as local-only, review, or conflict, still render the full status strip"
+    );
+    expectText(
+      dashboard,
+      "When a high-priority action owns the first screen, the four derived cards for current health, next action, context, and sync"
+    );
     expectText(dashboard, "All-clear and saved-for-later pages skip duplicate overview sections, shortcut");
     expectText(dashboard, "grids, work lanes, and safety chips on the first screen");
     expectText(dashboard, "compact `More details` fold");
@@ -272,31 +341,67 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`/api/dashboard.action_board` remains the audit source for the complete shortcut list");
     expectText(dashboard, "`/api/dashboard.dashboard_overview` still keeps the");
     expectText(dashboard, "live HTML does not repeat `Do I need to act?` or `Other status` after `Right now`");
-    expectText(dashboard, "visible background-check labels and item descriptions carry English and Chinese display text");
-    expectText(dashboard, "does not expose raw status templates such as routine-check counts, temporary-note counts, or candidate-record cleanup wording");
+    expectText(
+      dashboard,
+      "visible background-check labels and item descriptions carry English and Chinese display text"
+    );
+    expectText(
+      dashboard,
+      "does not expose raw status templates such as routine-check counts, temporary-note counts, or candidate-record cleanup wording"
+    );
     expectText(dashboard, "Each background overview card is also a local navigation button");
     expectText(dashboard, "its visible label is `Other status` with `Ready if needed`");
-    expectText(dashboard, "When `Pending Decisions` is rendered, the visible HTML skips the `Other status` group and the stable `dashboard-overview-quiet-cards` route");
-    expectText(dashboard, "the overview cards remain in `/api/dashboard.dashboard_overview.cards` and `cards_by_id` for audit tooling");
-    expectText(dashboard, "If sync is also pending, Pending Decisions still owns the Overview headline and primary action");
-    expectText(dashboard, "sync remains visible through the health badge, Shared copy details, and `/api/dashboard.dashboard_overview.cards`");
-    expectText(dashboard, "When sync is the active warning, the sync details promote into a compact current-task section");
+    expectText(
+      dashboard,
+      "When `Pending Decisions` is rendered, the visible HTML skips the `Other status` group and the stable `dashboard-overview-quiet-cards` route"
+    );
+    expectText(
+      dashboard,
+      "the overview cards remain in `/api/dashboard.dashboard_overview.cards` and `cards_by_id` for audit tooling"
+    );
+    expectText(
+      dashboard,
+      "If sync is also pending, Pending Decisions still owns the Overview headline and primary action"
+    );
+    expectText(
+      dashboard,
+      "sync remains visible through the health badge, Shared copy details, and `/api/dashboard.dashboard_overview.cards`"
+    );
+    expectText(
+      dashboard,
+      "When sync is the active warning, the sync details promote into a compact current-task section"
+    );
     expectText(dashboard, "`data-dashboard-promoted-store-signals`");
     expectText(dashboard, "a `Sync Action` brief, and a quiet `Sync action ready` label");
     expectText(dashboard, "visible first-screen copy refers to the remote as the `Shared copy`");
-    expectText(dashboard, "Shared copy details keeps `Sync Action` in the foreground, moves `Sync Position` behind a collapsed `Sync details` fold");
-    expectText(dashboard, "leaves Agent Activity, Record Quality, Record Types, and Activity Trend in `/api/dashboard.charts`");
+    expectText(
+      dashboard,
+      "Shared copy details keeps `Sync Action` in the foreground, moves `Sync Position` behind a collapsed `Sync details` fold"
+    );
+    expectText(
+      dashboard,
+      "leaves Agent Activity, Record Quality, Record Types, and Activity Trend in `/api/dashboard.charts`"
+    );
     expectText(dashboard, "When sync is the only active warning and no explicit approval is waiting");
     expectText(dashboard, "the promoted `Shared copy details` section moves directly after the Overview");
     expectText(dashboard, "skips the extra open `details` wrapper");
-    expectText(dashboard, "so the current task is not repeated by another visible heading, navigation row, or routine reference panel");
+    expectText(
+      dashboard,
+      "so the current task is not repeated by another visible heading, navigation row, or routine reference panel"
+    );
     expectText(dashboard, "The promoted section omits `Telemetry Context`");
-    expectText(dashboard, "The Reference Library still keeps the Audit route and raw evidence, but it does not render a second `store-signals` panel");
+    expectText(
+      dashboard,
+      "The Reference Library still keeps the Audit route and raw evidence, but it does not render a second `store-signals` panel"
+    );
     expectText(dashboard, "the read-only evidence layer renders as a compact `More details` strip");
     expectText(dashboard, "`data-dashboard-background-reference`");
-    expectText(dashboard, "keeping the stable `data-dashboard-detail=\"evidence-library\"` route");
+    expectText(dashboard, 'keeping the stable `data-dashboard-detail="evidence-library"` route');
     expectText(dashboard, "uses the quiet `Extra context` label");
-    expectText(dashboard, "Candidate Triage without promotion drafts stays under the background Audit route instead of `Review Notes`");
+    expectText(
+      dashboard,
+      "Candidate Triage without promotion drafts stays under the background Audit route instead of `Review Notes`"
+    );
     expectText(dashboard, "`Dashboard Work Lanes` groups the first screen into");
     expectText(dashboard, "Decide -> Pending Decisions, Capture Inbox, or Review Queue confirmation");
     expectText(dashboard, "Context -> Context Pack Review handoff readiness");
@@ -306,19 +411,37 @@ describe("documentation contracts", () => {
     expectText(dashboard, "do not render Approve, Reject, Promote, Archive, or Apply controls");
     expectText(dashboard, "do not add `data-dashboard-action-id`");
     expectText(dashboard, "Lane clicks resolve either an element `id` or a matching `data-dashboard-detail` target");
-    expectText(dashboard, "routes such as `context-pack-review` and `evidence-library` open the collapsed detail panel before scrolling");
-    expectText(dashboard, "When warning or critical signals exist, the Work Lanes keep only those blocking lanes visible on the first screen");
+    expectText(
+      dashboard,
+      "routes such as `context-pack-review` and `evidence-library` open the collapsed detail panel before scrolling"
+    );
+    expectText(
+      dashboard,
+      "When warning or critical signals exist, the Work Lanes keep only those blocking lanes visible on the first screen"
+    );
     expectText(dashboard, "fold non-blocking routes under `Other paths`");
-    expectText(dashboard, "a Health warning keeps `Health` visible while `Decide`, `Context`, and `Evidence` stay available as quiet background lanes");
+    expectText(
+      dashboard,
+      "a Health warning keeps `Health` visible while `Decide`, `Context`, and `Evidence` stay available as quiet background lanes"
+    );
     expectText(dashboard, "In all-clear states, the visible HTML skips `Dashboard Work Lanes` and");
     expectText(dashboard, "`Other paths` entirely");
     expectText(dashboard, "the first screen moves from Overview directly to the compact `More details` fold");
     expectText(dashboard, "The same Decide, Context, Health, Evidence, and safe inspection routes remain available");
-    expectText(dashboard, "the stable `data-dashboard-detail=\"evidence-library\"` route, and");
+    expectText(dashboard, 'the stable `data-dashboard-detail="evidence-library"` route, and');
     expectText(dashboard, "`/api/dashboard.action_board` for agents and audit");
-    expectText(dashboard, "When `Pending Decisions` is rendered, Work Lanes keep the active decision lane visible and skip `Other paths` and `dashboard-work-lanes-background` in the HTML");
-    expectText(dashboard, "the same routes remain available through `/api/dashboard.action_board`, `Page Shortcuts`, and the underlying panels");
-    expectText(dashboard, "`Action Board` is rendered as `Page Shortcuts` in the UI while keeping the stable `data-dashboard-detail=\"action-board\"` route when two or more active shortcut cards need navigation");
+    expectText(
+      dashboard,
+      "When `Pending Decisions` is rendered, Work Lanes keep the active decision lane visible and skip `Other paths` and `dashboard-work-lanes-background` in the HTML"
+    );
+    expectText(
+      dashboard,
+      "the same routes remain available through `/api/dashboard.action_board`, `Page Shortcuts`, and the underlying panels"
+    );
+    expectText(
+      dashboard,
+      '`Action Board` is rendered as `Page Shortcuts` in the UI while keeping the stable `data-dashboard-detail="action-board"` route when two or more active shortcut cards need navigation'
+    );
     expectText(dashboard, "shortcut cards need navigation below explicit review and action surfaces");
     expectText(dashboard, "`Page Shortcuts` opens with `Optional section links`");
     expectText(dashboard, "The collapsed `Page Shortcuts` summary does not repeat active counts");
@@ -326,19 +449,34 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Review Queue plan cards open with an `Approval brief`");
     expectText(dashboard, "`Change`, `Scope`, `Guard`, `Writes`, `Evidence`, and `Trace`");
     expectText(dashboard, "The brief says the server rechecks the plan hash before writing");
-    expectText(dashboard, "raw `plan_hash`, equivalent CLI command, rollback path, and record ids stay inside `Decision details`");
+    expectText(
+      dashboard,
+      "raw `plan_hash`, equivalent CLI command, rollback path, and record ids stay inside `Decision details`"
+    );
     expect(dashboard).toContain("Evidence Library");
-    expectText(dashboard, "Health Check, Recall Eval, Dogfood Notes, Governance Hub, Context Pack Review, and Audit Trail");
+    expectText(
+      dashboard,
+      "Health Check, Recall Eval, Dogfood Notes, Governance Hub, Context Pack Review, and Audit Trail"
+    );
     expectText(dashboard, "visible summary is content-aware");
     expectText(dashboard, "when there are findings it reads `Reference material`");
     expectText(dashboard, "while the accessible summary keeps `Read-only reference material`");
     expectText(dashboard, "reads `Reference evidence only`");
-    expectText(dashboard, "When the first screen is quiet, sync-only, or saved-for-later, the same read-only material uses the lighter `More details` shell");
-    expectText(dashboard, "Expanding it reveals an `Inspect saved content` face with `Read-only, no memory changes` and `Helpful context`");
+    expectText(
+      dashboard,
+      "When the first screen is quiet, sync-only, or saved-for-later, the same read-only material uses the lighter `More details` shell"
+    );
+    expectText(
+      dashboard,
+      "Expanding it reveals an `Inspect saved content` face with `Read-only, no memory changes` and `Helpful context`"
+    );
     expectText(dashboard, "Compact route chips move into the collapsed `Open related views` fold");
     expectText(dashboard, "human labels such as `Product notes`, `Saved notes`, and `History`");
     expectText(dashboard, "stable `data-reference-library-route` attributes still keep");
-    expectText(dashboard, "Those compact route chips, row titles, row summaries, and evidence chips also carry English and Chinese display text");
+    expectText(
+      dashboard,
+      "Those compact route chips, row titles, row summaries, and evidence chips also carry English and Chinese display text"
+    );
     expectText(dashboard, "does not leave the `More details` shell half-translated");
     expectText(dashboard, "The long `/api/dashboard` pointer is shortened inside that fold in compact mode");
     expectText(dashboard, "`Raw technical details stay in /api/dashboard.`");
@@ -355,16 +493,25 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Full Routine Diagnostics route buttons also carry language attributes");
     expectText(dashboard, "`health_check`, `recall_eval`, and");
     expectText(dashboard, "`context_pack_review` code chips remain literal API sources");
-    expectText(dashboard, "When review-oriented findings exist, the expanded library can still start with a compact `Evidence index` bar");
-    expectText(dashboard, "empty routes are omitted instead of rendering \"nothing here\" buttons");
+    expectText(
+      dashboard,
+      "When review-oriented findings exist, the expanded library can still start with a compact `Evidence index` bar"
+    );
+    expectText(dashboard, 'empty routes are omitted instead of rendering "nothing here" buttons');
     expectText(dashboard, "single wrapping rail");
     expectText(dashboard, "does not become another card grid or prose panel");
     expectText(dashboard, "When `Pending Decisions` is rendered, the visible summary reads");
     expectText(dashboard, "`Audit evidence only`");
     expectText(dashboard, "the visible HTML skips the `Evidence index` route bar");
     expectText(dashboard, "the accessible summary still names `Read-only reference material`");
-    expectText(dashboard, "the Evidence Library still keeps any necessary `Review Notes`, background reference groups, and the underlying `/api/dashboard` data");
-    expectText(dashboard, "The route bar renders local buttons that reuse the existing `data-action-board-target` behavior");
+    expectText(
+      dashboard,
+      "the Evidence Library still keeps any necessary `Review Notes`, background reference groups, and the underlying `/api/dashboard` data"
+    );
+    expectText(
+      dashboard,
+      "The route bar renders local buttons that reuse the existing `data-action-board-target` behavior"
+    );
     expectText(dashboard, "`Findings` opens `Review Notes`");
     expectText(dashboard, "`Diagnostics` opens `Routine Diagnostics`, and `Audit` opens `Audit Trail`");
     expectText(dashboard, "route buttons keep only the route label and current status visible");
@@ -377,42 +524,72 @@ describe("documentation contracts", () => {
     expectText(dashboard, "the collapsed `Reference routes` fold contains routine read-only diagnostics");
     expectText(dashboard, "as a `Diagnostics Index` row in the normal shell, or `Store Status`");
     expectText(dashboard, "inside compact `More details`");
-    expectText(dashboard, "uses the stable visible summary `Status sources ready` instead of listing each diagnostic module name");
+    expectText(
+      dashboard,
+      "uses the stable visible summary `Status sources ready` instead of listing each diagnostic module name"
+    );
     expectText(dashboard, "stable `data-dashboard-detail` chips for `health-check`,");
     expectText(dashboard, "those chips carry accessible summaries");
     expectText(dashboard, "It does not render the nested `Diagnostic Reports` section");
-    expectText(dashboard, "full details remain in `/api/dashboard.health_check`, `/api/dashboard.recall_eval`, and `/api/dashboard.context_pack_review`");
+    expectText(
+      dashboard,
+      "full details remain in `/api/dashboard.health_check`, `/api/dashboard.recall_eval`, and `/api/dashboard.context_pack_review`"
+    );
     expectText(dashboard, "Governance Hub items that require user confirmation");
     expectText(dashboard, "grouped first under the stable `Review Notes` group");
     expectText(dashboard, "visible row reads `Review Notes` with `Reference notes`");
     expectText(dashboard, "`Review Notes` is collapsed by default inside `Evidence Library`");
     expectText(dashboard, "or expose child panel counts");
     expectText(dashboard, "read-only findings do not look like pending approval work");
-    expectText(dashboard, "When review-oriented panels force the grouped evidence layout, Routine Diagnostics and Audit Trail can still appear behind `Routine Reference`");
-    expectText(dashboard, "the same audit material appears as `Audit Reports`, `Store Snapshot`, and `Raw Store` rows in the normal");
-    expectText(dashboard, "inside compact `More details`, the same stable rows are labeled `Cleanup Checks`, `Shared Copy`, and `History`");
+    expectText(
+      dashboard,
+      "When review-oriented panels force the grouped evidence layout, Routine Diagnostics and Audit Trail can still appear behind `Routine Reference`"
+    );
+    expectText(
+      dashboard,
+      "the same audit material appears as `Audit Reports`, `Store Snapshot`, and `Raw Store` rows in the normal"
+    );
+    expectText(
+      dashboard,
+      "inside compact `More details`, the same stable rows are labeled `Cleanup Checks`, `Shared Copy`, and `History`"
+    );
     expectText(dashboard, "stable `data-dashboard-detail` targets such as `supporting-evidence`,");
     expectText(dashboard, "Empty audit report rows are omitted");
-    expectText(dashboard, "Item-level detail remains available for inspection as collapsed candidate details inside each group");
+    expectText(
+      dashboard,
+      "Item-level detail remains available for inspection as collapsed candidate details inside each group"
+    );
     expectText(dashboard, "`Background checks` detail opens with `Routine checks`");
     expectText(dashboard, "instead of repeating the focus-strip count");
     expectText(dashboard, "When warning or critical checks exist, the `needs-attention` scroll target");
     expectText(dashboard, "renders as `Needs a look`");
     expectText(dashboard, "`Needs a look` opens with `Warnings and important checks`");
     expectText(dashboard, "counts things to check");
-    expectText(dashboard, "the section preserves `id=\"needs-attention\"` and `data-dashboard-detail=\"needs-attention\"`");
+    expectText(dashboard, 'the section preserves `id="needs-attention"` and `data-dashboard-detail="needs-attention"`');
     expectText(dashboard, "When there are no warning or critical checks but the Overview is not all-clear");
     expectText(dashboard, "the same scroll target renders as a quiet `needs-attention-quiet-line` anchor");
     expectText(dashboard, "It contains only the collapsed `Background checks` detail");
     expectText(dashboard, "Quiet `Background checks` opens first to a nested `Check details` fold");
     expectText(dashboard, "the individual informational rows stay inside that nested fold");
     expectText(dashboard, "does not render the focus strip or a separate quiet summary");
-    expectText(dashboard, "When `Pending Decisions` is rendered, when all-clear Overview already owns the quiet zero-state");
-    expectText(dashboard, "or when active sync work such as `sync_pending` or `conflict` already owns the Overview and Health lane");
+    expectText(
+      dashboard,
+      "When `Pending Decisions` is rendered, when all-clear Overview already owns the quiet zero-state"
+    );
+    expectText(
+      dashboard,
+      "or when active sync work such as `sync_pending` or `conflict` already owns the Overview and Health lane"
+    );
     expectText(dashboard, "the visible HTML skips the quiet `Background checks` anchor entirely");
-    expectText(dashboard, "`/api/dashboard.attention_items` still keeps the info checks and sync signals for agents and audit tooling");
+    expectText(
+      dashboard,
+      "`/api/dashboard.attention_items` still keeps the info checks and sync signals for agents and audit tooling"
+    );
     expect(dashboard).toContain("Dogfood Notes");
-    expectText(dashboard, "it lives in the background Audit route instead of `Review Notes` because it has no approval or write action");
+    expectText(
+      dashboard,
+      "it lives in the background Audit route instead of `Review Notes` because it has no approval or write action"
+    );
     expectText(dashboard, "folded row reads `Read-only note` or `Read-only notes`");
     expectText(dashboard, "The status chip reads `Note` even when the underlying finding severity is warning");
     expectText(dashboard, "instead of repeating finding and safe-step counts");
@@ -420,18 +597,39 @@ describe("documentation contracts", () => {
     expectText(dashboard, "visible `Dogfood Notes`, read-only status, `Note`, and `Dogfood Notes Index`");
     expectText(dashboard, "labels carry English and Chinese display text");
     expectText(dashboard, "`dogfood_report` and `dogfood_report.findings_by_id` remain unchanged");
-    expectText(dashboard, "The dashboard HTML does not render per-finding cards, `data-dogfood-review-item` rows, `Note Details`, impact briefs, evidence paths, affected record ids, or safe timeline commands there");
-    expectText(dashboard, "Full impact notes, affected records, evidence, and safe dashboard or timeline commands remain in");
+    expectText(
+      dashboard,
+      "The dashboard HTML does not render per-finding cards, `data-dogfood-review-item` rows, `Note Details`, impact briefs, evidence paths, affected record ids, or safe timeline commands there"
+    );
+    expectText(
+      dashboard,
+      "Full impact notes, affected records, evidence, and safe dashboard or timeline commands remain in"
+    );
     expectText(dashboard, "`/api/dashboard.dogfood_report.findings_by_id` and");
     expectText(dashboard, "`/api/dashboard.dogfood_report.suggested_actions_by_id`");
     expectText(dashboard, "It does not contain Capture Inbox approvals or Review Queue maintenance approvals");
-    expectText(dashboard, "The visible HTML keeps a stable `memory_lifecycle` chip with `data-dashboard-detail=\"memory-lifecycle-audit\"`");
-    expectText(dashboard, "the active `default_memory_lifecycle_policy`, record assessments, findings, suggested actions, and safe timeline/recall commands remain in");
+    expectText(
+      dashboard,
+      'The visible HTML keeps a stable `memory_lifecycle` chip with `data-dashboard-detail="memory-lifecycle-audit"`'
+    );
+    expectText(
+      dashboard,
+      "the active `default_memory_lifecycle_policy`, record assessments, findings, suggested actions, and safe timeline/recall commands remain in"
+    );
     expectText(dashboard, "`/api/dashboard.memory_lifecycle`");
-    expectText(dashboard, "The visible HTML keeps a stable `capture_policy` chip with `data-dashboard-detail=\"capture-policy-audit\"`");
-    expectText(dashboard, "keyed findings, decisions, rule ids, evidence paths, suggested inspect actions, and timeline commands remain in");
+    expectText(
+      dashboard,
+      'The visible HTML keeps a stable `capture_policy` chip with `data-dashboard-detail="capture-policy-audit"`'
+    );
+    expectText(
+      dashboard,
+      "keyed findings, decisions, rule ids, evidence paths, suggested inspect actions, and timeline commands remain in"
+    );
     expectText(dashboard, "`/api/dashboard.capture_policy`");
-    expectText(dashboard, "Audit reports, raw records, events, sync details, recent value, and store telemetry remain available through `/api/dashboard`");
+    expectText(
+      dashboard,
+      "Audit reports, raw records, events, sync details, recent value, and store telemetry remain available through `/api/dashboard`"
+    );
     expectText(dashboard, "The collapsed `Audit Trail` row reads `Optional trace data`");
     expectText(dashboard, "the Evidence index `Audit` route also reads `Optional trace data`");
     expectText(dashboard, "`Audit Reports`, whose visible summary is `Lifecycle checks indexed`, with");
@@ -450,23 +648,50 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`recent-value`, `debug-inspector`, and `inspector:*` routes remain as index-chip targets");
     expectText(dashboard, "The HTML dashboard represents `Recent Value` with the `recent_value` chip inside");
     expectText(dashboard, "Audit Trail's `Store Snapshot` row");
-    expectText(dashboard, "Newest-first ordering, full details, record ids, and trace commands stay in the `/api/dashboard.recent_value[]` payload");
+    expectText(
+      dashboard,
+      "Newest-first ordering, full details, record ids, and trace commands stay in the `/api/dashboard.recent_value[]` payload"
+    );
     expectText(dashboard, "The HTML does not inline Recent Value summaries, record ids, or per-card trace commands");
     expectText(dashboard, "timeline and recall commands stay in `/api/dashboard.recent_value[].citation`");
     expectText(dashboard, "Expanding that safe-only hub renders a single `Governance Index` card");
-    expectText(dashboard, "It does not render `Reference Checks`, `governance-safe-inspections`, per-inspection rows, or `Reference audit` in the visible safe-only HTML");
-    expectText(dashboard, "`memory_doctor.findings_by_id.candidate_backlog` appears as a `Memory Doctor` safe inspection");
+    expectText(
+      dashboard,
+      "It does not render `Reference Checks`, `governance-safe-inspections`, per-inspection rows, or `Reference audit` in the visible safe-only HTML"
+    );
+    expectText(
+      dashboard,
+      "`memory_doctor.findings_by_id.candidate_backlog` appears as a `Memory Doctor` safe inspection"
+    );
     expectText(dashboard, "does not add dashboard approval, archive, promote, apply, or background execution controls");
-    expectText(dashboard, "`candidate_triage` groups active candidate records into `likely_noise`, `promotable`, `session_summaries`, and `needs_inspection`");
-    expectText(dashboard, "Candidate Triage without promotion drafts stays under the background Audit route instead of `Review Notes`");
+    expectText(
+      dashboard,
+      "`candidate_triage` groups active candidate records into `likely_noise`, `promotable`, `session_summaries`, and `needs_inspection`"
+    );
+    expectText(
+      dashboard,
+      "Candidate Triage without promotion drafts stays under the background Audit route instead of `Review Notes`"
+    );
     expectText(dashboard, "If promotion drafts are waiting, `Candidate Triage` is grouped under `Review Notes`");
     expectText(dashboard, "folded row reads `Read-only backlog`");
-    expectText(dashboard, "Candidate group folded rows without promotion drafts use purpose labels instead of `Archive review`, `Handoff review`, or `Inspection review`");
-    expectText(dashboard, "Read-only backlog group faces use purpose labels such as `Likely noise`, `Handoff evidence`, and `Needs inspection` with short next-step hints");
+    expectText(
+      dashboard,
+      "Candidate group folded rows without promotion drafts use purpose labels instead of `Archive review`, `Handoff review`, or `Inspection review`"
+    );
+    expectText(
+      dashboard,
+      "Read-only backlog group faces use purpose labels such as `Likely noise`, `Handoff evidence`, and `Needs inspection` with short next-step hints"
+    );
     expectText(dashboard, "The specific review handoff label remains inside the nested `Review path` fold");
-    expectText(dashboard, "If promotion drafts are waiting, `Candidate Triage` is grouped under `Review Notes`, the folded row shows the draft count");
+    expectText(
+      dashboard,
+      "If promotion drafts are waiting, `Candidate Triage` is grouped under `Review Notes`, the folded row shows the draft count"
+    );
     expectText(dashboard, "those approvals also appear in `Pending Decisions` as a `Candidate Triage` route");
-    expectText(dashboard, "Expanding a read-only `Candidate Backlog` panel shows a compact `Candidate Backlog Index` reference");
+    expectText(
+      dashboard,
+      "Expanding a read-only `Candidate Backlog` panel shows a compact `Candidate Backlog Index` reference"
+    );
     expectText(dashboard, "mapped to `/api/dashboard.candidate_triage`");
     expectText(dashboard, "plus one visible `review_focus` line softened for the read-only UI");
     expectText(dashboard, "`Audit focus: Likely noise - Inspect likely noise before archive`");
@@ -475,37 +700,82 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`/api/dashboard.candidate_triage.review_focus`");
     expectText(dashboard, "The dashboard HTML does not render read-only candidate group cards");
     expectText(dashboard, "per-group `candidate-triage:<group_id>` routes");
-    expectText(dashboard, "record counts per group, sample rows, hidden-record folds, evidence paths, or trace commands");
-    expectText(dashboard, "Full candidate bodies, record order, evidence paths, recall commands, and timeline commands stay in `/api/dashboard.candidate_triage`");
+    expectText(
+      dashboard,
+      "record counts per group, sample rows, hidden-record folds, evidence paths, or trace commands"
+    );
+    expectText(
+      dashboard,
+      "Full candidate bodies, record order, evidence paths, recall commands, and timeline commands stay in `/api/dashboard.candidate_triage`"
+    );
     expectText(dashboard, "When the existing Review Queue has a `candidate_noise_archive` cleanup plan");
-    expectText(dashboard, "the read-only `Candidate Backlog` panel still stays an index reference instead of showing a cleanup navigation button");
-    expectText(dashboard, "Archive still happens only through the explicit Review Queue `Archive Noise` approval with the normal `plan_hash` guard");
-    expectText(dashboard, "Expanding a promotion-ready `Candidate Triage` panel still shows candidate and group counts plus review-first next steps");
+    expectText(
+      dashboard,
+      "the read-only `Candidate Backlog` panel still stays an index reference instead of showing a cleanup navigation button"
+    );
+    expectText(
+      dashboard,
+      "Archive still happens only through the explicit Review Queue `Archive Noise` approval with the normal `plan_hash` guard"
+    );
+    expectText(
+      dashboard,
+      "Expanding a promotion-ready `Candidate Triage` panel still shows candidate and group counts plus review-first next steps"
+    );
     expectText(dashboard, "shown-record counts stay in `/api/dashboard` and the nested `Record samples` summaries");
     expectText(dashboard, "Each candidate group keeps its next review surface behind a compact `Review path` fold");
     expectText(dashboard, "Folded `Review path` rows show only the next review label");
     expectText(dashboard, "the existing-control route stays in the accessible summary label and expanded fields");
-    expectText(dashboard, "The expanded fold points to an existing control such as Capture Inbox, Memory Doctor, timeline, or recall");
+    expectText(
+      dashboard,
+      "The expanded fold points to an existing control such as Capture Inbox, Memory Doctor, timeline, or recall"
+    );
     expectText(dashboard, "states that review comes first and approval only happens through draft rows");
-    expectText(dashboard, "Candidate group description text stays behind a collapsed `Group context` row nested inside `Audit notes`");
-    expectText(dashboard, "expanded groups lead with review path, audit notes, promotion drafts when present, and samples instead of prose");
-    expectText(dashboard, "the full recommended next step and record count stay in the accessible group summary, `Audit notes`, `Group context`, and the nested `Review path` fold");
+    expectText(
+      dashboard,
+      "Candidate group description text stays behind a collapsed `Group context` row nested inside `Audit notes`"
+    );
+    expectText(
+      dashboard,
+      "expanded groups lead with review path, audit notes, promotion drafts when present, and samples instead of prose"
+    );
+    expectText(
+      dashboard,
+      "the full recommended next step and record count stay in the accessible group summary, `Audit notes`, `Group context`, and the nested `Review path` fold"
+    );
     expectText(dashboard, "Candidate group internals sit behind a `Triage details` fold");
     expectText(dashboard, "the group face does not expose context, review path, audit boundary, or samples by default");
     expectText(dashboard, "`Audit notes` groups the collapsed `Group context` and `Audit boundary` rows");
-    expectText(dashboard, "group write-boundary and evidence fields stay behind the nested `Audit boundary` row whose folded");
+    expectText(
+      dashboard,
+      "group write-boundary and evidence fields stay behind the nested `Audit boundary` row whose folded"
+    );
     expectText(dashboard, "Promotable groups may include a collapsed `Promotion draft` row");
-    expectText(dashboard, "Draft rows open with the same `Approval brief` pattern used by Capture Inbox and Review Queue");
+    expectText(
+      dashboard,
+      "Draft rows open with the same `Approval brief` pattern used by Capture Inbox and Review Queue"
+    );
     expectText(dashboard, "`Change`, `Scope`, `Guard`, `Writes`, `Evidence`, and");
     expectText(dashboard, "`Trace`. The exact `moryn promote ... --confirm` command");
     expectText(dashboard, "exact `moryn promote ... --confirm` command");
     expectText(dashboard, "`candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.<record_id>` source path");
     expectText(dashboard, "source path stay behind a nested `Draft evidence` fold");
-    expectText(dashboard, "The only Candidate Triage write control is the draft-row `Approve Memory` action, and pending draft approvals are routed through `Pending Decisions`");
-    expectText(dashboard, "server re-checks that the record is still an active promotable candidate before appending the confirmed promotion event");
+    expectText(
+      dashboard,
+      "The only Candidate Triage write control is the draft-row `Approve Memory` action, and pending draft approvals are routed through `Pending Decisions`"
+    );
+    expectText(
+      dashboard,
+      "server re-checks that the record is still an active promotable candidate before appending the confirmed promotion event"
+    );
     expectText(dashboard, "stale draft approvals return `not_actionable`");
-    expectText(dashboard, "Record ids, recall commands, and timeline commands stay behind a nested `Record samples` fold inside each group");
-    expectText(dashboard, "`Record samples` renders only the first three full records per group and summarizes the remaining records as API index evidence");
+    expectText(
+      dashboard,
+      "Record ids, recall commands, and timeline commands stay behind a nested `Record samples` fold inside each group"
+    );
+    expectText(
+      dashboard,
+      "`Record samples` renders only the first three full records per group and summarizes the remaining records as API index evidence"
+    );
     expectText(dashboard, "`Record samples` folded rows show only the visible sample count as `trace ready`");
     expectText(dashboard, "the candidate group name and shown/total count stay in the accessible summary label");
     expectText(dashboard, "Sample rows use the short visible label `Sample`");
@@ -513,22 +783,49 @@ describe("documentation contracts", () => {
     expectText(dashboard, "kind/source/time wording and record id stay in the accessible row label");
     expectText(dashboard, "Overflow rows read `More samples` with a short `hidden, indexed` count");
     expectText(dashboard, "their visible count says only how many more records are indexed");
-    expectText(dashboard, "The group-specific hidden-record count, record-index cue, and exact `candidate_triage.groups_by_id.<group_id>.records_by_id` path stay behind a group-specific `Hidden record index` fold");
-    expectText(dashboard, "expanded guidance tells reviewers to open that index instead of naming API/Raw Store on the row face");
+    expectText(
+      dashboard,
+      "The group-specific hidden-record count, record-index cue, and exact `candidate_triage.groups_by_id.<group_id>.records_by_id` path stay behind a group-specific `Hidden record index` fold"
+    );
+    expectText(
+      dashboard,
+      "expanded guidance tells reviewers to open that index instead of naming API/Raw Store on the row face"
+    );
     expectText(dashboard, "Visible sample bodies label candidate text as `Content`");
     expectText(dashboard, "full candidate text remains inside the expanded sample body only for visible samples");
     expectText(dashboard, "To avoid flooding");
     expectText(dashboard, "`candidate_triage.groups_by_id.<group_id>.records[]` keeps only the visible sample records");
     expectText(dashboard, "`candidate_triage.groups_by_id.<group_id>.record_ids[]`");
-    expectText(dashboard, "`candidate_triage.groups_by_id.<group_id>.records_by_id.<record_id>` is a lightweight index");
+    expectText(
+      dashboard,
+      "`candidate_triage.groups_by_id.<group_id>.records_by_id.<record_id>` is a lightweight index"
+    );
     expectText(dashboard, "The top-level `candidate_triage.groups[]` list is summary-only");
-    expectText(dashboard, "expanded group details, visible records, and record indexes live under `candidate_triage.groups_by_id.<group_id>`");
-    expectText(dashboard, "`Candidate Triage` keeps group review read-only and does not add Archive, Promote Selected, Apply, or background execution controls");
+    expectText(
+      dashboard,
+      "expanded group details, visible records, and record indexes live under `candidate_triage.groups_by_id.<group_id>`"
+    );
+    expectText(
+      dashboard,
+      "`Candidate Triage` keeps group review read-only and does not add Archive, Promote Selected, Apply, or background execution controls"
+    );
     expectText(dashboard, "the only write control is the explicit draft-row `Approve Memory` path described above");
-    expectText(dashboard, "keep plain-language `Review notes` for detection, next step, write boundary, and evidence source");
-    expectText(contracts, "`/api/dashboard` also returns `memory_doctor`, the same read-only report shape as `moryn memory doctor`");
-    expectText(contracts, "`/api/dashboard` also returns `candidate_triage`, a read-only dashboard-derived grouping for active candidate records");
-    expectText(contracts, "`candidate_triage.review_focus` points to the first group the dashboard recommends inspecting");
+    expectText(
+      dashboard,
+      "keep plain-language `Review notes` for detection, next step, write boundary, and evidence source"
+    );
+    expectText(
+      contracts,
+      "`/api/dashboard` also returns `memory_doctor`, the same read-only report shape as `moryn memory doctor`"
+    );
+    expectText(
+      contracts,
+      "`/api/dashboard` also returns `candidate_triage`, a read-only dashboard-derived grouping for active candidate records"
+    );
+    expectText(
+      contracts,
+      "`candidate_triage.review_focus` points to the first group the dashboard recommends inspecting"
+    );
     expectText(contracts, "The field is read-only guidance for humans and agents");
     expect(contracts).toContain("candidate_triage.groups_by_id.<group_id>");
     expectText(contracts, "Candidate Triage promotion draft approvals");
@@ -538,34 +835,73 @@ describe("documentation contracts", () => {
     expect(contracts).toContain("memory_doctor.findings_by_id.duplicate_candidates");
     expect(contracts).toContain("memory_doctor.findings_by_id.conflicting_candidates");
     expectText(contracts, "`memory_doctor` findings remain read-only dashboard governance inspections");
-    expectText(dashboard, "`memory_doctor.findings_by_id.duplicate_candidates` and `memory_doctor.findings_by_id.conflicting_candidates` use the same read-only Governance Hub pattern");
-    expectText(dashboard, "link, revise, archive, and timeline suggestions stay in `/api/dashboard.memory_doctor` for audit");
+    expectText(
+      dashboard,
+      "`memory_doctor.findings_by_id.duplicate_candidates` and `memory_doctor.findings_by_id.conflicting_candidates` use the same read-only Governance Hub pattern"
+    );
+    expectText(
+      dashboard,
+      "link, revise, archive, and timeline suggestions stay in `/api/dashboard.memory_doctor` for audit"
+    );
     expect(dashboard).toContain("Safe Action Registry");
     expect(dashboard).toContain("Capture Inbox");
-    expectText(dashboard, "Capture Inbox group metadata such as Source, Project, Items, and Captured is folded behind `Review context`");
-    expectText(dashboard, "The `Capture Inbox` heading uses the stable `Manual approval` status instead of repeating candidate and group counts");
-    expectText(dashboard, "Candidates in this compatibility queue require approval; reliable low-risk Learning Deltas follow the automatic v0.3 policy instead");
+    expectText(
+      dashboard,
+      "Capture Inbox group metadata such as Source, Project, Items, and Captured is folded behind `Review context`"
+    );
+    expectText(
+      dashboard,
+      "The `Capture Inbox` heading uses the stable `Manual approval` status instead of repeating candidate and group counts"
+    );
+    expectText(
+      dashboard,
+      "Candidates in this compatibility queue require approval; reliable low-risk Learning Deltas follow the automatic v0.3 policy instead"
+    );
     expectText(dashboard, "Counts stay in `Queue summary`, Pending Decisions, and `/api/dashboard.capture_inbox`");
     expectText(dashboard, "Capture Inbox visible approval copy, including `Manual approval`, `Queue summary`,");
     expectText(dashboard, "`Approval brief`, `Review context`, `Item review`, `Trace details`, `Approve Group`,");
     expectText(dashboard, "`Reject Group`, `Approve Memory`, and `Reject`, carries English and Chinese display");
     expectText(dashboard, "text so the Chinese dashboard does not leave the approval surface half-translated");
-    expectText(dashboard, "Group card faces use `Review N captures` plus `Approve or reject this group.` instead of rendering capture text on the first row");
-    expectText(dashboard, "a compact `Review signal` strip with human labels such as `Smoke/test marker` and `Duplicate capture text`");
+    expectText(
+      dashboard,
+      "Group card faces use `Review N captures` plus `Approve or reject this group.` instead of rendering capture text on the first row"
+    );
+    expectText(
+      dashboard,
+      "a compact `Review signal` strip with human labels such as `Smoke/test marker` and `Duplicate capture text`"
+    );
     expectText(dashboard, "does not add an automatic merge, archive, approve, or background execution path");
-    expectText(dashboard, "Group id, record ids, rules, and noise evidence stay behind a `Trace details` fold inside `Item review`");
-    expectText(dashboard, "`Item review` opens to the trace details and collapsed candidate rows instead of raw group internals");
+    expectText(
+      dashboard,
+      "Group id, record ids, rules, and noise evidence stay behind a `Trace details` fold inside `Item review`"
+    );
+    expectText(
+      dashboard,
+      "`Item review` opens to the trace details and collapsed candidate rows instead of raw group internals"
+    );
     expectText(dashboard, "Group cards and candidate detail rows start with a compact `Approval brief`");
     expectText(dashboard, "using the same `Change`, `Scope`, `Guard`, `Writes`, `Evidence`, and `Trace`");
     expectText(dashboard, "server rechecks active candidate records before writing");
     expectText(dashboard, "append-only approve/reject boundary visible, and points to");
-    expectText(dashboard, "Queue summary uses one guidance line: review groups first and open item details only when needed");
+    expectText(
+      dashboard,
+      "Queue summary uses one guidance line: review groups first and open item details only when needed"
+    );
     expectText(dashboard, "visible first-screen copy refers to the remote as the `Shared copy`");
     expectText(dashboard, "Sync-only pending warnings do not open the visible `Needs a look` review path");
-    expectText(dashboard, "When sync is the only active warning, Work Lanes are skipped in the visible HTML so the Overview action lands directly on the promoted Shared copy details current-task section");
+    expectText(
+      dashboard,
+      "When sync is the only active warning, Work Lanes are skipped in the visible HTML so the Overview action lands directly on the promoted Shared copy details current-task section"
+    );
     expectText(dashboard, "The same sync route remains in `/api/dashboard.action_board.items_by_id.sync`");
-    expectText(dashboard, "If sync is the only warning signal, the Sync shortcut owns `Inspect sync` and the Review shortcut stays quiet with `Open checks`");
-    expectText(dashboard, "When there are no warning or critical signals, the quiet review shortcut also reads `Open checks` instead of `Review what changed`");
+    expectText(
+      dashboard,
+      "If sync is the only warning signal, the Sync shortcut owns `Inspect sync` and the Review shortcut stays quiet with `Open checks`"
+    );
+    expectText(
+      dashboard,
+      "When there are no warning or critical signals, the quiet review shortcut also reads `Open checks` instead of `Review what changed`"
+    );
     expectText(dashboard, "The visible panel is a route summary grouped by owning confirmation surface");
     expectText(dashboard, "show how many explicit approvals are waiting there, provide one navigation button");
     expectText(dashboard, "`Append-only, guarded in owning surface`");
@@ -573,34 +909,79 @@ describe("documentation contracts", () => {
     expectText(dashboard, "write labels, active guard labels, full safety notes");
     expectText(dashboard, "The JSON contract keeps those per-decision audit fields in `items[]`");
     expectText(dashboard, "The collapsed `Page Shortcuts` summary still stays count-free");
-    expectText(dashboard, "the non-zero sync count remains visible on the expanded shortcut card and in `/api/dashboard.action_board`");
-    expectText(dashboard, "When exactly one active shortcut exists, such as sync-only pending work, the visible HTML skips `Page Shortcuts` and `data-action-board-nav`");
-    expectText(dashboard, "`/api/dashboard.action_board` still keeps the complete shortcut list for agents and audit tooling");
-    expectText(dashboard, "All-clear Overview states skip the visible `Background Shortcuts` strip and `data-dashboard-background-shortcuts` route entirely");
-    expectText(dashboard, "the first screen moves from `Other paths` to compact `More details` without another generic navigation fold");
-    expectText(dashboard, "`/api/dashboard.action_board` still keeps the complete shortcut list, including zero-state Review, Inspect, Confirm, and Sync entries");
-    expectText(dashboard, "When no active shortcut exists outside all-clear mode, read-only shortcut targets render under a single compact `Background Shortcuts` strip");
+    expectText(
+      dashboard,
+      "the non-zero sync count remains visible on the expanded shortcut card and in `/api/dashboard.action_board`"
+    );
+    expectText(
+      dashboard,
+      "When exactly one active shortcut exists, such as sync-only pending work, the visible HTML skips `Page Shortcuts` and `data-action-board-nav`"
+    );
+    expectText(
+      dashboard,
+      "`/api/dashboard.action_board` still keeps the complete shortcut list for agents and audit tooling"
+    );
+    expectText(
+      dashboard,
+      "All-clear Overview states skip the visible `Background Shortcuts` strip and `data-dashboard-background-shortcuts` route entirely"
+    );
+    expectText(
+      dashboard,
+      "the first screen moves from `Other paths` to compact `More details` without another generic navigation fold"
+    );
+    expectText(
+      dashboard,
+      "`/api/dashboard.action_board` still keeps the complete shortcut list, including zero-state Review, Inspect, Confirm, and Sync entries"
+    );
+    expectText(
+      dashboard,
+      "When no active shortcut exists outside all-clear mode, read-only shortcut targets render under a single compact `Background Shortcuts` strip"
+    );
     expectText(dashboard, "`data-dashboard-background-shortcuts`");
-    expectText(dashboard, "while keeping the stable `data-dashboard-detail=\"action-board\"` route");
+    expectText(dashboard, 'while keeping the stable `data-dashboard-detail="action-board"` route');
     expectText(dashboard, "Its list carries the `action-board-quiet-targets` route directly");
     expectText(dashboard, "without a nested `Page Shortcuts` -> `Quiet Shortcuts` directory");
     expectText(dashboard, "non-zero or non-good items stay in the main Action Board grid");
-    expectText(dashboard, "When any active shortcut is visible in `Page Shortcuts`, the HTML skips `Quiet Shortcuts` and `action-board-quiet-targets` entirely");
-    expectText(dashboard, "The same quiet shortcut items remain in `/api/dashboard.action_board.items` and `items_by_id`");
-    expectText(dashboard, "When `Pending Decisions` is already rendered, the visible HTML skips `Page Shortcuts` and the stable `data-dashboard-detail=\"action-board\"` route");
+    expectText(
+      dashboard,
+      "When any active shortcut is visible in `Page Shortcuts`, the HTML skips `Quiet Shortcuts` and `action-board-quiet-targets` entirely"
+    );
+    expectText(
+      dashboard,
+      "The same quiet shortcut items remain in `/api/dashboard.action_board.items` and `items_by_id`"
+    );
+    expectText(
+      dashboard,
+      'When `Pending Decisions` is already rendered, the visible HTML skips `Page Shortcuts` and the stable `data-dashboard-detail="action-board"` route'
+    );
     expectText(dashboard, "`/api/dashboard.action_board` still keeps every shortcut item for agents and audit tooling");
     expectText(dashboard, "When `items[].hint` repeats the visible next-action label");
     expectText(dashboard, "instead of rendering duplicate footer text");
     expectText(dashboard, "Read-only diagnostic detail lives in the collapsed evidence layer");
-    expectText(dashboard, "The visible full title is still `Reference Library`, while the stable route remains `data-dashboard-detail=\"evidence-library\"`");
+    expectText(
+      dashboard,
+      'The visible full title is still `Reference Library`, while the stable route remains `data-dashboard-detail="evidence-library"`'
+    );
     expectText(dashboard, "row reads `Reference checks`");
-    expectText(dashboard, "When it only contains safe read-only inspections, Governance Hub moves to the background Audit route");
+    expectText(
+      dashboard,
+      "When it only contains safe read-only inspections, Governance Hub moves to the background Audit route"
+    );
     expectText(dashboard, "instead of repeating a safe-check count");
     expectText(dashboard, "renders a single `Governance Index` card");
     expectText(dashboard, "`1 read-only check indexed`");
-    expectText(dashboard, "It does not render `Reference Checks`, `governance-safe-inspections`, per-inspection rows, or `Reference audit` in the visible safe-only HTML");
-    expectText(dashboard, "Full governance items, evidence paths, review logs, safe inspection commands, and report titles remain in `/api/dashboard.governance.items_by_id`");
-    expectText(dashboard, "When non-safe governance items are present, safe read-only checks can still appear as supporting `Safe Inspections` rows alongside the decision rows");
+    expectText(
+      dashboard,
+      "It does not render `Reference Checks`, `governance-safe-inspections`, per-inspection rows, or `Reference audit` in the visible safe-only HTML"
+    );
+    expectText(
+      dashboard,
+      "Full governance items, evidence paths, review logs, safe inspection commands, and report titles remain in `/api/dashboard.governance.items_by_id`"
+    );
+    expectText(
+      dashboard,
+      "When non-safe governance items are present, safe read-only checks can still appear as supporting `Safe Inspections` rows alongside the decision rows"
+    );
     expectText(dashboard, "mixed case, safe inspection rows stay short");
     expectText(dashboard, "evidence source are grouped once behind a `Reference audit` fold");
     expectText(dashboard, "rather than repeated user approval work");
@@ -618,7 +999,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The JSON contract keeps those per-decision audit fields in `items[]`");
     expectText(dashboard, "It counts human decision units, not raw approve/reject buttons");
     expectText(dashboard, "Actual writes remain inside Capture Inbox, Review Queue, and Candidate Triage controls");
-    expectText(dashboard, "After a dashboard approval or rejection succeeds, the browser renders one compact `Action receipt` in the global receipt anchor");
+    expectText(
+      dashboard,
+      "After a dashboard approval or rejection succeeds, the browser renders one compact `Action receipt` in the global receipt anchor"
+    );
     expectText(dashboard, "The clicked card keeps only a short saved-and-refreshing status");
     expectText(dashboard, "does not briefly duplicate the full receipt inside the queue item");
     expectText(dashboard, "The receipt is restored after dashboard fragment refreshes");
@@ -628,8 +1012,14 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Changed` uses record-oriented language such as `1 record updated`");
     expectText(dashboard, "`Trace` reads `Timeline ready` when event ids are returned");
     expectText(dashboard, "The underlying approval response carries the trace commands");
-    expectText(dashboard, "record actions and Candidate Triage promotion approvals return `trace.timeline_command` and `trace.recall_command`");
-    expectText(dashboard, "group and Review Queue approvals return `trace.timeline_commands[]` and `trace.recall_commands[]`");
+    expectText(
+      dashboard,
+      "record actions and Candidate Triage promotion approvals return `trace.timeline_command` and `trace.recall_command`"
+    );
+    expectText(
+      dashboard,
+      "group and Review Queue approvals return `trace.timeline_commands[]` and `trace.recall_commands[]`"
+    );
     expectText(dashboard, "read-only trace commands such as `moryn timeline --event-id <event_id>`");
     expectText(dashboard, "`moryn recall --record-id <record_id>` stay literal inside the collapsed");
     expectText(dashboard, "`Trace details` fold");
@@ -644,8 +1034,14 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("default_autocapture_policy");
     expect(dashboard).toContain("capture_inbox.autocapture_policy");
     expectText(dashboard, "Audit Trail no longer renders a full `Capture Policy Audit` panel");
-    expectText(dashboard, "The visible Capture Policy summary keeps only the manual-review and no-auto-canonical boundary visible");
-    expectText(dashboard, "policy ids, auto-captured examples, policy-archived examples, rule ids, and full counts stay in `/api/dashboard.capture_policy`");
+    expectText(
+      dashboard,
+      "The visible Capture Policy summary keeps only the manual-review and no-auto-canonical boundary visible"
+    );
+    expectText(
+      dashboard,
+      "policy ids, auto-captured examples, policy-archived examples, rule ids, and full counts stay in `/api/dashboard.capture_policy`"
+    );
     expectText(dashboard, "Candidate, auto-captured, and policy-archived counts stay in the accessible label");
     expect(dashboard).toContain("Context Pack Review");
     expect(dashboard).toContain("context_pack_review");
@@ -654,20 +1050,29 @@ describe("documentation contracts", () => {
     expectText(dashboard, "folded row reads `Ready handoff context`");
     expectText(dashboard, "instead of repeating the quality and evidence counts");
     expectText(dashboard, "instead of repeating the quality and evidence counts or readiness chips");
-    expectText(dashboard, "ready handoff brief says `Quality checks passed.` instead of repeating `6 passed | 0 review`");
+    expectText(
+      dashboard,
+      "ready handoff brief says `Quality checks passed.` instead of repeating `6 passed | 0 review`"
+    );
     expectText(dashboard, "Ready handoff context | no handoff evidence");
     expectText(dashboard, "Expanding it shows readiness chips");
     expectText(dashboard, "`Quality Checks` child row reads `All quality checks passed`");
     expectText(dashboard, "instead of repeating `passed | 0 review`");
     expectText(dashboard, "detailed check list still carries each check, source, and count");
-    expectText(dashboard, "Quality check coverage, context evidence counts, and required capture-action visibility remain visible in expanded readiness chips");
+    expectText(
+      dashboard,
+      "Quality check coverage, context evidence counts, and required capture-action visibility remain visible in expanded readiness chips"
+    );
     expectText(dashboard, "`Context Evidence` folded row reads `Handoff evidence available`");
     expectText(dashboard, "expanded readiness brief still shows concrete decision, thread, and risk counts");
     expect(dashboard).toContain("does not guess a project");
     expect(dashboard).toContain("does not render Approve, Apply, Promote, Archive, or Reject controls");
     expect(dashboard).toContain("moryn capture policy");
     expect(dashboard).toContain("capture_policy");
-    expectText(dashboard, "The visible HTML keeps a stable `capture_policy` chip with `data-dashboard-detail=\"capture-policy-audit\"`");
+    expectText(
+      dashboard,
+      'The visible HTML keeps a stable `capture_policy` chip with `data-dashboard-detail="capture-policy-audit"`'
+    );
     expectText(dashboard, "Governance Hub summarizes policy findings that need attention");
     expectText(dashboard, "Capture Inbox renders the only approval controls for active review candidates");
     expect(dashboard).toContain("Approve Memory");
@@ -727,7 +1132,10 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("plan_hash");
     expect(dashboard).toContain("decision card");
     expect(dashboard).toContain("short confirmation summary that reads `Approval required`");
-    expectText(dashboard, "Counts remain in Pending Decisions, the expanded decision card, and `/api/dashboard.maintenance.plans`");
+    expectText(
+      dashboard,
+      "Counts remain in Pending Decisions, the expanded decision card, and `/api/dashboard.maintenance.plans`"
+    );
     expectText(dashboard, "Review Queue plan cards open with an `Approval brief`");
     expectText(dashboard, "The brief uses `Change`, `Scope`, `Guard`, `Writes`, `Evidence`, and `Trace` rows");
     expectText(dashboard, "The brief says the server rechecks the plan hash before writing");
@@ -737,13 +1145,19 @@ describe("documentation contracts", () => {
     expectText(dashboard, "the title, the short approval brief, and explicit controls");
     expectText(dashboard, "It does not add separate safety badges beside the card title");
     expectText(dashboard, "`Guard` and `Writes` in the approval brief are the visible write-boundary explanation");
-    expectText(dashboard, "The raw `plan_hash`, equivalent CLI command, rollback path, and record ids stay inside `Decision details`");
+    expectText(
+      dashboard,
+      "The raw `plan_hash`, equivalent CLI command, rollback path, and record ids stay inside `Decision details`"
+    );
     expectText(dashboard, "The structured reasoning lives in that single fold");
     expect(dashboard).toContain("one expandable `Decision details` fold instead of several");
     expect(dashboard).toContain("folded summary reads `Context and evidence`");
     expect(dashboard).toContain("uses a compact `Approval context` block");
     expectText(dashboard, "`Why`, `Change`, `Guard`, and `Trace` rows");
-    expectText(dashboard, "why the plan exists, the user-facing change, the server-side guard, and where the audit details live");
+    expectText(
+      dashboard,
+      "why the plan exists, the user-facing change, the server-side guard, and where the audit details live"
+    );
     expectText(dashboard, "does not render a second `Confirm notes` or `Approval checklist` layer");
     expectText(dashboard, "approval surface reads like a decision card instead of internal logs");
     expect(dashboard).toContain("Evidence, rollback, and raw plan details stay inside a nested `Evidence trace`");
@@ -782,7 +1196,10 @@ describe("documentation contracts", () => {
     expect(readme).toContain("Low-risk handoffs are auto-captured");
     expect(workflow).toContain("npm run smoke:dogfood-demo");
     expect(workflow).toContain("dashboard snapshot checks");
-    expectText(workflow, "setup applied -> context pack ready -> low-risk handoff auto-captured -> review handoff routed to Capture Inbox -> dashboard snapshot generated");
+    expectText(
+      workflow,
+      "setup applied -> context pack ready -> low-risk handoff auto-captured -> review handoff routed to Capture Inbox -> dashboard snapshot generated"
+    );
     expect(readme).toContain("Handoff Pack v0.2");
     expect(readme).toContain("recent decisions");
     expect(workflow).toContain("handoff_pack");
@@ -801,13 +1218,22 @@ describe("documentation contracts", () => {
     expectText(workflow, "Codex hooks are merged automatically with Moryn-owned entries");
     expectText(workflow, "use `/hooks` once to review and trust the project hooks");
     expectText(workflow, "Codex `Stop` is turn-scoped, so Moryn records it as a status rather than a final handoff");
-    expectText(workflow, "After the active-session window expires, the latest status without a newer final summary is recovered into the next agent's handoff inbox");
-    expectText(workflow, "When a turn has no durable checkpoint or authored summary, Moryn records the activation receipt but skips the empty status write");
+    expectText(
+      workflow,
+      "After the active-session window expires, the latest status without a newer final summary is recovered into the next agent's handoff inbox"
+    );
+    expectText(
+      workflow,
+      "When a turn has no durable checkpoint or authored summary, Moryn records the activation receipt but skips the empty status write"
+    );
     expectText(workflow, "High-frequency Codex Stop receipts are coalesced to one receipt per session and UTC hour");
     expect(installPrompt).toContain("`.codex/hooks.json`");
     expectText(installPrompt, "use `/hooks` once to review and trust the project hooks");
     expect(roadmap).toContain("default_autocapture_policy");
-    expectText(readme, "Reliable low-risk project learnings may become canonical automatically under the documented state policy");
+    expectText(
+      readme,
+      "Reliable low-risk project learnings may become canonical automatically under the documented state policy"
+    );
     expect(design).toContain("Host Adapter / Autocapture Layer");
     expect(roadmap).toContain("Host adapter registry and autocapture");
   });
@@ -850,22 +1276,36 @@ describe("documentation contracts", () => {
     }
     expect(readme).toContain("moryn setup --host codex --project .");
     expect(readme).toContain("moryn setup --host codex --project . --apply");
-    expectText(readme, "Run setup once without `--apply` first; it prints checks and planned local writes without changing files.");
+    expectText(
+      readme,
+      "Run setup once without `--apply` first; it prints checks and planned local writes without changing files."
+    );
     expectText(readme, "Apply only after the dry-run looks right.");
-    expect(installPrompt).toContain("Run `moryn setup --project . --host \"<host client name>\"`.");
-    expect(installPrompt).toContain("Then run `moryn setup --project . --host \"<host client name>\" --apply` only after the dry-run looks right.");
+    expect(installPrompt).toContain('Run `moryn setup --project . --host "<host client name>"`.');
+    expect(installPrompt).toContain(
+      'Then run `moryn setup --project . --host "<host client name>" --apply` only after the dry-run looks right.'
+    );
     expect(workflow).toContain("moryn setup --host codex --project .");
     expect(workflow).toContain("moryn setup --host codex --project . --apply");
-    expectText(workflow, "Run setup once without `--apply` first so the agent or user can inspect checks and planned local writes before any file changes.");
+    expectText(
+      workflow,
+      "Run setup once without `--apply` first so the agent or user can inspect checks and planned local writes before any file changes."
+    );
     expect(contracts).toContain("moryn contracts operations --operation setup");
     expect(contracts).toContain('"tool": "setup"');
     expect(contracts).toContain("SETUP_WIZARD_SELECTION_SOURCES");
     expect(contracts).toContain("checks_by_id.<check>");
     expect(contracts).toContain("planned_writes_by_id.<planned_write>");
-    expectText(contracts, "Planned writes include the local path, action id, action source, reason, and `requires_apply: true`");
+    expectText(
+      contracts,
+      "Planned writes include the local path, action id, action source, reason, and `requires_apply: true`"
+    );
     expectText(readme, "planned local writes with exact paths");
     expectText(workflow, "`planned_writes_by_id` with exact local paths");
-    expectText(workflow, "Package smoke also installs the packed artifact with `--omit=dev` and runs the installed `moryn setup`, `moryn health check`, and `moryn context pack` commands");
+    expectText(
+      workflow,
+      "Package smoke also installs the packed artifact with `--omit=dev` and runs the installed `moryn setup`, `moryn health check`, and `moryn context pack` commands"
+    );
     expect(contracts).toContain("apply_result");
     expect(contracts).toContain("host_config_writes");
     expect(roadmap).toContain("Setup wizard / one-command local setup");
@@ -889,7 +1329,10 @@ describe("documentation contracts", () => {
     }
 
     expect(roadmap).toContain("Default path");
-    expectText(roadmap, "installed Codex or Claude Code Autopilot -> enter / prompt recall / checkpoint / compact-resume / finish");
+    expectText(
+      roadmap,
+      "installed Codex or Claude Code Autopilot -> enter / prompt recall / checkpoint / compact-resume / finish"
+    );
     expectText(roadmap, "Compatibility path moryn setup / context pack / capture session");
     expect(roadmap).not.toContain("Default path\n  moryn setup / context pack / capture / recall");
     expect(roadmap).not.toContain("v0.2-phase-plan.md");
@@ -905,9 +1348,15 @@ describe("documentation contracts", () => {
     expect(roadmap).toContain("Unreleased v0.3 Context Autopilot");
     expect(roadmap).toContain("enter -> recall/recover -> work -> checkpoint -> compact/resume -> finish");
     expect(roadmap).toContain("v0.2.0 Compatibility Baseline");
-    expect(roadmap.indexOf("Unreleased v0.3 Context Autopilot")).toBeLessThan(roadmap.indexOf("v0.2.0 Compatibility Baseline"));
-    expect(roadmap).not.toContain("The release narrative is:\n\n```text\nsetup -> context pack -> capture -> dashboard review -> approve -> sync");
-    expect(roadmap).toContain("No canonical writes without deterministic scope, confidence, conflict, safety, and provenance validation");
+    expect(roadmap.indexOf("Unreleased v0.3 Context Autopilot")).toBeLessThan(
+      roadmap.indexOf("v0.2.0 Compatibility Baseline")
+    );
+    expect(roadmap).not.toContain(
+      "The release narrative is:\n\n```text\nsetup -> context pack -> capture -> dashboard review -> approve -> sync"
+    );
+    expect(roadmap).toContain(
+      "No canonical writes without deterministic scope, confidence, conflict, safety, and provenance validation"
+    );
     expect(roadmap).not.toContain("No silent canonical writes");
     expect(roadmap).toContain("Dashboard first screen answers whether the user needs to act");
     expect(roadmap).toContain("Default copy is English with a Chinese language switch");
@@ -915,18 +1364,27 @@ describe("documentation contracts", () => {
     expect(roadmap).toContain("npm run smoke:dogfood-demo");
     expect(roadmap).toContain("npm run release:check");
     expect(roadmap).toContain("Do not start this phase until");
-    expectText(roadmap, "Blocked setup and health checks return executable next actions, not prose-only troubleshooting");
+    expectText(
+      roadmap,
+      "Blocked setup and health checks return executable next actions, not prose-only troubleshooting"
+    );
     expectText(roadmap, "Recall quality can be measured read-only");
     expectText(roadmap, "write failing focused test");
     expectText(roadmap, "record durable progress in moryn-store");
-    expectText(roadmap, "Public docs keep the product truth in README.md, docs/moryn-design.md, docs/agent-workflow.md, docs/dashboard.md, and docs/contracts.md");
+    expectText(
+      roadmap,
+      "Public docs keep the product truth in README.md, docs/moryn-design.md, docs/agent-workflow.md, docs/dashboard.md, and docs/contracts.md"
+    );
     expectText(roadmap, "Temporary development plans are not part of the public package");
     expect(roadmap).toContain("npm run smoke:agent-lifecycle");
     expect(roadmap).toContain("npm run smoke:host-runtime-binding");
     expect(roadmap).toContain("npm run smoke:transcript-compact-safety");
     expect(roadmap).toContain("npm run smoke:official-host-handoff");
     expectText(roadmap, "Compact safety reads only a bounded tail of host-authored public transcript messages");
-    expectText(development, "Transcript compact safety smoke executes generated Codex and Claude PreCompact and PostCompact hooks");
+    expectText(
+      development,
+      "Transcript compact safety smoke executes generated Codex and Claude PreCompact and PostCompact hooks"
+    );
     expectText(development, "Official host handoff smoke executes the generated Codex and Claude shell commands");
     expectText(development, "second-device Codex SessionStart");
     expectText(roadmap, "Official host hooks bind to the Moryn runtime that activated them");
@@ -957,9 +1415,9 @@ describe("documentation contracts", () => {
 
     expect(readme).toContain("Published package: v0.2.0");
     expect(readme).toContain("v0.3 Context Autopilot lifecycle");
-    expect(readme).toContain("DashboardReview[\"Exceptional attention only");
-    expect(readme).toContain("MemorySearch[\"Find what Moryn saved");
-    expect(readme).toContain("SharedCopy[\"Shared copy");
+    expect(readme).toContain('DashboardReview["Exceptional attention only');
+    expect(readme).toContain('MemorySearch["Find what Moryn saved');
+    expect(readme).toContain('SharedCopy["Shared copy');
     expect(readme).toContain("DashboardReview --> Approve");
     expect(readme).toContain("Views -. monitor .-> Dashboard");
     expect(readme).toContain("[Changelog](CHANGELOG.md)");
@@ -985,7 +1443,10 @@ describe("documentation contracts", () => {
     }
 
     expectText(dashboard, "Hidden expected records show as read-only Recall Eval evidence by id and reason");
-    expectText(dashboard, "hidden record text stays out of the visible dashboard unless the user explicitly requests private or hidden content");
+    expectText(
+      dashboard,
+      "hidden record text stays out of the visible dashboard unless the user explicitly requests private or hidden content"
+    );
     expectText(dashboard, "action `inspect_hidden_expected_records` remains a safe inspection action");
     expectText(dashboard, "Recall Eval does not add a dashboard approval endpoint");
   });
@@ -1033,9 +1494,18 @@ describe("documentation contracts", () => {
     expect(contracts).toContain("dogfood_report.findings_by_id.<finding_id>");
     expect(contracts).toContain("dogfood_report.suggested_actions_by_id.<action_id>");
     expectText(contracts, "Dogfood Review");
-    expectText(contracts, "Capture review backlog uses the same review-required policy boundary as Capture Inbox and Health Check");
-    expectText(dashboard, "Dogfood capture review backlog uses the same review-required policy boundary as Capture Inbox and Health Check");
-    expectText(contracts, "Older autocapture review metadata is rechecked against the current autocapture policy before it creates active review work");
+    expectText(
+      contracts,
+      "Capture review backlog uses the same review-required policy boundary as Capture Inbox and Health Check"
+    );
+    expectText(
+      dashboard,
+      "Dogfood capture review backlog uses the same review-required policy boundary as Capture Inbox and Health Check"
+    );
+    expectText(
+      contracts,
+      "Older autocapture review metadata is rechecked against the current autocapture policy before it creates active review work"
+    );
     expectText(contracts, "explicit durable decisions and preferences still require review");
     expect(contracts).toContain("Issue brief");
     expectText(contracts, "does not add dashboard API write endpoints");
@@ -1063,25 +1533,52 @@ describe("documentation contracts", () => {
     expect(contracts).toContain("health_check.checks_by_id.<check_id>");
     expect(contracts).toContain("health_check.suggested_actions_by_id.<action_id>");
     expectText(contracts, "`moryn health check --host codex --sync-remote <remote>` keeps setup review read-only");
-    expectText(contracts, "`health_check.setup_readiness` records the selected host adapter, dashboard command, install command, context pack command, capture command, and optional sync remote");
+    expectText(
+      contracts,
+      "`health_check.setup_readiness` records the selected host adapter, dashboard command, install command, context pack command, capture command, and optional sync remote"
+    );
     expect(dashboard).toContain("Moryn Health Check");
     expect(dashboard).toContain("health_check");
     expectText(dashboard, "plain-language summary such as `Healthy local store` or `needs attention | 1 warning`");
     expectText(dashboard, "Zero-count buckets are omitted from the folded row");
-    expectText(dashboard, "/api/dashboard.health_check.summary` still includes the complete warning and failing counts");
-    expectText(dashboard, "`health_check.setup_readiness` summarizes the selected host adapter, dashboard command, install plan command, context pack command, capture command, and optional sync remote");
-    expectText(dashboard, "Readiness suggestions such as `open_dashboard`, `review_install_plan`, and `run_context_pack` are safe-to-run inspection or startup commands");
+    expectText(
+      dashboard,
+      "/api/dashboard.health_check.summary` still includes the complete warning and failing counts"
+    );
+    expectText(
+      dashboard,
+      "`health_check.setup_readiness` summarizes the selected host adapter, dashboard command, install plan command, context pack command, capture command, and optional sync remote"
+    );
+    expectText(
+      dashboard,
+      "Readiness suggestions such as `open_dashboard`, `review_install_plan`, and `run_context_pack` are safe-to-run inspection or startup commands"
+    );
     expectText(dashboard, "The folded Health Check brief shows only status plus safe and needs-input counts");
-    expectText(dashboard, "The expanded Health Check starts with an `Install Trust` summary before `Readiness Actions`");
-    expectText(dashboard, "`Install Trust` reports whether the setup path is safe to inspect, how many safe checks are available, how many manual inputs remain, and that the dashboard does not write host configuration");
+    expectText(
+      dashboard,
+      "The expanded Health Check starts with an `Install Trust` summary before `Readiness Actions`"
+    );
+    expectText(
+      dashboard,
+      "`Install Trust` reports whether the setup path is safe to inspect, how many safe checks are available, how many manual inputs remain, and that the dashboard does not write host configuration"
+    );
     expectText(dashboard, "Readiness commands remain outside the `Install Trust` summary");
-    expectText(dashboard, "The visible readiness row is labeled `Setup Commands` while keeping the stable `health-check-readiness-actions` route");
-    expectText(dashboard, "Its folded summary uses `safe checks` and `manual input` instead of the shorter internal `safe` and `need input` counters");
+    expectText(
+      dashboard,
+      "The visible readiness row is labeled `Setup Commands` while keeping the stable `health-check-readiness-actions` route"
+    );
+    expectText(
+      dashboard,
+      "Its folded summary uses `safe checks` and `manual input` instead of the shorter internal `safe` and `need input` counters"
+    );
     expectText(dashboard, "Its groups read `Safe checks` and `Manual input`");
     expectText(dashboard, "Safe-check commands stay in `/api/dashboard.health_check.suggested_actions[]`");
     expectText(dashboard, "manual-input actions keep a `CLI command` fold");
     expectText(dashboard, "Full check rows stay inside the nested `Check Details` fold");
-    expectText(dashboard, "`Check Details` summarizes pass, info, warning, and failed counts before listing individual checks");
+    expectText(
+      dashboard,
+      "`Check Details` summarizes pass, info, warning, and failed counts before listing individual checks"
+    );
     expectText(dashboard, "All visible Health Check labels and summaries in the HTML carry language attributes");
     expectText(dashboard, "`Moryn Health Check`, `Install");
     expectText(dashboard, "Trust`, `Setup Commands`, `Safe checks`, `Manual input`, `CLI command`, and");
@@ -1095,24 +1592,48 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Safe-check rows stay readable before they read as command transcripts");
     expectText(dashboard, "commands remain available in `/api/dashboard.health_check.suggested_actions[]`");
     expectText(dashboard, "`capture_session` stays explicit because it needs the user-authored session summary");
-    expectText(dashboard, "Capture Inbox backlog only counts candidates whose capture policy requires explicit review or user action");
-    expectText(dashboard, "Older autocapture review metadata is rechecked against the current autocapture policy before it appears as active Capture Inbox, Health Check, or Dogfood review work");
+    expectText(
+      dashboard,
+      "Capture Inbox backlog only counts candidates whose capture policy requires explicit review or user action"
+    );
+    expectText(
+      dashboard,
+      "Older autocapture review metadata is rechecked against the current autocapture policy before it appears as active Capture Inbox, Health Check, or Dogfood review work"
+    );
     expectText(dashboard, "explicit durable decisions and preferences still require review");
-    expectText(dashboard, "When there are no active Capture Inbox candidates, the main `Capture Inbox` panel is not rendered");
-    expectText(dashboard, "auto-captured and policy-archived handoff evidence stays in `/api/dashboard.capture_policy` and the stable `capture_policy` Audit Trail");
+    expectText(
+      dashboard,
+      "When there are no active Capture Inbox candidates, the main `Capture Inbox` panel is not rendered"
+    );
+    expectText(
+      dashboard,
+      "auto-captured and policy-archived handoff evidence stays in `/api/dashboard.capture_policy` and the stable `capture_policy` Audit Trail"
+    );
     expectText(dashboard, "it does not render a second visible policy history panel");
     expectText(dashboard, "`MCP runtime freshness` is an informational check");
-    expectText(dashboard, "restart the MCP host when MCP tool output disagrees with the CLI or dashboard after an upgrade, rebuild, or local link change");
+    expectText(
+      dashboard,
+      "restart the MCP host when MCP tool output disagrees with the CLI or dashboard after an upgrade, rebuild, or local link change"
+    );
     expectText(dashboard, "The HTML check list translates that raw runtime check into user-facing copy");
     expectText(dashboard, "`MCP runtime freshness` renders as `Connection may need restart` / `连接可能需要重启`");
     expectText(dashboard, "long-running app connections load Moryn when they");
     expectText(dashboard, "restart the connected app after an");
     expectText(dashboard, "The raw `checks_by_id.mcp_runtime` label, summary, and reason stay on the");
     expectText(dashboard, "`data-health-check-raw-*` attributes and in `/api/dashboard`");
-    expectText(contracts, "The capture review backlog is scoped to candidates whose capture policy requires explicit review or user action");
-    expectText(contracts, "Older autocapture review metadata is rechecked against the current autocapture policy before it becomes a Health Check warning");
+    expectText(
+      contracts,
+      "The capture review backlog is scoped to candidates whose capture policy requires explicit review or user action"
+    );
+    expectText(
+      contracts,
+      "Older autocapture review metadata is rechecked against the current autocapture policy before it becomes a Health Check warning"
+    );
     expectText(contracts, "`health_check.checks_by_id.mcp_runtime` is informational");
-    expectText(workflow, "restart the MCP host when MCP tool output disagrees with the CLI or dashboard after upgrading, rebuilding, or linking a local checkout");
+    expectText(
+      workflow,
+      "restart the MCP host when MCP tool output disagrees with the CLI or dashboard after upgrading, rebuilding, or linking a local checkout"
+    );
     expect(roadmap).toContain("health check");
   });
 
@@ -1168,28 +1689,54 @@ describe("documentation contracts", () => {
     expect(design).toContain(`"tool": "${nextAction("SYNC_CONFLICT")?.tool}"`);
     expect(design).toContain(`"recommended_action": "${nextAction("INDEX_STALE")?.recommended_action}"`);
     expect(design).toContain(`"tool": "${nextAction("INDEX_STALE")?.tool}"`);
-    expect(design).toContain(`"recommended_action": "${nextAction("INVALID_RECORD", "Invalid replay target for event evt_missing_revision: Record not found: rec_missing")?.recommended_action}"`);
-    expect(design).toContain(`"tool": "${nextAction("INVALID_RECORD", "Invalid replay target for event evt_missing_revision: Record not found: rec_missing")?.tool}"`);
+    expect(design).toContain(
+      `"recommended_action": "${nextAction("INVALID_RECORD", "Invalid replay target for event evt_missing_revision: Record not found: rec_missing")?.recommended_action}"`
+    );
+    expect(design).toContain(
+      `"tool": "${nextAction("INVALID_RECORD", "Invalid replay target for event evt_missing_revision: Record not found: rec_missing")?.tool}"`
+    );
     expect(design).toContain(`"recommended_action": "${nextAction("SYNC_NOT_CONFIGURED")?.recommended_action}"`);
     expect(design).toContain(`"tool": "${nextAction("SYNC_NOT_CONFIGURED")?.tool}"`);
-    expect(design).toContain(`"recommended_action": "${nextAction("RECORD_NOT_FOUND", "Record not found: rec_missing")?.recommended_action}"`);
+    expect(design).toContain(
+      `"recommended_action": "${nextAction("RECORD_NOT_FOUND", "Record not found: rec_missing")?.recommended_action}"`
+    );
     expect(design).toContain(`"tool": "${nextAction("RECORD_NOT_FOUND", "Record not found: rec_missing")?.tool}"`);
-    expect(design).toContain(`"recommended_action": "${nextAction("INVALID_ARGUMENT", "Invalid argument: project_id is required for project scope")?.recommended_action}"`);
-    expect(design).toContain(`"tool": "${nextAction("INVALID_ARGUMENT", "Invalid argument: project_id is required for project scope")?.tool}"`);
-    expect(design).toContain(`"recommended_action": "${nextAction("PROJECT_ID_CONFLICT", "Project id conflict: project_path resolves to moryn, but project_id was other. Use the .moryn.json project_id or update the project config.")?.recommended_action}"`);
-    expect(design).toContain(`"tool": "${nextAction("PROJECT_ID_CONFLICT", "Project id conflict: project_path resolves to moryn, but project_id was other. Use the .moryn.json project_id or update the project config.")?.tool}"`);
+    expect(design).toContain(
+      `"recommended_action": "${nextAction("INVALID_ARGUMENT", "Invalid argument: project_id is required for project scope")?.recommended_action}"`
+    );
+    expect(design).toContain(
+      `"tool": "${nextAction("INVALID_ARGUMENT", "Invalid argument: project_id is required for project scope")?.tool}"`
+    );
+    expect(design).toContain(
+      `"recommended_action": "${nextAction("PROJECT_ID_CONFLICT", "Project id conflict: project_path resolves to moryn, but project_id was other. Use the .moryn.json project_id or update the project config.")?.recommended_action}"`
+    );
+    expect(design).toContain(
+      `"tool": "${nextAction("PROJECT_ID_CONFLICT", "Project id conflict: project_path resolves to moryn, but project_id was other. Use the .moryn.json project_id or update the project config.")?.tool}"`
+    );
     expect(design).toContain(`"recommended_action": "${nextAction("STORE_NOT_INITIALIZED")?.recommended_action}"`);
     expect(design).toContain(`"tool": "${nextAction("STORE_NOT_INITIALIZED")?.tool}"`);
     expect(design).toContain(`"recommended_action": "${recommendedAction("INVALID_STORE_CONFIG")}"`);
-    expect(design).toContain(`"recommended_action": "${nextAction("INVALID_STORE_CONFIG", "Invalid store config: /home/user/.moryn/config.json: Unexpected end of JSON input")?.recommended_action}"`);
-    expect(design).toContain(`"tool": "${nextAction("INVALID_STORE_CONFIG", "Invalid store config: /home/user/.moryn/config.json: Unexpected end of JSON input")?.tool}"`);
-    expect(design).toContain(`"recommended_action": "${nextAction("INVALID_PROJECT_CONFIG", "Invalid project config: /workspace/moryn/.moryn.json: project_id must be non-empty")?.recommended_action}"`);
-    expect(design).toContain(`"tool": "${nextAction("INVALID_PROJECT_CONFIG", "Invalid project config: /workspace/moryn/.moryn.json: project_id must be non-empty")?.tool}"`);
-    const confirmationAction = nextAction("CONFIRMATION_REQUIRED", "Confirmation required: canonical state requires explicit user confirmation", {
-      tool: "promote",
-      command: "moryn promote rec_123 --state canonical",
-      arguments: { record_id: "rec_123", target_state: "canonical" }
-    });
+    expect(design).toContain(
+      `"recommended_action": "${nextAction("INVALID_STORE_CONFIG", "Invalid store config: /home/user/.moryn/config.json: Unexpected end of JSON input")?.recommended_action}"`
+    );
+    expect(design).toContain(
+      `"tool": "${nextAction("INVALID_STORE_CONFIG", "Invalid store config: /home/user/.moryn/config.json: Unexpected end of JSON input")?.tool}"`
+    );
+    expect(design).toContain(
+      `"recommended_action": "${nextAction("INVALID_PROJECT_CONFIG", "Invalid project config: /workspace/moryn/.moryn.json: project_id must be non-empty")?.recommended_action}"`
+    );
+    expect(design).toContain(
+      `"tool": "${nextAction("INVALID_PROJECT_CONFIG", "Invalid project config: /workspace/moryn/.moryn.json: project_id must be non-empty")?.tool}"`
+    );
+    const confirmationAction = nextAction(
+      "CONFIRMATION_REQUIRED",
+      "Confirmation required: canonical state requires explicit user confirmation",
+      {
+        tool: "promote",
+        command: "moryn promote rec_123 --state canonical",
+        arguments: { record_id: "rec_123", target_state: "canonical" }
+      }
+    );
     expect(design).toContain(`"recommended_action": "${confirmationAction?.recommended_action}"`);
     expect(design).toContain(`"tool": "${confirmationAction?.tool}"`);
     expect(design).toContain(`"recommended_action": "${nextAction("PROJECT_CONTEXT_REQUIRED")?.recommended_action}"`);

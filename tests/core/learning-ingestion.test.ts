@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { learningRecordIdentity, normalizeLearningRecord } from "../../src/core/learning-ingestion.js";
 import type { LearningDelta } from "../../src/core/context-delta.js";
+import { learningRecordIdentity, normalizeLearningRecord } from "../../src/core/learning-ingestion.js";
 
 const learning: LearningDelta = {
   question: "When does Moryn pull?",
@@ -20,17 +20,29 @@ describe("learning ingestion identity", () => {
     expect(first).toEqual(second);
     expect(first.record_id).toMatch(/^rec_learning_/);
     expect(first.event_id).toMatch(/^evt_learning_/);
-    expect(learningRecordIdentity({ project_id: "moryn", learning: { ...learning, question: "What happens at agent startup?" } })).toEqual(first);
-    expect(learningRecordIdentity({ project_id: "moryn", learning: { ...learning, evidence_type: "documentation", confidence: 0.95 } })).toEqual(first);
+    expect(
+      learningRecordIdentity({
+        project_id: "moryn",
+        learning: { ...learning, question: "What happens at agent startup?" }
+      })
+    ).toEqual(first);
+    expect(
+      learningRecordIdentity({
+        project_id: "moryn",
+        learning: { ...learning, evidence_type: "documentation", confidence: 0.95 }
+      })
+    ).toEqual(first);
   });
 
   it("normalizes learning into an auditable policy-controlled record", () => {
-    expect(normalizeLearningRecord({
-      project_id: "moryn",
-      learning,
-      source: { client: "codex", session_id: "session-a", device_id: "device-a" },
-      occurred_at: "2026-07-11T00:00:00.000Z"
-    })).toMatchObject({
+    expect(
+      normalizeLearningRecord({
+        project_id: "moryn",
+        learning,
+        source: { client: "codex", session_id: "session-a", device_id: "device-a" },
+        occurred_at: "2026-07-11T00:00:00.000Z"
+      })
+    ).toMatchObject({
       kind: "memory",
       type: "fact",
       scope: "project",

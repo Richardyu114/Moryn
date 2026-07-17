@@ -6,15 +6,8 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": [
-      "src/**/*.ts",
-      "scripts/**/*.ts",
-      "tests/**/*.ts",
-      "*.json"
-    ],
-    "experimentalScannerIgnores": [
-      "src/observability/dashboard-fonts.ts"
-    ]
+    "includes": ["src/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts", "*.json"],
+    "experimentalScannerIgnores": ["src/observability/dashboard-fonts.ts"]
   },
   "formatter": {
     "enabled": true,

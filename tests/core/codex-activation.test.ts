@@ -5,17 +5,24 @@ import { activateCodexHooks, mergeCodexHooks } from "../../src/core/codex-activa
 import { buildHostIntegrationArtifact } from "../../src/core/host-integration-artifacts.js";
 import { withTempStore } from "../helpers/temp-store.js";
 
-const artifact = buildHostIntegrationArtifact({ host: "codex", project_id: "moryn", project_path: "/repo", store_path: "/store" });
+const artifact = buildHostIntegrationArtifact({
+  host: "codex",
+  project_id: "moryn",
+  project_path: "/repo",
+  store_path: "/store"
+});
 
 describe("Codex hook activation", () => {
   it("preserves unrelated hooks and replaces only Moryn-owned entries", () => {
-    const current = { hooks: {
-      SessionStart: [
-        { hooks: [{ type: "command", command: "echo user" }] },
-        { hooks: [{ type: "command", command: "moryn old --activation-id moryn-v03-moryn-codex" }] }
-      ],
-      UserPromptSubmit: [{ hooks: [{ type: "command", command: "echo prompt" }] }]
-    } };
+    const current = {
+      hooks: {
+        SessionStart: [
+          { hooks: [{ type: "command", command: "echo user" }] },
+          { hooks: [{ type: "command", command: "moryn old --activation-id moryn-v03-moryn-codex" }] }
+        ],
+        UserPromptSubmit: [{ hooks: [{ type: "command", command: "echo prompt" }] }]
+      }
+    };
     const result = mergeCodexHooks(current, artifact);
     expect(result.owned_entries_removed).toBe(1);
     expect(result.settings.hooks.SessionStart).toHaveLength(2);
@@ -54,7 +61,9 @@ describe("Codex hook activation", () => {
       const target = join(projectPath, ".codex", "hooks.json");
       await mkdir(join(projectPath, ".codex"), { recursive: true });
       await writeFile(target, '{"hooks":', "utf8");
-      await expect(activateCodexHooks({ project_path: projectPath, artifact })).rejects.toThrow(/Invalid Codex hooks JSON/);
+      await expect(activateCodexHooks({ project_path: projectPath, artifact })).rejects.toThrow(
+        /Invalid Codex hooks JSON/
+      );
       expect(await readFile(target, "utf8")).toBe('{"hooks":');
     });
   });

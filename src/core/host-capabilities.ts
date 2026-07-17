@@ -1,6 +1,12 @@
-import { normalizeHostId, type HostAdapterId } from "./host-adapter-registry.js";
+import { type HostAdapterId, normalizeHostId } from "./host-adapter-registry.js";
 
-export type HostLifecycleEvent = "session_start" | "user_prompt_submit" | "pre_compact" | "post_compact" | "stop" | "session_end";
+export type HostLifecycleEvent =
+  | "session_start"
+  | "user_prompt_submit"
+  | "pre_compact"
+  | "post_compact"
+  | "stop"
+  | "session_end";
 
 export interface HostCapabilities {
   host: HostAdapterId;
@@ -39,10 +45,34 @@ const NONE: Record<HostLifecycleEvent, boolean> = {
 export function getHostCapabilities(host: string): HostCapabilities {
   const normalized = normalizeHostId(host) ?? "shell";
   if (normalized === "codex") {
-    return { host: normalized, hook_transport: "command", context_injection: "hook_output", events: { ...NONE, session_start: true, user_prompt_submit: true, pre_compact: true, post_compact: true, stop: true } };
+    return {
+      host: normalized,
+      hook_transport: "command",
+      context_injection: "hook_output",
+      events: {
+        ...NONE,
+        session_start: true,
+        user_prompt_submit: true,
+        pre_compact: true,
+        post_compact: true,
+        stop: true
+      }
+    };
   }
   if (normalized === "claude") {
-    return { host: normalized, hook_transport: "command", context_injection: "hook_output", events: { session_start: true, user_prompt_submit: true, pre_compact: true, post_compact: true, stop: true, session_end: true } };
+    return {
+      host: normalized,
+      hook_transport: "command",
+      context_injection: "hook_output",
+      events: {
+        session_start: true,
+        user_prompt_submit: true,
+        pre_compact: true,
+        post_compact: true,
+        stop: true,
+        session_end: true
+      }
+    };
   }
   return { host: normalized, hook_transport: "none", context_injection: "none", events: { ...NONE } };
 }
@@ -52,8 +82,16 @@ export function negotiateHostLifecycle(host: string, requestedEvents: HostLifecy
   return {
     host: capabilities.host,
     capabilities,
-    events_by_name: Object.fromEntries(requestedEvents.map((event) => [event, capabilities.events[event]
-      ? { mode: "native" as const, hook_event: HOOK_EVENT_NAMES[event] }
-      : { mode: "fallback" as const, command: FALLBACK_COMMANDS[event], reason: "host_hook_unavailable" as const }])) as Record<HostLifecycleEvent, { mode: "native"; hook_event: string } | { mode: "fallback"; command: string; reason: "host_hook_unavailable" }>
+    events_by_name: Object.fromEntries(
+      requestedEvents.map((event) => [
+        event,
+        capabilities.events[event]
+          ? { mode: "native" as const, hook_event: HOOK_EVENT_NAMES[event] }
+          : { mode: "fallback" as const, command: FALLBACK_COMMANDS[event], reason: "host_hook_unavailable" as const }
+      ])
+    ) as Record<
+      HostLifecycleEvent,
+      { mode: "native"; hook_event: string } | { mode: "fallback"; command: string; reason: "host_hook_unavailable" }
+    >
   };
 }

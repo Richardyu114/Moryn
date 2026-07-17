@@ -1,5 +1,5 @@
-import type { MorynEvent, MorynRecord, RecordState } from "./types.js";
 import { parseRecord } from "./schema.js";
+import type { MorynEvent, MorynRecord, RecordState } from "./types.js";
 
 type ReplayFailure = "invalid_replay_result" | "missing_replay_target" | "invalid_state_transition";
 
@@ -66,34 +66,53 @@ function validateReplayRecord(event: MorynEvent, record: MorynRecord): MorynReco
   }
 }
 
-function requireReplayRecord(records: Map<string, MorynRecord>, event: MorynEvent, recordId: string, label = "Record"): MorynRecord {
+function requireReplayRecord(
+  records: Map<string, MorynRecord>,
+  event: MorynEvent,
+  recordId: string,
+  label = "Record"
+): MorynRecord {
   const record = records.get(recordId);
   if (!record) {
-    throw new ReplayHistoryError(`Invalid replay target for event ${event.event_id}: ${label} not found: ${recordId}`, event, {
-      failure: "missing_replay_target",
-      record_id: recordId,
-      label
-    });
+    throw new ReplayHistoryError(
+      `Invalid replay target for event ${event.event_id}: ${label} not found: ${recordId}`,
+      event,
+      {
+        failure: "missing_replay_target",
+        record_id: recordId,
+        label
+      }
+    );
   }
   return record;
 }
 
-function replayStateTransition(event: Extract<MorynEvent, { op: "promote_record" | "archive_record" | "quarantine_record" }>): RecordState {
+function replayStateTransition(
+  event: Extract<MorynEvent, { op: "promote_record" | "archive_record" | "quarantine_record" }>
+): RecordState {
   if (event.op === "promote_record") {
     if (!event.target_state) {
-      throw new ReplayHistoryError(`Invalid replay state transition for event ${event.event_id}: promote_record requires target_state`, event, {
-        failure: "invalid_state_transition",
-        record_id: event.record_id
-      });
+      throw new ReplayHistoryError(
+        `Invalid replay state transition for event ${event.event_id}: promote_record requires target_state`,
+        event,
+        {
+          failure: "invalid_state_transition",
+          record_id: event.record_id
+        }
+      );
     }
     return event.target_state;
   }
 
   if (event.target_state !== undefined) {
-    throw new ReplayHistoryError(`Invalid replay state transition for event ${event.event_id}: ${event.op} must not include target_state`, event, {
-      failure: "invalid_state_transition",
-      record_id: event.record_id
-    });
+    throw new ReplayHistoryError(
+      `Invalid replay state transition for event ${event.event_id}: ${event.op} must not include target_state`,
+      event,
+      {
+        failure: "invalid_state_transition",
+        record_id: event.record_id
+      }
+    );
   }
 
   return event.op === "archive_record" ? "archived" : "quarantined";
@@ -125,42 +144,49 @@ export function replayEvents(events: MorynEvent[]): Map<string, MorynRecord> {
     if (event.op === "promote_record" || event.op === "archive_record" || event.op === "quarantine_record") {
       const record = requireReplayRecord(records, event, event.record_id);
       const state = replayStateTransition(event);
-      records.set(event.record_id, validateReplayRecord(event, {
-        ...record,
-        state,
-        visibility: state === "canonical" || state === "candidate" || state === "raw" ? "active" : state,
-        updated_at: event.created_at,
-        conflict: event.op === "promote_record" && state === "canonical" && event.conflict
-          ? event.conflict
-          : record.conflict,
-        provenance: event.op === "promote_record" && state === "canonical"
-          ? {
-              ...(record.provenance ?? {}),
-              reason: event.reason ?? record.provenance?.reason,
-              method: event.confirmed === true || event.source.client === "user" ? "user-confirmed" : "rule-promoted",
-              promoted_at: event.created_at
-            }
-          : record.provenance
-      }));
+      records.set(
+        event.record_id,
+        validateReplayRecord(event, {
+          ...record,
+          state,
+          visibility: state === "canonical" || state === "candidate" || state === "raw" ? "active" : state,
+          updated_at: event.created_at,
+          conflict:
+            event.op === "promote_record" && state === "canonical" && event.conflict ? event.conflict : record.conflict,
+          provenance:
+            event.op === "promote_record" && state === "canonical"
+              ? {
+                  ...(record.provenance ?? {}),
+                  reason: event.reason ?? record.provenance?.reason,
+                  method:
+                    event.confirmed === true || event.source.client === "user" ? "user-confirmed" : "rule-promoted",
+                  promoted_at: event.created_at
+                }
+              : record.provenance
+        })
+      );
       continue;
     }
 
     if (event.op === "link_records") {
       const record = requireReplayRecord(records, event, event.record_id);
       requireReplayRecord(records, event, event.linked_record_id, "Linked record");
-      records.set(event.record_id, validateReplayRecord(event, {
-        ...record,
-        links: [
-          ...(record.links ?? []),
-          {
-            record_id: event.linked_record_id,
-            link_type: event.link_type,
-            reason: event.reason,
-            created_at: event.created_at
-          }
-        ],
-        updated_at: event.created_at
-      }));
+      records.set(
+        event.record_id,
+        validateReplayRecord(event, {
+          ...record,
+          links: [
+            ...(record.links ?? []),
+            {
+              record_id: event.linked_record_id,
+              link_type: event.link_type,
+              reason: event.reason,
+              created_at: event.created_at
+            }
+          ],
+          updated_at: event.created_at
+        })
+      );
     }
   }
 

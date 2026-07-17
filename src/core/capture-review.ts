@@ -1,4 +1,4 @@
-import { evaluateAutocapturePolicy, type AutocapturePolicyResult } from "./autocapture-policy.js";
+import { type AutocapturePolicyResult, evaluateAutocapturePolicy } from "./autocapture-policy.js";
 import { displayRecordText } from "./content-text.js";
 import type { MorynRecord } from "./types.js";
 
@@ -15,10 +15,12 @@ function capturePolicy(record: MorynRecord): Record<string, unknown> | undefined
 }
 
 function policyRequestsCaptureReview(policy: Record<string, unknown>): boolean {
-  return policy.review_required === true
-    || policy.user_action_required === true
-    || policy.dashboard_surface === "capture_inbox"
-    || policy.decision === "review";
+  return (
+    policy.review_required === true ||
+    policy.user_action_required === true ||
+    policy.dashboard_surface === "capture_inbox" ||
+    policy.decision === "review"
+  );
 }
 
 function hasStoredReviewPolicy(record: MorynRecord): boolean {
@@ -28,8 +30,10 @@ function hasStoredReviewPolicy(record: MorynRecord): boolean {
 
 function isAutocaptureRecord(record: MorynRecord): boolean {
   const capture = capturePayload(record);
-  return record.kind === "session_summary"
-    && (record.tags.some((tag) => tag.toLowerCase() === "autocapture") || capture?.mode === "autocapture");
+  return (
+    record.kind === "session_summary" &&
+    (record.tags.some((tag) => tag.toLowerCase() === "autocapture") || capture?.mode === "autocapture")
+  );
 }
 
 function captureString(record: MorynRecord, key: string): string | undefined {

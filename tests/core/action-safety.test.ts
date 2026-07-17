@@ -29,7 +29,8 @@ const collectRequiredInputsStep = {
   required_input_choice_apply_to: "execution.required_inputs[].collect.choices[].apply_to",
   required_input_choice_expected_value: "execution.required_inputs[].collect.choices[].expected_value",
   required_input_choice_by_option_apply_to: "execution.required_inputs[].collect.choices_by_option.<option>.apply_to",
-  required_input_choice_by_option_expected_value: "execution.required_inputs[].collect.choices_by_option.<option>.expected_value",
+  required_input_choice_by_option_expected_value:
+    "execution.required_inputs[].collect.choices_by_option.<option>.expected_value",
   required_inputs_by_field: "execution.required_inputs_by_field",
   required_inputs_by_argument_path: "execution.required_inputs_by_argument_path",
   required_input_paths_by_value_path: "execution.required_input_paths_by_value_path"
@@ -106,32 +107,40 @@ const textOrContentChoices = [
     },
     apply_to: {
       mcp_argument_paths: ["text"],
-      mcp_assignments: [{
-        argument: "text",
-        value_path: "user_input.text_or_content",
-        preferred: true
-      }],
-      mcp_targets: [{
-        argument: "text",
-        type: "string",
-        required: false,
-        preferred: true
-      }],
-      cli_assignments: [{
-        flag: "--text",
-        value_path: "user_input.text_or_content",
-        argv_template: ["--text", "<user_input.text_or_content>"],
-        value_encoding: "string",
-        type: "string",
-        required: false,
-        preferred: true
-      }],
-      cli_targets: [{
-        flag: "--text",
-        type: "string",
-        required: false,
-        preferred: true
-      }]
+      mcp_assignments: [
+        {
+          argument: "text",
+          value_path: "user_input.text_or_content",
+          preferred: true
+        }
+      ],
+      mcp_targets: [
+        {
+          argument: "text",
+          type: "string",
+          required: false,
+          preferred: true
+        }
+      ],
+      cli_assignments: [
+        {
+          flag: "--text",
+          value_path: "user_input.text_or_content",
+          argv_template: ["--text", "<user_input.text_or_content>"],
+          value_encoding: "string",
+          type: "string",
+          required: false,
+          preferred: true
+        }
+      ],
+      cli_targets: [
+        {
+          flag: "--text",
+          type: "string",
+          required: false,
+          preferred: true
+        }
+      ]
     }
   },
   {
@@ -148,32 +157,40 @@ const textOrContentChoices = [
     },
     apply_to: {
       mcp_argument_paths: ["content"],
-      mcp_assignments: [{
-        argument: "content",
-        value_path: "user_input.text_or_content",
-        preferred: false
-      }],
-      mcp_targets: [{
-        argument: "content",
-        type: "object",
-        required: false,
-        preferred: false
-      }],
-      cli_assignments: [{
-        flag: "--content-json",
-        value_path: "user_input.text_or_content",
-        argv_template: ["--content-json", "<json:user_input.text_or_content>"],
-        value_encoding: "json",
-        type: "object",
-        required: false,
-        preferred: false
-      }],
-      cli_targets: [{
-        flag: "--content-json",
-        type: "object",
-        required: false,
-        preferred: false
-      }]
+      mcp_assignments: [
+        {
+          argument: "content",
+          value_path: "user_input.text_or_content",
+          preferred: false
+        }
+      ],
+      mcp_targets: [
+        {
+          argument: "content",
+          type: "object",
+          required: false,
+          preferred: false
+        }
+      ],
+      cli_assignments: [
+        {
+          flag: "--content-json",
+          value_path: "user_input.text_or_content",
+          argv_template: ["--content-json", "<json:user_input.text_or_content>"],
+          value_encoding: "json",
+          type: "object",
+          required: false,
+          preferred: false
+        }
+      ],
+      cli_targets: [
+        {
+          flag: "--content-json",
+          type: "object",
+          required: false,
+          preferred: false
+        }
+      ]
     }
   }
 ];
@@ -241,10 +258,7 @@ describe("action execution readiness", () => {
       next: "collect_required_inputs",
       current_step: collectRequiredInputsCurrentStep,
       step_paths_by_step: collectThenCallStepPaths,
-      steps: [
-        collectRequiredInputsStep,
-        callMcpStep
-      ]
+      steps: [collectRequiredInputsStep, callMcpStep]
     });
   });
 
@@ -282,20 +296,24 @@ describe("action execution readiness", () => {
         prompt: "Provide summary.",
         apply_to: {
           mcp_argument_paths: ["summary"],
-          mcp_assignments: [{
-            argument: "summary",
-            value_path: "user_input.summary",
-            preferred: true
-          }],
-          cli_assignments: [{
-            flag: "--summary",
-            value_path: "user_input.summary",
-            argv_template: ["--summary", "<user_input.summary>"],
-            value_encoding: "string",
-            type: "string",
-            required: true,
-            preferred: true
-          }],
+          mcp_assignments: [
+            {
+              argument: "summary",
+              value_path: "user_input.summary",
+              preferred: true
+            }
+          ],
+          cli_assignments: [
+            {
+              flag: "--summary",
+              value_path: "user_input.summary",
+              argv_template: ["--summary", "<user_input.summary>"],
+              value_encoding: "string",
+              type: "string",
+              required: true,
+              preferred: true
+            }
+          ],
           cli_targets: [{ flag: "--summary", type: "string", required: true, preferred: true }]
         },
         value_path: "user_input.summary",
@@ -328,20 +346,18 @@ describe("action execution readiness", () => {
       next: "collect_required_inputs",
       current_step: collectRequiredInputsCurrentStep,
       step_paths_by_step: collectConfirmThenCallStepPaths,
-      steps: [
-        collectRequiredInputsStep,
-        askUserConfirmationStep,
-        callMcpStep
-      ]
+      steps: [collectRequiredInputsStep, askUserConfirmationStep, callMcpStep]
     });
   });
 
   it("marks safe actions without authored fields as ready to run", () => {
-    expect(actionExecution({
-      tool: "recall",
-      safe_to_run: true,
-      required_fields: []
-    })).toEqual({
+    expect(
+      actionExecution({
+        tool: "recall",
+        safe_to_run: true,
+        required_fields: []
+      })
+    ).toEqual({
       ready_to_run: true,
       next_step: "run",
       blocked_by: [],
@@ -362,43 +378,47 @@ describe("action execution readiness", () => {
   });
 
   it("tells agents to collect authored fields before running placeholders", () => {
-    expect(actionExecution({
-      tool: "agent_finish",
-      safe_to_run: false,
-      required_fields: ["summary"],
-      required_fields_by_name: {
-        summary: {
-          name: "summary",
-          argument_path: "summary",
-          placeholder: "<summary>",
-          value: "<summary>"
+    expect(
+      actionExecution({
+        tool: "agent_finish",
+        safe_to_run: false,
+        required_fields: ["summary"],
+        required_fields_by_name: {
+          summary: {
+            name: "summary",
+            argument_path: "summary",
+            placeholder: "<summary>",
+            value: "<summary>"
+          }
+        },
+        argument_sources: {
+          summary: "user_input.summary"
+        },
+        required_input_selection_sources: {
+          required_input: "next.execution.required_inputs_by_field.<field>",
+          required_input_argument_path: "next.execution.required_inputs_by_argument_path.<argument_path>"
         }
-      },
-      argument_sources: {
-        summary: "user_input.summary"
-      },
-      required_input_selection_sources: {
-        required_input: "next.execution.required_inputs_by_field.<field>",
-        required_input_argument_path: "next.execution.required_inputs_by_argument_path.<argument_path>"
-      }
-    })).toEqual({
+      })
+    ).toEqual({
       ready_to_run: false,
       next_step: "collect_required_fields",
       blocked_by: ["required_fields"],
       missing_required_fields: ["summary"],
-      required_inputs: [{
-        field: "summary",
-        argument_path: "summary",
-        argument_paths: ["summary"],
-        collect: summaryCollect,
-        argument_source: "user_input.summary",
-        selection_sources: {
-          required_input: "next.execution.required_inputs_by_field.<field>",
-          required_input_argument_path: "next.execution.required_inputs_by_argument_path.<argument_path>"
-        },
-        placeholder: "<summary>",
-        value: "<summary>"
-      }],
+      required_inputs: [
+        {
+          field: "summary",
+          argument_path: "summary",
+          argument_paths: ["summary"],
+          collect: summaryCollect,
+          argument_source: "user_input.summary",
+          selection_sources: {
+            required_input: "next.execution.required_inputs_by_field.<field>",
+            required_input_argument_path: "next.execution.required_inputs_by_argument_path.<argument_path>"
+          },
+          placeholder: "<summary>",
+          value: "<summary>"
+        }
+      ],
       required_inputs_by_field: {
         summary: {
           field: "summary",
@@ -436,10 +456,7 @@ describe("action execution readiness", () => {
         next: "collect_required_inputs",
         current_step: collectRequiredInputsCurrentStep,
         step_paths_by_step: collectThenCallStepPaths,
-        steps: [
-          collectRequiredInputsStep,
-          callMcpStep
-        ]
+        steps: [collectRequiredInputsStep, callMcpStep]
       },
       requires_user_confirmation: false,
       reason: "Action requires authored input before it can run."
@@ -509,32 +526,40 @@ describe("action execution readiness", () => {
           prompt: "Provide kind.",
           apply_to: {
             mcp_argument_paths: ["kind"],
-            mcp_assignments: [{
-              argument: "kind",
-              value_path: "user_input.kind",
-              preferred: true
-            }],
-            mcp_targets: [{
-              argument: "kind",
-              type: "string",
-              required: true,
-              preferred: true
-            }],
-            cli_assignments: [{
-              flag: "--kind",
-              value_path: "user_input.kind",
-              argv_template: ["--kind", "<user_input.kind>"],
-              value_encoding: "string",
-              type: "string",
-              required: true,
-              preferred: true
-            }],
-            cli_targets: [{
-              flag: "--kind",
-              type: "string",
-              required: true,
-              preferred: true
-            }]
+            mcp_assignments: [
+              {
+                argument: "kind",
+                value_path: "user_input.kind",
+                preferred: true
+              }
+            ],
+            mcp_targets: [
+              {
+                argument: "kind",
+                type: "string",
+                required: true,
+                preferred: true
+              }
+            ],
+            cli_assignments: [
+              {
+                flag: "--kind",
+                value_path: "user_input.kind",
+                argv_template: ["--kind", "<user_input.kind>"],
+                value_encoding: "string",
+                type: "string",
+                required: true,
+                preferred: true
+              }
+            ],
+            cli_targets: [
+              {
+                flag: "--kind",
+                type: "string",
+                required: true,
+                preferred: true
+              }
+            ]
           },
           value_path: "user_input.kind",
           expected_value: {
@@ -547,18 +572,22 @@ describe("action execution readiness", () => {
           placeholder: "<kind>",
           allowed_values: ["memory", "skill"]
         },
-        mcp_targets: [{
-          argument: "kind",
-          type: "string",
-          required: true,
-          preferred: true
-        }],
-        cli_targets: [{
-          flag: "--kind",
-          type: "string",
-          required: true,
-          preferred: true
-        }]
+        mcp_targets: [
+          {
+            argument: "kind",
+            type: "string",
+            required: true,
+            preferred: true
+          }
+        ],
+        cli_targets: [
+          {
+            flag: "--kind",
+            type: "string",
+            required: true,
+            preferred: true
+          }
+        ]
       },
       {
         field: "text_or_content",
@@ -821,36 +850,44 @@ describe("action execution readiness", () => {
       }
     });
 
-    expect(execution.required_inputs_by_field.derived_from.mcp_targets).toEqual([{
-      argument: "provenance",
-      path: "provenance.derived_from",
-      type: "string[]",
-      required: false,
-      preferred: true
-    }]);
-    expect(execution.required_inputs_by_field.derived_from.collect.apply_to.mcp_assignments).toEqual([{
-      argument: "provenance",
-      path: "provenance.derived_from",
-      value_path: "user_input.derived_from",
-      preferred: true
-    }]);
-    expect(execution.required_inputs_by_field.derived_from.cli_targets).toEqual([{
-      flag: "--derived-from",
-      type: "string[]",
-      required: false,
-      repeatable: true,
-      preferred: true
-    }]);
-    expect(execution.required_inputs_by_field.derived_from.collect.apply_to.cli_assignments).toEqual([{
-      flag: "--derived-from",
-      value_path: "user_input.derived_from",
-      argv_template: ["--derived-from", "<user_input.derived_from[]>"],
-      value_encoding: "repeat_values",
-      type: "string[]",
-      required: false,
-      repeatable: true,
-      preferred: true
-    }]);
+    expect(execution.required_inputs_by_field.derived_from.mcp_targets).toEqual([
+      {
+        argument: "provenance",
+        path: "provenance.derived_from",
+        type: "string[]",
+        required: false,
+        preferred: true
+      }
+    ]);
+    expect(execution.required_inputs_by_field.derived_from.collect.apply_to.mcp_assignments).toEqual([
+      {
+        argument: "provenance",
+        path: "provenance.derived_from",
+        value_path: "user_input.derived_from",
+        preferred: true
+      }
+    ]);
+    expect(execution.required_inputs_by_field.derived_from.cli_targets).toEqual([
+      {
+        flag: "--derived-from",
+        type: "string[]",
+        required: false,
+        repeatable: true,
+        preferred: true
+      }
+    ]);
+    expect(execution.required_inputs_by_field.derived_from.collect.apply_to.cli_assignments).toEqual([
+      {
+        flag: "--derived-from",
+        value_path: "user_input.derived_from",
+        argv_template: ["--derived-from", "<user_input.derived_from[]>"],
+        value_encoding: "repeat_values",
+        type: "string[]",
+        required: false,
+        repeatable: true,
+        preferred: true
+      }
+    ]);
   });
 
   it("maps positional CLI assignments for collected required inputs", () => {
@@ -879,15 +916,17 @@ describe("action execution readiness", () => {
       }
     });
 
-    expect(execution.required_inputs_by_field.record_id.collect.apply_to.cli_assignments).toEqual([{
-      positional: "record-id",
-      value_path: "user_input.record_id",
-      argv_template: ["<user_input.record_id>"],
-      value_encoding: "string",
-      type: "string",
-      required: true,
-      preferred: true
-    }]);
+    expect(execution.required_inputs_by_field.record_id.collect.apply_to.cli_assignments).toEqual([
+      {
+        positional: "record-id",
+        value_path: "user_input.record_id",
+        argv_template: ["<user_input.record_id>"],
+        value_encoding: "string",
+        type: "string",
+        required: true,
+        preferred: true
+      }
+    ]);
   });
 
   it("preserves CLI defaults in assignments for collected required inputs", () => {
@@ -920,25 +959,29 @@ describe("action execution readiness", () => {
       }
     });
 
-    expect(execution.required_inputs_by_field.path.collect.apply_to.cli_assignments).toEqual([{
-      flag: "--path",
-      value_path: "user_input.path",
-      argv_template: ["--path", "<user_input.path>"],
-      value_encoding: "string",
-      type: "string",
-      required: true,
-      required_when: "Required in CLI only when initializing a path other than the current directory.",
-      default: ".",
-      preferred: true
-    }]);
-    expect(execution.required_inputs_by_field.path.cli_targets).toEqual([{
-      flag: "--path",
-      type: "string",
-      required: true,
-      required_when: "Required in CLI only when initializing a path other than the current directory.",
-      default: ".",
-      preferred: true
-    }]);
+    expect(execution.required_inputs_by_field.path.collect.apply_to.cli_assignments).toEqual([
+      {
+        flag: "--path",
+        value_path: "user_input.path",
+        argv_template: ["--path", "<user_input.path>"],
+        value_encoding: "string",
+        type: "string",
+        required: true,
+        required_when: "Required in CLI only when initializing a path other than the current directory.",
+        default: ".",
+        preferred: true
+      }
+    ]);
+    expect(execution.required_inputs_by_field.path.cli_targets).toEqual([
+      {
+        flag: "--path",
+        type: "string",
+        required: true,
+        required_when: "Required in CLI only when initializing a path other than the current directory.",
+        default: ".",
+        preferred: true
+      }
+    ]);
   });
 
   it("describes path=value CLI assignments for collected patch objects", () => {
@@ -967,16 +1010,18 @@ describe("action execution readiness", () => {
       }
     });
 
-    expect(execution.required_inputs_by_field.patch.collect.apply_to.cli_assignments).toEqual([{
-      flag: "--set",
-      value_path: "user_input.patch",
-      argv_template: ["--set", "<user_input.patch{path=value}[]>"],
-      value_encoding: "path_value_entries",
-      type: "object",
-      required: true,
-      repeatable: true,
-      preferred: true
-    }]);
+    expect(execution.required_inputs_by_field.patch.collect.apply_to.cli_assignments).toEqual([
+      {
+        flag: "--set",
+        value_path: "user_input.patch",
+        argv_template: ["--set", "<user_input.patch{path=value}[]>"],
+        value_encoding: "path_value_entries",
+        type: "object",
+        required: true,
+        repeatable: true,
+        preferred: true
+      }
+    ]);
   });
 
   it("describes multi-flag object CLI assignments with per-flag value paths", () => {
@@ -1004,26 +1049,32 @@ describe("action execution readiness", () => {
       }
     });
 
-    expect(execution.required_inputs_by_field.agent.collect.apply_to.cli_assignments).toEqual([{
-      flags: ["--agent", "--session-id", "--model", "--device-id"],
-      value_path: "user_input.agent",
-      argv_template: [
-        "--agent", "<user_input.agent.client>",
-        "--session-id", "<user_input.agent.session_id>",
-        "--model", "<user_input.agent.model>",
-        "--device-id", "<user_input.agent.device_id>"
-      ],
-      value_encoding: "object_fields",
-      flag_value_paths: [
-        { flag: "--agent", value_path: "user_input.agent.client" },
-        { flag: "--session-id", value_path: "user_input.agent.session_id" },
-        { flag: "--model", value_path: "user_input.agent.model" },
-        { flag: "--device-id", value_path: "user_input.agent.device_id" }
-      ],
-      type: "object",
-      required: false,
-      preferred: true
-    }]);
+    expect(execution.required_inputs_by_field.agent.collect.apply_to.cli_assignments).toEqual([
+      {
+        flags: ["--agent", "--session-id", "--model", "--device-id"],
+        value_path: "user_input.agent",
+        argv_template: [
+          "--agent",
+          "<user_input.agent.client>",
+          "--session-id",
+          "<user_input.agent.session_id>",
+          "--model",
+          "<user_input.agent.model>",
+          "--device-id",
+          "<user_input.agent.device_id>"
+        ],
+        value_encoding: "object_fields",
+        flag_value_paths: [
+          { flag: "--agent", value_path: "user_input.agent.client" },
+          { flag: "--session-id", value_path: "user_input.agent.session_id" },
+          { flag: "--model", value_path: "user_input.agent.model" },
+          { flag: "--device-id", value_path: "user_input.agent.device_id" }
+        ],
+        type: "object",
+        required: false,
+        preferred: true
+      }
+    ]);
     expect(execution.required_input_paths_by_value_path).toEqual({
       "user_input.agent": "execution.required_inputs_by_field.agent",
       "user_input.agent.client": "execution.required_inputs_by_field.agent",
@@ -1034,11 +1085,13 @@ describe("action execution readiness", () => {
   });
 
   it("distinguishes confirmation-only actions from authored-input actions", () => {
-    expect(actionExecution({
-      tool: "promote",
-      safe_to_run: false,
-      required_fields: []
-    })).toEqual({
+    expect(
+      actionExecution({
+        tool: "promote",
+        safe_to_run: false,
+        required_fields: []
+      })
+    ).toEqual({
       ready_to_run: false,
       next_step: "confirm_with_user",
       blocked_by: ["user_confirmation"],
@@ -1051,10 +1104,7 @@ describe("action execution readiness", () => {
         next: "ask_user_confirmation",
         current_step: askUserConfirmationCurrentStep,
         step_paths_by_step: confirmThenCallStepPaths,
-        steps: [
-          askUserConfirmationStep,
-          callMcpStep
-        ]
+        steps: [askUserConfirmationStep, callMcpStep]
       },
       requires_user_confirmation: true,
       reason: "Action requires explicit user confirmation before it can run."
@@ -1062,35 +1112,36 @@ describe("action execution readiness", () => {
   });
 
   it("keeps a call step after authored inputs are collected for agent-authored writes", () => {
-    expect(actionExecution({
-      tool: "revise",
-      safe_to_run: false,
-      required_fields: ["record_id"],
-      required_fields_by_name: {
-        record_id: {
-          name: "record_id",
-          argument_path: "record_id",
-          placeholder: "<record_id>",
-          value: "<record_id>"
+    expect(
+      actionExecution({
+        tool: "revise",
+        safe_to_run: false,
+        required_fields: ["record_id"],
+        required_fields_by_name: {
+          record_id: {
+            name: "record_id",
+            argument_path: "record_id",
+            placeholder: "<record_id>",
+            value: "<record_id>"
+          }
         }
-      }
-    }).runbook).toEqual({
+      }).runbook
+    ).toEqual({
       next: "collect_required_inputs",
       current_step: collectRequiredInputsCurrentStep,
       step_paths_by_step: collectThenCallStepPaths,
-      steps: [
-        collectRequiredInputsStep,
-        callMcpStep
-      ]
+      steps: [collectRequiredInputsStep, callMcpStep]
     });
   });
 
   it("blocks local config writes until a user confirms even after fields are known", () => {
-    expect(actionExecution({
-      tool: "project_init",
-      safe_to_run: false,
-      required_fields: []
-    })).toEqual({
+    expect(
+      actionExecution({
+        tool: "project_init",
+        safe_to_run: false,
+        required_fields: []
+      })
+    ).toEqual({
       ready_to_run: false,
       next_step: "confirm_with_user",
       blocked_by: ["user_confirmation"],
@@ -1103,10 +1154,7 @@ describe("action execution readiness", () => {
         next: "ask_user_confirmation",
         current_step: askUserConfirmationCurrentStep,
         step_paths_by_step: confirmThenCallStepPaths,
-        steps: [
-          askUserConfirmationStep,
-          callMcpStep
-        ]
+        steps: [askUserConfirmationStep, callMcpStep]
       },
       requires_user_confirmation: true,
       reason: "Action requires explicit user confirmation before it can run."

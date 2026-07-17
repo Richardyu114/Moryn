@@ -1,7 +1,7 @@
-import { actionExecution, actionSafety, type ActionExecution, type ActionSafety } from "./action-safety.js";
-import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js";
-import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
-import { operationArgumentsByTool, type OperationArgumentMetadata } from "../operation-contracts.js";
+import { type OperationArgumentMetadata, operationArgumentsByTool } from "../operation-contracts.js";
+import { type ActionInterfaces, actionInterfaces } from "./action-interfaces.js";
+import { type ActionExecution, type ActionSafety, actionExecution, actionSafety } from "./action-safety.js";
+import { type RequiredFieldMetadata, withPhasesByName, withRequiredFieldsByName } from "./workflow.js";
 
 export interface MorynErrorEnvelope {
   ok: false;
@@ -92,7 +92,8 @@ export interface MorynErrorContext {
   arguments: Record<string, unknown>;
 }
 
-const REFRESH_CURSOR_SOURCE = "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor";
+const REFRESH_CURSOR_SOURCE =
+  "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor";
 const REFRESH_CURSOR_RECOMMENDED_ACTION = "retry with a refresh cursor returned by Moryn";
 const REFRESH_OPERATION_CONTRACT_SOURCE = "operations_by_id.refresh";
 const REFRESH_CURSOR_ARGUMENT_SOURCE = "operations_by_id.refresh.arguments_by_name.cursor";
@@ -249,13 +250,15 @@ function knownRecoveryHint(code: string, message: string, context?: MorynErrorCo
     const retryArguments = context ? { ...context.arguments, confirmed: true } : { confirmed: true };
     return {
       requires_user_confirmation: true,
-      ...(context ? {
-        rejected_action: {
-          tool: context.tool,
-          command: context.command,
-          arguments: context.arguments
-        }
-      } : {}),
+      ...(context
+        ? {
+            rejected_action: {
+              tool: context.tool,
+              command: context.command,
+              arguments: context.arguments
+            }
+          }
+        : {}),
       ask_user: {
         prompt: "Confirm the high-risk or conflicting canonical change before retrying.",
         required: true
@@ -431,7 +434,11 @@ function knownRecoveryHint(code: string, message: string, context?: MorynErrorCo
         safe_to_run: false
       },
       requires_user_confirmation: true,
-      do_not: ["invent_git_remote", "write_sync_config_without_user_confirmation", "retry_sync_until_remote_is_configured"]
+      do_not: [
+        "invent_git_remote",
+        "write_sync_config_without_user_confirmation",
+        "retry_sync_until_remote_is_configured"
+      ]
     };
   }
   if (code === "PERMISSION_DENIED") {
@@ -497,19 +504,24 @@ const REBUILD_INDEX_WHEN = "After receiving INDEX_STALE, before retrying recall 
 const CONFIGURE_SYNC_WHEN = "Before using sync operations when no remote has been configured.";
 const CHECK_REMOTE_SYNC_WHEN = "After a remote sync failure, before retrying remote operations.";
 const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync operations after a Git conflict.";
-const CHECK_PERMISSION_FAILURE_WHEN = "After a credentials or filesystem permission failure, before retrying remote or filesystem operations.";
+const CHECK_PERMISSION_FAILURE_WHEN =
+  "After a credentials or filesystem permission failure, before retrying remote or filesystem operations.";
 const REBUILD_INVALID_HISTORY_WHEN = "After invalid replay history is reported, before retrying derived-view reads.";
 const LIST_RECORDS_WHEN = "After a record id is rejected, before retrying with a replacement record id.";
-const RETRY_WITH_SELECTED_RECORD_WHEN = "After choosing the correct record id from list_recent results, retry the original tool with that selected id.";
+const RETRY_WITH_SELECTED_RECORD_WHEN =
+  "After choosing the correct record id from list_recent results, retry the original tool with that selected id.";
 const LIST_RECENT_SELECTED_RECORD_ID_SOURCE = "list_recent.records_by_id.<record_id>.id";
 const LIST_RECENT_ORDERED_RECORD_ID_SOURCE = "list_recent.records[].id";
-const RETRY_WITH_SELECTED_PROJECT_WHEN = "After choosing the correct project id from project_list results, retry the original tool with that selected project id.";
+const RETRY_WITH_SELECTED_PROJECT_WHEN =
+  "After choosing the correct project id from project_list results, retry the original tool with that selected project id.";
 const PROJECT_LIST_SELECTED_PROJECT_ID_SOURCE = "project_list.projects_by_id.<project_id>.project_id";
 const PROJECT_LIST_ORDERED_PROJECT_ID_SOURCE = "project_list.projects[].project_id";
 const DISCOVER_PROJECT_FOR_WRITE_WHEN = "Before retrying a project-scoped write when project_id was omitted.";
-const RETRY_PROJECT_CONFIG_ID_WHEN = "After project_path and project_id disagree, before starting lifecycle work with corrected project identity.";
+const RETRY_PROJECT_CONFIG_ID_WHEN =
+  "After project_path and project_id disagree, before starting lifecycle work with corrected project identity.";
 const DISCOVER_PROJECT_CONTEXT_WHEN = "When a populated store requires explicit project context and none was provided.";
-const INIT_OR_CORRECT_PROJECT_WHEN = "After a project_path does not exist, before retrying with that project or a corrected path.";
+const INIT_OR_CORRECT_PROJECT_WHEN =
+  "After a project_path does not exist, before retrying with that project or a corrected path.";
 const LIST_PROJECTS_FOR_ID_WHEN = "After a project_id is rejected, before retrying with a known project id.";
 const CONFIRM_RETRY_WHEN = "After the user explicitly confirms the high-risk change that was rejected.";
 export const PROMOTE_CANDIDATE_WHEN = "After the user explicitly confirms that the candidate should become canonical.";
@@ -533,7 +545,8 @@ export const NEXT_ACTION_SELECTION_SOURCES: NextActionSelectionSources = {
   error_required_input: "error.next_action.execution.required_inputs_by_field.<field>",
   warning_required_input: "warning.next_action.execution.required_inputs_by_field.<field>",
   error_required_input_argument_path: "error.next_action.execution.required_inputs_by_argument_path.<argument_path>",
-  warning_required_input_argument_path: "warning.next_action.execution.required_inputs_by_argument_path.<argument_path>",
+  warning_required_input_argument_path:
+    "warning.next_action.execution.required_inputs_by_argument_path.<argument_path>",
   error_argument: "error.next_action.arguments_by_name.<argument>",
   warning_argument: "warning.next_action.arguments_by_name.<argument>",
   error_argument_source: "error.next_action.argument_sources.<field>",
@@ -587,24 +600,28 @@ function userInputArgumentSources(requiredFields: string[]): Record<string, stri
 
 function actionArgumentSources(action: object): Record<string, string> | undefined {
   return "argument_sources" in action && action.argument_sources && typeof action.argument_sources === "object"
-    ? action.argument_sources as Record<string, string>
+    ? (action.argument_sources as Record<string, string>)
     : undefined;
 }
 
 function requiredInputSelectionSources(selectionSources: Record<string, string>): Record<string, string> | undefined {
-  const sources = Object.fromEntries(Object.entries(selectionSources).filter(([key]) => key.includes("required_input")));
+  const sources = Object.fromEntries(
+    Object.entries(selectionSources).filter(([key]) => key.includes("required_input"))
+  );
   return Object.keys(sources).length > 0 ? sources : undefined;
 }
 
-export function withNextActionMetadata<T extends {
-  recommended_action: string;
-  tool: string;
-  command: string;
-  arguments: Record<string, unknown>;
-  required_when: string;
-  required_fields: string[];
-  safe_to_run: boolean;
-}>(
+export function withNextActionMetadata<
+  T extends {
+    recommended_action: string;
+    tool: string;
+    command: string;
+    arguments: Record<string, unknown>;
+    required_when: string;
+    required_fields: string[];
+    safe_to_run: boolean;
+  }
+>(
   action: T
 ): T & {
   action_source: "next_action";
@@ -659,14 +676,20 @@ export function errorCode(message: string): string {
   if (message.startsWith("Project id conflict:")) return "PROJECT_ID_CONFLICT";
   if (message.startsWith("Invalid store config:")) return "INVALID_STORE_CONFIG";
   if (message.startsWith("Invalid argument:")) return "INVALID_ARGUMENT";
-  if (message.startsWith("Invalid event:") || message.startsWith("Invalid record:") || message.startsWith("Invalid replay ")) return "INVALID_RECORD";
+  if (
+    message.startsWith("Invalid event:") ||
+    message.startsWith("Invalid record:") ||
+    message.startsWith("Invalid replay ")
+  )
+    return "INVALID_RECORD";
   if (message.startsWith("Sensitive content detected:")) return "SENSITIVE_CONTENT_DETECTED";
   if (message.startsWith("Index stale:")) return "INDEX_STALE";
   if (message.startsWith("Record not found:")) return "RECORD_NOT_FOUND";
   if (message.startsWith("Sync not configured")) return "SYNC_NOT_CONFIGURED";
   if (message.includes("Authentication failed") || message.includes("Permission denied")) return "PERMISSION_DENIED";
   if (message.toLowerCase().includes("conflict")) return "SYNC_CONFLICT";
-  if (message.toLowerCase().includes("remote") || message.toLowerCase().includes("repository")) return "SYNC_REMOTE_UNAVAILABLE";
+  if (message.toLowerCase().includes("remote") || message.toLowerCase().includes("repository"))
+    return "SYNC_REMOTE_UNAVAILABLE";
   return "INTERNAL_ERROR";
 }
 
@@ -820,7 +843,10 @@ function replaceCommandRecordId(command: string, rejectedRecordId: string | unde
   return command;
 }
 
-function missingRecordArgumentKey(context: MorynErrorContext | undefined, rejectedRecordId: string | undefined): string {
+function missingRecordArgumentKey(
+  context: MorynErrorContext | undefined,
+  rejectedRecordId: string | undefined
+): string {
   if (!context || !rejectedRecordId) return "record_id";
   const preferredKeys = ["record_id", "record_ids", "linked_record_id"];
   const preferredEntry = preferredKeys.find((key) => {
@@ -837,12 +863,17 @@ function missingRecordArgumentKey(context: MorynErrorContext | undefined, reject
 
 function replaceArgumentValue(value: unknown, rejectedRecordId: string | undefined, placeholder: string): unknown {
   if (Array.isArray(value)) {
-    return value.map((entry) => entry === rejectedRecordId ? placeholder : entry);
+    return value.map((entry) => (entry === rejectedRecordId ? placeholder : entry));
   }
   return placeholder;
 }
 
-function replaceCommandArgument(command: string, argumentKey: string, rejectedRecordId: string | undefined, placeholder: string): string {
+function replaceCommandArgument(
+  command: string,
+  argumentKey: string,
+  rejectedRecordId: string | undefined,
+  placeholder: string
+): string {
   if (!rejectedRecordId) return command;
   const quotedRecordId = shellQuote(rejectedRecordId);
   const flag = argumentKey === "record_ids" ? "--record-id" : `--${argumentKey.replace(/_/g, "-")}`;
@@ -853,17 +884,25 @@ function replaceCommandArgument(command: string, argumentKey: string, rejectedRe
   return replaceCommandRecordId(command, rejectedRecordId, placeholder);
 }
 
-function replaceProjectIdCommandArgument(command: string, rejectedProjectId: string | undefined, placeholder: string): string {
+function replaceProjectIdCommandArgument(
+  command: string,
+  rejectedProjectId: string | undefined,
+  placeholder: string
+): string {
   if (!rejectedProjectId) return `${command} --project-id ${placeholder}`;
   const quotedProjectId = shellQuote(rejectedProjectId);
   const flaggedQuotedPattern = `--project-id ${quotedProjectId}`;
-  if (command.includes(flaggedQuotedPattern)) return command.replace(flaggedQuotedPattern, `--project-id ${placeholder}`);
+  if (command.includes(flaggedQuotedPattern))
+    return command.replace(flaggedQuotedPattern, `--project-id ${placeholder}`);
   const flaggedPattern = `--project-id ${rejectedProjectId}`;
   if (command.includes(flaggedPattern)) return command.replace(flaggedPattern, `--project-id ${placeholder}`);
   return `${command} --project-id ${placeholder}`;
 }
 
-function missingRecordRetryPhase(context: MorynErrorContext | undefined, rejectedRecordId: string | undefined): NextActionWorkflowPhase {
+function missingRecordRetryPhase(
+  context: MorynErrorContext | undefined,
+  rejectedRecordId: string | undefined
+): NextActionWorkflowPhase {
   const placeholder = "<record_id_from_list_recent>";
   const argumentKey = missingRecordArgumentKey(context, rejectedRecordId);
   return {
@@ -871,33 +910,40 @@ function missingRecordRetryPhase(context: MorynErrorContext | undefined, rejecte
     order: 2,
     action_source: LIST_RECENT_SELECTED_RECORD_ID_SOURCE,
     tool: context?.tool ?? "original_tool",
-    ...(context ? {
-      command: replaceCommandArgument(context.command, argumentKey, rejectedRecordId, placeholder),
-      arguments: {
-        ...context.arguments,
-        [argumentKey]: replaceArgumentValue(context.arguments[argumentKey], rejectedRecordId, placeholder)
-      }
-    } : {}),
+    ...(context
+      ? {
+          command: replaceCommandArgument(context.command, argumentKey, rejectedRecordId, placeholder),
+          arguments: {
+            ...context.arguments,
+            [argumentKey]: replaceArgumentValue(context.arguments[argumentKey], rejectedRecordId, placeholder)
+          }
+        }
+      : {}),
     replace_arguments: { [argumentKey]: LIST_RECENT_SELECTED_RECORD_ID_SOURCE },
     required_when: RETRY_WITH_SELECTED_RECORD_WHEN,
     required_fields: [argumentKey]
   };
 }
 
-function projectIdRetryPhase(context: MorynErrorContext | undefined, rejectedProjectId: string | undefined): NextActionWorkflowPhase {
+function projectIdRetryPhase(
+  context: MorynErrorContext | undefined,
+  rejectedProjectId: string | undefined
+): NextActionWorkflowPhase {
   const placeholder = "<project_id_from_project_list>";
   return {
     phase: "retry_original_tool_with_selected_project_id",
     order: 2,
     action_source: PROJECT_LIST_SELECTED_PROJECT_ID_SOURCE,
     tool: context?.tool ?? "original_tool",
-    ...(context ? {
-      command: replaceProjectIdCommandArgument(context.command, rejectedProjectId, placeholder),
-      arguments: {
-        ...context.arguments,
-        project_id: placeholder
-      }
-    } : {}),
+    ...(context
+      ? {
+          command: replaceProjectIdCommandArgument(context.command, rejectedProjectId, placeholder),
+          arguments: {
+            ...context.arguments,
+            project_id: placeholder
+          }
+        }
+      : {}),
     replace_arguments: { project_id: PROJECT_LIST_SELECTED_PROJECT_ID_SOURCE },
     required_when: RETRY_WITH_SELECTED_PROJECT_WHEN,
     required_fields: ["project_id"]
@@ -922,10 +968,7 @@ function withProjectSelectionWorkflow(
         PROJECT_LIST_SELECTED_PROJECT_ID_SOURCE,
         PROJECT_LIST_ORDERED_PROJECT_ID_SOURCE
       ],
-      phases: [
-        action.workflow.phases[0]!,
-        retryPhase
-      ]
+      phases: [action.workflow.phases[0]!, retryPhase]
     })
   };
 }
@@ -946,7 +989,11 @@ function confirmationNextAction(context?: MorynErrorContext): MorynErrorNextActi
   });
 }
 
-export function commandForPromoteContext(input: { record_id: unknown; target_state: unknown; reason?: unknown }): string {
+export function commandForPromoteContext(input: {
+  record_id: unknown;
+  target_state: unknown;
+  reason?: unknown;
+}): string {
   const parts = ["moryn", "promote"];
   appendCommandValue(parts, input.record_id);
   appendCommandOptionValue(parts, "--state", input.target_state);
@@ -1061,7 +1108,11 @@ export function commandForQuarantineContext(input: { record_id: unknown; reason?
   return parts.join(" ");
 }
 
-export function commandForLinkContext(input: { record_id: unknown; linked_record_id: unknown; link_type: unknown }): string {
+export function commandForLinkContext(input: {
+  record_id: unknown;
+  linked_record_id: unknown;
+  link_type: unknown;
+}): string {
   const parts = ["moryn", "link"];
   appendCommandValue(parts, input.record_id);
   appendCommandValue(parts, input.linked_record_id);
@@ -1187,21 +1238,20 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
         required_fields: [],
         safe_to_run: false
       });
-    case "INVALID_PROJECT_CONFIG":
-      {
-        const configPath = projectConfigPathFromMessage(message);
-        const path = projectPathFromConfigPath(configPath) ?? "<path>";
-        return withNextActionMetadata({
-          recommended_action: "repair_project_config_or_retry_with_explicit_project_id",
-          tool: "project_init",
-          command: `moryn project init --path ${path} --repair`,
-          arguments: { path, repair: true },
-          required_when: REPAIR_PROJECT_CONFIG_WHEN,
-          required_fields: path === "<path>" ? ["path"] : [],
-          argument_sources: userInputArgumentSources(path === "<path>" ? ["path"] : []),
-          safe_to_run: false
-        });
-      }
+    case "INVALID_PROJECT_CONFIG": {
+      const configPath = projectConfigPathFromMessage(message);
+      const path = projectPathFromConfigPath(configPath) ?? "<path>";
+      return withNextActionMetadata({
+        recommended_action: "repair_project_config_or_retry_with_explicit_project_id",
+        tool: "project_init",
+        command: `moryn project init --path ${path} --repair`,
+        arguments: { path, repair: true },
+        required_when: REPAIR_PROJECT_CONFIG_WHEN,
+        required_fields: path === "<path>" ? ["path"] : [],
+        argument_sources: userInputArgumentSources(path === "<path>" ? ["path"] : []),
+        safe_to_run: false
+      });
+    }
     case "INDEX_STALE":
       return withNextActionMetadata({
         recommended_action: "rebuild_derived_views",
@@ -1264,39 +1314,35 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
         required_fields: [],
         safe_to_run: true
       });
-    case "RECORD_NOT_FOUND":
-      {
-        const recordId = missingRecordIdFromMessage(message);
-        const retryPhase = missingRecordRetryPhase(context, recordId);
-        const action = withNextActionMetadata({
-          recommended_action: "list_recent_records_and_retry_with_known_record_id",
-          tool: "list_recent",
-          command: "moryn list-recent",
-          arguments: {},
-          required_when: LIST_RECORDS_WHEN,
-          required_fields: [],
-          ...(recordId ? { rejected_arguments: { record_id: recordId } } : {}),
-          safe_to_run: true
-        });
-        return {
-          ...action,
-          argument_sources: retryPhase.replace_arguments,
-          workflow: withPhasesByName({
-            version: 1,
-            start: "next_action",
-            continue_from: [
-              "error.next_action",
-              "warning.next_action",
-              LIST_RECENT_SELECTED_RECORD_ID_SOURCE,
-              LIST_RECENT_ORDERED_RECORD_ID_SOURCE
-            ],
-            phases: [
-              action.workflow.phases[0]!,
-              retryPhase
-            ]
-          })
-        };
-      }
+    case "RECORD_NOT_FOUND": {
+      const recordId = missingRecordIdFromMessage(message);
+      const retryPhase = missingRecordRetryPhase(context, recordId);
+      const action = withNextActionMetadata({
+        recommended_action: "list_recent_records_and_retry_with_known_record_id",
+        tool: "list_recent",
+        command: "moryn list-recent",
+        arguments: {},
+        required_when: LIST_RECORDS_WHEN,
+        required_fields: [],
+        ...(recordId ? { rejected_arguments: { record_id: recordId } } : {}),
+        safe_to_run: true
+      });
+      return {
+        ...action,
+        argument_sources: retryPhase.replace_arguments,
+        workflow: withPhasesByName({
+          version: 1,
+          start: "next_action",
+          continue_from: [
+            "error.next_action",
+            "warning.next_action",
+            LIST_RECENT_SELECTED_RECORD_ID_SOURCE,
+            LIST_RECENT_ORDERED_RECORD_ID_SOURCE
+          ],
+          phases: [action.workflow.phases[0]!, retryPhase]
+        })
+      };
+    }
     case "INVALID_ARGUMENT":
       if (context?.tool === "setup" && message === "Invalid argument: Invalid sync_remote") {
         const retryArguments = {
@@ -1308,7 +1354,8 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
           tool: "setup",
           command: commandForSetupContext(retryArguments),
           arguments: retryArguments,
-          required_when: "After setup rejects an invalid sync_remote, before retrying setup or generated sync commands.",
+          required_when:
+            "After setup rejects an invalid sync_remote, before retrying setup or generated sync commands.",
           required_fields: ["sync_remote"],
           argument_sources: userInputArgumentSources(["sync_remote"]),
           safe_to_run: false
@@ -1327,68 +1374,64 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
         });
       }
       return undefined;
-    case "PROJECT_ID_CONFLICT":
-      {
-        const { resolvedProjectId, rejectedProjectId } = conflictingProjectIdFromMessage(message);
-        const projectId = resolvedProjectId ?? "<project_id_from_config>";
-        return withNextActionMetadata({
-          recommended_action: "retry_with_project_config_id_or_update_project_config",
-          tool: "agent_enter",
-          command: `moryn agent enter --project-id ${projectId}`,
-          arguments: { project_id: projectId },
-          required_when: RETRY_PROJECT_CONFIG_ID_WHEN,
-          required_fields: resolvedProjectId ? [] : ["project_id"],
-          argument_sources: userInputArgumentSources(resolvedProjectId ? [] : ["project_id"]),
-          ...(rejectedProjectId ? { rejected_arguments: { project_id: rejectedProjectId } } : {}),
-          ...(resolvedProjectId ? { candidate_project_ids: [resolvedProjectId] } : {}),
-          safe_to_run: false
-        });
-      }
-    case "PROJECT_CONTEXT_REQUIRED":
-      {
-        const candidateProjectIds = knownProjectIdsFromContextMessage(message);
-        const action = withNextActionMetadata({
-          recommended_action: "discover_projects_before_lifecycle_write",
-          tool: "project_list",
-          command: "moryn project list",
-          arguments: {},
-          required_when: DISCOVER_PROJECT_CONTEXT_WHEN,
-          required_fields: [],
-          ...(candidateProjectIds ? { candidate_project_ids: candidateProjectIds } : {}),
-          safe_to_run: true
-        });
-        return withProjectSelectionWorkflow(action, context, undefined);
-      }
-    case "PROJECT_PATH_NOT_FOUND":
-      {
-        const path = projectPathFromMessage(message) ?? "<path>";
-        return withNextActionMetadata({
-          recommended_action: "initialize_project_or_retry_corrected_context",
-          tool: "project_init",
-          command: `moryn project init --path ${path}`,
-          arguments: { path },
-          required_when: INIT_OR_CORRECT_PROJECT_WHEN,
-          required_fields: path === "<path>" ? ["path"] : [],
-          argument_sources: userInputArgumentSources(path === "<path>" ? ["path"] : []),
-          safe_to_run: false
-        });
-      }
-    case "PROJECT_ID_NOT_FOUND":
-      {
-        const { rejectedProjectId, candidateProjectIds } = unknownProjectIdFromMessage(message);
-        const action = withNextActionMetadata({
-          recommended_action: "list_projects_and_retry_with_known_project_id",
-          tool: "project_list",
-          command: "moryn project list",
-          arguments: {},
-          required_when: LIST_PROJECTS_FOR_ID_WHEN,
-          required_fields: [],
-          ...(rejectedProjectId ? { rejected_arguments: { project_id: rejectedProjectId } } : {}),
-          ...(candidateProjectIds ? { candidate_project_ids: candidateProjectIds } : {}),
-          safe_to_run: true
-        });
-        return withProjectSelectionWorkflow(action, context, rejectedProjectId);
-      }
+    case "PROJECT_ID_CONFLICT": {
+      const { resolvedProjectId, rejectedProjectId } = conflictingProjectIdFromMessage(message);
+      const projectId = resolvedProjectId ?? "<project_id_from_config>";
+      return withNextActionMetadata({
+        recommended_action: "retry_with_project_config_id_or_update_project_config",
+        tool: "agent_enter",
+        command: `moryn agent enter --project-id ${projectId}`,
+        arguments: { project_id: projectId },
+        required_when: RETRY_PROJECT_CONFIG_ID_WHEN,
+        required_fields: resolvedProjectId ? [] : ["project_id"],
+        argument_sources: userInputArgumentSources(resolvedProjectId ? [] : ["project_id"]),
+        ...(rejectedProjectId ? { rejected_arguments: { project_id: rejectedProjectId } } : {}),
+        ...(resolvedProjectId ? { candidate_project_ids: [resolvedProjectId] } : {}),
+        safe_to_run: false
+      });
+    }
+    case "PROJECT_CONTEXT_REQUIRED": {
+      const candidateProjectIds = knownProjectIdsFromContextMessage(message);
+      const action = withNextActionMetadata({
+        recommended_action: "discover_projects_before_lifecycle_write",
+        tool: "project_list",
+        command: "moryn project list",
+        arguments: {},
+        required_when: DISCOVER_PROJECT_CONTEXT_WHEN,
+        required_fields: [],
+        ...(candidateProjectIds ? { candidate_project_ids: candidateProjectIds } : {}),
+        safe_to_run: true
+      });
+      return withProjectSelectionWorkflow(action, context, undefined);
+    }
+    case "PROJECT_PATH_NOT_FOUND": {
+      const path = projectPathFromMessage(message) ?? "<path>";
+      return withNextActionMetadata({
+        recommended_action: "initialize_project_or_retry_corrected_context",
+        tool: "project_init",
+        command: `moryn project init --path ${path}`,
+        arguments: { path },
+        required_when: INIT_OR_CORRECT_PROJECT_WHEN,
+        required_fields: path === "<path>" ? ["path"] : [],
+        argument_sources: userInputArgumentSources(path === "<path>" ? ["path"] : []),
+        safe_to_run: false
+      });
+    }
+    case "PROJECT_ID_NOT_FOUND": {
+      const { rejectedProjectId, candidateProjectIds } = unknownProjectIdFromMessage(message);
+      const action = withNextActionMetadata({
+        recommended_action: "list_projects_and_retry_with_known_project_id",
+        tool: "project_list",
+        command: "moryn project list",
+        arguments: {},
+        required_when: LIST_PROJECTS_FOR_ID_WHEN,
+        required_fields: [],
+        ...(rejectedProjectId ? { rejected_arguments: { project_id: rejectedProjectId } } : {}),
+        ...(candidateProjectIds ? { candidate_project_ids: candidateProjectIds } : {}),
+        safe_to_run: true
+      });
+      return withProjectSelectionWorkflow(action, context, rejectedProjectId);
+    }
     default:
       return undefined;
   }
@@ -1398,9 +1441,11 @@ export function toErrorEnvelope(error: unknown, context?: MorynErrorContext): Mo
   const message = error instanceof Error ? error.message : String(error);
   const code = errorCode(message);
   const action = nextAction(code, message, context);
-  const errorRecord = typeof error === "object" && error !== null ? error as Record<string, unknown> : {};
-  const overrideRecommendedAction = typeof errorRecord.recommended_action === "string" ? errorRecord.recommended_action : undefined;
-  const baseRecoveryHint = "recovery_hint" in errorRecord ? errorRecord.recovery_hint : knownRecoveryHint(code, message, context);
+  const errorRecord = typeof error === "object" && error !== null ? (error as Record<string, unknown>) : {};
+  const overrideRecommendedAction =
+    typeof errorRecord.recommended_action === "string" ? errorRecord.recommended_action : undefined;
+  const baseRecoveryHint =
+    "recovery_hint" in errorRecord ? errorRecord.recovery_hint : knownRecoveryHint(code, message, context);
   const recoveryHint = baseRecoveryHint !== undefined ? contextRecoveryHint(baseRecoveryHint, context) : undefined;
   return {
     ok: false,

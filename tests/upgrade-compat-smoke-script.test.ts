@@ -6,12 +6,20 @@ import { describe, expect, it } from "vitest";
 const exec = promisify(execFile);
 
 async function exists(path: string): Promise<boolean> {
-  try { await access(path); return true; } catch { return false; }
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 describe("upgrade compatibility smoke script", () => {
   it("is exposed as an npm script and upgrades a frozen v0.2 store in place", async () => {
-    const pkg = JSON.parse(await readFile("package.json", "utf8")) as { bin?: Record<string, string>; scripts?: Record<string, string> };
+    const pkg = JSON.parse(await readFile("package.json", "utf8")) as {
+      bin?: Record<string, string>;
+      scripts?: Record<string, string>;
+    };
 
     expect(pkg.bin?.["moryn-upgrade-smoke"]).toBe("scripts/upgrade-compat-smoke.js");
     expect(pkg.scripts?.["smoke:upgrade-compat"]).toBe("node scripts/upgrade-compat-smoke.js");

@@ -30,7 +30,8 @@ export interface TurnSyncCadenceDecision {
 
 const intervalMs = 15 * 60 * 1000;
 const statePath = (storePath: string) => join(storePath, "state", "turn-sync-cadence.json");
-const key = (input: Omit<TurnSyncCadenceIdentity, "occurred_at">) => `${input.project_id}\u0000${input.host}\u0000${input.session_id}\u0000${input.device_id}`;
+const key = (input: Omit<TurnSyncCadenceIdentity, "occurred_at">) =>
+  `${input.project_id}\u0000${input.host}\u0000${input.session_id}\u0000${input.device_id}`;
 
 export async function readTurnSyncCadence(storePath: string): Promise<TurnSyncCadenceState> {
   try {
@@ -42,18 +43,28 @@ export async function readTurnSyncCadence(storePath: string): Promise<TurnSyncCa
   }
 }
 
-export async function evaluateTurnSyncCadence(storePath: string, input: TurnSyncCadenceIdentity): Promise<TurnSyncCadenceDecision> {
+export async function evaluateTurnSyncCadence(
+  storePath: string,
+  input: TurnSyncCadenceIdentity
+): Promise<TurnSyncCadenceDecision> {
   const state = await readTurnSyncCadence(storePath);
   const entry = state.entries.find((candidate) => key(candidate) === key(input));
   if (!entry) return { due: true, reason: "first_turn_sync", interval_minutes: 15 };
   const elapsed = Date.parse(input.occurred_at) - Date.parse(entry.last_success_at);
-  if (elapsed >= intervalMs) return { due: true, reason: "interval_elapsed", interval_minutes: 15, last_success_at: entry.last_success_at };
+  if (elapsed >= intervalMs)
+    return { due: true, reason: "interval_elapsed", interval_minutes: 15, last_success_at: entry.last_success_at };
   return { due: false, reason: "within_interval", interval_minutes: 15, last_success_at: entry.last_success_at };
 }
 
 export async function recordTurnSyncSuccess(storePath: string, input: TurnSyncCadenceIdentity): Promise<void> {
   const state = await readTurnSyncCadence(storePath);
-  const entry: TurnSyncCadenceEntry = { project_id: input.project_id, host: input.host, session_id: input.session_id, device_id: input.device_id, last_success_at: input.occurred_at };
+  const entry: TurnSyncCadenceEntry = {
+    project_id: input.project_id,
+    host: input.host,
+    session_id: input.session_id,
+    device_id: input.device_id,
+    last_success_at: input.occurred_at
+  };
   const entries = [...state.entries.filter((candidate) => key(candidate) !== key(entry)), entry]
     .sort((left, right) => key(left).localeCompare(key(right)))
     .slice(-128);

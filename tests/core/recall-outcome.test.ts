@@ -35,11 +35,13 @@ describe("query token coverage", () => {
 
 describe("recall outcomes", () => {
   it("returns a trusted match for relevant trusted current knowledge", () => {
-    expect(assessRecallOutcome({
-      query: "moryn pull push",
-      now: "2026-07-11T01:00:00.000Z",
-      results: [{ record: record(), score: 25, reason: [] }]
-    })).toMatchObject({
+    expect(
+      assessRecallOutcome({
+        query: "moryn pull push",
+        now: "2026-07-11T01:00:00.000Z",
+        results: [{ record: record(), score: 25, reason: [] }]
+      })
+    ).toMatchObject({
       status: "trusted_match",
       best_record_id: "rec-a",
       coverage: 1,
@@ -53,11 +55,13 @@ describe("recall outcomes", () => {
     ["stale", record({ content: { text: "Moryn pulls on enter", valid_until: "2026-07-10T00:00:00.000Z" } })],
     ["partial", record({ content: { text: "Moryn pulls on enter" } })]
   ])("requires verification for %s matches", (_label, candidate) => {
-    expect(assessRecallOutcome({
-      query: "moryn pull push",
-      now: "2026-07-11T01:00:00.000Z",
-      results: [{ record: candidate, score: 12, reason: [] }]
-    })).toMatchObject({
+    expect(
+      assessRecallOutcome({
+        query: "moryn pull push",
+        now: "2026-07-11T01:00:00.000Z",
+        results: [{ record: candidate, score: 12, reason: [] }]
+      })
+    ).toMatchObject({
       status: "verification_required",
       recommended_action: "verify_then_use_or_learn"
     });
@@ -73,9 +77,11 @@ describe("recall outcomes", () => {
       stale: false,
       recommended_action: "explore_then_capture_learning"
     });
-    expect(assessRecallOutcome({
-      query: "database migration policy",
-      results: [{ record: record({ content: { text: "Moryn database" } }), score: 9, reason: [] }]
-    }).status).toBe("knowledge_gap");
+    expect(
+      assessRecallOutcome({
+        query: "database migration policy",
+        results: [{ record: record({ content: { text: "Moryn database" } }), score: 9, reason: [] }]
+      }).status
+    ).toBe("knowledge_gap");
   });
 });

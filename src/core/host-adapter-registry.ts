@@ -38,7 +38,9 @@ const HOST_ADAPTERS: HostAdapter[] = [
       default_command: "moryn capture session --agent claude --summary <summary>",
       records: ["session_summary", "agent_note", "memory(candidate)", "skill(candidate)"]
     },
-    limitations: ["Moryn supports automatic lifecycle activation with safe merge, backup, and atomic replacement; invalid host configuration degrades without modification."]
+    limitations: [
+      "Moryn supports automatic lifecycle activation with safe merge, backup, and atomic replacement; invalid host configuration degrades without modification."
+    ]
   },
   {
     id: "codex",
@@ -57,7 +59,9 @@ const HOST_ADAPTERS: HostAdapter[] = [
       default_command: "moryn capture session --agent codex --summary <summary>",
       records: ["session_summary", "agent_note", "memory(candidate)", "skill(candidate)"]
     },
-    limitations: ["Moryn supports automatic lifecycle activation in .codex/hooks.json; Codex still requires one-time project hook review through /hooks."]
+    limitations: [
+      "Moryn supports automatic lifecycle activation in .codex/hooks.json; Codex still requires one-time project hook review through /hooks."
+    ]
   },
   {
     id: "gemini",
@@ -70,7 +74,8 @@ const HOST_ADAPTERS: HostAdapter[] = [
       command: "gemini mcp add moryn moryn mcp --scope project",
       notes: ["Prefer project scope so Moryn follows the current repository."]
     },
-    lifecycle_prompt: "Use moryn context pack when opening a project and moryn capture session for session-end handoff.",
+    lifecycle_prompt:
+      "Use moryn context pack when opening a project and moryn capture session for session-end handoff.",
     capture_strategy: {
       default_command: "moryn capture session --agent gemini --summary <summary>",
       records: ["session_summary", "agent_note", "memory(candidate)", "skill(candidate)"]
@@ -158,4 +163,5 @@ export function getHostAdapter(host?: string): HostAdapter | undefined {
   const adapter = HOST_ADAPTERS.find((candidate) => candidate.id === normalized);
   return adapter ? cloneHostAdapter(adapter) : undefined;
 }
-import { knowledgeProtocolForHost, type KnowledgeProtocol } from "./knowledge-protocol.js";
+
+import { type KnowledgeProtocol, knowledgeProtocolForHost } from "./knowledge-protocol.js";

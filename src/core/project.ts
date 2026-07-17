@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -9,18 +9,17 @@ const exec = promisify(execFile);
 export const SYNC_MODES = ["manual", "session", "interval"] as const;
 export const PROJECT_SYNC_MODE_INPUTS = [...SYNC_MODES, "auto"] as const;
 
-const syncModeSchema = z.preprocess(
-  (value) => value === "auto" ? "interval" : value,
-  z.enum(SYNC_MODES)
-);
+const syncModeSchema = z.preprocess((value) => (value === "auto" ? "interval" : value), z.enum(SYNC_MODES));
 
 const projectConfigSchema = z.object({
   project_id: z.string().min(1).optional(),
   tags: z.array(z.string().min(1)).default([]),
   default_skills: z.array(z.string().min(1)).default([]),
-  sync: z.object({
-    mode: syncModeSchema.default("session")
-  }).default({ mode: "session" })
+  sync: z
+    .object({
+      mode: syncModeSchema.default("session")
+    })
+    .default({ mode: "session" })
 });
 
 export type ProjectConfig = z.infer<typeof projectConfigSchema>;
@@ -148,7 +147,9 @@ function projectInitArgumentSource(argument: ProjectInitArgument): string {
   return `operations_by_id.project_init.arguments_by_name.${argument}`;
 }
 
-function projectInitRecoveryBase<TArgument extends ProjectInitArgument>(argument: TArgument): {
+function projectInitRecoveryBase<TArgument extends ProjectInitArgument>(
+  argument: TArgument
+): {
   operation_contract: "operations_by_id.project_init";
   argument_sources: Record<TArgument, string>;
 } {
@@ -160,12 +161,14 @@ function projectInitRecoveryBase<TArgument extends ProjectInitArgument>(argument
   };
 }
 
-function invalidProjectInitStringError(argument: "path" | "project_id", value: unknown, messageName: string = argument): ProjectArgumentError {
+function invalidProjectInitStringError(
+  argument: "path" | "project_id",
+  value: unknown,
+  messageName: string = argument
+): ProjectArgumentError {
   return new ProjectArgumentError(
     `Invalid argument: Invalid ${messageName}`,
-    argument === "path"
-      ? "retry project init with a non-empty path"
-      : "retry project init with a non-empty project_id",
+    argument === "path" ? "retry project init with a non-empty path" : "retry project init with a non-empty project_id",
     {
       ...projectInitRecoveryBase(argument),
       rejected_argument: { argument, value },
@@ -175,23 +178,27 @@ function invalidProjectInitStringError(argument: "path" | "project_id", value: u
   );
 }
 
-function invalidProjectStringError(name: "project_id" | "projectId" | "projectPath", value: unknown, source?: "project_init"): ProjectArgumentError {
+function invalidProjectStringError(
+  name: "project_id" | "projectId" | "projectPath",
+  value: unknown,
+  source?: "project_init"
+): ProjectArgumentError {
   if (source === "project_init") {
     const argument = name === "projectPath" ? "path" : "project_id";
     return invalidProjectInitStringError(argument, value, name);
   }
-  return new ProjectArgumentError(
-    `Invalid argument: Invalid ${name}`,
-    projectStringAction(name),
-    {
-      rejected_argument: { argument: name, value },
-      expected: { kind: "non_empty_string", min_length: 1 },
-      retry_with: { argument: name, value_placeholder: `<${name}>` }
-    }
-  );
+  return new ProjectArgumentError(`Invalid argument: Invalid ${name}`, projectStringAction(name), {
+    rejected_argument: { argument: name, value },
+    expected: { kind: "non_empty_string", min_length: 1 },
+    retry_with: { argument: name, value_placeholder: `<${name}>` }
+  });
 }
 
-function invalidProjectStringArrayError(name: "tags" | "default_skills", value: unknown, source?: "project_init"): ProjectArgumentError {
+function invalidProjectStringArrayError(
+  name: "tags" | "default_skills",
+  value: unknown,
+  source?: "project_init"
+): ProjectArgumentError {
   const singular = name === "default_skills" ? "default_skill" : "tag";
   if (source === "project_init") {
     return new ProjectArgumentError(
@@ -270,7 +277,11 @@ function assertPlainObject(value: unknown, name: string): asserts value is Recor
   }
 }
 
-function validateOptionalString(value: unknown, name: "project_id" | "projectId" | "projectPath", source?: "project_init"): void {
+function validateOptionalString(
+  value: unknown,
+  name: "project_id" | "projectId" | "projectPath",
+  source?: "project_init"
+): void {
   if (value === undefined) return;
   if (typeof value !== "string" || value.length === 0) {
     throw invalidProjectStringError(name, value, source);
@@ -318,7 +329,9 @@ function validateInitializeProjectConfigInput(input: unknown): asserts input is 
   }
 }
 
-function validateResolveProjectContextInput(input: unknown): asserts input is { projectPath?: string; projectId?: string } {
+function validateResolveProjectContextInput(
+  input: unknown
+): asserts input is { projectPath?: string; projectId?: string } {
   assertPlainObject(input, "project context input");
   validateOptionalString(input.projectPath, "projectPath");
   validateOptionalString(input.projectId, "projectId");
@@ -341,7 +354,12 @@ function repoId(input: string): string {
 
 function normalizedRemoteIdentity(remote: string): string {
   const trimmed = remote.trim();
-  const normalizeGitHubPath = (path: string) => path.replace(/^\/+/, "").replace(/\/+$/, "").replace(/\.git$/i, "").toLowerCase();
+  const normalizeGitHubPath = (path: string) =>
+    path
+      .replace(/^\/+/, "")
+      .replace(/\/+$/, "")
+      .replace(/\.git$/i, "")
+      .toLowerCase();
   const scpLike = /^git@github\.com:(.+)$/i.exec(trimmed);
   if (scpLike) {
     return `github.com/${normalizeGitHubPath(scpLike[1])}`;
@@ -413,7 +431,10 @@ export async function readProjectConfig(projectPath: string): Promise<ProjectCon
   return (await findProjectConfig(projectPath))?.config;
 }
 
-export async function initializeProjectConfig(projectPath: unknown, input: InitializeProjectConfigInput = {}): Promise<InitializeProjectConfigResult> {
+export async function initializeProjectConfig(
+  projectPath: unknown,
+  input: InitializeProjectConfigInput = {}
+): Promise<InitializeProjectConfigResult> {
   validateRequiredString(projectPath, "projectPath", "project_init");
   validateInitializeProjectConfigInput(input);
   const resolved = resolve(projectPath);
@@ -447,7 +468,10 @@ export async function initializeProjectConfig(projectPath: unknown, input: Initi
   };
 }
 
-export async function resolveProjectContext(input: { projectPath?: string; projectId?: string }): Promise<ProjectContext> {
+export async function resolveProjectContext(input: {
+  projectPath?: string;
+  projectId?: string;
+}): Promise<ProjectContext> {
   validateResolveProjectContextInput(input);
   const projectPath = resolve(input.projectPath ?? process.cwd());
 
@@ -469,7 +493,12 @@ export async function resolveProjectContext(input: { projectPath?: string; proje
 
   const remote = await git(["remote", "get-url", "origin"], projectPath);
   if (remote) {
-    return { project_id: repoId(normalizedRemoteIdentity(remote)), project_path: projectPath, source: "git_remote", config };
+    return {
+      project_id: repoId(normalizedRemoteIdentity(remote)),
+      project_path: projectPath,
+      source: "git_remote",
+      config
+    };
   }
 
   const root = await git(["rev-parse", "--show-toplevel"], projectPath);

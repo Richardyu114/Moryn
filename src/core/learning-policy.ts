@@ -27,7 +27,10 @@ const HIGH_RISK_TYPES = new Set([
   "sync_configuration"
 ]);
 
-export function learningStatePolicy(learning: LearningDelta, options: { now?: string } = {}): LearningStatePolicyResult {
+export function learningStatePolicy(
+  learning: LearningDelta,
+  options: { now?: string } = {}
+): LearningStatePolicyResult {
   const normalizedType = learning.recommended_type.trim().toLowerCase();
   if (HIGH_RISK_TYPES.has(normalizedType) || detectSensitiveContent(learning.conclusion).sensitive) {
     return { state: "candidate", requires_confirmation: true, reason: "high_risk_learning_requires_confirmation" };

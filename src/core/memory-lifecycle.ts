@@ -1,9 +1,9 @@
 import { operationArgumentsByTool } from "../operation-contracts.js";
+import { type ActionInterfaces, actionInterfaces } from "./action-interfaces.js";
 import { actionExecution, actionSafety } from "./action-safety.js";
-import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js";
 import { commandForArchiveContext, commandForRecallContext, commandForTimelineContext } from "./errors.js";
 import type { MorynRecord, RecordKind, RecordState } from "./types.js";
-import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
+import { type RequiredFieldMetadata, withPhasesByName, withRequiredFieldsByName } from "./workflow.js";
 
 export interface MemoryLifecycleInput {
   project_id?: string;
@@ -65,19 +65,21 @@ export interface MemoryLifecycleSuggestedAction {
   interfaces: ActionInterfaces<Record<string, unknown>>;
   safety: ReturnType<typeof actionSafety>;
   execution: ReturnType<typeof actionExecution>;
-  workflow: ReturnType<typeof withPhasesByName<{
-    version: 1;
-    start: "suggested_action";
-    continue_from: string[];
-    phases: Array<{
-      phase: string;
-      order: number;
-      action_source: string;
-      tool: MemoryLifecycleActionTool;
-      required_when: string;
-      required_fields: string[];
-    }>;
-  }>>;
+  workflow: ReturnType<
+    typeof withPhasesByName<{
+      version: 1;
+      start: "suggested_action";
+      continue_from: string[];
+      phases: Array<{
+        phase: string;
+        order: number;
+        action_source: string;
+        tool: MemoryLifecycleActionTool;
+        required_when: string;
+        required_fields: string[];
+      }>;
+    }>
+  >;
 }
 
 export interface MemoryLifecycleStats {
@@ -156,7 +158,12 @@ function isRetainedByPolicy(record: MorynRecord): boolean {
   return record.state === "canonical" && record.type === "rule";
 }
 
-function lifecycleAssessment(record: MorynRecord, now: string, policy: MemoryLifecyclePolicy, privateRecordIds: Set<string>): MemoryLifecycleAssessment {
+function lifecycleAssessment(
+  record: MorynRecord,
+  now: string,
+  policy: MemoryLifecyclePolicy,
+  privateRecordIds: Set<string>
+): MemoryLifecycleAssessment {
   const age = ageDays(record, now);
   const reasons: string[] = [];
 
@@ -186,7 +193,8 @@ function lifecycleAssessment(record: MorynRecord, now: string, policy: MemoryLif
 
   if (age >= policy.archive_after_days) reasons.push("older_than_archive_after_days");
   if (age >= policy.stale_after_days) reasons.push("older_than_stale_after_days");
-  if (record.state === "candidate" && record.confidence < policy.low_confidence_threshold) reasons.push("low_confidence_candidate");
+  if (record.state === "candidate" && record.confidence < policy.low_confidence_threshold)
+    reasons.push("low_confidence_candidate");
 
   if (reasons.includes("older_than_archive_after_days") && reasons.includes("low_confidence_candidate")) {
     return {
@@ -221,7 +229,11 @@ function lifecycleAssessment(record: MorynRecord, now: string, policy: MemoryLif
   };
 }
 
-function stats(records: MorynRecord[], assessments: MemoryLifecycleAssessment[], excludedPrivateRecords: number): MemoryLifecycleStats {
+function stats(
+  records: MorynRecord[],
+  assessments: MemoryLifecycleAssessment[],
+  excludedPrivateRecords: number
+): MemoryLifecycleStats {
   return {
     total_records: records.length,
     excluded_private_records: excludedPrivateRecords,
@@ -229,8 +241,10 @@ function stats(records: MorynRecord[], assessments: MemoryLifecycleAssessment[],
     kinds: countBy(records.map((record) => record.kind)),
     retained_records: assessments.filter((assessment) => assessment.lifecycle_state === "retained").length,
     stale_records: assessments.filter((assessment) => assessment.lifecycle_state === "stale").length,
-    archive_candidate_records: assessments.filter((assessment) => assessment.lifecycle_state === "archive_candidate").length,
-    private_retained_records: assessments.filter((assessment) => assessment.lifecycle_state === "private_retained").length
+    archive_candidate_records: assessments.filter((assessment) => assessment.lifecycle_state === "archive_candidate")
+      .length,
+    private_retained_records: assessments.filter((assessment) => assessment.lifecycle_state === "private_retained")
+      .length
   };
 }
 
@@ -327,7 +341,11 @@ function archiveAction(recordId: string): MemoryLifecycleSuggestedAction {
   });
 }
 
-function inspectAction(recordId: string, projectId: string | undefined, includePrivate: boolean | undefined): MemoryLifecycleSuggestedAction {
+function inspectAction(
+  recordId: string,
+  projectId: string | undefined,
+  includePrivate: boolean | undefined
+): MemoryLifecycleSuggestedAction {
   const args = {
     record_id: recordId,
     ...(projectId ? { project_id: projectId } : {}),
@@ -346,7 +364,11 @@ function inspectAction(recordId: string, projectId: string | undefined, includeP
   });
 }
 
-function recallAction(recordId: string, projectId: string | undefined, includePrivate: boolean | undefined): MemoryLifecycleSuggestedAction {
+function recallAction(
+  recordId: string,
+  projectId: string | undefined,
+  includePrivate: boolean | undefined
+): MemoryLifecycleSuggestedAction {
   const args = {
     record_ids: [recordId],
     ...(projectId ? { project_id: projectId } : {}),
@@ -368,8 +390,15 @@ function stableRecordSort(left: MorynRecord, right: MorynRecord): number {
 }
 
 function stableAssessmentSort(left: MemoryLifecycleAssessment, right: MemoryLifecycleAssessment): number {
-  const priority = { archive_candidate: 3, stale: 2, private_retained: 1, retained: 0 } satisfies Record<MemoryLifecycleState, number>;
-  return priority[right.lifecycle_state] - priority[left.lifecycle_state] || right.updated_at.localeCompare(left.updated_at) || left.record_id.localeCompare(right.record_id);
+  const priority = { archive_candidate: 3, stale: 2, private_retained: 1, retained: 0 } satisfies Record<
+    MemoryLifecycleState,
+    number
+  >;
+  return (
+    priority[right.lifecycle_state] - priority[left.lifecycle_state] ||
+    right.updated_at.localeCompare(left.updated_at) ||
+    left.record_id.localeCompare(right.record_id)
+  );
 }
 
 function uniqueActions(actions: MemoryLifecycleSuggestedAction[], limit: number): MemoryLifecycleSuggestedAction[] {
@@ -389,22 +418,24 @@ export function diagnoseMemoryLifecycle(input: MemoryLifecycleDiagnoseInput): Me
   const assessments = records
     .map((record) => lifecycleAssessment(record, generatedAt, policy, privateRecordIds))
     .sort(stableAssessmentSort);
-  const findings = [
-    archiveFinding(assessments),
-    staleFinding(assessments)
-  ].filter((finding): finding is MemoryLifecycleFinding => finding !== undefined);
+  const findings = [archiveFinding(assessments), staleFinding(assessments)].filter(
+    (finding): finding is MemoryLifecycleFinding => finding !== undefined
+  );
   const assessmentByRecordId = Object.fromEntries(assessments.map((assessment) => [assessment.record_id, assessment]));
-  const actions = uniqueActions([
-    ...assessments
-      .filter((assessment) => assessment.lifecycle_state === "archive_candidate")
-      .map((assessment) => archiveAction(assessment.record_id)),
-    ...assessments
-      .filter((assessment) => assessment.lifecycle_state === "stale")
-      .map((assessment) => inspectAction(assessment.record_id, input.project_id, input.include_private)),
-    ...assessments
-      .filter((assessment) => assessment.lifecycle_state !== "retained")
-      .map((assessment) => recallAction(assessment.record_id, input.project_id, input.include_private))
-  ], limit);
+  const actions = uniqueActions(
+    [
+      ...assessments
+        .filter((assessment) => assessment.lifecycle_state === "archive_candidate")
+        .map((assessment) => archiveAction(assessment.record_id)),
+      ...assessments
+        .filter((assessment) => assessment.lifecycle_state === "stale")
+        .map((assessment) => inspectAction(assessment.record_id, input.project_id, input.include_private)),
+      ...assessments
+        .filter((assessment) => assessment.lifecycle_state !== "retained")
+        .map((assessment) => recallAction(assessment.record_id, input.project_id, input.include_private))
+    ],
+    limit
+  );
   const referencedRecordIds = new Set([
     ...findings.flatMap((finding) => finding.record_ids),
     ...actions.flatMap((action) => {
@@ -412,9 +443,7 @@ export function diagnoseMemoryLifecycle(input: MemoryLifecycleDiagnoseInput): Me
       return typeof recordId === "string" ? [recordId] : [];
     })
   ]);
-  const recordSelection = records
-    .filter((record) => referencedRecordIds.has(record.id))
-    .slice(0, limit);
+  const recordSelection = records.filter((record) => referencedRecordIds.has(record.id)).slice(0, limit);
   return {
     read_only: true,
     version: 1,

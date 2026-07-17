@@ -4,10 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
-import { createEngine } from "../../src/core/engine.js";
-import { initializeStore } from "../../src/core/config.js";
-import { readEvents } from "../../src/core/store.js";
 import { recordActivationReceipt } from "../../src/core/activation-receipts.js";
+import { initializeStore } from "../../src/core/config.js";
+import { createEngine } from "../../src/core/engine.js";
+import { readEvents } from "../../src/core/store.js";
 import { writeSyncCompensationReceipt } from "../../src/core/sync-compensation.js";
 import {
   buildDashboardData,
@@ -24,7 +24,7 @@ const exec = promisify(execFile);
 
 function quietFirstScreenHtml(html: string): string {
   const start = html.indexOf('data-quiet-dashboard="first-screen"');
-  const end = html.indexOf('data-quiet-dashboard-end');
+  const end = html.indexOf("data-quiet-dashboard-end");
   expect(start).toBeGreaterThan(-1);
   expect(end).toBeGreaterThan(start);
   return html.slice(start, end);
@@ -46,10 +46,7 @@ describe("observability dashboard", () => {
     expect(calls).toBe(1);
 
     release?.({ generation: 1 });
-    await expect(Promise.all([first, second])).resolves.toEqual([
-      { generation: 1 },
-      { generation: 1 }
-    ]);
+    await expect(Promise.all([first, second])).resolves.toEqual([{ generation: 1 }, { generation: 1 }]);
 
     const third = loader.load();
     expect(calls).toBe(2);
@@ -77,7 +74,7 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_${++record}` : `evt_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_${++record}` : `evt_${++event}`);
         })()
       });
 
@@ -120,8 +117,20 @@ describe("observability dashboard", () => {
       });
       expect(data.recent_events.map((event) => event.op)).toEqual(["upsert_record", "upsert_record"]);
       expect(data.agent_activity).toEqual([
-        expect.objectContaining({ client: "Codex", raw_clients: ["codex"], events: 1, records: 1, latest_at: "2026-06-01T00:01:00.000Z" }),
-        expect.objectContaining({ client: "Gemini", raw_clients: ["gemini"], events: 1, records: 1, latest_at: "2026-06-01T00:02:00.000Z" })
+        expect.objectContaining({
+          client: "Codex",
+          raw_clients: ["codex"],
+          events: 1,
+          records: 1,
+          latest_at: "2026-06-01T00:01:00.000Z"
+        }),
+        expect.objectContaining({
+          client: "Gemini",
+          raw_clients: ["gemini"],
+          events: 1,
+          records: 1,
+          latest_at: "2026-06-01T00:02:00.000Z"
+        })
       ]);
       expect(data.health).toMatchObject({
         status: "local_only",
@@ -140,21 +149,24 @@ describe("observability dashboard", () => {
       expect(data.selection_sources).toMatchObject({
         decision_summary: "decision_summary"
       });
-      expect(data.attention_items).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          severity: "info",
-          title: "Sync is not configured"
-        })
-      ]));
+      expect(data.attention_items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            severity: "info",
+            title: "Sync is not configured"
+          })
+        ])
+      );
       expect(data.charts.agent_activity.map((agent) => agent.client)).toEqual(["Codex", "Gemini"]);
-      expect(data.charts.memory_states.map((state) => state.state)).toEqual(expect.arrayContaining([
-        "canonical",
-        "candidate"
-      ]));
-      expect(data.charts.record_types).toEqual(expect.arrayContaining([
-        expect.objectContaining({ kind: "memory", count: 1 }),
-        expect.objectContaining({ kind: "session_summary", count: 1 })
-      ]));
+      expect(data.charts.memory_states.map((state) => state.state)).toEqual(
+        expect.arrayContaining(["canonical", "candidate"])
+      );
+      expect(data.charts.record_types).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ kind: "memory", count: 1 }),
+          expect.objectContaining({ kind: "session_summary", count: 1 })
+        ])
+      );
       expect(data.charts.sync_position).toMatchObject({
         configured: false,
         state: "not_configured",
@@ -172,10 +184,14 @@ describe("observability dashboard", () => {
       const html = renderDashboardHtml(data);
       expect(html).toContain("data-dashboard-editorial-shell");
       expect(html).not.toContain("needs-attention-quiet-summary");
-      expect(html).not.toContain("<div class=\"attention-focus\" aria-label=\"Action Signals focus\">");
-      expect(html).not.toContain("<details id=\"needs-attention\" class=\"panel needs-attention quiet\" data-dashboard-detail=\"needs-attention\" data-dashboard-section=\"needs-attention\">");
-      expect(html).not.toContain("<section id=\"needs-attention\" class=\"panel\" data-dashboard-section=\"needs-attention\">");
-      expect(html).not.toContain("data-dashboard-detail=\"decision-summary\"");
+      expect(html).not.toContain('<div class="attention-focus" aria-label="Action Signals focus">');
+      expect(html).not.toContain(
+        '<details id="needs-attention" class="panel needs-attention quiet" data-dashboard-detail="needs-attention" data-dashboard-section="needs-attention">'
+      );
+      expect(html).not.toContain(
+        '<section id="needs-attention" class="panel" data-dashboard-section="needs-attention">'
+      );
+      expect(html).not.toContain('data-dashboard-detail="decision-summary"');
     });
   });
 
@@ -194,7 +210,8 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_attention_i18n_${++record}` : `evt_attention_i18n_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_attention_i18n_${++record}` : `evt_attention_i18n_${++event}`;
         })()
       });
 
@@ -259,11 +276,13 @@ describe("observability dashboard", () => {
       });
       const html = renderDashboardHtml(data);
 
-      expect(data.attention_items.map((item) => item.title)).toEqual(expect.arrayContaining([
-        "Quarantined records superseded",
-        "Session notes not remembered",
-        "Many items to organize"
-      ]));
+      expect(data.attention_items.map((item) => item.title)).toEqual(
+        expect.arrayContaining([
+          "Quarantined records superseded",
+          "Session notes not remembered",
+          "Many items to organize"
+        ])
+      );
       expect(html).toContain("data-dashboard-editorial-shell");
     });
   });
@@ -283,7 +302,7 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: () => "2026-06-01T00:01:00.000Z",
-        id: (prefix: string) => prefix === "rec" ? "rec_sync_pending" : "evt_sync_pending"
+        id: (prefix: string) => (prefix === "rec" ? "rec_sync_pending" : "evt_sync_pending")
       });
       await engine.write({
         kind: "memory",
@@ -315,15 +334,17 @@ describe("observability dashboard", () => {
         label: "Sync Pending",
         explanation: "Local sync changes are waiting to be pushed or pulled; memory data remains usable on this device."
       });
-      expect(data.attention_items).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          severity: "warning",
-          title: "Sync changes not pushed",
-          description: "Local event history has changes that are not committed or pushed yet.",
-          action_label: "Push sync",
-          action_command: "moryn sync --push"
-        })
-      ]));
+      expect(data.attention_items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            severity: "warning",
+            title: "Sync changes not pushed",
+            description: "Local event history has changes that are not committed or pushed yet.",
+            action_label: "Push sync",
+            action_command: "moryn sync --push"
+          })
+        ])
+      );
       expect(data.action_board.items_by_id.sync).toMatchObject({
         label: "Sync",
         value: 1,
@@ -349,21 +370,27 @@ describe("observability dashboard", () => {
           source: "action_board.items_by_id.sync"
         }
       });
-      expect(data.dashboard_overview.cards_by_id.health.summary).toContain("Local sync changes are waiting to be pushed or pulled");
+      expect(data.dashboard_overview.cards_by_id.health.summary).toContain(
+        "Local sync changes are waiting to be pushed or pulled"
+      );
       expect(data.dashboard_overview.cards.map((card) => card.id)).toEqual(["health", "action", "context", "sync"]);
       expect(data.quiet_dashboard.attention_needed.map((item) => item.title)).not.toContain("Sync changes not pushed");
-      expect(data.attention_items).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          severity: "warning",
-          title: "Sync changes not pushed"
-        })
-      ]));
+      expect(data.attention_items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            severity: "warning",
+            title: "Sync changes not pushed"
+          })
+        ])
+      );
       expect(data.charts.agent_activity.length).toBeGreaterThan(0);
       expect(data.charts.memory_states.length).toBeGreaterThan(0);
       expect(data.charts.record_types.length).toBeGreaterThan(0);
       expect(html).toContain("data-dashboard-editorial-shell");
       expect(html).not.toContain("data-dashboard-work-lanes");
-      expect(html).not.toContain("<section id=\"needs-attention\" class=\"needs-attention-quiet-line\" data-dashboard-section=\"needs-attention\" data-dashboard-detail=\"needs-attention\">");
+      expect(html).not.toContain(
+        '<section id="needs-attention" class="needs-attention-quiet-line" data-dashboard-section="needs-attention" data-dashboard-detail="needs-attention">'
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -382,17 +409,14 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = [
-            "2026-06-01T00:01:00.000Z",
-            "2026-06-01T00:02:00.000Z",
-            "2026-06-01T00:03:00.000Z"
-          ];
+          const timestamps = ["2026-06-01T00:01:00.000Z", "2026-06-01T00:02:00.000Z", "2026-06-01T00:03:00.000Z"];
           return () => timestamps.shift() ?? "2026-06-01T00:02:00.000Z";
         })(),
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_action_board_${++record}` : `evt_action_board_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_action_board_${++record}` : `evt_action_board_${++event}`;
         })()
       });
       await engine.write({
@@ -445,24 +469,40 @@ describe("observability dashboard", () => {
         },
         review_suggested: true
       });
-      expect(data.memory_inventory.states.map((state) => state.id)).toEqual(["remembered", "new_items", "temporary", "set_aside"]);
-      expect(data.memory_inventory.states.map((state) => state.label)).toEqual(["Ready to use", "Saved for later", "Saved briefly", "Set aside"]);
-      expect(data.memory_inventory.kind_summary).toEqual(expect.arrayContaining([
-        expect.objectContaining({ kind: "memory", label: "Memories", count: 1 }),
-        expect.objectContaining({ kind: "session_summary", label: "Session notes", count: 1 }),
-        expect.objectContaining({ kind: "agent_note", label: "Agent notes", count: 1 })
-      ]));
+      expect(data.memory_inventory.states.map((state) => state.id)).toEqual([
+        "remembered",
+        "new_items",
+        "temporary",
+        "set_aside"
+      ]);
+      expect(data.memory_inventory.states.map((state) => state.label)).toEqual([
+        "Ready to use",
+        "Saved for later",
+        "Saved briefly",
+        "Set aside"
+      ]);
+      expect(data.memory_inventory.kind_summary).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ kind: "memory", label: "Memories", count: 1 }),
+          expect.objectContaining({ kind: "session_summary", label: "Session notes", count: 1 }),
+          expect.objectContaining({ kind: "agent_note", label: "Agent notes", count: 1 })
+        ])
+      );
       expect(data.dashboard_overview.headline).toBe("No action needed");
-      expect(data.dashboard_overview.detail).toBe("1 saved item and 1 session note are searchable now. Organize later if useful; this summary does not write to memory.");
+      expect(data.dashboard_overview.detail).toBe(
+        "1 saved item and 1 session note are searchable now. Organize later if useful; this summary does not write to memory."
+      );
       expect(data.dashboard_overview.primary_action).toMatchObject({
         label: "Search saved content",
         target: "stored-content",
         source: "memory_inventory"
       });
-      expect(data.attention_items).toContainEqual(expect.objectContaining({
-        severity: "info",
-        title: "Session notes not remembered"
-      }));
+      expect(data.attention_items).toContainEqual(
+        expect.objectContaining({
+          severity: "info",
+          title: "Session notes not remembered"
+        })
+      );
       expect(data.health.explanation).toBe("Everything is synced and no action is waiting.");
       expect(data.dashboard_overview.cards.map((card) => card.id)).toEqual(["health", "action", "context", "sync"]);
       expect(data.recent_records[0]).toMatchObject({
@@ -477,13 +517,19 @@ describe("observability dashboard", () => {
         target: "needs-attention"
       });
       expect(html).toContain("data-dashboard-editorial-shell");
-      expect(html).toContain("<div class=\"editorial-brand\">Moryn</div>");
-      expect(html).toContain("<span class=\"editorial-language-label\" data-i18n-en=\"Language\" data-i18n-zh=\"语言\">Language</span>");
-      expect(html).toContain("<button type=\"button\" class=\"language-option active\" data-dashboard-language-option=\"en\" aria-pressed=\"true\"><span>EN</span></button>");
+      expect(html).toContain('<div class="editorial-brand">Moryn</div>');
+      expect(html).toContain(
+        '<span class="editorial-language-label" data-i18n-en="Language" data-i18n-zh="语言">Language</span>'
+      );
+      expect(html).toContain(
+        '<button type="button" class="language-option active" data-dashboard-language-option="en" aria-pressed="true"><span>EN</span></button>'
+      );
       expect(html).toContain("const staticTranslations = new Map(");
       expect(html).not.toContain("data-dashboard-overview");
-      expect(html).not.toContain("<article class=\"supporting-evidence-summary-row\"");
-      expect(html).not.toContain("<details class=\"panel supporting-evidence\" data-dashboard-detail=\"supporting-evidence\" aria-label=\"Supporting Evidence\">");
+      expect(html).not.toContain('<article class="supporting-evidence-summary-row"');
+      expect(html).not.toContain(
+        '<details class="panel supporting-evidence" data-dashboard-detail="supporting-evidence" aria-label="Supporting Evidence">'
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -529,7 +575,8 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_activity_trend_${++record}` : `evt_activity_trend_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_activity_trend_${++record}` : `evt_activity_trend_${++event}`;
         })()
       });
 
@@ -594,7 +641,7 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_stored_more_${++record}` : `evt_stored_more_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_stored_more_${++record}` : `evt_stored_more_${++event}`);
         })()
       });
       for (let index = 1; index <= 6; index += 1) {
@@ -639,7 +686,8 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_representative_${++record}` : `evt_representative_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_representative_${++record}` : `evt_representative_${++event}`;
         })()
       });
 
@@ -690,8 +738,18 @@ describe("observability dashboard", () => {
       });
       const html = renderDashboardHtml(data, { showStoredContent: true });
 
-      expect(data.recent_value.slice(0, 4).map((item) => item.state)).toEqual(["archived", "archived", "archived", "archived"]);
-      expect(data.stored_content_preview.map((item) => item.state)).toEqual(["candidate", "canonical", "raw", "archived"]);
+      expect(data.recent_value.slice(0, 4).map((item) => item.state)).toEqual([
+        "archived",
+        "archived",
+        "archived",
+        "archived"
+      ]);
+      expect(data.stored_content_preview.map((item) => item.state)).toEqual([
+        "candidate",
+        "canonical",
+        "raw",
+        "archived"
+      ]);
       expect(html).toContain("data-dashboard-editorial-shell");
     });
   });
@@ -705,17 +763,14 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = [
-            "2026-06-01T00:01:00.000Z",
-            "2026-06-01T00:02:00.000Z",
-            "2026-06-01T00:03:00.000Z"
-          ];
+          const timestamps = ["2026-06-01T00:01:00.000Z", "2026-06-01T00:02:00.000Z", "2026-06-01T00:03:00.000Z"];
           return () => timestamps.shift() ?? "2026-06-01T00:04:00.000Z";
         })(),
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_saved_explain_${++record}` : `evt_saved_explain_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_saved_explain_${++record}` : `evt_saved_explain_${++event}`;
         })()
       });
 
@@ -775,10 +830,12 @@ describe("observability dashboard", () => {
         now: "2026-06-21T00:00:00.000Z"
       });
       const html = renderDashboardHtml(data, { showStoredContent: true });
-      const candidateValue = data.recent_value.find((record) => record.id === "rec_saved_explain_2") as {
-        provenance_method?: string;
-        provenance_reason?: string;
-      } | undefined;
+      const candidateValue = data.recent_value.find((record) => record.id === "rec_saved_explain_2") as
+        | {
+            provenance_method?: string;
+            provenance_reason?: string;
+          }
+        | undefined;
 
       expect(candidateValue).toMatchObject({
         provenance_method: "agent-proposed",
@@ -803,7 +860,8 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_action_target_${++record}` : `evt_action_target_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_action_target_${++record}` : `evt_action_target_${++event}`;
         })()
       });
       for (let index = 1; index <= 5; index += 1) {
@@ -851,7 +909,8 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_memory_search_${++record}` : `evt_memory_search_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_memory_search_${++record}` : `evt_memory_search_${++event}`;
         })()
       });
       await engine.write({
@@ -877,9 +936,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-memory-search");
       expect(html).toContain("data-memory-search-input");
       expect(html).toContain("data-memory-result");
-      expect(html).toContain("data-drawer-target=\"record-rec_memory_search_1\"");
+      expect(html).toContain('data-drawer-target="record-rec_memory_search_1"');
       expect(html).toContain("Searchable dashboard keyword alpha");
-      expect(html).toContain("data-drawer-payload=\"record-rec_memory_search_1\"");
+      expect(html).toContain('data-drawer-payload="record-rec_memory_search_1"');
     });
   });
 
@@ -898,10 +957,12 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_memory_perf_${++record}` : `evt_memory_perf_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_memory_perf_${++record}` : `evt_memory_perf_${++event}`);
         })()
       });
-      const longText = Array.from({ length: 36 }, (_, index) => `long dashboard memory paragraph ${index + 1}`).join(" ");
+      const longText = Array.from({ length: 36 }, (_, index) => `long dashboard memory paragraph ${index + 1}`).join(
+        " "
+      );
       await engine.write({
         kind: "memory",
         type: "decision",
@@ -923,8 +984,8 @@ describe("observability dashboard", () => {
       // The redesigned Memory view surfaces a searchable result per record; the
       // long body is exposed through the searchable result and its drawer.
       expect(html).toContain("data-memory-result");
-      expect(html).toContain("data-drawer-target=\"record-rec_memory_perf_1\"");
-      expect(html).toContain("data-drawer-payload=\"record-rec_memory_perf_1\"");
+      expect(html).toContain('data-drawer-target="record-rec_memory_perf_1"');
+      expect(html).toContain('data-drawer-payload="record-rec_memory_perf_1"');
     });
   });
 
@@ -937,16 +998,14 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = [
-            "2026-06-18T00:01:00.000Z",
-            "2026-06-10T00:01:00.000Z"
-          ];
+          const timestamps = ["2026-06-18T00:01:00.000Z", "2026-06-10T00:01:00.000Z"];
           return () => timestamps.shift() ?? "2026-06-21T00:03:00.000Z";
         })(),
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_memory_command_${++record}` : `evt_memory_command_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_memory_command_${++record}` : `evt_memory_command_${++event}`;
         })()
       });
       await engine.write({
@@ -980,8 +1039,8 @@ describe("observability dashboard", () => {
       // instead of the removed command-style search panel.
       expect(html).toContain("data-memory-search");
       expect(html).toContain("data-memory-chip");
-      expect(html).toContain("data-chip-kind=\"memory\"");
-      expect(html).toContain("data-chip-kind=\"session_summary\"");
+      expect(html).toContain('data-chip-kind="memory"');
+      expect(html).toContain('data-chip-kind="session_summary"');
       expect(html).toContain("data-memory-result");
       expect(html).toContain("Codex decision for command search");
       expect(html).toContain("Gemini handoff queue command search");
@@ -1007,7 +1066,8 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_quiet_background_${++record}` : `evt_quiet_background_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_quiet_background_${++record}` : `evt_quiet_background_${++event}`;
         })()
       });
       await engine.write({
@@ -1053,7 +1113,9 @@ describe("observability dashboard", () => {
 
       expect(data.health.status).toBe("healthy");
       expect(data.dashboard_overview.headline).toBe("No action needed");
-      expect(data.dashboard_overview.detail).toBe("3 saved items and 1 session note are searchable now. Organize later if useful; this summary does not write to memory.");
+      expect(data.dashboard_overview.detail).toBe(
+        "3 saved items and 1 session note are searchable now. Organize later if useful; this summary does not write to memory."
+      );
       expect(data.dashboard_overview.primary_action).toMatchObject({
         label: "Search saved content",
         target: "stored-content",
@@ -1085,16 +1147,13 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = [
-            "2026-06-21T00:01:00.000Z",
-            "2026-06-21T00:02:00.000Z"
-          ];
+          const timestamps = ["2026-06-21T00:01:00.000Z", "2026-06-21T00:02:00.000Z"];
           return () => timestamps.shift() ?? "2026-06-21T00:03:00.000Z";
         })(),
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_health_${++record}` : `evt_health_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_health_${++record}` : `evt_health_${++event}`);
         })()
       });
       await engine.write({
@@ -1115,7 +1174,14 @@ describe("observability dashboard", () => {
         content: { text: "Private dashboard health check detail must stay hidden.", format: "text" },
         source: { client: "codex" }
       });
-      await writeSyncCompensationReceipt(storePath, { occurred_at: "2026-06-21T00:04:00.000Z", project_id: "moryn", decision: "pushed", reason: "pending_continuity_events", pending_paths: ["events/checkpoint.json"], continuity_record_ids: ["rec_health_1"] });
+      await writeSyncCompensationReceipt(storePath, {
+        occurred_at: "2026-06-21T00:04:00.000Z",
+        project_id: "moryn",
+        decision: "pushed",
+        reason: "pending_continuity_events",
+        pending_paths: ["events/checkpoint.json"],
+        continuity_record_ids: ["rec_health_1"]
+      });
 
       const beforeEvents = await readEvents(storePath);
       const data = await buildDashboardData(storePath, {
@@ -1157,15 +1223,19 @@ describe("observability dashboard", () => {
         host_adapter: "Codex",
         sync_remote: "git@github.com:user/moryn-store.git",
         install_command: "moryn install --host codex --sync-remote git@github.com:user/moryn-store.git",
-        context_pack_command: "moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task '<current task>' --agent codex",
-        capture_command: "moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary '<summary>'"
+        context_pack_command:
+          "moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task '<current task>' --agent codex",
+        capture_command:
+          "moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary '<summary>'"
       });
       expect(html).toContain("data-dashboard-editorial-shell");
-      expect(data.health_check.suggested_actions.map((action) => action.command)).toEqual(expect.arrayContaining([
-        "moryn dashboard --serve --project-id moryn",
-        "moryn install --host codex --sync-remote git@github.com:user/moryn-store.git",
-        "moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task '<current task>' --agent codex"
-      ]));
+      expect(data.health_check.suggested_actions.map((action) => action.command)).toEqual(
+        expect.arrayContaining([
+          "moryn dashboard --serve --project-id moryn",
+          "moryn install --host codex --sync-remote git@github.com:user/moryn-store.git",
+          "moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task '<current task>' --agent codex"
+        ])
+      );
       expect(JSON.stringify(data.health_check)).not.toContain("Private dashboard health check detail");
       expect(html).not.toContain("Private dashboard health check detail");
     });
@@ -1180,16 +1250,13 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = [
-            "2026-06-01T00:01:00.000Z",
-            "2026-06-01T00:02:00.000Z"
-          ];
+          const timestamps = ["2026-06-01T00:01:00.000Z", "2026-06-01T00:02:00.000Z"];
           return () => timestamps.shift() ?? "2026-06-01T00:03:00.000Z";
         })(),
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_governance_${++record}` : `evt_governance_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_governance_${++record}` : `evt_governance_${++event}`);
         })()
       });
 
@@ -1216,11 +1283,11 @@ describe("observability dashboard", () => {
       });
 
       const beforeEvents = await readEvents(storePath);
-      const data = await buildDashboardData(storePath, {
+      const data = (await buildDashboardData(storePath, {
         limit: 10,
         project_id: "moryn",
         now: "2026-06-21T00:00:00.000Z"
-      }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+      })) as Awaited<ReturnType<typeof buildDashboardData>> & {
         governance: {
           read_only: boolean;
           version: number;
@@ -1236,24 +1303,27 @@ describe("observability dashboard", () => {
           items_by_id: Record<string, unknown>;
           selection_sources: Record<string, string>;
         };
-        actions_by_id: Record<string, {
-          action_id: string;
-          surface: string;
-          kind: string;
-          label: string;
-          intent: string;
-          target: { type: string; id: string };
-          endpoint?: string;
-          method?: string;
-          request_body?: Record<string, unknown>;
-          safety: {
-            safe_to_auto_run: boolean;
-            requires_user_confirmation: boolean;
-            writes: string;
-            stale_guard?: string;
-          };
-          source_path: string;
-        }>;
+        actions_by_id: Record<
+          string,
+          {
+            action_id: string;
+            surface: string;
+            kind: string;
+            label: string;
+            intent: string;
+            target: { type: string; id: string };
+            endpoint?: string;
+            method?: string;
+            request_body?: Record<string, unknown>;
+            safety: {
+              safe_to_auto_run: boolean;
+              requires_user_confirmation: boolean;
+              writes: string;
+              stale_guard?: string;
+            };
+            source_path: string;
+          }
+        >;
       };
 
       expect(await readEvents(storePath)).toHaveLength(beforeEvents.length);
@@ -1294,7 +1364,7 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: () => "2026-06-01T00:01:00.000Z",
-        id: (prefix: string) => prefix === "rec" ? "rec_governance_safe_only" : "evt_governance_safe_only"
+        id: (prefix: string) => (prefix === "rec" ? "rec_governance_safe_only" : "evt_governance_safe_only")
       });
 
       await engine.write({
@@ -1346,7 +1416,8 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_project_dogfood_${++record}` : `evt_project_dogfood_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_project_dogfood_${++record}` : `evt_project_dogfood_${++event}`;
         })()
       });
 
@@ -1405,7 +1476,8 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_memory_doctor_${++record}` : `evt_memory_doctor_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_memory_doctor_${++record}` : `evt_memory_doctor_${++event}`;
         })()
       });
 
@@ -1439,11 +1511,11 @@ describe("observability dashboard", () => {
       }
 
       const beforeEvents = await readEvents(storePath);
-      const data = await buildDashboardData(storePath, {
+      const data = (await buildDashboardData(storePath, {
         limit: 10,
         project_id: "moryn",
         now: "2026-06-21T00:00:00.000Z"
-      }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+      })) as Awaited<ReturnType<typeof buildDashboardData>> & {
         memory_doctor: {
           read_only: boolean;
           findings_by_id: Record<string, { summary: string; reason: string }>;
@@ -1487,9 +1559,11 @@ describe("observability dashboard", () => {
       });
       expect(data.actions.some((action) => action.source_path.startsWith("memory_doctor"))).toBe(false);
       expect(data.candidate_triage.review_focus?.summary).toBe("Start with Session summaries: Inspect handoff value");
-      expect(data.candidate_triage.groups_by_id.session_summaries?.evidence_path).toBe("candidate_triage.groups_by_id.session_summaries");
+      expect(data.candidate_triage.groups_by_id.session_summaries?.evidence_path).toBe(
+        "candidate_triage.groups_by_id.session_summaries"
+      );
       expect(html).toContain("data-dashboard-editorial-shell");
-      expect(html).not.toContain("data-dashboard-action-id=\"memory_doctor");
+      expect(html).not.toContain('data-dashboard-action-id="memory_doctor');
     });
   });
 
@@ -1513,7 +1587,8 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_doctor_quality_${++record}` : `evt_doctor_quality_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_doctor_quality_${++record}` : `evt_doctor_quality_${++event}`;
         })()
       });
       const duplicateOne = await engine.write({
@@ -1598,7 +1673,7 @@ describe("observability dashboard", () => {
       });
       expect(data.actions.some((action) => action.source_path.startsWith("memory_doctor"))).toBe(false);
       expect(html).toContain("data-dashboard-editorial-shell");
-      expect(html).not.toContain("data-dashboard-action-id=\"memory_doctor");
+      expect(html).not.toContain('data-dashboard-action-id="memory_doctor');
     });
   });
 
@@ -1624,7 +1699,8 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_candidate_triage_${++record}` : `evt_candidate_triage_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_candidate_triage_${++record}` : `evt_candidate_triage_${++event}`;
         })()
       });
 
@@ -1683,11 +1759,11 @@ describe("observability dashboard", () => {
       });
 
       const beforeEvents = await readEvents(storePath);
-      const data = await buildDashboardData(storePath, {
+      const data = (await buildDashboardData(storePath, {
         limit: 10,
         project_id: "moryn",
         now: "2026-06-21T00:00:00.000Z"
-      }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+      })) as Awaited<ReturnType<typeof buildDashboardData>> & {
         candidate_triage: {
           read_only: true;
           available: boolean;
@@ -1715,39 +1791,48 @@ describe("observability dashboard", () => {
             record_ids: string[];
             evidence_path: string;
           }>;
-          groups_by_id: Record<string, {
-            id: string;
-            record_ids: string[];
-            evidence_path: string;
-            records: Array<{
+          groups_by_id: Record<
+            string,
+            {
               id: string;
-              text: string;
-            }>;
-            records_by_id: Record<string, {
-              id: string;
-              record_index: number;
+              record_ids: string[];
               evidence_path: string;
-              text?: string;
-              citation?: unknown;
-            }>;
-            promotion_drafts_by_id?: Record<string, {
-              record_id: string;
-              target_state: string;
-              reason: string;
-              command: string;
-              requires_user_confirmation: boolean;
-              writes: string;
-              source_path: string;
-              approve_endpoint: string;
-              action_id: string;
-            }>;
-            review_handoff: {
-              label: string;
-              existing_control: string;
-              guidance: string;
-              write_boundary: string;
-            };
-          }>;
+              records: Array<{
+                id: string;
+                text: string;
+              }>;
+              records_by_id: Record<
+                string,
+                {
+                  id: string;
+                  record_index: number;
+                  evidence_path: string;
+                  text?: string;
+                  citation?: unknown;
+                }
+              >;
+              promotion_drafts_by_id?: Record<
+                string,
+                {
+                  record_id: string;
+                  target_state: string;
+                  reason: string;
+                  command: string;
+                  requires_user_confirmation: boolean;
+                  writes: string;
+                  source_path: string;
+                  approve_endpoint: string;
+                  action_id: string;
+                }
+              >;
+              review_handoff: {
+                label: string;
+                existing_control: string;
+                guidance: string;
+                write_boundary: string;
+              };
+            }
+          >;
           selection_sources: Record<string, string>;
         };
       };
@@ -1791,7 +1876,8 @@ describe("observability dashboard", () => {
         review_handoff: {
           label: "Archive review",
           existing_control: "Capture Inbox or Memory Doctor",
-          guidance: "Reject eligible Capture Inbox candidates; archive confirmed noise only through explicit Memory Doctor guidance.",
+          guidance:
+            "Reject eligible Capture Inbox candidates; archive confirmed noise only through explicit Memory Doctor guidance.",
           write_boundary: "Review first; approve only through draft rows"
         }
       });
@@ -1820,7 +1906,8 @@ describe("observability dashboard", () => {
           record_id: "rec_candidate_triage_3",
           target_state: "canonical",
           reason: "User approved Candidate Triage promotion draft.",
-          command: "moryn promote rec_candidate_triage_3 --state canonical --reason 'User approved Candidate Triage promotion draft.' --confirm",
+          command:
+            "moryn promote rec_candidate_triage_3 --state canonical --reason 'User approved Candidate Triage promotion draft.' --confirm",
           requires_user_confirmation: true,
           writes: "append_only_events",
           source_path: "candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.rec_candidate_triage_3",
@@ -1855,21 +1942,23 @@ describe("observability dashboard", () => {
           candidate_triage_promotions: 1
         }
       });
-      expect(data.decision_summary.items).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          id: "candidate_triage:promotion:rec_candidate_triage_3",
-          surface: "candidate_triage",
-          title: "Approve Candidate Triage promotion",
-          decision_label: "Approve Memory",
-          target: "candidate-triage",
-          target_label: "Open Candidate Triage",
-          primary_action_id: "candidate_triage.promotion.approve.rec_candidate_triage_3",
-          requires_user_confirmation: true,
-          writes: "append_only_events",
-          safety_note: "Approve Memory appends a promotion event only after the active candidate guard passes.",
-          evidence_path: "candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.rec_candidate_triage_3"
-        })
-      ]));
+      expect(data.decision_summary.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: "candidate_triage:promotion:rec_candidate_triage_3",
+            surface: "candidate_triage",
+            title: "Approve Candidate Triage promotion",
+            decision_label: "Approve Memory",
+            target: "candidate-triage",
+            target_label: "Open Candidate Triage",
+            primary_action_id: "candidate_triage.promotion.approve.rec_candidate_triage_3",
+            requires_user_confirmation: true,
+            writes: "append_only_events",
+            safety_note: "Approve Memory appends a promotion event only after the active candidate guard passes.",
+            evidence_path: "candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.rec_candidate_triage_3"
+          })
+        ])
+      );
       expect(data.decision_summary.items_by_id["candidate_triage:promotion:rec_candidate_triage_3"]).toMatchObject({
         target: "candidate-triage"
       });
@@ -1885,7 +1974,7 @@ describe("observability dashboard", () => {
       expect(data.candidate_triage.groups.every((group) => group.requires_user_confirmation === false)).toBe(true);
 
       expect(html).toContain("data-dashboard-editorial-shell");
-      expect(html).not.toContain("data-dashboard-action-id=\"candidate-triage");
+      expect(html).not.toContain('data-dashboard-action-id="candidate-triage');
       expect(html).not.toContain("Approve Triage");
       expect(html).not.toContain("Archive Group");
       expect(html).not.toContain("Promote Selected");
@@ -1907,7 +1996,8 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_budgeted_triage_${++record}` : `evt_budgeted_triage_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_budgeted_triage_${++record}` : `evt_budgeted_triage_${++event}`;
         })()
       });
 
@@ -1968,9 +2058,11 @@ describe("observability dashboard", () => {
       });
       expect(JSON.stringify(data.candidate_triage)).toContain("Temporary scratch candidate 7.");
       expect(JSON.stringify(data.candidate_triage)).not.toContain("Temporary scratch candidate 4.");
-      expect(data.candidate_triage.groups_by_id.needs_inspection?.evidence_path).toBe("candidate_triage.groups_by_id.needs_inspection");
+      expect(data.candidate_triage.groups_by_id.needs_inspection?.evidence_path).toBe(
+        "candidate_triage.groups_by_id.needs_inspection"
+      );
       expect(html).toContain("data-dashboard-editorial-shell");
-      expect(html).not.toContain("data-dashboard-action-id=\"candidate-triage");
+      expect(html).not.toContain('data-dashboard-action-id="candidate-triage');
     });
   });
 
@@ -1994,7 +2086,7 @@ describe("observability dashboard", () => {
           ];
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? recordIds[record++] : `evt_candidate_short_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? recordIds[record++] : `evt_candidate_short_${++event}`);
         })()
       });
 
@@ -2041,17 +2133,21 @@ describe("observability dashboard", () => {
         id: generatedId,
         record_index: 1
       });
-      expect(data.candidate_triage.groups_by_id.needs_inspection?.records).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          id: generatedId,
-          citation: expect.objectContaining({
-            timeline_command: `moryn timeline --record-id ${generatedId} --project-id moryn`,
-            recall_command: `moryn recall --record-id ${generatedId} --project-id moryn`
+      expect(data.candidate_triage.groups_by_id.needs_inspection?.records).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: generatedId,
+            citation: expect.objectContaining({
+              timeline_command: `moryn timeline --record-id ${generatedId} --project-id moryn`,
+              recall_command: `moryn recall --record-id ${generatedId} --project-id moryn`
+            })
           })
-        })
-      ]));
+        ])
+      );
       expect(data.candidate_triage.review_focus?.summary).toBe("Start with Needs inspection: Inspect timeline");
-      expect(data.candidate_triage.groups_by_id.needs_inspection?.evidence_path).toBe("candidate_triage.groups_by_id.needs_inspection");
+      expect(data.candidate_triage.groups_by_id.needs_inspection?.evidence_path).toBe(
+        "candidate_triage.groups_by_id.needs_inspection"
+      );
       expect(html).toContain("data-dashboard-editorial-shell");
     });
   });
@@ -2079,7 +2175,8 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_governance_item_${++record}` : `evt_governance_item_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_governance_item_${++record}` : `evt_governance_item_${++event}`;
         })()
       });
 
@@ -2190,11 +2287,11 @@ describe("observability dashboard", () => {
       });
 
       const beforeEvents = await readEvents(storePath);
-      const data = await buildDashboardData(storePath, {
+      const data = (await buildDashboardData(storePath, {
         limit: 10,
         project_id: "moryn",
         now: "2026-06-21T00:00:00.000Z"
-      }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+      })) as Awaited<ReturnType<typeof buildDashboardData>> & {
         governance: {
           summary: {
             total_items: number;
@@ -2219,22 +2316,25 @@ describe("observability dashboard", () => {
             requires_user_confirmation: boolean;
             writes: string;
           }>;
-          items_by_id: Record<string, {
-            id: string;
-            source: string;
-            category: string;
-            severity: string;
-            title: string;
-            summary: string;
-            record_ids: string[];
-            evidence_path: string;
-            action_label: string;
-            action_id?: string;
-            review_log: string[];
-            safe_to_run: boolean;
-            requires_user_confirmation: boolean;
-            writes: string;
-          }>;
+          items_by_id: Record<
+            string,
+            {
+              id: string;
+              source: string;
+              category: string;
+              severity: string;
+              title: string;
+              summary: string;
+              record_ids: string[];
+              evidence_path: string;
+              action_label: string;
+              action_id?: string;
+              review_log: string[];
+              safe_to_run: boolean;
+              requires_user_confirmation: boolean;
+              writes: string;
+            }
+          >;
         };
         dogfood_report: {
           findings_by_id: Record<string, { summary: string; reason?: string; record_ids?: string[] }>;
@@ -2316,7 +2416,9 @@ describe("observability dashboard", () => {
         writes: "none"
       });
       expect(data.maintenance.plans_by_id[maintenancePlan?.plan_id ?? ""]).toBeDefined();
-      expect(data.decision_summary.items_by_id[`maintenance_review:${maintenancePlan?.plan_hash.replace(/^sha256:/, "")}`]).toMatchObject({
+      expect(
+        data.decision_summary.items_by_id[`maintenance_review:${maintenancePlan?.plan_hash.replace(/^sha256:/, "")}`]
+      ).toMatchObject({
         surface: "maintenance_review",
         title: "Project identity repair",
         decision_label: "Apply Repair",
@@ -2334,8 +2436,9 @@ describe("observability dashboard", () => {
         requires_user_confirmation: false,
         writes: "none"
       });
-      expect(data.governance.items_by_id["dogfood_report:capture_review_backlog"].record_ids)
-        .not.toContain("rec_governance_item_4");
+      expect(data.governance.items_by_id["dogfood_report:capture_review_backlog"].record_ids).not.toContain(
+        "rec_governance_item_4"
+      );
       expect(data.governance.items_by_id["dogfood_report:failure_signals"]).toMatchObject({
         source: "dogfood_report",
         category: "dogfood_friction",
@@ -2372,16 +2475,14 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = [
-            "2026-06-01T00:01:00.000Z",
-            "2026-06-01T00:02:00.000Z"
-          ];
+          const timestamps = ["2026-06-01T00:01:00.000Z", "2026-06-01T00:02:00.000Z"];
           return () => timestamps.shift() ?? "2026-06-01T00:03:00.000Z";
         })(),
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_governance_dedupe_${++record}` : `evt_governance_dedupe_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_governance_dedupe_${++record}` : `evt_governance_dedupe_${++event}`;
         })()
       });
 
@@ -2416,14 +2517,16 @@ describe("observability dashboard", () => {
       const html = renderDashboardHtml(data);
 
       expect(data.maintenance.plans).toHaveLength(1);
-      expect(data.decision_summary.items).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          surface: "maintenance_review",
-          title: "Project identity repair",
-          decision_label: "Apply Repair",
-          target: "maintenance-review-queue"
-        })
-      ]));
+      expect(data.decision_summary.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            surface: "maintenance_review",
+            title: "Project identity repair",
+            decision_label: "Apply Repair",
+            target: "maintenance-review-queue"
+          })
+        ])
+      );
       expect(data.governance.summary.needs_user_action).toBe(0);
       expect(data.governance.items.some((item) => item.source === "maintenance")).toBe(false);
       expect(html).toContain("Review Queue");
@@ -2452,7 +2555,7 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_recall_eval_${++record}` : `evt_recall_eval_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_recall_eval_${++record}` : `evt_recall_eval_${++event}`);
         })()
       });
 
@@ -2522,11 +2625,11 @@ describe("observability dashboard", () => {
 
       const beforeEvents = await readEvents(storePath);
       try {
-        const data = await buildDashboardData(storePath, {
+        const data = (await buildDashboardData(storePath, {
           limit: 10,
           project_id: "moryn",
           now: "2026-06-21T00:00:00.000Z"
-        }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+        })) as Awaited<ReturnType<typeof buildDashboardData>> & {
           recall_eval: {
             available: boolean;
             generated_from: {
@@ -2541,7 +2644,10 @@ describe("observability dashboard", () => {
                 failed_cases: number;
                 privacy_leaks: number;
               };
-              cases_by_id: Record<string, { status: string; missing_record_ids: string[]; hidden_record_ids: string[] }>;
+              cases_by_id: Record<
+                string,
+                { status: string; missing_record_ids: string[]; hidden_record_ids: string[] }
+              >;
             } | null;
           };
         };
@@ -2614,7 +2720,8 @@ describe("observability dashboard", () => {
         expect(data.dashboard_overview).toMatchObject({
           status: "good",
           headline: "All clear",
-          detail: "No confirmations, warnings, or sync actions need attention. Read-only inspections remain available below.",
+          detail:
+            "No confirmations, warnings, or sync actions need attention. Read-only inspections remain available below.",
           primary_action: {
             label: "Inspect checks",
             target: "governance-hub",
@@ -2676,12 +2783,14 @@ describe("observability dashboard", () => {
       const quarantined = data.recent_records.find((record) => record.state === "quarantined");
       expect(quarantined?.text).toBe("[quarantined]");
       expect(JSON.stringify(data)).not.toContain("sk-test_1234567890abcdefghijklmnopqrstuvwxyz");
-      expect(data.attention_items).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          severity: "warning",
-          title: "Quarantined records hidden"
-        })
-      ]));
+      expect(data.attention_items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            severity: "warning",
+            title: "Quarantined records hidden"
+          })
+        ])
+      );
       expect(data.action_board.items.map((item) => item.id)).toEqual(["confirm", "review", "inspect", "sync"]);
       expect(data.action_board.items_by_id.confirm).toMatchObject({
         label: "Confirm",
@@ -2791,7 +2900,7 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: () => "2026-06-01T00:01:00.000Z",
-        id: (prefix: string) => prefix === "rec" ? "rec_recent_long" : "evt_recent_long"
+        id: (prefix: string) => (prefix === "rec" ? "rec_recent_long" : "evt_recent_long")
       });
       const longText = `Important compact recent value intro. ${"dashboard-noise ".repeat(80)}FULL_CONTENT_SENTINEL`;
 
@@ -2833,7 +2942,7 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: () => "2026-06-01T00:01:00.000Z",
-        id: (prefix: string) => prefix === "rec" ? "rec_abcdef1234567890abcdef1234567890" : "evt_recent_hash"
+        id: (prefix: string) => (prefix === "rec" ? "rec_abcdef1234567890abcdef1234567890" : "evt_recent_hash")
       });
 
       await engine.write({
@@ -2938,16 +3047,13 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = [
-            "2026-06-01T00:01:00.000Z",
-            "2026-06-01T00:02:00.000Z"
-          ];
+          const timestamps = ["2026-06-01T00:01:00.000Z", "2026-06-01T00:02:00.000Z"];
           return () => timestamps.shift() ?? "2026-06-01T00:03:00.000Z";
         })(),
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_${++record}` : `evt_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_${++record}` : `evt_${++event}`);
         })()
       });
 
@@ -2982,18 +3088,22 @@ describe("observability dashboard", () => {
 
       expect(data.totals.quarantined_records).toBe(1);
       expect(data.health.status).toBe("local_only");
-      expect(data.attention_items).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          severity: "info",
-          title: "Quarantined records superseded"
-        })
-      ]));
-      expect(data.attention_items).not.toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          severity: "warning",
-          title: "Quarantined records hidden"
-        })
-      ]));
+      expect(data.attention_items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            severity: "info",
+            title: "Quarantined records superseded"
+          })
+        ])
+      );
+      expect(data.attention_items).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            severity: "warning",
+            title: "Quarantined records hidden"
+          })
+        ])
+      );
     });
   });
 
@@ -3017,7 +3127,7 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_chain_${++record}` : `evt_chain_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_chain_${++record}` : `evt_chain_${++event}`);
         })()
       });
 
@@ -3068,18 +3178,22 @@ describe("observability dashboard", () => {
 
       expect(data.totals.quarantined_records).toBe(1);
       expect(data.health.status).toBe("local_only");
-      expect(data.attention_items).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          severity: "info",
-          title: "Quarantined records superseded"
-        })
-      ]));
-      expect(data.attention_items).not.toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          severity: "warning",
-          title: "Quarantined records hidden"
-        })
-      ]));
+      expect(data.attention_items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            severity: "info",
+            title: "Quarantined records superseded"
+          })
+        ])
+      );
+      expect(data.attention_items).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            severity: "warning",
+            title: "Quarantined records hidden"
+          })
+        ])
+      );
     });
   });
 
@@ -3107,7 +3221,7 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_agent_${++record}` : `evt_agent_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_agent_${++record}` : `evt_agent_${++event}`);
         })()
       });
 
@@ -3161,7 +3275,13 @@ describe("observability dashboard", () => {
           latest_at: "2026-06-01T00:08:00.000Z"
         })
       ]);
-      expect(data.charts.agent_activity.map((agent) => agent.client)).toEqual(["Codex", "Moryn Local", "Claude", "Kimi", "Gemini"]);
+      expect(data.charts.agent_activity.map((agent) => agent.client)).toEqual([
+        "Codex",
+        "Moryn Local",
+        "Claude",
+        "Kimi",
+        "Gemini"
+      ]);
     });
   });
 
@@ -3174,16 +3294,13 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = [
-            "2026-06-01T00:01:00.000Z",
-            "2026-06-01T00:02:00.000Z"
-          ];
+          const timestamps = ["2026-06-01T00:01:00.000Z", "2026-06-01T00:02:00.000Z"];
           return () => timestamps.shift() ?? "2026-06-01T00:03:00.000Z";
         })(),
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_recent_${++record}` : `evt_recent_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_recent_${++record}` : `evt_recent_${++event}`);
         })()
       });
 
@@ -3208,10 +3325,7 @@ describe("observability dashboard", () => {
 
       const data = await buildDashboardData(storePath, { limit: 10 });
 
-      expect(data.recent_value.map((record) => record.id)).toEqual([
-        newerStatus.record.id,
-        olderDecision.record.id
-      ]);
+      expect(data.recent_value.map((record) => record.id)).toEqual([newerStatus.record.id, olderDecision.record.id]);
     });
   });
 
@@ -3230,7 +3344,7 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_value_${++record}` : `evt_value_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_value_${++record}` : `evt_value_${++event}`);
         })()
       });
 
@@ -3252,7 +3366,7 @@ describe("observability dashboard", () => {
 
       expect(data.recent_value).toHaveLength(6);
       expect(html).toContain("data-dashboard-editorial-shell");
-      expect(html).not.toContain("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
+      expect(html).not.toContain('<details class="panel recent-value-panel" data-dashboard-detail="recent-value">');
       expect(html.match(/class="value-card(?: |")/g) ?? []).toHaveLength(0);
       expect(html.match(/class="value-card value-card-overflow"/g) ?? []).toHaveLength(0);
     });
@@ -3267,16 +3381,13 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = [
-            "2026-06-01T00:01:00.000Z",
-            "2026-06-01T00:02:00.000Z"
-          ];
+          const timestamps = ["2026-06-01T00:01:00.000Z", "2026-06-01T00:02:00.000Z"];
           return () => timestamps.shift() ?? "2026-06-01T00:03:00.000Z";
         })(),
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_cite_${++record}` : `evt_cite_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_cite_${++record}` : `evt_cite_${++event}`);
         })()
       });
 
@@ -3361,16 +3472,13 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = [
-            "2026-06-01T00:01:00.000Z",
-            "2026-06-01T00:02:00.000Z"
-          ];
+          const timestamps = ["2026-06-01T00:01:00.000Z", "2026-06-01T00:02:00.000Z"];
           return () => timestamps.shift() ?? "2026-06-01T00:03:00.000Z";
         })(),
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_private_${++record}` : `evt_private_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_private_${++record}` : `evt_private_${++event}`);
         })()
       });
 
@@ -3415,7 +3523,7 @@ describe("observability dashboard", () => {
         include_private: true
       });
       try {
-        const serverData = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
+        const serverData = (await (await fetch(new URL("/api/dashboard", server.url))).json()) as {
           recent_records: Array<{ id: string }>;
           recent_value: Array<{ id: string; summary: string }>;
         };
@@ -3454,7 +3562,7 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_lifecycle_${++record}` : `evt_lifecycle_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_lifecycle_${++record}` : `evt_lifecycle_${++event}`);
         })()
       });
 
@@ -3544,25 +3652,29 @@ describe("observability dashboard", () => {
       expect(data.memory_lifecycle.assessments_by_record_id[privateRecord.record.id]).toBeUndefined();
       expect(JSON.stringify(data)).not.toContain("Private dashboard lifecycle memory");
       expect(JSON.stringify(data.memory_lifecycle)).not.toContain("Other project lifecycle memory");
-      expect(data.memory_lifecycle.suggested_actions).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          action_id: `archive:${archiveCandidate.record.id}`,
-          command: expect.stringContaining(`moryn archive ${archiveCandidate.record.id}`),
-          safe_to_run: false
-        }),
-        expect.objectContaining({
-          action_id: `inspect:${staleRecord.record.id}`,
-          command: expect.stringContaining(`moryn timeline --record-id ${staleRecord.record.id} --project-id moryn`),
-          safe_to_run: true
-        })
-      ]));
+      expect(data.memory_lifecycle.suggested_actions).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            action_id: `archive:${archiveCandidate.record.id}`,
+            command: expect.stringContaining(`moryn archive ${archiveCandidate.record.id}`),
+            safe_to_run: false
+          }),
+          expect.objectContaining({
+            action_id: `inspect:${staleRecord.record.id}`,
+            command: expect.stringContaining(`moryn timeline --record-id ${staleRecord.record.id} --project-id moryn`),
+            safe_to_run: true
+          })
+        ])
+      );
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("data-dashboard-editorial-shell");
       expect(JSON.stringify(data.memory_lifecycle)).toContain("default_memory_lifecycle_policy");
       expect(JSON.stringify(data.memory_lifecycle)).toContain("archive_after_review");
       expect(JSON.stringify(data.memory_lifecycle)).toContain(`moryn archive ${archiveCandidate.record.id}`);
-      expect(JSON.stringify(data.memory_lifecycle)).toContain(`moryn timeline --record-id ${staleRecord.record.id} --project-id moryn`);
+      expect(JSON.stringify(data.memory_lifecycle)).toContain(
+        `moryn timeline --record-id ${staleRecord.record.id} --project-id moryn`
+      );
       expect(html).not.toContain("Apply Lifecycle");
       expect(html).not.toContain("data-lifecycle-approve");
       expect(html).not.toContain("Private dashboard lifecycle memory");
@@ -3578,16 +3690,14 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = [
-            "2026-01-01T00:01:00.000Z",
-            "2026-01-02T00:01:00.000Z"
-          ];
+          const timestamps = ["2026-01-01T00:01:00.000Z", "2026-01-02T00:01:00.000Z"];
           return () => timestamps.shift() ?? "2026-01-03T00:01:00.000Z";
         })(),
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_lifecycle_private_${++record}` : `evt_lifecycle_private_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_lifecycle_private_${++record}` : `evt_lifecycle_private_${++event}`;
         })()
       });
 
@@ -3652,7 +3762,7 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_split_${++record}` : `evt_split_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_split_${++record}` : `evt_split_${++event}`);
         })()
       });
 
@@ -3727,8 +3837,10 @@ describe("observability dashboard", () => {
           title: "Project identity repair",
           issue: "2 records under repo-e6f0166fd942 likely belong to moryn.",
           impact: "Boot and recall can miss these memories when agents ask for project moryn.",
-          recommended_action: "Apply the repair only after confirming repo-e6f0166fd942 is an old or generated id for moryn.",
-          rollback_path: "If this was wrong, review the refreshed plan and run moryn project migrate --from moryn --to repo-e6f0166fd942 --apply --confirm.",
+          recommended_action:
+            "Apply the repair only after confirming repo-e6f0166fd942 is an old or generated id for moryn.",
+          rollback_path:
+            "If this was wrong, review the refreshed plan and run moryn project migrate --from moryn --to repo-e6f0166fd942 --apply --confirm.",
           evidence: expect.arrayContaining([
             "Matched records: 2 records; 1 canonical, 1 candidate.",
             "Private records: 1 private record skipped.",
@@ -3739,22 +3851,18 @@ describe("observability dashboard", () => {
       expect(data.maintenance.plans[0]?.decision_card.raw_evidence).toMatchObject({
         plan_hash: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
         command: "moryn project migrate --from repo-e6f0166fd942 --to moryn --apply --confirm",
-        record_ids: [
-          candidateOld.record.id,
-          canonicalOld.record.id
-        ]
+        record_ids: [candidateOld.record.id, canonicalOld.record.id]
       });
       expect(data.maintenance.plans[0]?.plan_hash).toMatch(/^sha256:[a-f0-9]{64}$/);
-      expect(data.maintenance.plans[0]?.record_ids).toEqual([
-        candidateOld.record.id,
-        canonicalOld.record.id
-      ]);
-      expect(data.maintenance.plans[0]?.safety_checks).toEqual(expect.arrayContaining([
-        expect.objectContaining({ id: "dry_run_completed", ok: true }),
-        expect.objectContaining({ id: "target_project_explicit", ok: true }),
-        expect.objectContaining({ id: "no_private_records", ok: true }),
-        expect.objectContaining({ id: "append_only", ok: true })
-      ]));
+      expect(data.maintenance.plans[0]?.record_ids).toEqual([candidateOld.record.id, canonicalOld.record.id]);
+      expect(data.maintenance.plans[0]?.safety_checks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "dry_run_completed", ok: true }),
+          expect.objectContaining({ id: "target_project_explicit", ok: true }),
+          expect.objectContaining({ id: "no_private_records", ok: true }),
+          expect.objectContaining({ id: "append_only", ok: true })
+        ])
+      );
       expect(data.actions_by_id[planActionId]).toMatchObject({
         action_id: planActionId,
         surface: "maintenance_review",
@@ -3816,17 +3924,14 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = [
-            "2026-06-01T00:01:00.000Z",
-            "2026-06-01T00:02:00.000Z",
-            "2026-06-01T00:03:00.000Z"
-          ];
+          const timestamps = ["2026-06-01T00:01:00.000Z", "2026-06-01T00:02:00.000Z", "2026-06-01T00:03:00.000Z"];
           return () => timestamps.shift() ?? "2026-06-01T00:04:00.000Z";
         })(),
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_private_plan_${++record}` : `evt_private_plan_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_private_plan_${++record}` : `evt_private_plan_${++event}`;
         })()
       });
 
@@ -3882,9 +3987,9 @@ describe("observability dashboard", () => {
           }
         }
       });
-      expect(plan?.safety_checks).toEqual(expect.arrayContaining([
-        expect.objectContaining({ id: "no_private_records", ok: false })
-      ]));
+      expect(plan?.safety_checks).toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: "no_private_records", ok: false })])
+      );
     });
   });
 
@@ -3909,7 +4014,7 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_noise_plan_${++record}` : `evt_noise_plan_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_noise_plan_${++record}` : `evt_noise_plan_${++event}`);
         })()
       });
 
@@ -3972,7 +4077,8 @@ describe("observability dashboard", () => {
         plan_id: "candidate_noise_archive:moryn",
         type: "candidate_noise_archive",
         finding_id: "candidate_marker_noise",
-        command: "moryn archive rec_noise_plan_4 --reason 'Memory doctor: e2e marker/noise candidate' && moryn archive rec_noise_plan_3 --reason 'Memory doctor: e2e marker/noise candidate' && moryn archive rec_noise_plan_2 --reason 'Memory doctor: e2e marker/noise candidate'",
+        command:
+          "moryn archive rec_noise_plan_4 --reason 'Memory doctor: e2e marker/noise candidate' && moryn archive rec_noise_plan_3 --reason 'Memory doctor: e2e marker/noise candidate' && moryn archive rec_noise_plan_2 --reason 'Memory doctor: e2e marker/noise candidate'",
         dry_run: {
           matched_records: 3,
           skipped_private_records: 1,
@@ -3986,7 +4092,8 @@ describe("observability dashboard", () => {
           issue: "3 candidate records look like smoke/e2e marker noise.",
           impact: "Candidate review stays noisy until confirmed test markers are archived.",
           recommended_action: "Archive these candidates only after confirming they are test noise or obsolete markers.",
-          rollback_path: "If this was wrong, use the record ids and timeline events below to inspect the append-only archive before restoring manually.",
+          rollback_path:
+            "If this was wrong, use the record ids and timeline events below to inspect the append-only archive before restoring manually.",
           evidence: expect.arrayContaining([
             "Matched records: 3 records; 3 candidate.",
             "Private records: 1 private record skipped.",
@@ -3994,17 +4101,15 @@ describe("observability dashboard", () => {
           ])
         }
       });
-      expect(plan?.record_ids).toEqual([
-        e2e.record.id,
-        smoke.record.id,
-        marker.record.id
-      ]);
-      expect(plan?.safety_checks).toEqual(expect.arrayContaining([
-        expect.objectContaining({ id: "dry_run_completed", ok: true }),
-        expect.objectContaining({ id: "candidate_noise_detected", ok: true }),
-        expect.objectContaining({ id: "no_private_records", ok: true }),
-        expect.objectContaining({ id: "append_only", ok: true })
-      ]));
+      expect(plan?.record_ids).toEqual([e2e.record.id, smoke.record.id, marker.record.id]);
+      expect(plan?.safety_checks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "dry_run_completed", ok: true }),
+          expect.objectContaining({ id: "candidate_noise_detected", ok: true }),
+          expect.objectContaining({ id: "no_private_records", ok: true }),
+          expect.objectContaining({ id: "append_only", ok: true })
+        ])
+      );
       expect(data.actions_by_id[planActionId]).toMatchObject({
         action_id: planActionId,
         surface: "maintenance_review",
@@ -4029,15 +4134,17 @@ describe("observability dashboard", () => {
         },
         source_path: "maintenance.plans[]"
       });
-      expect(data.decision_summary.items).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          surface: "maintenance_review",
-          title: "Candidate noise cleanup",
-          decision_label: "Archive Noise",
-          safety_note: "Archive Noise appends archive_record events only after the plan_hash guard passes.",
-          evidence_path: "maintenance.plans[]"
-        })
-      ]));
+      expect(data.decision_summary.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            surface: "maintenance_review",
+            title: "Candidate noise cleanup",
+            decision_label: "Archive Noise",
+            safety_note: "Archive Noise appends archive_record events only after the plan_hash guard passes.",
+            evidence_path: "maintenance.plans[]"
+          })
+        ])
+      );
       expect(data.candidate_triage.review_focus).toMatchObject({
         group_id: "likely_noise",
         summary: "Start with Likely noise: Inspect likely noise before archive",
@@ -4070,7 +4177,7 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_large_noise_${++record}` : `evt_large_noise_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_large_noise_${++record}` : `evt_large_noise_${++event}`);
         })()
       });
 
@@ -4118,16 +4225,13 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = [
-            "2026-06-01T00:01:00.000Z",
-            "2026-06-01T00:02:00.000Z"
-          ];
+          const timestamps = ["2026-06-01T00:01:00.000Z", "2026-06-01T00:02:00.000Z"];
           return () => timestamps.shift() ?? "2026-06-01T00:03:00.000Z";
         })(),
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_review_${++record}` : `evt_review_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_review_${++record}` : `evt_review_${++event}`);
         })()
       });
 
@@ -4197,16 +4301,14 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = [
-            "2026-06-01T00:01:00.000Z",
-            "2026-06-01T00:02:00.000Z"
-          ];
+          const timestamps = ["2026-06-01T00:01:00.000Z", "2026-06-01T00:02:00.000Z"];
           return () => timestamps.shift() ?? "2026-06-01T00:03:00.000Z";
         })(),
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_overview_dedupe_${++record}` : `evt_overview_dedupe_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_overview_dedupe_${++record}` : `evt_overview_dedupe_${++event}`;
         })()
       });
 
@@ -4271,16 +4373,14 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = [
-            "2026-06-01T00:01:00.000Z",
-            "2026-06-01T00:02:00.000Z"
-          ];
+          const timestamps = ["2026-06-01T00:01:00.000Z", "2026-06-01T00:02:00.000Z"];
           return () => timestamps.shift() ?? "2026-06-01T00:03:00.000Z";
         })(),
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_decision_sync_${++record}` : `evt_decision_sync_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_decision_sync_${++record}` : `evt_decision_sync_${++event}`;
         })()
       });
 
@@ -4366,7 +4466,7 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_pack_${++record}` : `evt_pack_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_pack_${++record}` : `evt_pack_${++event}`);
         })()
       });
 
@@ -4399,10 +4499,10 @@ describe("observability dashboard", () => {
         source: { client: "codex", session_id: "pack-review" }
       });
 
-      const data = await buildDashboardData(storePath, {
+      const data = (await buildDashboardData(storePath, {
         limit: 10,
         project_id: "moryn"
-      }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+      })) as Awaited<ReturnType<typeof buildDashboardData>> & {
         context_pack_review: {
           available: boolean;
           project_id?: string;
@@ -4481,7 +4581,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("Codex finished handoff review implementation.");
       expect(JSON.stringify(data.context_pack_review)).toContain("Do not make dashboard context review mutate memory.");
       expect(html).not.toContain("data-context-pack-approve");
-      expect(html).not.toContain("data-dashboard-action-id=\"context_pack");
+      expect(html).not.toContain('data-dashboard-action-id="context_pack');
     });
   });
 
@@ -4517,7 +4617,7 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_no_project_${++record}` : `evt_no_project_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_no_project_${++record}` : `evt_no_project_${++event}`);
         })()
       });
       const projectText = "Project memory should not make dashboard guess context.";
@@ -4532,7 +4632,9 @@ describe("observability dashboard", () => {
         source: { client: "user" }
       });
 
-      const data = await buildDashboardData(storePath, { limit: 10 }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+      const data = (await buildDashboardData(storePath, { limit: 10 })) as Awaited<
+        ReturnType<typeof buildDashboardData>
+      > & {
         context_pack_review: {
           available: boolean;
           unavailable_reason?: string;
@@ -4567,16 +4669,13 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = [
-            "2026-06-01T00:01:00.000Z",
-            "2026-06-01T00:02:00.000Z"
-          ];
+          const timestamps = ["2026-06-01T00:01:00.000Z", "2026-06-01T00:02:00.000Z"];
           return () => timestamps.shift() ?? "2026-06-01T00:03:00.000Z";
         })(),
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_capture_${++record}` : `evt_capture_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_capture_${++record}` : `evt_capture_${++event}`);
         })()
       });
 
@@ -4613,25 +4712,30 @@ describe("observability dashboard", () => {
         source: { client: "user" }
       });
 
-      const data = await buildDashboardData(storePath, { limit: 10 }) as Awaited<ReturnType<typeof buildDashboardData>> & {
-        actions_by_id: Record<string, {
-          action_id: string;
-          surface: string;
-          kind: string;
-          label: string;
-          intent: string;
-          target: { type: string; id: string };
-          endpoint?: string;
-          method?: string;
-          request_body?: Record<string, unknown>;
-          safety: {
-            safe_to_auto_run: boolean;
-            requires_user_confirmation: boolean;
-            writes: string;
-            stale_guard?: string;
-          };
-          source_path: string;
-        }>;
+      const data = (await buildDashboardData(storePath, { limit: 10 })) as Awaited<
+        ReturnType<typeof buildDashboardData>
+      > & {
+        actions_by_id: Record<
+          string,
+          {
+            action_id: string;
+            surface: string;
+            kind: string;
+            label: string;
+            intent: string;
+            target: { type: string; id: string };
+            endpoint?: string;
+            method?: string;
+            request_body?: Record<string, unknown>;
+            safety: {
+              safe_to_auto_run: boolean;
+              requires_user_confirmation: boolean;
+              writes: string;
+              stale_guard?: string;
+            };
+            source_path: string;
+          }
+        >;
         capture_inbox: {
           total: number;
           groups: Array<{
@@ -4793,7 +4897,8 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_capture_group_${++record}` : `evt_capture_group_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_capture_group_${++record}` : `evt_capture_group_${++event}`;
         })()
       });
 
@@ -4834,7 +4939,9 @@ describe("observability dashboard", () => {
         source: { client: "claude", session_id: "claude-smoke" }
       });
 
-      const data = await buildDashboardData(storePath, { limit: 10 }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+      const data = (await buildDashboardData(storePath, { limit: 10 })) as Awaited<
+        ReturnType<typeof buildDashboardData>
+      > & {
         capture_inbox: {
           policy: {
             id: string;
@@ -4905,10 +5012,9 @@ describe("observability dashboard", () => {
         reject_endpoint: expect.stringMatching(/^api\/capture-inbox\/groups\/capture_group_[a-f0-9]+\/reject$/),
         noise: { level: "normal", rule_ids: [], suggested_action: "review" }
       });
-      expect(data.capture_inbox.items.filter((item) => item.group_id === codexGroup?.id).map((item) => item.id)).toEqual([
-        secondCodex.record.id,
-        firstCodex.record.id
-      ]);
+      expect(
+        data.capture_inbox.items.filter((item) => item.group_id === codexGroup?.id).map((item) => item.id)
+      ).toEqual([secondCodex.record.id, firstCodex.record.id]);
 
       const noisyGroup = data.capture_inbox.groups.find((group) => group.source_detail === "claude / claude-smoke");
       expect(noisyGroup).toMatchObject({
@@ -4924,10 +5030,12 @@ describe("observability dashboard", () => {
           ])
         }
       });
-      expect(data.capture_inbox.items.find((item) => item.id === smoke.record.id)?.noise.reasons).toEqual(expect.arrayContaining([
-        "Looks like smoke, test, or fixture output.",
-        "Duplicate capture text appears in this batch."
-      ]));
+      expect(data.capture_inbox.items.find((item) => item.id === smoke.record.id)?.noise.reasons).toEqual(
+        expect.arrayContaining([
+          "Looks like smoke, test, or fixture output.",
+          "Duplicate capture text appears in this batch."
+        ])
+      );
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("data-dashboard-editorial-shell");
@@ -4943,7 +5051,7 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: () => "2026-06-01T10:01:00.000Z",
-        id: (prefix: string) => prefix === "rec" ? "rec_capture_evidence" : "evt_capture_evidence"
+        id: (prefix: string) => (prefix === "rec" ? "rec_capture_evidence" : "evt_capture_evidence")
       });
 
       const capture = await engine.write({
@@ -4984,7 +5092,9 @@ describe("observability dashboard", () => {
         }
       });
 
-      const data = await buildDashboardData(storePath, { limit: 10 }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+      const data = (await buildDashboardData(storePath, { limit: 10 })) as Awaited<
+        ReturnType<typeof buildDashboardData>
+      > & {
         capture_inbox: {
           items: Array<{
             id: string;
@@ -5033,16 +5143,14 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = [
-            "2026-06-01T10:01:00.000Z",
-            "2026-06-01T10:02:00.000Z"
-          ];
+          const timestamps = ["2026-06-01T10:01:00.000Z", "2026-06-01T10:02:00.000Z"];
           return () => timestamps.shift() ?? "2026-06-01T10:03:00.000Z";
         })(),
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_capture_policy_${++record}` : `evt_capture_policy_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_capture_policy_${++record}` : `evt_capture_policy_${++event}`;
         })()
       });
 
@@ -5100,12 +5208,17 @@ describe("observability dashboard", () => {
         }
       });
 
-      const data = await buildDashboardData(storePath, { limit: 10 }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+      const data = (await buildDashboardData(storePath, { limit: 10 })) as Awaited<
+        ReturnType<typeof buildDashboardData>
+      > & {
         capture_policy: {
           read_only: boolean;
           policy: { id: string; auto_canonical: boolean };
           stats: { review_records: number; policy_archived_records: number; archived_by_rule: Record<string, number> };
-          decisions_by_record_id: Record<string, { decision: string; review_required: boolean; auto_canonical: boolean; rule_ids: string[] }>;
+          decisions_by_record_id: Record<
+            string,
+            { decision: string; review_required: boolean; auto_canonical: boolean; rule_ids: string[] }
+          >;
           findings_by_id: Record<string, { category: string; record_ids: string[] }>;
           suggested_actions_by_id: Record<string, { recommended_action: string; tool: string; safe_to_run: boolean }>;
         };
@@ -5227,7 +5340,9 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("api/capture-inbox/rec_capture_policy_2/approve");
       expect(html).not.toContain("api/capture-inbox/rec_capture_policy_2/reject");
       expect(JSON.stringify(data.capture_policy)).toContain("policy_archived");
-      expect(JSON.stringify(data.capture_policy)).toContain("moryn timeline --record-id rec_capture_policy_2 --project-id moryn --before 3 --after 3");
+      expect(JSON.stringify(data.capture_policy)).toContain(
+        "moryn timeline --record-id rec_capture_policy_2 --project-id moryn --before 3 --after 3"
+      );
     });
   });
 
@@ -5240,7 +5355,7 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: () => "2026-06-01T10:11:00.000Z",
-        id: (prefix: string) => prefix === "rec" ? "rec_auto_capture_1" : "evt_auto_capture_1"
+        id: (prefix: string) => (prefix === "rec" ? "rec_auto_capture_1" : "evt_auto_capture_1")
       });
 
       await engine.write({
@@ -5275,21 +5390,26 @@ describe("observability dashboard", () => {
         }
       });
 
-      const data = await buildDashboardData(storePath, { limit: 10 }) as Awaited<ReturnType<typeof buildDashboardData>> & {
-        actions_by_id: Record<string, {
-          action_id: string;
-          surface: string;
-          kind: string;
-          label: string;
-          intent: string;
-          command?: string;
-          safety: {
-            safe_to_auto_run: boolean;
-            requires_user_confirmation: boolean;
-            writes: string;
-          };
-          source_path: string;
-        }>;
+      const data = (await buildDashboardData(storePath, { limit: 10 })) as Awaited<
+        ReturnType<typeof buildDashboardData>
+      > & {
+        actions_by_id: Record<
+          string,
+          {
+            action_id: string;
+            surface: string;
+            kind: string;
+            label: string;
+            intent: string;
+            command?: string;
+            safety: {
+              safe_to_auto_run: boolean;
+              requires_user_confirmation: boolean;
+              writes: string;
+            };
+            source_path: string;
+          }
+        >;
         capture_inbox: {
           total: number;
           autocapture_policy: {
@@ -5307,7 +5427,10 @@ describe("observability dashboard", () => {
             policy_archived_records: number;
             captured_by_rule: Record<string, number>;
           };
-          decisions_by_record_id: Record<string, { decision: string; review_required: boolean; auto_canonical: boolean; rule_ids: string[] }>;
+          decisions_by_record_id: Record<
+            string,
+            { decision: string; review_required: boolean; auto_canonical: boolean; rule_ids: string[] }
+          >;
           findings_by_id: Record<string, { category: string; record_ids: string[] }>;
           suggested_actions_by_id: Record<string, { recommended_action: string; tool: string; safe_to_run: boolean }>;
         };
@@ -5377,7 +5500,9 @@ describe("observability dashboard", () => {
       expect(JSON.stringify(data.capture_policy)).toContain("low_risk_handoff_auto_capture");
       expect(JSON.stringify(data.capture_policy)).toContain("Codex finished setup wizard polish.");
       expect(JSON.stringify(data.capture_policy)).toContain("inspect_auto_captured_handoff");
-      expect(JSON.stringify(data.capture_policy)).toContain("moryn timeline --record-id rec_auto_capture_1 --project-id moryn --before 3 --after 3");
+      expect(JSON.stringify(data.capture_policy)).toContain(
+        "moryn timeline --record-id rec_auto_capture_1 --project-id moryn --before 3 --after 3"
+      );
       // Auto-captured handoff must not be an actionable Capture Inbox item.
       expect(html).not.toContain("api/capture-inbox/rec_auto_capture_1/approve");
       expect(html).not.toContain("api/capture-inbox/rec_auto_capture_1/reject");
@@ -5393,7 +5518,7 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: () => "2026-06-01T10:12:00.000Z",
-        id: (prefix: string) => prefix === "rec" ? "rec_stale_review_handoff" : "evt_stale_review_handoff"
+        id: (prefix: string) => (prefix === "rec" ? "rec_stale_review_handoff" : "evt_stale_review_handoff")
       });
 
       await engine.write({
@@ -5487,7 +5612,7 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: () => "2026-06-01T10:01:00.000Z",
-        id: (prefix: string) => prefix === "rec" ? "rec_policy_handled" : "evt_policy_handled"
+        id: (prefix: string) => (prefix === "rec" ? "rec_policy_handled" : "evt_policy_handled")
       });
 
       await engine.write({
@@ -5516,7 +5641,11 @@ describe("observability dashboard", () => {
         source: { client: "user", session_id: "policy-handled" }
       });
 
-      const data = await buildDashboardData(storePath, { limit: 10, project_id: "moryn", now: "2026-06-01T10:02:00.000Z" });
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-01T10:02:00.000Z"
+      });
       const html = renderDashboardHtml(data);
 
       expect(data.capture_inbox.total).toBe(0);
@@ -5539,8 +5668,8 @@ describe("observability dashboard", () => {
       // Already-handled record must not appear as an actionable Capture Inbox item.
       expect(html).not.toContain("api/capture-inbox/rec_policy_handled/approve");
       expect(html).not.toContain("api/capture-inbox/rec_policy_handled/reject");
-      expect(html).not.toContain("data-dashboard-action-id=\"capture_inbox.record.approve.rec_policy_handled\"");
-      expect(html).not.toContain("data-dashboard-action-id=\"capture_inbox.record.reject.rec_policy_handled\"");
+      expect(html).not.toContain('data-dashboard-action-id="capture_inbox.record.approve.rec_policy_handled"');
+      expect(html).not.toContain('data-dashboard-action-id="capture_inbox.record.reject.rec_policy_handled"');
     });
   });
 
@@ -5590,11 +5719,7 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = [
-            "2026-06-01T00:01:00.000Z",
-            "2026-06-01T00:02:00.000Z",
-            "2026-06-01T00:03:00.000Z"
-          ];
+          const timestamps = ["2026-06-01T00:01:00.000Z", "2026-06-01T00:02:00.000Z", "2026-06-01T00:03:00.000Z"];
           return () => timestamps.shift() ?? "2026-06-01T00:04:00.000Z";
         })(),
         id: (() => {
@@ -5627,9 +5752,9 @@ describe("observability dashboard", () => {
         expect(server.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/$/);
 
         const page = await (await fetch(server.url)).text();
-        expect(page).toContain("class=\"neutral-intelligence\"");
-        expect(page).toContain("data-dashboard-refresh=\"250\"");
-        expect(page).toContain("fetch(\"fragment\"");
+        expect(page).toContain('class="neutral-intelligence"');
+        expect(page).toContain('data-dashboard-refresh="250"');
+        expect(page).toContain('fetch("fragment"');
         expect(page).toContain("data-dashboard-editorial-shell");
         expect(page).toContain("data-memory-result");
         expect(page).toContain("Initial live dashboard memory");
@@ -5637,7 +5762,7 @@ describe("observability dashboard", () => {
         const head = await fetch(server.url, { method: "HEAD" });
         expect(head.status).toBe(200);
 
-        const initialApi = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
+        const initialApi = (await (await fetch(new URL("/api/dashboard", server.url))).json()) as {
           totals: { records: number };
           recent_value: Array<{
             summary: string;
@@ -5669,7 +5794,8 @@ describe("observability dashboard", () => {
           host: "codex",
           sync_remote: "git@github.com:user/moryn-store.git",
           install_command: "moryn install --host codex --sync-remote git@github.com:user/moryn-store.git",
-          context_pack_command: "moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task '<current task>' --agent codex"
+          context_pack_command:
+            "moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task '<current task>' --agent codex"
         });
 
         await engine.write({
@@ -5681,7 +5807,7 @@ describe("observability dashboard", () => {
           source: { client: "codex" }
         });
 
-        const refreshedApi = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
+        const refreshedApi = (await (await fetch(new URL("/api/dashboard", server.url))).json()) as {
           totals: { records: number };
           recent_value: Array<{ summary: string }>;
         };
@@ -5721,7 +5847,8 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_capture_action_${++record}` : `evt_capture_action_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_capture_action_${++record}` : `evt_capture_action_${++event}`;
         })()
       });
 
@@ -5756,7 +5883,7 @@ describe("observability dashboard", () => {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({})
         });
-        const approveBody = await approveResponse.json() as {
+        const approveBody = (await approveResponse.json()) as {
           ok: boolean;
           status: string;
           record_id: string;
@@ -5775,14 +5902,17 @@ describe("observability dashboard", () => {
           timeline_command: `moryn timeline --event-id ${approveBody.event_id} --project-id moryn`,
           recall_command: `moryn recall --record-id ${approved.record.id} --project-id moryn`
         });
-        expect((await engine.recall({ record_ids: [approved.record.id], states: ["canonical"], project_id: "moryn" })).results[0]?.record.state).toBe("canonical");
+        expect(
+          (await engine.recall({ record_ids: [approved.record.id], states: ["canonical"], project_id: "moryn" }))
+            .results[0]?.record.state
+        ).toBe("canonical");
 
         const rejectResponse = await fetch(new URL(`/api/capture-inbox/${rejected.record.id}/reject`, server.url), {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ reason: "User rejected Capture Inbox candidate." })
         });
-        const rejectBody = await rejectResponse.json() as {
+        const rejectBody = (await rejectResponse.json()) as {
           ok: boolean;
           status: string;
           record_id: string;
@@ -5801,9 +5931,12 @@ describe("observability dashboard", () => {
           timeline_command: `moryn timeline --event-id ${rejectBody.event_id} --project-id moryn`,
           recall_command: `moryn recall --record-id ${rejected.record.id} --project-id moryn`
         });
-        expect((await engine.recall({ record_ids: [rejected.record.id], states: ["archived"], project_id: "moryn" })).results[0]?.record.state).toBe("archived");
+        expect(
+          (await engine.recall({ record_ids: [rejected.record.id], states: ["archived"], project_id: "moryn" }))
+            .results[0]?.record.state
+        ).toBe("archived");
 
-        const refreshed = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
+        const refreshed = (await (await fetch(new URL("/api/dashboard", server.url))).json()) as {
           capture_inbox: { total: number };
         };
         expect(refreshed.capture_inbox.total).toBe(0);
@@ -5834,7 +5967,8 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_capture_bulk_${++record}` : `evt_capture_bulk_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_capture_bulk_${++record}` : `evt_capture_bulk_${++event}`;
         })()
       });
 
@@ -5882,20 +6016,29 @@ describe("observability dashboard", () => {
         project_id: "moryn"
       });
       try {
-        const dashboard = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
+        const dashboard = (await (await fetch(new URL("/api/dashboard", server.url))).json()) as {
           capture_inbox: {
-            groups: Array<{ source_detail: string; record_ids: string[]; approve_endpoint: string; reject_endpoint: string }>;
+            groups: Array<{
+              source_detail: string;
+              record_ids: string[];
+              approve_endpoint: string;
+              reject_endpoint: string;
+            }>;
           };
         };
-        const approveGroup = dashboard.capture_inbox.groups.find((group) => group.source_detail === "codex / approve-group")!;
-        const rejectGroup = dashboard.capture_inbox.groups.find((group) => group.source_detail === "claude / reject-group")!;
+        const approveGroup = dashboard.capture_inbox.groups.find(
+          (group) => group.source_detail === "codex / approve-group"
+        )!;
+        const rejectGroup = dashboard.capture_inbox.groups.find(
+          (group) => group.source_detail === "claude / reject-group"
+        )!;
 
         const approveResponse = await fetch(new URL(approveGroup.approve_endpoint, server.url), {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ record_ids: approveGroup.record_ids })
         });
-        const approved = await approveResponse.json() as {
+        const approved = (await approveResponse.json()) as {
           ok: boolean;
           status: string;
           group_id: string;
@@ -5913,13 +6056,24 @@ describe("observability dashboard", () => {
           record_ids: [approveTwo.record.id, approveOne.record.id]
         });
         expect(approved.trace).toEqual({
-          timeline_commands: approved.event_ids.map((eventId) => `moryn timeline --event-id ${eventId} --project-id moryn`),
-          recall_commands: [approveTwo.record.id, approveOne.record.id].map((recordId) => `moryn recall --record-id ${recordId} --project-id moryn`)
+          timeline_commands: approved.event_ids.map(
+            (eventId) => `moryn timeline --event-id ${eventId} --project-id moryn`
+          ),
+          recall_commands: [approveTwo.record.id, approveOne.record.id].map(
+            (recordId) => `moryn recall --record-id ${recordId} --project-id moryn`
+          )
         });
-        expect((await engine.recall({ record_ids: [approveOne.record.id, approveTwo.record.id], states: ["canonical"], project_id: "moryn" })).results.map((result) => result.record.id).sort()).toEqual([
-          approveOne.record.id,
-          approveTwo.record.id
-        ].sort());
+        expect(
+          (
+            await engine.recall({
+              record_ids: [approveOne.record.id, approveTwo.record.id],
+              states: ["canonical"],
+              project_id: "moryn"
+            })
+          ).results
+            .map((result) => result.record.id)
+            .sort()
+        ).toEqual([approveOne.record.id, approveTwo.record.id].sort());
 
         const rejectResponse = await fetch(new URL(rejectGroup.reject_endpoint, server.url), {
           method: "POST",
@@ -5929,7 +6083,7 @@ describe("observability dashboard", () => {
             reason: "User rejected Capture Inbox group."
           })
         });
-        const rejected = await rejectResponse.json() as {
+        const rejected = (await rejectResponse.json()) as {
           ok: boolean;
           status: string;
           records_changed: number;
@@ -5946,15 +6100,26 @@ describe("observability dashboard", () => {
           record_ids: [rejectTwo.record.id, rejectOne.record.id]
         });
         expect(rejected.trace).toEqual({
-          timeline_commands: rejected.event_ids.map((eventId) => `moryn timeline --event-id ${eventId} --project-id moryn`),
-          recall_commands: [rejectTwo.record.id, rejectOne.record.id].map((recordId) => `moryn recall --record-id ${recordId} --project-id moryn`)
+          timeline_commands: rejected.event_ids.map(
+            (eventId) => `moryn timeline --event-id ${eventId} --project-id moryn`
+          ),
+          recall_commands: [rejectTwo.record.id, rejectOne.record.id].map(
+            (recordId) => `moryn recall --record-id ${recordId} --project-id moryn`
+          )
         });
-        expect((await engine.recall({ record_ids: [rejectOne.record.id, rejectTwo.record.id], states: ["archived"], project_id: "moryn" })).results.map((result) => result.record.id).sort()).toEqual([
-          rejectOne.record.id,
-          rejectTwo.record.id
-        ].sort());
+        expect(
+          (
+            await engine.recall({
+              record_ids: [rejectOne.record.id, rejectTwo.record.id],
+              states: ["archived"],
+              project_id: "moryn"
+            })
+          ).results
+            .map((result) => result.record.id)
+            .sort()
+        ).toEqual([rejectOne.record.id, rejectTwo.record.id].sort());
 
-        const refreshed = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
+        const refreshed = (await (await fetch(new URL("/api/dashboard", server.url))).json()) as {
           capture_inbox: { total: number; groups: unknown[] };
         };
         expect(refreshed.capture_inbox).toMatchObject({ total: 0, groups: [] });
@@ -5973,17 +6138,14 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = [
-            "2026-06-01T00:01:00.000Z",
-            "2026-06-01T00:02:00.000Z",
-            "2026-06-01T00:03:00.000Z"
-          ];
+          const timestamps = ["2026-06-01T00:01:00.000Z", "2026-06-01T00:02:00.000Z", "2026-06-01T00:03:00.000Z"];
           return () => timestamps.shift() ?? "2026-06-01T00:04:00.000Z";
         })(),
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_capture_stale_${++record}` : `evt_capture_stale_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_capture_stale_${++record}` : `evt_capture_stale_${++event}`;
         })()
       });
       const first = await engine.write({
@@ -6012,7 +6174,7 @@ describe("observability dashboard", () => {
         project_id: "moryn"
       });
       try {
-        const dashboard = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
+        const dashboard = (await (await fetch(new URL("/api/dashboard", server.url))).json()) as {
           capture_inbox: { groups: Array<{ approve_endpoint: string; record_ids: string[] }> };
         };
         const group = dashboard.capture_inbox.groups[0]!;
@@ -6030,7 +6192,7 @@ describe("observability dashboard", () => {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ record_ids: group.record_ids })
         });
-        const body = await response.json() as { ok: boolean; status: string; message: string };
+        const body = (await response.json()) as { ok: boolean; status: string; message: string };
 
         expect(response.status).toBe(409);
         expect(body).toEqual({
@@ -6038,7 +6200,10 @@ describe("observability dashboard", () => {
           status: "not_actionable",
           message: "Capture Inbox group actions require current active candidate records from the selected group."
         });
-        expect((await engine.recall({ record_ids: [second.record.id], states: ["candidate"], project_id: "moryn" })).results[0]?.record.state).toBe("candidate");
+        expect(
+          (await engine.recall({ record_ids: [second.record.id], states: ["candidate"], project_id: "moryn" }))
+            .results[0]?.record.state
+        ).toBe("candidate");
       } finally {
         await server.close();
       }
@@ -6083,7 +6248,7 @@ describe("observability dashboard", () => {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({})
         });
-        const body = await response.json() as { ok: boolean; status: string; message: string };
+        const body = (await response.json()) as { ok: boolean; status: string; message: string };
 
         expect(response.status).toBe(409);
         expect(body).toEqual({
@@ -6106,17 +6271,14 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = [
-            "2026-06-01T00:01:00.000Z",
-            "2026-06-01T00:02:00.000Z",
-            "2026-06-01T00:03:00.000Z"
-          ];
+          const timestamps = ["2026-06-01T00:01:00.000Z", "2026-06-01T00:02:00.000Z", "2026-06-01T00:03:00.000Z"];
           return () => timestamps.shift() ?? "2026-06-01T00:04:00.000Z";
         })(),
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_candidate_promote_${++record}` : `evt_candidate_promote_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_candidate_promote_${++record}` : `evt_candidate_promote_${++event}`;
         })()
       });
       const candidate = await engine.write({
@@ -6139,7 +6301,7 @@ describe("observability dashboard", () => {
         project_id: "moryn"
       });
       try {
-        const dashboard = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
+        const dashboard = (await (await fetch(new URL("/api/dashboard", server.url))).json()) as {
           candidate_triage: {
             groups_by_id: {
               promotable?: {
@@ -6159,7 +6321,7 @@ describe("observability dashboard", () => {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({})
         });
-        const approved = await response.json() as {
+        const approved = (await response.json()) as {
           ok: boolean;
           status: string;
           record_id: string;
@@ -6178,9 +6340,12 @@ describe("observability dashboard", () => {
           timeline_command: `moryn timeline --event-id ${approved.event_id} --project-id moryn`,
           recall_command: `moryn recall --record-id ${candidate.record.id} --project-id moryn`
         });
-        expect((await engine.recall({ record_ids: [candidate.record.id], states: ["canonical"], project_id: "moryn" })).results[0]?.record.state).toBe("canonical");
+        expect(
+          (await engine.recall({ record_ids: [candidate.record.id], states: ["canonical"], project_id: "moryn" }))
+            .results[0]?.record.state
+        ).toBe("canonical");
 
-        const refreshed = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
+        const refreshed = (await (await fetch(new URL("/api/dashboard", server.url))).json()) as {
           candidate_triage: { groups_by_id: { promotable?: { record_ids: string[] } } };
         };
         expect(refreshed.candidate_triage.groups_by_id.promotable?.record_ids ?? []).not.toContain(candidate.record.id);
@@ -6199,17 +6364,14 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = [
-            "2026-06-01T00:01:00.000Z",
-            "2026-06-01T00:02:00.000Z",
-            "2026-06-01T00:03:00.000Z"
-          ];
+          const timestamps = ["2026-06-01T00:01:00.000Z", "2026-06-01T00:02:00.000Z", "2026-06-01T00:03:00.000Z"];
           return () => timestamps.shift() ?? "2026-06-01T00:04:00.000Z";
         })(),
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_candidate_stale_${++record}` : `evt_candidate_stale_${++event}`;
+          return (prefix: string) =>
+            prefix === "rec" ? `rec_candidate_stale_${++record}` : `evt_candidate_stale_${++event}`;
         })()
       });
       const candidate = await engine.write({
@@ -6240,12 +6402,15 @@ describe("observability dashboard", () => {
           confirmed: true
         });
 
-        const response = await fetch(new URL(`/api/candidate-triage/promotions/${candidate.record.id}/approve`, server.url), {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({})
-        });
-        const body = await response.json() as { ok: boolean; status: string; message: string };
+        const response = await fetch(
+          new URL(`/api/candidate-triage/promotions/${candidate.record.id}/approve`, server.url),
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({})
+          }
+        );
+        const body = (await response.json()) as { ok: boolean; status: string; message: string };
 
         expect(response.status).toBe(409);
         expect(body).toEqual({
@@ -6268,17 +6433,13 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = [
-            "2026-06-01T00:01:00.000Z",
-            "2026-06-01T00:02:00.000Z",
-            "2026-06-01T00:03:00.000Z"
-          ];
+          const timestamps = ["2026-06-01T00:01:00.000Z", "2026-06-01T00:02:00.000Z", "2026-06-01T00:03:00.000Z"];
           return () => timestamps.shift() ?? "2026-06-01T00:04:00.000Z";
         })(),
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_approve_${++record}` : `evt_approve_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_approve_${++record}` : `evt_approve_${++event}`);
         })()
       });
 
@@ -6312,7 +6473,7 @@ describe("observability dashboard", () => {
         project_id: "moryn"
       });
       try {
-        const dashboard = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
+        const dashboard = (await (await fetch(new URL("/api/dashboard", server.url))).json()) as {
           maintenance: {
             plans: Array<{ plan_id: string; plan_hash: string }>;
           };
@@ -6320,12 +6481,15 @@ describe("observability dashboard", () => {
         const plan = dashboard.maintenance.plans[0];
         expect(plan).toBeDefined();
 
-        const response = await fetch(new URL(`/api/maintenance/plans/${encodeURIComponent(plan.plan_id)}/approve`, server.url), {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ plan_hash: plan.plan_hash })
-        });
-        const applied = await response.json() as {
+        const response = await fetch(
+          new URL(`/api/maintenance/plans/${encodeURIComponent(plan.plan_id)}/approve`, server.url),
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ plan_hash: plan.plan_hash })
+          }
+        );
+        const applied = (await response.json()) as {
           ok: boolean;
           status: string;
           migrated_records: number;
@@ -6346,10 +6510,17 @@ describe("observability dashboard", () => {
         expect(applied.event_ids).toHaveLength(1);
         expect(applied.event_ids[0]).toMatch(/^evt_/);
         expect(applied.trace).toEqual({
-          timeline_commands: applied.event_ids.map((eventId) => `moryn timeline --event-id ${eventId} --project-id moryn`),
-          recall_commands: [oldRecord.record.id].map((recordId) => `moryn recall --record-id ${recordId} --project-id moryn`)
+          timeline_commands: applied.event_ids.map(
+            (eventId) => `moryn timeline --event-id ${eventId} --project-id moryn`
+          ),
+          recall_commands: [oldRecord.record.id].map(
+            (recordId) => `moryn recall --record-id ${recordId} --project-id moryn`
+          )
         });
-        expect((await engine.recall({ record_ids: [oldRecord.record.id], project_id: "moryn" })).results[0]?.record.project_id).toBe("moryn");
+        expect(
+          (await engine.recall({ record_ids: [oldRecord.record.id], project_id: "moryn" })).results[0]?.record
+            .project_id
+        ).toBe("moryn");
       } finally {
         await server.close();
       }
@@ -6379,7 +6550,7 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_noise_apply_${++record}` : `evt_noise_apply_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_noise_apply_${++record}` : `evt_noise_apply_${++event}`);
         })()
       });
 
@@ -6430,7 +6601,7 @@ describe("observability dashboard", () => {
         project_id: "moryn"
       });
       try {
-        const dashboard = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
+        const dashboard = (await (await fetch(new URL("/api/dashboard", server.url))).json()) as {
           maintenance: {
             plans: Array<{ plan_id: string; plan_hash: string; type: string }>;
           };
@@ -6438,12 +6609,15 @@ describe("observability dashboard", () => {
         const plan = dashboard.maintenance.plans.find((candidate) => candidate.type === "candidate_noise_archive");
         expect(plan).toBeDefined();
 
-        const response = await fetch(new URL(`/api/maintenance/plans/${encodeURIComponent(plan?.plan_id ?? "")}/approve`, server.url), {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ plan_hash: plan?.plan_hash })
-        });
-        const applied = await response.json() as {
+        const response = await fetch(
+          new URL(`/api/maintenance/plans/${encodeURIComponent(plan?.plan_id ?? "")}/approve`, server.url),
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ plan_hash: plan?.plan_hash })
+          }
+        );
+        const applied = (await response.json()) as {
           ok: boolean;
           status: string;
           archived_records: number;
@@ -6461,17 +6635,17 @@ describe("observability dashboard", () => {
           archived_records: 3,
           records_changed: 3,
           events_written: 3,
-          record_ids: [
-            e2e.record.id,
-            smoke.record.id,
-            marker.record.id
-          ]
+          record_ids: [e2e.record.id, smoke.record.id, marker.record.id]
         });
         expect(applied.event_ids).toHaveLength(3);
         expect(applied.event_ids.every((eventId) => /^evt_/.test(eventId))).toBe(true);
         expect(applied.trace).toEqual({
-          timeline_commands: applied.event_ids.map((eventId) => `moryn timeline --event-id ${eventId} --project-id moryn`),
-          recall_commands: [e2e.record.id, smoke.record.id, marker.record.id].map((recordId) => `moryn recall --record-id ${recordId} --project-id moryn`)
+          timeline_commands: applied.event_ids.map(
+            (eventId) => `moryn timeline --event-id ${eventId} --project-id moryn`
+          ),
+          recall_commands: [e2e.record.id, smoke.record.id, marker.record.id].map(
+            (recordId) => `moryn recall --record-id ${recordId} --project-id moryn`
+          )
         });
         const recalled = await engine.recall({
           record_ids: [e2e.record.id, smoke.record.id, marker.record.id],
@@ -6505,7 +6679,7 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_stale_${++record}` : `evt_stale_${++event}`;
+          return (prefix: string) => (prefix === "rec" ? `rec_stale_${++record}` : `evt_stale_${++event}`);
         })()
       });
 
@@ -6539,7 +6713,7 @@ describe("observability dashboard", () => {
         project_id: "moryn"
       });
       try {
-        const dashboard = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
+        const dashboard = (await (await fetch(new URL("/api/dashboard", server.url))).json()) as {
           maintenance: {
             plans: Array<{ plan_id: string; plan_hash: string }>;
           };
@@ -6557,12 +6731,15 @@ describe("observability dashboard", () => {
           source: { client: "codex" }
         });
 
-        const response = await fetch(new URL(`/api/maintenance/plans/${encodeURIComponent(plan.plan_id)}/approve`, server.url), {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ plan_hash: plan.plan_hash })
-        });
-        const stale = await response.json() as {
+        const response = await fetch(
+          new URL(`/api/maintenance/plans/${encodeURIComponent(plan.plan_id)}/approve`, server.url),
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ plan_hash: plan.plan_hash })
+          }
+        );
+        const stale = (await response.json()) as {
           ok: boolean;
           status: string;
           message: string;
@@ -6574,7 +6751,10 @@ describe("observability dashboard", () => {
           status: "stale_plan",
           message: "The store changed after this plan was rendered. Review the refreshed plan before approving."
         });
-        expect((await engine.recall({ record_ids: [oldRecord.record.id], project_id: "repo-e6f0166fd942" })).results[0]?.record.project_id).toBe("repo-e6f0166fd942");
+        expect(
+          (await engine.recall({ record_ids: [oldRecord.record.id], project_id: "repo-e6f0166fd942" })).results[0]
+            ?.record.project_id
+        ).toBe("repo-e6f0166fd942");
       } finally {
         await server.close();
       }
@@ -6594,12 +6774,15 @@ describe("observability dashboard", () => {
         project_id: "moryn"
       });
       try {
-        const response = await fetch(new URL(`/api/maintenance/plans/${encodeURIComponent("project_migrate:old->moryn")}/approve`, server.url), {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: "{"
-        });
-        const body = await response.json() as { error: string };
+        const response = await fetch(
+          new URL(`/api/maintenance/plans/${encodeURIComponent("project_migrate:old->moryn")}/approve`, server.url),
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: "{"
+          }
+        );
+        const body = (await response.json()) as { error: string };
 
         expect(response.status).toBe(400);
         expect(body).toEqual({
@@ -6618,12 +6801,33 @@ describe("logical memory capacity telemetry", () => {
       await initializeStore(storePath, { device_id: "device-test" });
       let nextId = 0;
       const engine = createEngine({ storePath, id: (prefix) => `${prefix}_${++nextId}` });
-      const base = { kind: "memory", type: "decision", scope: "project", project_id: "moryn", source: { client: "codex" } } as const;
+      const base = {
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        source: { client: "codex" }
+      } as const;
       const first = await engine.write({ ...base, content: { text: "Autonomous sync" } });
       const duplicate = await engine.write({ ...base, content: { text: "Autonomous sync" } });
-      await engine.logicalLink({ record_id: duplicate.record.id, linked_record_id: first.record.id, relationship: "duplicate_of", reason: "Exact duplicate" });
+      await engine.logicalLink({
+        record_id: duplicate.record.id,
+        linked_record_id: first.record.id,
+        relationship: "duplicate_of",
+        reason: "Exact duplicate"
+      });
       const data = await buildDashboardData(storePath, { project_id: "moryn" });
-      expect(data.logical_memory).toEqual({ store_records: 2, active_working_set_records: 1, hidden_logical_records: 1, conflict_records: 0, cycle_findings: 0, learned_records: 0, learned_canonical_records: 0, learned_candidate_records: 0, learning_evidence_links: 0 });
+      expect(data.logical_memory).toEqual({
+        store_records: 2,
+        active_working_set_records: 1,
+        hidden_logical_records: 1,
+        conflict_records: 0,
+        cycle_findings: 0,
+        learned_records: 0,
+        learned_canonical_records: 0,
+        learned_candidate_records: 0,
+        learning_evidence_links: 0
+      });
       expect(data.quiet_dashboard.memory_flow).toMatchObject({
         store_events: 3,
         store_records: 2,
@@ -6647,10 +6851,26 @@ describe("quiet dashboard model", () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device-test" });
       const engine = createEngine({ storePath });
-      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "session-a", device_id: "device_dda1e19fac3e45e1acb86f26115acc00" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: { session_id: "session-a", checkpoint_id: "checkpoint-a", current_task: "Polish dashboard", progress: ["First screen ready"] } });
+      await engine.checkpoint({
+        project_id: "moryn",
+        source: { client: "codex", session_id: "session-a", device_id: "device_dda1e19fac3e45e1acb86f26115acc00" },
+        occurred_at: "2026-07-11T00:00:00.000Z",
+        delta: {
+          session_id: "session-a",
+          checkpoint_id: "checkpoint-a",
+          current_task: "Polish dashboard",
+          progress: ["First screen ready"]
+        }
+      });
       const data = await buildDashboardData(storePath, { project_id: "moryn", now: "2026-07-11T00:01:00.000Z" });
       expect(data.quiet_dashboard.system_pulse).toMatchObject({ healthy: true, context_protected: true });
-      expect(data.quiet_dashboard.current_context).toMatchObject({ project_id: "moryn", task: "Polish dashboard", agent: "codex", device_id: "device_dda1e19fac3e45e1acb86f26115acc00", checkpoint_available: true });
+      expect(data.quiet_dashboard.current_context).toMatchObject({
+        project_id: "moryn",
+        task: "Polish dashboard",
+        agent: "codex",
+        device_id: "device_dda1e19fac3e45e1acb86f26115acc00",
+        checkpoint_available: true
+      });
       expect(data.quiet_dashboard.memory_flow).toMatchObject({ store_records: 1, active_working_set_records: 1 });
       expect(data.quiet_dashboard.attention_needed).toEqual([]);
       const firstScreen = quietFirstScreenHtml(renderDashboardHtml(data));
@@ -6663,9 +6883,36 @@ describe("quiet dashboard model", () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device_dda1e19fac3e45e1acb86f26115acc00" });
       const engine = createEngine({ storePath });
-      await engine.write({ kind: "agent_note", type: "note", scope: "project", project_id: "moryn", tags: ["smoke", "marker"], content: { text: "Smoke marker candidate one" }, state: "candidate", source: { client: "codex" } });
-      await engine.write({ kind: "agent_note", type: "note", scope: "project", project_id: "moryn", tags: ["e2e", "marker"], content: { text: "E2E marker candidate two" }, state: "candidate", source: { client: "codex" } });
-      await engine.write({ kind: "agent_note", type: "note", scope: "project", project_id: "moryn", tags: ["smoke"], content: { text: "Smoke marker candidate three" }, state: "candidate", source: { client: "codex" } });
+      await engine.write({
+        kind: "agent_note",
+        type: "note",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["smoke", "marker"],
+        content: { text: "Smoke marker candidate one" },
+        state: "candidate",
+        source: { client: "codex" }
+      });
+      await engine.write({
+        kind: "agent_note",
+        type: "note",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["e2e", "marker"],
+        content: { text: "E2E marker candidate two" },
+        state: "candidate",
+        source: { client: "codex" }
+      });
+      await engine.write({
+        kind: "agent_note",
+        type: "note",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["smoke"],
+        content: { text: "Smoke marker candidate three" },
+        state: "candidate",
+        source: { client: "codex" }
+      });
 
       const data = await buildDashboardData(storePath, { project_id: "moryn" });
       const html = renderDashboardHtml(data);
@@ -6680,14 +6927,34 @@ describe("quiet dashboard model", () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device-test" });
       const engine = createEngine({ storePath });
-      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "session-a", device_id: "device-a" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: { session_id: "session-a", checkpoint_id: "checkpoint-a", current_task: "Observe activation" } });
+      await engine.checkpoint({
+        project_id: "moryn",
+        source: { client: "codex", session_id: "session-a", device_id: "device-a" },
+        occurred_at: "2026-07-11T00:00:00.000Z",
+        delta: { session_id: "session-a", checkpoint_id: "checkpoint-a", current_task: "Observe activation" }
+      });
 
       const inactive = await buildDashboardData(storePath, { project_id: "moryn", now: "2026-07-11T00:01:00.000Z" });
-      expect(inactive.quiet_dashboard.system_pulse).toMatchObject({ autopilot_active: false, autopilot: { status: "not_installed", host: "unknown" } });
+      expect(inactive.quiet_dashboard.system_pulse).toMatchObject({
+        autopilot_active: false,
+        autopilot: { status: "not_installed", host: "unknown" }
+      });
 
-      await recordActivationReceipt(storePath, { activation_id: "moryn-v03-moryn-codex", host: "codex", project_id: "moryn", event: "session_start", session_id: "session-a", device_id: "device-a", occurred_at: "2026-07-11T00:02:00.000Z", command_digest: "digest" });
+      await recordActivationReceipt(storePath, {
+        activation_id: "moryn-v03-moryn-codex",
+        host: "codex",
+        project_id: "moryn",
+        event: "session_start",
+        session_id: "session-a",
+        device_id: "device-a",
+        occurred_at: "2026-07-11T00:02:00.000Z",
+        command_digest: "digest"
+      });
       const active = await buildDashboardData(storePath, { project_id: "moryn", now: "2026-07-11T00:03:00.000Z" });
-      expect(active.quiet_dashboard.system_pulse).toMatchObject({ autopilot_active: true, autopilot: { status: "active", host: "codex", last_event: "session_start" } });
+      expect(active.quiet_dashboard.system_pulse).toMatchObject({
+        autopilot_active: true,
+        autopilot: { status: "active", host: "codex", last_event: "session_start" }
+      });
       expect(quietFirstScreenHtml(renderDashboardHtml(active))).toContain("Active · Codex");
     });
   });
@@ -6695,9 +6962,21 @@ describe("quiet dashboard model", () => {
   it("renders stale activation evidence as degraded without controls", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device-test" });
-      await recordActivationReceipt(storePath, { activation_id: "moryn-v03-moryn-claude", host: "claude", project_id: "moryn", event: "pre_compact", session_id: "session-a", device_id: "device-a", occurred_at: "2026-07-10T00:00:00.000Z", command_digest: "digest" });
+      await recordActivationReceipt(storePath, {
+        activation_id: "moryn-v03-moryn-claude",
+        host: "claude",
+        project_id: "moryn",
+        event: "pre_compact",
+        session_id: "session-a",
+        device_id: "device-a",
+        occurred_at: "2026-07-10T00:00:00.000Z",
+        command_digest: "digest"
+      });
       const data = await buildDashboardData(storePath, { project_id: "moryn", now: "2026-07-12T00:01:00.000Z" });
-      expect(data.quiet_dashboard.system_pulse).toMatchObject({ autopilot_active: false, autopilot: { status: "degraded", host: "claude", last_event: "pre_compact" } });
+      expect(data.quiet_dashboard.system_pulse).toMatchObject({
+        autopilot_active: false,
+        autopilot: { status: "degraded", host: "claude", last_event: "pre_compact" }
+      });
       const html = quietFirstScreenHtml(renderDashboardHtml(data));
       expect(html).toContain("Degraded · Claude");
       expect(html).not.toMatch(/activation apply|repair hooks|merge hooks/i);
@@ -6708,7 +6987,16 @@ describe("quiet dashboard model", () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device-test" });
       const engine = createEngine({ storePath });
-      await engine.write({ kind: "session_summary", type: "summary", scope: "project", project_id: "moryn", tags: ["autocapture", "review", "host:codex"], content: { text: "User preference requires review" }, state: "candidate", source: { client: "codex" } });
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:codex"],
+        content: { text: "User preference requires review" },
+        state: "candidate",
+        source: { client: "codex" }
+      });
       const data = await buildDashboardData(storePath, { project_id: "moryn" });
       expect(data.quiet_dashboard.attention_needed.length).toBeGreaterThan(0);
       expect(data.quiet_dashboard.attention_needed.every((item) => item.severity !== "info")).toBe(true);
@@ -6748,10 +7036,12 @@ describe("quiet dashboard first screen", () => {
   it("omits editorial attention when no intervention is required", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device-test" });
-      const html = renderDashboardHtml(await buildDashboardData(storePath, {
-        project_id: "moryn",
-        now: "2026-07-13T12:00:00.000Z"
-      }));
+      const html = renderDashboardHtml(
+        await buildDashboardData(storePath, {
+          project_id: "moryn",
+          now: "2026-07-13T12:00:00.000Z"
+        })
+      );
 
       expect(html).not.toContain('data-editorial-section="attention"');
       expect(html).toContain('data-editorial-conclusion="no-action-required"');
@@ -6762,17 +7052,26 @@ describe("quiet dashboard first screen", () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device-test" });
       const engine = createEngine({ storePath });
-      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "drawer-session", device_id: "device-test" }, occurred_at: "2026-07-13T12:00:00.000Z", delta: { session_id: "drawer-session", checkpoint_id: "drawer-checkpoint", current_task: "Verify read-only details" } });
+      await engine.checkpoint({
+        project_id: "moryn",
+        source: { client: "codex", session_id: "drawer-session", device_id: "device-test" },
+        occurred_at: "2026-07-13T12:00:00.000Z",
+        delta: {
+          session_id: "drawer-session",
+          checkpoint_id: "drawer-checkpoint",
+          current_task: "Verify read-only details"
+        }
+      });
       const html = renderDashboardHtml(await buildDashboardData(storePath, { project_id: "moryn" }));
 
       expect(html).toContain('data-drawer-target="context-current"');
       expect(html).toContain('data-drawer-target="memory-active"');
       expect(html).toMatch(/data-drawer-target="event-[^"]+"/);
-      expect(html).toContain('data-dashboard-drawer');
+      expect(html).toContain("data-dashboard-drawer");
       expect(html).toContain('role="dialog"');
       expect(html).toContain('aria-modal="true"');
-      expect(html).toContain('data-dashboard-drawer-close');
-      expect(html).not.toContain('data-dashboard-drawer-write');
+      expect(html).toContain("data-dashboard-drawer-close");
+      expect(html).not.toContain("data-dashboard-drawer-write");
     });
   });
 
@@ -6804,7 +7103,9 @@ describe("quiet dashboard first screen", () => {
       expect(html).toContain('data-i18n-en="Close details" data-i18n-zh="关闭详情"');
       expect(html).toContain('data-i18n-en="Local only" data-i18n-zh="仅保存在本机"');
       expect(html).toContain('data-i18n-en="Active knowledge" data-i18n-zh="活跃知识"');
-      expect(html).toContain('data-i18n-en="The bounded working set currently available for agent context." data-i18n-zh="当前可供 Agent 上下文使用的有界工作记忆。"');
+      expect(html).toContain(
+        'data-i18n-en="The bounded working set currently available for agent context." data-i18n-zh="当前可供 Agent 上下文使用的有界工作记忆。"'
+      );
       expect(html).toContain('data-i18n-en="context" data-i18n-zh="上下文"');
       expect(html).toContain("window.applyDashboardLanguage?.()");
     });
@@ -6815,8 +7116,8 @@ describe("quiet dashboard first screen", () => {
       await initializeStore(storePath, { device_id: "device-test" });
       const html = renderDashboardServerHtml(await buildDashboardData(storePath), 2000);
 
-      expect(html).toContain("data-drawer-state=\"open\"");
-      expect(html).toContain("data-drawer-state=\"closing\"");
+      expect(html).toContain('data-drawer-state="open"');
+      expect(html).toContain('data-drawer-state="closing"');
       expect(html).toContain("const wasHidden = drawer.hidden;");
       expect(html).toContain('drawer.dataset.drawerState = "open";');
       expect(html).toContain("document.documentElement.classList.add('dashboard-drawer-open')");
@@ -6833,15 +7134,48 @@ describe("quiet dashboard first screen", () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device-test" });
       const engine = createEngine({ storePath, now: () => "2026-07-12T00:00:00.000Z" });
-      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "knowledge-dashboard", device_id: "device-test" }, occurred_at: "2026-07-12T00:00:00.000Z", delta: {
-        session_id: "knowledge-dashboard",
-        checkpoint_id: "knowledge-dashboard-1",
-        learnings: [{ question: "When should Moryn recall?", conclusion: "Recall before broad external exploration when durable knowledge is uncertain.", evidence_type: "source_code", scope: "project", confidence: 0.9, recommended_kind: "memory", recommended_type: "fact" }],
-        knowledge_investigations: [
-          { resolution_id: "recall-first", question: "When should Moryn recall?", recall_status: "knowledge_gap", recalled_record_ids: [], evidence: [{ type: "source_code", reference: "src/core/knowledge-protocol.ts", summary: "Recall-first protocol" }], status: "resolved", conclusion: "Recall first" },
-          { resolution_id: "rollback", question: "What is rollback policy?", recall_status: "knowledge_gap", recalled_record_ids: [], evidence: [], status: "unresolved", next_step: "Run rollback integration test" }
-        ]
-      } });
+      await engine.checkpoint({
+        project_id: "moryn",
+        source: { client: "codex", session_id: "knowledge-dashboard", device_id: "device-test" },
+        occurred_at: "2026-07-12T00:00:00.000Z",
+        delta: {
+          session_id: "knowledge-dashboard",
+          checkpoint_id: "knowledge-dashboard-1",
+          learnings: [
+            {
+              question: "When should Moryn recall?",
+              conclusion: "Recall before broad external exploration when durable knowledge is uncertain.",
+              evidence_type: "source_code",
+              scope: "project",
+              confidence: 0.9,
+              recommended_kind: "memory",
+              recommended_type: "fact"
+            }
+          ],
+          knowledge_investigations: [
+            {
+              resolution_id: "recall-first",
+              question: "When should Moryn recall?",
+              recall_status: "knowledge_gap",
+              recalled_record_ids: [],
+              evidence: [
+                { type: "source_code", reference: "src/core/knowledge-protocol.ts", summary: "Recall-first protocol" }
+              ],
+              status: "resolved",
+              conclusion: "Recall first"
+            },
+            {
+              resolution_id: "rollback",
+              question: "What is rollback policy?",
+              recall_status: "knowledge_gap",
+              recalled_record_ids: [],
+              evidence: [],
+              status: "unresolved",
+              next_step: "Run rollback integration test"
+            }
+          ]
+        }
+      });
 
       const data = await buildDashboardData(storePath, { project_id: "moryn" });
       expect(data.quiet_dashboard.knowledge_loop).toEqual({
@@ -6868,13 +7202,72 @@ describe("quiet dashboard first screen", () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device-test" });
       const engine = createEngine({ storePath, now: () => "2026-07-12T00:00:00.000Z" });
-      const source = await engine.write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Moryn syncs when an agent finishes." }, source: { client: "codex" } });
-      const target = await engine.write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Moryn syncs at agent finish." }, source: { client: "codex" } });
-      await engine.consolidateSemanticProposals({ proposals: [{ proposal_id: "dashboard-duplicate", source_record_id: source.record.id, target_record_id: target.record.id, relationship: "duplicate_of", confidence: 0.99, rationale: "Equivalent finish behavior.", semantic_equivalence: "equivalent", material_differences: [], evidence_record_ids: [] }], project_id: "moryn", source: { client: "codex" } });
-      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "dashboard-session", device_id: "device-test" }, occurred_at: "2026-07-12T00:05:00.000Z", delta: { session_id: "dashboard-session", checkpoint_id: "dashboard-rejected", current_task: "Polish dashboard", progress: ["Telemetry ready"], semantic_consolidation_proposals: [{ proposal_id: "dashboard-rejected", source_record_id: "rec-unbounded", target_record_id: target.record.id, relationship: "duplicate_of", confidence: 0.5, rationale: "Unbounded proposal.", semantic_equivalence: "equivalent", material_differences: [], evidence_record_ids: [] }] } });
+      const source = await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Moryn syncs when an agent finishes." },
+        source: { client: "codex" }
+      });
+      const target = await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Moryn syncs at agent finish." },
+        source: { client: "codex" }
+      });
+      await engine.consolidateSemanticProposals({
+        proposals: [
+          {
+            proposal_id: "dashboard-duplicate",
+            source_record_id: source.record.id,
+            target_record_id: target.record.id,
+            relationship: "duplicate_of",
+            confidence: 0.99,
+            rationale: "Equivalent finish behavior.",
+            semantic_equivalence: "equivalent",
+            material_differences: [],
+            evidence_record_ids: []
+          }
+        ],
+        project_id: "moryn",
+        source: { client: "codex" }
+      });
+      await engine.checkpoint({
+        project_id: "moryn",
+        source: { client: "codex", session_id: "dashboard-session", device_id: "device-test" },
+        occurred_at: "2026-07-12T00:05:00.000Z",
+        delta: {
+          session_id: "dashboard-session",
+          checkpoint_id: "dashboard-rejected",
+          current_task: "Polish dashboard",
+          progress: ["Telemetry ready"],
+          semantic_consolidation_proposals: [
+            {
+              proposal_id: "dashboard-rejected",
+              source_record_id: "rec-unbounded",
+              target_record_id: target.record.id,
+              relationship: "duplicate_of",
+              confidence: 0.5,
+              rationale: "Unbounded proposal.",
+              semantic_equivalence: "equivalent",
+              material_differences: [],
+              evidence_record_ids: []
+            }
+          ]
+        }
+      });
 
       const data = await buildDashboardData(storePath, { project_id: "moryn" });
-      expect(data.quiet_dashboard.memory_flow).toMatchObject({ semantic_equivalent_links: 1, semantic_revision_links: 0, semantic_superseded_links: 0, semantic_conflict_links: 0, semantic_rejected_proposals: 1 });
+      expect(data.quiet_dashboard.memory_flow).toMatchObject({
+        semantic_equivalent_links: 1,
+        semantic_revision_links: 0,
+        semantic_superseded_links: 0,
+        semantic_conflict_links: 0,
+        semantic_rejected_proposals: 1
+      });
       expect(data.quiet_dashboard.attention_needed).toEqual([]);
       const html = renderDashboardHtml(data);
       expect(quietFirstScreenHtml(html)).toContain("1 equivalent");
@@ -6886,12 +7279,26 @@ describe("quiet dashboard first screen", () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device-test" });
       const engine = createEngine({ storePath });
-      for (const [mode, text] of [["host_authored", "Host summary"], ["evidence_synthesized", "Evidence summary"]] as const) {
-        await engine.write({ kind: "session_summary", type: "summary", scope: "project", project_id: "moryn", content: { text, synthesis_mode: mode }, source: { client: "codex" } });
+      for (const [mode, text] of [
+        ["host_authored", "Host summary"],
+        ["evidence_synthesized", "Evidence summary"]
+      ] as const) {
+        await engine.write({
+          kind: "session_summary",
+          type: "summary",
+          scope: "project",
+          project_id: "moryn",
+          content: { text, synthesis_mode: mode },
+          source: { client: "codex" }
+        });
       }
 
       const data = await buildDashboardData(storePath, { project_id: "moryn" });
-      expect(data.quiet_dashboard.session_synthesis).toEqual({ host_authored: 1, evidence_synthesized: 1, minimal_fallback: 0 });
+      expect(data.quiet_dashboard.session_synthesis).toEqual({
+        host_authored: 1,
+        evidence_synthesized: 1,
+        minimal_fallback: 0
+      });
       expect(data.quiet_dashboard.attention_needed).toEqual([]);
     });
   });
@@ -6901,12 +7308,27 @@ describe("quiet dashboard first screen", () => {
       await initializeStore(storePath, { device_id: "device-test" });
       const engine = createEngine({ storePath });
       for (const text of ["Fallback one", "Fallback two"]) {
-        await engine.write({ kind: "session_summary", type: "summary", scope: "project", project_id: "moryn", content: { text, synthesis_mode: "minimal_fallback" }, source: { client: "codex" } });
+        await engine.write({
+          kind: "session_summary",
+          type: "summary",
+          scope: "project",
+          project_id: "moryn",
+          content: { text, synthesis_mode: "minimal_fallback" },
+          source: { client: "codex" }
+        });
       }
 
       const data = await buildDashboardData(storePath, { project_id: "moryn" });
-      expect(data.quiet_dashboard.session_synthesis).toEqual({ host_authored: 0, evidence_synthesized: 0, minimal_fallback: 2 });
-      expect(data.quiet_dashboard.attention_needed).toEqual(expect.arrayContaining([expect.objectContaining({ title: "Session summaries lack durable evidence", severity: "warning" })]));
+      expect(data.quiet_dashboard.session_synthesis).toEqual({
+        host_authored: 0,
+        evidence_synthesized: 0,
+        minimal_fallback: 2
+      });
+      expect(data.quiet_dashboard.attention_needed).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ title: "Session summaries lack durable evidence", severity: "warning" })
+        ])
+      );
     });
   });
 
@@ -6914,14 +7336,58 @@ describe("quiet dashboard first screen", () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device-test" });
       const engine = createEngine({ storePath, now: () => "2026-07-12T00:00:00.000Z" });
-      const source = await engine.write({ kind: "memory", type: "decision", scope: "project", project_id: "moryn", content: { text: "Dashboard refresh must remain read-only." }, source: { client: "codex" } });
-      const target = await engine.write({ kind: "memory", type: "decision", scope: "project", project_id: "moryn", content: { text: "Dashboard refresh may write maintenance events." }, source: { client: "codex" } });
-      await engine.consolidateSemanticProposals({ proposals: [{ proposal_id: "dashboard-conflict", source_record_id: source.record.id, target_record_id: target.record.id, relationship: "conflicts_with", confidence: 0.99, rationale: "Material dashboard refresh conflict.", semantic_equivalence: "conflict", material_differences: [{ field: "write behavior", before: "must remain read-only", after: "may write", significance: "material" }], evidence_record_ids: [] }], project_id: "moryn", source: { client: "codex" } });
-      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "dashboard-task", device_id: "device-test" }, occurred_at: "2026-07-12T00:05:00.000Z", delta: { session_id: "dashboard-task", checkpoint_id: "dashboard-task", current_task: "Keep dashboard refresh read-only", progress: ["Conflict detected"] } });
+      const source = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Dashboard refresh must remain read-only." },
+        source: { client: "codex" }
+      });
+      const target = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Dashboard refresh may write maintenance events." },
+        source: { client: "codex" }
+      });
+      await engine.consolidateSemanticProposals({
+        proposals: [
+          {
+            proposal_id: "dashboard-conflict",
+            source_record_id: source.record.id,
+            target_record_id: target.record.id,
+            relationship: "conflicts_with",
+            confidence: 0.99,
+            rationale: "Material dashboard refresh conflict.",
+            semantic_equivalence: "conflict",
+            material_differences: [
+              { field: "write behavior", before: "must remain read-only", after: "may write", significance: "material" }
+            ],
+            evidence_record_ids: []
+          }
+        ],
+        project_id: "moryn",
+        source: { client: "codex" }
+      });
+      await engine.checkpoint({
+        project_id: "moryn",
+        source: { client: "codex", session_id: "dashboard-task", device_id: "device-test" },
+        occurred_at: "2026-07-12T00:05:00.000Z",
+        delta: {
+          session_id: "dashboard-task",
+          checkpoint_id: "dashboard-task",
+          current_task: "Keep dashboard refresh read-only",
+          progress: ["Conflict detected"]
+        }
+      });
 
       const data = await buildDashboardData(storePath, { project_id: "moryn" });
       expect(data.quiet_dashboard.memory_flow.semantic_conflict_links).toBe(1);
-      expect(data.quiet_dashboard.attention_needed).toEqual(expect.arrayContaining([expect.objectContaining({ title: "Semantic memory conflict" })]));
+      expect(data.quiet_dashboard.attention_needed).toEqual(
+        expect.arrayContaining([expect.objectContaining({ title: "Semantic memory conflict" })])
+      );
     });
   });
 
@@ -6929,7 +7395,17 @@ describe("quiet dashboard first screen", () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device-test" });
       const engine = createEngine({ storePath });
-      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "session-a", device_id: "device-a" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: { session_id: "session-a", checkpoint_id: "checkpoint-a", current_task: "Polish dashboard", progress: ["Ready"] } });
+      await engine.checkpoint({
+        project_id: "moryn",
+        source: { client: "codex", session_id: "session-a", device_id: "device-a" },
+        occurred_at: "2026-07-11T00:00:00.000Z",
+        delta: {
+          session_id: "session-a",
+          checkpoint_id: "checkpoint-a",
+          current_task: "Polish dashboard",
+          progress: ["Ready"]
+        }
+      });
       const html = renderDashboardHtml(await buildDashboardData(storePath, { project_id: "moryn" }));
       expect(html).toContain('data-quiet-dashboard="first-screen"');
       expect(html).toContain('class="quiet-dashboard-shell"');
@@ -6941,23 +7417,23 @@ describe("quiet dashboard first screen", () => {
       expect(html).toContain('class="quiet-flow-strip"');
       expect(html).not.toContain('data-quiet-layout="context-flow"');
       const firstScreen = quietFirstScreenHtml(html);
-      expect(firstScreen).toContain('data-quiet-flow-summary');
+      expect(firstScreen).toContain("data-quiet-flow-summary");
       expect(firstScreen).toContain('<details class="quiet-flow-details" data-dashboard-detail="quiet-flow-details">');
       expect(firstScreen).not.toContain('<details open class="quiet-flow-details"');
-      expect(firstScreen).not.toContain('data-dashboard-confirm');
-      expect(firstScreen).not.toContain('<button');
-      const flowSummaryStart = firstScreen.indexOf('data-quiet-flow-summary');
+      expect(firstScreen).not.toContain("data-dashboard-confirm");
+      expect(firstScreen).not.toContain("<button");
+      const flowSummaryStart = firstScreen.indexOf("data-quiet-flow-summary");
       const flowDetailsStart = firstScreen.indexOf('data-dashboard-detail="quiet-flow-details"');
       expect(flowSummaryStart).toBeGreaterThan(-1);
       expect(flowDetailsStart).toBeGreaterThan(flowSummaryStart);
-      expect(firstScreen.slice(flowSummaryStart, flowDetailsStart)).not.toContain('recent events');
-      expect(firstScreen.slice(flowSummaryStart, flowDetailsStart)).not.toContain('equivalent');
+      expect(firstScreen.slice(flowSummaryStart, flowDetailsStart)).not.toContain("recent events");
+      expect(firstScreen.slice(flowSummaryStart, flowDetailsStart)).not.toContain("equivalent");
       expect(html).not.toContain('data-quiet-section="knowledge-loop"');
       expect(html).not.toContain('data-quiet-section="attention-needed"');
       expect(html).toContain(".quiet-dashboard-shell {");
       expect(html).toContain(".quiet-current-task {");
       expect(html).toContain(".quiet-flow-strip {");
-      expect(html).not.toContain('data-dashboard-command-flow');
+      expect(html).not.toContain("data-dashboard-command-flow");
     });
   });
 
@@ -6965,7 +7441,16 @@ describe("quiet dashboard first screen", () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device-test" });
       const engine = createEngine({ storePath });
-      await engine.write({ kind: "session_summary", type: "summary", scope: "project", project_id: "moryn", tags: ["autocapture", "review", "host:codex"], content: { text: "User preference requires review" }, state: "candidate", source: { client: "codex" } });
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:codex"],
+        content: { text: "User preference requires review" },
+        state: "candidate",
+        source: { client: "codex" }
+      });
       const html = renderDashboardHtml(await buildDashboardData(storePath, { project_id: "moryn" }));
       expect(html).toContain('data-quiet-section="attention-needed"');
       expect(html).toContain("User preference requires review");

@@ -46,7 +46,9 @@ function summaryText(input: {
     input.blockers.length ? `Blockers: ${input.blockers.join("; ")}` : undefined,
     input.nextSteps.length ? `Next: ${input.nextSteps.join("; ")}` : undefined,
     input.learningConclusions.length ? `Learned: ${input.learningConclusions.join("; ")}` : undefined
-  ].filter(Boolean).join(" | ");
+  ]
+    .filter(Boolean)
+    .join(" | ");
 }
 
 export function synthesizeSession(input: SessionSynthesisInput): SessionSynthesis {
@@ -76,16 +78,34 @@ export function synthesizeSession(input: SessionSynthesisInput): SessionSynthesi
     .filter((investigation) => investigation.status === "unresolved" && investigation.next_step)
     .slice(0, 5)
     .map((investigation) => ({ question: investigation.question, next_step: investigation.next_step! }));
-  const nextSteps = bounded([...(recovery?.next_steps ?? []), ...unresolvedInvestigations.map((investigation) => investigation.next_step)], 5);
-  const learningConclusions = bounded((recovery?.learnings ?? []).map((learning) => learning.conclusion), 5);
+  const nextSteps = bounded(
+    [...(recovery?.next_steps ?? []), ...unresolvedInvestigations.map((investigation) => investigation.next_step)],
+    5
+  );
+  const learningConclusions = bounded(
+    (recovery?.learnings ?? []).map((learning) => learning.conclusion),
+    5
+  );
   const sourceRecordIds = bounded(recovery?.source_record_ids ?? [], 10);
   const summary = summaryText({ currentTask, progress, decisions, blockers, nextSteps, learningConclusions });
-  const hasEvidence = Boolean(summary && (progress.length || decisions.length || blockers.length || nextSteps.length || learningConclusions.length || sourceRecordIds.length));
+  const hasEvidence = Boolean(
+    summary &&
+      (progress.length ||
+        decisions.length ||
+        blockers.length ||
+        nextSteps.length ||
+        learningConclusions.length ||
+        sourceRecordIds.length)
+  );
 
   return {
     version: 1,
     mode: hasEvidence ? "evidence_synthesized" : "minimal_fallback",
-    summary: hasEvidence ? summary : currentTask ? `Session ended for task: ${currentTask}.` : "Session ended; no durable progress evidence was available.",
+    summary: hasEvidence
+      ? summary
+      : currentTask
+        ? `Session ended for task: ${currentTask}.`
+        : "Session ended; no durable progress evidence was available.",
     ...(currentTask ? { current_task: currentTask } : {}),
     progress,
     decisions,

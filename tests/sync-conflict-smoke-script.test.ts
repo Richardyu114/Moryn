@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
+
 const exec = promisify(execFile);
 describe("sync conflict smoke script", () => {
   it("blocks lifecycle writes during a real Git conflict", async () => {

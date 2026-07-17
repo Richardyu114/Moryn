@@ -20,7 +20,8 @@ export interface ClaudeActivationResult extends ClaudeSettingsMergeResult {
 }
 
 function settingsObject(value: unknown, path: string): Record<string, any> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`Invalid Claude settings: ${path} must be an object`);
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error(`Invalid Claude settings: ${path} must be an object`);
   return value as Record<string, any>;
 }
 
@@ -32,7 +33,8 @@ function eventEntries(value: unknown, event: string): Record<string, any>[] {
 function entryCommand(entry: Record<string, any>): string | undefined {
   if (!Array.isArray(entry.hooks)) return undefined;
   for (const hook of entry.hooks) {
-    if (hook && typeof hook === "object" && !Array.isArray(hook) && typeof hook.command === "string") return hook.command;
+    if (hook && typeof hook === "object" && !Array.isArray(hook) && typeof hook.command === "string")
+      return hook.command;
   }
   return undefined;
 }
@@ -46,8 +48,12 @@ function semanticJson(value: unknown): string {
   return JSON.stringify(value);
 }
 
-export function mergeClaudeSettings(current: unknown | undefined, artifact: HostIntegrationArtifact): ClaudeSettingsMergeResult {
-  if (artifact.host !== "claude" || artifact.format !== "json") throw new Error("Invalid Claude settings: expected a Claude JSON artifact");
+export function mergeClaudeSettings(
+  current: unknown | undefined,
+  artifact: HostIntegrationArtifact
+): ClaudeSettingsMergeResult {
+  if (artifact.host !== "claude" || artifact.format !== "json")
+    throw new Error("Invalid Claude settings: expected a Claude JSON artifact");
   const root = current === undefined ? {} : settingsObject(current, "root");
   const existingHooks = root.hooks === undefined ? {} : settingsObject(root.hooks, "hooks");
   const generated = settingsObject(JSON.parse(artifact.content), "generated root");
@@ -87,8 +93,12 @@ function digest(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-export async function activateClaudeSettings(input: { project_path: string; artifact: HostIntegrationArtifact }): Promise<ClaudeActivationResult> {
-  if (input.artifact.host !== "claude") throw new Error("Invalid Claude settings: activation requires a Claude artifact");
+export async function activateClaudeSettings(input: {
+  project_path: string;
+  artifact: HostIntegrationArtifact;
+}): Promise<ClaudeActivationResult> {
+  if (input.artifact.host !== "claude")
+    throw new Error("Invalid Claude settings: activation requires a Claude artifact");
   const targetPath = join(input.project_path, input.artifact.merge_target);
   let existingText: string | undefined;
   try {
@@ -101,13 +111,24 @@ export async function activateClaudeSettings(input: { project_path: string; arti
   }
   let current: unknown | undefined;
   if (existingText !== undefined) {
-    try { current = JSON.parse(existingText); } catch { throw new Error(`Invalid Claude settings JSON: ${targetPath}`); }
+    try {
+      current = JSON.parse(existingText);
+    } catch {
+      throw new Error(`Invalid Claude settings JSON: ${targetPath}`);
+    }
   }
   const merged = mergeClaudeSettings(current, input.artifact);
   const newText = `${JSON.stringify(merged.settings, null, 2)}\n`;
   const newDigest = digest(newText);
   if (!merged.changed && existingText !== undefined) {
-    return { ...merged, created: false, backup_created: false, target_path: targetPath, previous_digest: digest(existingText), new_digest: newDigest };
+    return {
+      ...merged,
+      created: false,
+      backup_created: false,
+      target_path: targetPath,
+      previous_digest: digest(existingText),
+      new_digest: newDigest
+    };
   }
 
   await mkdir(dirname(targetPath), { recursive: true });
@@ -119,10 +140,13 @@ export async function activateClaudeSettings(input: { project_path: string; arti
     backupPath = join(backupDir, `settings.local.${previousDigest.slice(0, 16)}.json`);
     try {
       const backupStat = await lstat(backupPath);
-      if (!backupStat.isFile() || backupStat.isSymbolicLink()) throw new Error(`Invalid Claude settings backup: ${backupPath}`);
-      if (await readFile(backupPath, "utf8") !== existingText) throw new Error(`Invalid Claude settings backup content: ${backupPath}`);
+      if (!backupStat.isFile() || backupStat.isSymbolicLink())
+        throw new Error(`Invalid Claude settings backup: ${backupPath}`);
+      if ((await readFile(backupPath, "utf8")) !== existingText)
+        throw new Error(`Invalid Claude settings backup content: ${backupPath}`);
     } catch (error) {
-      if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") await writeFile(backupPath, existingText, { encoding: "utf8", flag: "wx" });
+      if (error && typeof error === "object" && "code" in error && error.code === "ENOENT")
+        await writeFile(backupPath, existingText, { encoding: "utf8", flag: "wx" });
       else throw error;
     }
   }

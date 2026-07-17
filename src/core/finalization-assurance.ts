@@ -39,21 +39,29 @@ function recordOrder(left: MorynRecord, right: MorynRecord): number {
 }
 
 function recoveryKey(input: IncomingSessionIdentity, group: SessionGroup, evidenceRecordIds: string[]): string {
-  const digest = createHash("sha256").update(JSON.stringify({
-    project_id: input.project_id,
-    host: group.identity.host,
-    session_id: group.identity.session_id,
-    device_id: group.identity.device_id,
-    evidence_record_ids: evidenceRecordIds
-  })).digest("hex");
+  const digest = createHash("sha256")
+    .update(
+      JSON.stringify({
+        project_id: input.project_id,
+        host: group.identity.host,
+        session_id: group.identity.session_id,
+        device_id: group.identity.device_id,
+        evidence_record_ids: evidenceRecordIds
+      })
+    )
+    .digest("hex");
   return `finalize_${digest.slice(0, 32)}`;
 }
 
-export function selectPriorSessionForFinalization(records: readonly MorynRecord[], incoming: IncomingSessionIdentity): FinalizationAssuranceSelection {
+export function selectPriorSessionForFinalization(
+  records: readonly MorynRecord[],
+  incoming: IncomingSessionIdentity
+): FinalizationAssuranceSelection {
   const groups = new Map<string, SessionGroup>();
   const coveringFinals = new Map<string, MorynRecord>();
   for (const record of records) {
-    if (record.visibility !== "active" || record.project_id !== incoming.project_id || record.type !== "summary") continue;
+    if (record.visibility !== "active" || record.project_id !== incoming.project_id || record.type !== "summary")
+      continue;
     const covered = record.content.synthesis_source_record_ids;
     if (!Array.isArray(covered)) continue;
     for (const recordId of covered) {
@@ -66,7 +74,14 @@ export function selectPriorSessionForFinalization(records: readonly MorynRecord[
     if (record.visibility !== "active" || record.project_id !== incoming.project_id) continue;
     const sessionId = record.source.session_id;
     const deviceId = record.source.device_id;
-    if (!sessionId || !deviceId || record.source.client !== incoming.host || deviceId !== incoming.device_id || sessionId === incoming.session_id) continue;
+    if (
+      !sessionId ||
+      !deviceId ||
+      record.source.client !== incoming.host ||
+      deviceId !== incoming.device_id ||
+      sessionId === incoming.session_id
+    )
+      continue;
     if (!DURABLE_EVIDENCE_TYPES.has(record.type) && !FINAL_RECORD_TYPES.has(record.type)) continue;
     const key = `${record.source.client}\u0000${sessionId}\u0000${deviceId}`;
     const group = groups.get(key) ?? {
@@ -83,21 +98,32 @@ export function selectPriorSessionForFinalization(records: readonly MorynRecord[
 
   const candidates = [...groups.values()]
     .filter((group) => group.evidence.length > 0)
-    .sort((left, right) => right.latest_at.localeCompare(left.latest_at) || left.identity.session_id.localeCompare(right.identity.session_id));
+    .sort(
+      (left, right) =>
+        right.latest_at.localeCompare(left.latest_at) ||
+        left.identity.session_id.localeCompare(right.identity.session_id)
+    );
   if (!candidates.length) return { status: "nothing_to_finalize" };
-  const candidate = candidates.find((group) => {
-    const final = [...group.finals].sort(recordOrder).at(-1);
-    return group.evidence.some((record) => {
-      const coveredFinal = coveringFinals.get(record.id);
-      return (!final || record.updated_at > final.updated_at) && !coveredFinal;
-    });
-  }) ?? candidates[0]!;
+  const candidate =
+    candidates.find((group) => {
+      const final = [...group.finals].sort(recordOrder).at(-1);
+      return group.evidence.some((record) => {
+        const coveredFinal = coveringFinals.get(record.id);
+        return (!final || record.updated_at > final.updated_at) && !coveredFinal;
+      });
+    }) ?? candidates[0]!;
   const evidence = [...candidate.evidence].sort(recordOrder);
   const latestEvidence = evidence.at(-1)!;
   const final = [...candidate.finals].sort(recordOrder).at(-1);
-  const uncoveredEvidence = evidence.filter((record) => (!final || record.updated_at > final.updated_at) && !coveringFinals.has(record.id));
+  const uncoveredEvidence = evidence.filter(
+    (record) => (!final || record.updated_at > final.updated_at) && !coveringFinals.has(record.id)
+  );
   const evidenceRecordIds = uncoveredEvidence.map((record) => record.id);
-  const coveringFinal = evidence.map((record) => coveringFinals.get(record.id)).filter((record): record is MorynRecord => Boolean(record)).sort(recordOrder).at(-1);
+  const coveringFinal = evidence
+    .map((record) => coveringFinals.get(record.id))
+    .filter((record): record is MorynRecord => Boolean(record))
+    .sort(recordOrder)
+    .at(-1);
   if ((final || coveringFinal) && evidenceRecordIds.length === 0) {
     return {
       status: "already_finalized",

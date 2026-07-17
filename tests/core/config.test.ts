@@ -1,8 +1,8 @@
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { toErrorEnvelope } from "../../src/core/errors.js";
 import { initializeStore, readStoreConfig } from "../../src/core/config.js";
+import { toErrorEnvelope } from "../../src/core/errors.js";
 import { withTempStore } from "../helpers/temp-store.js";
 
 const STORE_INIT_SELECTION_SOURCES = {
@@ -128,10 +128,12 @@ describe("store config", () => {
 
   it("rejects generated invalid store config before writing config.json", async () => {
     await withTempStore(async (storePath) => {
-      await expect(initializeStore(storePath, {
-        now: () => "not-a-date",
-        id: () => ""
-      })).rejects.toThrow(/Invalid store config/);
+      await expect(
+        initializeStore(storePath, {
+          now: () => "not-a-date",
+          id: () => ""
+        })
+      ).rejects.toThrow(/Invalid store config/);
 
       await expect(access(join(storePath, "config.json"))).rejects.toMatchObject({ code: "ENOENT" });
     });
@@ -140,7 +142,7 @@ describe("store config", () => {
   it("rejects malformed existing config during init", async () => {
     await withTempStore(async (storePath) => {
       await mkdir(storePath, { recursive: true });
-      await writeFile(join(storePath, "config.json"), "{\"store_version\":", "utf8");
+      await writeFile(join(storePath, "config.json"), '{"store_version":', "utf8");
 
       await expect(initializeStore(storePath)).rejects.toThrow(/Invalid store config/);
     });
@@ -149,7 +151,7 @@ describe("store config", () => {
   it("repairs malformed existing config when explicitly requested", async () => {
     await withTempStore(async (storePath) => {
       await mkdir(storePath, { recursive: true });
-      await writeFile(join(storePath, "config.json"), "{\"store_version\":", "utf8");
+      await writeFile(join(storePath, "config.json"), '{"store_version":', "utf8");
 
       const result = await initializeStore(storePath, {
         now: () => "2026-05-29T00:00:00.000Z",

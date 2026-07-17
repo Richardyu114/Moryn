@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
+
 const exec = promisify(execFile);
 describe("permission recovery smoke script", () => {
   it("preserves local continuity and resumes after credentials are repaired", async () => {

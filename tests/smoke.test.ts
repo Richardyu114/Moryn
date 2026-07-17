@@ -5,23 +5,31 @@ import {
   CAPTURE_SESSION_SELECTION_SOURCES,
   CONTEXT_PACK_REVIEW_SELECTION_SOURCES,
   DEFAULT_AUTOCAPTURE_POLICY,
-  DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES,
   DISCOVER_PROJECT_SELECTION_SOURCES,
-  DOGFOOD_REPORT_SELECTION_SOURCES,
+  DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES,
   DOCTOR_SELECTION_SOURCES,
+  DOGFOOD_REPORT_SELECTION_SOURCES,
   GUIDE_ENTRYPOINT_SELECTION_SOURCES,
   GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES,
   GUIDE_SELECTION_SOURCES,
+  getOperationContract,
+  getOperationContractByCliCommand,
+  getOperationContractByMcpTool,
+  getOperationContractIndex,
+  getOperationContracts,
+  getSelectionSourceContracts,
   HANDOFF_PACK_SELECTION_SOURCES,
   HANDOFF_QUALITY_GATE_SELECTION_SOURCES,
   HANDOFF_SELECTION_SOURCES,
-  LINK_EVENT_SELECTION_SOURCES,
   LIFECYCLE_ACTION_SELECTION_SOURCES,
   LIFECYCLE_NEXT_SELECTION_SOURCES,
+  LINK_EVENT_SELECTION_SOURCES,
   LIST_RECENT_SELECTION_SOURCES,
   MEMORY_LIFECYCLE_SELECTION_SOURCES,
   MUTATION_EVENT_SELECTION_SOURCES,
   NEXT_ACTION_SELECTION_SOURCES,
+  OPERATION_CONTRACT_INDEX_SELECTION_SOURCES,
+  OPERATION_CONTRACTS_SELECTION_SOURCES,
   OperationContractLookupArgumentError,
   OperationContractLookupError,
   PROJECT_INIT_SELECTION_SOURCES,
@@ -30,24 +38,16 @@ import {
   PROJECT_MIGRATE_SELECTION_SOURCES,
   REBUILD_SELECTION_SOURCES,
   RECALL_SELECTION_SOURCES,
-  REFRESH_SELECTION_SOURCES,
   REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES,
-  SENSITIVE_REVISE_SELECTION_SOURCES,
-  OPERATION_CONTRACT_INDEX_SELECTION_SOURCES,
-  OPERATION_CONTRACTS_SELECTION_SOURCES,
+  REFRESH_SELECTION_SOURCES,
   SELECTION_SOURCE_CONTRACTS,
   SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES,
+  SENSITIVE_REVISE_SELECTION_SOURCES,
   STORE_INIT_SELECTION_SOURCES,
   SYNC_RESULT_SELECTION_SOURCES,
   SYNC_STATUS_SELECTION_SOURCES,
-  WRITE_SELECTION_SOURCES,
-  getOperationContract,
-  getOperationContractByCliCommand,
-  getOperationContractByMcpTool,
-  getOperationContractIndex,
-  getOperationContracts,
-  getSelectionSourceContracts,
-  version
+  version,
+  WRITE_SELECTION_SOURCES
 } from "../src/index.js";
 
 describe("package smoke test", () => {
@@ -72,23 +72,49 @@ describe("package smoke test", () => {
     expect(REFRESH_SELECTION_SOURCES.next_action).toBe("changes_by_record_id.<record_id>.next_action");
     expect(LIST_RECENT_SELECTION_SOURCES.record).toBe("records_by_id.<record_id>");
     expect(PROJECT_LIST_SELECTION_SOURCES.project).toBe("projects_by_id.<project_id>");
-    expect(PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES.next_action).toBe("project_list.projects_by_id.<project_id>.next");
-    expect(PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES.cli_executable).toBe("project_list.projects_by_id.<project_id>.next.interfaces.cli.executable");
-    expect(PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES.cli_argv).toBe("project_list.projects_by_id.<project_id>.next.interfaces.cli.argv[]");
-    expect(PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES.cli_args).toBe("project_list.projects_by_id.<project_id>.next.interfaces.cli.args[]");
-    expect(PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES.argument).toBe("project_list.projects_by_id.<project_id>.next.arguments_by_name.<argument>");
-    expect(PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES.required_field).toBe("project_list.projects_by_id.<project_id>.next.required_fields_by_name.<field>");
-    expect(PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES.argument_source).toBe("project_list.projects_by_id.<project_id>.next.argument_sources.<field>");
+    expect(PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES.next_action).toBe(
+      "project_list.projects_by_id.<project_id>.next"
+    );
+    expect(PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES.cli_executable).toBe(
+      "project_list.projects_by_id.<project_id>.next.interfaces.cli.executable"
+    );
+    expect(PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES.cli_argv).toBe(
+      "project_list.projects_by_id.<project_id>.next.interfaces.cli.argv[]"
+    );
+    expect(PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES.cli_args).toBe(
+      "project_list.projects_by_id.<project_id>.next.interfaces.cli.args[]"
+    );
+    expect(PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES.argument).toBe(
+      "project_list.projects_by_id.<project_id>.next.arguments_by_name.<argument>"
+    );
+    expect(PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES.required_field).toBe(
+      "project_list.projects_by_id.<project_id>.next.required_fields_by_name.<field>"
+    );
+    expect(PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES.argument_source).toBe(
+      "project_list.projects_by_id.<project_id>.next.argument_sources.<field>"
+    );
     expect(MUTATION_EVENT_SELECTION_SOURCES.event_id).toBe("event.event_id");
     expect(LINK_EVENT_SELECTION_SOURCES.linked_record_id).toBe("event.linked_record_id");
     expect(SENSITIVE_REVISE_SELECTION_SOURCES.quarantine_event_id).toBe("quarantine_event.event_id");
     expect(REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES.ordered_next_action).toBe("refresh.changes[].next_action");
-    expect(REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES.cli_executable).toBe("refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.executable");
-    expect(REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES.cli_argv).toBe("refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.argv[]");
-    expect(REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES.cli_args).toBe("refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.args[]");
-    expect(REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES.argument).toBe("refresh.changes_by_record_id.<record_id>.next_action.arguments_by_name.<argument>");
-    expect(REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES.required_field).toBe("refresh.changes_by_record_id.<record_id>.next_action.required_fields_by_name.<field>");
-    expect(REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES.argument_source).toBe("refresh.changes_by_record_id.<record_id>.next_action.argument_sources.<field>");
+    expect(REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES.cli_executable).toBe(
+      "refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.executable"
+    );
+    expect(REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES.cli_argv).toBe(
+      "refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.argv[]"
+    );
+    expect(REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES.cli_args).toBe(
+      "refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.args[]"
+    );
+    expect(REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES.argument).toBe(
+      "refresh.changes_by_record_id.<record_id>.next_action.arguments_by_name.<argument>"
+    );
+    expect(REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES.required_field).toBe(
+      "refresh.changes_by_record_id.<record_id>.next_action.required_fields_by_name.<field>"
+    );
+    expect(REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES.argument_source).toBe(
+      "refresh.changes_by_record_id.<record_id>.next_action.argument_sources.<field>"
+    );
   });
 
   it("exports lifecycle and recovery selection source contracts from the package entrypoint", () => {
@@ -99,26 +125,50 @@ describe("package smoke test", () => {
     expect(NEXT_ACTION_SELECTION_SOURCES.error_argument).toBe("error.next_action.arguments_by_name.<argument>");
     expect(NEXT_ACTION_SELECTION_SOURCES.warning_argument).toBe("warning.next_action.arguments_by_name.<argument>");
     expect(LIFECYCLE_NEXT_SELECTION_SOURCES.action).toBe("next.actions_by_id.<action>");
-    expect(LIFECYCLE_NEXT_SELECTION_SOURCES.action_cli_executable).toBe("next.actions_by_id.<action>.interfaces.cli.executable");
+    expect(LIFECYCLE_NEXT_SELECTION_SOURCES.action_cli_executable).toBe(
+      "next.actions_by_id.<action>.interfaces.cli.executable"
+    );
     expect(LIFECYCLE_NEXT_SELECTION_SOURCES.action_cli_argv).toBe("next.actions_by_id.<action>.interfaces.cli.argv[]");
     expect(LIFECYCLE_NEXT_SELECTION_SOURCES.action_cli_args).toBe("next.actions_by_id.<action>.interfaces.cli.args[]");
-    expect(LIFECYCLE_NEXT_SELECTION_SOURCES.action_argument).toBe("next.actions_by_id.<action>.arguments_by_name.<argument>");
-    expect(LIFECYCLE_NEXT_SELECTION_SOURCES.action_required_field).toBe("next.actions_by_id.<action>.required_fields_by_name.<field>");
-    expect(LIFECYCLE_NEXT_SELECTION_SOURCES.action_argument_source).toBe("next.actions_by_id.<action>.argument_sources.<field>");
+    expect(LIFECYCLE_NEXT_SELECTION_SOURCES.action_argument).toBe(
+      "next.actions_by_id.<action>.arguments_by_name.<argument>"
+    );
+    expect(LIFECYCLE_NEXT_SELECTION_SOURCES.action_required_field).toBe(
+      "next.actions_by_id.<action>.required_fields_by_name.<field>"
+    );
+    expect(LIFECYCLE_NEXT_SELECTION_SOURCES.action_argument_source).toBe(
+      "next.actions_by_id.<action>.argument_sources.<field>"
+    );
     expect(LIFECYCLE_ACTION_SELECTION_SOURCES.ordered_action).toBe("next.actions[]");
-    expect(LIFECYCLE_ACTION_SELECTION_SOURCES.cli_executable).toBe("next.actions_by_id.<action>.interfaces.cli.executable");
+    expect(LIFECYCLE_ACTION_SELECTION_SOURCES.cli_executable).toBe(
+      "next.actions_by_id.<action>.interfaces.cli.executable"
+    );
     expect(LIFECYCLE_ACTION_SELECTION_SOURCES.cli_argv).toBe("next.actions_by_id.<action>.interfaces.cli.argv[]");
     expect(LIFECYCLE_ACTION_SELECTION_SOURCES.cli_args).toBe("next.actions_by_id.<action>.interfaces.cli.args[]");
-    expect(LIFECYCLE_ACTION_SELECTION_SOURCES.argument).toBe("next.actions_by_id.<action>.arguments_by_name.<argument>");
-    expect(LIFECYCLE_ACTION_SELECTION_SOURCES.required_field).toBe("next.actions_by_id.<action>.required_fields_by_name.<field>");
-    expect(LIFECYCLE_ACTION_SELECTION_SOURCES.argument_source).toBe("next.actions_by_id.<action>.argument_sources.<field>");
+    expect(LIFECYCLE_ACTION_SELECTION_SOURCES.argument).toBe(
+      "next.actions_by_id.<action>.arguments_by_name.<argument>"
+    );
+    expect(LIFECYCLE_ACTION_SELECTION_SOURCES.required_field).toBe(
+      "next.actions_by_id.<action>.required_fields_by_name.<field>"
+    );
+    expect(LIFECYCLE_ACTION_SELECTION_SOURCES.argument_source).toBe(
+      "next.actions_by_id.<action>.argument_sources.<field>"
+    );
     expect(GUIDE_SELECTION_SOURCES.guardrail).toBe("guardrails_by_id.<guardrail_id>");
     expect(GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES.step).toBe("lifecycle_by_step.<step>.step");
-    expect(GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES.cli_executable).toBe("lifecycle_by_step.<step>.interfaces.cli.executable");
+    expect(GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES.cli_executable).toBe(
+      "lifecycle_by_step.<step>.interfaces.cli.executable"
+    );
     expect(GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES.cli_args).toBe("lifecycle_by_step.<step>.interfaces.cli.args[]");
-    expect(GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES.argument).toBe("lifecycle_by_step.<step>.arguments_by_name.<argument>");
-    expect(GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES.required_field).toBe("lifecycle_by_step.<step>.required_fields_by_name.<field>");
-    expect(GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES.argument_source).toBe("lifecycle_by_step.<step>.argument_sources.<field>");
+    expect(GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES.argument).toBe(
+      "lifecycle_by_step.<step>.arguments_by_name.<argument>"
+    );
+    expect(GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES.required_field).toBe(
+      "lifecycle_by_step.<step>.required_fields_by_name.<field>"
+    );
+    expect(GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES.argument_source).toBe(
+      "lifecycle_by_step.<step>.argument_sources.<field>"
+    );
     expect(GUIDE_ENTRYPOINT_SELECTION_SOURCES.workflow_phase).toBe("workflow.phases_by_name.start_or_resume");
     expect(GUIDE_ENTRYPOINT_SELECTION_SOURCES.startup_cli_executable).toBe("startup.interfaces.cli.executable");
     expect(GUIDE_ENTRYPOINT_SELECTION_SOURCES.startup_cli_argv).toBe("startup.interfaces.cli.argv[]");
@@ -130,25 +180,63 @@ describe("package smoke test", () => {
     expect(DISCOVER_PROJECT_SELECTION_SOURCES.next_cli_argv).toBe("next.interfaces.cli.argv[]");
     expect(DISCOVER_PROJECT_SELECTION_SOURCES.next_cli_args).toBe("next.interfaces.cli.args[]");
     expect(DISCOVER_PROJECT_SELECTION_SOURCES.start_action).toBe("next.actions_by_project_id.<project_id>");
-    expect(DISCOVER_PROJECT_SELECTION_SOURCES.start_action_cli_executable).toBe("next.actions_by_project_id.<project_id>.interfaces.cli.executable");
-    expect(DISCOVER_PROJECT_SELECTION_SOURCES.start_action_cli_argv).toBe("next.actions_by_project_id.<project_id>.interfaces.cli.argv[]");
-    expect(DISCOVER_PROJECT_SELECTION_SOURCES.start_action_cli_args).toBe("next.actions_by_project_id.<project_id>.interfaces.cli.args[]");
-    expect(DISCOVER_PROJECT_SELECTION_SOURCES.start_action_argument).toBe("next.actions_by_project_id.<project_id>.arguments_by_name.<argument>");
-    expect(DISCOVER_PROJECT_SELECTION_SOURCES.start_action_required_field).toBe("next.actions_by_project_id.<project_id>.required_fields_by_name.<field>");
-    expect(DISCOVER_PROJECT_SELECTION_SOURCES.start_action_argument_source).toBe("next.actions_by_project_id.<project_id>.argument_sources.<field>");
-    expect(DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES.lifecycle_action).toBe("next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>");
-    expect(DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES.cli_executable).toBe("next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.interfaces.cli.executable");
-    expect(DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES.cli_args).toBe("next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.interfaces.cli.args[]");
-    expect(DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES.argument).toBe("next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.arguments_by_name.<argument>");
-    expect(DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES.required_field).toBe("next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.required_fields_by_name.<field>");
-    expect(DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES.argument_source).toBe("next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.argument_sources.<field>");
-    expect(HANDOFF_SELECTION_SOURCES.active_session_next_action).toBe("handoff.active_sessions_by_record_id.<record_id>.next_action");
-    expect(HANDOFF_SELECTION_SOURCES.active_session_next_action_cli_executable).toBe("handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.executable");
-    expect(HANDOFF_SELECTION_SOURCES.active_session_next_action_cli_args).toBe("handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.args[]");
-    expect(HANDOFF_SELECTION_SOURCES.active_session_next_action_argument).toBe("handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>");
-    expect(HANDOFF_SELECTION_SOURCES.active_session_next_action_argument_source).toBe("handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>");
-    expect(HANDOFF_SELECTION_SOURCES.recovered_status_entry).toBe("handoff.recovered_statuses_by_record_id.<record_id>");
-    expect(HANDOFF_SELECTION_SOURCES.recovered_status_record_id).toBe("handoff.recovered_statuses_by_record_id.<record_id>.record_id");
+    expect(DISCOVER_PROJECT_SELECTION_SOURCES.start_action_cli_executable).toBe(
+      "next.actions_by_project_id.<project_id>.interfaces.cli.executable"
+    );
+    expect(DISCOVER_PROJECT_SELECTION_SOURCES.start_action_cli_argv).toBe(
+      "next.actions_by_project_id.<project_id>.interfaces.cli.argv[]"
+    );
+    expect(DISCOVER_PROJECT_SELECTION_SOURCES.start_action_cli_args).toBe(
+      "next.actions_by_project_id.<project_id>.interfaces.cli.args[]"
+    );
+    expect(DISCOVER_PROJECT_SELECTION_SOURCES.start_action_argument).toBe(
+      "next.actions_by_project_id.<project_id>.arguments_by_name.<argument>"
+    );
+    expect(DISCOVER_PROJECT_SELECTION_SOURCES.start_action_required_field).toBe(
+      "next.actions_by_project_id.<project_id>.required_fields_by_name.<field>"
+    );
+    expect(DISCOVER_PROJECT_SELECTION_SOURCES.start_action_argument_source).toBe(
+      "next.actions_by_project_id.<project_id>.argument_sources.<field>"
+    );
+    expect(DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES.lifecycle_action).toBe(
+      "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>"
+    );
+    expect(DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES.cli_executable).toBe(
+      "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.interfaces.cli.executable"
+    );
+    expect(DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES.cli_args).toBe(
+      "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.interfaces.cli.args[]"
+    );
+    expect(DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES.argument).toBe(
+      "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.arguments_by_name.<argument>"
+    );
+    expect(DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES.required_field).toBe(
+      "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.required_fields_by_name.<field>"
+    );
+    expect(DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES.argument_source).toBe(
+      "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.argument_sources.<field>"
+    );
+    expect(HANDOFF_SELECTION_SOURCES.active_session_next_action).toBe(
+      "handoff.active_sessions_by_record_id.<record_id>.next_action"
+    );
+    expect(HANDOFF_SELECTION_SOURCES.active_session_next_action_cli_executable).toBe(
+      "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.executable"
+    );
+    expect(HANDOFF_SELECTION_SOURCES.active_session_next_action_cli_args).toBe(
+      "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.args[]"
+    );
+    expect(HANDOFF_SELECTION_SOURCES.active_session_next_action_argument).toBe(
+      "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>"
+    );
+    expect(HANDOFF_SELECTION_SOURCES.active_session_next_action_argument_source).toBe(
+      "handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>"
+    );
+    expect(HANDOFF_SELECTION_SOURCES.recovered_status_entry).toBe(
+      "handoff.recovered_statuses_by_record_id.<record_id>"
+    );
+    expect(HANDOFF_SELECTION_SOURCES.recovered_status_record_id).toBe(
+      "handoff.recovered_statuses_by_record_id.<record_id>.record_id"
+    );
     expect(HANDOFF_PACK_SELECTION_SOURCES.quality_gate).toBe("handoff_pack.quality_gate");
     expect(HANDOFF_QUALITY_GATE_SELECTION_SOURCES.check).toBe("handoff_pack.quality_gate.checks_by_id.<check_id>");
     expect(CAPTURE_SESSION_SELECTION_SOURCES.policy_decision).toBe("policy_decision");
@@ -184,13 +272,23 @@ describe("package smoke test", () => {
 
   it("documents checkpoint recovery session input in the boot operation contract", () => {
     const boot = getOperationContract("boot");
-    expect(boot?.operation.arguments_by_name.agent_session_id).toMatchObject({ cli: { flag: "--session-id" }, mcp: { argument: "agent_session_id" } });
+    expect(boot?.operation.arguments_by_name.agent_session_id).toMatchObject({
+      cli: { flag: "--session-id" },
+      mcp: { argument: "agent_session_id" }
+    });
   });
 
   it("exports the authored local checkpoint operation contract", () => {
     const checkpoint = getOperationContract("checkpoint");
     const learn = getOperationContract("learn");
-    expect(learn?.operation).toMatchObject({ operation: "learn", required_fields: ["question", "conclusion", "evidence_type"], interfaces: { cli: { command: "moryn learn --question <question> --conclusion <conclusion> --evidence-type <evidence_type>" }, mcp: { tool: "learn" } } });
+    expect(learn?.operation).toMatchObject({
+      operation: "learn",
+      required_fields: ["question", "conclusion", "evidence_type"],
+      interfaces: {
+        cli: { command: "moryn learn --question <question> --conclusion <conclusion> --evidence-type <evidence_type>" },
+        mcp: { tool: "learn" }
+      }
+    });
     expect(getOperationContractByMcpTool("learn")?.operation.operation).toBe("learn");
     expect(checkpoint?.operation).toMatchObject({
       safe_to_run: true,
@@ -245,21 +343,39 @@ describe("package smoke test", () => {
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.operation).toBe("operations_by_id.<operation>");
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.mcp_tool_operation).toBe("operations_by_mcp_tool.<tool>");
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_command_operation).toBe("operations_by_cli_command.<command>");
-    expect(OPERATION_CONTRACTS_SELECTION_SOURCES.argument).toBe("operations_by_id.<operation>.arguments_by_name.<argument>");
-    expect(OPERATION_CONTRACTS_SELECTION_SOURCES.required_input).toBe("operations_by_id.<operation>.execution.required_inputs_by_field.<field>");
-    expect(OPERATION_CONTRACTS_SELECTION_SOURCES.required_input_argument_path).toBe("operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>");
-    expect(OPERATION_CONTRACTS_SELECTION_SOURCES.required_input_path_by_value_path).toBe("operations_by_id.<operation>.execution.required_input_paths_by_value_path.<value_path>");
+    expect(OPERATION_CONTRACTS_SELECTION_SOURCES.argument).toBe(
+      "operations_by_id.<operation>.arguments_by_name.<argument>"
+    );
+    expect(OPERATION_CONTRACTS_SELECTION_SOURCES.required_input).toBe(
+      "operations_by_id.<operation>.execution.required_inputs_by_field.<field>"
+    );
+    expect(OPERATION_CONTRACTS_SELECTION_SOURCES.required_input_argument_path).toBe(
+      "operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>"
+    );
+    expect(OPERATION_CONTRACTS_SELECTION_SOURCES.required_input_path_by_value_path).toBe(
+      "operations_by_id.<operation>.execution.required_input_paths_by_value_path.<value_path>"
+    );
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_argv).toBe("operations_by_id.<operation>.interfaces.cli.argv[]");
-    expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_executable).toBe("operations_by_id.<operation>.interfaces.cli.executable");
+    expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_executable).toBe(
+      "operations_by_id.<operation>.interfaces.cli.executable"
+    );
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_args).toBe("operations_by_id.<operation>.interfaces.cli.args[]");
-    expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_exec_file).toBe("operations_by_id.<operation>.interfaces.cli.exec_file");
-    expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_placeholder).toBe("operations_by_id.<operation>.interfaces.cli.placeholders[]");
-    expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_command_line).toBe("operations_by_id.<operation>.interfaces.cli.command_line");
+    expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_exec_file).toBe(
+      "operations_by_id.<operation>.interfaces.cli.exec_file"
+    );
+    expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_placeholder).toBe(
+      "operations_by_id.<operation>.interfaces.cli.placeholders[]"
+    );
+    expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_command_line).toBe(
+      "operations_by_id.<operation>.interfaces.cli.command_line"
+    );
     expect(response.recommended_entrypoint).toBe("agent_enter");
     expect(response.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
     expect(Buffer.byteLength(JSON.stringify(index), "utf8")).toBeLessThan(66 * 1024);
     expect(index.recommended_entrypoint).toBe("agent_enter");
-    expect(index.index_use).toBe("Use an operation id, MCP tool, or CLI command from this compact index to fetch one operation contract.");
+    expect(index.index_use).toBe(
+      "Use an operation id, MCP tool, or CLI command from this compact index to fetch one operation contract."
+    );
     expect(index.selection_sources).toEqual({
       operation: "operations_by_id.<operation>",
       operation_source: "operations_by_id.<operation>.operation_source",
@@ -268,7 +384,8 @@ describe("package smoke test", () => {
       operation_source_lookup: "operation_source_lookup",
       ordered_operation: "operations[]",
       execution_hint: "operations_by_id.<operation>.execution_hint",
-      execution_hint_required_input_by_value_path: "operations_by_id.<operation>.execution_hint.required_input_sources.by_value_path",
+      execution_hint_required_input_by_value_path:
+        "operations_by_id.<operation>.execution_hint.required_input_sources.by_value_path",
       full_contract_lookup: "operations_by_id.<operation>.full_contract_lookup",
       full_contract_lookup_cli: "operations_by_id.<operation>.full_contract_lookup.cli",
       full_contract_lookup_mcp: "operations_by_id.<operation>.full_contract_lookup.mcp"
@@ -357,7 +474,9 @@ describe("package smoke test", () => {
     expect(agentFinishByMcpTool?.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
     expect(agentFinishByCliCommand?.operation).toBe(response.operations_by_id.agent_finish);
     expect(agentFinishByCliCommand?.operation_source).toBe("operations_by_id.agent_finish");
-    expect(agentFinishByCliCommand?.matched_source).toBe("operations_by_cli_command.moryn agent finish --summary <summary>");
+    expect(agentFinishByCliCommand?.matched_source).toBe(
+      "operations_by_cli_command.moryn agent finish --summary <summary>"
+    );
     expect(agentFinishByCliCommand?.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
     expect(getOperationContract("missing_operation")).toBeUndefined();
     expect(getOperationContractByMcpTool("missing_tool")).toBeUndefined();
@@ -369,7 +488,7 @@ describe("package smoke test", () => {
       operation_source: "operations_by_id.agent_finish",
       retry_with: {
         package_helper: "getOperationContractByCliCommand('moryn agent finish --summary <summary>')",
-        cli: "moryn contracts operations --cli-command \"moryn agent finish --summary <summary>\"",
+        cli: 'moryn contracts operations --cli-command "moryn agent finish --summary <summary>"',
         mcp: {
           tool: "operation_contracts",
           arguments: { cli_command: "moryn agent finish --summary <summary>" }
@@ -426,7 +545,9 @@ describe("package smoke test", () => {
       operation: "operation_contracts",
       operation_source: "operations_by_id.operation_contracts"
     });
-    expect(response.operations_by_cli_command["moryn write --kind <kind> --type <type> --scope <scope> --text <text>"]).toEqual({
+    expect(
+      response.operations_by_cli_command["moryn write --kind <kind> --type <type> --scope <scope> --text <text>"]
+    ).toEqual({
       operation: "write",
       operation_source: "operations_by_id.write"
     });
@@ -448,7 +569,9 @@ describe("package smoke test", () => {
     expect(response.operations_by_id.operation_contracts.interfaces.cli.args).toEqual(["contracts", "operations"]);
     expect(response.operations_by_id.operation_contracts.interfaces.cli.placeholders).toEqual([]);
     expect(response.operations_by_id.operation_contracts.interfaces.cli.has_placeholders).toBe(false);
-    expect(response.operations_by_id.operation_contracts.interfaces.cli.command_line).toBe("moryn contracts operations");
+    expect(response.operations_by_id.operation_contracts.interfaces.cli.command_line).toBe(
+      "moryn contracts operations"
+    );
     expect(response.operations_by_id.operation_contracts.arguments_by_name).toMatchObject({
       index: {
         name: "index",
@@ -495,16 +618,36 @@ describe("package smoke test", () => {
     expect(response.operations_by_id.project_init.interfaces.cli.argv).toEqual(["project", "init", "--path", "<path>"]);
     expect(response.operations_by_id.project_init.interfaces.cli.placeholders).toEqual(["path"]);
     expect(response.operations_by_id.project_init.interfaces.cli.has_placeholders).toBe(true);
-    expect(response.operations_by_id.project_init.interfaces.cli.command_line).toBe("moryn project init --path '<path>'");
+    expect(response.operations_by_id.project_init.interfaces.cli.command_line).toBe(
+      "moryn project init --path '<path>'"
+    );
     expect(response.operations_by_id.write.interfaces.cli.argv).toEqual([
-      "write", "--kind", "<kind>", "--type", "<type>", "--scope", "<scope>", "--text", "<text>"
+      "write",
+      "--kind",
+      "<kind>",
+      "--type",
+      "<type>",
+      "--scope",
+      "<scope>",
+      "--text",
+      "<text>"
     ]);
     expect(response.operations_by_id.write.interfaces.cli.args).toEqual([
-      "write", "--kind", "<kind>", "--type", "<type>", "--scope", "<scope>", "--text", "<text>"
+      "write",
+      "--kind",
+      "<kind>",
+      "--type",
+      "<type>",
+      "--scope",
+      "<scope>",
+      "--text",
+      "<text>"
     ]);
     expect(response.operations_by_id.write.interfaces.cli.placeholders).toEqual(["kind", "type", "scope", "text"]);
     expect(response.operations_by_id.write.interfaces.cli.has_placeholders).toBe(true);
-    expect(response.operations_by_id.write.interfaces.cli.command_line).toBe("moryn write --kind '<kind>' --type '<type>' --scope '<scope>' --text '<text>'");
+    expect(response.operations_by_id.write.interfaces.cli.command_line).toBe(
+      "moryn write --kind '<kind>' --type '<type>' --scope '<scope>' --text '<text>'"
+    );
     expect(response.operations_by_id.recall.execution).toEqual({
       ready_to_run: true,
       next_step: "run",
@@ -523,17 +666,19 @@ describe("package smoke test", () => {
         step_paths_by_step: {
           call_mcp: "execution.runbook.steps[0]"
         },
-        steps: [{
-          step: "call_mcp",
-          transport: "mcp",
-          guard: "execution.ready_to_run",
-          mcp: "interfaces.mcp",
-          mcp_tool: "interfaces.mcp.tool",
-          mcp_arguments: "interfaces.mcp.arguments",
-          cli_exec_file: "interfaces.cli.exec_file",
-          cli_command_line: "interfaces.cli.command_line",
-          cli_placeholders: "interfaces.cli.placeholders"
-        }]
+        steps: [
+          {
+            step: "call_mcp",
+            transport: "mcp",
+            guard: "execution.ready_to_run",
+            mcp: "interfaces.mcp",
+            mcp_tool: "interfaces.mcp.tool",
+            mcp_arguments: "interfaces.mcp.arguments",
+            cli_exec_file: "interfaces.cli.exec_file",
+            cli_command_line: "interfaces.cli.command_line",
+            cli_placeholders: "interfaces.cli.placeholders"
+          }
+        ]
       },
       requires_user_confirmation: false,
       reason: "Action is safe and all required fields are already filled."
@@ -541,9 +686,9 @@ describe("package smoke test", () => {
     for (const operation of ["agent_finish", "write", "promote", "project_init"] as const) {
       for (const input of response.operations_by_id[operation].execution.required_inputs) {
         expect(input.selection_sources).toEqual(operationRequiredInputSources);
-        expect(response.operations_by_id[operation].execution.required_inputs_by_field[input.field]?.selection_sources).toEqual(
-          operationRequiredInputSources
-        );
+        expect(
+          response.operations_by_id[operation].execution.required_inputs_by_field[input.field]?.selection_sources
+        ).toEqual(operationRequiredInputSources);
       }
     }
     expect(response.operations_by_id.agent_finish.execution).toMatchObject({
@@ -572,59 +717,72 @@ describe("package smoke test", () => {
             required_input_choices_by_option: "execution.required_inputs[].collect.choices_by_option",
             required_input_choice_apply_to: "execution.required_inputs[].collect.choices[].apply_to",
             required_input_choice_expected_value: "execution.required_inputs[].collect.choices[].expected_value",
-            required_input_choice_by_option_apply_to: "execution.required_inputs[].collect.choices_by_option.<option>.apply_to",
-            required_input_choice_by_option_expected_value: "execution.required_inputs[].collect.choices_by_option.<option>.expected_value"
+            required_input_choice_by_option_apply_to:
+              "execution.required_inputs[].collect.choices_by_option.<option>.apply_to",
+            required_input_choice_by_option_expected_value:
+              "execution.required_inputs[].collect.choices_by_option.<option>.expected_value"
           }),
           expect.objectContaining({ step: "call_mcp" })
         ]
       },
       missing_required_fields: ["summary"],
-      required_inputs: [{
-        field: "summary",
-        argument_path: "summary",
-        argument_paths: ["summary"],
-        collect: {
-          source: "user",
-          input_key: "summary",
-          prompt: "Provide summary.",
-          apply_to: {
-            mcp_argument_paths: ["summary"],
-            mcp_targets: [{
+      required_inputs: [
+        {
+          field: "summary",
+          argument_path: "summary",
+          argument_paths: ["summary"],
+          collect: {
+            source: "user",
+            input_key: "summary",
+            prompt: "Provide summary.",
+            apply_to: {
+              mcp_argument_paths: ["summary"],
+              mcp_targets: [
+                {
+                  argument: "summary",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ],
+              cli_targets: [
+                {
+                  flag: "--summary",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ]
+            },
+            value_path: "user_input.summary",
+            placeholder: "<summary>"
+          },
+          argument_source: "user_input.summary",
+          selection_sources: {
+            required_input: "operations_by_id.<operation>.execution.required_inputs_by_field.<field>",
+            required_input_argument_path:
+              "operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>"
+          },
+          placeholder: "<summary>",
+          value: "<summary>",
+          mcp_targets: [
+            {
               argument: "summary",
               type: "string",
               required: true,
               preferred: true
-            }],
-            cli_targets: [{
+            }
+          ],
+          cli_targets: [
+            {
               flag: "--summary",
               type: "string",
               required: true,
               preferred: true
-            }]
-          },
-          value_path: "user_input.summary",
-          placeholder: "<summary>"
-        },
-        argument_source: "user_input.summary",
-        selection_sources: {
-          required_input: "operations_by_id.<operation>.execution.required_inputs_by_field.<field>",
-          required_input_argument_path: "operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>"
-        },
-        placeholder: "<summary>",
-        value: "<summary>",
-        mcp_targets: [{
-          argument: "summary",
-          type: "string",
-          required: true,
-          preferred: true
-        }],
-        cli_targets: [{
-          flag: "--summary",
-          type: "string",
-          required: true,
-          preferred: true
-        }]
-      }],
+            }
+          ]
+        }
+      ],
       required_inputs_by_field: {
         summary: {
           field: "summary",
@@ -636,18 +794,22 @@ describe("package smoke test", () => {
             prompt: "Provide summary.",
             apply_to: {
               mcp_argument_paths: ["summary"],
-              mcp_targets: [{
-                argument: "summary",
-                type: "string",
-                required: true,
-                preferred: true
-              }],
-              cli_targets: [{
-                flag: "--summary",
-                type: "string",
-                required: true,
-                preferred: true
-              }]
+              mcp_targets: [
+                {
+                  argument: "summary",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ],
+              cli_targets: [
+                {
+                  flag: "--summary",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ]
             },
             value_path: "user_input.summary",
             placeholder: "<summary>"
@@ -655,22 +817,27 @@ describe("package smoke test", () => {
           argument_source: "user_input.summary",
           selection_sources: {
             required_input: "operations_by_id.<operation>.execution.required_inputs_by_field.<field>",
-            required_input_argument_path: "operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>"
+            required_input_argument_path:
+              "operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>"
           },
           placeholder: "<summary>",
           value: "<summary>",
-          mcp_targets: [{
-            argument: "summary",
-            type: "string",
-            required: true,
-            preferred: true
-          }],
-          cli_targets: [{
-            flag: "--summary",
-            type: "string",
-            required: true,
-            preferred: true
-          }]
+          mcp_targets: [
+            {
+              argument: "summary",
+              type: "string",
+              required: true,
+              preferred: true
+            }
+          ],
+          cli_targets: [
+            {
+              flag: "--summary",
+              type: "string",
+              required: true,
+              preferred: true
+            }
+          ]
         }
       },
       requires_user_confirmation: false
@@ -691,18 +858,22 @@ describe("package smoke test", () => {
             prompt: "Provide record id.",
             apply_to: {
               mcp_argument_paths: ["record_id"],
-              mcp_targets: [{
-                argument: "record_id",
-                type: "string",
-                required: true,
-                preferred: true
-              }],
-              cli_targets: [{
-                positional: "record-id",
-                type: "string",
-                required: true,
-                preferred: true
-              }]
+              mcp_targets: [
+                {
+                  argument: "record_id",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ],
+              cli_targets: [
+                {
+                  positional: "record-id",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ]
             },
             value_path: "user_input.record_id",
             placeholder: "<record_id>"
@@ -710,18 +881,22 @@ describe("package smoke test", () => {
           argument_source: "user_input.record_id",
           placeholder: "<record_id>",
           value: "<record_id>",
-          mcp_targets: [{
-            argument: "record_id",
-            type: "string",
-            required: true,
-            preferred: true
-          }],
-          cli_targets: [{
-            positional: "record-id",
-            type: "string",
-            required: true,
-            preferred: true
-          }]
+          mcp_targets: [
+            {
+              argument: "record_id",
+              type: "string",
+              required: true,
+              preferred: true
+            }
+          ],
+          cli_targets: [
+            {
+              positional: "record-id",
+              type: "string",
+              required: true,
+              preferred: true
+            }
+          ]
         },
         {
           field: "target_state",
@@ -733,18 +908,22 @@ describe("package smoke test", () => {
             prompt: "Provide target state.",
             apply_to: {
               mcp_argument_paths: ["target_state"],
-              mcp_targets: [{
-                argument: "target_state",
-                type: "string",
-                required: true,
-                preferred: true
-              }],
-              cli_targets: [{
-                flag: "--state",
-                type: "string",
-                required: true,
-                preferred: true
-              }]
+              mcp_targets: [
+                {
+                  argument: "target_state",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ],
+              cli_targets: [
+                {
+                  flag: "--state",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ]
             },
             value_path: "user_input.target_state",
             placeholder: "<state>",
@@ -754,18 +933,22 @@ describe("package smoke test", () => {
           placeholder: "<state>",
           value: "<state>",
           allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"],
-          mcp_targets: [{
-            argument: "target_state",
-            type: "string",
-            required: true,
-            preferred: true
-          }],
-          cli_targets: [{
-            flag: "--state",
-            type: "string",
-            required: true,
-            preferred: true
-          }]
+          mcp_targets: [
+            {
+              argument: "target_state",
+              type: "string",
+              required: true,
+              preferred: true
+            }
+          ],
+          cli_targets: [
+            {
+              flag: "--state",
+              type: "string",
+              required: true,
+              preferred: true
+            }
+          ]
         }
       ],
       required_inputs_by_field: {
@@ -776,18 +959,22 @@ describe("package smoke test", () => {
           argument_source: "user_input.record_id",
           placeholder: "<record_id>",
           value: "<record_id>",
-          mcp_targets: [{
-            argument: "record_id",
-            type: "string",
-            required: true,
-            preferred: true
-          }],
-          cli_targets: [{
-            positional: "record-id",
-            type: "string",
-            required: true,
-            preferred: true
-          }]
+          mcp_targets: [
+            {
+              argument: "record_id",
+              type: "string",
+              required: true,
+              preferred: true
+            }
+          ],
+          cli_targets: [
+            {
+              positional: "record-id",
+              type: "string",
+              required: true,
+              preferred: true
+            }
+          ]
         },
         target_state: {
           field: "target_state",
@@ -797,18 +984,22 @@ describe("package smoke test", () => {
           placeholder: "<state>",
           value: "<state>",
           allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"],
-          mcp_targets: [{
-            argument: "target_state",
-            type: "string",
-            required: true,
-            preferred: true
-          }],
-          cli_targets: [{
-            flag: "--state",
-            type: "string",
-            required: true,
-            preferred: true
-          }]
+          mcp_targets: [
+            {
+              argument: "target_state",
+              type: "string",
+              required: true,
+              preferred: true
+            }
+          ],
+          cli_targets: [
+            {
+              flag: "--state",
+              type: "string",
+              required: true,
+              preferred: true
+            }
+          ]
         }
       },
       requires_user_confirmation: false
@@ -818,50 +1009,60 @@ describe("package smoke test", () => {
       next_step: "collect_required_fields",
       blocked_by: ["required_fields", "user_confirmation"],
       missing_required_fields: ["path"],
-      required_inputs: [{
-        field: "path",
-        argument_path: "path",
-        argument_paths: ["path"],
-        collect: {
-          source: "user",
-          input_key: "path",
-          prompt: "Provide path.",
-          apply_to: {
-            mcp_argument_paths: ["path"],
-            mcp_targets: [{
+      required_inputs: [
+        {
+          field: "path",
+          argument_path: "path",
+          argument_paths: ["path"],
+          collect: {
+            source: "user",
+            input_key: "path",
+            prompt: "Provide path.",
+            apply_to: {
+              mcp_argument_paths: ["path"],
+              mcp_targets: [
+                {
+                  argument: "path",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ],
+              cli_targets: [
+                {
+                  flag: "--path",
+                  type: "string",
+                  required: true,
+                  default: ".",
+                  preferred: true
+                }
+              ]
+            },
+            value_path: "user_input.path",
+            placeholder: "<path>"
+          },
+          argument_source: "user_input.path",
+          placeholder: "<path>",
+          value: "<path>",
+          mcp_targets: [
+            {
               argument: "path",
               type: "string",
               required: true,
               preferred: true
-            }],
-            cli_targets: [{
+            }
+          ],
+          cli_targets: [
+            {
               flag: "--path",
               type: "string",
               required: true,
               default: ".",
               preferred: true
-            }]
-          },
-          value_path: "user_input.path",
-          placeholder: "<path>"
-        },
-        argument_source: "user_input.path",
-        placeholder: "<path>",
-        value: "<path>",
-        mcp_targets: [{
-          argument: "path",
-          type: "string",
-          required: true,
-          preferred: true
-        }],
-        cli_targets: [{
-          flag: "--path",
-          type: "string",
-          required: true,
-          default: ".",
-          preferred: true
-        }]
-      }],
+            }
+          ]
+        }
+      ],
       required_inputs_by_field: {
         path: {
           field: "path",
@@ -870,19 +1071,23 @@ describe("package smoke test", () => {
           argument_source: "user_input.path",
           placeholder: "<path>",
           value: "<path>",
-          mcp_targets: [{
-            argument: "path",
-            type: "string",
-            required: true,
-            preferred: true
-          }],
-          cli_targets: [{
-            flag: "--path",
-            type: "string",
-            required: true,
-            default: ".",
-            preferred: true
-          }]
+          mcp_targets: [
+            {
+              argument: "path",
+              type: "string",
+              required: true,
+              preferred: true
+            }
+          ],
+          cli_targets: [
+            {
+              flag: "--path",
+              type: "string",
+              required: true,
+              default: ".",
+              preferred: true
+            }
+          ]
         }
       },
       requires_user_confirmation: true
@@ -1010,10 +1215,18 @@ describe("package smoke test", () => {
       parent_argument: "provenance"
     });
     expect(response.operations_by_id.write.required_fields_by_name.kind.allowed_values).toEqual([
-      "memory", "skill", "soul", "session_summary", "agent_note"
+      "memory",
+      "skill",
+      "soul",
+      "session_summary",
+      "agent_note"
     ]);
     expect(response.operations_by_id.write.required_fields_by_name.scope.allowed_values).toEqual([
-      "global", "project", "topic", "session", "artifact"
+      "global",
+      "project",
+      "topic",
+      "session",
+      "artifact"
     ]);
     expect(response.operations_by_id.write.required_fields_by_name.text_or_content).toMatchObject({
       argument_path: "text|content",
@@ -1045,7 +1258,9 @@ describe("package smoke test", () => {
         parent_argument: "source"
       });
     }
-    expect(response.operations_by_id.write.execution.required_inputs.find((input) => input.field === "text_or_content")).toMatchObject({
+    expect(
+      response.operations_by_id.write.execution.required_inputs.find((input) => input.field === "text_or_content")
+    ).toMatchObject({
       argument_path: "text|content",
       argument_paths: ["text", "content"],
       alternatives: ["text", "content"],
@@ -1134,20 +1349,24 @@ describe("package smoke test", () => {
             },
             apply_to: {
               mcp_argument_paths: ["text"],
-              mcp_assignments: [{
-                argument: "text",
-                value_path: "user_input.text_or_content",
-                preferred: true
-              }],
-              cli_assignments: [{
-                flag: "--text",
-                value_path: "user_input.text_or_content",
-                argv_template: ["--text", "<user_input.text_or_content>"],
-                value_encoding: "string",
-                type: "string",
-                required: false,
-                preferred: true
-              }]
+              mcp_assignments: [
+                {
+                  argument: "text",
+                  value_path: "user_input.text_or_content",
+                  preferred: true
+                }
+              ],
+              cli_assignments: [
+                {
+                  flag: "--text",
+                  value_path: "user_input.text_or_content",
+                  argv_template: ["--text", "<user_input.text_or_content>"],
+                  value_encoding: "string",
+                  type: "string",
+                  required: false,
+                  preferred: true
+                }
+              ]
             }
           },
           {
@@ -1164,20 +1383,24 @@ describe("package smoke test", () => {
             },
             apply_to: {
               mcp_argument_paths: ["content"],
-              mcp_assignments: [{
-                argument: "content",
-                value_path: "user_input.text_or_content",
-                preferred: false
-              }],
-              cli_assignments: [{
-                flag: "--content-json",
-                value_path: "user_input.text_or_content",
-                argv_template: ["--content-json", "<json:user_input.text_or_content>"],
-                value_encoding: "json",
-                type: "object",
-                required: false,
-                preferred: false
-              }]
+              mcp_assignments: [
+                {
+                  argument: "content",
+                  value_path: "user_input.text_or_content",
+                  preferred: false
+                }
+              ],
+              cli_assignments: [
+                {
+                  flag: "--content-json",
+                  value_path: "user_input.text_or_content",
+                  argv_template: ["--content-json", "<json:user_input.text_or_content>"],
+                  value_encoding: "json",
+                  type: "object",
+                  required: false,
+                  preferred: false
+                }
+              ]
             }
           }
         ],
@@ -1234,13 +1457,15 @@ describe("package smoke test", () => {
             },
             apply_to: {
               mcp_argument_paths: ["text"],
-              cli_assignments: [{
-                flag: "--text",
-                value_path: "user_input.text_or_content",
-                argv_template: ["--text", "<user_input.text_or_content>"],
-                value_encoding: "string",
-                preferred: true
-              }]
+              cli_assignments: [
+                {
+                  flag: "--text",
+                  value_path: "user_input.text_or_content",
+                  argv_template: ["--text", "<user_input.text_or_content>"],
+                  value_encoding: "string",
+                  preferred: true
+                }
+              ]
             }
           },
           {
@@ -1255,13 +1480,15 @@ describe("package smoke test", () => {
             },
             apply_to: {
               mcp_argument_paths: ["content"],
-              cli_assignments: [{
-                flag: "--content-json",
-                value_path: "user_input.text_or_content",
-                argv_template: ["--content-json", "<json:user_input.text_or_content>"],
-                value_encoding: "json",
-                preferred: false
-              }]
+              cli_assignments: [
+                {
+                  flag: "--content-json",
+                  value_path: "user_input.text_or_content",
+                  argv_template: ["--content-json", "<json:user_input.text_or_content>"],
+                  value_encoding: "json",
+                  preferred: false
+                }
+              ]
             }
           }
         ],
@@ -1278,13 +1505,15 @@ describe("package smoke test", () => {
             },
             apply_to: {
               mcp_argument_paths: ["text"],
-              cli_assignments: [{
-                flag: "--text",
-                value_path: "user_input.text_or_content",
-                argv_template: ["--text", "<user_input.text_or_content>"],
-                value_encoding: "string",
-                preferred: true
-              }]
+              cli_assignments: [
+                {
+                  flag: "--text",
+                  value_path: "user_input.text_or_content",
+                  argv_template: ["--text", "<user_input.text_or_content>"],
+                  value_encoding: "string",
+                  preferred: true
+                }
+              ]
             }
           },
           content: {
@@ -1299,13 +1528,15 @@ describe("package smoke test", () => {
             },
             apply_to: {
               mcp_argument_paths: ["content"],
-              cli_assignments: [{
-                flag: "--content-json",
-                value_path: "user_input.text_or_content",
-                argv_template: ["--content-json", "<json:user_input.text_or_content>"],
-                value_encoding: "json",
-                preferred: false
-              }]
+              cli_assignments: [
+                {
+                  flag: "--content-json",
+                  value_path: "user_input.text_or_content",
+                  argv_template: ["--content-json", "<json:user_input.text_or_content>"],
+                  value_encoding: "json",
+                  preferred: false
+                }
+              ]
             }
           }
         },
@@ -1387,25 +1618,40 @@ describe("package smoke test", () => {
       argument_path: "kind",
       argument_paths: ["kind"]
     });
-    expect(response.operations_by_id.write.execution.required_inputs_by_field.kind.collect.apply_to.mcp_assignments).toEqual([{
-      argument: "kind",
-      value_path: "user_input.kind",
-      preferred: true
-    }]);
-    expect(response.operations_by_id.write.execution.required_inputs_by_field.kind.collect.apply_to.cli_assignments).toEqual([{
-      flag: "--kind",
-      value_path: "user_input.kind",
-      argv_template: ["--kind", "<user_input.kind>"],
-      value_encoding: "string",
-      type: "string",
-      required: true,
-      preferred: true
-    }]);
+    expect(
+      response.operations_by_id.write.execution.required_inputs_by_field.kind.collect.apply_to.mcp_assignments
+    ).toEqual([
+      {
+        argument: "kind",
+        value_path: "user_input.kind",
+        preferred: true
+      }
+    ]);
+    expect(
+      response.operations_by_id.write.execution.required_inputs_by_field.kind.collect.apply_to.cli_assignments
+    ).toEqual([
+      {
+        flag: "--kind",
+        value_path: "user_input.kind",
+        argv_template: ["--kind", "<user_input.kind>"],
+        value_encoding: "string",
+        type: "string",
+        required: true,
+        preferred: true
+      }
+    ]);
     expect(response.operations_by_id.promote.required_fields_by_name.target_state.allowed_values).toEqual([
-      "raw", "candidate", "canonical", "archived", "quarantined"
+      "raw",
+      "candidate",
+      "canonical",
+      "archived",
+      "quarantined"
     ]);
     expect(response.operations_by_id.project_init.required_fields_by_name.sync_mode.allowed_values).toEqual([
-      "manual", "session", "interval", "auto"
+      "manual",
+      "session",
+      "interval",
+      "auto"
     ]);
     expect(response.operations_by_id.recall.arguments_by_name.kinds).toMatchObject({
       type: "string[]",
@@ -1421,7 +1667,9 @@ describe("package smoke test", () => {
       cli: { flag: "--limit", default: 10 },
       mcp: { argument: "limit" }
     });
-    expect(response.operations_by_id.selection_source_contracts.interfaces.cli.command).toBe("moryn contracts selection-sources");
+    expect(response.operations_by_id.selection_source_contracts.interfaces.cli.command).toBe(
+      "moryn contracts selection-sources"
+    );
     expect(response.operations_by_id.operation_contracts.interfaces.mcp.tool).toBe("operation_contracts");
     expect(response.operations_by_category.lifecycle.agent_enter).toEqual({
       operation: "agent_enter",

@@ -28,7 +28,10 @@ function normalizedTokens(value: string): string[] {
   return [...new Set(value.toLowerCase().match(/[\p{L}\p{N}_-]+/gu) ?? [])];
 }
 
-export function queryTokenCoverage(query: string, record: MorynRecord): {
+export function queryTokenCoverage(
+  query: string,
+  record: MorynRecord
+): {
   matched_tokens: string[];
   query_tokens: string[];
   coverage: number;
@@ -45,7 +48,12 @@ export function queryTokenCoverage(query: string, record: MorynRecord): {
 
 function recordTrust(record: MorynRecord): RecallTrust {
   const method = record.provenance?.method;
-  if (record.state === "canonical" && record.confidence >= 0.75 && (method === "user-confirmed" || method === "rule-promoted")) return "trusted";
+  if (
+    record.state === "canonical" &&
+    record.confidence >= 0.75 &&
+    (method === "user-confirmed" || method === "rule-promoted")
+  )
+    return "trusted";
   return "limited";
 }
 
@@ -65,14 +73,17 @@ export function assessRecallOutcome(input: {
   results: RecallOutcomeResult[];
   now?: string;
 }): RecallOutcome {
-  const assessed = input.results.map((result) => ({
-    ...result,
-    coverage: queryTokenCoverage(input.query, result.record).coverage,
-    trust: recordTrust(result.record),
-    stale: isStale(result.record, input.now)
-  })).sort((left, right) => right.coverage - left.coverage
-    || right.score - left.score
-    || compareCodeUnits(left.record.id, right.record.id));
+  const assessed = input.results
+    .map((result) => ({
+      ...result,
+      coverage: queryTokenCoverage(input.query, result.record).coverage,
+      trust: recordTrust(result.record),
+      stale: isStale(result.record, input.now)
+    }))
+    .sort(
+      (left, right) =>
+        right.coverage - left.coverage || right.score - left.score || compareCodeUnits(left.record.id, right.record.id)
+    );
   const best = assessed[0];
   if (!best || best.coverage < 0.5) {
     return {

@@ -37,7 +37,15 @@ describe("record read model", () => {
     const first = record("rec-b");
     const second = record("rec-a");
     second.links = [{ record_id: first.id, link_type: "duplicate_of", created_at: "2026-07-12T00:01:00.000Z" }];
-    const model = buildRecordReadModel([event("evt-b", first), event("evt-a", second)], [first, second], eventManifest([event("evt-b", first), event("evt-a", second)]));
-    expect(model).toMatchObject({ version: 1, generated_at: "2026-07-12T00:00:00.000Z", records: [{ id: "rec-a", links: second.links }, { id: "rec-b" }] });
+    const model = buildRecordReadModel(
+      [event("evt-b", first), event("evt-a", second)],
+      [first, second],
+      eventManifest([event("evt-b", first), event("evt-a", second)])
+    );
+    expect(model).toMatchObject({
+      version: 1,
+      generated_at: "2026-07-12T00:00:00.000Z",
+      records: [{ id: "rec-a", links: second.links }, { id: "rec-b" }]
+    });
   });
 });

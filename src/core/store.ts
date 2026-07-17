@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 import { access, link, mkdir, open, readdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
-import type { MorynEvent } from "./types.js";
+import { readStoreConfig, validateStorePath } from "./config.js";
 import { parseEvent } from "./schema.js";
 import { detectSensitiveContent, sensitiveScanText } from "./sensitive.js";
-import { readStoreConfig, validateStorePath } from "./config.js";
+import type { MorynEvent } from "./types.js";
 
 function monthFromIso(iso: string): string {
   return iso.slice(0, 7);
@@ -101,7 +101,10 @@ export async function appendEvent(storePath: string, event: MorynEvent): Promise
   const tempDir = join(storePath, "state", "event-writes");
   await mkdir(dirname(path), { recursive: true });
   await mkdir(tempDir, { recursive: true });
-  const tempPath = join(tempDir, `${parsed.event_id}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  const tempPath = join(
+    tempDir,
+    `${parsed.event_id}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  );
   try {
     await writeFile(tempPath, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
     await rename(tempPath, path);
@@ -122,7 +125,11 @@ export interface AppendEventIfAbsentOptions {
 }
 
 export interface AppendEventIfAbsentWarning {
-  code: "IDEMPOTENT_EVENT_DIRECTORY_SYNC_UNSUPPORTED" | "IDEMPOTENT_EVENT_DIRECTORY_SYNC_FAILED" | "IDEMPOTENT_EVENT_DIRECTORY_CLOSE_FAILED" | "IDEMPOTENT_EVENT_TEMP_CLEANUP_FAILED";
+  code:
+    | "IDEMPOTENT_EVENT_DIRECTORY_SYNC_UNSUPPORTED"
+    | "IDEMPOTENT_EVENT_DIRECTORY_SYNC_FAILED"
+    | "IDEMPOTENT_EVENT_DIRECTORY_CLOSE_FAILED"
+    | "IDEMPOTENT_EVENT_TEMP_CLEANUP_FAILED";
   reason: string;
 }
 
@@ -136,7 +143,11 @@ export interface AppendEventIfAbsentResult {
   warnings?: AppendEventIfAbsentWarning[];
 }
 
-export async function appendEventIfAbsent(storePath: string, event: MorynEvent, options: AppendEventIfAbsentOptions = {}): Promise<AppendEventIfAbsentResult> {
+export async function appendEventIfAbsent(
+  storePath: string,
+  event: MorynEvent,
+  options: AppendEventIfAbsentOptions = {}
+): Promise<AppendEventIfAbsentResult> {
   await ensureStoreInitialized(storePath);
   const config = await readStoreConfig(storePath);
   const parsed = parseEvent(withDefaultDeviceId(event, config.device_id));
@@ -145,7 +156,10 @@ export async function appendEventIfAbsent(storePath: string, event: MorynEvent, 
   const tempDir = join(storePath, "state", "event-writes");
   await mkdir(dirname(path), { recursive: true });
   await mkdir(tempDir, { recursive: true });
-  const tempPath = join(tempDir, `${parsed.event_id}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  const tempPath = join(
+    tempDir,
+    `${parsed.event_id}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  );
   const fsOpen = options.fs?.open ?? open;
   const fsLink = options.fs?.link ?? link;
   const fsUnlink = options.fs?.unlink ?? unlink;
@@ -172,10 +186,16 @@ export async function appendEventIfAbsent(storePath: string, event: MorynEvent, 
         const code = error instanceof Error && "code" in error ? String(error.code) : undefined;
         if (code === "EINVAL" || code === "ENOTSUP") {
           durability = "best_effort";
-          warnings.push({ code: "IDEMPOTENT_EVENT_DIRECTORY_SYNC_UNSUPPORTED", reason: `directory sync unsupported: ${code}` });
+          warnings.push({
+            code: "IDEMPOTENT_EVENT_DIRECTORY_SYNC_UNSUPPORTED",
+            reason: `directory sync unsupported: ${code}`
+          });
         } else {
           durability = "failed";
-          warnings.push({ code: "IDEMPOTENT_EVENT_DIRECTORY_SYNC_FAILED", reason: error instanceof Error ? error.message : String(error) });
+          warnings.push({
+            code: "IDEMPOTENT_EVENT_DIRECTORY_SYNC_FAILED",
+            reason: error instanceof Error ? error.message : String(error)
+          });
         }
       } finally {
         try {
@@ -193,7 +213,12 @@ export async function appendEventIfAbsent(storePath: string, event: MorynEvent, 
       }
       if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
       try {
-        result = { created: false, event: parseEvent(JSON.parse(await readFile(path, "utf8"))), path, durability: "best_effort" };
+        result = {
+          created: false,
+          event: parseEvent(JSON.parse(await readFile(path, "utf8"))),
+          path,
+          durability: "best_effort"
+        };
       } catch {
         throw new Error(`Corrupt idempotent event: ${parsed.event_id}`);
       }
@@ -234,7 +259,7 @@ async function walkJsonFiles(dir: string): Promise<string[]> {
   for (const entry of entries) {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) {
-      files.push(...await walkJsonFiles(path));
+      files.push(...(await walkJsonFiles(path)));
     } else if (entry.isFile() && entry.name.endsWith(".json")) {
       files.push(path);
     }
@@ -265,13 +290,15 @@ export async function readEventFileManifest(storePath: string): Promise<EventFil
 export async function readEvents(storePath: string): Promise<MorynEvent[]> {
   await ensureStoreInitialized(storePath);
   const files = await walkJsonFiles(join(storePath, "events"));
-  const events = await Promise.all(files.map(async (file) => {
-    try {
-      return parseEvent(JSON.parse(await readFile(file, "utf8")));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`${message} in ${file}`);
-    }
-  }));
+  const events = await Promise.all(
+    files.map(async (file) => {
+      try {
+        return parseEvent(JSON.parse(await readFile(file, "utf8")));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`${message} in ${file}`);
+      }
+    })
+  );
   return events.sort((a, b) => a.created_at.localeCompare(b.created_at) || a.event_id.localeCompare(b.event_id));
 }

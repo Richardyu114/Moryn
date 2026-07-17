@@ -1,12 +1,17 @@
-import { describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { buildHostIntegrationArtifact } from "../../src/core/host-integration-artifacts.js";
+import { describe, expect, it } from "vitest";
 import { activateClaudeSettings, mergeClaudeSettings } from "../../src/core/claude-activation.js";
+import { buildHostIntegrationArtifact } from "../../src/core/host-integration-artifacts.js";
 import { withTempStore } from "../helpers/temp-store.js";
 
-const artifact = buildHostIntegrationArtifact({ host: "claude", project_id: "moryn", project_path: "/repo", store_path: "/store" });
+const artifact = buildHostIntegrationArtifact({
+  host: "claude",
+  project_id: "moryn",
+  project_path: "/repo",
+  store_path: "/store"
+});
 
 function morynEntry(command: string) {
   return { matcher: "", hooks: [{ type: "command", command }] };
@@ -43,7 +48,9 @@ describe("Claude activation merge", () => {
     expect(result.settings.hooks.SessionStart).toEqual([userEntry, morynEntry(artifact.command)]);
     expect(result.owned_entries_removed).toBe(2);
     for (const event of artifact.expected_events) {
-      expect(result.settings.hooks[event].filter((entry: unknown) => JSON.stringify(entry).includes(artifact.activation_id))).toHaveLength(1);
+      expect(
+        result.settings.hooks[event].filter((entry: unknown) => JSON.stringify(entry).includes(artifact.activation_id))
+      ).toHaveLength(1);
     }
   });
 
@@ -115,7 +122,9 @@ describe("Claude activation files", () => {
       await mkdir(claudeDir, { recursive: true });
       await writeFile(target, '{"hooks":', "utf8");
 
-      await expect(activateClaudeSettings({ project_path: projectPath, artifact })).rejects.toThrow(/Invalid Claude settings JSON/);
+      await expect(activateClaudeSettings({ project_path: projectPath, artifact })).rejects.toThrow(
+        /Invalid Claude settings JSON/
+      );
       expect(await readFile(target, "utf8")).toBe('{"hooks":');
     });
   });

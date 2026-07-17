@@ -242,7 +242,10 @@ export interface ActionExecution {
 const LOCAL_CONFIG_TOOLS = new Set(["init", "project_init", "sync_init"]);
 
 function argumentPaths(argumentPath: string): string[] {
-  return argumentPath.split("|").map((path) => path.trim()).filter(Boolean);
+  return argumentPath
+    .split("|")
+    .map((path) => path.trim())
+    .filter(Boolean);
 }
 
 function mcpTargets(
@@ -256,13 +259,15 @@ function mcpTargets(
     const nestedMetadata = Object.values(argumentsByName).find((metadata) => metadata.mcp?.path === argumentPath);
     const metadata = directMetadata ?? nestedMetadata;
     if (!metadata?.mcp) return [];
-    return [{
-      argument: metadata.mcp.argument,
-      ...(metadata.mcp.path ? { path: metadata.mcp.path } : {}),
-      ...(metadata.type ? { type: metadata.type } : {}),
-      ...(typeof metadata.required === "boolean" ? { required: metadata.required } : {}),
-      preferred: index === 0
-    }];
+    return [
+      {
+        argument: metadata.mcp.argument,
+        ...(metadata.mcp.path ? { path: metadata.mcp.path } : {}),
+        ...(metadata.type ? { type: metadata.type } : {}),
+        ...(typeof metadata.required === "boolean" ? { required: metadata.required } : {}),
+        preferred: index === 0
+      }
+    ];
   });
 
   return targets.length > 0 ? targets : undefined;
@@ -280,17 +285,19 @@ function cliTargets(
     const fieldMetadata = field ? argumentsByName[field] : undefined;
     const metadata = directMetadata ?? fieldMetadata;
     if (!metadata?.cli) return [];
-    return [{
-      ...(metadata.cli.flag ? { flag: metadata.cli.flag } : {}),
-      ...(metadata.cli.flags ? { flags: metadata.cli.flags } : {}),
-      ...(metadata.cli.positional ? { positional: metadata.cli.positional } : {}),
-      ...(metadata.type ? { type: metadata.type } : {}),
-      ...(typeof metadata.required === "boolean" ? { required: metadata.required } : {}),
-      ...(metadata.cli.required_when ? { required_when: metadata.cli.required_when } : {}),
-      ...(typeof metadata.cli.repeatable === "boolean" ? { repeatable: metadata.cli.repeatable } : {}),
-      ...("default" in metadata.cli ? { default: metadata.cli.default } : {}),
-      preferred: index === 0
-    }];
+    return [
+      {
+        ...(metadata.cli.flag ? { flag: metadata.cli.flag } : {}),
+        ...(metadata.cli.flags ? { flags: metadata.cli.flags } : {}),
+        ...(metadata.cli.positional ? { positional: metadata.cli.positional } : {}),
+        ...(metadata.type ? { type: metadata.type } : {}),
+        ...(typeof metadata.required === "boolean" ? { required: metadata.required } : {}),
+        ...(metadata.cli.required_when ? { required_when: metadata.cli.required_when } : {}),
+        ...(typeof metadata.cli.repeatable === "boolean" ? { repeatable: metadata.cli.repeatable } : {}),
+        ...("default" in metadata.cli ? { default: metadata.cli.default } : {}),
+        preferred: index === 0
+      }
+    ];
   });
 
   return targets.length > 0 ? targets : undefined;
@@ -454,7 +461,10 @@ function requiredInputChoices(input: {
   return input.paths.map((argumentPath, index) => {
     const preferred = index === 0;
     const choiceMcpTargets = markMcpPreferred(mcpTargets([argumentPath], input.arguments_by_name), preferred);
-    const choiceCliTargets = markCliPreferred(cliTargets([argumentPath], input.arguments_by_name, input.field), preferred);
+    const choiceCliTargets = markCliPreferred(
+      cliTargets([argumentPath], input.arguments_by_name, input.field),
+      preferred
+    );
     const choiceMcpAssignments = mcpAssignments(choiceMcpTargets, input.value_path);
     const choiceCliAssignments = cliAssignments(choiceCliTargets, input.value_path);
     const type = targetType(choiceMcpTargets, choiceCliTargets);
@@ -484,7 +494,9 @@ function requiredInputChoices(input: {
   });
 }
 
-function choicesByOption(choices: ActionRequiredInputChoice[] | undefined): Record<string, ActionRequiredInputChoice> | undefined {
+function choicesByOption(
+  choices: ActionRequiredInputChoice[] | undefined
+): Record<string, ActionRequiredInputChoice> | undefined {
   if (!choices?.length) return undefined;
   return Object.fromEntries(choices.map((choice) => [choice.option, choice]));
 }
@@ -527,13 +539,15 @@ function collectRequiredInput(input: {
     }),
     ...(input.argument_source ? { value_path: input.argument_source } : {}),
     ...(input.expected_value ? { expected_value: input.expected_value } : {}),
-    ...(input.choices ? {
-      input_mode: "choose_one" as const,
-      choice_options: choiceOptions(input.choices),
-      preferred_choice: preferredChoice(input.choices),
-      choices: input.choices,
-      choices_by_option: choicesByOption(input.choices)
-    } : {}),
+    ...(input.choices
+      ? {
+          input_mode: "choose_one" as const,
+          choice_options: choiceOptions(input.choices),
+          preferred_choice: preferredChoice(input.choices),
+          choices: input.choices,
+          choices_by_option: choicesByOption(input.choices)
+        }
+      : {}),
     ...(input.placeholder ? { placeholder: input.placeholder } : {}),
     ...(input.alternatives ? { alternatives: input.alternatives } : {}),
     ...(input.allowed_values ? { allowed_values: input.allowed_values } : {})
@@ -556,7 +570,8 @@ const COLLECT_REQUIRED_INPUTS_STEP: ActionRunbookCollectRequiredInputsStep = {
   required_input_choice_apply_to: "execution.required_inputs[].collect.choices[].apply_to",
   required_input_choice_expected_value: "execution.required_inputs[].collect.choices[].expected_value",
   required_input_choice_by_option_apply_to: "execution.required_inputs[].collect.choices_by_option.<option>.apply_to",
-  required_input_choice_by_option_expected_value: "execution.required_inputs[].collect.choices_by_option.<option>.expected_value",
+  required_input_choice_by_option_expected_value:
+    "execution.required_inputs[].collect.choices_by_option.<option>.expected_value",
   required_inputs_by_field: "execution.required_inputs_by_field",
   required_inputs_by_argument_path: "execution.required_inputs_by_argument_path",
   required_input_paths_by_value_path: "execution.required_input_paths_by_value_path"
@@ -587,9 +602,7 @@ const DO_NOT_RUN_STEP: ActionRunbookDoNotRunStep = {
 };
 
 function stepPathsByStep(steps: ActionRunbookStep[]): ActionRunbookStepPathsByStep {
-  return Object.fromEntries(
-    steps.map((step, index) => [step.step, `execution.runbook.steps[${index}]`])
-  );
+  return Object.fromEntries(steps.map((step, index) => [step.step, `execution.runbook.steps[${index}]`]));
 }
 
 function actionRunbook(blockedBy: ActionExecutionBlocker[]): ActionRunbook {
@@ -641,11 +654,7 @@ function requiredInputValuePaths(requiredInput: ActionRequiredInput): string[] {
   return [...valuePaths];
 }
 
-export function actionSafety(input: {
-  tool: string;
-  safe_to_run: boolean;
-  required_fields: string[];
-}): ActionSafety {
+export function actionSafety(input: { tool: string; safe_to_run: boolean; required_fields: string[] }): ActionSafety {
   const requiresAuthoredInput = input.required_fields.length > 0;
   const writesLocalConfig = LOCAL_CONFIG_TOOLS.has(input.tool);
   const requiresUserConfirmation = writesLocalConfig || (!input.safe_to_run && !requiresAuthoredInput);
@@ -694,12 +703,12 @@ export function actionExecution(input: {
     const collectExpectedValue = choices
       ? undefined
       : expectedValue({
-        value_path: argumentSource,
-        ...(mcpTargetList ? { mcp_targets: mcpTargetList } : {}),
-        ...(cliAssignmentList ? { cli_assignments: cliAssignmentList } : {}),
-        ...(cliTargetList ? { cli_targets: cliTargetList } : {}),
-        ...(metadata?.allowed_values ? { allowed_values: metadata.allowed_values } : {})
-      });
+          value_path: argumentSource,
+          ...(mcpTargetList ? { mcp_targets: mcpTargetList } : {}),
+          ...(cliAssignmentList ? { cli_assignments: cliAssignmentList } : {}),
+          ...(cliTargetList ? { cli_targets: cliTargetList } : {}),
+          ...(metadata?.allowed_values ? { allowed_values: metadata.allowed_values } : {})
+        });
     return {
       field,
       argument_path: argumentPath,

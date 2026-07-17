@@ -125,7 +125,10 @@ export async function readStoreConfig(storePath: string): Promise<StoreConfig> {
   return result.data;
 }
 
-export async function initializeStore(storePath: string, options: InitializeStoreOptions = {}): Promise<InitializeStoreResult> {
+export async function initializeStore(
+  storePath: string,
+  options: InitializeStoreOptions = {}
+): Promise<InitializeStoreResult> {
   validateStorePath(storePath);
   validateInitializeStoreOptions(options);
   const now = options.now ?? (() => new Date().toISOString());

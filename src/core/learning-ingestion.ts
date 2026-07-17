@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { LearningDelta } from "./context-delta.js";
-import { learningStatePolicy, type LearningStatePolicyResult } from "./learning-policy.js";
+import { type LearningStatePolicyResult, learningStatePolicy } from "./learning-policy.js";
 import type { MorynRecord, RecordSource } from "./types.js";
 
 function compareCodeUnits(left: string, right: string): number {

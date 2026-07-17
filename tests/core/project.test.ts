@@ -98,10 +98,14 @@ describe("project config", () => {
       });
       expect(interval.config.sync.mode).toBe("interval");
 
-      await writeFile(join(projectPath, ".moryn.json"), JSON.stringify({
-        project_id: "moryn",
-        sync: { mode: "auto" }
-      }), "utf8");
+      await writeFile(
+        join(projectPath, ".moryn.json"),
+        JSON.stringify({
+          project_id: "moryn",
+          sync: { mode: "auto" }
+        }),
+        "utf8"
+      );
 
       const context = await resolveProjectContext({ projectPath });
       expect(context.config?.sync.mode).toBe("interval");
@@ -187,7 +191,7 @@ describe("project config", () => {
 
   it("repairs malformed project config when explicitly requested", async () => {
     await withTempStore(async (projectPath) => {
-      await writeFile(join(projectPath, ".moryn.json"), "{\"project_id\":", "utf8");
+      await writeFile(join(projectPath, ".moryn.json"), '{"project_id":', "utf8");
 
       const result = await initializeProjectConfig(projectPath, {
         project_id: "moryn",
@@ -276,7 +280,7 @@ describe("project config", () => {
 
   it("resolves explicit id without reading ambient project config", async () => {
     await withTempStore(async (projectPath) => {
-      await writeFile(join(projectPath, ".moryn.json"), "{\"project_id\":", "utf8");
+      await writeFile(join(projectPath, ".moryn.json"), '{"project_id":', "utf8");
 
       await withCwd(projectPath, async () => {
         const context = await resolveProjectContext({ projectId: "explicit" });
@@ -293,18 +297,9 @@ describe("project config", () => {
     await withTempStore(async (projectPath) => {
       await initializeProjectConfig(projectPath, { project_id: "from-file" });
 
-      await expectInvalidArgument(
-        () => resolveProjectContext({ projectPath, projectId: "" }),
-        /Invalid projectId/
-      );
-      await expectInvalidArgument(
-        () => resolveProjectContext({ projectPath: "" }),
-        /Invalid projectPath/
-      );
-      await expectInvalidArgument(
-        () => resolveProjectContext(null as never),
-        /Invalid project context input/
-      );
+      await expectInvalidArgument(() => resolveProjectContext({ projectPath, projectId: "" }), /Invalid projectId/);
+      await expectInvalidArgument(() => resolveProjectContext({ projectPath: "" }), /Invalid projectPath/);
+      await expectInvalidArgument(() => resolveProjectContext(null as never), /Invalid project context input/);
     });
   });
 
@@ -337,7 +332,7 @@ describe("project config", () => {
 
   it("rejects malformed project config JSON", async () => {
     await withTempStore(async (projectPath) => {
-      await writeFile(join(projectPath, ".moryn.json"), "{\"project_id\":", "utf8");
+      await writeFile(join(projectPath, ".moryn.json"), '{"project_id":', "utf8");
 
       await expect(resolveProjectContext({ projectPath })).rejects.toThrow(/Invalid project config/);
     });
@@ -367,8 +362,12 @@ describe("project config", () => {
       await exec("git", ["init"], { cwd: httpsProject });
       await exec("git", ["init"], { cwd: sshUrlProject });
       await exec("git", ["remote", "add", "origin", "git@github.com:Richardyu114/Moryn.git"], { cwd: sshProject });
-      await exec("git", ["remote", "add", "origin", "https://github.com/Richardyu114/Moryn.git"], { cwd: httpsProject });
-      await exec("git", ["remote", "add", "origin", "ssh://git@github.com/Richardyu114/Moryn.git/"], { cwd: sshUrlProject });
+      await exec("git", ["remote", "add", "origin", "https://github.com/Richardyu114/Moryn.git"], {
+        cwd: httpsProject
+      });
+      await exec("git", ["remote", "add", "origin", "ssh://git@github.com/Richardyu114/Moryn.git/"], {
+        cwd: sshUrlProject
+      });
 
       const sshContext = await resolveProjectContext({ projectPath: sshProject });
       const httpsContext = await resolveProjectContext({ projectPath: httpsProject });

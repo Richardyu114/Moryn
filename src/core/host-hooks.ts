@@ -1,4 +1,4 @@
-import { normalizeHostId, type HostAdapterId } from "./host-adapter-registry.js";
+import { type HostAdapterId, normalizeHostId } from "./host-adapter-registry.js";
 import type { HostLifecycleEvent } from "./host-capabilities.js";
 
 export interface NormalizedHostHookEvent {
@@ -26,7 +26,8 @@ const EVENT_NAMES: Record<string, HostLifecycleEvent> = {
 };
 
 function nonEmpty(value: unknown, name: string): string {
-  if (typeof value !== "string" || !value.trim()) throw new Error(`Invalid argument: host hook ${name} must be a non-empty string`);
+  if (typeof value !== "string" || !value.trim())
+    throw new Error(`Invalid argument: host hook ${name} must be a non-empty string`);
   return value.trim();
 }
 
@@ -39,8 +40,13 @@ function optionalBoundedText(value: unknown, maxLength: number): string | undefi
   return text ? text.slice(0, maxLength) : undefined;
 }
 
-export function normalizeHostHookEvent(host: string, input: unknown, defaults: { device_id: string; occurred_at: string }): NormalizedHostHookEvent {
-  if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Invalid argument: host hook input must be an object");
+export function normalizeHostHookEvent(
+  host: string,
+  input: unknown,
+  defaults: { device_id: string; occurred_at: string }
+): NormalizedHostHookEvent {
+  if (!input || typeof input !== "object" || Array.isArray(input))
+    throw new Error("Invalid argument: host hook input must be an object");
   const payload = input as Record<string, unknown>;
   const normalizedHost = normalizeHostId(host);
   if (!normalizedHost) throw new Error(`Invalid argument: unsupported host: ${host}`);
@@ -58,12 +64,27 @@ export function normalizeHostHookEvent(host: string, input: unknown, defaults: {
     session_id: nonEmpty(payload.session_id ?? payload.sessionId, "session_id"),
     device_id: nonEmpty(payload.device_id ?? payload.deviceId ?? defaults.device_id, "device_id"),
     cwd: nonEmpty(payload.cwd ?? payload.project_path ?? payload.projectPath, "cwd"),
-    ...(optionalText(payload.source ?? payload.trigger) ? { trigger: optionalText(payload.source ?? payload.trigger) } : {}),
-    ...(optionalText(payload.compact_summary ?? payload.compactSummary ?? payload.summary) ? { compact_summary: optionalText(payload.compact_summary ?? payload.compactSummary ?? payload.summary) } : {}),
+    ...(optionalText(payload.source ?? payload.trigger)
+      ? { trigger: optionalText(payload.source ?? payload.trigger) }
+      : {}),
+    ...(optionalText(payload.compact_summary ?? payload.compactSummary ?? payload.summary)
+      ? { compact_summary: optionalText(payload.compact_summary ?? payload.compactSummary ?? payload.summary) }
+      : {}),
     ...(prompt ? { prompt } : {}),
-    ...(optionalBoundedText(payload.transcript_path ?? payload.transcriptPath, 4096) ? { transcript_path: optionalBoundedText(payload.transcript_path ?? payload.transcriptPath, 4096) } : {}),
-    ...(optionalBoundedText(payload.turn_id ?? payload.turnId, 256) ? { turn_id: optionalBoundedText(payload.turn_id ?? payload.turnId, 256) } : {}),
-    ...(optionalBoundedText(payload.last_assistant_message ?? payload.lastAssistantMessage, 4000) ? { last_assistant_message: optionalBoundedText(payload.last_assistant_message ?? payload.lastAssistantMessage, 4000) } : {}),
+    ...(optionalBoundedText(payload.transcript_path ?? payload.transcriptPath, 4096)
+      ? { transcript_path: optionalBoundedText(payload.transcript_path ?? payload.transcriptPath, 4096) }
+      : {}),
+    ...(optionalBoundedText(payload.turn_id ?? payload.turnId, 256)
+      ? { turn_id: optionalBoundedText(payload.turn_id ?? payload.turnId, 256) }
+      : {}),
+    ...(optionalBoundedText(payload.last_assistant_message ?? payload.lastAssistantMessage, 4000)
+      ? {
+          last_assistant_message: optionalBoundedText(
+            payload.last_assistant_message ?? payload.lastAssistantMessage,
+            4000
+          )
+        }
+      : {}),
     occurred_at: occurredAt
   };
 }

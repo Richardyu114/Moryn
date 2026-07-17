@@ -1,7 +1,7 @@
 import type { SemanticConsolidationProposal } from "./context-delta.js";
 import { compareLogicalMemoryTargets } from "./logical-memory.js";
-import { retrieveSemanticConsolidationCandidates } from "./semantic-consolidation-candidates.js";
 import { validateSemanticConsolidationProposal } from "./semantic-consolidation.js";
+import { retrieveSemanticConsolidationCandidates } from "./semantic-consolidation-candidates.js";
 import { isPrivateTags } from "./sensitive.js";
 import type { MorynRecord } from "./types.js";
 

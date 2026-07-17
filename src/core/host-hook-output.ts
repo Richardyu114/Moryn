@@ -16,14 +16,19 @@ function followUpOutput(result: HostHookRunResult): unknown | undefined {
   return {
     hookSpecificOutput: {
       hookEventName,
-      additionalContext: JSON.stringify({
-        moryn_follow_up: {
-          version: 1,
-          reason: "learning_candidates_require_agent_review",
-          action,
-          instruction: "Execute the supplied record-id recalls before proposing a semantic relationship; no routine user confirmation is required."
-        }
-      }, null, 2)
+      additionalContext: JSON.stringify(
+        {
+          moryn_follow_up: {
+            version: 1,
+            reason: "learning_candidates_require_agent_review",
+            action,
+            instruction:
+              "Execute the supplied record-id recalls before proposing a semantic relationship; no routine user confirmation is required."
+          }
+        },
+        null,
+        2
+      )
     }
   };
 }

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
+import { type LearningDelta, learningDeltaSchema } from "./context-delta.js";
 import { rebuildDerivedViews } from "./derived.js";
-import { learningDeltaSchema, type LearningDelta } from "./context-delta.js";
 import { readCurrentRecords } from "./record-read-model.js";
 import { appendEventIfAbsent } from "./store.js";
 import type { MorynEvent, MorynRecord, RecordSource } from "./types.js";
@@ -51,13 +51,15 @@ function canonicalLearning(learning: LearningDelta): string {
 }
 
 function parseTimestamp(value: string, name: string): string {
-  if (!Number.isFinite(Date.parse(value)) || new Date(Date.parse(value)).toISOString() !== value) throw new Error(`Invalid argument: ${name} must be a canonical ISO timestamp`);
+  if (!Number.isFinite(Date.parse(value)) || new Date(Date.parse(value)).toISOString() !== value)
+    throw new Error(`Invalid argument: ${name} must be a canonical ISO timestamp`);
   return value;
 }
 
 function optionalText(value: unknown, name: string): string | undefined {
   if (value === undefined) return undefined;
-  if (typeof value !== "string" || !value.trim()) throw new Error(`Invalid argument: ${name} must be a non-empty string`);
+  if (typeof value !== "string" || !value.trim())
+    throw new Error(`Invalid argument: ${name} must be a non-empty string`);
   return value.trim();
 }
 
@@ -76,14 +78,21 @@ function normalizedLearning(input: QueueLearningInput): LearningDelta {
 }
 
 export function learningInboxIdentity(input: { project_id?: string; learning: LearningDelta }) {
-  const digest = createHash("sha256").update(JSON.stringify({ project_id: input.project_id ?? null, learning: canonicalLearning(input.learning) })).digest("hex");
-  return { digest, record_id: `rec_learning_inbox_${digest.slice(0, 32)}`, event_id: `evt_learning_inbox_${digest.slice(0, 32)}` };
+  const digest = createHash("sha256")
+    .update(JSON.stringify({ project_id: input.project_id ?? null, learning: canonicalLearning(input.learning) }))
+    .digest("hex");
+  return {
+    digest,
+    record_id: `rec_learning_inbox_${digest.slice(0, 32)}`,
+    event_id: `evt_learning_inbox_${digest.slice(0, 32)}`
+  };
 }
 
 export async function queueLearning(storePath: string, input: QueueLearningInput) {
   const occurredAt = parseTimestamp(input.occurred_at, "occurred_at");
   const learning = normalizedLearning(input);
-  if (learning.scope === "project" && !input.project_id) throw new Error("Invalid argument: project learning requires project_id");
+  if (learning.scope === "project" && !input.project_id)
+    throw new Error("Invalid argument: project learning requires project_id");
   const identity = learningInboxIdentity({ project_id: input.project_id, learning });
   const currentTask = optionalText(input.current_task, "current_task");
   const record: LearningInboxRecord = {
@@ -111,18 +120,37 @@ export async function queueLearning(storePath: string, input: QueueLearningInput
     source: input.source,
     provenance: { method: "agent-proposed", reason: learning.question }
   };
-  const event: MorynEvent = { event_id: identity.event_id, op: "upsert_record", record, created_at: occurredAt, source: input.source };
+  const event: MorynEvent = {
+    event_id: identity.event_id,
+    op: "upsert_record",
+    record,
+    created_at: occurredAt,
+    source: input.source
+  };
   const appended = await appendEventIfAbsent(storePath, event);
-  if (appended.event.op !== "upsert_record" || appended.event.record.id !== identity.record_id) throw new Error(`Learning inbox idempotency collision: ${identity.event_id}`);
+  if (appended.event.op !== "upsert_record" || appended.event.record.id !== identity.record_id)
+    throw new Error(`Learning inbox idempotency collision: ${identity.event_id}`);
   if (appended.created) await rebuildDerivedViews(storePath);
-  return { created: appended.created, record: appended.event.record as LearningInboxRecord, durability: appended.durability };
+  return {
+    created: appended.created,
+    record: appended.event.record as LearningInboxRecord,
+    durability: appended.durability
+  };
 }
 
 function isLearningInboxRecord(record: MorynRecord): record is LearningInboxRecord {
-  return record.kind === "agent_note" && record.type === "learning_inbox" && record.content.learning_inbox_version === 1 && (record.content.status === "pending" || record.content.status === "consumed");
+  return (
+    record.kind === "agent_note" &&
+    record.type === "learning_inbox" &&
+    record.content.learning_inbox_version === 1 &&
+    (record.content.status === "pending" || record.content.status === "consumed")
+  );
 }
 
-export async function pendingLearningInbox(storePath: string, input: { project_id?: string; session_id?: string; include_consumed?: boolean; limit?: number }) {
+export async function pendingLearningInbox(
+  storePath: string,
+  input: { project_id?: string; session_id?: string; include_consumed?: boolean; limit?: number }
+) {
   const limit = Math.max(1, Math.min(20, input.limit ?? 20));
   const records = (await readCurrentRecords(storePath)).records
     .filter(isLearningInboxRecord)
@@ -131,15 +159,28 @@ export async function pendingLearningInbox(storePath: string, input: { project_i
     .sort((left, right) => {
       const leftSession = input.session_id && left.source.session_id === input.session_id ? 0 : 1;
       const rightSession = input.session_id && right.source.session_id === input.session_id ? 0 : 1;
-      return leftSession - rightSession || left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id);
+      return (
+        leftSession - rightSession || left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id)
+      );
     });
   return records.slice(0, limit);
 }
 
-export async function learningInboxForLifecycle(storePath: string, input: { project_id: string; session_id?: string; consumed_by_record_id: string; limit?: number }) {
-  const records = await pendingLearningInbox(storePath, { project_id: input.project_id, session_id: input.session_id, include_consumed: true, limit: 20 });
+export async function learningInboxForLifecycle(
+  storePath: string,
+  input: { project_id: string; session_id?: string; consumed_by_record_id: string; limit?: number }
+) {
+  const records = await pendingLearningInbox(storePath, {
+    project_id: input.project_id,
+    session_id: input.session_id,
+    include_consumed: true,
+    limit: 20
+  });
   return records
-    .filter((record) => record.content.status === "pending" || record.content.consumed_by_record_id === input.consumed_by_record_id)
+    .filter(
+      (record) =>
+        record.content.status === "pending" || record.content.consumed_by_record_id === input.consumed_by_record_id
+    )
     .slice(0, Math.max(1, Math.min(20, input.limit ?? 20)));
 }
 
@@ -151,7 +192,16 @@ function linkEventId(recordId: string, linkedRecordId: string, linkType: string)
   return `evt_learning_inbox_link_${createHash("sha256").update(`${recordId}\u0000${linkedRecordId}\u0000${linkType}`).digest("hex").slice(0, 32)}`;
 }
 
-export async function consumeLearningInbox(storePath: string, input: { inbox_records: LearningInboxRecord[]; consumed_at: string; consumed_by_record_id: string; produced_record_ids: string[]; source: RecordSource }) {
+export async function consumeLearningInbox(
+  storePath: string,
+  input: {
+    inbox_records: LearningInboxRecord[];
+    consumed_at: string;
+    consumed_by_record_id: string;
+    produced_record_ids: string[];
+    source: RecordSource;
+  }
+) {
   const requestedConsumedAt = parseTimestamp(input.consumed_at, "consumed_at");
   const current = new Map((await readCurrentRecords(storePath)).records.map((record) => [record.id, record]));
   let consumed = 0;
@@ -163,7 +213,9 @@ export async function consumeLearningInbox(storePath: string, input: { inbox_rec
       alreadyConsumed += 1;
       continue;
     }
-    const consumedAt = new Date(Math.max(Date.parse(requestedConsumedAt), Date.parse(record.updated_at) + 1)).toISOString();
+    const consumedAt = new Date(
+      Math.max(Date.parse(requestedConsumedAt), Date.parse(record.updated_at) + 1)
+    ).toISOString();
     const revision: MorynEvent = {
       event_id: revisionEventId(record.id, input.consumed_by_record_id),
       op: "revise_record",
@@ -173,14 +225,17 @@ export async function consumeLearningInbox(storePath: string, input: { inbox_rec
         "content.consumed_at": consumedAt,
         "content.consumed_by_record_id": input.consumed_by_record_id,
         "content.produced_record_ids": [...new Set(input.produced_record_ids)].sort(),
-        "tags": ["consumed", "learning", "learning-inbox"]
+        tags: ["consumed", "learning", "learning-inbox"]
       },
       reason: "Learning Inbox consumed by lifecycle capture",
       created_at: consumedAt,
       source: input.source
     };
     await appendEventIfAbsent(storePath, revision);
-    for (const [linkedRecordId, linkType] of [[input.consumed_by_record_id, "consumed_by"], ...input.produced_record_ids.map((id) => [id, "produced"])] as Array<[string, string]>) {
+    for (const [linkedRecordId, linkType] of [
+      [input.consumed_by_record_id, "consumed_by"],
+      ...input.produced_record_ids.map((id) => [id, "produced"])
+    ] as Array<[string, string]>) {
       await appendEventIfAbsent(storePath, {
         event_id: linkEventId(record.id, linkedRecordId, linkType),
         op: "link_records",
@@ -195,5 +250,9 @@ export async function consumeLearningInbox(storePath: string, input: { inbox_rec
     consumed += 1;
   }
   if (consumed > 0) await rebuildDerivedViews(storePath);
-  return { consumed, already_consumed: alreadyConsumed, inbox_record_ids: input.inbox_records.map((record) => record.id) };
+  return {
+    consumed,
+    already_consumed: alreadyConsumed,
+    inbox_record_ids: input.inbox_records.map((record) => record.id)
+  };
 }

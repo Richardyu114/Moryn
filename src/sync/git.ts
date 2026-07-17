@@ -56,7 +56,10 @@ export interface PendingSyncEvidence {
 }
 
 function gitPathLines(output: string): string[] {
-  return output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  return output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
 }
 
 function porcelainPaths(output: string): string[] {
@@ -79,8 +82,10 @@ function porcelainPaths(output: string): string[] {
 export async function getPendingSyncEvidence(storePath: string): Promise<PendingSyncEvidence> {
   validateRequiredString(storePath, "storePath");
   await ensureGitSyncConfigured(storePath);
-  const workingPaths = porcelainPaths(await gitRaw(storePath, ["status", "--porcelain=v1", "-z", "--untracked-files=all"]));
-  const aheadPaths = await gitOk(storePath, ["rev-parse", "--verify", "origin/main"])
+  const workingPaths = porcelainPaths(
+    await gitRaw(storePath, ["status", "--porcelain=v1", "-z", "--untracked-files=all"])
+  );
+  const aheadPaths = (await gitOk(storePath, ["rev-parse", "--verify", "origin/main"]))
     ? gitPathLines(await git(storePath, ["diff", "--name-only", "origin/main...HEAD"]))
     : [];
   const paths = [...new Set([...workingPaths, ...aheadPaths])].sort();
@@ -166,56 +171,40 @@ class SyncArgumentError extends Error {
 
 function invalidSyncStringError(name: "storePath" | "remoteUrl" | "message", value: unknown): SyncArgumentError {
   if (name === "remoteUrl") {
-    return new SyncArgumentError(
-      "Invalid argument: Invalid remoteUrl",
-      "retry sync with a non-empty remoteUrl",
-      {
-        operation_contract: "operations_by_id.sync_init",
-        rejected_argument: { argument: "remote", value },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          remote: "operations_by_id.sync_init.arguments_by_name.remote"
-        },
-        retry_with: { argument: "remote", value_placeholder: "<remote>" }
-      }
-    );
+    return new SyncArgumentError("Invalid argument: Invalid remoteUrl", "retry sync with a non-empty remoteUrl", {
+      operation_contract: "operations_by_id.sync_init",
+      rejected_argument: { argument: "remote", value },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      argument_sources: {
+        remote: "operations_by_id.sync_init.arguments_by_name.remote"
+      },
+      retry_with: { argument: "remote", value_placeholder: "<remote>" }
+    });
   }
   if (name === "message") {
-    return new SyncArgumentError(
-      "Invalid argument: Invalid message",
-      "retry sync with a non-empty message",
-      {
-        operation_contract: "operations_by_id.sync_push",
-        rejected_argument: { argument: "message", value },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          message: "operations_by_id.sync_push.arguments_by_name.message"
-        },
-        retry_with: { argument: "message", value_placeholder: "<message>" }
-      }
-    );
-  }
-  return new SyncArgumentError(
-    `Invalid argument: Invalid ${name}`,
-    `retry sync with a non-empty ${name}`,
-    {
-      rejected_argument: { argument: name, value },
+    return new SyncArgumentError("Invalid argument: Invalid message", "retry sync with a non-empty message", {
+      operation_contract: "operations_by_id.sync_push",
+      rejected_argument: { argument: "message", value },
       expected: { kind: "non_empty_string", min_length: 1 },
-      retry_with: { argument: name, value_placeholder: `<${name}>` }
-    }
-  );
+      argument_sources: {
+        message: "operations_by_id.sync_push.arguments_by_name.message"
+      },
+      retry_with: { argument: "message", value_placeholder: "<message>" }
+    });
+  }
+  return new SyncArgumentError(`Invalid argument: Invalid ${name}`, `retry sync with a non-empty ${name}`, {
+    rejected_argument: { argument: name, value },
+    expected: { kind: "non_empty_string", min_length: 1 },
+    retry_with: { argument: name, value_placeholder: `<${name}>` }
+  });
 }
 
 function invalidSyncOptionsError(options: unknown): SyncArgumentError {
-  return new SyncArgumentError(
-    "Invalid argument: Invalid sync options",
-    "retry sync with a valid options object",
-    {
-      rejected_argument: { argument: "options", value: options },
-      expected: { kind: "object", required: false },
-      retry_with: { argument: "options", value_placeholder: { message: "<message>" } }
-    }
-  );
+  return new SyncArgumentError("Invalid argument: Invalid sync options", "retry sync with a valid options object", {
+    rejected_argument: { argument: "options", value: options },
+    expected: { kind: "object", required: false },
+    retry_with: { argument: "options", value_placeholder: { message: "<message>" } }
+  });
 }
 
 function validateRequiredString(value: unknown, name: "storePath" | "remoteUrl"): asserts value is string {
@@ -238,18 +227,14 @@ function validateSyncOptions(options: unknown): asserts options is { message?: s
   validateOptionalString((options as { message?: unknown }).message, "message");
 }
 
-function withSyncStatusSelectionSources(
-  status: Omit<GitSyncStatus, "selection_sources">
-): GitSyncStatus {
+function withSyncStatusSelectionSources(status: Omit<GitSyncStatus, "selection_sources">): GitSyncStatus {
   return {
     ...status,
     selection_sources: SYNC_STATUS_SELECTION_SOURCES
   };
 }
 
-function withSyncResultSelectionSources(
-  result: Omit<GitSyncResult, "selection_sources">
-): GitSyncResult {
+function withSyncResultSelectionSources(result: Omit<GitSyncResult, "selection_sources">): GitSyncResult {
   return {
     ...result,
     selection_sources: SYNC_RESULT_SELECTION_SOURCES
@@ -347,7 +332,7 @@ async function hasRemoteHead(storePath: string): Promise<boolean> {
 }
 
 async function hasStagedChanges(storePath: string): Promise<boolean> {
-  return !await gitOk(storePath, ["diff", "--cached", "--quiet"]);
+  return !(await gitOk(storePath, ["diff", "--cached", "--quiet"]));
 }
 
 async function restoreLocalOnlyStateAfterGitUpdate(storePath: string, localConfig: StoreConfig): Promise<void> {
@@ -363,17 +348,17 @@ async function restoreLocalOnlyStateAfterGitUpdate(storePath: string, localConfi
 }
 
 async function ensureGitSyncConfigured(storePath: string): Promise<void> {
-  if (!await gitOk(storePath, ["rev-parse", "--git-dir"])) {
+  if (!(await gitOk(storePath, ["rev-parse", "--git-dir"]))) {
     throw new Error("Sync not configured: run moryn sync init <remote>");
   }
-  if (!await git(storePath, ["remote", "get-url", "origin"]).catch(() => "")) {
+  if (!(await git(storePath, ["remote", "get-url", "origin"]).catch(() => ""))) {
     throw new Error("Sync not configured: run moryn sync init <remote>");
   }
 }
 
 export async function isGitSyncConfigured(storePath: string): Promise<boolean> {
   validateRequiredString(storePath, "storePath");
-  if (!await gitOk(storePath, ["rev-parse", "--git-dir"])) return false;
+  if (!(await gitOk(storePath, ["rev-parse", "--git-dir"]))) return false;
   return Boolean(await git(storePath, ["remote", "get-url", "origin"]).catch(() => ""));
 }
 
@@ -391,11 +376,12 @@ async function ensureRemote(storePath: string, remoteUrl: string): Promise<void>
 async function gitConflictStatus(storePath: string): Promise<GitSyncConflictStatus | undefined> {
   const gitDir = await git(storePath, ["rev-parse", "--git-dir"]);
   const operation =
-    await pathExists(join(storePath, gitDir, "rebase-merge")) || await pathExists(join(storePath, gitDir, "rebase-apply"))
+    (await pathExists(join(storePath, gitDir, "rebase-merge"))) ||
+    (await pathExists(join(storePath, gitDir, "rebase-apply")))
       ? "rebase"
-      : await pathExists(join(storePath, gitDir, "MERGE_HEAD"))
+      : (await pathExists(join(storePath, gitDir, "MERGE_HEAD")))
         ? "merge"
-        : await pathExists(join(storePath, gitDir, "CHERRY_PICK_HEAD"))
+        : (await pathExists(join(storePath, gitDir, "CHERRY_PICK_HEAD")))
           ? "cherry-pick"
           : "unknown";
   const files = (await git(storePath, ["diff", "--name-only", "--diff-filter=U"]))
@@ -407,12 +393,17 @@ async function gitConflictStatus(storePath: string): Promise<GitSyncConflictStat
   return {
     operation,
     files,
-    files_by_path: Object.fromEntries(files.map((file) => [file, {
-      path: file,
-      status: "unmerged",
-      safe_to_auto_resolve: false,
-      recommended_action: recommendedAction
-    }])),
+    files_by_path: Object.fromEntries(
+      files.map((file) => [
+        file,
+        {
+          path: file,
+          status: "unmerged",
+          safe_to_auto_resolve: false,
+          recommended_action: recommendedAction
+        }
+      ])
+    ),
     safe_to_auto_resolve: false,
     safe_to_retry_sync: false,
     recommended_action: recommendedAction
@@ -423,7 +414,7 @@ export async function initializeGitSync(storePath: string, remoteUrl: string): P
   validateRequiredString(storePath, "storePath");
   validateRequiredString(remoteUrl, "remoteUrl");
   const localConfig = await readStoreConfig(storePath);
-  if (!await gitOk(storePath, ["rev-parse", "--git-dir"])) {
+  if (!(await gitOk(storePath, ["rev-parse", "--git-dir"]))) {
     await git(storePath, ["init"]);
   }
   await ensureGitIdentity(storePath);
@@ -431,7 +422,7 @@ export async function initializeGitSync(storePath: string, remoteUrl: string): P
   await ensureGitIgnore(storePath);
   await ensureRemote(storePath, remoteUrl);
 
-  if (!await hasCommits(storePath) && await hasRemoteHead(storePath)) {
+  if (!(await hasCommits(storePath)) && (await hasRemoteHead(storePath))) {
     await git(storePath, ["fetch", "origin", "main"]);
     await git(storePath, ["reset", "--hard", "origin/main"]);
     await writeStoreConfig(storePath, localConfig);
@@ -441,7 +432,7 @@ export async function initializeGitSync(storePath: string, remoteUrl: string): P
   await ensureGitIgnore(storePath);
   await untrackLocalOnlyPaths(storePath);
   await git(storePath, ["add", "events", ".gitignore"]);
-  const shouldPushInitialCommit = !await hasRemoteHead(storePath);
+  const shouldPushInitialCommit = !(await hasRemoteHead(storePath));
   if (await hasStagedChanges(storePath)) {
     await git(storePath, ["commit", "-m", "Initialize Moryn store"]);
     if (shouldPushInitialCommit) {
@@ -469,7 +460,7 @@ export async function getGitSyncStatus(storePath: string): Promise<GitSyncStatus
     const lastSync = await readLastSync(storePath);
     let ahead = 0;
     let behind = 0;
-    if (remote && await gitOk(storePath, ["rev-parse", "--verify", "origin/main"])) {
+    if (remote && (await gitOk(storePath, ["rev-parse", "--verify", "origin/main"]))) {
       const counts = await git(storePath, ["rev-list", "--left-right", "--count", "HEAD...origin/main"]);
       const [left, right] = counts.split(/\s+/).map((value) => Number(value));
       ahead = left ?? 0;
@@ -497,8 +488,12 @@ export async function pullGitSync(storePath: string): Promise<GitSyncResult> {
   validateRequiredString(storePath, "storePath");
   await ensureGitSyncConfigured(storePath);
   const localConfig = await readStoreConfig(storePath);
-  if (!await hasRemoteHead(storePath)) {
-    return withSyncResultSelectionSources({ ok: true, pulled: false, message: "Remote branch main does not exist yet" });
+  if (!(await hasRemoteHead(storePath))) {
+    return withSyncResultSelectionSources({
+      ok: true,
+      pulled: false,
+      message: "Remote branch main does not exist yet"
+    });
   }
   await git(storePath, ["fetch", "origin", "main"]);
   const hasLocal = await hasCommits(storePath);

@@ -43,11 +43,11 @@ describe("record schema", () => {
         value_placeholder: `<valid Moryn ${schema}>`
       }
     });
-    expect(envelope.error.recovery_hint).toEqual(expect.objectContaining({
-      validation_issues: expect.arrayContaining([
-        expect.objectContaining({ path_string: pathString })
-      ])
-    }));
+    expect(envelope.error.recovery_hint).toEqual(
+      expect.objectContaining({
+        validation_issues: expect.arrayContaining([expect.objectContaining({ path_string: pathString })])
+      })
+    );
   }
 
   it("accepts a valid memory record", () => {
@@ -57,16 +57,17 @@ describe("record schema", () => {
   });
 
   it("rejects invalid state values", () => {
-    expectInvalidSchema(() =>
-      parseRecord({
-        id: "rec_test",
-        kind: "memory",
-        type: "decision",
-        scope: "project",
-        content: { text: "Bad state", format: "text" },
-        state: "published",
-        source: { client: "codex" }
-      }),
+    expectInvalidSchema(
+      () =>
+        parseRecord({
+          id: "rec_test",
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          content: { text: "Bad state", format: "text" },
+          state: "published",
+          source: { client: "codex" }
+        }),
       "record",
       "state"
     );
@@ -83,14 +84,18 @@ describe("record schema", () => {
 
   it("rejects empty record metadata strings", () => {
     expect(() => parseRecord({ ...validRecord, tags: [""] })).toThrow(/Invalid record/);
-    expect(() => parseRecord({
-      ...validRecord,
-      provenance: { derived_from: ["rec_source", ""] }
-    })).toThrow(/Invalid record/);
-    expect(() => parseRecord({
-      ...validRecord,
-      provenance: { reason: "" }
-    })).toThrow(/Invalid record/);
+    expect(() =>
+      parseRecord({
+        ...validRecord,
+        provenance: { derived_from: ["rec_source", ""] }
+      })
+    ).toThrow(/Invalid record/);
+    expect(() =>
+      parseRecord({
+        ...validRecord,
+        provenance: { reason: "" }
+      })
+    ).toThrow(/Invalid record/);
   });
 
   it("rejects empty mutation event reasons", () => {
@@ -104,26 +109,30 @@ describe("record schema", () => {
     };
 
     expectInvalidSchema(() => parseEvent({ ...baseEvent, reason: "" }), "event", "reason");
-    expect(() => parseEvent({
-      event_id: "evt_promote",
-      op: "promote_record",
-      record_id: "rec_test",
-      target_state: "canonical",
-      reason: "",
-      created_at: "2026-05-27T00:01:00.000Z",
-      source: { client: "codex" }
-    })).toThrow(/Invalid event/);
+    expect(() =>
+      parseEvent({
+        event_id: "evt_promote",
+        op: "promote_record",
+        record_id: "rec_test",
+        target_state: "canonical",
+        reason: "",
+        created_at: "2026-05-27T00:01:00.000Z",
+        source: { client: "codex" }
+      })
+    ).toThrow(/Invalid event/);
   });
 
   it("rejects empty revision event patches", () => {
-    expect(() => parseEvent({
-      event_id: "evt_empty_patch",
-      op: "revise_record",
-      record_id: "rec_test",
-      patch: {},
-      created_at: "2026-05-27T00:01:00.000Z",
-      source: { client: "codex" }
-    })).toThrow(/Invalid event/);
+    expect(() =>
+      parseEvent({
+        event_id: "evt_empty_patch",
+        op: "revise_record",
+        record_id: "rec_test",
+        patch: {},
+        created_at: "2026-05-27T00:01:00.000Z",
+        source: { client: "codex" }
+      })
+    ).toThrow(/Invalid event/);
 
     for (const patch of [
       { "": "Updated text." },
@@ -131,42 +140,50 @@ describe("record schema", () => {
       { "content..text": "Updated text." },
       { "content.text.": "Updated text." }
     ]) {
-      expect(() => parseEvent({
-        event_id: "evt_invalid_patch_path",
-        op: "revise_record",
-        record_id: "rec_test",
-        patch,
-        created_at: "2026-05-27T00:01:00.000Z",
-        source: { client: "codex" }
-      })).toThrow(/Invalid event/);
+      expect(() =>
+        parseEvent({
+          event_id: "evt_invalid_patch_path",
+          op: "revise_record",
+          record_id: "rec_test",
+          patch,
+          created_at: "2026-05-27T00:01:00.000Z",
+          source: { client: "codex" }
+        })
+      ).toThrow(/Invalid event/);
     }
   });
 
   it("rejects invalid state mutation event shapes", () => {
-    expect(() => parseEvent({
-      event_id: "evt_missing_target",
-      op: "promote_record",
-      record_id: "rec_test",
-      created_at: "2026-05-27T00:01:00.000Z",
-      source: { client: "codex" }
-    })).toThrow(/Invalid event/);
+    expect(() =>
+      parseEvent({
+        event_id: "evt_missing_target",
+        op: "promote_record",
+        record_id: "rec_test",
+        created_at: "2026-05-27T00:01:00.000Z",
+        source: { client: "codex" }
+      })
+    ).toThrow(/Invalid event/);
 
-    expect(() => parseEvent({
-      event_id: "evt_archive_target",
-      op: "archive_record",
-      record_id: "rec_test",
-      target_state: "canonical",
-      created_at: "2026-05-27T00:01:00.000Z",
-      source: { client: "codex" }
-    })).toThrow(/Invalid event/);
+    expect(() =>
+      parseEvent({
+        event_id: "evt_archive_target",
+        op: "archive_record",
+        record_id: "rec_test",
+        target_state: "canonical",
+        created_at: "2026-05-27T00:01:00.000Z",
+        source: { client: "codex" }
+      })
+    ).toThrow(/Invalid event/);
 
-    expect(() => parseEvent({
-      event_id: "evt_quarantine_target",
-      op: "quarantine_record",
-      record_id: "rec_test",
-      target_state: "archived",
-      created_at: "2026-05-27T00:01:00.000Z",
-      source: { client: "codex" }
-    })).toThrow(/Invalid event/);
+    expect(() =>
+      parseEvent({
+        event_id: "evt_quarantine_target",
+        op: "quarantine_record",
+        record_id: "rec_test",
+        target_state: "archived",
+        created_at: "2026-05-27T00:01:00.000Z",
+        source: { client: "codex" }
+      })
+    ).toThrow(/Invalid event/);
   });
 });

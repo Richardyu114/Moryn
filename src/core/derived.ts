@@ -1,12 +1,12 @@
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { replayEvents } from "./replay.js";
-import { readEventFileManifest, readEvents } from "./store.js";
-import type { MorynRecord } from "./types.js";
 import { displayRecordText, searchableRecordText } from "./content-text.js";
 import { buildRecordReadModel } from "./record-read-model.js";
+import { replayEvents } from "./replay.js";
 import { buildRetrievalIndex, writeRetrievalIndex } from "./retrieval-index.js";
+import { readEventFileManifest, readEvents } from "./store.js";
+import type { MorynRecord } from "./types.js";
 
 export const REBUILD_SELECTION_SOURCES = {
   record_count: "records",
@@ -52,11 +52,15 @@ function hasErrorCode(error: unknown, code: string): boolean {
 }
 
 function lockOwner(token: string): string {
-  return `${JSON.stringify({
-    token,
-    pid: process.pid,
-    updated_at: new Date().toISOString()
-  }, null, 2)}\n`;
+  return `${JSON.stringify(
+    {
+      token,
+      pid: process.pid,
+      updated_at: new Date().toISOString()
+    },
+    null,
+    2
+  )}\n`;
 }
 
 async function readLockToken(ownerPath: string): Promise<string | undefined> {
@@ -126,7 +130,7 @@ async function withRebuildLock<T>(storePath: string, fn: () => Promise<T>): Prom
     return await fn();
   } finally {
     clearInterval(heartbeat);
-    if (await readLockToken(ownerPath) === token) {
+    if ((await readLockToken(ownerPath)) === token) {
       await rm(lockPath, { recursive: true, force: true });
     }
   }
@@ -205,9 +209,11 @@ async function rebuildDerivedViewsUnlocked(storePath: string): Promise<RebuildRe
   const activeRecords = active(records);
   const snapshotPath = join(storePath, "snapshots");
   const indexPath = join(storePath, "indexes");
-  const generatedFromCursor = [...activeRecords].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]?.updated_at;
-  const syncStatus = await readJsonIfExists(join(storePath, "state", "sync-status.json"))
-    ?? await readLegacyJsonIfExists(join(storePath, "indexes", "sync-status.json"));
+  const generatedFromCursor = [...activeRecords].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]
+    ?.updated_at;
+  const syncStatus =
+    (await readJsonIfExists(join(storePath, "state", "sync-status.json"))) ??
+    (await readLegacyJsonIfExists(join(storePath, "indexes", "sync-status.json")));
 
   await rm(snapshotPath, { recursive: true, force: true });
   await rm(indexPath, { recursive: true, force: true });
@@ -229,10 +235,14 @@ async function rebuildDerivedViewsUnlocked(storePath: string): Promise<RebuildRe
   await writeJson(join(snapshotPath, "records.json"), buildRecordReadModel(events, records, eventFileManifest));
   await writeRetrievalIndex(storePath, buildRetrievalIndex(records, eventFileManifest));
 
-  const projectIds = [...new Set(activeRecords
-    .filter((record) => record.scope === "project")
-    .map((record) => record.project_id)
-    .filter((id): id is string => Boolean(id)))].sort();
+  const projectIds = [
+    ...new Set(
+      activeRecords
+        .filter((record) => record.scope === "project")
+        .map((record) => record.project_id)
+        .filter((id): id is string => Boolean(id))
+    )
+  ].sort();
   for (const projectId of projectIds) {
     const projectRecords = trusted.filter((record) => record.scope === "project" && record.project_id === projectId);
     await writeJson(join(snapshotPath, "projects", `${projectId}.json`), {
@@ -240,8 +250,12 @@ async function rebuildDerivedViewsUnlocked(storePath: string): Promise<RebuildRe
       generated_from_cursor: generatedFromCursor,
       summary: projectSummary(projectRecords),
       decisions: projectRecords.filter((record) => record.kind === "memory" && record.type === "decision"),
-      warnings: projectRecords.filter((record) => record.kind === "memory" && (record.type === "warning" || record.type === "blocker")),
-      skills: trusted.filter((record) => record.kind === "skill" && (record.scope === "global" || record.project_id === projectId)),
+      warnings: projectRecords.filter(
+        (record) => record.kind === "memory" && (record.type === "warning" || record.type === "blocker")
+      ),
+      skills: trusted.filter(
+        (record) => record.kind === "skill" && (record.scope === "global" || record.project_id === projectId)
+      ),
       recent_changes: projectRecords.sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 20)
     });
   }

@@ -1,43 +1,12 @@
+import { createHash } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { createHash } from "node:crypto";
 import { z } from "zod";
-import {
-  getOperationContract,
-  getOperationContractByCliCommand,
-  getOperationContractByMcpTool,
-  getOperationContractIndex,
-  getOperationContracts,
-  getSelectionSourceContracts,
-  captureSession,
-  contextPack,
-  planInstall,
-  setupWizard,
-  version,
-  activateCodexHooks,
-  activateClaudeSettings,
-  buildHostIntegrationArtifact,
-  inspectHostActivation,
-  writeHostIntegrationArtifact
-} from "../index.js";
-import { queueLearning } from "../core/learning-inbox.js";
-import type { HostRuntimeDescriptor } from "../core/host-integration-artifacts.js";
-import {
-  OperationContractLookupConflictError,
-  OperationContractLookupError,
-  type OperationContractLookupOption,
-  operationArgumentsByTool,
-  type OperationArgumentMetadata,
-  validateOperationContractIndexArgument,
-  validateOperationContractLookupArgument
-} from "../operation-contracts.js";
-import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "../core/agent-lifecycle.js";
 import { mcpArgumentsForAction } from "../core/action-interfaces.js";
+import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "../core/agent-lifecycle.js";
 import { initializeStore } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
-import { LOGICAL_RELATIONSHIP_TYPES } from "../core/logical-memory.js";
 import type { createEngine } from "../core/engine.js";
-import { openDashboard, writeDashboardSnapshot } from "../observability/dashboard.js";
 import {
   commandForAgentEnterContext,
   commandForAgentFinishContext,
@@ -46,17 +15,54 @@ import {
   commandForArchiveContext,
   commandForLinkContext,
   commandForPromoteContext,
-  commandForRecallContext,
   commandForQuarantineContext,
+  commandForRecallContext,
   commandForReviseContext,
   commandForSetupContext,
   commandForTimelineContext,
   type MorynErrorContext,
   toErrorEnvelope
 } from "../core/errors.js";
-import { SYNC_MODES, initializeProjectConfig, resolveProjectContext, type SyncMode } from "../core/project.js";
-import { RECORD_KINDS, RECORD_PRIORITIES, RECORD_SCOPES, RECORD_STATES } from "../core/schema.js";
-import type { RecordKind, RecordPriority, RecordProvenance, RecordScope, RecordSource, RecordState } from "../core/types.js";
+import type { HostRuntimeDescriptor } from "../core/host-integration-artifacts.js";
+import { queueLearning } from "../core/learning-inbox.js";
+import { LOGICAL_RELATIONSHIP_TYPES } from "../core/logical-memory.js";
+import { initializeProjectConfig, resolveProjectContext, type SyncMode } from "../core/project.js";
+import type {
+  RecordKind,
+  RecordPriority,
+  RecordProvenance,
+  RecordScope,
+  RecordSource,
+  RecordState
+} from "../core/types.js";
+import {
+  activateClaudeSettings,
+  activateCodexHooks,
+  buildHostIntegrationArtifact,
+  captureSession,
+  contextPack,
+  getOperationContract,
+  getOperationContractByCliCommand,
+  getOperationContractByMcpTool,
+  getOperationContractIndex,
+  getOperationContracts,
+  getSelectionSourceContracts,
+  inspectHostActivation,
+  planInstall,
+  setupWizard,
+  version,
+  writeHostIntegrationArtifact
+} from "../index.js";
+import { openDashboard, writeDashboardSnapshot } from "../observability/dashboard.js";
+import {
+  type OperationArgumentMetadata,
+  OperationContractLookupConflictError,
+  OperationContractLookupError,
+  type OperationContractLookupOption,
+  operationArgumentsByTool,
+  validateOperationContractIndexArgument,
+  validateOperationContractLookupArgument
+} from "../operation-contracts.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "../sync/git.js";
 
 type Engine = ReturnType<typeof createEngine>;
@@ -91,9 +97,7 @@ type McpAliasConflictDoNot =
   | "provide_parent_scalar_with_child_aliases"
   | "provide_both_camelcase_and_contract_aliases"
   | "provide_both_singular_and_plural_aliases";
-type McpUnknownArgumentDoNot =
-  | "send_unknown_mcp_arguments"
-  | "retry_with_same_unknown_argument";
+type McpUnknownArgumentDoNot = "send_unknown_mcp_arguments" | "retry_with_same_unknown_argument";
 type McpExplicitAlias = {
   alias: string;
   target: string;
@@ -109,13 +113,6 @@ type McpObjectPathAlias = {
   normalize: (value: unknown) => unknown;
 };
 
-const stringSchema = z.string();
-const recordKindSchema = z.union([z.enum(RECORD_KINDS), stringSchema]);
-const recordScopeSchema = z.union([z.enum(RECORD_SCOPES), stringSchema]);
-const recordStateSchema = z.union([z.enum(RECORD_STATES), stringSchema]);
-const recordPrioritySchema = z.union([z.enum(RECORD_PRIORITIES), stringSchema]);
-const syncModeSchema = z.union([z.enum(SYNC_MODES), stringSchema]);
-const numberSchema = z.number();
 const coreValidatedNumberSchema = z.unknown();
 const coreValidatedBooleanSchema = z.unknown();
 const coreValidatedSyncModeSchema = z.unknown();
@@ -273,18 +270,24 @@ function mcpCamelCaseAliasTarget(argument: OperationArgumentMetadata): string | 
 }
 
 function camelCaseAliasInputSchema(tool: string): Record<string, z.ZodOptional<z.ZodUnknown>> {
-  return Object.fromEntries(Object.values(operationArgumentsByTool(tool)).flatMap((argument) => {
-    const alias = mcpCamelCaseAliasName(argument);
-    return alias ? [[alias, z.unknown().optional()] as const] : [];
-  }));
+  return Object.fromEntries(
+    Object.values(operationArgumentsByTool(tool)).flatMap((argument) => {
+      const alias = mcpCamelCaseAliasName(argument);
+      return alias ? [[alias, z.unknown().optional()] as const] : [];
+    })
+  );
 }
 
 function explicitAliasInputSchema(tool: string): Record<string, z.ZodOptional<z.ZodUnknown>> {
-  return Object.fromEntries((explicitMcpAliasesByTool[tool] ?? []).map((alias) => [alias.alias, z.unknown().optional()]));
+  return Object.fromEntries(
+    (explicitMcpAliasesByTool[tool] ?? []).map((alias) => [alias.alias, z.unknown().optional()])
+  );
 }
 
 function objectPathAliasInputSchema(tool: string): Record<string, z.ZodOptional<z.ZodUnknown>> {
-  return Object.fromEntries((objectPathMcpAliasesByTool[tool] ?? []).map((alias) => [alias.alias, z.unknown().optional()]));
+  return Object.fromEntries(
+    (objectPathMcpAliasesByTool[tool] ?? []).map((alias) => [alias.alias, z.unknown().optional()])
+  );
 }
 
 function mcpInputSchema<TShape extends McpInputShape>(shape: TShape): z.ZodObject<TShape> {
@@ -313,10 +316,7 @@ type McpArgumentRecoveryHint =
     }
   | {
       operation_contract: "operations_by_id.write";
-      rejected_arguments: Array<
-        | { argument: "text"; value: unknown }
-        | { argument: "content"; value: unknown }
-      >;
+      rejected_arguments: Array<{ argument: "text"; value: unknown } | { argument: "content"; value: unknown }>;
       expected: { kind: "choose_one"; arguments: ["text", "content"] };
       argument_sources: Record<"text" | "content", string>;
       retry_with: Array<{ argument: "text" | "content"; value_placeholder: string }>;
@@ -457,23 +457,18 @@ function writeRequiredArgumentError(argument: "type" | "scope"): McpArgumentErro
     [argument]: `operations_by_id.write.arguments_by_name.${argument}`
   } satisfies Partial<Record<typeof argument, string>>;
 
-  return new McpArgumentError(
-    `Invalid argument: write requires ${argument}`,
-    `retry write with required ${argument}`,
-    {
-      operation_contract: "operations_by_id.write",
-      missing_argument: { argument },
-      expected: { kind: "required_argument", required: true },
-      argument_sources: argumentSources,
-      retry_with: { argument, value_placeholder: `<record ${argument}>` }
-    }
-  );
+  return new McpArgumentError(`Invalid argument: write requires ${argument}`, `retry write with required ${argument}`, {
+    operation_contract: "operations_by_id.write",
+    missing_argument: { argument },
+    expected: { kind: "required_argument", required: true },
+    argument_sources: argumentSources,
+    retry_with: { argument, value_placeholder: `<record ${argument}>` }
+  });
 }
 
-function writeContentChoiceError(rejectedArguments?: Array<
-  | { argument: "text"; value: unknown }
-  | { argument: "content"; value: unknown }
->): McpArgumentError {
+function writeContentChoiceError(
+  rejectedArguments?: Array<{ argument: "text"; value: unknown } | { argument: "content"; value: unknown }>
+): McpArgumentError {
   return new McpArgumentError(
     rejectedArguments
       ? "Invalid argument: use either text or content, not both"
@@ -630,7 +625,10 @@ async function resolveProjectInput(
   if (projectInput.project_id === undefined && projectInput.project_path === undefined) {
     return { tags: [], default_skills: [] };
   }
-  const project = await resolveProjectContext({ projectPath: projectInput.project_path, projectId: projectInput.project_id });
+  const project = await resolveProjectContext({
+    projectPath: projectInput.project_path,
+    projectId: projectInput.project_id
+  });
   return {
     project_id: project.project_id,
     project_path: project.project_path,
@@ -700,7 +698,11 @@ async function mcpDashboardMetadata(storePath: string, open: boolean): Promise<M
   }
 }
 
-async function withOptionalMcpDashboard<T extends object>(storePath: string, result: T, open: unknown): Promise<T & { dashboard?: McpDashboardMetadata }> {
+async function withOptionalMcpDashboard<T extends object>(
+  storePath: string,
+  result: T,
+  open: unknown
+): Promise<T & { dashboard?: McpDashboardMetadata }> {
   validateMcpDashboardOpen(open);
   if (open === undefined) return result;
   return {
@@ -713,7 +715,9 @@ function withMcpRuntime<T extends object>(result: T, runtime: HostRuntimeDescrip
   if (!runtime) return result;
   const packageVersion = runtime.package_version ?? version;
   const identity = createHash("sha256")
-    .update(JSON.stringify({ package_version: packageVersion, exec_file: runtime.exec_file, cli_entry: runtime.cli_entry }))
+    .update(
+      JSON.stringify({ package_version: packageVersion, exec_file: runtime.exec_file, cli_entry: runtime.cli_entry })
+    )
     .digest("hex");
   return {
     ...result,
@@ -736,7 +740,13 @@ function normalizeMcpToolArguments(tool: string, input: Record<string, unknown>)
   const ergonomicInput = normalizeAgentClientShorthand(input);
   assertKnownMcpArguments(tool, ergonomicInput);
   assertNoMcpAliasConflicts(tool, ergonomicInput);
-  return mcpArgumentsForAction(tool, normalizeObjectPathMcpAliases(tool, normalizeExplicitMcpAliases(tool, normalizeMcpCamelCaseAliases(tool, ergonomicInput))));
+  return mcpArgumentsForAction(
+    tool,
+    normalizeObjectPathMcpAliases(
+      tool,
+      normalizeExplicitMcpAliases(tool, normalizeMcpCamelCaseAliases(tool, ergonomicInput))
+    )
+  );
 }
 
 function normalizeAgentClientShorthand(input: Record<string, unknown>): Record<string, unknown> {
@@ -898,8 +908,15 @@ function mcpObjectPathAliasConflict(tool: string, input: Record<string, unknown>
   return undefined;
 }
 
-function objectPathAliasConflictKind(tool: string, target: string, aliases: McpObjectPathAlias[], input: Record<string, unknown>): McpAliasConflictKind {
-  const hasCanonicalInput = input[target] !== undefined || mcpInputAliasesForTarget(tool, target).some((inputName) => input[inputName] !== undefined);
+function objectPathAliasConflictKind(
+  tool: string,
+  target: string,
+  aliases: McpObjectPathAlias[],
+  input: Record<string, unknown>
+): McpAliasConflictKind {
+  const hasCanonicalInput =
+    input[target] !== undefined ||
+    mcpInputAliasesForTarget(tool, target).some((inputName) => input[inputName] !== undefined);
   const presentAliases = aliases.filter((alias) => input[alias.alias] !== undefined);
   const hasNestedAlias = presentAliases.some((alias) => !alias.alias.includes("."));
   const hasLiteralPathAlias = presentAliases.some((alias) => alias.alias.includes("."));
@@ -923,7 +940,10 @@ function mcpInputAliasesForTarget(tool: string, target: string): string[] {
   });
 }
 
-function mcpAliasConflict(input: Record<string, unknown>, argument: OperationArgumentMetadata): McpAliasConflict | undefined {
+function mcpAliasConflict(
+  input: Record<string, unknown>,
+  argument: OperationArgumentMetadata
+): McpAliasConflict | undefined {
   const camelAlias = mcpCamelCaseAliasName(argument);
   const camelTarget = mcpCamelCaseAliasTarget(argument);
   const camelValue = camelAlias ? input[camelAlias] : undefined;
@@ -946,7 +966,11 @@ function mcpAliasConflict(input: Record<string, unknown>, argument: OperationArg
   const nestedInputValue = input[argument.mcp.path];
   const literalPathInputName = JSON.stringify(argument.mcp.path);
   const flattenedValue = input[argument.name];
-  if (parentValue !== undefined && !isMcpObject(parentValue) && (nestedInputValue !== undefined || flattenedValue !== undefined || camelValue !== undefined)) {
+  if (
+    parentValue !== undefined &&
+    !isMcpObject(parentValue) &&
+    (nestedInputValue !== undefined || flattenedValue !== undefined || camelValue !== undefined)
+  ) {
     const valuesByInput: Record<string, unknown> = { [argument.mcp.argument]: parentValue };
     if (nestedInputValue !== undefined) valuesByInput[literalPathInputName] = nestedInputValue;
     if (flattenedValue !== undefined) valuesByInput[argument.name] = flattenedValue;
@@ -983,18 +1007,18 @@ function isMcpObject(value: unknown): value is Record<string, unknown> {
 
 function mcpPathValue(input: Record<string, unknown>, path: string): unknown {
   return path.split(".").reduce<unknown>((value, key) => {
-    return isMcpObject(value)
-      ? (value as Record<string, unknown>)[key]
-      : undefined;
+    return isMcpObject(value) ? (value as Record<string, unknown>)[key] : undefined;
   }, input);
 }
 
 function stableMcpValueKey(value: unknown): string {
   if (Array.isArray(value)) return JSON.stringify(value.map(stableMcpValueKey));
   if (typeof value === "object" && value !== null) {
-    return JSON.stringify(Object.entries(value as Record<string, unknown>)
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, entryValue]) => [key, stableMcpValueKey(entryValue)]));
+    return JSON.stringify(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, entryValue]) => [key, stableMcpValueKey(entryValue)])
+    );
   }
   return JSON.stringify(value);
 }
@@ -1008,20 +1032,24 @@ function closestMcpKnownArgument(tool: string, argument: string): string | undef
   const canonicalCandidates = mcpCanonicalArgumentCandidates(tool);
   if (canonicalCandidates.length === 0) return undefined;
   const normalizedArgument = normalizeArgumentNameForSuggestion(argument);
-  const directMatch = canonicalCandidates.find((known) => normalizeArgumentNameForSuggestion(known) === normalizedArgument);
+  const directMatch = canonicalCandidates.find(
+    (known) => normalizeArgumentNameForSuggestion(known) === normalizedArgument
+  );
   if (directMatch) return directMatch;
-  return canonicalCandidates
-    .sort((left, right) => {
-      const leftScore = argumentSuggestionScore(normalizedArgument, normalizeArgumentNameForSuggestion(left));
-      const rightScore = argumentSuggestionScore(normalizedArgument, normalizeArgumentNameForSuggestion(right));
-      return rightScore - leftScore || left.localeCompare(right);
-    })[0];
+  return canonicalCandidates.sort((left, right) => {
+    const leftScore = argumentSuggestionScore(normalizedArgument, normalizeArgumentNameForSuggestion(left));
+    const rightScore = argumentSuggestionScore(normalizedArgument, normalizeArgumentNameForSuggestion(right));
+    return rightScore - leftScore || left.localeCompare(right);
+  })[0];
 }
 
 function mcpCanonicalArgumentCandidates(tool: string): string[] {
   return Object.values(operationArgumentsByTool(tool))
     .map((candidate) => candidate.mcp?.path ?? candidate.mcp?.argument ?? candidate.name)
-    .filter((candidate, index, candidates): candidate is string => Boolean(candidate) && candidates.indexOf(candidate) === index);
+    .filter(
+      (candidate, index, candidates): candidate is string =>
+        Boolean(candidate) && candidates.indexOf(candidate) === index
+    );
 }
 
 function normalizeArgumentNameForSuggestion(argument: string): string {
@@ -1040,9 +1068,8 @@ function longestCommonSubsequenceLength(left: string, right: string): number {
   const current = Array(right.length + 1).fill(0) as number[];
   for (const leftCharacter of left) {
     for (let index = 0; index < right.length; index += 1) {
-      current[index + 1] = leftCharacter === right[index]
-        ? previous[index] + 1
-        : Math.max(previous[index + 1] ?? 0, current[index] ?? 0);
+      current[index + 1] =
+        leftCharacter === right[index] ? previous[index] + 1 : Math.max(previous[index + 1] ?? 0, current[index] ?? 0);
     }
     previous.splice(0, previous.length, ...current);
     current.fill(0);
@@ -1065,12 +1092,16 @@ function mcpUnknownArgumentSources(tool: string, retryArgument: string): Partial
 function contractArgumentForMcpInput(tool: string, inputArgument: string): string {
   const explicitAlias = (explicitMcpAliasesByTool[tool] ?? []).find((alias) => alias.alias === inputArgument);
   if (explicitAlias) return explicitAlias.contractArgument;
-  return Object.values(operationArgumentsByTool(tool)).find((argument) => {
-    return argument.name === inputArgument
-      || argument.mcp?.argument === inputArgument
-      || argument.mcp?.path === inputArgument
-      || mcpCamelCaseAliasName(argument) === inputArgument;
-  })?.name ?? inputArgument;
+  return (
+    Object.values(operationArgumentsByTool(tool)).find((argument) => {
+      return (
+        argument.name === inputArgument ||
+        argument.mcp?.argument === inputArgument ||
+        argument.mcp?.path === inputArgument ||
+        mcpCamelCaseAliasName(argument) === inputArgument
+      );
+    })?.name ?? inputArgument
+  );
 }
 
 function placeholderForKnownArgument(argument: string): string {
@@ -1097,7 +1128,9 @@ function conflictKindForAliasConflict(conflict: McpAliasConflict): McpAliasConfl
   return "multiple_aliases";
 }
 
-function doNotForAliasConflict(conflict: McpAliasConflict): [McpAliasConflictDoNot, "retry_with_conflicting_alias_values"] {
+function doNotForAliasConflict(
+  conflict: McpAliasConflict
+): [McpAliasConflictDoNot, "retry_with_conflicting_alias_values"] {
   const doNotByKind: Record<McpAliasConflictKind, McpAliasConflictDoNot> = {
     nested_vs_flattened: "provide_both_nested_and_flattened_aliases",
     literal_path_vs_flattened: "provide_both_literal_path_and_flattened_aliases",
@@ -1129,7 +1162,8 @@ function checkpointSource(value: unknown): RecordSource {
     throw new Error("Invalid argument: Conflicting source.device_id aliases");
   }
   const required = (name: string, nested: unknown): string => {
-    if (typeof nested !== "string" || !nested.trim()) throw new Error(`Invalid argument: source.${name} must be a non-empty string`);
+    if (typeof nested !== "string" || !nested.trim())
+      throw new Error(`Invalid argument: source.${name} must be a non-empty string`);
     return nested.trim();
   };
   const optional = (name: string, nested: unknown): string | undefined => {
@@ -1144,7 +1178,10 @@ function checkpointSource(value: unknown): RecordSource {
   };
 }
 
-export async function runMcpServer(engine: Engine, options: { storePath: string; hostRuntime?: HostRuntimeDescriptor }): Promise<void> {
+export async function runMcpServer(
+  engine: Engine,
+  options: { storePath: string; hostRuntime?: HostRuntimeDescriptor }
+): Promise<void> {
   const server = new McpServer({
     name: "moryn",
     version
@@ -1159,10 +1196,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         repair: coreValidatedBooleanSchema.optional()
       })
     },
-    async (input) => toolResultWithNormalizedInput("init", input, async (normalizedInput) => ({
-      ok: true,
-      ...await initializeStore(options.storePath, { repair: normalizedInput.repair as boolean | undefined })
-    }))
+    async (input) =>
+      toolResultWithNormalizedInput("init", input, async (normalizedInput) => ({
+        ok: true,
+        ...(await initializeStore(options.storePath, { repair: normalizedInput.repair as boolean | undefined }))
+      }))
   );
 
   server.registerTool(
@@ -1181,16 +1219,17 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("project_init")
       })
     },
-    async (input) => toolResultWithNormalizedInput("project_init", input, async (normalizedInput) => ({
-      ok: true,
-      ...await initializeProjectConfig(normalizedInput.path, {
-        project_id: normalizedInput.project_id,
-        tags: normalizedInput.tags,
-        default_skills: normalizedInput.default_skills,
-        sync: normalizedInput.sync_mode === undefined ? undefined : { mode: normalizedInput.sync_mode as SyncMode },
-        repair: normalizedInput.repair as boolean | undefined
-      })
-    }))
+    async (input) =>
+      toolResultWithNormalizedInput("project_init", input, async (normalizedInput) => ({
+        ok: true,
+        ...(await initializeProjectConfig(normalizedInput.path, {
+          project_id: normalizedInput.project_id,
+          tags: normalizedInput.tags,
+          default_skills: normalizedInput.default_skills,
+          sync: normalizedInput.sync_mode === undefined ? undefined : { mode: normalizedInput.sync_mode as SyncMode },
+          repair: normalizedInput.repair as boolean | undefined
+        }))
+      }))
   );
 
   server.registerTool(
@@ -1209,15 +1248,16 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("project_list")
       })
     },
-    async (input) => toolResultWithNormalizedInput("project_list", input, async (normalizedInput) => {
-      const projectListAgent = lifecycleAgentInput(normalizedInput.agent);
-      return engine.listProjects({
-        limit: normalizedInput.limit,
-        current_task: normalizedInput.current_task,
-        sync_remote: normalizedInput.sync_remote,
-        agent: projectListAgent
-      });
-    })
+    async (input) =>
+      toolResultWithNormalizedInput("project_list", input, async (normalizedInput) => {
+        const projectListAgent = lifecycleAgentInput(normalizedInput.agent);
+        return engine.listProjects({
+          limit: normalizedInput.limit,
+          current_task: normalizedInput.current_task,
+          sync_remote: normalizedInput.sync_remote,
+          agent: projectListAgent
+        });
+      })
   );
 
   server.registerTool(
@@ -1234,21 +1274,25 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("project_migrate")
       })
     },
-    async (input) => toolResultWithNormalizedInput("project_migrate", input, async (normalizedInput) => engine.migrateProject({
-      from_project_id: normalizedInput.from_project_id,
-      to_project_id: normalizedInput.to_project_id,
-      dry_run: normalizedInput.dry_run,
-      confirmed: normalizedInput.confirmed,
-      include_private: normalizedInput.include_private,
-      source: { client: "mcp" }
-    }))
+    async (input) =>
+      toolResultWithNormalizedInput("project_migrate", input, async (normalizedInput) =>
+        engine.migrateProject({
+          from_project_id: normalizedInput.from_project_id,
+          to_project_id: normalizedInput.to_project_id,
+          dry_run: normalizedInput.dry_run,
+          confirmed: normalizedInput.confirmed,
+          include_private: normalizedInput.include_private,
+          source: { client: "mcp" }
+        })
+      )
   );
 
   server.registerTool(
     "install",
     {
       title: "Plan Moryn Host Adapter Setup",
-      description: "Plan and optionally run safe Moryn-local host adapter setup without mutating host configuration files.",
+      description:
+        "Plan and optionally run safe Moryn-local host adapter setup without mutating host configuration files.",
       inputSchema: mcpInputSchema({
         host: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
@@ -1258,31 +1302,33 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("install")
       })
     },
-    async (input) => toolResultWithNormalizedInput("install", input, async (normalizedInput) => {
-      const projectPath = validateProjectContextInput("install", {
-        project_path: normalizedInput.project_path
-      }).project_path;
-      const plan = planInstall({
-        host: normalizedInput.host as string | undefined,
-        projectPath,
-        syncRemote: normalizedInput.sync_remote as string | undefined,
-        apply: normalizedInput.apply as boolean | undefined
-      });
-      if (normalizedInput.apply === true) {
-        await initializeStore(options.storePath);
-        if (projectPath) {
-          await initializeProjectConfig(projectPath, {});
+    async (input) =>
+      toolResultWithNormalizedInput("install", input, async (normalizedInput) => {
+        const projectPath = validateProjectContextInput("install", {
+          project_path: normalizedInput.project_path
+        }).project_path;
+        const plan = planInstall({
+          host: normalizedInput.host as string | undefined,
+          projectPath,
+          syncRemote: normalizedInput.sync_remote as string | undefined,
+          apply: normalizedInput.apply as boolean | undefined
+        });
+        if (normalizedInput.apply === true) {
+          await initializeStore(options.storePath);
+          if (projectPath) {
+            await initializeProjectConfig(projectPath, {});
+          }
         }
-      }
-      return plan;
-    })
+        return plan;
+      })
   );
 
   server.registerTool(
     "setup",
     {
       title: "Run Moryn Setup Wizard",
-      description: "Diagnose local Moryn readiness and optionally apply safe local setup without mutating host configuration files.",
+      description:
+        "Diagnose local Moryn readiness and optionally apply safe local setup without mutating host configuration files.",
       inputSchema: mcpInputSchema({
         host: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
@@ -1292,30 +1338,36 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("setup")
       })
     },
-    async (input) => toolResultWithNormalizedInput("setup", input, async (normalizedInput) => {
-      const projectPath = validateProjectContextInput("setup", {
-        project_path: normalizedInput.project_path
-      }).project_path;
-      return setupWizard({
-        storePath: options.storePath,
-        host: normalizedInput.host as string | undefined,
-        projectPath,
-        syncRemote: normalizedInput.sync_remote as string | undefined,
-        apply: normalizedInput.apply as boolean | undefined
-      });
-    }, (normalizedInput) => {
-      const argumentsForContext = compactUndefined({
-        host: normalizedInput.host,
-        project_path: normalizedInput.project_path,
-        sync_remote: normalizedInput.sync_remote,
-        ...(normalizedInput.apply === true ? { apply: true } : {})
-      });
-      return {
-        tool: "setup",
-        command: commandForSetupContext(argumentsForContext),
-        arguments: argumentsForContext
-      };
-    })
+    async (input) =>
+      toolResultWithNormalizedInput(
+        "setup",
+        input,
+        async (normalizedInput) => {
+          const projectPath = validateProjectContextInput("setup", {
+            project_path: normalizedInput.project_path
+          }).project_path;
+          return setupWizard({
+            storePath: options.storePath,
+            host: normalizedInput.host as string | undefined,
+            projectPath,
+            syncRemote: normalizedInput.sync_remote as string | undefined,
+            apply: normalizedInput.apply as boolean | undefined
+          });
+        },
+        (normalizedInput) => {
+          const argumentsForContext = compactUndefined({
+            host: normalizedInput.host,
+            project_path: normalizedInput.project_path,
+            sync_remote: normalizedInput.sync_remote,
+            ...(normalizedInput.apply === true ? { apply: true } : {})
+          });
+          return {
+            tool: "setup",
+            command: commandForSetupContext(argumentsForContext),
+            arguments: argumentsForContext
+          };
+        }
+      )
   );
 
   server.registerTool(
@@ -1336,26 +1388,28 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("capture_session")
       })
     },
-    async (input) => toolResultWithNormalizedInput("capture_session", input, async (normalizedInput) => {
-      const project = lifecycleProjectContextInput("capture_session", normalizedInput);
-      return captureSession({
-        storePath: options.storePath,
-        projectPath: project.projectPath,
-        projectId: project.projectId,
-        syncRemote: normalizedInput.sync_remote as string | undefined,
-        summary: normalizedInput.summary as string,
-        currentTask: normalizedInput.current_task as string | undefined,
-        files: normalizedInput.files as string[] | undefined,
-        agent: lifecycleAgentInput(normalizedInput.agent)
-      });
-    })
+    async (input) =>
+      toolResultWithNormalizedInput("capture_session", input, async (normalizedInput) => {
+        const project = lifecycleProjectContextInput("capture_session", normalizedInput);
+        return captureSession({
+          storePath: options.storePath,
+          projectPath: project.projectPath,
+          projectId: project.projectId,
+          syncRemote: normalizedInput.sync_remote as string | undefined,
+          summary: normalizedInput.summary as string,
+          currentTask: normalizedInput.current_task as string | undefined,
+          files: normalizedInput.files as string[] | undefined,
+          agent: lifecycleAgentInput(normalizedInput.agent)
+        });
+      })
   );
 
   server.registerTool(
     "context_pack",
     {
       title: "Build Moryn Host Context Pack",
-      description: "Build a host-normalized startup context pack with Handoff Pack v0.2, read-only quality gate, boot, refresh, raw handoff evidence, and a required capture next action.",
+      description:
+        "Build a host-normalized startup context pack with Handoff Pack v0.2, read-only quality gate, boot, refresh, raw handoff evidence, and a required capture next action.",
       inputSchema: mcpInputSchema({
         project_id: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
@@ -1370,20 +1424,21 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("context_pack")
       })
     },
-    async (input) => toolResultWithNormalizedInput("context_pack", input, async (normalizedInput) => {
-      const project = lifecycleProjectContextInput("context_pack", normalizedInput);
-      return contextPack({
-        storePath: options.storePath,
-        projectPath: project.projectPath,
-        projectId: project.projectId,
-        syncRemote: normalizedInput.sync_remote as string | undefined,
-        currentTask: normalizedInput.current_task as string | undefined,
-        limit: normalizedInput.limit as number | undefined,
-        includePrivate: normalizedInput.include_private as boolean | undefined,
-        pull: normalizedInput.pull as boolean | undefined,
-        agent: lifecycleAgentInput(normalizedInput.agent)
-      });
-    })
+    async (input) =>
+      toolResultWithNormalizedInput("context_pack", input, async (normalizedInput) => {
+        const project = lifecycleProjectContextInput("context_pack", normalizedInput);
+        return contextPack({
+          storePath: options.storePath,
+          projectPath: project.projectPath,
+          projectId: project.projectId,
+          syncRemote: normalizedInput.sync_remote as string | undefined,
+          currentTask: normalizedInput.current_task as string | undefined,
+          limit: normalizedInput.limit as number | undefined,
+          includePrivate: normalizedInput.include_private as boolean | undefined,
+          pull: normalizedInput.pull as boolean | undefined,
+          agent: lifecycleAgentInput(normalizedInput.agent)
+        });
+      })
   );
 
   server.registerTool(
@@ -1393,7 +1448,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
       description: "Return stable response field-path contracts for CLI, MCP, and library hosts.",
       inputSchema: mcpInputSchema({})
     },
-    async (input) => toolResultWithNormalizedInput("selection_source_contracts", input, async () => getSelectionSourceContracts())
+    async (input) =>
+      toolResultWithNormalizedInput("selection_source_contracts", input, async () => getSelectionSourceContracts())
   );
 
   server.registerTool(
@@ -1425,7 +1481,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ];
         if (lookupOptions.length > 1) {
           return {
-            ...jsonResult(toErrorEnvelope(new OperationContractLookupConflictError(lookupOptions, "index, operation, mcp_tool, or cli_command"))),
+            ...jsonResult(
+              toErrorEnvelope(
+                new OperationContractLookupConflictError(lookupOptions, "index, operation, mcp_tool, or cli_command")
+              )
+            ),
             isError: true
           };
         }
@@ -1492,17 +1552,21 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("boot")
       })
     },
-    async (input) => toolResultWithNormalizedInput("boot", input, async (normalizedInput) => {
-      const project = await resolveProjectInput("boot", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
-      return engine.boot({
-        project_id: project.project_id,
-        default_skills: normalizedInput.default_skills ?? project.default_skills,
-        current_task: normalizedInput.current_task as string | undefined,
-        agent_session_id: normalizedInput.agent_session_id,
-        sync_remote: normalizedInput.sync_remote,
-        include_private: normalizedInput.include_private
-      });
-    })
+    async (input) =>
+      toolResultWithNormalizedInput("boot", input, async (normalizedInput) => {
+        const project = await resolveProjectInput("boot", {
+          project_id: normalizedInput.project_id,
+          project_path: normalizedInput.project_path
+        });
+        return engine.boot({
+          project_id: project.project_id,
+          default_skills: normalizedInput.default_skills ?? project.default_skills,
+          current_task: normalizedInput.current_task as string | undefined,
+          agent_session_id: normalizedInput.agent_session_id,
+          sync_remote: normalizedInput.sync_remote,
+          include_private: normalizedInput.include_private
+        });
+      })
   );
 
   server.registerTool(
@@ -1527,52 +1591,63 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...explicitAliasInputSchema("recall")
       })
     },
-    async (input) => toolResultWithNormalizedInput("recall", input, async (normalizedInput) => {
-      const project = await resolveProjectInput("recall", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
-      return engine.recall({
-        record_ids: normalizedInput.record_ids,
-        query: normalizedInput.query,
-        project_id: project.project_id,
-        kinds: normalizedInput.kinds as RecordKind[] | undefined,
-        scopes: normalizedInput.scopes as RecordScope[] | undefined,
-        types: normalizedInput.types,
-        states: normalizedInput.states as RecordState[] | undefined,
-        tags: normalizedInput.tags,
-        files: normalizedInput.files,
-        limit: normalizedInput.limit,
-        include_private: normalizedInput.include_private
-      });
-    }, (normalizedInput) => ({
-      tool: "recall",
-      command: commandForRecallContext({
-        record_ids: normalizedInput.record_ids,
-        query: normalizedInput.query,
-        project_id: normalizedInput.project_id,
-        project_path: normalizedInput.project_path,
-        kinds: normalizedInput.kinds,
-        scopes: normalizedInput.scopes,
-        types: normalizedInput.types,
-        states: normalizedInput.states,
-        tags: normalizedInput.tags,
-        files: normalizedInput.files,
-        limit: normalizedInput.limit,
-        include_private: normalizedInput.include_private
-      }),
-      arguments: {
-        ...(normalizedInput.record_ids !== undefined ? { record_ids: normalizedInput.record_ids } : {}),
-        ...(normalizedInput.query !== undefined ? { query: normalizedInput.query } : {}),
-        ...(normalizedInput.project_id !== undefined ? { project_id: normalizedInput.project_id } : {}),
-        ...(normalizedInput.project_path !== undefined ? { project_path: normalizedInput.project_path } : {}),
-        ...(normalizedInput.kinds !== undefined ? { kinds: normalizedInput.kinds } : {}),
-        ...(normalizedInput.scopes !== undefined ? { scopes: normalizedInput.scopes } : {}),
-        ...(normalizedInput.types !== undefined ? { types: normalizedInput.types } : {}),
-        ...(normalizedInput.states !== undefined ? { states: normalizedInput.states } : {}),
-        ...(normalizedInput.tags !== undefined ? { tags: normalizedInput.tags } : {}),
-        ...(normalizedInput.files !== undefined ? { files: normalizedInput.files } : {}),
-        ...(normalizedInput.limit !== undefined ? { limit: normalizedInput.limit } : {}),
-        ...(normalizedInput.include_private !== undefined ? { include_private: normalizedInput.include_private } : {})
-      }
-    }))
+    async (input) =>
+      toolResultWithNormalizedInput(
+        "recall",
+        input,
+        async (normalizedInput) => {
+          const project = await resolveProjectInput("recall", {
+            project_id: normalizedInput.project_id,
+            project_path: normalizedInput.project_path
+          });
+          return engine.recall({
+            record_ids: normalizedInput.record_ids,
+            query: normalizedInput.query,
+            project_id: project.project_id,
+            kinds: normalizedInput.kinds as RecordKind[] | undefined,
+            scopes: normalizedInput.scopes as RecordScope[] | undefined,
+            types: normalizedInput.types,
+            states: normalizedInput.states as RecordState[] | undefined,
+            tags: normalizedInput.tags,
+            files: normalizedInput.files,
+            limit: normalizedInput.limit,
+            include_private: normalizedInput.include_private
+          });
+        },
+        (normalizedInput) => ({
+          tool: "recall",
+          command: commandForRecallContext({
+            record_ids: normalizedInput.record_ids,
+            query: normalizedInput.query,
+            project_id: normalizedInput.project_id,
+            project_path: normalizedInput.project_path,
+            kinds: normalizedInput.kinds,
+            scopes: normalizedInput.scopes,
+            types: normalizedInput.types,
+            states: normalizedInput.states,
+            tags: normalizedInput.tags,
+            files: normalizedInput.files,
+            limit: normalizedInput.limit,
+            include_private: normalizedInput.include_private
+          }),
+          arguments: {
+            ...(normalizedInput.record_ids !== undefined ? { record_ids: normalizedInput.record_ids } : {}),
+            ...(normalizedInput.query !== undefined ? { query: normalizedInput.query } : {}),
+            ...(normalizedInput.project_id !== undefined ? { project_id: normalizedInput.project_id } : {}),
+            ...(normalizedInput.project_path !== undefined ? { project_path: normalizedInput.project_path } : {}),
+            ...(normalizedInput.kinds !== undefined ? { kinds: normalizedInput.kinds } : {}),
+            ...(normalizedInput.scopes !== undefined ? { scopes: normalizedInput.scopes } : {}),
+            ...(normalizedInput.types !== undefined ? { types: normalizedInput.types } : {}),
+            ...(normalizedInput.states !== undefined ? { states: normalizedInput.states } : {}),
+            ...(normalizedInput.tags !== undefined ? { tags: normalizedInput.tags } : {}),
+            ...(normalizedInput.files !== undefined ? { files: normalizedInput.files } : {}),
+            ...(normalizedInput.limit !== undefined ? { limit: normalizedInput.limit } : {}),
+            ...(normalizedInput.include_private !== undefined
+              ? { include_private: normalizedInput.include_private }
+              : {})
+          }
+        })
+      )
   );
 
   server.registerTool(
@@ -1592,40 +1667,51 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("timeline")
       })
     },
-    async (input) => toolResultWithNormalizedInput("timeline", input, async (normalizedInput) => {
-      const project = await resolveProjectInput("timeline", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
-      return engine.timeline({
-        record_id: normalizedInput.record_id,
-        event_id: normalizedInput.event_id,
-        query: normalizedInput.query,
-        project_id: project.project_id,
-        before: normalizedInput.before,
-        after: normalizedInput.after,
-        include_private: normalizedInput.include_private
-      });
-    }, (normalizedInput) => ({
-      tool: "timeline",
-      command: commandForTimelineContext({
-        record_id: normalizedInput.record_id,
-        event_id: normalizedInput.event_id,
-        query: normalizedInput.query,
-        project_id: normalizedInput.project_id,
-        project_path: normalizedInput.project_path,
-        before: normalizedInput.before,
-        after: normalizedInput.after,
-        include_private: normalizedInput.include_private
-      }),
-      arguments: {
-        ...(normalizedInput.record_id !== undefined ? { record_id: normalizedInput.record_id } : {}),
-        ...(normalizedInput.event_id !== undefined ? { event_id: normalizedInput.event_id } : {}),
-        ...(normalizedInput.query !== undefined ? { query: normalizedInput.query } : {}),
-        ...(normalizedInput.project_id !== undefined ? { project_id: normalizedInput.project_id } : {}),
-        ...(normalizedInput.project_path !== undefined ? { project_path: normalizedInput.project_path } : {}),
-        ...(normalizedInput.before !== undefined ? { before: normalizedInput.before } : {}),
-        ...(normalizedInput.after !== undefined ? { after: normalizedInput.after } : {}),
-        ...(normalizedInput.include_private !== undefined ? { include_private: normalizedInput.include_private } : {})
-      }
-    }))
+    async (input) =>
+      toolResultWithNormalizedInput(
+        "timeline",
+        input,
+        async (normalizedInput) => {
+          const project = await resolveProjectInput("timeline", {
+            project_id: normalizedInput.project_id,
+            project_path: normalizedInput.project_path
+          });
+          return engine.timeline({
+            record_id: normalizedInput.record_id,
+            event_id: normalizedInput.event_id,
+            query: normalizedInput.query,
+            project_id: project.project_id,
+            before: normalizedInput.before,
+            after: normalizedInput.after,
+            include_private: normalizedInput.include_private
+          });
+        },
+        (normalizedInput) => ({
+          tool: "timeline",
+          command: commandForTimelineContext({
+            record_id: normalizedInput.record_id,
+            event_id: normalizedInput.event_id,
+            query: normalizedInput.query,
+            project_id: normalizedInput.project_id,
+            project_path: normalizedInput.project_path,
+            before: normalizedInput.before,
+            after: normalizedInput.after,
+            include_private: normalizedInput.include_private
+          }),
+          arguments: {
+            ...(normalizedInput.record_id !== undefined ? { record_id: normalizedInput.record_id } : {}),
+            ...(normalizedInput.event_id !== undefined ? { event_id: normalizedInput.event_id } : {}),
+            ...(normalizedInput.query !== undefined ? { query: normalizedInput.query } : {}),
+            ...(normalizedInput.project_id !== undefined ? { project_id: normalizedInput.project_id } : {}),
+            ...(normalizedInput.project_path !== undefined ? { project_path: normalizedInput.project_path } : {}),
+            ...(normalizedInput.before !== undefined ? { before: normalizedInput.before } : {}),
+            ...(normalizedInput.after !== undefined ? { after: normalizedInput.after } : {}),
+            ...(normalizedInput.include_private !== undefined
+              ? { include_private: normalizedInput.include_private }
+              : {})
+          }
+        })
+      )
   );
 
   server.registerTool(
@@ -1652,45 +1738,50 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("write")
       })
     },
-    async (input) => toolResult(async () => {
-      const normalizedInput = normalizeMcpToolArguments("write", input);
-      if (normalizedInput.content && normalizedInput.text !== undefined) {
-        throw writeContentChoiceError([
-          { argument: "text", value: normalizedInput.text },
-          { argument: "content", value: normalizedInput.content as Record<string, unknown> }
-        ]);
-      }
-      if (!normalizedInput.content && normalizedInput.text === undefined) {
-        throw writeContentChoiceError();
-      }
-      const content = normalizedInput.content ?? { text: normalizedInput.text ?? "", format: "text" as const };
-      const project = await resolveProjectInput("write", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
-      const type = normalizedInput.type ?? (normalizedInput.kind === "session_summary" ? "summary" : undefined);
-      const scope = normalizedInput.scope ?? (normalizedInput.kind === "session_summary" ? "project" : undefined);
-      if (type === undefined) {
-        throw writeRequiredArgumentError("type");
-      }
-      if (scope === undefined) {
-        throw writeRequiredArgumentError("scope");
-      }
-      const tags = normalizedInput.tags === undefined || Array.isArray(normalizedInput.tags)
-        ? [...project.tags, ...(normalizedInput.tags ?? [])]
-        : normalizedInput.tags;
-      return engine.write({
-        kind: normalizedInput.kind as RecordKind,
-        type,
-        scope: scope as RecordScope,
-        project_id: project.project_id,
-        tags,
-        content,
-        state: normalizedInput.state as RecordState | undefined,
-        confidence: normalizedInput.confidence,
-        priority: normalizedInput.priority as RecordPriority | undefined,
-        source: withDefaultSource(normalizedInput.source) as RecordSource,
-        confirmed: normalizedInput.confirmed as boolean | undefined,
-        provenance: normalizedInput.provenance as RecordProvenance | undefined
-      });
-    })
+    async (input) =>
+      toolResult(async () => {
+        const normalizedInput = normalizeMcpToolArguments("write", input);
+        if (normalizedInput.content && normalizedInput.text !== undefined) {
+          throw writeContentChoiceError([
+            { argument: "text", value: normalizedInput.text },
+            { argument: "content", value: normalizedInput.content as Record<string, unknown> }
+          ]);
+        }
+        if (!normalizedInput.content && normalizedInput.text === undefined) {
+          throw writeContentChoiceError();
+        }
+        const content = normalizedInput.content ?? { text: normalizedInput.text ?? "", format: "text" as const };
+        const project = await resolveProjectInput("write", {
+          project_id: normalizedInput.project_id,
+          project_path: normalizedInput.project_path
+        });
+        const type = normalizedInput.type ?? (normalizedInput.kind === "session_summary" ? "summary" : undefined);
+        const scope = normalizedInput.scope ?? (normalizedInput.kind === "session_summary" ? "project" : undefined);
+        if (type === undefined) {
+          throw writeRequiredArgumentError("type");
+        }
+        if (scope === undefined) {
+          throw writeRequiredArgumentError("scope");
+        }
+        const tags =
+          normalizedInput.tags === undefined || Array.isArray(normalizedInput.tags)
+            ? [...project.tags, ...(normalizedInput.tags ?? [])]
+            : normalizedInput.tags;
+        return engine.write({
+          kind: normalizedInput.kind as RecordKind,
+          type,
+          scope: scope as RecordScope,
+          project_id: project.project_id,
+          tags,
+          content,
+          state: normalizedInput.state as RecordState | undefined,
+          confidence: normalizedInput.confidence,
+          priority: normalizedInput.priority as RecordPriority | undefined,
+          source: withDefaultSource(normalizedInput.source) as RecordSource,
+          confirmed: normalizedInput.confirmed as boolean | undefined,
+          provenance: normalizedInput.provenance as RecordProvenance | undefined
+        });
+      })
   );
 
   server.registerTool(
@@ -1708,22 +1799,33 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("revise")
       })
     },
-    async (input) => toolResultWithNormalizedInput("revise", input, async (normalizedInput) => engine.revise({
-        record_id: normalizedInput.record_id,
-        patch: normalizedInput.patch,
-        reason: normalizedInput.reason,
-        confirmed: normalizedInput.confirmed as boolean | undefined,
-        source: withDefaultSource(normalizedInput.source) as RecordSource
-      }), (normalizedInput) => ({
-        tool: "revise",
-        command: commandForReviseContext({ record_id: normalizedInput.record_id, patch: normalizedInput.patch, reason: normalizedInput.reason }),
-        arguments: {
-          record_id: normalizedInput.record_id,
-          patch: normalizedInput.patch,
-          ...(normalizedInput.reason !== undefined ? { reason: normalizedInput.reason } : {}),
-          ...(normalizedInput.source !== undefined ? { source: normalizedInput.source } : {})
-        }
-      }))
+    async (input) =>
+      toolResultWithNormalizedInput(
+        "revise",
+        input,
+        async (normalizedInput) =>
+          engine.revise({
+            record_id: normalizedInput.record_id,
+            patch: normalizedInput.patch,
+            reason: normalizedInput.reason,
+            confirmed: normalizedInput.confirmed as boolean | undefined,
+            source: withDefaultSource(normalizedInput.source) as RecordSource
+          }),
+        (normalizedInput) => ({
+          tool: "revise",
+          command: commandForReviseContext({
+            record_id: normalizedInput.record_id,
+            patch: normalizedInput.patch,
+            reason: normalizedInput.reason
+          }),
+          arguments: {
+            record_id: normalizedInput.record_id,
+            patch: normalizedInput.patch,
+            ...(normalizedInput.reason !== undefined ? { reason: normalizedInput.reason } : {}),
+            ...(normalizedInput.source !== undefined ? { source: normalizedInput.source } : {})
+          }
+        })
+      )
   );
 
   server.registerTool(
@@ -1741,26 +1843,33 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("promote")
       })
     },
-    async (input) => toolResultWithNormalizedInput("promote", input, async (normalizedInput) => engine.promote({
-        record_id: normalizedInput.record_id,
-        target_state: normalizedInput.target_state,
-        reason: normalizedInput.reason,
-        source: withDefaultSource(normalizedInput.source) as RecordSource,
-        confirmed: normalizedInput.confirmed as boolean | undefined
-      }), (normalizedInput) => ({
-        tool: "promote",
-        command: commandForPromoteContext({
-          record_id: normalizedInput.record_id,
-          target_state: normalizedInput.target_state,
-          reason: normalizedInput.reason
-        }),
-        arguments: {
-          record_id: normalizedInput.record_id,
-          target_state: normalizedInput.target_state,
-          ...(normalizedInput.reason !== undefined ? { reason: normalizedInput.reason } : {}),
-          ...(normalizedInput.source !== undefined ? { source: normalizedInput.source } : {})
-        }
-      }))
+    async (input) =>
+      toolResultWithNormalizedInput(
+        "promote",
+        input,
+        async (normalizedInput) =>
+          engine.promote({
+            record_id: normalizedInput.record_id,
+            target_state: normalizedInput.target_state,
+            reason: normalizedInput.reason,
+            source: withDefaultSource(normalizedInput.source) as RecordSource,
+            confirmed: normalizedInput.confirmed as boolean | undefined
+          }),
+        (normalizedInput) => ({
+          tool: "promote",
+          command: commandForPromoteContext({
+            record_id: normalizedInput.record_id,
+            target_state: normalizedInput.target_state,
+            reason: normalizedInput.reason
+          }),
+          arguments: {
+            record_id: normalizedInput.record_id,
+            target_state: normalizedInput.target_state,
+            ...(normalizedInput.reason !== undefined ? { reason: normalizedInput.reason } : {}),
+            ...(normalizedInput.source !== undefined ? { source: normalizedInput.source } : {})
+          }
+        })
+      )
   );
 
   server.registerTool(
@@ -1776,19 +1885,26 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("archive")
       })
     },
-    async (input) => toolResultWithNormalizedInput("archive", input, async (normalizedInput) => engine.archive({
-        record_id: normalizedInput.record_id,
-        reason: normalizedInput.reason,
-        source: withDefaultSource(normalizedInput.source) as RecordSource
-      }), (normalizedInput) => ({
-        tool: "archive",
-        command: commandForArchiveContext({ record_id: normalizedInput.record_id, reason: normalizedInput.reason }),
-        arguments: {
-          record_id: normalizedInput.record_id,
-          ...(normalizedInput.reason !== undefined ? { reason: normalizedInput.reason } : {}),
-          ...(normalizedInput.source !== undefined ? { source: normalizedInput.source } : {})
-        }
-      }))
+    async (input) =>
+      toolResultWithNormalizedInput(
+        "archive",
+        input,
+        async (normalizedInput) =>
+          engine.archive({
+            record_id: normalizedInput.record_id,
+            reason: normalizedInput.reason,
+            source: withDefaultSource(normalizedInput.source) as RecordSource
+          }),
+        (normalizedInput) => ({
+          tool: "archive",
+          command: commandForArchiveContext({ record_id: normalizedInput.record_id, reason: normalizedInput.reason }),
+          arguments: {
+            record_id: normalizedInput.record_id,
+            ...(normalizedInput.reason !== undefined ? { reason: normalizedInput.reason } : {}),
+            ...(normalizedInput.source !== undefined ? { source: normalizedInput.source } : {})
+          }
+        })
+      )
   );
 
   server.registerTool(
@@ -1804,19 +1920,29 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("quarantine")
       })
     },
-    async (input) => toolResultWithNormalizedInput("quarantine", input, async (normalizedInput) => engine.quarantine({
-        record_id: normalizedInput.record_id,
-        reason: normalizedInput.reason,
-        source: withDefaultSource(normalizedInput.source) as RecordSource
-      }), (normalizedInput) => ({
-        tool: "quarantine",
-        command: commandForQuarantineContext({ record_id: normalizedInput.record_id, reason: normalizedInput.reason }),
-        arguments: {
-          record_id: normalizedInput.record_id,
-          ...(normalizedInput.reason !== undefined ? { reason: normalizedInput.reason } : {}),
-          ...(normalizedInput.source !== undefined ? { source: normalizedInput.source } : {})
-        }
-      }))
+    async (input) =>
+      toolResultWithNormalizedInput(
+        "quarantine",
+        input,
+        async (normalizedInput) =>
+          engine.quarantine({
+            record_id: normalizedInput.record_id,
+            reason: normalizedInput.reason,
+            source: withDefaultSource(normalizedInput.source) as RecordSource
+          }),
+        (normalizedInput) => ({
+          tool: "quarantine",
+          command: commandForQuarantineContext({
+            record_id: normalizedInput.record_id,
+            reason: normalizedInput.reason
+          }),
+          arguments: {
+            record_id: normalizedInput.record_id,
+            ...(normalizedInput.reason !== undefined ? { reason: normalizedInput.reason } : {}),
+            ...(normalizedInput.source !== undefined ? { source: normalizedInput.source } : {})
+          }
+        })
+      )
   );
 
   server.registerTool(
@@ -1833,25 +1959,32 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("link")
       })
     },
-    async (input) => toolResultWithNormalizedInput("link", input, async (normalizedInput) => engine.link({
-        record_id: normalizedInput.record_id,
-        linked_record_id: normalizedInput.linked_record_id,
-        link_type: normalizedInput.link_type,
-        source: withDefaultSource(normalizedInput.source) as RecordSource
-      }), (normalizedInput) => ({
-        tool: "link",
-        command: commandForLinkContext({
-          record_id: normalizedInput.record_id,
-          linked_record_id: normalizedInput.linked_record_id,
-          link_type: normalizedInput.link_type
-        }),
-        arguments: {
-          record_id: normalizedInput.record_id,
-          linked_record_id: normalizedInput.linked_record_id,
-          link_type: normalizedInput.link_type,
-          ...(normalizedInput.source !== undefined ? { source: normalizedInput.source } : {})
-        }
-      }))
+    async (input) =>
+      toolResultWithNormalizedInput(
+        "link",
+        input,
+        async (normalizedInput) =>
+          engine.link({
+            record_id: normalizedInput.record_id,
+            linked_record_id: normalizedInput.linked_record_id,
+            link_type: normalizedInput.link_type,
+            source: withDefaultSource(normalizedInput.source) as RecordSource
+          }),
+        (normalizedInput) => ({
+          tool: "link",
+          command: commandForLinkContext({
+            record_id: normalizedInput.record_id,
+            linked_record_id: normalizedInput.linked_record_id,
+            link_type: normalizedInput.link_type
+          }),
+          arguments: {
+            record_id: normalizedInput.record_id,
+            linked_record_id: normalizedInput.linked_record_id,
+            link_type: normalizedInput.link_type,
+            ...(normalizedInput.source !== undefined ? { source: normalizedInput.source } : {})
+          }
+        })
+      )
   );
 
   server.registerTool(
@@ -1867,13 +2000,16 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         source: z.unknown().optional()
       })
     },
-    async (input) => toolResult(() => engine.logicalLink({
-      record_id: input.record_id,
-      linked_record_id: input.linked_record_id,
-      relationship: input.relationship,
-      reason: input.reason,
-      source: withDefaultSource(input.source) as RecordSource
-    }))
+    async (input) =>
+      toolResult(() =>
+        engine.logicalLink({
+          record_id: input.record_id,
+          linked_record_id: input.linked_record_id,
+          relationship: input.relationship,
+          reason: input.reason,
+          source: withDefaultSource(input.source) as RecordSource
+        })
+      )
   );
 
   server.registerTool(
@@ -1891,23 +2027,28 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("refresh")
       })
     },
-    async (input) => toolResultWithNormalizedInput("refresh", input, async (normalizedInput) => {
-      const project = await resolveProjectInput("refresh", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
-      return engine.refresh({
-        project_id: project.project_id,
-        cursor: normalizedInput.cursor,
-        current_task: normalizedInput.current_task as string | undefined,
-        limit: normalizedInput.limit,
-        include_private: normalizedInput.include_private
-      });
-    })
+    async (input) =>
+      toolResultWithNormalizedInput("refresh", input, async (normalizedInput) => {
+        const project = await resolveProjectInput("refresh", {
+          project_id: normalizedInput.project_id,
+          project_path: normalizedInput.project_path
+        });
+        return engine.refresh({
+          project_id: project.project_id,
+          cursor: normalizedInput.cursor,
+          current_task: normalizedInput.current_task as string | undefined,
+          limit: normalizedInput.limit,
+          include_private: normalizedInput.include_private
+        });
+      })
   );
 
   server.registerTool(
     "memory_doctor",
     {
       title: "Diagnose Moryn Memory Health",
-      description: "Read-only memory audit for candidate backlog, promotable records, marker noise, and project-id splits.",
+      description:
+        "Read-only memory audit for candidate backlog, promotable records, marker noise, and project-id splits.",
       inputSchema: mcpInputSchema({
         project_id: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
@@ -1916,21 +2057,26 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("memory_doctor")
       })
     },
-    async (input) => toolResultWithNormalizedInput("memory_doctor", input, async (normalizedInput) => {
-      const project = await resolveProjectInput("memory_doctor", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
-      return engine.memoryDoctor({
-        project_id: project.project_id,
-        limit: normalizedInput.limit,
-        include_private: normalizedInput.include_private
-      });
-    })
+    async (input) =>
+      toolResultWithNormalizedInput("memory_doctor", input, async (normalizedInput) => {
+        const project = await resolveProjectInput("memory_doctor", {
+          project_id: normalizedInput.project_id,
+          project_path: normalizedInput.project_path
+        });
+        return engine.memoryDoctor({
+          project_id: project.project_id,
+          limit: normalizedInput.limit,
+          include_private: normalizedInput.include_private
+        });
+      })
   );
 
   server.registerTool(
     "memory_lifecycle",
     {
       title: "Report Moryn Memory Lifecycle",
-      description: "Read-only memory lifecycle report for stale records, archive candidates, retained records, and suggested audit actions.",
+      description:
+        "Read-only memory lifecycle report for stale records, archive candidates, retained records, and suggested audit actions.",
       inputSchema: mcpInputSchema({
         project_id: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
@@ -1940,22 +2086,27 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("memory_lifecycle")
       })
     },
-    async (input) => toolResultWithNormalizedInput("memory_lifecycle", input, async (normalizedInput) => {
-      const project = await resolveProjectInput("memory_lifecycle", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
-      return engine.memoryLifecycle({
-        project_id: project.project_id,
-        limit: normalizedInput.limit as number | undefined,
-        now: normalizedInput.now as string | undefined,
-        include_private: normalizedInput.include_private as boolean | undefined
-      });
-    })
+    async (input) =>
+      toolResultWithNormalizedInput("memory_lifecycle", input, async (normalizedInput) => {
+        const project = await resolveProjectInput("memory_lifecycle", {
+          project_id: normalizedInput.project_id,
+          project_path: normalizedInput.project_path
+        });
+        return engine.memoryLifecycle({
+          project_id: project.project_id,
+          limit: normalizedInput.limit as number | undefined,
+          now: normalizedInput.now as string | undefined,
+          include_private: normalizedInput.include_private as boolean | undefined
+        });
+      })
   );
 
   server.registerTool(
     "capture_policy",
     {
       title: "Audit Moryn Capture Policy",
-      description: "Read-only audit of autocapture policy decisions, review candidates, policy-archived noise, and evidence.",
+      description:
+        "Read-only audit of autocapture policy decisions, review candidates, policy-archived noise, and evidence.",
       inputSchema: mcpInputSchema({
         project_id: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
@@ -1964,21 +2115,26 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("capture_policy")
       })
     },
-    async (input) => toolResultWithNormalizedInput("capture_policy", input, async (normalizedInput) => {
-      const project = await resolveProjectInput("capture_policy", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
-      return engine.capturePolicy({
-        project_id: project.project_id,
-        limit: normalizedInput.limit as number | undefined,
-        include_private: normalizedInput.include_private as boolean | undefined
-      });
-    })
+    async (input) =>
+      toolResultWithNormalizedInput("capture_policy", input, async (normalizedInput) => {
+        const project = await resolveProjectInput("capture_policy", {
+          project_id: normalizedInput.project_id,
+          project_path: normalizedInput.project_path
+        });
+        return engine.capturePolicy({
+          project_id: project.project_id,
+          limit: normalizedInput.limit as number | undefined,
+          include_private: normalizedInput.include_private as boolean | undefined
+        });
+      })
   );
 
   server.registerTool(
     "dogfood_report",
     {
       title: "Report Moryn Dogfood Friction",
-      description: "Read-only dogfood report for capture-review backlog, duplicate handoffs, and failure or timeout signals.",
+      description:
+        "Read-only dogfood report for capture-review backlog, duplicate handoffs, and failure or timeout signals.",
       inputSchema: mcpInputSchema({
         project_id: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
@@ -1987,21 +2143,26 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("dogfood_report")
       })
     },
-    async (input) => toolResultWithNormalizedInput("dogfood_report", input, async (normalizedInput) => {
-      const project = await resolveProjectInput("dogfood_report", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
-      return engine.dogfoodReport({
-        project_id: project.project_id,
-        limit: normalizedInput.limit as number | undefined,
-        include_private: normalizedInput.include_private as boolean | undefined
-      });
-    })
+    async (input) =>
+      toolResultWithNormalizedInput("dogfood_report", input, async (normalizedInput) => {
+        const project = await resolveProjectInput("dogfood_report", {
+          project_id: normalizedInput.project_id,
+          project_path: normalizedInput.project_path
+        });
+        return engine.dogfoodReport({
+          project_id: project.project_id,
+          limit: normalizedInput.limit as number | undefined,
+          include_private: normalizedInput.include_private as boolean | undefined
+        });
+      })
   );
 
   server.registerTool(
     "health_check",
     {
       title: "Check Moryn Health",
-      description: "Read-only installation and store health check for setup trust, project readiness, privacy boundary, and capture review backlog.",
+      description:
+        "Read-only installation and store health check for setup trust, project readiness, privacy boundary, and capture review backlog.",
       inputSchema: mcpInputSchema({
         project_id: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
@@ -2012,24 +2173,29 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("health_check")
       })
     },
-    async (input) => toolResultWithNormalizedInput("health_check", input, async (normalizedInput) => {
-      const project = await resolveProjectInput("health_check", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
-      return engine.healthCheck({
-        project_id: project.project_id,
-        project_path: project.project_path,
-        host: normalizedInput.host as string | undefined,
-        sync_remote: normalizedInput.sync_remote as string | undefined,
-        limit: normalizedInput.limit as number | undefined,
-        include_private: normalizedInput.include_private as boolean | undefined
-      });
-    })
+    async (input) =>
+      toolResultWithNormalizedInput("health_check", input, async (normalizedInput) => {
+        const project = await resolveProjectInput("health_check", {
+          project_id: normalizedInput.project_id,
+          project_path: normalizedInput.project_path
+        });
+        return engine.healthCheck({
+          project_id: project.project_id,
+          project_path: project.project_path,
+          host: normalizedInput.host as string | undefined,
+          sync_remote: normalizedInput.sync_remote as string | undefined,
+          limit: normalizedInput.limit as number | undefined,
+          include_private: normalizedInput.include_private as boolean | undefined
+        });
+      })
   );
 
   server.registerTool(
     "recall_eval",
     {
       title: "Evaluate Moryn Recall",
-      description: "Read-only recall quality eval for golden queries, expected record ids, privacy checks, and ranking reasons.",
+      description:
+        "Read-only recall quality eval for golden queries, expected record ids, privacy checks, and ranking reasons.",
       inputSchema: mcpInputSchema({
         cases: z.unknown(),
         project_id: coreValidatedStringSchema.optional(),
@@ -2038,21 +2204,26 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("recall_eval")
       })
     },
-    async (input) => toolResultWithNormalizedInput("recall_eval", input, async (normalizedInput) => {
-      const project = await resolveProjectInput("recall_eval", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
-      return engine.recallEval({
-        project_id: project.project_id,
-        cases: normalizedInput.cases,
-        include_private: normalizedInput.include_private as boolean | undefined
-      });
-    })
+    async (input) =>
+      toolResultWithNormalizedInput("recall_eval", input, async (normalizedInput) => {
+        const project = await resolveProjectInput("recall_eval", {
+          project_id: normalizedInput.project_id,
+          project_path: normalizedInput.project_path
+        });
+        return engine.recallEval({
+          project_id: project.project_id,
+          cases: normalizedInput.cases,
+          include_private: normalizedInput.include_private as boolean | undefined
+        });
+      })
   );
 
   server.registerTool(
     "agent_doctor",
     {
       title: "Diagnose Moryn Agent Setup",
-      description: "Read-only setup check that tells an agent whether store, project, and sync are ready and what to call next.",
+      description:
+        "Read-only setup check that tells an agent whether store, project, and sync are ready and what to call next.",
       inputSchema: mcpInputSchema({
         project_id: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
@@ -2064,23 +2235,31 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("agent_doctor")
       })
     },
-    async (input) => toolResultWithNormalizedInput("agent_doctor", input, async (normalizedInput) => {
-      const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
-      return withMcpRuntime(await agentDoctor({
-        storePath: options.storePath,
-        ...lifecycleProjectContextInput("agent_doctor", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path }),
-        syncRemote: normalizedInput.sync_remote as string | undefined,
-        currentTask: normalizedInput.current_task as string | undefined,
-        agent: lifecycleAgent
-      }), options.hostRuntime);
-    })
+    async (input) =>
+      toolResultWithNormalizedInput("agent_doctor", input, async (normalizedInput) => {
+        const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
+        return withMcpRuntime(
+          await agentDoctor({
+            storePath: options.storePath,
+            ...lifecycleProjectContextInput("agent_doctor", {
+              project_id: normalizedInput.project_id,
+              project_path: normalizedInput.project_path
+            }),
+            syncRemote: normalizedInput.sync_remote as string | undefined,
+            currentTask: normalizedInput.current_task as string | undefined,
+            agent: lifecycleAgent
+          }),
+          options.hostRuntime
+        );
+      })
   );
 
   server.registerTool(
     "agent_enter",
     {
       title: "Enter Moryn Agent Session",
-      description: "One-call agent entrypoint: diagnose setup, discover projects when needed, or start a known project session.",
+      description:
+        "One-call agent entrypoint: diagnose setup, discover projects when needed, or start a known project session.",
       inputSchema: mcpInputSchema({
         project_id: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
@@ -2096,40 +2275,53 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("agent_enter")
       })
     },
-    async (input) => toolResultWithNormalizedInput("agent_enter", input, async (normalizedInput) => {
-      const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
-      const coreValidatedPull = normalizedInput.pull as boolean | undefined;
-      const result = await agentEnter({
-        storePath: options.storePath,
-        ...lifecycleProjectContextInput("agent_enter", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path }),
-        syncRemote: normalizedInput.sync_remote as string | undefined,
-        currentTask: normalizedInput.current_task as string | undefined,
-        refreshSince: normalizedInput.refresh_since,
-        limit: normalizedInput.limit,
-        pull: coreValidatedPull,
-        agent: lifecycleAgent,
-        hostRuntime: options.hostRuntime
-      });
-      return withOptionalMcpDashboard(options.storePath, withMcpRuntime(result, options.hostRuntime), normalizedInput.open);
-    }, (normalizedInput) => {
-      const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
-      const coreValidatedPull = normalizedInput.pull as boolean | undefined;
-      const contextArguments = compactUndefined({
-        project_id: normalizedInput.project_id,
-        project_path: normalizedInput.project_path,
-        sync_remote: normalizedInput.sync_remote,
-        current_task: normalizedInput.current_task,
-        refresh_since: normalizedInput.refresh_since,
-        limit: normalizedInput.limit,
-        pull: coreValidatedPull,
-        agent: lifecycleAgent
-      });
-      return {
-        tool: "agent_enter",
-        command: commandForAgentEnterContext(contextArguments),
-        arguments: contextArguments
-      };
-    })
+    async (input) =>
+      toolResultWithNormalizedInput(
+        "agent_enter",
+        input,
+        async (normalizedInput) => {
+          const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
+          const coreValidatedPull = normalizedInput.pull as boolean | undefined;
+          const result = await agentEnter({
+            storePath: options.storePath,
+            ...lifecycleProjectContextInput("agent_enter", {
+              project_id: normalizedInput.project_id,
+              project_path: normalizedInput.project_path
+            }),
+            syncRemote: normalizedInput.sync_remote as string | undefined,
+            currentTask: normalizedInput.current_task as string | undefined,
+            refreshSince: normalizedInput.refresh_since,
+            limit: normalizedInput.limit,
+            pull: coreValidatedPull,
+            agent: lifecycleAgent,
+            hostRuntime: options.hostRuntime
+          });
+          return withOptionalMcpDashboard(
+            options.storePath,
+            withMcpRuntime(result, options.hostRuntime),
+            normalizedInput.open
+          );
+        },
+        (normalizedInput) => {
+          const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
+          const coreValidatedPull = normalizedInput.pull as boolean | undefined;
+          const contextArguments = compactUndefined({
+            project_id: normalizedInput.project_id,
+            project_path: normalizedInput.project_path,
+            sync_remote: normalizedInput.sync_remote,
+            current_task: normalizedInput.current_task,
+            refresh_since: normalizedInput.refresh_since,
+            limit: normalizedInput.limit,
+            pull: coreValidatedPull,
+            agent: lifecycleAgent
+          });
+          return {
+            tool: "agent_enter",
+            command: commandForAgentEnterContext(contextArguments),
+            arguments: contextArguments
+          };
+        }
+      )
   );
 
   server.registerTool(
@@ -2148,23 +2340,31 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("agent_guide")
       })
     },
-    async (input) => toolResultWithNormalizedInput("agent_guide", input, async (normalizedInput) => {
-      const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
-      return withMcpRuntime(await agentGuide({
-        storePath: options.storePath,
-        ...lifecycleProjectContextInput("agent_guide", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path }),
-        syncRemote: normalizedInput.sync_remote as string | undefined,
-        currentTask: normalizedInput.current_task as string | undefined,
-        agent: lifecycleAgent
-      }), options.hostRuntime);
-    })
+    async (input) =>
+      toolResultWithNormalizedInput("agent_guide", input, async (normalizedInput) => {
+        const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
+        return withMcpRuntime(
+          await agentGuide({
+            storePath: options.storePath,
+            ...lifecycleProjectContextInput("agent_guide", {
+              project_id: normalizedInput.project_id,
+              project_path: normalizedInput.project_path
+            }),
+            syncRemote: normalizedInput.sync_remote as string | undefined,
+            currentTask: normalizedInput.current_task as string | undefined,
+            agent: lifecycleAgent
+          }),
+          options.hostRuntime
+        );
+      })
   );
 
   server.registerTool(
     "agent_start",
     {
       title: "Start Moryn Agent Session",
-      description: "Low-friction agent startup: pull sync, resolve project context, boot context, and refresh recent changes.",
+      description:
+        "Low-friction agent startup: pull sync, resolve project context, boot context, and refresh recent changes.",
       inputSchema: mcpInputSchema({
         project_id: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
@@ -2180,39 +2380,52 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("agent_start")
       })
     },
-    async (input) => toolResultWithNormalizedInput("agent_start", input, async (normalizedInput) => {
-      const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
-      const coreValidatedPull = normalizedInput.pull as boolean | undefined;
-      const result = await agentStart({
-        storePath: options.storePath,
-        ...lifecycleProjectContextInput("agent_start", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path }),
-        syncRemote: normalizedInput.sync_remote as string | undefined,
-        currentTask: normalizedInput.current_task as string | undefined,
-        refreshSince: normalizedInput.refresh_since,
-        limit: normalizedInput.limit,
-        pull: coreValidatedPull,
-        agent: lifecycleAgent
-      });
-      return withOptionalMcpDashboard(options.storePath, withMcpRuntime(result, options.hostRuntime), normalizedInput.open);
-    }, (normalizedInput) => {
-      const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
-      const coreValidatedPull = normalizedInput.pull as boolean | undefined;
-      const contextArguments = compactUndefined({
-        project_id: normalizedInput.project_id,
-        project_path: normalizedInput.project_path,
-        sync_remote: normalizedInput.sync_remote,
-        current_task: normalizedInput.current_task,
-        refresh_since: normalizedInput.refresh_since,
-        limit: normalizedInput.limit,
-        pull: coreValidatedPull,
-        agent: lifecycleAgent
-      });
-      return {
-        tool: "agent_start",
-        command: commandForAgentStartContext(contextArguments),
-        arguments: contextArguments
-      };
-    })
+    async (input) =>
+      toolResultWithNormalizedInput(
+        "agent_start",
+        input,
+        async (normalizedInput) => {
+          const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
+          const coreValidatedPull = normalizedInput.pull as boolean | undefined;
+          const result = await agentStart({
+            storePath: options.storePath,
+            ...lifecycleProjectContextInput("agent_start", {
+              project_id: normalizedInput.project_id,
+              project_path: normalizedInput.project_path
+            }),
+            syncRemote: normalizedInput.sync_remote as string | undefined,
+            currentTask: normalizedInput.current_task as string | undefined,
+            refreshSince: normalizedInput.refresh_since,
+            limit: normalizedInput.limit,
+            pull: coreValidatedPull,
+            agent: lifecycleAgent
+          });
+          return withOptionalMcpDashboard(
+            options.storePath,
+            withMcpRuntime(result, options.hostRuntime),
+            normalizedInput.open
+          );
+        },
+        (normalizedInput) => {
+          const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
+          const coreValidatedPull = normalizedInput.pull as boolean | undefined;
+          const contextArguments = compactUndefined({
+            project_id: normalizedInput.project_id,
+            project_path: normalizedInput.project_path,
+            sync_remote: normalizedInput.sync_remote,
+            current_task: normalizedInput.current_task,
+            refresh_since: normalizedInput.refresh_since,
+            limit: normalizedInput.limit,
+            pull: coreValidatedPull,
+            agent: lifecycleAgent
+          });
+          return {
+            tool: "agent_start",
+            command: commandForAgentStartContext(contextArguments),
+            arguments: contextArguments
+          };
+        }
+      )
   );
 
   server.registerTool(
@@ -2228,10 +2441,19 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         source: z.unknown().optional()
       })
     },
-    async (input) => toolResultWithNormalizedInput("consolidate_semantic", input, async (normalizedInput) => {
-      const project = await resolveProjectInput("consolidate_semantic", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
-      return engine.consolidateSemanticProposals({ proposals: normalizedInput.proposals, project_id: project.project_id, include_private: normalizedInput.include_private, source: withDefaultSource(normalizedInput.source) as never });
-    })
+    async (input) =>
+      toolResultWithNormalizedInput("consolidate_semantic", input, async (normalizedInput) => {
+        const project = await resolveProjectInput("consolidate_semantic", {
+          project_id: normalizedInput.project_id,
+          project_path: normalizedInput.project_path
+        });
+        return engine.consolidateSemanticProposals({
+          proposals: normalizedInput.proposals,
+          project_id: project.project_id,
+          include_private: normalizedInput.include_private,
+          source: withDefaultSource(normalizedInput.source) as never
+        });
+      })
   );
 
   server.registerTool(
@@ -2255,41 +2477,54 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("agent_finish")
       })
     },
-    async (input) => toolResultWithNormalizedInput("agent_finish", input, async (normalizedInput) => {
-      const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
-      const coreValidatedPush = normalizedInput.push as boolean | undefined;
-      const result = await agentFinish({
-        storePath: options.storePath,
-        ...lifecycleProjectContextInput("agent_finish", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path }),
-        syncRemote: normalizedInput.sync_remote as string | undefined,
-        currentTask: normalizedInput.current_task as string | undefined,
-        summary: normalizedInput.summary,
-        push: coreValidatedPush,
-        agent: lifecycleAgent,
-        learnings: normalizedInput.learnings as never[] | undefined,
-        semanticConsolidationProposals: normalizedInput.semantic_consolidation_proposals as never[] | undefined
-      });
-      return withOptionalMcpDashboard(options.storePath, withMcpRuntime(result, options.hostRuntime), normalizedInput.open);
-    }, (normalizedInput) => {
-      const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
-      const coreValidatedPush = normalizedInput.push as boolean | undefined;
-      const contextInput = {
-        summary: normalizedInput.summary,
-        project_id: normalizedInput.project_id,
-        project_path: normalizedInput.project_path,
-        sync_remote: normalizedInput.sync_remote,
-        current_task: normalizedInput.current_task,
-        push: coreValidatedPush,
-        agent: lifecycleAgent,
-        learnings: normalizedInput.learnings
-      };
-      const contextArguments = compactUndefined(contextInput);
-      return {
-        tool: "agent_finish",
-        command: commandForAgentFinishContext(contextInput),
-        arguments: contextArguments
-      };
-    })
+    async (input) =>
+      toolResultWithNormalizedInput(
+        "agent_finish",
+        input,
+        async (normalizedInput) => {
+          const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
+          const coreValidatedPush = normalizedInput.push as boolean | undefined;
+          const result = await agentFinish({
+            storePath: options.storePath,
+            ...lifecycleProjectContextInput("agent_finish", {
+              project_id: normalizedInput.project_id,
+              project_path: normalizedInput.project_path
+            }),
+            syncRemote: normalizedInput.sync_remote as string | undefined,
+            currentTask: normalizedInput.current_task as string | undefined,
+            summary: normalizedInput.summary,
+            push: coreValidatedPush,
+            agent: lifecycleAgent,
+            learnings: normalizedInput.learnings as never[] | undefined,
+            semanticConsolidationProposals: normalizedInput.semantic_consolidation_proposals as never[] | undefined
+          });
+          return withOptionalMcpDashboard(
+            options.storePath,
+            withMcpRuntime(result, options.hostRuntime),
+            normalizedInput.open
+          );
+        },
+        (normalizedInput) => {
+          const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
+          const coreValidatedPush = normalizedInput.push as boolean | undefined;
+          const contextInput = {
+            summary: normalizedInput.summary,
+            project_id: normalizedInput.project_id,
+            project_path: normalizedInput.project_path,
+            sync_remote: normalizedInput.sync_remote,
+            current_task: normalizedInput.current_task,
+            push: coreValidatedPush,
+            agent: lifecycleAgent,
+            learnings: normalizedInput.learnings
+          };
+          const contextArguments = compactUndefined(contextInput);
+          return {
+            tool: "agent_finish",
+            command: commandForAgentFinishContext(contextInput),
+            arguments: contextArguments
+          };
+        }
+      )
   );
 
   server.registerTool(
@@ -2316,24 +2551,28 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("learn")
       })
     },
-    async (input) => toolResultWithNormalizedInput("learn", input, async (normalizedInput) => {
-      const project = await resolveProjectInput("learn", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
-      return queueLearning(options.storePath, {
-        project_id: project.project_id,
-        question: normalizedInput.question,
-        conclusion: normalizedInput.conclusion,
-        evidence_type: normalizedInput.evidence_type,
-        scope: normalizedInput.scope,
-        confidence: normalizedInput.confidence,
-        valid_until: normalizedInput.valid_until,
-        recommended_kind: normalizedInput.recommended_kind,
-        recommended_type: normalizedInput.recommended_type,
-        related_record_ids: normalizedInput.related_record_ids,
-        current_task: normalizedInput.current_task,
-        source: withDefaultSource(normalizedInput.source) as RecordSource,
-        occurred_at: normalizedInput.occurred_at as string | undefined ?? new Date().toISOString()
-      });
-    })
+    async (input) =>
+      toolResultWithNormalizedInput("learn", input, async (normalizedInput) => {
+        const project = await resolveProjectInput("learn", {
+          project_id: normalizedInput.project_id,
+          project_path: normalizedInput.project_path
+        });
+        return queueLearning(options.storePath, {
+          project_id: project.project_id,
+          question: normalizedInput.question,
+          conclusion: normalizedInput.conclusion,
+          evidence_type: normalizedInput.evidence_type,
+          scope: normalizedInput.scope,
+          confidence: normalizedInput.confidence,
+          valid_until: normalizedInput.valid_until,
+          recommended_kind: normalizedInput.recommended_kind,
+          recommended_type: normalizedInput.recommended_type,
+          related_record_ids: normalizedInput.related_record_ids,
+          current_task: normalizedInput.current_task,
+          source: withDefaultSource(normalizedInput.source) as RecordSource,
+          occurred_at: (normalizedInput.occurred_at as string | undefined) ?? new Date().toISOString()
+        });
+      })
   );
 
   server.registerTool(
@@ -2344,14 +2583,16 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
       inputSchema: mcpInputSchema({
         project_id: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
-        source: z.object({
-          client: z.unknown().optional(),
-          session_id: z.unknown().optional(),
-          sessionId: z.unknown().optional(),
-          model: z.unknown().optional(),
-          device_id: z.unknown().optional(),
-          deviceId: z.unknown().optional()
-        }).passthrough(),
+        source: z
+          .object({
+            client: z.unknown().optional(),
+            session_id: z.unknown().optional(),
+            sessionId: z.unknown().optional(),
+            model: z.unknown().optional(),
+            device_id: z.unknown().optional(),
+            deviceId: z.unknown().optional()
+          })
+          .passthrough(),
         occurred_at: z.unknown().optional(),
         delta: z.unknown(),
         tags: z.unknown().optional(),
@@ -2360,18 +2601,23 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("checkpoint")
       })
     },
-    async (input) => toolResultWithNormalizedInput("checkpoint", input, async (normalizedInput) => {
-      const project = await resolveProjectInput("checkpoint", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
-      if (normalizedInput.include_private !== undefined && typeof normalizedInput.include_private !== "boolean") throw new Error("Invalid argument: include_private must be boolean");
-      return engine.checkpoint({
-        project_id: project.project_id ?? "",
-        source: checkpointSource(normalizedInput.source),
-        occurred_at: normalizedInput.occurred_at as string,
-        delta: normalizedInput.delta as never,
-        tags: normalizedInput.tags as string[] | undefined,
-        include_private: normalizedInput.include_private as boolean | undefined
-      });
-    })
+    async (input) =>
+      toolResultWithNormalizedInput("checkpoint", input, async (normalizedInput) => {
+        const project = await resolveProjectInput("checkpoint", {
+          project_id: normalizedInput.project_id,
+          project_path: normalizedInput.project_path
+        });
+        if (normalizedInput.include_private !== undefined && typeof normalizedInput.include_private !== "boolean")
+          throw new Error("Invalid argument: include_private must be boolean");
+        return engine.checkpoint({
+          project_id: project.project_id ?? "",
+          source: checkpointSource(normalizedInput.source),
+          occurred_at: normalizedInput.occurred_at as string,
+          delta: normalizedInput.delta as never,
+          tags: normalizedInput.tags as string[] | undefined,
+          include_private: normalizedInput.include_private as boolean | undefined
+        });
+      })
   );
 
   server.registerTool(
@@ -2393,38 +2639,51 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         ...camelCaseAliasInputSchema("agent_status")
       })
     },
-    async (input) => toolResultWithNormalizedInput("agent_status", input, async (normalizedInput) => {
-      const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
-      const coreValidatedPush = normalizedInput.push as boolean | undefined;
-      const result = await agentStatus({
-        storePath: options.storePath,
-        ...lifecycleProjectContextInput("agent_status", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path }),
-        syncRemote: normalizedInput.sync_remote as string | undefined,
-        currentTask: normalizedInput.current_task as string | undefined,
-        status: normalizedInput.status,
-        push: coreValidatedPush,
-        agent: lifecycleAgent
-      });
-      return withOptionalMcpDashboard(options.storePath, withMcpRuntime(result, options.hostRuntime), normalizedInput.open);
-    }, (normalizedInput) => {
-      const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
-      const coreValidatedPush = normalizedInput.push as boolean | undefined;
-      const contextInput = {
-        status: normalizedInput.status,
-        project_id: normalizedInput.project_id,
-        project_path: normalizedInput.project_path,
-        sync_remote: normalizedInput.sync_remote,
-        current_task: normalizedInput.current_task,
-        push: coreValidatedPush,
-        agent: lifecycleAgent
-      };
-      const contextArguments = compactUndefined(contextInput);
-      return {
-        tool: "agent_status",
-        command: commandForAgentStatusContext(contextInput),
-        arguments: contextArguments
-      };
-    })
+    async (input) =>
+      toolResultWithNormalizedInput(
+        "agent_status",
+        input,
+        async (normalizedInput) => {
+          const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
+          const coreValidatedPush = normalizedInput.push as boolean | undefined;
+          const result = await agentStatus({
+            storePath: options.storePath,
+            ...lifecycleProjectContextInput("agent_status", {
+              project_id: normalizedInput.project_id,
+              project_path: normalizedInput.project_path
+            }),
+            syncRemote: normalizedInput.sync_remote as string | undefined,
+            currentTask: normalizedInput.current_task as string | undefined,
+            status: normalizedInput.status,
+            push: coreValidatedPush,
+            agent: lifecycleAgent
+          });
+          return withOptionalMcpDashboard(
+            options.storePath,
+            withMcpRuntime(result, options.hostRuntime),
+            normalizedInput.open
+          );
+        },
+        (normalizedInput) => {
+          const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
+          const coreValidatedPush = normalizedInput.push as boolean | undefined;
+          const contextInput = {
+            status: normalizedInput.status,
+            project_id: normalizedInput.project_id,
+            project_path: normalizedInput.project_path,
+            sync_remote: normalizedInput.sync_remote,
+            current_task: normalizedInput.current_task,
+            push: coreValidatedPush,
+            agent: lifecycleAgent
+          };
+          const contextArguments = compactUndefined(contextInput);
+          return {
+            tool: "agent_status",
+            command: commandForAgentStatusContext(contextInput),
+            arguments: contextArguments
+          };
+        }
+      )
   );
 
   server.registerTool(
@@ -2441,7 +2700,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
     "dashboard",
     {
       title: "Generate Moryn Dashboard",
-      description: "Generate a local static HTML dashboard for sync status, records, recent events, and agent activity.",
+      description:
+        "Generate a local static HTML dashboard for sync status, records, recent events, and agent activity.",
       inputSchema: mcpInputSchema({
         project_id: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
@@ -2450,20 +2710,24 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         include_private: coreValidatedBooleanSchema.optional()
       })
     },
-    async (input) => toolResultWithNormalizedInput("dashboard", input, async (normalizedInput) => {
-      validateMcpDashboardOpen(normalizedInput.open);
-      const project = await resolveProjectInput("dashboard", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
-      const snapshot = await writeDashboardSnapshot(options.storePath, {
-        limit: normalizedInput.limit as number | undefined,
-        include_private: normalizedInput.include_private as boolean | undefined,
-        project_id: project.project_id
-      });
-      if (normalizedInput.open === true) {
-        await openDashboard(snapshot.url);
-        return { ...snapshot, opened: true };
-      }
-      return snapshot;
-    })
+    async (input) =>
+      toolResultWithNormalizedInput("dashboard", input, async (normalizedInput) => {
+        validateMcpDashboardOpen(normalizedInput.open);
+        const project = await resolveProjectInput("dashboard", {
+          project_id: normalizedInput.project_id,
+          project_path: normalizedInput.project_path
+        });
+        const snapshot = await writeDashboardSnapshot(options.storePath, {
+          limit: normalizedInput.limit as number | undefined,
+          include_private: normalizedInput.include_private as boolean | undefined,
+          project_id: project.project_id
+        });
+        if (normalizedInput.open === true) {
+          await openDashboard(snapshot.url);
+          return { ...snapshot, opened: true };
+        }
+        return snapshot;
+      })
   );
 
   server.registerTool(
@@ -2471,12 +2735,28 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
     {
       title: "Inspect Host Activation",
       description: "Read-only diagnosis of generated, configured, and runtime-proven Moryn host activation.",
-      inputSchema: mcpInputSchema({ host: coreValidatedStringSchema, project_id: coreValidatedStringSchema.optional(), project_path: coreValidatedStringSchema.optional(), ...objectPathAliasInputSchema("activation_status"), ...camelCaseAliasInputSchema("activation_status") })
+      inputSchema: mcpInputSchema({
+        host: coreValidatedStringSchema,
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
+        ...objectPathAliasInputSchema("activation_status"),
+        ...camelCaseAliasInputSchema("activation_status")
+      })
     },
-    async (input) => toolResultWithNormalizedInput("activation_status", input, async (normalizedInput) => {
-      const project = await resolveProjectContext({ projectId: normalizedInput.project_id as string | undefined, projectPath: normalizedInput.project_path as string | undefined });
-      return inspectHostActivation({ store_path: options.storePath, project_path: project.project_path, project_id: project.project_id, host: normalizedInput.host as string, runtime: options.hostRuntime });
-    })
+    async (input) =>
+      toolResultWithNormalizedInput("activation_status", input, async (normalizedInput) => {
+        const project = await resolveProjectContext({
+          projectId: normalizedInput.project_id as string | undefined,
+          projectPath: normalizedInput.project_path as string | undefined
+        });
+        return inspectHostActivation({
+          store_path: options.storePath,
+          project_path: project.project_path,
+          project_id: project.project_id,
+          host: normalizedInput.host as string,
+          runtime: options.hostRuntime
+        });
+      })
   );
 
   server.registerTool(
@@ -2484,19 +2764,51 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
     {
       title: "Apply Safe Host Activation",
       description: "Safely generate and activate Moryn-owned Claude Code or Codex lifecycle hooks.",
-      inputSchema: mcpInputSchema({ host: coreValidatedStringSchema, project_id: coreValidatedStringSchema.optional(), project_path: coreValidatedStringSchema.optional(), ...objectPathAliasInputSchema("activation_apply"), ...camelCaseAliasInputSchema("activation_apply") })
+      inputSchema: mcpInputSchema({
+        host: coreValidatedStringSchema,
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
+        ...objectPathAliasInputSchema("activation_apply"),
+        ...camelCaseAliasInputSchema("activation_apply")
+      })
     },
-    async (input) => toolResultWithNormalizedInput("activation_apply", input, async (normalizedInput) => {
-      const project = await resolveProjectContext({ projectId: normalizedInput.project_id as string | undefined, projectPath: normalizedInput.project_path as string | undefined });
-      const host = normalizedInput.host as string;
-      const normalizedHost = host === "claude-code" ? "claude" : host;
-      if (normalizedHost !== "claude" && normalizedHost !== "codex") throw new Error(`Invalid argument: activation apply is unsupported for host: ${host}`);
-      const artifact = buildHostIntegrationArtifact({ host: normalizedHost, project_id: project.project_id, project_path: project.project_path, store_path: options.storePath, runtime: options.hostRuntime });
-      const fragment = await writeHostIntegrationArtifact({ host: normalizedHost, project_id: project.project_id, project_path: project.project_path, store_path: options.storePath, runtime: options.hostRuntime });
-      const activation = normalizedHost === "claude" ? await activateClaudeSettings({ project_path: project.project_path, artifact }) : await activateCodexHooks({ project_path: project.project_path, artifact });
-      const status = await inspectHostActivation({ store_path: options.storePath, project_path: project.project_path, project_id: project.project_id, host: normalizedHost, runtime: options.hostRuntime });
-      return { ok: true, fragment, activation, status };
-    })
+    async (input) =>
+      toolResultWithNormalizedInput("activation_apply", input, async (normalizedInput) => {
+        const project = await resolveProjectContext({
+          projectId: normalizedInput.project_id as string | undefined,
+          projectPath: normalizedInput.project_path as string | undefined
+        });
+        const host = normalizedInput.host as string;
+        const normalizedHost = host === "claude-code" ? "claude" : host;
+        if (normalizedHost !== "claude" && normalizedHost !== "codex")
+          throw new Error(`Invalid argument: activation apply is unsupported for host: ${host}`);
+        const artifact = buildHostIntegrationArtifact({
+          host: normalizedHost,
+          project_id: project.project_id,
+          project_path: project.project_path,
+          store_path: options.storePath,
+          runtime: options.hostRuntime
+        });
+        const fragment = await writeHostIntegrationArtifact({
+          host: normalizedHost,
+          project_id: project.project_id,
+          project_path: project.project_path,
+          store_path: options.storePath,
+          runtime: options.hostRuntime
+        });
+        const activation =
+          normalizedHost === "claude"
+            ? await activateClaudeSettings({ project_path: project.project_path, artifact })
+            : await activateCodexHooks({ project_path: project.project_path, artifact });
+        const status = await inspectHostActivation({
+          store_path: options.storePath,
+          project_path: project.project_path,
+          project_id: project.project_id,
+          host: normalizedHost,
+          runtime: options.hostRuntime
+        });
+        return { ok: true, fragment, activation, status };
+      })
   );
 
   server.registerTool(
@@ -2509,10 +2821,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         open: coreValidatedBooleanSchema.optional()
       })
     },
-    async (input) => toolResultWithNormalizedInput("sync_init", input, async (normalizedInput) => {
-      const result = await initializeGitSync(options.storePath, normalizedInput.remote as string);
-      return withOptionalMcpDashboard(options.storePath, result, normalizedInput.open);
-    })
+    async (input) =>
+      toolResultWithNormalizedInput("sync_init", input, async (normalizedInput) => {
+        const result = await initializeGitSync(options.storePath, normalizedInput.remote as string);
+        return withOptionalMcpDashboard(options.storePath, result, normalizedInput.open);
+      })
   );
 
   server.registerTool(
@@ -2522,7 +2835,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
       description: "Return Git sync configuration and local/remote status.",
       inputSchema: mcpInputSchema({})
     },
-    async (input) => toolResultWithNormalizedInput("sync_status", input, async () => getGitSyncStatus(options.storePath))
+    async (input) =>
+      toolResultWithNormalizedInput("sync_status", input, async () => getGitSyncStatus(options.storePath))
   );
 
   server.registerTool(
@@ -2534,10 +2848,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         open: coreValidatedBooleanSchema.optional()
       })
     },
-    async (input) => toolResultWithNormalizedInput("sync_pull", input, async (normalizedInput) => {
-      const result = await pullGitSync(options.storePath);
-      return withOptionalMcpDashboard(options.storePath, result, normalizedInput.open);
-    })
+    async (input) =>
+      toolResultWithNormalizedInput("sync_pull", input, async (normalizedInput) => {
+        const result = await pullGitSync(options.storePath);
+        return withOptionalMcpDashboard(options.storePath, result, normalizedInput.open);
+      })
   );
 
   server.registerTool(
@@ -2550,10 +2865,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         open: coreValidatedBooleanSchema.optional()
       })
     },
-    async (input) => toolResultWithNormalizedInput("sync_push", input, async (normalizedInput) => {
-      const result = await pushGitSync(options.storePath, { message: normalizedInput.message as string | undefined });
-      return withOptionalMcpDashboard(options.storePath, result, normalizedInput.open);
-    })
+    async (input) =>
+      toolResultWithNormalizedInput("sync_push", input, async (normalizedInput) => {
+        const result = await pushGitSync(options.storePath, { message: normalizedInput.message as string | undefined });
+        return withOptionalMcpDashboard(options.storePath, result, normalizedInput.open);
+      })
   );
 
   server.registerTool(
@@ -2566,10 +2882,13 @@ export async function runMcpServer(engine: Engine, options: { storePath: string;
         include_private: coreValidatedBooleanSchema.optional()
       })
     },
-    async (input) => toolResultWithNormalizedInput("list_recent", input, async (normalizedInput) => engine.listRecent({
-      limit: normalizedInput.limit,
-      include_private: normalizedInput.include_private
-    }))
+    async (input) =>
+      toolResultWithNormalizedInput("list_recent", input, async (normalizedInput) =>
+        engine.listRecent({
+          limit: normalizedInput.limit,
+          include_private: normalizedInput.include_private
+        })
+      )
   );
 
   await server.connect(new StdioServerTransport());

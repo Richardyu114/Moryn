@@ -19,16 +19,30 @@ describe("host transcript evidence", () => {
       const transcript = join(transcriptRoot, "session.jsonl");
       await mkdir(transcriptRoot, { recursive: true });
       await writeJsonl(transcript, [
-        { type: "response_item", payload: { type: "message", role: "developer", content: [{ type: "input_text", text: "SECRET DEVELOPER" }] } },
+        {
+          type: "response_item",
+          payload: { type: "message", role: "developer", content: [{ type: "input_text", text: "SECRET DEVELOPER" }] }
+        },
         { type: "event_msg", payload: { type: "user_message", message: "Implement compact recovery." } },
         { type: "response_item", payload: { type: "reasoning", summary: [{ text: "HIDDEN REASONING" }] } },
-        { type: "event_msg", payload: { type: "agent_message", message: "Added bounded transcript recovery; next run tests." } },
+        {
+          type: "event_msg",
+          payload: { type: "agent_message", message: "Added bounded transcript recovery; next run tests." }
+        },
         { type: "response_item", payload: { type: "function_call", name: "shell", arguments: "SECRET TOOL" } }
       ]);
 
-      const result = await readHostTranscriptEvidence({ host: "codex", transcript_path: transcript, allowed_roots: [transcriptRoot] });
+      const result = await readHostTranscriptEvidence({
+        host: "codex",
+        transcript_path: transcript,
+        allowed_roots: [transcriptRoot]
+      });
 
-      expect(result).toMatchObject({ status: "available", last_user_message: "Implement compact recovery.", last_assistant_message: "Added bounded transcript recovery; next run tests." });
+      expect(result).toMatchObject({
+        status: "available",
+        last_user_message: "Implement compact recovery.",
+        last_assistant_message: "Added bounded transcript recovery; next run tests."
+      });
       expect(JSON.stringify(result)).not.toContain("SECRET");
       expect(JSON.stringify(result)).not.toContain("HIDDEN");
     });
@@ -41,13 +55,30 @@ describe("host transcript evidence", () => {
       await mkdir(transcriptRoot, { recursive: true });
       await writeJsonl(transcript, [
         { type: "user", message: { role: "user", content: "Preserve compact state." } },
-        { type: "assistant", message: { role: "assistant", content: [{ type: "tool_use", input: { token: "SECRET TOOL" } }, { type: "text", text: "Checkpointed the latest task progress." }] } },
+        {
+          type: "assistant",
+          message: {
+            role: "assistant",
+            content: [
+              { type: "tool_use", input: { token: "SECRET TOOL" } },
+              { type: "text", text: "Checkpointed the latest task progress." }
+            ]
+          }
+        },
         { type: "last-prompt", lastPrompt: "Preserve compact state." }
       ]);
 
-      const result = await readHostTranscriptEvidence({ host: "claude", transcript_path: transcript, allowed_roots: [transcriptRoot] });
+      const result = await readHostTranscriptEvidence({
+        host: "claude",
+        transcript_path: transcript,
+        allowed_roots: [transcriptRoot]
+      });
 
-      expect(result).toMatchObject({ status: "available", last_user_message: "Preserve compact state.", last_assistant_message: "Checkpointed the latest task progress." });
+      expect(result).toMatchObject({
+        status: "available",
+        last_user_message: "Preserve compact state.",
+        last_assistant_message: "Checkpointed the latest task progress."
+      });
       expect(JSON.stringify(result)).not.toContain("SECRET");
     });
   });
@@ -57,8 +88,17 @@ describe("host transcript evidence", () => {
       const transcriptRoot = join(root, "sessions");
       const transcript = join(transcriptRoot, "session.jsonl");
       await mkdir(transcriptRoot, { recursive: true });
-      await writeJsonl(transcript, [{ type: "event_msg", payload: { type: "agent_message", message: "Use api_key=abcdefghijklmnop for deployment." } }]);
-      const result = await readHostTranscriptEvidence({ host: "codex", transcript_path: transcript, allowed_roots: [transcriptRoot] });
+      await writeJsonl(transcript, [
+        {
+          type: "event_msg",
+          payload: { type: "agent_message", message: "Use api_key=abcdefghijklmnop for deployment." }
+        }
+      ]);
+      const result = await readHostTranscriptEvidence({
+        host: "codex",
+        transcript_path: transcript,
+        allowed_roots: [transcriptRoot]
+      });
       expect(result).toMatchObject({ status: "protected" });
       expect(result.last_assistant_message).toBeUndefined();
       expect(JSON.stringify(result)).not.toContain("abcdefghijklmnop");
@@ -73,8 +113,12 @@ describe("host transcript evidence", () => {
       await mkdir(transcriptRoot, { recursive: true });
       await writeJsonl(outside, [{ type: "event_msg", payload: { type: "agent_message", message: "outside" } }]);
       await symlink(outside, linked);
-      await expect(readHostTranscriptEvidence({ host: "codex", transcript_path: outside, allowed_roots: [transcriptRoot] })).resolves.toMatchObject({ status: "invalid", reason: "outside_allowed_roots" });
-      await expect(readHostTranscriptEvidence({ host: "codex", transcript_path: linked, allowed_roots: [transcriptRoot] })).resolves.toMatchObject({ status: "invalid", reason: "symbolic_link" });
+      await expect(
+        readHostTranscriptEvidence({ host: "codex", transcript_path: outside, allowed_roots: [transcriptRoot] })
+      ).resolves.toMatchObject({ status: "invalid", reason: "outside_allowed_roots" });
+      await expect(
+        readHostTranscriptEvidence({ host: "codex", transcript_path: linked, allowed_roots: [transcriptRoot] })
+      ).resolves.toMatchObject({ status: "invalid", reason: "symbolic_link" });
     });
   });
 
@@ -83,9 +127,20 @@ describe("host transcript evidence", () => {
       const transcriptRoot = join(root, "sessions");
       const transcript = join(transcriptRoot, "session.jsonl");
       await mkdir(transcriptRoot, { recursive: true });
-      const lines = Array.from({ length: 250 }, (_, index) => index === 248 ? "{malformed" : JSON.stringify({ type: "event_msg", payload: { type: "agent_message", message: `${index}:${"x".repeat(5000)}` } }));
+      const lines = Array.from({ length: 250 }, (_, index) =>
+        index === 248
+          ? "{malformed"
+          : JSON.stringify({
+              type: "event_msg",
+              payload: { type: "agent_message", message: `${index}:${"x".repeat(5000)}` }
+            })
+      );
       await writeFile(transcript, `${lines.join("\n")}\n`, "utf8");
-      const result = await readHostTranscriptEvidence({ host: "codex", transcript_path: transcript, allowed_roots: [transcriptRoot] });
+      const result = await readHostTranscriptEvidence({
+        host: "codex",
+        transcript_path: transcript,
+        allowed_roots: [transcriptRoot]
+      });
       expect(result).toMatchObject({ status: "available", malformed_lines: 1, truncated: true });
       expect(result.lines_considered).toBeGreaterThan(0);
       expect(result.lines_considered).toBeLessThanOrEqual(200);

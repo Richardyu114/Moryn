@@ -6,7 +6,12 @@ function outcome(status: RecallOutcome["status"], bestRecordId?: string): Recall
   return {
     status,
     reason: "test",
-    recommended_action: status === "trusted_match" ? "use_trusted_match" : status === "verification_required" ? "verify_candidate" : "explore_then_capture_learning",
+    recommended_action:
+      status === "trusted_match"
+        ? "use_trusted_match"
+        : status === "verification_required"
+          ? "verify_candidate"
+          : "explore_then_capture_learning",
     ...(bestRecordId ? { best_record_id: bestRecordId } : {})
   };
 }

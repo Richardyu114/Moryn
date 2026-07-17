@@ -7,7 +7,10 @@ const exec = promisify(execFile);
 
 describe("agent lifecycle smoke script", () => {
   it("is exposed as an npm script and validates two agent stores over Git sync", async () => {
-    const pkg = JSON.parse(await readFile("package.json", "utf8")) as { bin?: Record<string, string>; scripts?: Record<string, string> };
+    const pkg = JSON.parse(await readFile("package.json", "utf8")) as {
+      bin?: Record<string, string>;
+      scripts?: Record<string, string>;
+    };
 
     expect(pkg.bin?.["moryn-agent-smoke"]).toBe("scripts/agent-lifecycle-smoke.js");
     expect(pkg.scripts?.["smoke:agent-lifecycle"]).toBe("node scripts/agent-lifecycle-smoke.js");
@@ -17,7 +20,9 @@ describe("agent lifecycle smoke script", () => {
     expect(result.stdout).toContain("agent lifecycle smoke passed");
     expect(result.stdout).toContain("Codex smoke status reached Gemini");
     expect(result.stdout).toContain("Task: verify repeated checkpoint lifecycle smoke");
-    expect(result.stdout).toContain("Progress: Checkpoint smoke persisted with semantic consolidation.; Second checkpoint advanced rollback verification.");
+    expect(result.stdout).toContain(
+      "Progress: Checkpoint smoke persisted with semantic consolidation.; Second checkpoint advanced rollback verification."
+    );
     expect(result.stdout).toContain("Next: Verify rollback behavior in the release candidate");
     expect(result.stdout).toContain('"checkpoint_record_id":"rec_checkpoint_');
     expect(result.stdout).toContain('"checkpoint_idempotent_replay":true');

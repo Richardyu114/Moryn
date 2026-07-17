@@ -9,7 +9,7 @@ export const LOGICAL_RELATIONSHIP_TYPES = [
   "conflicts_with"
 ] as const;
 
-export type LogicalRelationshipType = typeof LOGICAL_RELATIONSHIP_TYPES[number];
+export type LogicalRelationshipType = (typeof LOGICAL_RELATIONSHIP_TYPES)[number];
 
 export interface LogicalRelationshipInput {
   record_id: string;
@@ -41,10 +41,12 @@ const stateTrustRank: Record<RecordState, number> = {
 const priorityRank: Record<RecordPriority, number> = { high: 3, normal: 2, low: 1 };
 
 export function compareLogicalMemoryTargets(left: MorynRecord, right: MorynRecord): number {
-  return stateTrustRank[right.state] - stateTrustRank[left.state]
-    || priorityRank[right.priority] - priorityRank[left.priority]
-    || compareCodeUnits(right.updated_at, left.updated_at)
-    || compareCodeUnits(left.id, right.id);
+  return (
+    stateTrustRank[right.state] - stateTrustRank[left.state] ||
+    priorityRank[right.priority] - priorityRank[left.priority] ||
+    compareCodeUnits(right.updated_at, left.updated_at) ||
+    compareCodeUnits(left.id, right.id)
+  );
 }
 
 function normalizeContentValue(value: unknown, key?: string): unknown {
@@ -88,10 +90,12 @@ function isActive(record: MorynRecord): boolean {
 }
 
 function sameLogicalDomain(record: MorynRecord, linkedRecord: MorynRecord): boolean {
-  return record.kind === linkedRecord.kind
-    && record.type === linkedRecord.type
-    && record.scope === linkedRecord.scope
-    && record.project_id === linkedRecord.project_id;
+  return (
+    record.kind === linkedRecord.kind &&
+    record.type === linkedRecord.type &&
+    record.scope === linkedRecord.scope &&
+    record.project_id === linkedRecord.project_id
+  );
 }
 
 export function validateLogicalRelationship(
@@ -126,7 +130,10 @@ export function validateLogicalRelationship(
 
 export interface ActiveLogicalMemoryView {
   active_records: MorynRecord[];
-  hidden_by_record_id: Record<string, { relationship: "duplicate_of" | "supersedes" | "revises"; active_record_id: string }>;
+  hidden_by_record_id: Record<
+    string,
+    { relationship: "duplicate_of" | "supersedes" | "revises"; active_record_id: string }
+  >;
   conflict_record_ids: string[];
   findings: Array<{ code: "LOGICAL_RELATIONSHIP_CYCLE"; record_ids: string[] }>;
 }
@@ -139,7 +146,8 @@ export function buildActiveLogicalMemoryView(records: MorynRecord[]): ActiveLogi
     for (const link of record.links ?? []) {
       if (!recordsById.has(link.record_id)) continue;
       if (link.link_type === "duplicate_of") replacementEdges.set(record.id, link.record_id);
-      if (link.link_type === "supersedes" || link.link_type === "revises") replacementEdges.set(link.record_id, record.id);
+      if (link.link_type === "supersedes" || link.link_type === "revises")
+        replacementEdges.set(link.record_id, record.id);
       if (link.link_type === "conflicts_with") {
         conflictIds.add(record.id);
         conflictIds.add(link.record_id);

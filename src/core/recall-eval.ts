@@ -99,21 +99,21 @@ export interface RecallEvalHiddenRecord {
 
 export type RecallEvalSuggestedAction =
   | {
-    action_id: string;
-    recommended_action: "revise_golden_case_or_memory";
-    tool: "recall";
-    command: string;
-    case_id: string;
-    missing_record_ids: string[];
-  }
+      action_id: string;
+      recommended_action: "revise_golden_case_or_memory";
+      tool: "recall";
+      command: string;
+      case_id: string;
+      missing_record_ids: string[];
+    }
   | {
-    action_id: string;
-    recommended_action: "inspect_hidden_expected_records";
-    tool: "recall";
-    command: string;
-    case_id: string;
-    hidden_record_ids: string[];
-  };
+      action_id: string;
+      recommended_action: "inspect_hidden_expected_records";
+      tool: "recall";
+      command: string;
+      case_id: string;
+      hidden_record_ids: string[];
+    };
 
 export interface RecallEvalReport {
   summary: {
@@ -174,7 +174,10 @@ function limit(value: unknown, fallback = 10): number {
   return value;
 }
 
-function parseCase(value: unknown, index: number): RecallEvalCaseInput & {
+function parseCase(
+  value: unknown,
+  index: number
+): RecallEvalCaseInput & {
   case_id: string;
   query: string;
   expected_record_ids: string[];
@@ -226,7 +229,10 @@ function isPrivateRecord(record: MorynRecord): boolean {
   return record.tags.some((tag) => ["private", "secret", "sensitive"].includes(tag.toLowerCase()));
 }
 
-function expectedRecordHiddenReason(record: MorynRecord, input: RecallEvalRecallInput): RecallEvalHiddenReason | undefined {
+function expectedRecordHiddenReason(
+  record: MorynRecord,
+  input: RecallEvalRecallInput
+): RecallEvalHiddenReason | undefined {
   if (input.project_id && record.scope !== "global" && record.project_id !== input.project_id) return "project_filter";
   if (!input.include_private && isPrivateRecord(record)) return "private_filter";
   if (input.states?.length) {
@@ -306,7 +312,9 @@ export async function evaluateRecall(
         provenance_method: result.record.provenance?.method ?? "agent-proposed"
       };
     });
-    const matched = testCase.expected_record_ids.filter((recordId) => ranked.some((result) => result.record_id === recordId));
+    const matched = testCase.expected_record_ids.filter((recordId) =>
+      ranked.some((result) => result.record_id === recordId)
+    );
     const unmatched = testCase.expected_record_ids.filter((recordId) => !matched.includes(recordId));
     const expectedRecords = resolveExpectedRecords ? await resolveExpectedRecords(unmatched) : {};
     const hiddenRecords = unmatched.flatMap((recordId) => {
@@ -335,24 +343,28 @@ export async function evaluateRecall(
   const failedCases = results.filter((result) => result.status === "fail");
   const suggestedActions = failedCases.flatMap((result): RecallEvalSuggestedAction[] => [
     ...(result.missing_record_ids.length
-      ? [{
-        action_id: `revise-golden-case:${result.case_id}`,
-        recommended_action: "revise_golden_case_or_memory" as const,
-        tool: "recall" as const,
-        command: commandForRecall(result.recall),
-        case_id: result.case_id,
-        missing_record_ids: result.missing_record_ids
-      }]
+      ? [
+          {
+            action_id: `revise-golden-case:${result.case_id}`,
+            recommended_action: "revise_golden_case_or_memory" as const,
+            tool: "recall" as const,
+            command: commandForRecall(result.recall),
+            case_id: result.case_id,
+            missing_record_ids: result.missing_record_ids
+          }
+        ]
       : []),
     ...(result.hidden_record_ids.length
-      ? [{
-        action_id: `inspect-hidden-records:${result.case_id}`,
-        recommended_action: "inspect_hidden_expected_records" as const,
-        tool: "recall" as const,
-        command: commandForRecall(recallInputForHiddenRecords(Object.values(result.hidden_records_by_id))),
-        case_id: result.case_id,
-        hidden_record_ids: result.hidden_record_ids
-      }]
+      ? [
+          {
+            action_id: `inspect-hidden-records:${result.case_id}`,
+            recommended_action: "inspect_hidden_expected_records" as const,
+            tool: "recall" as const,
+            command: commandForRecall(recallInputForHiddenRecords(Object.values(result.hidden_records_by_id))),
+            case_id: result.case_id,
+            hidden_record_ids: result.hidden_record_ids
+          }
+        ]
       : [])
   ]);
 

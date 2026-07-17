@@ -26,11 +26,19 @@ const incoming = { project_id: "moryn", host: "codex", session_id: "current", de
 
 describe("finalization assurance selection", () => {
   it("selects the latest prior session with durable status or checkpoint evidence", () => {
-    const result = selectPriorSessionForFinalization([
-      record({ id: "old", type: "status", updated_at: "2026-07-13T00:01:00.000Z", source: { client: "codex", session_id: "old", device_id: "device-a" } }),
-      record({ id: "checkpoint", type: "checkpoint", updated_at: "2026-07-13T00:05:00.000Z" }),
-      record({ id: "status", type: "status", updated_at: "2026-07-13T00:06:00.000Z" })
-    ], incoming);
+    const result = selectPriorSessionForFinalization(
+      [
+        record({
+          id: "old",
+          type: "status",
+          updated_at: "2026-07-13T00:01:00.000Z",
+          source: { client: "codex", session_id: "old", device_id: "device-a" }
+        }),
+        record({ id: "checkpoint", type: "checkpoint", updated_at: "2026-07-13T00:05:00.000Z" }),
+        record({ id: "status", type: "status", updated_at: "2026-07-13T00:06:00.000Z" })
+      ],
+      incoming
+    );
 
     expect(result).toEqual({
       status: "eligible",
@@ -42,22 +50,48 @@ describe("finalization assurance selection", () => {
   });
 
   it("excludes the incoming session, other host/device/project, and noise-only records", () => {
-    const result = selectPriorSessionForFinalization([
-      record({ id: "current", type: "checkpoint", updated_at: "2026-07-13T00:09:00.000Z", source: { client: "codex", session_id: "current", device_id: "device-a" } }),
-      record({ id: "claude", type: "status", updated_at: "2026-07-13T00:08:00.000Z", source: { client: "claude", session_id: "claude-old", device_id: "device-a" } }),
-      record({ id: "other-device", type: "status", updated_at: "2026-07-13T00:07:00.000Z", source: { client: "codex", session_id: "device-old", device_id: "device-b" } }),
-      record({ id: "other-project", type: "status", project_id: "other", updated_at: "2026-07-13T00:06:00.000Z" }),
-      record({ id: "receipt", kind: "agent_note", type: "activation_receipt", updated_at: "2026-07-13T00:05:00.000Z" })
-    ], incoming);
+    const result = selectPriorSessionForFinalization(
+      [
+        record({
+          id: "current",
+          type: "checkpoint",
+          updated_at: "2026-07-13T00:09:00.000Z",
+          source: { client: "codex", session_id: "current", device_id: "device-a" }
+        }),
+        record({
+          id: "claude",
+          type: "status",
+          updated_at: "2026-07-13T00:08:00.000Z",
+          source: { client: "claude", session_id: "claude-old", device_id: "device-a" }
+        }),
+        record({
+          id: "other-device",
+          type: "status",
+          updated_at: "2026-07-13T00:07:00.000Z",
+          source: { client: "codex", session_id: "device-old", device_id: "device-b" }
+        }),
+        record({ id: "other-project", type: "status", project_id: "other", updated_at: "2026-07-13T00:06:00.000Z" }),
+        record({
+          id: "receipt",
+          kind: "agent_note",
+          type: "activation_receipt",
+          updated_at: "2026-07-13T00:05:00.000Z"
+        })
+      ],
+      incoming
+    );
 
     expect(result).toEqual({ status: "nothing_to_finalize" });
   });
 
   it("reports a normally finished prior session instead of recovering it", () => {
-    const result = selectPriorSessionForFinalization([
-      record({ id: "status", type: "status", updated_at: "2026-07-13T00:05:00.000Z" }),
-      record({ id: "summary", type: "summary", updated_at: "2026-07-13T00:06:00.000Z" })
-    ], incoming);
+    const result = selectPriorSessionForFinalization(
+      [
+        record({ id: "status", type: "status", updated_at: "2026-07-13T00:05:00.000Z" }),
+        record({ id: "summary", type: "summary", updated_at: "2026-07-13T00:06:00.000Z" })
+      ],
+      incoming
+    );
 
     expect(result).toEqual({
       status: "already_finalized",
@@ -80,11 +114,25 @@ describe("finalization assurance selection", () => {
   });
 
   it("treats a cross-host synthesized handoff covering the checkpoint as finalized", () => {
-    const result = selectPriorSessionForFinalization([
-      record({ id: "checkpoint", type: "checkpoint", updated_at: "2026-07-13T00:05:00.000Z" }),
-      record({ id: "claude-summary", type: "summary", updated_at: "2026-07-13T00:06:00.000Z", source: { client: "claude", session_id: "handoff", device_id: "device-b" }, content: { text: "Cross-host handoff", synthesis_source_record_ids: ["checkpoint"] } })
-    ], incoming);
+    const result = selectPriorSessionForFinalization(
+      [
+        record({ id: "checkpoint", type: "checkpoint", updated_at: "2026-07-13T00:05:00.000Z" }),
+        record({
+          id: "claude-summary",
+          type: "summary",
+          updated_at: "2026-07-13T00:06:00.000Z",
+          source: { client: "claude", session_id: "handoff", device_id: "device-b" },
+          content: { text: "Cross-host handoff", synthesis_source_record_ids: ["checkpoint"] }
+        })
+      ],
+      incoming
+    );
 
-    expect(result).toEqual({ status: "already_finalized", prior_session: { host: "codex", session_id: "prior", device_id: "device-a" }, final_record_id: "claude-summary", evidence_record_ids: ["checkpoint"] });
+    expect(result).toEqual({
+      status: "already_finalized",
+      prior_session: { host: "codex", session_id: "prior", device_id: "device-a" },
+      final_record_id: "claude-summary",
+      evidence_record_ids: ["checkpoint"]
+    });
   });
 });

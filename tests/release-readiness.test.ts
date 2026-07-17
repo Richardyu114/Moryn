@@ -4,16 +4,36 @@ import { evaluateReleaseReadiness } from "../scripts/release-readiness.js";
 const packageJson = {
   name: "@richardyu114/moryn",
   version: "0.2.0",
-  files: ["dist", "README.md", "CHANGELOG.md", "scripts/learning-inbox-smoke.js", "scripts/finalization-assurance-smoke.js", "scripts/official-host-handoff-smoke.js"]
+  files: [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "scripts/learning-inbox-smoke.js",
+    "scripts/finalization-assurance-smoke.js",
+    "scripts/official-host-handoff-smoke.js"
+  ]
 };
 const readme = "> Published package: v0.2.0. The current development branch is building v0.3.";
 const changelog = "# Changelog\n\n## Unreleased (v0.3 development)\n\n- Autopilot\n\n## 0.2.0\n";
-const releaseCheck = 'learning_inbox_smoke finalization_assurance_smoke official_host_handoff_smoke';
-const packedFiles = ["package.json", "README.md", "CHANGELOG.md", "scripts/learning-inbox-smoke.js", "scripts/finalization-assurance-smoke.js", "scripts/official-host-handoff-smoke.js"];
+const releaseCheck = "learning_inbox_smoke finalization_assurance_smoke official_host_handoff_smoke";
+const packedFiles = [
+  "package.json",
+  "README.md",
+  "CHANGELOG.md",
+  "scripts/learning-inbox-smoke.js",
+  "scripts/finalization-assurance-smoke.js",
+  "scripts/official-host-handoff-smoke.js"
+];
 
 describe("v0.3 release readiness", () => {
   it("passes preparation while keeping every release mutation unauthorized", () => {
-    const result = evaluateReleaseReadiness({ package_json: packageJson, readme, changelog, release_check_source: releaseCheck, packed_files: packedFiles });
+    const result = evaluateReleaseReadiness({
+      package_json: packageJson,
+      readme,
+      changelog,
+      release_check_source: releaseCheck,
+      packed_files: packedFiles
+    });
 
     expect(result).toMatchObject({
       version: 1,
@@ -51,7 +71,10 @@ describe("v0.3 release readiness", () => {
       published_version_matches: { status: "failed" },
       changelog_current_version_present: { status: "failed" },
       unreleased_v03_present: { status: "failed" },
-      required_smokes_present: { status: "failed", missing: expect.arrayContaining(["learning_inbox_smoke", "finalization_assurance_smoke"]) },
+      required_smokes_present: {
+        status: "failed",
+        missing: expect.arrayContaining(["learning_inbox_smoke", "finalization_assurance_smoke"])
+      },
       private_paths_absent: { status: "failed", offending: ["docs/releases/v0.3-roadmap.md"] }
     });
   });

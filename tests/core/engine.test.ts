@@ -93,7 +93,14 @@ function expectNextActionInterfaces(action: {
   command: string;
   arguments: Record<string, unknown>;
   interfaces?: {
-    cli?: { command?: string; command_line?: string; argv?: string[]; executable?: string; args?: string[]; exec_file?: { executable?: string; args?: string[] } };
+    cli?: {
+      command?: string;
+      command_line?: string;
+      argv?: string[];
+      executable?: string;
+      args?: string[];
+      exec_file?: { executable?: string; args?: string[] };
+    };
     mcp?: { tool?: string; arguments?: Record<string, unknown> };
   };
 }) {
@@ -138,21 +145,23 @@ function expectNextActionWorkflow(action: {
 }) {
   expect(action.required_when).toEqual(expect.any(String));
   expect(action.required_when).not.toHaveLength(0);
-  expect(action.workflow).toEqual(withPhasesByName({
-    version: 1,
-    start: "next_action",
-    continue_from: ["error.next_action", "warning.next_action"],
-    phases: [
-      {
-        phase: action.recommended_action,
-        order: 1,
-        action_source: "next_action",
-        tool: action.tool,
-        required_when: action.required_when,
-        required_fields: action.required_fields
-      }
-    ]
-  }));
+  expect(action.workflow).toEqual(
+    withPhasesByName({
+      version: 1,
+      start: "next_action",
+      continue_from: ["error.next_action", "warning.next_action"],
+      phases: [
+        {
+          phase: action.recommended_action,
+          order: 1,
+          action_source: "next_action",
+          tool: action.tool,
+          required_when: action.required_when,
+          required_fields: action.required_fields
+        }
+      ]
+    })
+  );
 }
 
 function expectCandidatePromoteWorkflow(action: {
@@ -172,22 +181,24 @@ function expectCandidatePromoteWorkflow(action: {
     }>;
   };
 }) {
-  expect(action.workflow).toEqual(withPhasesByName({
-    version: 1,
-    start: "next_action",
-    continue_from: ["error.next_action", "warning.next_action", "write.record.id"],
-    phases: [
-      {
-        phase: "ask_user_then_promote_candidate",
-        order: 1,
-        action_source: "write.record.id",
-        tool: "promote",
-        required_when: action.required_when,
-        required_fields: ["record_id"],
-        replace_arguments: { record_id: "write.record.id" }
-      }
-    ]
-  }));
+  expect(action.workflow).toEqual(
+    withPhasesByName({
+      version: 1,
+      start: "next_action",
+      continue_from: ["error.next_action", "warning.next_action", "write.record.id"],
+      phases: [
+        {
+          phase: "ask_user_then_promote_candidate",
+          order: 1,
+          action_source: "write.record.id",
+          tool: "promote",
+          required_when: action.required_when,
+          required_fields: ["record_id"],
+          replace_arguments: { record_id: "write.record.id" }
+        }
+      ]
+    })
+  );
 }
 
 function expectActionSafety(action: {
@@ -219,8 +230,47 @@ function expectActionExecution(action: {
     next_step?: string;
     blocked_by?: string[];
     missing_required_fields?: string[];
-    required_inputs?: Array<{ field?: string; argument_path?: string; argument_paths?: string[]; selection_sources?: Record<string, string>; mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>; cli_targets?: Array<{ flag?: string; flags?: string[]; positional?: string; type?: string; required?: boolean; repeatable?: boolean; preferred?: boolean }> }>;
-    required_inputs_by_field?: Record<string, { field?: string; argument_path?: string; argument_paths?: string[]; selection_sources?: Record<string, string>; mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>; cli_targets?: Array<{ flag?: string; flags?: string[]; positional?: string; type?: string; required?: boolean; repeatable?: boolean; preferred?: boolean }> }>;
+    required_inputs?: Array<{
+      field?: string;
+      argument_path?: string;
+      argument_paths?: string[];
+      selection_sources?: Record<string, string>;
+      mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>;
+      cli_targets?: Array<{
+        flag?: string;
+        flags?: string[];
+        positional?: string;
+        type?: string;
+        required?: boolean;
+        repeatable?: boolean;
+        preferred?: boolean;
+      }>;
+    }>;
+    required_inputs_by_field?: Record<
+      string,
+      {
+        field?: string;
+        argument_path?: string;
+        argument_paths?: string[];
+        selection_sources?: Record<string, string>;
+        mcp_targets?: Array<{
+          argument?: string;
+          path?: string;
+          type?: string;
+          required?: boolean;
+          preferred?: boolean;
+        }>;
+        cli_targets?: Array<{
+          flag?: string;
+          flags?: string[];
+          positional?: string;
+          type?: string;
+          required?: boolean;
+          repeatable?: boolean;
+          preferred?: boolean;
+        }>;
+      }
+    >;
     requires_user_confirmation?: boolean;
     reason?: string;
   };
@@ -228,24 +278,35 @@ function expectActionExecution(action: {
     requires_user_confirmation?: boolean;
   };
 }) {
-  const expectedArgumentPaths = action.required_fields.map((field) => action.required_fields_by_name[field]?.argument_path ?? field);
+  const expectedArgumentPaths = action.required_fields.map(
+    (field) => action.required_fields_by_name[field]?.argument_path ?? field
+  );
   const expectedSplitArgumentPaths = expectedArgumentPaths.map((argumentPath) =>
-    argumentPath.split("|").map((path) => path.trim()).filter(Boolean)
+    argumentPath
+      .split("|")
+      .map((path) => path.trim())
+      .filter(Boolean)
   );
   expect(action.execution?.missing_required_fields).toEqual(action.required_fields);
   expect(action.execution?.required_inputs?.map((input) => input.field)).toEqual(action.required_fields);
   expect(action.execution?.required_inputs?.map((input) => input.argument_path)).toEqual(expectedArgumentPaths);
   expect(action.execution?.required_inputs?.map((input) => input.argument_paths)).toEqual(expectedSplitArgumentPaths);
   expect(Object.keys(action.execution?.required_inputs_by_field ?? {})).toEqual(action.required_fields);
-  expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.field)).toEqual(action.required_fields);
-  expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.argument_path)).toEqual(expectedArgumentPaths);
-  expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.argument_paths)).toEqual(expectedSplitArgumentPaths);
-  expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.mcp_targets)).toEqual(
-    action.execution?.required_inputs?.map((input) => input.mcp_targets)
+  expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.field)).toEqual(
+    action.required_fields
   );
-  expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.cli_targets)).toEqual(
-    action.execution?.required_inputs?.map((input) => input.cli_targets)
-  );
+  expect(
+    action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.argument_path)
+  ).toEqual(expectedArgumentPaths);
+  expect(
+    action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.argument_paths)
+  ).toEqual(expectedSplitArgumentPaths);
+  expect(
+    action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.mcp_targets)
+  ).toEqual(action.execution?.required_inputs?.map((input) => input.mcp_targets));
+  expect(
+    action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.cli_targets)
+  ).toEqual(action.execution?.required_inputs?.map((input) => input.cli_targets));
   const expectedRequiredInputSelectionSources = Object.fromEntries(
     Object.entries(action.selection_sources ?? {}).filter(([key]) => key.includes("required_input"))
   );
@@ -253,19 +314,16 @@ function expectActionExecution(action: {
     expect(action.execution?.required_inputs?.map((input) => input.selection_sources)).toEqual(
       action.required_fields.map(() => expectedRequiredInputSelectionSources)
     );
-    expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.selection_sources)).toEqual(
-      action.required_fields.map(() => expectedRequiredInputSelectionSources)
-    );
+    expect(
+      action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.selection_sources)
+    ).toEqual(action.required_fields.map(() => expectedRequiredInputSelectionSources));
   }
   expect(action.execution?.requires_user_confirmation).toBe(Boolean(action.safety?.requires_user_confirmation));
   if (action.required_fields.length > 0) {
     expect(action.execution).toMatchObject({
       ready_to_run: false,
       next_step: "collect_required_fields",
-      blocked_by: [
-        "required_fields",
-        ...(action.safety?.requires_user_confirmation ? ["user_confirmation"] : [])
-      ]
+      blocked_by: ["required_fields", ...(action.safety?.requires_user_confirmation ? ["user_confirmation"] : [])]
     });
   } else if (action.safety?.requires_user_confirmation) {
     expect(action.execution).toMatchObject({
@@ -282,44 +340,48 @@ function expectActionExecution(action: {
   }
 }
 
-function expectRefreshChangeRecallAction(action: {
-  action_source?: string;
-  recommended_action: string;
-  tool: string;
-  command: string;
-  arguments: Record<string, unknown>;
-  arguments_by_name?: Record<string, unknown>;
-  argument_sources?: Record<string, string>;
-  selection_sources?: Record<string, string>;
-  safe_to_run: boolean;
-  required_when: string;
-  required_fields: string[];
-  interfaces?: {
-    cli?: { command?: string };
-    mcp?: { tool?: string; arguments?: Record<string, unknown> };
-  };
-  safety?: {
-    safe_to_auto_run?: boolean;
-    requires_user_confirmation?: boolean;
-    requires_authored_input?: boolean;
-    writes_local_config?: boolean;
-    reasons?: string[];
-  };
-  execution?: Record<string, unknown>;
-  workflow?: {
-    version?: number;
-    start?: string;
-    continue_from?: string[];
-    phases?: Array<{
-      phase?: string;
-      order?: number;
-      action_source?: string;
-      tool?: string;
-      required_when?: string;
-      required_fields?: string[];
-    }>;
-  };
-}, recordId: string, projectId?: string) {
+function expectRefreshChangeRecallAction(
+  action: {
+    action_source?: string;
+    recommended_action: string;
+    tool: string;
+    command: string;
+    arguments: Record<string, unknown>;
+    arguments_by_name?: Record<string, unknown>;
+    argument_sources?: Record<string, string>;
+    selection_sources?: Record<string, string>;
+    safe_to_run: boolean;
+    required_when: string;
+    required_fields: string[];
+    interfaces?: {
+      cli?: { command?: string };
+      mcp?: { tool?: string; arguments?: Record<string, unknown> };
+    };
+    safety?: {
+      safe_to_auto_run?: boolean;
+      requires_user_confirmation?: boolean;
+      requires_authored_input?: boolean;
+      writes_local_config?: boolean;
+      reasons?: string[];
+    };
+    execution?: Record<string, unknown>;
+    workflow?: {
+      version?: number;
+      start?: string;
+      continue_from?: string[];
+      phases?: Array<{
+        phase?: string;
+        order?: number;
+        action_source?: string;
+        tool?: string;
+        required_when?: string;
+        required_fields?: string[];
+      }>;
+    };
+  },
+  recordId: string,
+  projectId?: string
+) {
   expect(action).toMatchObject({
     recommended_action: "call_recall_with_record_id",
     action_source: `refresh.changes_by_record_id.${recordId}.next_action`,
@@ -360,8 +422,10 @@ function expectRefreshChangeRecallAction(action: {
       ordered_required_field: "refresh.changes[].next_action.required_fields_by_name.<field>",
       required_input: "refresh.changes_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
       ordered_required_input: "refresh.changes[].next_action.execution.required_inputs_by_field.<field>",
-      required_input_argument_path: "refresh.changes_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
-      ordered_required_input_argument_path: "refresh.changes[].next_action.execution.required_inputs_by_argument_path.<argument_path>",
+      required_input_argument_path:
+        "refresh.changes_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
+      ordered_required_input_argument_path:
+        "refresh.changes[].next_action.execution.required_inputs_by_argument_path.<argument_path>",
       argument_source: "refresh.changes_by_record_id.<record_id>.next_action.argument_sources.<field>",
       ordered_argument_source: "refresh.changes[].next_action.argument_sources.<field>"
     }
@@ -384,21 +448,23 @@ function expectRefreshChangeRecallAction(action: {
   expectActionSafety(action);
   expectActionExecution(action);
   expect(action.safety?.reasons).toEqual(["safe_read_or_status_check"]);
-  expect(action.workflow).toEqual(withPhasesByName({
-    version: 1,
-    start: "next_action",
-    continue_from: ["refresh.changes_by_record_id.<record_id>.next_action", "refresh.changes[].next_action"],
-    phases: [
-      {
-        phase: action.recommended_action,
-        order: 1,
-        action_source: "refresh.changes_by_record_id.<record_id>.next_action",
-        tool: action.tool,
-        required_when: action.required_when,
-        required_fields: action.required_fields
-      }
-    ]
-  }));
+  expect(action.workflow).toEqual(
+    withPhasesByName({
+      version: 1,
+      start: "next_action",
+      continue_from: ["refresh.changes_by_record_id.<record_id>.next_action", "refresh.changes[].next_action"],
+      phases: [
+        {
+          phase: action.recommended_action,
+          order: 1,
+          action_source: "refresh.changes_by_record_id.<record_id>.next_action",
+          tool: action.tool,
+          required_when: action.required_when,
+          required_fields: action.required_fields
+        }
+      ]
+    })
+  );
 }
 
 describe("core engine", () => {
@@ -421,25 +487,39 @@ describe("core engine", () => {
         source: { client: "codex" }
       } as const;
       const candidate = await engine.write({ ...base, state: "candidate", priority: "high" });
-      const canonical = await engine.write({ ...base, state: "canonical", priority: "low", confirmed: true, source: { client: "user" } });
+      const canonical = await engine.write({
+        ...base,
+        state: "canonical",
+        priority: "low",
+        confirmed: true,
+        source: { client: "user" }
+      });
       const raw = await engine.write({ ...base, state: "raw", priority: "high" });
 
       const first = await engine.consolidateExactDuplicates({ project_id: "moryn" });
       const second = await engine.consolidateExactDuplicates({ project_id: "moryn" });
       const events = await readEvents(storePath);
-      const duplicateLinks = events.filter((event) => event.op === "link_records" && event.link_type === "duplicate_of");
+      const duplicateLinks = events.filter(
+        (event) => event.op === "link_records" && event.link_type === "duplicate_of"
+      );
 
       expect(first).toMatchObject({
         groups_found: 1,
         links_created: 2,
-        groups: [{ target_record_id: canonical.record.id, duplicate_record_ids: [candidate.record.id, raw.record.id].sort() }]
+        groups: [
+          { target_record_id: canonical.record.id, duplicate_record_ids: [candidate.record.id, raw.record.id].sort() }
+        ]
       });
       expect(second).toMatchObject({ groups_found: 1, links_created: 0, links_existing: 2 });
       expect(duplicateLinks).toHaveLength(2);
-      expect(duplicateLinks.map((event) => event.op === "link_records" ? [event.record_id, event.linked_record_id] : [])).toEqual([
-        [candidate.record.id, canonical.record.id],
-        [raw.record.id, canonical.record.id]
-      ].sort(([left], [right]) => left.localeCompare(right)));
+      expect(
+        duplicateLinks.map((event) => (event.op === "link_records" ? [event.record_id, event.linked_record_id] : []))
+      ).toEqual(
+        [
+          [candidate.record.id, canonical.record.id],
+          [raw.record.id, canonical.record.id]
+        ].sort(([left], [right]) => left.localeCompare(right))
+      );
     });
   });
 
@@ -459,8 +539,14 @@ describe("core engine", () => {
       await engine.write(base);
       await engine.write(base);
 
-      expect(await engine.consolidateExactDuplicates({ project_id: "moryn" })).toMatchObject({ groups_found: 0, links_created: 0 });
-      expect(await engine.consolidateExactDuplicates({ project_id: "moryn", include_private: true })).toMatchObject({ groups_found: 1, links_created: 1 });
+      expect(await engine.consolidateExactDuplicates({ project_id: "moryn" })).toMatchObject({
+        groups_found: 0,
+        links_created: 0
+      });
+      expect(await engine.consolidateExactDuplicates({ project_id: "moryn", include_private: true })).toMatchObject({
+        groups_found: 1,
+        links_created: 1
+      });
     });
   });
 
@@ -486,7 +572,9 @@ describe("core engine", () => {
         codex.consolidateExactDuplicates({ project_id: "moryn", source: { client: "codex" } }),
         claude.consolidateExactDuplicates({ project_id: "moryn", source: { client: "claude-code" } })
       ]);
-      const duplicateLinks = (await readEvents(storePath)).filter((event) => event.op === "link_records" && event.link_type === "duplicate_of");
+      const duplicateLinks = (await readEvents(storePath)).filter(
+        (event) => event.op === "link_records" && event.link_type === "duplicate_of"
+      );
 
       expect(results.reduce((sum, result) => sum + result.links_created, 0)).toBe(1);
       expect(duplicateLinks).toHaveLength(1);
@@ -498,12 +586,43 @@ describe("core engine", () => {
       const engine = createEngine({ storePath });
       const source = { client: "codex", session_id: "boot-session", device_id: "device-test" };
       const first = await engine.checkpoint({
-        project_id: "moryn", source, occurred_at: "2026-07-11T00:00:00.000Z",
-        delta: { session_id: "boot-session", checkpoint_id: "one", current_task: "Recover boot", progress: ["public"], decisions: [], changed_facts: [], blockers: [], next_steps: ["continue"], files: [], candidate_memories: [], candidate_skills: [], learnings: [] }
+        project_id: "moryn",
+        source,
+        occurred_at: "2026-07-11T00:00:00.000Z",
+        delta: {
+          session_id: "boot-session",
+          checkpoint_id: "one",
+          current_task: "Recover boot",
+          progress: ["public"],
+          decisions: [],
+          changed_facts: [],
+          blockers: [],
+          next_steps: ["continue"],
+          files: [],
+          candidate_memories: [],
+          candidate_skills: [],
+          learnings: []
+        }
       });
       await engine.checkpoint({
-        project_id: "moryn", source, occurred_at: "2026-07-11T00:01:00.000Z", tags: ["private"],
-        delta: { session_id: "boot-session", checkpoint_id: "two", current_task: "Secret task", progress: ["secret"], decisions: [], changed_facts: [], blockers: [], next_steps: [], files: [], candidate_memories: [], candidate_skills: [], learnings: [] }
+        project_id: "moryn",
+        source,
+        occurred_at: "2026-07-11T00:01:00.000Z",
+        tags: ["private"],
+        delta: {
+          session_id: "boot-session",
+          checkpoint_id: "two",
+          current_task: "Secret task",
+          progress: ["secret"],
+          decisions: [],
+          changed_facts: [],
+          blockers: [],
+          next_steps: [],
+          files: [],
+          candidate_memories: [],
+          candidate_skills: [],
+          learnings: []
+        }
       });
 
       const withoutSession = await engine.boot({ project_id: "moryn" });
@@ -511,9 +630,21 @@ describe("core engine", () => {
       expect(withoutSession).not.toHaveProperty("checkpoint_recovery_pack");
       const boot = await engine.boot({ project_id: "moryn", agent_session_id: "boot-session" });
       expect(boot.active_checkpoint).toEqual(first.record);
-      expect(boot.checkpoint_recovery_pack).toMatchObject({ available: true, checkpoint_count: 1, source_record_ids: [first.record.id], progress: ["public"] });
-      expect(boot.selection_sources).toMatchObject({ active_checkpoint: "active_checkpoint", checkpoint_recovery_pack: "checkpoint_recovery_pack" });
-      const privateBoot = await engine.boot({ project_id: "moryn", agent_session_id: "boot-session", include_private: true });
+      expect(boot.checkpoint_recovery_pack).toMatchObject({
+        available: true,
+        checkpoint_count: 1,
+        source_record_ids: [first.record.id],
+        progress: ["public"]
+      });
+      expect(boot.selection_sources).toMatchObject({
+        active_checkpoint: "active_checkpoint",
+        checkpoint_recovery_pack: "checkpoint_recovery_pack"
+      });
+      const privateBoot = await engine.boot({
+        project_id: "moryn",
+        agent_session_id: "boot-session",
+        include_private: true
+      });
       expect(privateBoot.active_checkpoint.content.checkpoint.checkpoint_id).toBe("two");
       expect(privateBoot.checkpoint_recovery_pack.progress).toEqual(["public", "secret"]);
     });
@@ -553,7 +684,14 @@ describe("core engine", () => {
       });
 
       const beforeEvents = await readEvents(storePath);
-      await writeSyncCompensationReceipt(storePath, { occurred_at: "2026-06-21T00:03:00.000Z", project_id: "moryn", decision: "pushed", reason: "pending_continuity_events", pending_paths: ["events/checkpoint.json"], continuity_record_ids: [capture.record.id] });
+      await writeSyncCompensationReceipt(storePath, {
+        occurred_at: "2026-06-21T00:03:00.000Z",
+        project_id: "moryn",
+        decision: "pushed",
+        reason: "pending_continuity_events",
+        pending_paths: ["events/checkpoint.json"],
+        continuity_record_ids: [capture.record.id]
+      });
       const report = await engine.healthCheck({ project_id: "moryn", limit: 20 });
       const afterEvents = await readEvents(storePath);
 
@@ -570,9 +708,25 @@ describe("core engine", () => {
           warning_checks: 1
         }
       });
-      expect(report.record_read_model).toMatchObject({ status: "fresh", source: "read_model", repaired: false, record_count: 3, event_count: 3 });
-      expect(report.retrieval_index).toMatchObject({ status: "fresh", source: "retrieval_index", repaired: false, total_active_records: 3, candidate_count: 3 });
-      expect(report.sync_compensation).toMatchObject({ decision: "pushed", reason: "pending_continuity_events", continuity_record_ids: [capture.record.id] });
+      expect(report.record_read_model).toMatchObject({
+        status: "fresh",
+        source: "read_model",
+        repaired: false,
+        record_count: 3,
+        event_count: 3
+      });
+      expect(report.retrieval_index).toMatchObject({
+        status: "fresh",
+        source: "retrieval_index",
+        repaired: false,
+        total_active_records: 3,
+        candidate_count: 3
+      });
+      expect(report.sync_compensation).toMatchObject({
+        decision: "pushed",
+        reason: "pending_continuity_events",
+        continuity_record_ids: [capture.record.id]
+      });
       expect((await engine.healthCheck({ project_id: "other", limit: 20 })).sync_compensation).toBeUndefined();
       expect(report.selection_sources).toEqual(HEALTH_CHECK_SELECTION_SOURCES);
       expect(report.stats).toMatchObject({
@@ -628,8 +782,10 @@ describe("core engine", () => {
         sync_remote: "git@github.com:user/moryn-store.git",
         dashboard_command: "moryn dashboard --serve --project-id moryn",
         install_command: "moryn install --host codex --sync-remote git@github.com:user/moryn-store.git",
-        context_pack_command: "moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task '<current task>' --agent codex",
-        capture_command: "moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary '<summary>'"
+        context_pack_command:
+          "moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task '<current task>' --agent codex",
+        capture_command:
+          "moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary '<summary>'"
       });
       expect(report.checks_by_id.dashboard_access).toMatchObject({
         status: "info",
@@ -661,12 +817,14 @@ describe("core engine", () => {
       });
       expect(report.suggested_actions_by_id.run_context_pack).toMatchObject({
         tool: "context_pack",
-        command: "moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task '<current task>' --agent codex",
+        command:
+          "moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task '<current task>' --agent codex",
         safe_to_run: true
       });
       expect(report.suggested_actions_by_id.capture_session).toMatchObject({
         tool: "capture_session",
-        command: "moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary '<summary>'",
+        command:
+          "moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary '<summary>'",
         safe_to_run: false,
         required_fields: ["summary"]
       });
@@ -815,7 +973,9 @@ describe("core engine", () => {
       });
       expect(report.records_by_id[firstCapture.record.id]?.id).toBe(firstCapture.record.id);
       expect(report.records_by_id[privateNote.record.id]).toBeUndefined();
-      const failureEvent = beforeEvents.find((event) => event.op === "upsert_record" && event.record.id === failureNote.record.id);
+      const failureEvent = beforeEvents.find(
+        (event) => event.op === "upsert_record" && event.record.id === failureNote.record.id
+      );
       expect(report.events_by_id).toHaveProperty(failureEvent?.event_id as string);
       expect(JSON.stringify(report)).not.toContain("Private dogfood failure");
     });
@@ -1650,10 +1810,9 @@ describe("core engine", () => {
         lifecycle_state: "archive_candidate",
         recommended_action: "archive_after_review"
       });
-      expect(report.assessments_by_record_id[staleCandidate.record.id]?.reasons).toEqual(expect.arrayContaining([
-        "older_than_archive_after_days",
-        "low_confidence_candidate"
-      ]));
+      expect(report.assessments_by_record_id[staleCandidate.record.id]?.reasons).toEqual(
+        expect.arrayContaining(["older_than_archive_after_days", "low_confidence_candidate"])
+      );
       expect(report.assessments_by_record_id[staleCanonical.record.id]).toMatchObject({
         record_id: staleCanonical.record.id,
         lifecycle_state: "stale",
@@ -1703,7 +1862,11 @@ describe("core engine", () => {
       expect(report.records_by_id[privateCandidate.record.id]).toBeUndefined();
       expect(JSON.stringify(report)).not.toContain("Private lifecycle finding");
 
-      const privateReport = await engine.memoryLifecycle({ project_id: "moryn", include_private: true, now: "2026-06-20T00:00:00.000Z" });
+      const privateReport = await engine.memoryLifecycle({
+        project_id: "moryn",
+        include_private: true,
+        now: "2026-06-20T00:00:00.000Z"
+      });
       expect(privateReport.stats.private_retained_records).toBe(1);
       expect(privateReport.assessments_by_record_id[privateCandidate.record.id]).toMatchObject({
         record_id: privateCandidate.record.id,
@@ -1716,7 +1879,11 @@ describe("core engine", () => {
   it("writes, recalls, revises, and promotes records", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const written = await engine.write({
         kind: "memory",
@@ -1730,8 +1897,16 @@ describe("core engine", () => {
       });
 
       expect(written.selection_sources).toEqual(WRITE_SELECTION_SOURCES);
-      const revised = await engine.revise({ record_id: written.record.id, patch: { "content.text": "Use private GitHub sync." }, reason: "Clarify privacy" });
-      const promoted = await engine.promote({ record_id: written.record.id, target_state: "canonical", reason: "User confirmed" });
+      const revised = await engine.revise({
+        record_id: written.record.id,
+        patch: { "content.text": "Use private GitHub sync." },
+        reason: "Clarify privacy"
+      });
+      const promoted = await engine.promote({
+        record_id: written.record.id,
+        target_state: "canonical",
+        reason: "User confirmed"
+      });
       const linked = await engine.write({
         kind: "memory",
         type: "decision",
@@ -1741,7 +1916,11 @@ describe("core engine", () => {
         state: "candidate",
         source: { client: "test" }
       });
-      const link = await engine.link({ record_id: written.record.id, linked_record_id: linked.record.id, link_type: "related" });
+      const link = await engine.link({
+        record_id: written.record.id,
+        linked_record_id: linked.record.id,
+        link_type: "related"
+      });
       const archived = await engine.archive({ record_id: linked.record.id, reason: "Covered by primary decision" });
       const quarantined = await engine.quarantine({ record_id: linked.record.id, reason: "Needs review" });
 
@@ -1759,14 +1938,31 @@ describe("core engine", () => {
 
   it("routes current-state recall reads through the verified record model", async () => {
     await withInitializedTempStore(async (storePath) => {
-      const seed = createEngine({ storePath, now: () => "2026-07-12T00:00:00.000Z", id: (prefix) => `${prefix}_verified` });
-      const written = await seed.write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Verified current state." }, state: "canonical", source: { client: "test" } });
+      const seed = createEngine({
+        storePath,
+        now: () => "2026-07-12T00:00:00.000Z",
+        id: (prefix) => `${prefix}_verified`
+      });
+      const written = await seed.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Verified current state." },
+        state: "canonical",
+        source: { client: "test" }
+      });
       const calls: string[] = [];
       const engine = createEngine({
         storePath,
         readCurrentRecords: async () => {
           calls.push("read_model");
-          return { records: [written.record], source: "read_model", repaired: false, event_manifest: { count: 1, digest: "digest" } };
+          return {
+            records: [written.record],
+            source: "read_model",
+            repaired: false,
+            event_manifest: { count: 1, digest: "digest" }
+          };
         }
       });
 
@@ -1777,35 +1973,95 @@ describe("core engine", () => {
 
   it("uses bounded retrieval candidates for default project recall and boot", async () => {
     await withInitializedTempStore(async (storePath) => {
-      const alpha = { id: "rec-alpha", kind: "memory", type: "fact", scope: "project", project_id: "alpha", tags: [], content: { text: "Alpha bounded retrieval", format: "text" }, state: "canonical", confidence: 1, priority: "normal", visibility: "active", created_at: "2026-07-12T00:00:00.000Z", updated_at: "2026-07-12T00:00:00.000Z", source: { client: "test" } } as const;
+      const alpha = {
+        id: "rec-alpha",
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "alpha",
+        tags: [],
+        content: { text: "Alpha bounded retrieval", format: "text" },
+        state: "canonical",
+        confidence: 1,
+        priority: "normal",
+        visibility: "active",
+        created_at: "2026-07-12T00:00:00.000Z",
+        updated_at: "2026-07-12T00:00:00.000Z",
+        source: { client: "test" }
+      } as const;
       const calls: string[] = [];
       const engine = createEngine({
         storePath,
-        readCurrentRecords: async () => ({ records: [alpha], source: "read_model", repaired: false, event_manifest: { count: 1001, digest: "digest" } }),
+        readCurrentRecords: async () => ({
+          records: [alpha],
+          source: "read_model",
+          repaired: false,
+          event_manifest: { count: 1001, digest: "digest" }
+        }),
         readRetrievalCandidates: async (_storePath, input) => {
           calls.push(input.project_id);
-          return { records: [alpha], source: "retrieval_index", repaired: false, event_manifest: { count: 1001, digest: "digest" }, total_active_records: 1000, global_records: 0, project_buckets: 20, candidate_count: 1 };
+          return {
+            records: [alpha],
+            source: "retrieval_index",
+            repaired: false,
+            event_manifest: { count: 1001, digest: "digest" },
+            total_active_records: 1000,
+            global_records: 0,
+            project_buckets: 20,
+            candidate_count: 1
+          };
         }
       });
 
       const recall = await engine.recall({ project_id: "alpha", query: "bounded retrieval" });
       const boot = await engine.boot({ project_id: "alpha", current_task: "bounded retrieval" });
       expect(recall.results.map((result) => result.record.id)).toEqual(["rec-alpha"]);
-      expect(recall.retrieval).toMatchObject({ source: "retrieval_index", total_active_records: 1000, candidate_count: 1 });
+      expect(recall.retrieval).toMatchObject({
+        source: "retrieval_index",
+        total_active_records: 1000,
+        candidate_count: 1
+      });
       expect(boot.task_relevant.map((record) => record.id)).toEqual(["rec-alpha"]);
-      expect(boot.retrieval).toMatchObject({ source: "retrieval_index", total_active_records: 1000, candidate_count: 1 });
+      expect(boot.retrieval).toMatchObject({
+        source: "retrieval_index",
+        total_active_records: 1000,
+        candidate_count: 1
+      });
       expect(calls).toEqual(["alpha", "alpha"]);
     });
   });
 
   it("keeps explicit hidden-state recall on the complete record model", async () => {
     await withInitializedTempStore(async (storePath) => {
-      const archived = { id: "rec-archived", kind: "memory", type: "fact", scope: "project", project_id: "alpha", tags: [], content: { text: "Archived history", format: "text" }, state: "archived", confidence: 1, priority: "normal", visibility: "archived", created_at: "2026-07-12T00:00:00.000Z", updated_at: "2026-07-12T00:00:00.000Z", source: { client: "test" } } as const;
+      const archived = {
+        id: "rec-archived",
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "alpha",
+        tags: [],
+        content: { text: "Archived history", format: "text" },
+        state: "archived",
+        confidence: 1,
+        priority: "normal",
+        visibility: "archived",
+        created_at: "2026-07-12T00:00:00.000Z",
+        updated_at: "2026-07-12T00:00:00.000Z",
+        source: { client: "test" }
+      } as const;
       let retrievalCalls = 0;
       const engine = createEngine({
         storePath,
-        readCurrentRecords: async () => ({ records: [archived], source: "read_model", repaired: false, event_manifest: { count: 1, digest: "digest" } }),
-        readRetrievalCandidates: async () => { retrievalCalls += 1; throw new Error("unexpected retrieval index read"); }
+        readCurrentRecords: async () => ({
+          records: [archived],
+          source: "read_model",
+          repaired: false,
+          event_manifest: { count: 1, digest: "digest" }
+        }),
+        readRetrievalCandidates: async () => {
+          retrievalCalls += 1;
+          throw new Error("unexpected retrieval index read");
+        }
       });
 
       const recall = await engine.recall({ project_id: "alpha", record_ids: [archived.id], states: ["archived"] });
@@ -1817,16 +2073,49 @@ describe("core engine", () => {
   it("keeps real project recall candidates bounded when unrelated projects grow", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, id: (prefix) => `${prefix}_${++nextId}`, now: () => `2026-07-12T00:00:${String(nextId).padStart(2, "0")}.000Z` });
-      await engine.write({ kind: "memory", type: "rule", scope: "global", content: { text: "Global retrieval rule" }, state: "canonical", source: { client: "test" } });
-      await engine.write({ kind: "memory", type: "fact", scope: "project", project_id: "alpha", content: { text: "Alpha retrieval fact" }, state: "canonical", source: { client: "test" } });
+      const engine = createEngine({
+        storePath,
+        id: (prefix) => `${prefix}_${++nextId}`,
+        now: () => `2026-07-12T00:00:${String(nextId).padStart(2, "0")}.000Z`
+      });
+      await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "global",
+        content: { text: "Global retrieval rule" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "alpha",
+        content: { text: "Alpha retrieval fact" },
+        state: "canonical",
+        source: { client: "test" }
+      });
       for (let index = 0; index < 20; index += 1) {
-        await engine.write({ kind: "memory", type: "fact", scope: "project", project_id: `unrelated-${index}`, content: { text: `Unrelated fact ${index}` }, state: "canonical", source: { client: "test" } });
+        await engine.write({
+          kind: "memory",
+          type: "fact",
+          scope: "project",
+          project_id: `unrelated-${index}`,
+          content: { text: `Unrelated fact ${index}` },
+          state: "canonical",
+          source: { client: "test" }
+        });
       }
 
       const recall = await engine.recall({ project_id: "alpha", query: "Alpha retrieval" });
       expect(recall.results[0]?.record.content.text).toBe("Alpha retrieval fact");
-      expect(recall.retrieval).toMatchObject({ source: "retrieval_index", total_active_records: 22, global_records: 1, project_buckets: 21, candidate_count: 2 });
+      expect(recall.retrieval).toMatchObject({
+        source: "retrieval_index",
+        total_active_records: 22,
+        global_records: 1,
+        project_buckets: 21,
+        candidate_count: 2
+      });
     });
   });
 
@@ -1834,7 +2123,13 @@ describe("core engine", () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       const engine = createEngine({ storePath, id: (prefix) => `${prefix}_${++nextId}` });
-      const base = { kind: "memory", type: "decision", scope: "project", project_id: "moryn", source: { client: "codex" } } as const;
+      const base = {
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        source: { client: "codex" }
+      } as const;
       const source = await engine.write({ ...base, content: { text: "Use checkpoint before compact" } });
       const target = await engine.write({ ...base, content: { text: "Checkpoint long-running tasks" } });
 
@@ -1847,12 +2142,18 @@ describe("core engine", () => {
       });
       const recalled = await engine.recall({ record_ids: [source.record.id] });
 
-      expect(result).toMatchObject({ relationship: "supports", direction: "directed", reason: "The first decision supports the broader lifecycle rule" });
-      expect(recalled.results[0]?.record.links).toContainEqual(expect.objectContaining({
-        record_id: target.record.id,
-        link_type: "supports",
+      expect(result).toMatchObject({
+        relationship: "supports",
+        direction: "directed",
         reason: "The first decision supports the broader lifecycle rule"
-      }));
+      });
+      expect(recalled.results[0]?.record.links).toContainEqual(
+        expect.objectContaining({
+          record_id: target.record.id,
+          link_type: "supports",
+          reason: "The first decision supports the broader lifecycle rule"
+        })
+      );
     });
   });
 
@@ -1860,10 +2161,23 @@ describe("core engine", () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       const engine = createEngine({ storePath, id: (prefix) => `${prefix}_${++nextId}` });
-      const base = { kind: "memory", type: "decision", scope: "project", project_id: "moryn", state: "canonical", confirmed: true, source: { client: "user" } } as const;
+      const base = {
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      } as const;
       const old = await engine.write({ ...base, content: { text: "Use manual sync" } });
       const current = await engine.write({ ...base, content: { text: "Use autonomous sync" } });
-      await engine.logicalLink({ record_id: current.record.id, linked_record_id: old.record.id, relationship: "supersedes", reason: "Autopilot replaces manual sync" });
+      await engine.logicalLink({
+        record_id: current.record.id,
+        linked_record_id: old.record.id,
+        relationship: "supersedes",
+        reason: "Autopilot replaces manual sync"
+      });
 
       const defaultRecall = await engine.recall({ project_id: "moryn" });
       const directRecall = await engine.recall({ record_ids: [old.record.id] });
@@ -1896,7 +2210,10 @@ describe("core engine", () => {
       const gap = await engine.recall({ query: "deployment rollback policy", project_id: "moryn" });
       const match = await engine.recall({ query: "moryn append-only database", project_id: "moryn" });
 
-      expect(gap.outcome).toMatchObject({ status: "knowledge_gap", recommended_action: "explore_then_capture_learning" });
+      expect(gap.outcome).toMatchObject({
+        status: "knowledge_gap",
+        recommended_action: "explore_then_capture_learning"
+      });
       expect(gap.results).toEqual([]);
       expect(gap.next_actions.map((action) => action.id)).toEqual([
         "explore_external_sources",
@@ -1907,7 +2224,11 @@ describe("core engine", () => {
         "checkpoint.delta.learnings[]",
         "finish.learnings[]"
       ]);
-      expect(match.outcome).toMatchObject({ status: "trusted_match", trust: "trusted", recommended_action: "use_recalled_knowledge" });
+      expect(match.outcome).toMatchObject({
+        status: "trusted_match",
+        trust: "trusted",
+        recommended_action: "use_recalled_knowledge"
+      });
       expect(match.results).toHaveLength(1);
       expect(match.next_actions.map((action) => action.id)).toEqual([
         "use_recalled_knowledge",
@@ -1937,11 +2258,23 @@ describe("core engine", () => {
       } as const;
 
       const [first, second] = await Promise.all([
-        codex.ingestLearnings({ project_id: "moryn", learnings: [learning], occurred_at: "2026-07-11T00:00:00.000Z", source: { client: "codex", session_id: "codex-a", device_id: "device-a" } }),
-        claude.ingestLearnings({ project_id: "moryn", learnings: [{ ...learning, question: "What happens when an agent starts?" }], occurred_at: "2026-07-11T00:00:00.000Z", source: { client: "claude-code", session_id: "claude-a", device_id: "device-b" } })
+        codex.ingestLearnings({
+          project_id: "moryn",
+          learnings: [learning],
+          occurred_at: "2026-07-11T00:00:00.000Z",
+          source: { client: "codex", session_id: "codex-a", device_id: "device-a" }
+        }),
+        claude.ingestLearnings({
+          project_id: "moryn",
+          learnings: [{ ...learning, question: "What happens when an agent starts?" }],
+          occurred_at: "2026-07-11T00:00:00.000Z",
+          source: { client: "claude-code", session_id: "claude-a", device_id: "device-b" }
+        })
       ]);
       const events = await readEvents(storePath);
-      const learningEvents = events.filter((event) => event.op === "upsert_record" && event.record.tags.includes("learning"));
+      const learningEvents = events.filter(
+        (event) => event.op === "upsert_record" && event.record.tags.includes("learning")
+      );
 
       expect(first.dispositions[0]?.record_id).toBe(second.dispositions[0]?.record_id);
       expect([first.dispositions[0]?.created, second.dispositions[0]?.created].sort()).toEqual([false, true]);
@@ -1957,13 +2290,35 @@ describe("core engine", () => {
         project_id: "moryn",
         occurred_at: "2026-07-12T00:00:00.000Z",
         source: { client: "codex" },
-        learnings: [{ question: "When does Moryn pull project memory?", conclusion: "When an agent enters a project, Moryn automatically pulls the project memory.", evidence_type: "source_code", scope: "project", confidence: 0.95, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] }]
+        learnings: [
+          {
+            question: "When does Moryn pull project memory?",
+            conclusion: "When an agent enters a project, Moryn automatically pulls the project memory.",
+            evidence_type: "source_code",
+            scope: "project",
+            confidence: 0.95,
+            recommended_kind: "memory",
+            recommended_type: "fact",
+            related_record_ids: []
+          }
+        ]
       });
       const second = await engine.ingestLearnings({
         project_id: "moryn",
         occurred_at: "2026-07-12T00:01:00.000Z",
         source: { client: "claude" },
-        learnings: [{ question: "How does project entry load memory?", conclusion: "Moryn automatically pulls project memory when an agent enters the project.", evidence_type: "source_code", scope: "project", confidence: 0.96, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] }]
+        learnings: [
+          {
+            question: "How does project entry load memory?",
+            conclusion: "Moryn automatically pulls project memory when an agent enters the project.",
+            evidence_type: "source_code",
+            scope: "project",
+            confidence: 0.96,
+            recommended_kind: "memory",
+            recommended_type: "fact",
+            related_record_ids: []
+          }
+        ]
       });
 
       expect(first).toMatchObject({ records_created: 1, automatic_consolidation: { links_created: 0 } });
@@ -1972,11 +2327,19 @@ describe("core engine", () => {
         automatic_consolidation: { links_created: 1, accepted_by_relationship: { duplicate_of: 1 } },
         semantic_candidates: { candidates: [] }
       });
-      const active = await engine.recall({ project_id: "moryn", kinds: ["memory"], query: "Moryn automatically pulls project memory when an agent enters the project" });
+      const active = await engine.recall({
+        project_id: "moryn",
+        kinds: ["memory"],
+        query: "Moryn automatically pulls project memory when an agent enters the project"
+      });
       expect(active.results).toHaveLength(1);
       const events = await readEvents(storePath);
-      expect(events.filter((event) => event.op === "upsert_record" && event.record.tags.includes("learning"))).toHaveLength(2);
-      expect(events.filter((event) => event.op === "link_records" && event.link_type === "duplicate_of")).toHaveLength(1);
+      expect(
+        events.filter((event) => event.op === "upsert_record" && event.record.tags.includes("learning"))
+      ).toHaveLength(2);
+      expect(events.filter((event) => event.op === "link_records" && event.link_type === "duplicate_of")).toHaveLength(
+        1
+      );
     });
   });
 
@@ -1988,11 +2351,32 @@ describe("core engine", () => {
         occurred_at: "2026-07-12T00:00:00.000Z",
         source: { client: "codex" },
         learnings: [
-          { question: "When does Moryn pull memory?", conclusion: "When an agent enters a project, Moryn automatically pulls the project memory.", evidence_type: "source_code", scope: "project", confidence: 0.95, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] },
-          { question: "How is memory loaded on entry?", conclusion: "Moryn automatically pulls project memory when an agent enters the project.", evidence_type: "source_code", scope: "project", confidence: 0.96, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] }
+          {
+            question: "When does Moryn pull memory?",
+            conclusion: "When an agent enters a project, Moryn automatically pulls the project memory.",
+            evidence_type: "source_code",
+            scope: "project",
+            confidence: 0.95,
+            recommended_kind: "memory",
+            recommended_type: "fact",
+            related_record_ids: []
+          },
+          {
+            question: "How is memory loaded on entry?",
+            conclusion: "Moryn automatically pulls project memory when an agent enters the project.",
+            evidence_type: "source_code",
+            scope: "project",
+            confidence: 0.96,
+            recommended_kind: "memory",
+            recommended_type: "fact",
+            related_record_ids: []
+          }
         ]
       });
-      expect(result).toMatchObject({ records_created: 2, automatic_consolidation: { proposals_received: 1, links_created: 1 } });
+      expect(result).toMatchObject({
+        records_created: 2,
+        automatic_consolidation: { proposals_received: 1, links_created: 1 }
+      });
     });
   });
 
@@ -2024,26 +2408,30 @@ describe("core engine", () => {
         project_id: "moryn",
         occurred_at: "2026-07-12T00:01:00.000Z",
         source: { client: "codex", session_id: "session-a", device_id: "device-a" },
-        learnings: [{
-          question: "How is shared context loaded?",
-          conclusion: "Moryn agent enter loads project context before the agent starts working.",
-          evidence_type: "source_code",
-          scope: "project",
-          confidence: 0.95,
-          recommended_kind: "memory",
-          recommended_type: "fact",
-          related_record_ids: []
-        }]
+        learnings: [
+          {
+            question: "How is shared context loaded?",
+            conclusion: "Moryn agent enter loads project context before the agent starts working.",
+            evidence_type: "source_code",
+            scope: "project",
+            confidence: 0.95,
+            recommended_kind: "memory",
+            recommended_type: "fact",
+            related_record_ids: []
+          }
+        ]
       });
 
       expect(result.automatic_consolidation).toMatchObject({ links_created: 0 });
       expect(result.semantic_candidates).toMatchObject({
-        candidates: [expect.objectContaining({
-          source_record_id: result.dispositions[0]?.record_id,
-          record_id: existing.record.id,
-          token_overlap: expect.any(Number),
-          signals: expect.arrayContaining(["token_overlap"])
-        })],
+        candidates: [
+          expect.objectContaining({
+            source_record_id: result.dispositions[0]?.record_id,
+            record_id: existing.record.id,
+            token_overlap: expect.any(Number),
+            signals: expect.arrayContaining(["token_overlap"])
+          })
+        ],
         next_action: {
           action: "recall_then_propose_semantic_relationship",
           recall_tool: "recall",
@@ -2061,9 +2449,24 @@ describe("core engine", () => {
         project_id: "moryn",
         occurred_at: "2026-07-11T00:00:00.000Z",
         source: { client: "codex", session_id: "session-a", device_id: "device-a" },
-        learnings: [{ question: "What is the sync config?", conclusion: "Use origin main", evidence_type: "user_confirmed", scope: "project", confidence: 1, recommended_kind: "memory", recommended_type: "sync_configuration", related_record_ids: [] }]
+        learnings: [
+          {
+            question: "What is the sync config?",
+            conclusion: "Use origin main",
+            evidence_type: "user_confirmed",
+            scope: "project",
+            confidence: 1,
+            recommended_kind: "memory",
+            recommended_type: "sync_configuration",
+            related_record_ids: []
+          }
+        ]
       });
-      expect(result.dispositions[0]).toMatchObject({ state: "candidate", requires_confirmation: true, policy_reason: "high_risk_learning_requires_confirmation" });
+      expect(result.dispositions[0]).toMatchObject({
+        state: "candidate",
+        requires_confirmation: true,
+        policy_reason: "high_risk_learning_requires_confirmation"
+      });
     });
   });
 
@@ -2162,8 +2565,10 @@ describe("core engine", () => {
             ordered_required_field: "project_list.projects[].next.required_fields_by_name.<field>",
             required_input: "project_list.projects_by_id.<project_id>.next.execution.required_inputs_by_field.<field>",
             ordered_required_input: "project_list.projects[].next.execution.required_inputs_by_field.<field>",
-            required_input_argument_path: "project_list.projects_by_id.<project_id>.next.execution.required_inputs_by_argument_path.<argument_path>",
-            ordered_required_input_argument_path: "project_list.projects[].next.execution.required_inputs_by_argument_path.<argument_path>",
+            required_input_argument_path:
+              "project_list.projects_by_id.<project_id>.next.execution.required_inputs_by_argument_path.<argument_path>",
+            ordered_required_input_argument_path:
+              "project_list.projects[].next.execution.required_inputs_by_argument_path.<argument_path>",
             argument_source: "project_list.projects_by_id.<project_id>.next.argument_sources.<field>",
             ordered_argument_source: "project_list.projects[].next.argument_sources.<field>"
           }
@@ -2240,7 +2645,8 @@ describe("core engine", () => {
       expect(projects.projects[0]?.next).toMatchObject({
         recommended_action: "call_agent_start",
         tool: "agent_start",
-        command: "moryn agent start --project-id alpha --sync-remote git@github.com:user/moryn-store.git --current-task 'continue alpha handoff' --agent gemini --session-id gemini-alpha --model gemini-pro --device-id laptop",
+        command:
+          "moryn agent start --project-id alpha --sync-remote git@github.com:user/moryn-store.git --current-task 'continue alpha handoff' --agent gemini --session-id gemini-alpha --model gemini-pro --device-id laptop",
         arguments: {
           project_id: "alpha",
           sync_remote: "git@github.com:user/moryn-store.git",
@@ -2331,14 +2737,18 @@ describe("core engine", () => {
         selection_sources: PROJECT_MIGRATE_SELECTION_SOURCES
       });
       expect(dryRun.records.map((record) => record.id)).toEqual([oldArchived.record.id, oldProject.record.id]);
-      expect(dryRun.records_by_id[oldProject.record.id]).toEqual(expect.objectContaining({ project_id: "repo-e6f0166fd942" }));
+      expect(dryRun.records_by_id[oldProject.record.id]).toEqual(
+        expect.objectContaining({ project_id: "repo-e6f0166fd942" })
+      );
       expect(await readEvents(storePath)).toHaveLength(beforeEvents.length);
 
-      await expect(engine.migrateProject({
-        from_project_id: "repo-e6f0166fd942",
-        to_project_id: "moryn",
-        dry_run: false
-      })).rejects.toThrow("Confirmation required");
+      await expect(
+        engine.migrateProject({
+          from_project_id: "repo-e6f0166fd942",
+          to_project_id: "moryn",
+          dry_run: false
+        })
+      ).rejects.toThrow("Confirmation required");
 
       const applied = await engine.migrateProject({
         from_project_id: "repo-e6f0166fd942",
@@ -2357,7 +2767,9 @@ describe("core engine", () => {
         skipped_private_records: 1,
         selection_sources: PROJECT_MIGRATE_SELECTION_SOURCES
       });
-      expect(Object.keys(applied.events_by_record_id).sort()).toEqual([oldArchived.record.id, oldProject.record.id].sort());
+      expect(Object.keys(applied.events_by_record_id).sort()).toEqual(
+        [oldArchived.record.id, oldProject.record.id].sort()
+      );
       expect(applied.events).toHaveLength(2);
       expect(applied.events[0]).toMatchObject({
         op: "revise_record",
@@ -2370,16 +2782,28 @@ describe("core engine", () => {
       const projects = await engine.listProjects({ limit: 10 });
       expect(projects.projects.map((project) => project.project_id)).toEqual(["moryn"]);
       expect(projects.projects_by_id.moryn.records).toBe(2);
-      expect((await engine.recall({ record_ids: [oldProject.record.id], project_id: "moryn" })).results[0]?.record.project_id).toBe("moryn");
-      expect((await engine.recall({ record_ids: [oldArchived.record.id], states: ["archived"], project_id: "moryn" })).results[0]?.record.project_id).toBe("moryn");
-      expect((await engine.recall({ record_ids: [targetProject.record.id], project_id: "moryn" })).results[0]?.record.project_id).toBe("moryn");
+      expect(
+        (await engine.recall({ record_ids: [oldProject.record.id], project_id: "moryn" })).results[0]?.record.project_id
+      ).toBe("moryn");
+      expect(
+        (await engine.recall({ record_ids: [oldArchived.record.id], states: ["archived"], project_id: "moryn" }))
+          .results[0]?.record.project_id
+      ).toBe("moryn");
+      expect(
+        (await engine.recall({ record_ids: [targetProject.record.id], project_id: "moryn" })).results[0]?.record
+          .project_id
+      ).toBe("moryn");
     });
   });
 
   it("preserves provenance on writes and canonical promotion", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const written = await engine.write({
         kind: "memory",
@@ -2453,7 +2877,11 @@ describe("core engine", () => {
   it("quarantines sensitive content on write", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const written = await engine.write({
         kind: "agent_note",
@@ -2472,7 +2900,11 @@ describe("core engine", () => {
   it("quarantines authorization headers on write", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const written = await engine.write({
         kind: "memory",
@@ -2499,7 +2931,11 @@ describe("core engine", () => {
   it("redacts structured authorization fields before appending events", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const written = await engine.write({
         kind: "memory",
@@ -2576,351 +3012,461 @@ describe("core engine", () => {
       }
 
       await expectInvalidArgument(null as never, "Invalid write input");
-      await expectInvalidWriteShapeArgument({
-        kind: "note" as never,
-        type: "decision",
-        scope: "project",
-        content: { text: "Invalid kind.", format: "text" },
-        source: { client: "test" }
-      }, "Invalid kind", "retry write with a supported kind", {
-        operation_contract: "operations_by_id.write",
-        rejected_argument: { argument: "kind", value: "note" },
-        expected: { kind: "allowed_values", allowed_values: ["memory", "skill", "soul", "session_summary", "agent_note"] },
-        argument_sources: {
-          kind: "operations_by_id.write.arguments_by_name.kind"
+      await expectInvalidWriteShapeArgument(
+        {
+          kind: "note" as never,
+          type: "decision",
+          scope: "project",
+          content: { text: "Invalid kind.", format: "text" },
+          source: { client: "test" }
         },
-        retry_with: { argument: "kind", value_placeholder: "memory" }
-      });
-      await expectInvalidWriteShapeArgument({
-        kind: "memory",
-        type: "",
-        scope: "project",
-        content: { text: "Invalid type.", format: "text" },
-        source: { client: "test" }
-      }, "Invalid type", "retry write with a non-empty type", {
-        operation_contract: "operations_by_id.write",
-        rejected_argument: { argument: "type", value: "" },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          type: "operations_by_id.write.arguments_by_name.type"
+        "Invalid kind",
+        "retry write with a supported kind",
+        {
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "kind", value: "note" },
+          expected: {
+            kind: "allowed_values",
+            allowed_values: ["memory", "skill", "soul", "session_summary", "agent_note"]
+          },
+          argument_sources: {
+            kind: "operations_by_id.write.arguments_by_name.kind"
+          },
+          retry_with: { argument: "kind", value_placeholder: "memory" }
+        }
+      );
+      await expectInvalidWriteShapeArgument(
+        {
+          kind: "memory",
+          type: "",
+          scope: "project",
+          content: { text: "Invalid type.", format: "text" },
+          source: { client: "test" }
         },
-        retry_with: { argument: "type", value_placeholder: "<record type>" }
-      });
-      await expectInvalidWriteShapeArgument({
-        kind: "memory",
-        type: "decision",
-        scope: "workspace" as never,
-        content: { text: "Invalid scope.", format: "text" },
-        source: { client: "test" }
-      }, "Invalid scope", "retry write with a supported scope", {
-        operation_contract: "operations_by_id.write",
-        rejected_argument: { argument: "scope", value: "workspace" },
-        expected: { kind: "allowed_values", allowed_values: ["global", "project", "topic", "session", "artifact"] },
-        argument_sources: {
-          scope: "operations_by_id.write.arguments_by_name.scope"
+        "Invalid type",
+        "retry write with a non-empty type",
+        {
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "type", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            type: "operations_by_id.write.arguments_by_name.type"
+          },
+          retry_with: { argument: "type", value_placeholder: "<record type>" }
+        }
+      );
+      await expectInvalidWriteShapeArgument(
+        {
+          kind: "memory",
+          type: "decision",
+          scope: "workspace" as never,
+          content: { text: "Invalid scope.", format: "text" },
+          source: { client: "test" }
         },
-        retry_with: { argument: "scope", value_placeholder: "project" }
-      });
-      await expectInvalidWriteShapeArgument({
-        kind: "memory",
-        type: "decision",
-        scope: "project",
-        project_id: "",
-        content: { text: "Invalid project id.", format: "text" },
-        source: { client: "test" }
-      }, "Invalid project_id", "retry write with a valid project_id", {
-        operation_contract: "operations_by_id.write",
-        rejected_argument: { argument: "project_id", value: "" },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          project_id: "operations_by_id.write.arguments_by_name.project_id"
+        "Invalid scope",
+        "retry write with a supported scope",
+        {
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "scope", value: "workspace" },
+          expected: { kind: "allowed_values", allowed_values: ["global", "project", "topic", "session", "artifact"] },
+          argument_sources: {
+            scope: "operations_by_id.write.arguments_by_name.scope"
+          },
+          retry_with: { argument: "scope", value_placeholder: "project" }
+        }
+      );
+      await expectInvalidWriteShapeArgument(
+        {
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "",
+          content: { text: "Invalid project id.", format: "text" },
+          source: { client: "test" }
         },
-        retry_with: { argument: "project_id", value_placeholder: "<project_id>" }
-      });
-      await expectInvalidWriteShapeArgument({
-        kind: "memory",
-        type: "decision",
-        scope: "project",
-        project_id: "moryn",
-        content: { text: "Invalid state.", format: "text" },
-        state: "published" as never,
-        source: { client: "test" }
-      }, "Invalid state", "retry write with a supported state", {
-        operation_contract: "operations_by_id.write",
-        rejected_argument: { argument: "state", value: "published" },
-        expected: { kind: "allowed_values", allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"] },
-        argument_sources: {
-          state: "operations_by_id.write.arguments_by_name.state"
+        "Invalid project_id",
+        "retry write with a valid project_id",
+        {
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "project_id", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            project_id: "operations_by_id.write.arguments_by_name.project_id"
+          },
+          retry_with: { argument: "project_id", value_placeholder: "<project_id>" }
+        }
+      );
+      await expectInvalidWriteShapeArgument(
+        {
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: "Invalid state.", format: "text" },
+          state: "published" as never,
+          source: { client: "test" }
         },
-        retry_with: { argument: "state", value_placeholder: "candidate" }
-      });
-      await expectInvalidWriteShapeArgument({
-        kind: "memory",
-        type: "decision",
-        scope: "project",
-        project_id: "moryn",
-        content: { text: "Invalid confidence.", format: "text" },
-        confidence: 2,
-        source: { client: "test" }
-      }, "Invalid confidence", "retry write with confidence between 0 and 1", {
-        operation_contract: "operations_by_id.write",
-        rejected_argument: { argument: "confidence", value: 2 },
-        expected: { kind: "number_range", min: 0, max: 1, inclusive: true },
-        argument_sources: {
-          confidence: "operations_by_id.write.arguments_by_name.confidence"
+        "Invalid state",
+        "retry write with a supported state",
+        {
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "state", value: "published" },
+          expected: {
+            kind: "allowed_values",
+            allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"]
+          },
+          argument_sources: {
+            state: "operations_by_id.write.arguments_by_name.state"
+          },
+          retry_with: { argument: "state", value_placeholder: "candidate" }
+        }
+      );
+      await expectInvalidWriteShapeArgument(
+        {
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: "Invalid confidence.", format: "text" },
+          confidence: 2,
+          source: { client: "test" }
         },
-        retry_with: { argument: "confidence", value_placeholder: 0.5 }
-      });
-      await expectInvalidWriteShapeArgument({
-        kind: "memory",
-        type: "decision",
-        scope: "project",
-        project_id: "moryn",
-        content: { text: "Invalid priority.", format: "text" },
-        priority: "urgent" as never,
-        source: { client: "test" }
-      }, "Invalid priority", "retry write with a supported priority", {
-        operation_contract: "operations_by_id.write",
-        rejected_argument: { argument: "priority", value: "urgent" },
-        expected: { kind: "allowed_values", allowed_values: ["low", "normal", "high"] },
-        argument_sources: {
-          priority: "operations_by_id.write.arguments_by_name.priority"
+        "Invalid confidence",
+        "retry write with confidence between 0 and 1",
+        {
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "confidence", value: 2 },
+          expected: { kind: "number_range", min: 0, max: 1, inclusive: true },
+          argument_sources: {
+            confidence: "operations_by_id.write.arguments_by_name.confidence"
+          },
+          retry_with: { argument: "confidence", value_placeholder: 0.5 }
+        }
+      );
+      await expectInvalidWriteShapeArgument(
+        {
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: "Invalid priority.", format: "text" },
+          priority: "urgent" as never,
+          source: { client: "test" }
         },
-        retry_with: { argument: "priority", value_placeholder: "normal" }
-      });
-      await expectInvalidWriteShapeArgument({
-        kind: "memory",
-        type: "decision",
-        scope: "project",
-        project_id: "moryn",
-        tags: ["valid", 123] as never,
-        content: { text: "Invalid tags.", format: "text" },
-        source: { client: "test" }
-      }, "Invalid tags", "retry write with valid tags", {
-        operation_contract: "operations_by_id.write",
-        rejected_argument: { argument: "tags", value: ["valid", 123] },
-        expected: { kind: "array_of_non_empty_strings" },
-        argument_sources: {
-          tags: "operations_by_id.write.arguments_by_name.tags"
+        "Invalid priority",
+        "retry write with a supported priority",
+        {
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "priority", value: "urgent" },
+          expected: { kind: "allowed_values", allowed_values: ["low", "normal", "high"] },
+          argument_sources: {
+            priority: "operations_by_id.write.arguments_by_name.priority"
+          },
+          retry_with: { argument: "priority", value_placeholder: "normal" }
+        }
+      );
+      await expectInvalidWriteShapeArgument(
+        {
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "moryn",
+          tags: ["valid", 123] as never,
+          content: { text: "Invalid tags.", format: "text" },
+          source: { client: "test" }
         },
-        retry_with: { argument: "tags", value_placeholder: ["<tag>"] }
-      });
-      await expectInvalidWriteShapeArgument({
-        kind: "memory",
-        type: "decision",
-        scope: "project",
-        project_id: "moryn",
-        tags: [""],
-        content: { text: "Empty tag.", format: "text" },
-        source: { client: "test" }
-      }, "Invalid tags", "retry write with valid tags", {
-        operation_contract: "operations_by_id.write",
-        rejected_argument: { argument: "tags", value: [""] },
-        expected: { kind: "array_of_non_empty_strings" },
-        argument_sources: {
-          tags: "operations_by_id.write.arguments_by_name.tags"
+        "Invalid tags",
+        "retry write with valid tags",
+        {
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "tags", value: ["valid", 123] },
+          expected: { kind: "array_of_non_empty_strings" },
+          argument_sources: {
+            tags: "operations_by_id.write.arguments_by_name.tags"
+          },
+          retry_with: { argument: "tags", value_placeholder: ["<tag>"] }
+        }
+      );
+      await expectInvalidWriteShapeArgument(
+        {
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "moryn",
+          tags: [""],
+          content: { text: "Empty tag.", format: "text" },
+          source: { client: "test" }
         },
-        retry_with: { argument: "tags", value_placeholder: ["<tag>"] }
-      });
-      await expectInvalidContentArgument({
-        kind: "memory",
-        type: "decision",
-        scope: "project",
-        project_id: "moryn",
-        content: "Invalid content." as never,
-        source: { client: "test" }
-      }, "Invalid content", {
-        operation_contract: "operations_by_id.write",
-        rejected_argument: { argument: "content", value: "Invalid content." },
-        expected: { kind: "content_object", required: true },
-        argument_sources: {
-          content: "operations_by_id.write.arguments_by_name.content"
+        "Invalid tags",
+        "retry write with valid tags",
+        {
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "tags", value: [""] },
+          expected: { kind: "array_of_non_empty_strings" },
+          argument_sources: {
+            tags: "operations_by_id.write.arguments_by_name.tags"
+          },
+          retry_with: { argument: "tags", value_placeholder: ["<tag>"] }
+        }
+      );
+      await expectInvalidContentArgument(
+        {
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "moryn",
+          content: "Invalid content." as never,
+          source: { client: "test" }
         },
-        retry_with: { argument: "content", value_placeholder: { text: "<text>", format: "text" } }
-      });
-      await expectInvalidContentArgument({
-        kind: "memory",
-        type: "decision",
-        scope: "project",
-        project_id: "moryn",
-        content: {},
-        source: { client: "test" }
-      }, "Invalid content", {
-        operation_contract: "operations_by_id.write",
-        rejected_argument: { argument: "content", value: {} },
-        expected: { kind: "non_empty_content_object", required: true },
-        argument_sources: {
-          content: "operations_by_id.write.arguments_by_name.content"
+        "Invalid content",
+        {
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "content", value: "Invalid content." },
+          expected: { kind: "content_object", required: true },
+          argument_sources: {
+            content: "operations_by_id.write.arguments_by_name.content"
+          },
+          retry_with: { argument: "content", value_placeholder: { text: "<text>", format: "text" } }
+        }
+      );
+      await expectInvalidContentArgument(
+        {
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "moryn",
+          content: {},
+          source: { client: "test" }
         },
-        retry_with: { argument: "content", value_placeholder: { text: "<text>", format: "text" } }
-      });
-      await expectInvalidContentArgument({
-        kind: "memory",
-        type: "decision",
-        scope: "project",
-        project_id: "moryn",
-        content: { text: "", format: "text" },
-        source: { client: "test" }
-      }, "Invalid content.text", {
-        operation_contract: "operations_by_id.write",
-        rejected_argument: { argument: "content.text", value: "" },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          "content.text": "operations_by_id.write.arguments_by_name.content_text"
+        "Invalid content",
+        {
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "content", value: {} },
+          expected: { kind: "non_empty_content_object", required: true },
+          argument_sources: {
+            content: "operations_by_id.write.arguments_by_name.content"
+          },
+          retry_with: { argument: "content", value_placeholder: { text: "<text>", format: "text" } }
+        }
+      );
+      await expectInvalidContentArgument(
+        {
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: "", format: "text" },
+          source: { client: "test" }
         },
-        retry_with: { argument: "content.text", value_placeholder: "<non-empty text>" }
-      });
-      await expectInvalidContentArgument({
-        kind: "memory",
-        type: "decision",
-        scope: "project",
-        project_id: "moryn",
-        content: { text: "Invalid format.", format: "markdown" as never },
-        source: { client: "test" }
-      }, "Invalid content.format", {
-        operation_contract: "operations_by_id.write",
-        rejected_argument: { argument: "content.format", value: "markdown" },
-        expected: { kind: "allowed_values", allowed_values: ["text", "json"] },
-        argument_sources: {
-          "content.format": "operations_by_id.write.arguments_by_name.content_format"
+        "Invalid content.text",
+        {
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "content.text", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            "content.text": "operations_by_id.write.arguments_by_name.content_text"
+          },
+          retry_with: { argument: "content.text", value_placeholder: "<non-empty text>" }
+        }
+      );
+      await expectInvalidContentArgument(
+        {
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: "Invalid format.", format: "markdown" as never },
+          source: { client: "test" }
         },
-        retry_with: { argument: "content.format", value_placeholder: "text" }
-      });
-      await expectInvalidWriteShapeArgument({
-        kind: "memory",
-        type: "decision",
-        scope: "project",
-        project_id: "moryn",
-        content: { text: "Invalid source.", format: "text" },
-        source: { client: "" }
-      }, "Invalid source.client", "retry write with a valid source client", {
-        operation_contract: "operations_by_id.write",
-        rejected_argument: { argument: "source.client", value: "" },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          "source.client": "operations_by_id.write.arguments_by_name.source_client"
+        "Invalid content.format",
+        {
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "content.format", value: "markdown" },
+          expected: { kind: "allowed_values", allowed_values: ["text", "json"] },
+          argument_sources: {
+            "content.format": "operations_by_id.write.arguments_by_name.content_format"
+          },
+          retry_with: { argument: "content.format", value_placeholder: "text" }
+        }
+      );
+      await expectInvalidWriteShapeArgument(
+        {
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: "Invalid source.", format: "text" },
+          source: { client: "" }
         },
-        retry_with: { argument: "source.client", value_placeholder: "<client>" }
-      });
-      await expectInvalidWriteShapeArgument({
-        kind: "memory",
-        type: "decision",
-        scope: "project",
-        project_id: "moryn",
-        content: { text: "Invalid confirmed.", format: "text" },
-        source: { client: "test" },
-        confirmed: "yes" as never
-      }, "Invalid confirmed", "retry write with a boolean confirmed value", {
-        operation_contract: "operations_by_id.write",
-        rejected_argument: { argument: "confirmed", value: "yes" },
-        expected: { kind: "boolean" },
-        argument_sources: {
-          confirmed: "operations_by_id.write.arguments_by_name.confirmed"
+        "Invalid source.client",
+        "retry write with a valid source client",
+        {
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "source.client", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            "source.client": "operations_by_id.write.arguments_by_name.source_client"
+          },
+          retry_with: { argument: "source.client", value_placeholder: "<client>" }
+        }
+      );
+      await expectInvalidWriteShapeArgument(
+        {
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: "Invalid confirmed.", format: "text" },
+          source: { client: "test" },
+          confirmed: "yes" as never
         },
-        retry_with: { argument: "confirmed", value_placeholder: true }
-      });
-      await expectInvalidWriteShapeArgument({
-        kind: "memory",
-        type: "decision",
-        scope: "project",
-        project_id: "moryn",
-        content: { text: "Invalid provenance.", format: "text" },
-        source: { client: "test" },
-        provenance: "imported" as never
-      }, "Invalid provenance", "retry write with a valid provenance object", {
-        operation_contract: "operations_by_id.write",
-        rejected_argument: { argument: "provenance", value: "imported" },
-        expected: { kind: "object", required: false },
-        argument_sources: {
-          provenance: "operations_by_id.write.arguments_by_name.provenance"
+        "Invalid confirmed",
+        "retry write with a boolean confirmed value",
+        {
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "confirmed", value: "yes" },
+          expected: { kind: "boolean" },
+          argument_sources: {
+            confirmed: "operations_by_id.write.arguments_by_name.confirmed"
+          },
+          retry_with: { argument: "confirmed", value_placeholder: true }
+        }
+      );
+      await expectInvalidWriteShapeArgument(
+        {
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: "Invalid provenance.", format: "text" },
+          source: { client: "test" },
+          provenance: "imported" as never
         },
-        retry_with: { argument: "provenance", value_placeholder: { derived_from: ["<record_id>"], reason: "<reason>" } }
-      });
-      await expectInvalidWriteShapeArgument({
-        kind: "memory",
-        type: "decision",
-        scope: "project",
-        project_id: "moryn",
-        content: { text: "Invalid provenance.", format: "text" },
-        source: { client: "test" },
-        provenance: { method: "imported" } as never
-      }, "Invalid provenance.method", "retry write with a supported provenance method", {
-        operation_contract: "operations_by_id.write",
-        rejected_argument: { argument: "provenance.method", value: "imported" },
-        expected: { kind: "allowed_values", allowed_values: ["agent-proposed", "rule-promoted", "user-confirmed"] },
-        argument_sources: {
-          "provenance.method": "operations_by_id.write.arguments_by_name.provenance_method"
+        "Invalid provenance",
+        "retry write with a valid provenance object",
+        {
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "provenance", value: "imported" },
+          expected: { kind: "object", required: false },
+          argument_sources: {
+            provenance: "operations_by_id.write.arguments_by_name.provenance"
+          },
+          retry_with: {
+            argument: "provenance",
+            value_placeholder: { derived_from: ["<record_id>"], reason: "<reason>" }
+          }
+        }
+      );
+      await expectInvalidWriteShapeArgument(
+        {
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: "Invalid provenance.", format: "text" },
+          source: { client: "test" },
+          provenance: { method: "imported" } as never
         },
-        retry_with: { argument: "provenance.method", value_placeholder: "agent-proposed" }
-      });
-      await expectInvalidWriteShapeArgument({
-        kind: "memory",
-        type: "decision",
-        scope: "project",
-        project_id: "moryn",
-        content: { text: "Empty provenance source.", format: "text" },
-        source: { client: "test" },
-        provenance: { derived_from: [""] }
-      }, "Invalid provenance.derived_from", "retry write with valid provenance source record ids", {
-        operation_contract: "operations_by_id.write",
-        rejected_argument: { argument: "provenance.derived_from", value: [""] },
-        expected: { kind: "array_of_non_empty_strings" },
-        argument_sources: {
-          "provenance.derived_from": "operations_by_id.write.arguments_by_name.derived_from"
+        "Invalid provenance.method",
+        "retry write with a supported provenance method",
+        {
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "provenance.method", value: "imported" },
+          expected: { kind: "allowed_values", allowed_values: ["agent-proposed", "rule-promoted", "user-confirmed"] },
+          argument_sources: {
+            "provenance.method": "operations_by_id.write.arguments_by_name.provenance_method"
+          },
+          retry_with: { argument: "provenance.method", value_placeholder: "agent-proposed" }
+        }
+      );
+      await expectInvalidWriteShapeArgument(
+        {
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: "Empty provenance source.", format: "text" },
+          source: { client: "test" },
+          provenance: { derived_from: [""] }
         },
-        retry_with: { argument: "provenance.derived_from", value_placeholder: ["<record_id>"] }
-      });
-      await expectInvalidWriteShapeArgument({
-        kind: "memory",
-        type: "decision",
-        scope: "project",
-        project_id: "moryn",
-        content: { text: "Empty provenance reason.", format: "text" },
-        source: { client: "test" },
-        provenance: { reason: "" }
-      }, "Invalid provenance.reason", "retry write with a non-empty provenance reason", {
-        operation_contract: "operations_by_id.write",
-        rejected_argument: { argument: "provenance.reason", value: "" },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          "provenance.reason": "operations_by_id.write.arguments_by_name.reason"
+        "Invalid provenance.derived_from",
+        "retry write with valid provenance source record ids",
+        {
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "provenance.derived_from", value: [""] },
+          expected: { kind: "array_of_non_empty_strings" },
+          argument_sources: {
+            "provenance.derived_from": "operations_by_id.write.arguments_by_name.derived_from"
+          },
+          retry_with: { argument: "provenance.derived_from", value_placeholder: ["<record_id>"] }
+        }
+      );
+      await expectInvalidWriteShapeArgument(
+        {
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: "Empty provenance reason.", format: "text" },
+          source: { client: "test" },
+          provenance: { reason: "" }
         },
-        retry_with: { argument: "provenance.reason", value_placeholder: "<reason>" }
-      });
-      await expectInvalidWriteShapeArgument({
-        kind: "memory",
-        type: "decision",
-        scope: "project",
-        project_id: "moryn",
-        content: { text: "Invalid provenance timestamp.", format: "text" },
-        source: { client: "test" },
-        provenance: { promoted_at: "not-a-date" }
-      }, "Invalid provenance.promoted_at", "retry write with a valid provenance timestamp", {
-        operation_contract: "operations_by_id.write",
-        rejected_argument: { argument: "provenance.promoted_at", value: "not-a-date" },
-        expected: { kind: "iso_datetime", format: "RFC3339 timestamp with timezone" },
-        argument_sources: {
-          "provenance.promoted_at": "operations_by_id.write.arguments_by_name.provenance_promoted_at"
+        "Invalid provenance.reason",
+        "retry write with a non-empty provenance reason",
+        {
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "provenance.reason", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            "provenance.reason": "operations_by_id.write.arguments_by_name.reason"
+          },
+          retry_with: { argument: "provenance.reason", value_placeholder: "<reason>" }
+        }
+      );
+      await expectInvalidWriteShapeArgument(
+        {
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: "Invalid provenance timestamp.", format: "text" },
+          source: { client: "test" },
+          provenance: { promoted_at: "not-a-date" }
         },
-        retry_with: { argument: "provenance.promoted_at", value_placeholder: "<ISO datetime>" }
-      });
-      await expectInvalidWriteShapeArgument({
-        kind: "memory",
-        type: "decision",
-        scope: "project",
-        project_id: "moryn",
-        content: { text: "Date-only provenance timestamp.", format: "text" },
-        source: { client: "test" },
-        provenance: { promoted_at: "2026-05-27" }
-      }, "Invalid provenance.promoted_at", "retry write with a valid provenance timestamp", {
-        operation_contract: "operations_by_id.write",
-        rejected_argument: { argument: "provenance.promoted_at", value: "2026-05-27" },
-        expected: { kind: "iso_datetime", format: "RFC3339 timestamp with timezone" },
-        argument_sources: {
-          "provenance.promoted_at": "operations_by_id.write.arguments_by_name.provenance_promoted_at"
+        "Invalid provenance.promoted_at",
+        "retry write with a valid provenance timestamp",
+        {
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "provenance.promoted_at", value: "not-a-date" },
+          expected: { kind: "iso_datetime", format: "RFC3339 timestamp with timezone" },
+          argument_sources: {
+            "provenance.promoted_at": "operations_by_id.write.arguments_by_name.provenance_promoted_at"
+          },
+          retry_with: { argument: "provenance.promoted_at", value_placeholder: "<ISO datetime>" }
+        }
+      );
+      await expectInvalidWriteShapeArgument(
+        {
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: "Date-only provenance timestamp.", format: "text" },
+          source: { client: "test" },
+          provenance: { promoted_at: "2026-05-27" }
         },
-        retry_with: { argument: "provenance.promoted_at", value_placeholder: "<ISO datetime>" }
-      });
+        "Invalid provenance.promoted_at",
+        "retry write with a valid provenance timestamp",
+        {
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "provenance.promoted_at", value: "2026-05-27" },
+          expected: { kind: "iso_datetime", format: "RFC3339 timestamp with timezone" },
+          argument_sources: {
+            "provenance.promoted_at": "operations_by_id.write.arguments_by_name.provenance_promoted_at"
+          },
+          retry_with: { argument: "provenance.promoted_at", value_placeholder: "<ISO datetime>" }
+        }
+      );
 
       expect(await readEvents(storePath)).toHaveLength(0);
     });
@@ -2929,7 +3475,11 @@ describe("core engine", () => {
   it("quarantines records revised with sensitive content", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const written = await engine.write({
         kind: "memory",
@@ -2971,7 +3521,11 @@ describe("core engine", () => {
   it("rejects revisions that attempt to change managed record state fields", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const written = await engine.write({
         kind: "memory",
@@ -2983,12 +3537,14 @@ describe("core engine", () => {
         source: { client: "test" }
       });
 
-      await expect(engine.revise({
-        record_id: written.record.id,
-        patch: { state: "canonical" },
-        reason: "Bypass promotion",
-        source: { client: "test" }
-      })).rejects.toThrow(/managed field/);
+      await expect(
+        engine.revise({
+          record_id: written.record.id,
+          patch: { state: "canonical" },
+          reason: "Bypass promotion",
+          source: { client: "test" }
+        })
+      ).rejects.toThrow(/managed field/);
 
       const recall = await engine.recall({ record_ids: [written.record.id], states: ["candidate"] });
       expect(recall.results[0]?.record.state).toBe("candidate");
@@ -2998,7 +3554,11 @@ describe("core engine", () => {
   it("rejects revisions that would produce an invalid record as invalid arguments", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const written = await engine.write({
         kind: "memory",
@@ -3030,12 +3590,14 @@ describe("core engine", () => {
           retry_with: { patch_placeholder: { "content.text": "<non-empty text>" } }
         });
       }
-      await expect(engine.revise({
-        record_id: written.record.id,
-        patch: { "content.text": "" },
-        reason: "Invalid content text",
-        source: { client: "test" }
-      })).rejects.toThrow(/Invalid patch/);
+      await expect(
+        engine.revise({
+          record_id: written.record.id,
+          patch: { "content.text": "" },
+          reason: "Invalid content text",
+          source: { client: "test" }
+        })
+      ).rejects.toThrow(/Invalid patch/);
 
       const unchanged = await engine.recall({ record_ids: [written.record.id] });
       expect(unchanged.results[0]?.record.confidence).toBe(0.5);
@@ -3047,7 +3609,11 @@ describe("core engine", () => {
   it("rejects revisions that would create unconfirmed canonical conflicts", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const existing = await engine.write({
         kind: "memory",
@@ -3070,12 +3636,14 @@ describe("core engine", () => {
         source: { client: "user" }
       });
 
-      await expect(engine.revise({
-        record_id: revisedTarget.record.id,
-        patch: { type: "decision", "content.text": "Use SQLite as the source of truth." },
-        reason: "Agent inferred this replacement",
-        source: { client: "agent" }
-      })).rejects.toThrow(/conflicting canonical memory requires explicit user confirmation/);
+      await expect(
+        engine.revise({
+          record_id: revisedTarget.record.id,
+          patch: { type: "decision", "content.text": "Use SQLite as the source of truth." },
+          reason: "Agent inferred this replacement",
+          source: { client: "agent" }
+        })
+      ).rejects.toThrow(/conflicting canonical memory requires explicit user confirmation/);
 
       const unchanged = await engine.recall({ record_ids: [revisedTarget.record.id] });
       expect(unchanged.results[0]?.record.content.text).toBe("Use private Git remotes.");
@@ -3088,7 +3656,11 @@ describe("core engine", () => {
   it("does not treat shared project tags alone as a semantic conflict", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       await engine.write({
         kind: "memory",
@@ -3096,7 +3668,10 @@ describe("core engine", () => {
         scope: "project",
         project_id: "moryn",
         tags: ["typescript", "mcp", "positioning"],
-        content: { text: "Moryn should be positioned as a local-first personal context layer for AI agents, not as another vector-memory SDK.", format: "text" },
+        content: {
+          text: "Moryn should be positioned as a local-first personal context layer for AI agents, not as another vector-memory SDK.",
+          format: "text"
+        },
         state: "canonical",
         source: { client: "user" }
       });
@@ -3107,7 +3682,10 @@ describe("core engine", () => {
         scope: "project",
         project_id: "moryn",
         tags: ["typescript", "mcp", "sync", "dogfood"],
-        content: { text: "Second-device sync can import Moryn GitHub private store history and push new events back.", format: "text" },
+        content: {
+          text: "Second-device sync can import Moryn GitHub private store history and push new events back.",
+          format: "text"
+        },
         state: "canonical",
         source: { client: "agent" }
       });
@@ -3121,7 +3699,11 @@ describe("core engine", () => {
   it("records confirmed canonical revision conflicts without rewriting history", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const existing = await engine.write({
         kind: "memory",
@@ -3166,7 +3748,11 @@ describe("core engine", () => {
   it("clears canonical revision conflicts after a confirmed non-conflicting revision", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       await engine.write({
         kind: "memory",
@@ -3212,7 +3798,11 @@ describe("core engine", () => {
   it("scans full structured content for sensitive values", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const written = await engine.write({
         kind: "memory",
@@ -3256,7 +3846,11 @@ describe("core engine", () => {
   it("redacts sensitive structured values detected by field names", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const written = await engine.write({
         kind: "memory",
@@ -3284,7 +3878,11 @@ describe("core engine", () => {
   it("quarantines cookie headers on write", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const written = await engine.write({
         kind: "agent_note",
@@ -3305,7 +3903,11 @@ describe("core engine", () => {
   it("quarantines pasted env files on write", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const written = await engine.write({
         kind: "memory",
@@ -3336,7 +3938,11 @@ describe("core engine", () => {
   it("quarantines large env-shaped content without obvious secret field names", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const envText = [
         "APP_ENV=production",
@@ -3368,7 +3974,11 @@ describe("core engine", () => {
   it("keeps high-risk canonical writes as candidates until user confirmation", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const soul = await engine.write({
         kind: "soul",
@@ -3482,7 +4092,11 @@ describe("core engine", () => {
   it("marks semantic conflicts and requires confirmation before conflicting canonical writes", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const existing = await engine.write({
         kind: "memory",
@@ -3566,7 +4180,11 @@ describe("core engine", () => {
   it("marks untagged same-subject canonical memory conflicts", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const existing = await engine.write({
         kind: "memory",
@@ -3597,7 +4215,11 @@ describe("core engine", () => {
   it("does not mark unrelated untagged canonical memories as conflicts", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       await engine.write({
         kind: "memory",
@@ -3628,7 +4250,11 @@ describe("core engine", () => {
   it("does not mark unrelated structured canonical memories as conflicts from JSON metadata", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       await engine.write({
         kind: "memory",
@@ -3665,7 +4291,11 @@ describe("core engine", () => {
   it("rejects conflicting canonical promotion without user confirmation", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const candidate = await engine.write({
         kind: "memory",
@@ -3690,12 +4320,14 @@ describe("core engine", () => {
 
       expect(candidate.record.conflict).toBeUndefined();
 
-      await expect(engine.promote({
-        record_id: candidate.record.id,
-        target_state: "canonical",
-        reason: "Agent inferred this replacement",
-        source: { client: "agent" }
-      })).rejects.toThrow(/conflicting canonical memory requires explicit user confirmation/);
+      await expect(
+        engine.promote({
+          record_id: candidate.record.id,
+          target_state: "canonical",
+          reason: "Agent inferred this replacement",
+          source: { client: "agent" }
+        })
+      ).rejects.toThrow(/conflicting canonical memory requires explicit user confirmation/);
 
       const stillCandidate = await engine.recall({ record_ids: [candidate.record.id], states: ["candidate"] });
       expect(stillCandidate.results[0]?.record.state).toBe("candidate");
@@ -3721,7 +4353,11 @@ describe("core engine", () => {
   it("rejects high-risk canonical promotion without user confirmation", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
       const soul = await engine.write({
         kind: "soul",
         type: "preference",
@@ -3731,12 +4367,14 @@ describe("core engine", () => {
         source: { client: "codex" }
       });
 
-      await expect(engine.promote({
-        record_id: soul.record.id,
-        target_state: "canonical",
-        reason: "Agent inferred this preference",
-        source: { client: "agent" }
-      })).rejects.toThrow(/Confirmation required/);
+      await expect(
+        engine.promote({
+          record_id: soul.record.id,
+          target_state: "canonical",
+          reason: "Agent inferred this preference",
+          source: { client: "agent" }
+        })
+      ).rejects.toThrow(/Confirmation required/);
 
       const stillCandidate = await engine.recall({ record_ids: [soul.record.id], states: ["candidate"] });
       expect(stillCandidate.results[0]?.record.state).toBe("candidate");
@@ -3757,7 +4395,11 @@ describe("core engine", () => {
   it("recalls with record id, kind, type, state, tag, and file filters", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => `2026-05-27T00:00:0${nextId}.000Z`, id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => `2026-05-27T00:00:0${nextId}.000Z`,
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const decision = await engine.write({
         kind: "memory",
@@ -3819,7 +4461,11 @@ describe("core engine", () => {
   it("recalls text and file matches from structured content values", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => `2026-05-27T00:00:0${nextId}.000Z`, id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => `2026-05-27T00:00:0${nextId}.000Z`,
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const structured = await engine.write({
         kind: "memory",
@@ -3854,11 +4500,7 @@ describe("core engine", () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       let nextTime = 0;
-      const timestamps = [
-        "2026-05-27T00:00:01.000Z",
-        "2026-05-27T00:00:02.000Z",
-        "2026-05-27T00:00:03.000Z"
-      ];
+      const timestamps = ["2026-05-27T00:00:01.000Z", "2026-05-27T00:00:02.000Z", "2026-05-27T00:00:03.000Z"];
       const engine = createEngine({
         storePath,
         now: () => timestamps[nextTime++] ?? "2026-05-27T00:00:09.000Z",
@@ -3909,7 +4551,11 @@ describe("core engine", () => {
         source: "record_id"
       });
       expect(timeline.items.map((item) => item.relative)).toEqual(["before", "anchor", "after"]);
-      expect(timeline.items.map((item) => item.record_id)).toEqual([setup.record.id, target.record.id, followup.record.id]);
+      expect(timeline.items.map((item) => item.record_id)).toEqual([
+        setup.record.id,
+        target.record.id,
+        followup.record.id
+      ]);
       expect(timeline.items[1]).toMatchObject({
         event_id: "evt_4",
         op: "upsert_record",
@@ -3959,10 +4605,7 @@ describe("core engine", () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       let nextTime = 0;
-      const timestamps = [
-        "2026-05-27T00:01:00.000Z",
-        "2026-05-27T00:02:00.000Z"
-      ];
+      const timestamps = ["2026-05-27T00:01:00.000Z", "2026-05-27T00:02:00.000Z"];
       const engine = createEngine({
         storePath,
         now: () => timestamps[nextTime++] ?? "2026-05-27T00:03:00.000Z",
@@ -4023,7 +4666,9 @@ describe("core engine", () => {
         publicRecord.record.id,
         privateRecord.record.id
       ]);
-      expect(privateRefresh.changes.find((change) => change.record_id === privateRecord.record.id)?.next_action).toMatchObject({
+      expect(
+        privateRefresh.changes.find((change) => change.record_id === privateRecord.record.id)?.next_action
+      ).toMatchObject({
         command: `moryn recall --record-id ${privateRecord.record.id} --project-id moryn --include-private`,
         arguments: {
           record_ids: [privateRecord.record.id],
@@ -4041,12 +4686,14 @@ describe("core engine", () => {
         publicRecord.record.id
       ]);
 
-      await expect(engine.timeline({
-        record_id: privateRecord.record.id,
-        project_id: "moryn",
-        before: 0,
-        after: 0
-      })).rejects.toThrow(`Record not found: ${privateRecord.record.id}`);
+      await expect(
+        engine.timeline({
+          record_id: privateRecord.record.id,
+          project_id: "moryn",
+          before: 0,
+          after: 0
+        })
+      ).rejects.toThrow(`Record not found: ${privateRecord.record.id}`);
 
       const privateTimeline = await engine.timeline({
         record_id: privateRecord.record.id,
@@ -4074,11 +4721,7 @@ describe("core engine", () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       let nextTime = 0;
-      const timestamps = [
-        "2026-05-27T00:00:01.000Z",
-        "2026-05-27T00:00:02.000Z",
-        "2026-05-27T00:00:03.000Z"
-      ];
+      const timestamps = ["2026-05-27T00:00:01.000Z", "2026-05-27T00:00:02.000Z", "2026-05-27T00:00:03.000Z"];
       const engine = createEngine({
         storePath,
         now: () => timestamps[nextTime++] ?? "2026-05-27T00:00:09.000Z",
@@ -4135,7 +4778,11 @@ describe("core engine", () => {
   it("does not recall records solely from structured content metadata values", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => `2026-05-27T00:00:0${nextId}.000Z`, id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => `2026-05-27T00:00:0${nextId}.000Z`,
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       await engine.write({
         kind: "memory",
@@ -4163,7 +4810,11 @@ describe("core engine", () => {
   it("recalls with explicit scope filtering", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       await engine.write({
         kind: "memory",
@@ -4194,7 +4845,11 @@ describe("core engine", () => {
   it("ranks recall by type importance and provenance trust", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const decision = await engine.write({
         kind: "memory",
@@ -4254,11 +4909,12 @@ describe("core engine", () => {
   it("uses recency as a stable recall ranking tie-breaker", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const timestamps = [
-        "2026-05-27T00:00:00.000Z",
-        "2026-05-27T00:01:00.000Z"
-      ];
-      const engine = createEngine({ storePath, now: () => timestamps[nextId] ?? "2026-05-27T00:02:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const timestamps = ["2026-05-27T00:00:00.000Z", "2026-05-27T00:01:00.000Z"];
+      const engine = createEngine({
+        storePath,
+        now: () => timestamps[nextId] ?? "2026-05-27T00:02:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const older = await engine.write({
         kind: "memory",
@@ -4292,11 +4948,12 @@ describe("core engine", () => {
   it("ranks high-confidence recall candidates above lower-confidence candidates", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const timestamps = [
-        "2026-05-27T00:00:00.000Z",
-        "2026-05-27T00:01:00.000Z"
-      ];
-      const engine = createEngine({ storePath, now: () => timestamps[nextId] ?? "2026-05-27T00:02:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const timestamps = ["2026-05-27T00:00:00.000Z", "2026-05-27T00:01:00.000Z"];
+      const engine = createEngine({
+        storePath,
+        now: () => timestamps[nextId] ?? "2026-05-27T00:02:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const highConfidence = await engine.write({
         kind: "memory",
@@ -4319,9 +4976,18 @@ describe("core engine", () => {
         source: { client: "codex" }
       });
 
-      const recall = await engine.recall({ query: "auth", project_id: "moryn", kinds: ["memory"], states: ["candidate"], limit: 2 });
+      const recall = await engine.recall({
+        query: "auth",
+        project_id: "moryn",
+        kinds: ["memory"],
+        states: ["candidate"],
+        limit: 2
+      });
 
-      expect(recall.results.map((result) => result.record.id)).toEqual([highConfidence.record.id, lowConfidence.record.id]);
+      expect(recall.results.map((result) => result.record.id)).toEqual([
+        highConfidence.record.id,
+        lowConfidence.record.id
+      ]);
       expect(recall.results[0]?.reason).toContain("high_confidence_candidate");
     });
   });
@@ -4329,7 +4995,11 @@ describe("core engine", () => {
   it("recalls an explicit record id even when the current project context differs", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const otherProject = await engine.write({
         kind: "memory",
@@ -4355,7 +5025,11 @@ describe("core engine", () => {
   it("keeps raw agent notes out of default recall", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const note = await engine.write({
         kind: "agent_note",
@@ -4389,7 +5063,11 @@ describe("core engine", () => {
         "2026-05-27T00:04:00.000Z",
         "2026-05-27T00:05:00.000Z"
       ];
-      const engine = createEngine({ storePath, now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const soul = await engine.write({
         kind: "soul",
@@ -4463,7 +5141,9 @@ describe("core engine", () => {
         checkpoint_recovery_pack: "checkpoint_recovery_pack"
       });
       expect(boot.profile.soul.map((record) => record.content.text)).toEqual(["Prefer concise engineering updates."]);
-      expect(boot.project.important_decisions.map((record) => record.content.text)).toEqual(["Use append-only events."]);
+      expect(boot.project.important_decisions.map((record) => record.content.text)).toEqual([
+        "Use append-only events."
+      ]);
       expect(boot.project.warnings.map((record) => record.content.text)).toEqual(["Do not include secrets in memory."]);
       expect(boot.profile.soul_by_id[soul.record.id]).toEqual(boot.profile.soul[0]);
       expect(boot.project.important_decisions_by_id[decision.record.id]).toEqual(boot.project.important_decisions[0]);
@@ -4549,7 +5229,11 @@ describe("core engine", () => {
   it("builds project summary, tech stack, and active goals from trusted project records", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       await engine.write({
         kind: "memory",
@@ -4632,7 +5316,11 @@ describe("core engine", () => {
         "2026-05-27T00:02:00.000Z",
         "2026-05-27T00:03:00.000Z"
       ];
-      const engine = createEngine({ storePath, now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const highConfidence = await engine.write({
         kind: "memory",
@@ -4798,20 +5486,18 @@ describe("core engine", () => {
         techStackTexts[4]
       ]);
       expect(boot.project.active_goals).toHaveLength(5);
-      expect(boot.project.active_goals).toEqual([
-        goalTexts[1],
-        goalTexts[0],
-        goalTexts[6],
-        goalTexts[5],
-        goalTexts[4]
-      ]);
+      expect(boot.project.active_goals).toEqual([goalTexts[1], goalTexts[0], goalTexts[6], goalTexts[5], goalTexts[4]]);
     });
   });
 
   it("adds configured default skill selectors to boot context", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const releaseSkill = await engine.write({
         kind: "skill",
@@ -4842,7 +5528,11 @@ describe("core engine", () => {
   it("matches configured default skill selectors against structured skill content", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const releaseSkill = await engine.write({
         kind: "skill",
@@ -4867,7 +5557,11 @@ describe("core engine", () => {
   it("matches configured default skill selectors against structured fields even when skill text exists", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const releaseSkill = await engine.write({
         kind: "skill",
@@ -4892,7 +5586,11 @@ describe("core engine", () => {
   it("builds boot project text fields from structured content values", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       await engine.write({
         kind: "memory",
@@ -4933,7 +5631,11 @@ describe("core engine", () => {
   it("adds task-relevant trusted records to boot context when current task is provided", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const authDecision = await engine.write({
         kind: "memory",
@@ -4977,9 +5679,15 @@ describe("core engine", () => {
       const boot = await engine.boot({ project_id: "moryn", current_task: "fix auth token refresh" });
 
       expect(boot.task_relevant.map((record) => record.id)).toEqual([authDecision.record.id]);
-      expect(boot.task_relevant.map((record) => record.content.text)).not.toContain("Release requires npm credentials.");
-      expect(boot.task_relevant.map((record) => record.content.text)).not.toContain("Release skill from project config.");
-      expect(boot.task_relevant.map((record) => record.content.text)).not.toContain("Raw auth note should stay out of boot.");
+      expect(boot.task_relevant.map((record) => record.content.text)).not.toContain(
+        "Release requires npm credentials."
+      );
+      expect(boot.task_relevant.map((record) => record.content.text)).not.toContain(
+        "Release skill from project config."
+      );
+      expect(boot.task_relevant.map((record) => record.content.text)).not.toContain(
+        "Raw auth note should stay out of boot."
+      );
     });
   });
 
@@ -5032,7 +5740,11 @@ describe("core engine", () => {
         "2026-05-27T00:02:00.000Z",
         "2026-05-27T00:03:00.000Z"
       ];
-      const engine = createEngine({ storePath, now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const preference = await engine.write({
         kind: "memory",
@@ -5080,12 +5792,12 @@ describe("core engine", () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       let nextTime = 0;
-      const timestamps = [
-        "2026-05-27T00:00:00.000Z",
-        "2026-05-27T00:05:00.000Z",
-        "2026-05-27T00:06:00.000Z"
-      ];
-      const engine = createEngine({ storePath, now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const timestamps = ["2026-05-27T00:00:00.000Z", "2026-05-27T00:05:00.000Z", "2026-05-27T00:06:00.000Z"];
+      const engine = createEngine({
+        storePath,
+        now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       await engine.write({
         kind: "session_summary",
@@ -5149,12 +5861,12 @@ describe("core engine", () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       let nextTime = 0;
-      const timestamps = [
-        "2026-05-27T00:01:00.000Z",
-        "2026-05-27T00:02:00.000Z",
-        "2026-05-27T00:03:00.000Z"
-      ];
-      const engine = createEngine({ storePath, now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const timestamps = ["2026-05-27T00:01:00.000Z", "2026-05-27T00:02:00.000Z", "2026-05-27T00:03:00.000Z"];
+      const engine = createEngine({
+        storePath,
+        now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const first = await engine.write({
         kind: "memory",
@@ -5200,11 +5912,12 @@ describe("core engine", () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       let nextTime = 0;
-      const timestamps = [
-        "2026-05-27T00:01:00.000Z",
-        "2026-05-27T00:02:00.000Z"
-      ];
-      const engine = createEngine({ storePath, now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const timestamps = ["2026-05-27T00:01:00.000Z", "2026-05-27T00:02:00.000Z"];
+      const engine = createEngine({
+        storePath,
+        now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const decision = await engine.write({
         kind: "memory",
@@ -5235,7 +5948,11 @@ describe("core engine", () => {
   it("summarizes refresh changes from structured content values", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:01:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:01:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const warning = await engine.write({
         kind: "memory",
@@ -5266,12 +5983,12 @@ describe("core engine", () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       let nextTime = 0;
-      const timestamps = [
-        "2026-05-27T00:00:00.000Z",
-        "2026-05-27T00:01:00.000Z",
-        "2026-05-27T00:02:00.000Z"
-      ];
-      const engine = createEngine({ storePath, now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const timestamps = ["2026-05-27T00:00:00.000Z", "2026-05-27T00:01:00.000Z", "2026-05-27T00:02:00.000Z"];
+      const engine = createEngine({
+        storePath,
+        now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const authWarning = await engine.write({
         kind: "memory",
@@ -5315,12 +6032,12 @@ describe("core engine", () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       let nextTime = 0;
-      const timestamps = [
-        "2026-05-27T00:00:00.000Z",
-        "2026-05-27T00:01:00.000Z",
-        "2026-05-27T00:02:00.000Z"
-      ];
-      const engine = createEngine({ storePath, now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const timestamps = ["2026-05-27T00:00:00.000Z", "2026-05-27T00:01:00.000Z", "2026-05-27T00:02:00.000Z"];
+      const engine = createEngine({
+        storePath,
+        now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const preference = await engine.write({
         kind: "memory",
@@ -5360,7 +6077,11 @@ describe("core engine", () => {
   it("keeps raw agent notes out of boot until promotion and preserves skill identity through revision", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const rawNote = await engine.write({
         kind: "agent_note",
@@ -5373,7 +6094,12 @@ describe("core engine", () => {
       const hiddenBoot = await engine.boot({ project_id: "moryn" });
       expect(hiddenBoot.project.important_decisions).toHaveLength(0);
 
-      await engine.promote({ record_id: rawNote.record.id, target_state: "canonical", reason: "User confirmed", source: { client: "user" } });
+      await engine.promote({
+        record_id: rawNote.record.id,
+        target_state: "canonical",
+        reason: "User confirmed",
+        source: { client: "user" }
+      });
       const visibleBoot = await engine.boot({ project_id: "moryn" });
       expect(visibleBoot.project.important_decisions.map((record) => record.id)).toEqual([rawNote.record.id]);
 
@@ -5401,7 +6127,11 @@ describe("core engine", () => {
   it("archives, quarantines, links, and recalls hidden records only when explicitly requested", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
 
       const decision = await engine.write({
         kind: "memory",
@@ -5443,8 +6173,16 @@ describe("core engine", () => {
       expect((await engine.recall({ query: "Old sync", project_id: "moryn" })).results).toHaveLength(0);
       expect((await engine.recall({ query: "Internal warning", project_id: "moryn" })).results).toHaveLength(0);
 
-      const archived = await engine.recall({ record_ids: [superseded.record.id], states: ["archived"], project_id: "moryn" });
-      const quarantined = await engine.recall({ record_ids: [sensitive.record.id], states: ["quarantined"], project_id: "moryn" });
+      const archived = await engine.recall({
+        record_ids: [superseded.record.id],
+        states: ["archived"],
+        project_id: "moryn"
+      });
+      const quarantined = await engine.recall({
+        record_ids: [sensitive.record.id],
+        states: ["quarantined"],
+        project_id: "moryn"
+      });
       const linked = await engine.recall({ record_ids: [decision.record.id], project_id: "moryn" });
 
       expect(archived.results[0]?.record.state).toBe("archived");
@@ -5543,7 +6281,11 @@ describe("core engine", () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createEngine({ storePath });
 
-      async function expectInvalidLimit(action: () => Promise<unknown>, operation: "recall" | "refresh" | "list_recent" | "project_list", value: number): Promise<void> {
+      async function expectInvalidLimit(
+        action: () => Promise<unknown>,
+        operation: "recall" | "refresh" | "list_recent" | "project_list",
+        value: number
+      ): Promise<void> {
         try {
           await action();
           throw new Error("Expected read to reject invalid limit");
@@ -5624,98 +6366,157 @@ describe("core engine", () => {
       }
 
       await expectInvalidArgument(() => engine.recall(null as never), "Invalid recall input");
-      await expectInvalidReadShapeArgument(() => engine.recall({ project_id: "" }), "Invalid project_id", "retry read with a non-empty project_id", {
-        operation_contract: "operations_by_id.recall",
-        rejected_argument: { argument: "project_id", value: "" },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          project_id: "operations_by_id.recall.arguments_by_name.project_id"
-        },
-        retry_with: { argument: "project_id", value_placeholder: "<project_id>" }
-      });
-      await expectInvalidReadShapeArgument(() => engine.recall({ query: 123 as never }), "Invalid query", "retry read with a non-empty query", {
-        operation_contract: "operations_by_id.recall",
-        rejected_argument: { argument: "query", value: 123 },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          query: "operations_by_id.recall.arguments_by_name.query"
-        },
-        retry_with: { argument: "query", value_placeholder: "<query>" }
-      });
-      await expectInvalidReadShapeArgument(() => engine.recall({ record_ids: ["rec_1", 123] as never }), "Invalid record_ids", "retry read with record_ids as non-empty strings", {
-        operation_contract: "operations_by_id.recall",
-        rejected_argument: { argument: "record_ids", value: ["rec_1", 123] },
-        expected: { kind: "array_of_non_empty_strings" },
-        argument_sources: {
-          record_ids: "operations_by_id.recall.arguments_by_name.record_ids"
-        },
-        retry_with: { argument: "record_ids", value_placeholder: ["<record_id>"] }
-      });
-      await expectInvalidReadShapeArgument(() => engine.recall({ kinds: ["note"] as never }), "Invalid kinds", "retry read with supported kinds", {
-        operation_contract: "operations_by_id.recall",
-        rejected_argument: { argument: "kinds", value: ["note"] },
-        expected: { kind: "array_of_allowed_values", allowed_values: ["memory", "skill", "soul", "session_summary", "agent_note"] },
-        argument_sources: {
-          kinds: "operations_by_id.recall.arguments_by_name.kinds"
-        },
-        retry_with: { argument: "kinds", value_placeholder: ["memory"] }
-      });
-      await expectInvalidReadShapeArgument(() => engine.recall({ scopes: ["repository"] as never }), "Invalid scopes", "retry read with supported scopes", {
-        operation_contract: "operations_by_id.recall",
-        rejected_argument: { argument: "scopes", value: ["repository"] },
-        expected: { kind: "array_of_allowed_values", allowed_values: ["global", "project", "topic", "session", "artifact"] },
-        argument_sources: {
-          scopes: "operations_by_id.recall.arguments_by_name.scopes"
-        },
-        retry_with: { argument: "scopes", value_placeholder: ["project"] }
-      });
-      await expectInvalidReadShapeArgument(() => engine.recall({ states: ["published"] as never }), "Invalid states", "retry read with supported states", {
-        operation_contract: "operations_by_id.recall",
-        rejected_argument: { argument: "states", value: ["published"] },
-        expected: { kind: "array_of_allowed_values", allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"] },
-        argument_sources: {
-          states: "operations_by_id.recall.arguments_by_name.states"
-        },
-        retry_with: { argument: "states", value_placeholder: ["canonical"] }
-      });
-      await expectInvalidReadShapeArgument(() => engine.recall({ types: ["decision", 123] as never }), "Invalid types", "retry read with types as non-empty strings", {
-        operation_contract: "operations_by_id.recall",
-        rejected_argument: { argument: "types", value: ["decision", 123] },
-        expected: { kind: "array_of_non_empty_strings" },
-        argument_sources: {
-          types: "operations_by_id.recall.arguments_by_name.types"
-        },
-        retry_with: { argument: "types", value_placeholder: ["<type>"] }
-      });
-      await expectInvalidReadShapeArgument(() => engine.recall({ tags: "sync" as never }), "Invalid tags", "retry read with tags as non-empty strings", {
-        operation_contract: "operations_by_id.recall",
-        rejected_argument: { argument: "tags", value: "sync" },
-        expected: { kind: "array_of_non_empty_strings" },
-        argument_sources: {
-          tags: "operations_by_id.recall.arguments_by_name.tags"
-        },
-        retry_with: { argument: "tags", value_placeholder: ["<tag>"] }
-      });
-      await expectInvalidReadShapeArgument(() => engine.recall({ files: ["src/auth.ts", 123] as never }), "Invalid files", "retry read with files as non-empty strings", {
-        operation_contract: "operations_by_id.recall",
-        rejected_argument: { argument: "files", value: ["src/auth.ts", 123] },
-        expected: { kind: "array_of_non_empty_strings" },
-        argument_sources: {
-          files: "operations_by_id.recall.arguments_by_name.files"
-        },
-        retry_with: { argument: "files", value_placeholder: ["<file>"] }
-      });
+      await expectInvalidReadShapeArgument(
+        () => engine.recall({ project_id: "" }),
+        "Invalid project_id",
+        "retry read with a non-empty project_id",
+        {
+          operation_contract: "operations_by_id.recall",
+          rejected_argument: { argument: "project_id", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            project_id: "operations_by_id.recall.arguments_by_name.project_id"
+          },
+          retry_with: { argument: "project_id", value_placeholder: "<project_id>" }
+        }
+      );
+      await expectInvalidReadShapeArgument(
+        () => engine.recall({ query: 123 as never }),
+        "Invalid query",
+        "retry read with a non-empty query",
+        {
+          operation_contract: "operations_by_id.recall",
+          rejected_argument: { argument: "query", value: 123 },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            query: "operations_by_id.recall.arguments_by_name.query"
+          },
+          retry_with: { argument: "query", value_placeholder: "<query>" }
+        }
+      );
+      await expectInvalidReadShapeArgument(
+        () => engine.recall({ record_ids: ["rec_1", 123] as never }),
+        "Invalid record_ids",
+        "retry read with record_ids as non-empty strings",
+        {
+          operation_contract: "operations_by_id.recall",
+          rejected_argument: { argument: "record_ids", value: ["rec_1", 123] },
+          expected: { kind: "array_of_non_empty_strings" },
+          argument_sources: {
+            record_ids: "operations_by_id.recall.arguments_by_name.record_ids"
+          },
+          retry_with: { argument: "record_ids", value_placeholder: ["<record_id>"] }
+        }
+      );
+      await expectInvalidReadShapeArgument(
+        () => engine.recall({ kinds: ["note"] as never }),
+        "Invalid kinds",
+        "retry read with supported kinds",
+        {
+          operation_contract: "operations_by_id.recall",
+          rejected_argument: { argument: "kinds", value: ["note"] },
+          expected: {
+            kind: "array_of_allowed_values",
+            allowed_values: ["memory", "skill", "soul", "session_summary", "agent_note"]
+          },
+          argument_sources: {
+            kinds: "operations_by_id.recall.arguments_by_name.kinds"
+          },
+          retry_with: { argument: "kinds", value_placeholder: ["memory"] }
+        }
+      );
+      await expectInvalidReadShapeArgument(
+        () => engine.recall({ scopes: ["repository"] as never }),
+        "Invalid scopes",
+        "retry read with supported scopes",
+        {
+          operation_contract: "operations_by_id.recall",
+          rejected_argument: { argument: "scopes", value: ["repository"] },
+          expected: {
+            kind: "array_of_allowed_values",
+            allowed_values: ["global", "project", "topic", "session", "artifact"]
+          },
+          argument_sources: {
+            scopes: "operations_by_id.recall.arguments_by_name.scopes"
+          },
+          retry_with: { argument: "scopes", value_placeholder: ["project"] }
+        }
+      );
+      await expectInvalidReadShapeArgument(
+        () => engine.recall({ states: ["published"] as never }),
+        "Invalid states",
+        "retry read with supported states",
+        {
+          operation_contract: "operations_by_id.recall",
+          rejected_argument: { argument: "states", value: ["published"] },
+          expected: {
+            kind: "array_of_allowed_values",
+            allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"]
+          },
+          argument_sources: {
+            states: "operations_by_id.recall.arguments_by_name.states"
+          },
+          retry_with: { argument: "states", value_placeholder: ["canonical"] }
+        }
+      );
+      await expectInvalidReadShapeArgument(
+        () => engine.recall({ types: ["decision", 123] as never }),
+        "Invalid types",
+        "retry read with types as non-empty strings",
+        {
+          operation_contract: "operations_by_id.recall",
+          rejected_argument: { argument: "types", value: ["decision", 123] },
+          expected: { kind: "array_of_non_empty_strings" },
+          argument_sources: {
+            types: "operations_by_id.recall.arguments_by_name.types"
+          },
+          retry_with: { argument: "types", value_placeholder: ["<type>"] }
+        }
+      );
+      await expectInvalidReadShapeArgument(
+        () => engine.recall({ tags: "sync" as never }),
+        "Invalid tags",
+        "retry read with tags as non-empty strings",
+        {
+          operation_contract: "operations_by_id.recall",
+          rejected_argument: { argument: "tags", value: "sync" },
+          expected: { kind: "array_of_non_empty_strings" },
+          argument_sources: {
+            tags: "operations_by_id.recall.arguments_by_name.tags"
+          },
+          retry_with: { argument: "tags", value_placeholder: ["<tag>"] }
+        }
+      );
+      await expectInvalidReadShapeArgument(
+        () => engine.recall({ files: ["src/auth.ts", 123] as never }),
+        "Invalid files",
+        "retry read with files as non-empty strings",
+        {
+          operation_contract: "operations_by_id.recall",
+          rejected_argument: { argument: "files", value: ["src/auth.ts", 123] },
+          expected: { kind: "array_of_non_empty_strings" },
+          argument_sources: {
+            files: "operations_by_id.recall.arguments_by_name.files"
+          },
+          retry_with: { argument: "files", value_placeholder: ["<file>"] }
+        }
+      );
 
       await expectInvalidArgument(() => engine.timeline(null as never), "Invalid timeline input");
-      await expectInvalidReadShapeArgument(() => engine.timeline({ record_id: "" }), "Invalid record_id", "retry read with a non-empty record_id", {
-        operation_contract: "operations_by_id.timeline",
-        rejected_argument: { argument: "record_id", value: "" },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          record_id: "operations_by_id.timeline.arguments_by_name.record_id"
-        },
-        retry_with: { argument: "record_id", value_placeholder: "<record_id>" }
-      });
+      await expectInvalidReadShapeArgument(
+        () => engine.timeline({ record_id: "" }),
+        "Invalid record_id",
+        "retry read with a non-empty record_id",
+        {
+          operation_contract: "operations_by_id.timeline",
+          rejected_argument: { argument: "record_id", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            record_id: "operations_by_id.timeline.arguments_by_name.record_id"
+          },
+          retry_with: { argument: "record_id", value_placeholder: "<record_id>" }
+        }
+      );
       await expectInvalidReadShapeArgument(
         () => engine.timeline({ record_id: "rec_1", event_id: "evt_1" }),
         "timeline requires exactly one anchor",
@@ -5734,35 +6535,50 @@ describe("core engine", () => {
       );
 
       await expectInvalidArgument(() => engine.boot(null as never), "Invalid boot input");
-      await expectInvalidReadShapeArgument(() => engine.boot({ default_skills: ["release", 123] as never }), "Invalid default_skills", "retry read with default_skills as non-empty strings", {
-        operation_contract: "operations_by_id.boot",
-        rejected_argument: { argument: "default_skills", value: ["release", 123] },
-        expected: { kind: "array_of_non_empty_strings" },
-        argument_sources: {
-          default_skills: "operations_by_id.boot.arguments_by_name.default_skills"
-        },
-        retry_with: { argument: "default_skills", value_placeholder: ["<default_skill>"] }
-      });
-      await expectInvalidReadShapeArgument(() => engine.boot({ current_task: 123 as never }), "Invalid current_task", "retry read with a non-empty current_task", {
-        operation_contract: "operations_by_id.boot",
-        rejected_argument: { argument: "current_task", value: 123 },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          current_task: "operations_by_id.boot.arguments_by_name.current_task"
-        },
-        retry_with: { argument: "current_task", value_placeholder: "<current_task>" }
-      });
+      await expectInvalidReadShapeArgument(
+        () => engine.boot({ default_skills: ["release", 123] as never }),
+        "Invalid default_skills",
+        "retry read with default_skills as non-empty strings",
+        {
+          operation_contract: "operations_by_id.boot",
+          rejected_argument: { argument: "default_skills", value: ["release", 123] },
+          expected: { kind: "array_of_non_empty_strings" },
+          argument_sources: {
+            default_skills: "operations_by_id.boot.arguments_by_name.default_skills"
+          },
+          retry_with: { argument: "default_skills", value_placeholder: ["<default_skill>"] }
+        }
+      );
+      await expectInvalidReadShapeArgument(
+        () => engine.boot({ current_task: 123 as never }),
+        "Invalid current_task",
+        "retry read with a non-empty current_task",
+        {
+          operation_contract: "operations_by_id.boot",
+          rejected_argument: { argument: "current_task", value: 123 },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            current_task: "operations_by_id.boot.arguments_by_name.current_task"
+          },
+          retry_with: { argument: "current_task", value_placeholder: "<current_task>" }
+        }
+      );
 
       await expectInvalidArgument(() => engine.refresh(null as never), "Invalid refresh input");
-      await expectInvalidReadShapeArgument(() => engine.refresh({ cursor: 123 as never }), "Invalid cursor", "retry read with a non-empty cursor", {
-        operation_contract: "operations_by_id.refresh",
-        rejected_argument: { argument: "cursor", value: 123 },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          cursor: "operations_by_id.refresh.arguments_by_name.cursor"
-        },
-        retry_with: { argument: "cursor", value_placeholder: "<cursor>" }
-      });
+      await expectInvalidReadShapeArgument(
+        () => engine.refresh({ cursor: 123 as never }),
+        "Invalid cursor",
+        "retry read with a non-empty cursor",
+        {
+          operation_contract: "operations_by_id.refresh",
+          rejected_argument: { argument: "cursor", value: 123 },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            cursor: "operations_by_id.refresh.arguments_by_name.cursor"
+          },
+          retry_with: { argument: "cursor", value_placeholder: "<cursor>" }
+        }
+      );
       try {
         await engine.refresh({ cursor: "not-a-date" });
         throw new Error("Expected refresh to reject invalid cursor");
@@ -5789,43 +6605,63 @@ describe("core engine", () => {
           }
         });
       }
-      await expectInvalidReadShapeArgument(() => engine.refresh({ current_task: 123 as never }), "Invalid current_task", "retry read with a non-empty current_task", {
-        operation_contract: "operations_by_id.refresh",
-        rejected_argument: { argument: "current_task", value: 123 },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          current_task: "operations_by_id.refresh.arguments_by_name.current_task"
-        },
-        retry_with: { argument: "current_task", value_placeholder: "<current_task>" }
-      });
+      await expectInvalidReadShapeArgument(
+        () => engine.refresh({ current_task: 123 as never }),
+        "Invalid current_task",
+        "retry read with a non-empty current_task",
+        {
+          operation_contract: "operations_by_id.refresh",
+          rejected_argument: { argument: "current_task", value: 123 },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            current_task: "operations_by_id.refresh.arguments_by_name.current_task"
+          },
+          retry_with: { argument: "current_task", value_placeholder: "<current_task>" }
+        }
+      );
 
-      await expectInvalidReadShapeArgument(() => engine.listProjects({ current_task: 123 as never }), "Invalid current_task", "retry read with a non-empty current_task", {
-        operation_contract: "operations_by_id.project_list",
-        rejected_argument: { argument: "current_task", value: 123 },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          current_task: "operations_by_id.project_list.arguments_by_name.current_task"
-        },
-        retry_with: { argument: "current_task", value_placeholder: "<current_task>" }
-      });
-      await expectInvalidReadShapeArgument(() => engine.listProjects({ sync_remote: 123 as never }), "Invalid sync_remote", "retry read with a non-empty sync_remote", {
-        operation_contract: "operations_by_id.project_list",
-        rejected_argument: { argument: "sync_remote", value: 123 },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          sync_remote: "operations_by_id.project_list.arguments_by_name.sync_remote"
-        },
-        retry_with: { argument: "sync_remote", value_placeholder: "<sync_remote>" }
-      });
-      await expectInvalidReadShapeArgument(() => engine.listProjects({ agent: { client: "" } }), "Invalid agent.client", "retry project_list with a valid agent client", {
-        operation_contract: "operations_by_id.project_list",
-        rejected_argument: { argument: "agent.client", value: "" },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          "agent.client": "operations_by_id.project_list.arguments_by_name.agent_client"
-        },
-        retry_with: { argument: "agent.client", value_placeholder: "<agent client>" }
-      });
+      await expectInvalidReadShapeArgument(
+        () => engine.listProjects({ current_task: 123 as never }),
+        "Invalid current_task",
+        "retry read with a non-empty current_task",
+        {
+          operation_contract: "operations_by_id.project_list",
+          rejected_argument: { argument: "current_task", value: 123 },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            current_task: "operations_by_id.project_list.arguments_by_name.current_task"
+          },
+          retry_with: { argument: "current_task", value_placeholder: "<current_task>" }
+        }
+      );
+      await expectInvalidReadShapeArgument(
+        () => engine.listProjects({ sync_remote: 123 as never }),
+        "Invalid sync_remote",
+        "retry read with a non-empty sync_remote",
+        {
+          operation_contract: "operations_by_id.project_list",
+          rejected_argument: { argument: "sync_remote", value: 123 },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            sync_remote: "operations_by_id.project_list.arguments_by_name.sync_remote"
+          },
+          retry_with: { argument: "sync_remote", value_placeholder: "<sync_remote>" }
+        }
+      );
+      await expectInvalidReadShapeArgument(
+        () => engine.listProjects({ agent: { client: "" } }),
+        "Invalid agent.client",
+        "retry project_list with a valid agent client",
+        {
+          operation_contract: "operations_by_id.project_list",
+          rejected_argument: { argument: "agent.client", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            "agent.client": "operations_by_id.project_list.arguments_by_name.agent_client"
+          },
+          retry_with: { argument: "agent.client", value_placeholder: "<agent client>" }
+        }
+      );
       await expectInvalidReadShapeArgument(
         () => engine.listProjects({ agent: { client: "codex", session_id: "" } }),
         "Invalid agent.session_id",
@@ -5846,7 +6682,11 @@ describe("core engine", () => {
   it("rejects mutation events that target missing records", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
       const existing = await engine.write({
         kind: "memory",
         type: "decision",
@@ -5856,39 +6696,53 @@ describe("core engine", () => {
         source: { client: "test" }
       });
 
-      await expect(engine.revise({
-        record_id: "rec_missing",
-        patch: { "content.text": "No-op" },
-        source: { client: "test" }
-      })).rejects.toThrow("Record not found: rec_missing");
-      await expect(engine.promote({
-        record_id: "rec_missing",
-        target_state: "canonical",
-        source: { client: "test" }
-      })).rejects.toThrow("Record not found: rec_missing");
-      await expect(engine.archive({
-        record_id: "rec_missing",
-        source: { client: "test" }
-      })).rejects.toThrow("Record not found: rec_missing");
-      await expect(engine.quarantine({
-        record_id: "rec_missing",
-        source: { client: "test" }
-      })).rejects.toThrow("Record not found: rec_missing");
-      await expect(engine.link({
-        record_id: "rec_missing",
-        linked_record_id: existing.record.id,
-        link_type: "supersedes",
-        source: { client: "test" }
-      })).rejects.toThrow("Record not found: rec_missing");
-      await expect(engine.link({
-        record_id: existing.record.id,
-        linked_record_id: "rec_missing",
-        link_type: "supersedes",
-        source: { client: "test" }
-      })).rejects.toThrow("Record not found: rec_missing");
-      await expect(engine.recall({
-        record_ids: ["rec_missing"]
-      })).rejects.toThrow("Record not found: rec_missing");
+      await expect(
+        engine.revise({
+          record_id: "rec_missing",
+          patch: { "content.text": "No-op" },
+          source: { client: "test" }
+        })
+      ).rejects.toThrow("Record not found: rec_missing");
+      await expect(
+        engine.promote({
+          record_id: "rec_missing",
+          target_state: "canonical",
+          source: { client: "test" }
+        })
+      ).rejects.toThrow("Record not found: rec_missing");
+      await expect(
+        engine.archive({
+          record_id: "rec_missing",
+          source: { client: "test" }
+        })
+      ).rejects.toThrow("Record not found: rec_missing");
+      await expect(
+        engine.quarantine({
+          record_id: "rec_missing",
+          source: { client: "test" }
+        })
+      ).rejects.toThrow("Record not found: rec_missing");
+      await expect(
+        engine.link({
+          record_id: "rec_missing",
+          linked_record_id: existing.record.id,
+          link_type: "supersedes",
+          source: { client: "test" }
+        })
+      ).rejects.toThrow("Record not found: rec_missing");
+      await expect(
+        engine.link({
+          record_id: existing.record.id,
+          linked_record_id: "rec_missing",
+          link_type: "supersedes",
+          source: { client: "test" }
+        })
+      ).rejects.toThrow("Record not found: rec_missing");
+      await expect(
+        engine.recall({
+          record_ids: ["rec_missing"]
+        })
+      ).rejects.toThrow("Record not found: rec_missing");
 
       const recall = await engine.recall({ record_ids: [existing.record.id] });
       expect(recall.results[0]?.record.links).toBeUndefined();
@@ -5898,7 +6752,11 @@ describe("core engine", () => {
   it("rejects invalid core mutation arguments before appending events", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
-      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
       const existing = await engine.write({
         kind: "memory",
         type: "decision",
@@ -5948,216 +6806,313 @@ describe("core engine", () => {
         expect(await readEvents(storePath)).toHaveLength(originalEvents.length);
       }
 
-      await expectInvalidArgument(() => engine.write({
-        kind: "memory",
-        type: "decision",
-        scope: "project",
-        content: { text: "Project records need an explicit project id.", format: "text" },
-        source: { client: "test" }
-      }), "project_id is required for project scope");
+      await expectInvalidArgument(
+        () =>
+          engine.write({
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            content: { text: "Project records need an explicit project id.", format: "text" },
+            source: { client: "test" }
+          }),
+        "project_id is required for project scope"
+      );
       await expectInvalidArgument(() => engine.revise(null as never), "Invalid revise input");
-      await expectInvalidMutationShapeArgument(() => engine.revise({
-        record_id: "",
-        patch: { "content.text": "No-op" },
-        source: { client: "test" }
-      }), "Invalid record_id", "retry mutation with a valid record_id", {
-        operation_contract: "operations_by_id.revise",
-        rejected_argument: { argument: "record_id", value: "" },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          record_id: "operations_by_id.revise.arguments_by_name.record_id"
-        },
-        retry_with: { argument: "record_id", value_placeholder: "<record_id>" }
-      });
-      await expectInvalidArgument(() => engine.revise({
-        record_id: existing.record.id,
-        patch: [] as never,
-        source: { client: "test" }
-      }), "Invalid patch");
-      await expectInvalidArgument(() => engine.revise({
-        record_id: existing.record.id,
-        patch: {},
-        source: { client: "test" }
-      }), "Invalid patch");
+      await expectInvalidMutationShapeArgument(
+        () =>
+          engine.revise({
+            record_id: "",
+            patch: { "content.text": "No-op" },
+            source: { client: "test" }
+          }),
+        "Invalid record_id",
+        "retry mutation with a valid record_id",
+        {
+          operation_contract: "operations_by_id.revise",
+          rejected_argument: { argument: "record_id", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            record_id: "operations_by_id.revise.arguments_by_name.record_id"
+          },
+          retry_with: { argument: "record_id", value_placeholder: "<record_id>" }
+        }
+      );
+      await expectInvalidArgument(
+        () =>
+          engine.revise({
+            record_id: existing.record.id,
+            patch: [] as never,
+            source: { client: "test" }
+          }),
+        "Invalid patch"
+      );
+      await expectInvalidArgument(
+        () =>
+          engine.revise({
+            record_id: existing.record.id,
+            patch: {},
+            source: { client: "test" }
+          }),
+        "Invalid patch"
+      );
       for (const patch of [
         { "": "No-op" },
         { ".content.text": "No-op" },
         { "content..text": "No-op" },
         { "content.text.": "No-op" }
       ]) {
-        await expectInvalidArgument(() => engine.revise({
-          record_id: existing.record.id,
-          patch,
-          source: { client: "test" }
-        }), "Invalid patch");
+        await expectInvalidArgument(
+          () =>
+            engine.revise({
+              record_id: existing.record.id,
+              patch,
+              source: { client: "test" }
+            }),
+          "Invalid patch"
+        );
       }
-      await expectInvalidMutationShapeArgument(() => engine.revise({
-        record_id: existing.record.id,
-        patch: { "content.text": "No-op" },
-        source: { client: "" }
-      }), "Invalid source.client", "retry mutation with a valid source client", {
-        operation_contract: "operations_by_id.revise",
-        rejected_argument: { argument: "source.client", value: "" },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          "source.client": "operations_by_id.revise.arguments_by_name.source_client"
-        },
-        retry_with: { argument: "source.client", value_placeholder: "<client>" }
-      });
-      await expectInvalidMutationShapeArgument(() => engine.revise({
-        record_id: existing.record.id,
-        patch: { "content.text": "No-op" },
-        reason: "",
-        source: { client: "test" }
-      }), "Invalid reason", "retry mutation with a non-empty reason", {
-        operation_contract: "operations_by_id.revise",
-        rejected_argument: { argument: "reason", value: "" },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          reason: "operations_by_id.revise.arguments_by_name.reason"
-        },
-        retry_with: { argument: "reason", value_placeholder: "<reason>" }
-      });
+      await expectInvalidMutationShapeArgument(
+        () =>
+          engine.revise({
+            record_id: existing.record.id,
+            patch: { "content.text": "No-op" },
+            source: { client: "" }
+          }),
+        "Invalid source.client",
+        "retry mutation with a valid source client",
+        {
+          operation_contract: "operations_by_id.revise",
+          rejected_argument: { argument: "source.client", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            "source.client": "operations_by_id.revise.arguments_by_name.source_client"
+          },
+          retry_with: { argument: "source.client", value_placeholder: "<client>" }
+        }
+      );
+      await expectInvalidMutationShapeArgument(
+        () =>
+          engine.revise({
+            record_id: existing.record.id,
+            patch: { "content.text": "No-op" },
+            reason: "",
+            source: { client: "test" }
+          }),
+        "Invalid reason",
+        "retry mutation with a non-empty reason",
+        {
+          operation_contract: "operations_by_id.revise",
+          rejected_argument: { argument: "reason", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            reason: "operations_by_id.revise.arguments_by_name.reason"
+          },
+          retry_with: { argument: "reason", value_placeholder: "<reason>" }
+        }
+      );
 
       await expectInvalidArgument(() => engine.promote(null as never), "Invalid promote input");
-      await expectInvalidMutationShapeArgument(() => engine.promote({
-        record_id: existing.record.id,
-        target_state: "published" as never,
-        source: { client: "test" }
-      }), "Invalid target_state", "retry mutation with a supported target_state", {
-        operation_contract: "operations_by_id.promote",
-        rejected_argument: { argument: "target_state", value: "published" },
-        expected: { kind: "allowed_values", allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"] },
-        argument_sources: {
-          target_state: "operations_by_id.promote.arguments_by_name.target_state"
-        },
-        retry_with: { argument: "target_state", value_placeholder: "canonical" }
-      });
-      await expectInvalidMutationShapeArgument(() => engine.promote({
-        record_id: existing.record.id,
-        target_state: "canonical",
-        confirmed: "yes" as never,
-        source: { client: "test" }
-      }), "Invalid confirmed", "retry mutation with a boolean confirmed value", {
-        operation_contract: "operations_by_id.promote",
-        rejected_argument: { argument: "confirmed", value: "yes" },
-        expected: { kind: "boolean" },
-        argument_sources: {
-          confirmed: "operations_by_id.promote.arguments_by_name.confirmed"
-        },
-        retry_with: { argument: "confirmed", value_placeholder: true }
-      });
-      await expectInvalidMutationShapeArgument(() => engine.promote({
-        record_id: existing.record.id,
-        target_state: "canonical",
-        reason: "",
-        source: { client: "test" }
-      }), "Invalid reason", "retry mutation with a non-empty reason", {
-        operation_contract: "operations_by_id.promote",
-        rejected_argument: { argument: "reason", value: "" },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          reason: "operations_by_id.promote.arguments_by_name.reason"
-        },
-        retry_with: { argument: "reason", value_placeholder: "<reason>" }
-      });
+      await expectInvalidMutationShapeArgument(
+        () =>
+          engine.promote({
+            record_id: existing.record.id,
+            target_state: "published" as never,
+            source: { client: "test" }
+          }),
+        "Invalid target_state",
+        "retry mutation with a supported target_state",
+        {
+          operation_contract: "operations_by_id.promote",
+          rejected_argument: { argument: "target_state", value: "published" },
+          expected: {
+            kind: "allowed_values",
+            allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"]
+          },
+          argument_sources: {
+            target_state: "operations_by_id.promote.arguments_by_name.target_state"
+          },
+          retry_with: { argument: "target_state", value_placeholder: "canonical" }
+        }
+      );
+      await expectInvalidMutationShapeArgument(
+        () =>
+          engine.promote({
+            record_id: existing.record.id,
+            target_state: "canonical",
+            confirmed: "yes" as never,
+            source: { client: "test" }
+          }),
+        "Invalid confirmed",
+        "retry mutation with a boolean confirmed value",
+        {
+          operation_contract: "operations_by_id.promote",
+          rejected_argument: { argument: "confirmed", value: "yes" },
+          expected: { kind: "boolean" },
+          argument_sources: {
+            confirmed: "operations_by_id.promote.arguments_by_name.confirmed"
+          },
+          retry_with: { argument: "confirmed", value_placeholder: true }
+        }
+      );
+      await expectInvalidMutationShapeArgument(
+        () =>
+          engine.promote({
+            record_id: existing.record.id,
+            target_state: "canonical",
+            reason: "",
+            source: { client: "test" }
+          }),
+        "Invalid reason",
+        "retry mutation with a non-empty reason",
+        {
+          operation_contract: "operations_by_id.promote",
+          rejected_argument: { argument: "reason", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            reason: "operations_by_id.promote.arguments_by_name.reason"
+          },
+          retry_with: { argument: "reason", value_placeholder: "<reason>" }
+        }
+      );
 
       await expectInvalidArgument(() => engine.archive(null as never), "Invalid archive input");
-      await expectInvalidMutationShapeArgument(() => engine.archive({
-        record_id: "",
-        source: { client: "test" }
-      }), "Invalid record_id", "retry mutation with a valid record_id", {
-        operation_contract: "operations_by_id.archive",
-        rejected_argument: { argument: "record_id", value: "" },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          record_id: "operations_by_id.archive.arguments_by_name.record_id"
-        },
-        retry_with: { argument: "record_id", value_placeholder: "<record_id>" }
-      });
-      await expectInvalidMutationShapeArgument(() => engine.archive({
-        record_id: existing.record.id,
-        reason: "",
-        source: { client: "test" }
-      }), "Invalid reason", "retry mutation with a non-empty reason", {
-        operation_contract: "operations_by_id.archive",
-        rejected_argument: { argument: "reason", value: "" },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          reason: "operations_by_id.archive.arguments_by_name.reason"
-        },
-        retry_with: { argument: "reason", value_placeholder: "<reason>" }
-      });
+      await expectInvalidMutationShapeArgument(
+        () =>
+          engine.archive({
+            record_id: "",
+            source: { client: "test" }
+          }),
+        "Invalid record_id",
+        "retry mutation with a valid record_id",
+        {
+          operation_contract: "operations_by_id.archive",
+          rejected_argument: { argument: "record_id", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            record_id: "operations_by_id.archive.arguments_by_name.record_id"
+          },
+          retry_with: { argument: "record_id", value_placeholder: "<record_id>" }
+        }
+      );
+      await expectInvalidMutationShapeArgument(
+        () =>
+          engine.archive({
+            record_id: existing.record.id,
+            reason: "",
+            source: { client: "test" }
+          }),
+        "Invalid reason",
+        "retry mutation with a non-empty reason",
+        {
+          operation_contract: "operations_by_id.archive",
+          rejected_argument: { argument: "reason", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            reason: "operations_by_id.archive.arguments_by_name.reason"
+          },
+          retry_with: { argument: "reason", value_placeholder: "<reason>" }
+        }
+      );
       await expectInvalidArgument(() => engine.quarantine(null as never), "Invalid quarantine input");
-      await expectInvalidMutationShapeArgument(() => engine.quarantine({
-        record_id: existing.record.id,
-        reason: 123 as never,
-        source: { client: "test" }
-      }), "Invalid reason", "retry mutation with a non-empty reason", {
-        operation_contract: "operations_by_id.quarantine",
-        rejected_argument: { argument: "reason", value: 123 },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          reason: "operations_by_id.quarantine.arguments_by_name.reason"
-        },
-        retry_with: { argument: "reason", value_placeholder: "<reason>" }
-      });
-      await expectInvalidMutationShapeArgument(() => engine.quarantine({
-        record_id: existing.record.id,
-        reason: "",
-        source: { client: "test" }
-      }), "Invalid reason", "retry mutation with a non-empty reason", {
-        operation_contract: "operations_by_id.quarantine",
-        rejected_argument: { argument: "reason", value: "" },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          reason: "operations_by_id.quarantine.arguments_by_name.reason"
-        },
-        retry_with: { argument: "reason", value_placeholder: "<reason>" }
-      });
+      await expectInvalidMutationShapeArgument(
+        () =>
+          engine.quarantine({
+            record_id: existing.record.id,
+            reason: 123 as never,
+            source: { client: "test" }
+          }),
+        "Invalid reason",
+        "retry mutation with a non-empty reason",
+        {
+          operation_contract: "operations_by_id.quarantine",
+          rejected_argument: { argument: "reason", value: 123 },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            reason: "operations_by_id.quarantine.arguments_by_name.reason"
+          },
+          retry_with: { argument: "reason", value_placeholder: "<reason>" }
+        }
+      );
+      await expectInvalidMutationShapeArgument(
+        () =>
+          engine.quarantine({
+            record_id: existing.record.id,
+            reason: "",
+            source: { client: "test" }
+          }),
+        "Invalid reason",
+        "retry mutation with a non-empty reason",
+        {
+          operation_contract: "operations_by_id.quarantine",
+          rejected_argument: { argument: "reason", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            reason: "operations_by_id.quarantine.arguments_by_name.reason"
+          },
+          retry_with: { argument: "reason", value_placeholder: "<reason>" }
+        }
+      );
 
-      await expectInvalidMutationShapeArgument(() => engine.link({
-        record_id: existing.record.id,
-        linked_record_id: "",
-        link_type: "supersedes",
-        source: { client: "test" }
-      }), "Invalid linked_record_id", "retry mutation with a valid linked_record_id", {
-        operation_contract: "operations_by_id.link",
-        rejected_argument: { argument: "linked_record_id", value: "" },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          linked_record_id: "operations_by_id.link.arguments_by_name.linked_record_id"
-        },
-        retry_with: { argument: "linked_record_id", value_placeholder: "<linked_record_id>" }
-      });
-      await expectInvalidMutationShapeArgument(() => engine.link({
-        record_id: existing.record.id,
-        linked_record_id: linked.record.id,
-        link_type: "",
-        source: { client: "test" }
-      }), "Invalid link_type", "retry link with a non-empty link_type", {
-        operation_contract: "operations_by_id.link",
-        rejected_argument: { argument: "link_type", value: "" },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          link_type: "operations_by_id.link.arguments_by_name.link_type"
-        },
-        retry_with: { argument: "link_type", value_placeholder: "<link_type>" }
-      });
-      await expectInvalidMutationShapeArgument(() => engine.link({
-        record_id: existing.record.id,
-        linked_record_id: linked.record.id,
-        link_type: "supersedes",
-        source: { client: "" }
-      }), "Invalid source.client", "retry mutation with a valid source client", {
-        operation_contract: "operations_by_id.link",
-        rejected_argument: { argument: "source.client", value: "" },
-        expected: { kind: "non_empty_string", min_length: 1 },
-        argument_sources: {
-          "source.client": "operations_by_id.link.arguments_by_name.source_client"
-        },
-        retry_with: { argument: "source.client", value_placeholder: "<client>" }
-      });
+      await expectInvalidMutationShapeArgument(
+        () =>
+          engine.link({
+            record_id: existing.record.id,
+            linked_record_id: "",
+            link_type: "supersedes",
+            source: { client: "test" }
+          }),
+        "Invalid linked_record_id",
+        "retry mutation with a valid linked_record_id",
+        {
+          operation_contract: "operations_by_id.link",
+          rejected_argument: { argument: "linked_record_id", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            linked_record_id: "operations_by_id.link.arguments_by_name.linked_record_id"
+          },
+          retry_with: { argument: "linked_record_id", value_placeholder: "<linked_record_id>" }
+        }
+      );
+      await expectInvalidMutationShapeArgument(
+        () =>
+          engine.link({
+            record_id: existing.record.id,
+            linked_record_id: linked.record.id,
+            link_type: "",
+            source: { client: "test" }
+          }),
+        "Invalid link_type",
+        "retry link with a non-empty link_type",
+        {
+          operation_contract: "operations_by_id.link",
+          rejected_argument: { argument: "link_type", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            link_type: "operations_by_id.link.arguments_by_name.link_type"
+          },
+          retry_with: { argument: "link_type", value_placeholder: "<link_type>" }
+        }
+      );
+      await expectInvalidMutationShapeArgument(
+        () =>
+          engine.link({
+            record_id: existing.record.id,
+            linked_record_id: linked.record.id,
+            link_type: "supersedes",
+            source: { client: "" }
+          }),
+        "Invalid source.client",
+        "retry mutation with a valid source client",
+        {
+          operation_contract: "operations_by_id.link",
+          rejected_argument: { argument: "source.client", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            "source.client": "operations_by_id.link.arguments_by_name.source_client"
+          },
+          retry_with: { argument: "source.client", value_placeholder: "<client>" }
+        }
+      );
     });
   });
 });

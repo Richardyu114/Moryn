@@ -3,7 +3,13 @@ import { appendEventIfAbsent } from "./store.js";
 import type { MorynEvent, MorynRecord } from "./types.js";
 
 export type ActivationHost = "codex" | "claude";
-export type ActivationReceiptEvent = "session_start" | "user_prompt_submit" | "pre_compact" | "post_compact" | "stop" | "session_end";
+export type ActivationReceiptEvent =
+  | "session_start"
+  | "user_prompt_submit"
+  | "pre_compact"
+  | "post_compact"
+  | "stop"
+  | "session_end";
 
 export interface ActivationReceiptInput {
   activation_id: string;
@@ -27,26 +33,41 @@ function normalizedReceiptInput(input: ActivationReceiptInput): ActivationReceip
   return { ...input, occurred_at: occurredAt.toISOString() };
 }
 
-export function activationReceiptIdentity(input: ActivationReceiptInput): { digest: string; record_id: string; event_id: string } {
+export function activationReceiptIdentity(input: ActivationReceiptInput): {
+  digest: string;
+  record_id: string;
+  event_id: string;
+} {
   const normalized = normalizedReceiptInput(input);
-  const digest = createHash("sha256").update(JSON.stringify({
-    activation_id: normalized.activation_id,
-    host: normalized.host,
-    project_id: normalized.project_id,
-    event: normalized.event,
-    session_id: normalized.session_id,
-    device_id: normalized.device_id,
-    occurred_at: normalized.occurred_at,
-    command_digest: normalized.command_digest
-  })).digest("hex");
-  return { digest, record_id: `rec_activation_${digest.slice(0, 32)}`, event_id: `evt_activation_${digest.slice(0, 32)}` };
+  const digest = createHash("sha256")
+    .update(
+      JSON.stringify({
+        activation_id: normalized.activation_id,
+        host: normalized.host,
+        project_id: normalized.project_id,
+        event: normalized.event,
+        session_id: normalized.session_id,
+        device_id: normalized.device_id,
+        occurred_at: normalized.occurred_at,
+        command_digest: normalized.command_digest
+      })
+    )
+    .digest("hex");
+  return {
+    digest,
+    record_id: `rec_activation_${digest.slice(0, 32)}`,
+    event_id: `evt_activation_${digest.slice(0, 32)}`
+  };
 }
 
 function hostLabel(host: ActivationHost): string {
   return host === "claude" ? "Claude" : "Codex";
 }
 
-export async function recordActivationReceipt(storePath: string, input: ActivationReceiptInput): Promise<{
+export async function recordActivationReceipt(
+  storePath: string,
+  input: ActivationReceiptInput
+): Promise<{
   created: boolean;
   record: MorynRecord;
   receipt: ActivationReceipt;
@@ -81,7 +102,13 @@ export async function recordActivationReceipt(storePath: string, input: Activati
     source: { client: normalized.host, session_id: normalized.session_id, device_id: normalized.device_id },
     provenance: { method: "rule-promoted", reason: "Host lifecycle hook executed", promoted_at: normalized.occurred_at }
   };
-  const event: MorynEvent = { event_id: identity.event_id, op: "upsert_record", record, created_at: normalized.occurred_at, source: record.source };
+  const event: MorynEvent = {
+    event_id: identity.event_id,
+    op: "upsert_record",
+    record,
+    created_at: normalized.occurred_at,
+    source: record.source
+  };
   const appended = await appendEventIfAbsent(storePath, event);
   return { created: appended.created, record, receipt };
 }

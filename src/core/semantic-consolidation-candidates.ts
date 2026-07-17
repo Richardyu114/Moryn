@@ -24,7 +24,9 @@ export interface SemanticConsolidationCandidate {
   score: number;
   exact_fingerprint: boolean;
   token_overlap: number;
-  signals: Array<"exact_fingerprint" | "shared_file" | "shared_tag" | "shared_provenance" | "token_overlap" | "recency">;
+  signals: Array<
+    "exact_fingerprint" | "shared_file" | "shared_tag" | "shared_provenance" | "token_overlap" | "recency"
+  >;
 }
 
 function compareCodeUnits(left: string, right: string): number {
@@ -40,7 +42,11 @@ function requireLimit(value: number | undefined, fallback: number, maximum: numb
 }
 
 function normalizedTokens(record: MorynRecord): Set<string> {
-  return new Set(searchableRecordText(record).toLocaleLowerCase().match(/[\p{L}\p{N}]+(?:[._/-][\p{L}\p{N}]+)*/gu) ?? []);
+  return new Set(
+    searchableRecordText(record)
+      .toLocaleLowerCase()
+      .match(/[\p{L}\p{N}]+(?:[._/-][\p{L}\p{N}]+)*/gu) ?? []
+  );
 }
 
 function overlapRatio(left: Set<string>, right: Set<string>): number {
@@ -57,7 +63,11 @@ function stringValues(value: unknown): string[] {
 }
 
 function recordFiles(record: MorynRecord): Set<string> {
-  return new Set(stringValues(record.content.files).map((value) => value.trim()).filter(Boolean));
+  return new Set(
+    stringValues(record.content.files)
+      .map((value) => value.trim())
+      .filter(Boolean)
+  );
 }
 
 function intersects(left: Set<string>, right: Set<string>): boolean {
@@ -66,10 +76,12 @@ function intersects(left: Set<string>, right: Set<string>): boolean {
 }
 
 function sameDomain(source: MorynRecord, candidate: MorynRecord): boolean {
-  return source.kind === candidate.kind
-    && source.type === candidate.type
-    && source.scope === candidate.scope
-    && source.project_id === candidate.project_id;
+  return (
+    source.kind === candidate.kind &&
+    source.type === candidate.type &&
+    source.scope === candidate.scope &&
+    source.project_id === candidate.project_id
+  );
 }
 
 function candidateFor(source: MorynRecord, candidate: MorynRecord): SemanticConsolidationCandidate {
@@ -77,7 +89,10 @@ function candidateFor(source: MorynRecord, candidate: MorynRecord): SemanticCons
   const tokenOverlap = overlapRatio(normalizedTokens(source), normalizedTokens(candidate));
   const sharedFile = intersects(recordFiles(source), recordFiles(candidate));
   const sharedTag = intersects(new Set(source.tags), new Set(candidate.tags));
-  const sharedProvenance = intersects(new Set(source.provenance?.derived_from ?? []), new Set(candidate.provenance?.derived_from ?? []));
+  const sharedProvenance = intersects(
+    new Set(source.provenance?.derived_from ?? []),
+    new Set(candidate.provenance?.derived_from ?? [])
+  );
   const recency = candidate.updated_at >= source.updated_at;
   const signals: SemanticConsolidationCandidate["signals"] = [];
   if (exactFingerprint) signals.push("exact_fingerprint");
@@ -86,12 +101,13 @@ function candidateFor(source: MorynRecord, candidate: MorynRecord): SemanticCons
   if (sharedProvenance) signals.push("shared_provenance");
   if (tokenOverlap > 0) signals.push("token_overlap");
   if (recency) signals.push("recency");
-  const score = (exactFingerprint ? 1000 : 0)
-    + (sharedFile ? 80 : 0)
-    + (sharedProvenance ? 70 : 0)
-    + (sharedTag ? 30 : 0)
-    + tokenOverlap * 100
-    + (recency ? 1 : 0);
+  const score =
+    (exactFingerprint ? 1000 : 0) +
+    (sharedFile ? 80 : 0) +
+    (sharedProvenance ? 70 : 0) +
+    (sharedTag ? 30 : 0) +
+    tokenOverlap * 100 +
+    (recency ? 1 : 0);
   return {
     source_record_id: source.id,
     record_id: candidate.id,
@@ -108,8 +124,9 @@ export function retrieveSemanticConsolidationCandidates(
 ) {
   const perSourceLimit = requireLimit(options.per_source_limit, 8, 8, "per_source_limit");
   const totalLimit = requireLimit(options.total_limit, 24, 24, "total_limit");
-  const activeRecords = buildActiveLogicalMemoryView([...records]).active_records
-    .filter((record) => record.visibility === "active" && record.state !== "archived" && record.state !== "quarantined");
+  const activeRecords = buildActiveLogicalMemoryView([...records]).active_records.filter(
+    (record) => record.visibility === "active" && record.state !== "archived" && record.state !== "quarantined"
+  );
   const activeById = new Map(activeRecords.map((record) => [record.id, record]));
   const candidates: SemanticConsolidationCandidate[] = [];
   const candidatesBySourceRecordId: Record<string, SemanticConsolidationCandidate[]> = {};

@@ -33,13 +33,17 @@ export function unresolvedLearningCandidates(
   candidates: SemanticConsolidationCandidate[],
   receipt: Pick<SemanticConsolidationReceipt, "proposal_results">
 ): SemanticConsolidationCandidate[] {
-  const resolvedPairs = new Set(receipt.proposal_results
-    .filter((result) => result.status === "accepted" || result.status === "idempotent")
-    .flatMap((result) => [
-      `${result.source_record_id}\u0000${result.target_record_id}`,
-      `${result.target_record_id}\u0000${result.source_record_id}`
-    ]));
-  return candidates.filter((candidate) => !resolvedPairs.has(`${candidate.source_record_id}\u0000${candidate.record_id}`));
+  const resolvedPairs = new Set(
+    receipt.proposal_results
+      .filter((result) => result.status === "accepted" || result.status === "idempotent")
+      .flatMap((result) => [
+        `${result.source_record_id}\u0000${result.target_record_id}`,
+        `${result.target_record_id}\u0000${result.source_record_id}`
+      ])
+  );
+  return candidates.filter(
+    (candidate) => !resolvedPairs.has(`${candidate.source_record_id}\u0000${candidate.record_id}`)
+  );
 }
 
 export function buildLearningCandidateReviewWorkflow(
@@ -70,7 +74,8 @@ export function buildLearningCandidateReviewWorkflow(
       tool: "consolidate_semantic",
       allowed_relationships: ["duplicate_of", "revises", "supersedes", "conflicts_with"],
       no_relationship_is_valid: true,
-      instruction: "Recall both records and propose a relationship only when evidence supports it; similarity score alone is insufficient."
+      instruction:
+        "Recall both records and propose a relationship only when evidence supports it; similarity score alone is insufficient."
     },
     workflow: {
       version: 1,

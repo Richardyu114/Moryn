@@ -1,8 +1,8 @@
 import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createEngine } from "../../src/core/engine.js";
 import { rebuildDerivedViews } from "../../src/core/derived.js";
+import { createEngine } from "../../src/core/engine.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
 const REBUILD_SELECTION_SOURCES = {
@@ -155,25 +155,47 @@ describe("derived views", () => {
       expect(user.soul).toHaveLength(1);
 
       const firstRecordsRaw = await readFile(join(storePath, "snapshots", "records.json"), "utf8");
-      const recordReadModel = JSON.parse(firstRecordsRaw) as { version: number; event_manifest: { count: number; digest: string }; records: Array<{ id: string; state: string; links?: unknown[] }> };
+      const recordReadModel = JSON.parse(firstRecordsRaw) as {
+        version: number;
+        event_manifest: { count: number; digest: string };
+        records: Array<{ id: string; state: string; links?: unknown[] }>;
+      };
       expect(recordReadModel.version).toBe(1);
-      expect(recordReadModel.event_manifest).toMatchObject({ count: 11, digest: expect.stringMatching(/^[a-f0-9]{64}$/) });
+      expect(recordReadModel.event_manifest).toMatchObject({
+        count: 11,
+        digest: expect.stringMatching(/^[a-f0-9]{64}$/)
+      });
       expect(recordReadModel.records).toHaveLength(11);
-      const retrievalMetadata = JSON.parse(await readFile(join(storePath, "snapshots", "retrieval", "metadata.json"), "utf8")) as { event_manifest: { count: number }; active_records: number; project_buckets: number };
-      expect(retrievalMetadata).toMatchObject({ event_manifest: { count: 11 }, active_records: 11, project_buckets: 2 });
+      const retrievalMetadata = JSON.parse(
+        await readFile(join(storePath, "snapshots", "retrieval", "metadata.json"), "utf8")
+      ) as { event_manifest: { count: number }; active_records: number; project_buckets: number };
+      expect(retrievalMetadata).toMatchObject({
+        event_manifest: { count: 11 },
+        active_records: 11,
+        project_buckets: 2
+      });
 
-      const project = JSON.parse(await readFile(join(storePath, "snapshots", "projects", "moryn.json"), "utf8")) as { summary: string; decisions: Array<{ content: { text: string } }> };
+      const project = JSON.parse(await readFile(join(storePath, "snapshots", "projects", "moryn.json"), "utf8")) as {
+        summary: string;
+        decisions: Array<{ content: { text: string } }>;
+      };
       expect(project.summary).toBe("Moryn is a local-first agent memory layer.");
       expect(project.decisions[0]?.content.text).toBe("Use Git sync.");
 
-      const skills = JSON.parse(await readFile(join(storePath, "snapshots", "skills", "index.json"), "utf8")) as { skills: Array<{ tags: string[] }> };
+      const skills = JSON.parse(await readFile(join(storePath, "snapshots", "skills", "index.json"), "utf8")) as {
+        skills: Array<{ tags: string[] }>;
+      };
       expect(skills.skills[0]?.tags).toEqual(["release"]);
 
       const firstRecallRaw = await readFile(join(storePath, "indexes", "recall.json"), "utf8");
       const recall = JSON.parse(firstRecallRaw) as { records: Array<{ id: string; text: string; tags: string[] }> };
-      expect(recordReadModel.records.map((record) => record.id).sort()).toEqual(recall.records.map((record) => record.id).sort());
+      expect(recordReadModel.records.map((record) => record.id).sort()).toEqual(
+        recall.records.map((record) => record.id).sort()
+      );
       expect(recall.records.map((record) => record.text)).toContain("Use Git sync.");
-      expect(recall.records.map((record) => record.text)).toContain("Structured derived index content. src/derived.ts mcp-parity");
+      expect(recall.records.map((record) => record.text)).toContain(
+        "Structured derived index content. src/derived.ts mcp-parity"
+      );
 
       await rm(join(storePath, "snapshots"), { recursive: true, force: true });
       await rm(join(storePath, "indexes"), { recursive: true, force: true });
@@ -195,18 +217,16 @@ describe("derived views", () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       let nextTime = 0;
-      const timestamps = [
-        "2026-05-27T00:00:00.000Z",
-        "2026-05-27T00:01:00.000Z",
-        "2026-05-27T00:02:00.000Z"
-      ];
+      const timestamps = ["2026-05-27T00:00:00.000Z", "2026-05-27T00:01:00.000Z", "2026-05-27T00:02:00.000Z"];
       const engine = createEngine({
         storePath,
         now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z",
         id: (prefix) => `${prefix}_${++nextId}`
       });
       const recallTexts = async () => {
-        const recall = JSON.parse(await readFile(join(storePath, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };
+        const recall = JSON.parse(await readFile(join(storePath, "indexes", "recall.json"), "utf8")) as {
+          records: Array<{ text: string }>;
+        };
         return recall.records.map((record) => record.text);
       };
       const projectDecisionTexts = async () => {
@@ -260,20 +280,24 @@ describe("derived views", () => {
         id: (prefix) => `${prefix}_${++nextId}`
       });
 
-      await Promise.all(Array.from({ length: 24 }, async (_, index) => {
-        await engine.write({
-          kind: "memory",
-          type: "decision",
-          scope: "project",
-          project_id: "moryn",
-          tags: ["stress"],
-          content: { text: `Concurrent engine write ${index}`, format: "text" },
-          state: "canonical",
-          source: { client: `agent-${index % 2}` }
-        });
-      }));
+      await Promise.all(
+        Array.from({ length: 24 }, async (_, index) => {
+          await engine.write({
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            tags: ["stress"],
+            content: { text: `Concurrent engine write ${index}`, format: "text" },
+            state: "canonical",
+            source: { client: `agent-${index % 2}` }
+          });
+        })
+      );
 
-      const recall = JSON.parse(await readFile(join(storePath, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };
+      const recall = JSON.parse(await readFile(join(storePath, "indexes", "recall.json"), "utf8")) as {
+        records: Array<{ text: string }>;
+      };
       const texts = recall.records.map((record) => record.text);
 
       expect(texts.filter((text) => text.startsWith("Concurrent engine write "))).toHaveLength(24);

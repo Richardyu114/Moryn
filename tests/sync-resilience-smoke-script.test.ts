@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
+
 const exec = promisify(execFile);
 describe("sync resilience smoke script", () => {
   it("retains a failed finish locally and compensates when the remote returns", async () => {

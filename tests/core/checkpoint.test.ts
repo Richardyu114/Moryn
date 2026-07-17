@@ -1,12 +1,17 @@
-import { describe, expect, it } from "vitest";
 import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { promisify } from "node:util";
+import { describe, expect, it } from "vitest";
+import {
+  buildCheckpointRecoveryPack,
+  checkpointIdentity,
+  normalizeCheckpointInput,
+  recoveryPack
+} from "../../src/core/checkpoint.js";
 import { createEngine } from "../../src/core/engine.js";
-import { buildCheckpointRecoveryPack, checkpointIdentity, normalizeCheckpointInput, recoveryPack } from "../../src/core/checkpoint.js";
-import { learningRecordIdentity } from "../../src/core/learning-ingestion.js";
 import { pendingLearningInbox, queueLearning } from "../../src/core/learning-inbox.js";
+import { learningRecordIdentity } from "../../src/core/learning-ingestion.js";
 import { appendEvent, appendEventIfAbsent, readEvents } from "../../src/core/store.js";
 import type { MorynRecord } from "../../src/core/types.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
@@ -40,7 +45,16 @@ function createTestEngine(storePath: string) {
   });
 }
 
-function checkpointRecord(overrides: Partial<MorynRecord> & { id: string; checkpoint_id: string; occurred_at: string; session_id?: string; project_id?: string; delta?: Record<string, unknown> }): MorynRecord {
+function checkpointRecord(
+  overrides: Partial<MorynRecord> & {
+    id: string;
+    checkpoint_id: string;
+    occurred_at: string;
+    session_id?: string;
+    project_id?: string;
+    delta?: Record<string, unknown>;
+  }
+): MorynRecord {
   const sessionId = overrides.session_id ?? "session-1";
   return {
     ...overrides,
@@ -57,7 +71,15 @@ function checkpointRecord(overrides: Partial<MorynRecord> & { id: string; checkp
       checkpoint: {
         session_id: sessionId,
         checkpoint_id: overrides.checkpoint_id,
-        progress: [overrides.id], decisions: [], changed_facts: [], blockers: [], next_steps: [], files: [], candidate_memories: [], candidate_skills: [], learnings: [],
+        progress: [overrides.id],
+        decisions: [],
+        changed_facts: [],
+        blockers: [],
+        next_steps: [],
+        files: [],
+        candidate_memories: [],
+        candidate_skills: [],
+        learnings: [],
         ...overrides.delta
       }
     },
@@ -74,51 +96,122 @@ function checkpointRecord(overrides: Partial<MorynRecord> & { id: string; checkp
 
 describe("buildCheckpointRecoveryPack", () => {
   it("aggregates the latest five valid checkpoints in chronological order with bounded exact dedup", () => {
-    const records = Array.from({ length: 7 }, (_, index) => checkpointRecord({
-      id: `record-${index + 1}`,
-      checkpoint_id: `checkpoint-${index + 1}`,
-      occurred_at: `2026-07-11T00:0${index}:00.000Z`,
-      delta: {
-        current_task: index === 5 ? "older task" : index === 6 ? "latest task" : undefined,
-        progress: [`progress-${index + 1}`, "shared"],
-        decisions: Array.from({ length: 3 }, (__, item) => `decision-${index}-${item}`),
-        blockers: index === 5 ? ["resolved blocker"] : index === 6 ? [] : ["old blocker"],
-        next_steps: index === 6 ? ["ship it"] : ["obsolete step"]
-      }
-    }));
+    const records = Array.from({ length: 7 }, (_, index) =>
+      checkpointRecord({
+        id: `record-${index + 1}`,
+        checkpoint_id: `checkpoint-${index + 1}`,
+        occurred_at: `2026-07-11T00:0${index}:00.000Z`,
+        delta: {
+          current_task: index === 5 ? "older task" : index === 6 ? "latest task" : undefined,
+          progress: [`progress-${index + 1}`, "shared"],
+          decisions: Array.from({ length: 3 }, (__, item) => `decision-${index}-${item}`),
+          blockers: index === 5 ? ["resolved blocker"] : index === 6 ? [] : ["old blocker"],
+          next_steps: index === 6 ? ["ship it"] : ["obsolete step"]
+        }
+      })
+    );
 
     const pack = buildCheckpointRecoveryPack(records, { project_id: "project-a", session_id: "session-1" });
 
     expect(pack).toMatchObject({
-      version: 1, available: true, bounded: true, project_id: "project-a", session_id: "session-1",
-      latest_checkpoint_id: "checkpoint-7", latest_occurred_at: "2026-07-11T00:06:00.000Z",
-      source_record_ids: ["record-3", "record-4", "record-5", "record-6", "record-7"], checkpoint_count: 5,
-      current_task: "latest task", blockers: [], next_steps: ["ship it"]
+      version: 1,
+      available: true,
+      bounded: true,
+      project_id: "project-a",
+      session_id: "session-1",
+      latest_checkpoint_id: "checkpoint-7",
+      latest_occurred_at: "2026-07-11T00:06:00.000Z",
+      source_record_ids: ["record-3", "record-4", "record-5", "record-6", "record-7"],
+      checkpoint_count: 5,
+      current_task: "latest task",
+      blockers: [],
+      next_steps: ["ship it"]
     });
     expect(pack.progress).toEqual(["progress-3", "shared", "progress-4", "progress-5", "progress-6", "progress-7"]);
     expect(pack.decisions).toHaveLength(10);
   });
 
   it("filters invalid records and deterministically orders timestamp ties by updated_at then record id", () => {
-    const validA = checkpointRecord({ id: "b", checkpoint_id: "b", occurred_at: "2026-07-11T00:00:00.000Z", updated_at: "2026-07-11T00:01:00.000Z" });
-    const validB = checkpointRecord({ id: "a", checkpoint_id: "a", occurred_at: "2026-07-11T00:00:00.000Z", updated_at: "2026-07-11T00:01:00.000Z" });
+    const validA = checkpointRecord({
+      id: "b",
+      checkpoint_id: "b",
+      occurred_at: "2026-07-11T00:00:00.000Z",
+      updated_at: "2026-07-11T00:01:00.000Z"
+    });
+    const validB = checkpointRecord({
+      id: "a",
+      checkpoint_id: "a",
+      occurred_at: "2026-07-11T00:00:00.000Z",
+      updated_at: "2026-07-11T00:01:00.000Z"
+    });
     const excluded = [
-      checkpointRecord({ id: "other-session", checkpoint_id: "x", occurred_at: "2026-07-11T00:02:00.000Z", session_id: "other" }),
-      checkpointRecord({ id: "other-project", checkpoint_id: "x", occurred_at: "2026-07-11T00:02:00.000Z", project_id: "other" }),
-      checkpointRecord({ id: "archived", checkpoint_id: "x", occurred_at: "2026-07-11T00:02:00.000Z", visibility: "archived" }),
-      checkpointRecord({ id: "quarantined", checkpoint_id: "x", occurred_at: "2026-07-11T00:02:00.000Z", visibility: "quarantined" }),
-      checkpointRecord({ id: "malformed", checkpoint_id: "x", occurred_at: "2026-07-11T00:02:00.000Z", content: { format: "json", text: "bad", checkpoint_version: 1, checkpoint: { nope: true } } })
+      checkpointRecord({
+        id: "other-session",
+        checkpoint_id: "x",
+        occurred_at: "2026-07-11T00:02:00.000Z",
+        session_id: "other"
+      }),
+      checkpointRecord({
+        id: "other-project",
+        checkpoint_id: "x",
+        occurred_at: "2026-07-11T00:02:00.000Z",
+        project_id: "other"
+      }),
+      checkpointRecord({
+        id: "archived",
+        checkpoint_id: "x",
+        occurred_at: "2026-07-11T00:02:00.000Z",
+        visibility: "archived"
+      }),
+      checkpointRecord({
+        id: "quarantined",
+        checkpoint_id: "x",
+        occurred_at: "2026-07-11T00:02:00.000Z",
+        visibility: "quarantined"
+      }),
+      checkpointRecord({
+        id: "malformed",
+        checkpoint_id: "x",
+        occurred_at: "2026-07-11T00:02:00.000Z",
+        content: { format: "json", text: "bad", checkpoint_version: 1, checkpoint: { nope: true } }
+      })
     ];
 
-    expect(buildCheckpointRecoveryPack([validA, ...excluded, validB], { project_id: "project-a", session_id: "session-1" }).source_record_ids).toEqual(["a", "b"]);
+    expect(
+      buildCheckpointRecoveryPack([validA, ...excluded, validB], { project_id: "project-a", session_id: "session-1" })
+        .source_record_ids
+    ).toEqual(["a", "b"]);
   });
 
   it("enforces private boundaries without leaking ids or counts and preserves canonical learning dedup", () => {
-    const learning = { question: "Q", conclusion: "A", evidence_type: "source_code", scope: "project", confidence: 0.8, recommended_kind: "memory", recommended_type: "fact", related_record_ids: ["b", "a"] };
-    const publicRecord = checkpointRecord({ id: "public", checkpoint_id: "public", occurred_at: "2026-07-11T00:00:00.000Z", delta: { progress: ["public progress"], learnings: [learning] } });
-    const privateRecord = checkpointRecord({ id: "private", checkpoint_id: "private", occurred_at: "2026-07-11T00:01:00.000Z", tags: ["private"], delta: { progress: ["secret progress"], learnings: [{ ...learning, related_record_ids: ["a", "b"] }] } });
+    const learning = {
+      question: "Q",
+      conclusion: "A",
+      evidence_type: "source_code",
+      scope: "project",
+      confidence: 0.8,
+      recommended_kind: "memory",
+      recommended_type: "fact",
+      related_record_ids: ["b", "a"]
+    };
+    const publicRecord = checkpointRecord({
+      id: "public",
+      checkpoint_id: "public",
+      occurred_at: "2026-07-11T00:00:00.000Z",
+      delta: { progress: ["public progress"], learnings: [learning] }
+    });
+    const privateRecord = checkpointRecord({
+      id: "private",
+      checkpoint_id: "private",
+      occurred_at: "2026-07-11T00:01:00.000Z",
+      tags: ["private"],
+      delta: { progress: ["secret progress"], learnings: [{ ...learning, related_record_ids: ["a", "b"] }] }
+    });
 
-    const mixed = buildCheckpointRecoveryPack([privateRecord, publicRecord], { project_id: "project-a", session_id: "session-1" });
+    const mixed = buildCheckpointRecoveryPack([privateRecord, publicRecord], {
+      project_id: "project-a",
+      session_id: "session-1"
+    });
     expect(mixed.source_record_ids).toEqual(["public"]);
     expect(mixed.checkpoint_count).toBe(1);
     expect(mixed.progress).toEqual(["public progress"]);
@@ -128,7 +221,11 @@ describe("buildCheckpointRecoveryPack", () => {
     expect(hidden).not.toHaveProperty("progress");
     expect(hidden).not.toHaveProperty("latest_checkpoint_id");
     expect(hidden).not.toHaveProperty("latest_occurred_at");
-    const included = buildCheckpointRecoveryPack([privateRecord, publicRecord], { project_id: "project-a", session_id: "session-1", include_private: true });
+    const included = buildCheckpointRecoveryPack([privateRecord, publicRecord], {
+      project_id: "project-a",
+      session_id: "session-1",
+      include_private: true
+    });
     expect(included.progress).toEqual(["public progress", "secret progress"]);
     expect(included.source_record_ids).toEqual(["public", "private"]);
     expect(included.checkpoint_count).toBe(2);
@@ -136,55 +233,166 @@ describe("buildCheckpointRecoveryPack", () => {
   });
 
   it("selects the latest five visible checkpoints before private records can consume the limit", () => {
-    const publicRecord = checkpointRecord({ id: "public", checkpoint_id: "public", occurred_at: "2026-07-11T00:00:00.000Z", delta: { progress: ["public progress"] } });
-    const privateRecords = Array.from({ length: 6 }, (_, index) => checkpointRecord({
-      id: `private-${index + 1}`,
-      checkpoint_id: `private-${index + 1}`,
-      occurred_at: `2026-07-11T00:0${index + 1}:00.000Z`,
-      tags: [index % 3 === 0 ? "private" : index % 3 === 1 ? "secret" : "sensitive"],
-      delta: { progress: [`secret-${index + 1}`] }
-    }));
+    const publicRecord = checkpointRecord({
+      id: "public",
+      checkpoint_id: "public",
+      occurred_at: "2026-07-11T00:00:00.000Z",
+      delta: { progress: ["public progress"] }
+    });
+    const privateRecords = Array.from({ length: 6 }, (_, index) =>
+      checkpointRecord({
+        id: `private-${index + 1}`,
+        checkpoint_id: `private-${index + 1}`,
+        occurred_at: `2026-07-11T00:0${index + 1}:00.000Z`,
+        tags: [index % 3 === 0 ? "private" : index % 3 === 1 ? "secret" : "sensitive"],
+        delta: { progress: [`secret-${index + 1}`] }
+      })
+    );
 
-    const hidden = buildCheckpointRecoveryPack([publicRecord, ...privateRecords], { project_id: "project-a", session_id: "session-1" });
-    expect(hidden).toMatchObject({ available: true, checkpoint_count: 1, source_record_ids: ["public"], latest_checkpoint_id: "public", progress: ["public progress"] });
-    const included = buildCheckpointRecoveryPack([publicRecord, ...privateRecords], { project_id: "project-a", session_id: "session-1", include_private: true });
+    const hidden = buildCheckpointRecoveryPack([publicRecord, ...privateRecords], {
+      project_id: "project-a",
+      session_id: "session-1"
+    });
+    expect(hidden).toMatchObject({
+      available: true,
+      checkpoint_count: 1,
+      source_record_ids: ["public"],
+      latest_checkpoint_id: "public",
+      progress: ["public progress"]
+    });
+    const included = buildCheckpointRecoveryPack([publicRecord, ...privateRecords], {
+      project_id: "project-a",
+      session_id: "session-1",
+      include_private: true
+    });
     expect(included.source_record_ids).toEqual(["private-2", "private-3", "private-4", "private-5", "private-6"]);
     expect(included.checkpoint_count).toBe(5);
   });
 
   it("prioritizes newest unique values within caps while displaying selected values chronologically", () => {
-    const learning = (value: number) => ({ question: `Q${value}`, conclusion: `A${value}`, evidence_type: "source_code" as const, scope: "project" as const, confidence: 0.8, recommended_kind: "memory" as const, recommended_type: "fact", related_record_ids: [] });
-    const older = checkpointRecord({ id: "older", checkpoint_id: "older", occurred_at: "2026-07-11T00:00:00.000Z", delta: { progress: Array.from({ length: 10 }, (_, index) => `old-${index}`), learnings: Array.from({ length: 10 }, (_, index) => learning(index)) } });
-    const latest = checkpointRecord({ id: "latest", checkpoint_id: "latest", occurred_at: "2026-07-11T00:01:00.000Z", delta: { progress: ["latest-a", "old-9", "latest-b"], learnings: [learning(10), learning(9), learning(11)] } });
+    const learning = (value: number) => ({
+      question: `Q${value}`,
+      conclusion: `A${value}`,
+      evidence_type: "source_code" as const,
+      scope: "project" as const,
+      confidence: 0.8,
+      recommended_kind: "memory" as const,
+      recommended_type: "fact",
+      related_record_ids: []
+    });
+    const older = checkpointRecord({
+      id: "older",
+      checkpoint_id: "older",
+      occurred_at: "2026-07-11T00:00:00.000Z",
+      delta: {
+        progress: Array.from({ length: 10 }, (_, index) => `old-${index}`),
+        learnings: Array.from({ length: 10 }, (_, index) => learning(index))
+      }
+    });
+    const latest = checkpointRecord({
+      id: "latest",
+      checkpoint_id: "latest",
+      occurred_at: "2026-07-11T00:01:00.000Z",
+      delta: { progress: ["latest-a", "old-9", "latest-b"], learnings: [learning(10), learning(9), learning(11)] }
+    });
 
     const pack = buildCheckpointRecoveryPack([latest, older], { project_id: "project-a", session_id: "session-1" });
 
-    expect(pack.progress).toEqual(["old-0", "old-1", "old-2", "old-3", "old-4", "old-5", "old-6", "old-9", "latest-a", "latest-b"]);
+    expect(pack.progress).toEqual([
+      "old-0",
+      "old-1",
+      "old-2",
+      "old-3",
+      "old-4",
+      "old-5",
+      "old-6",
+      "old-9",
+      "latest-a",
+      "latest-b"
+    ]);
     expect(pack.progress).toHaveLength(10);
-    expect(pack.learnings?.map((item) => item.question)).toEqual(["Q0", "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q9", "Q10", "Q11"]);
+    expect(pack.learnings?.map((item) => item.question)).toEqual([
+      "Q0",
+      "Q1",
+      "Q2",
+      "Q3",
+      "Q4",
+      "Q5",
+      "Q6",
+      "Q9",
+      "Q10",
+      "Q11"
+    ]);
   });
 
   it("recovers the latest compact-safe knowledge investigation state", () => {
-    const older = checkpointRecord({ id: "older-investigation", checkpoint_id: "older-investigation", occurred_at: "2026-07-11T00:00:00.000Z", delta: {
-      knowledge_investigations: [{ resolution_id: "rollback", question: "What is rollback policy?", recall_status: "knowledge_gap", recalled_record_ids: [], evidence: [], status: "unresolved", next_step: "Inspect release code" }]
-    } });
-    const latest = checkpointRecord({ id: "latest-investigation", checkpoint_id: "latest-investigation", occurred_at: "2026-07-11T00:01:00.000Z", delta: {
-      knowledge_investigations: [
-        { resolution_id: "rollback", question: "What is rollback policy?", recall_status: "knowledge_gap", recalled_record_ids: [], evidence: [{ type: "source_code", reference: "src/release.ts", summary: "Signed tags are validated" }], status: "unresolved", next_step: "Run rollback integration test" },
-        { resolution_id: "retention", question: "How long are artifacts retained?", recall_status: "verification_required", recalled_record_ids: ["rec-retention"], evidence: [{ type: "documentation", reference: "docs/release.md", summary: "Thirty days" }], status: "resolved", conclusion: "Artifacts are retained for thirty days" }
-      ]
-    } });
+    const older = checkpointRecord({
+      id: "older-investigation",
+      checkpoint_id: "older-investigation",
+      occurred_at: "2026-07-11T00:00:00.000Z",
+      delta: {
+        knowledge_investigations: [
+          {
+            resolution_id: "rollback",
+            question: "What is rollback policy?",
+            recall_status: "knowledge_gap",
+            recalled_record_ids: [],
+            evidence: [],
+            status: "unresolved",
+            next_step: "Inspect release code"
+          }
+        ]
+      }
+    });
+    const latest = checkpointRecord({
+      id: "latest-investigation",
+      checkpoint_id: "latest-investigation",
+      occurred_at: "2026-07-11T00:01:00.000Z",
+      delta: {
+        knowledge_investigations: [
+          {
+            resolution_id: "rollback",
+            question: "What is rollback policy?",
+            recall_status: "knowledge_gap",
+            recalled_record_ids: [],
+            evidence: [{ type: "source_code", reference: "src/release.ts", summary: "Signed tags are validated" }],
+            status: "unresolved",
+            next_step: "Run rollback integration test"
+          },
+          {
+            resolution_id: "retention",
+            question: "How long are artifacts retained?",
+            recall_status: "verification_required",
+            recalled_record_ids: ["rec-retention"],
+            evidence: [{ type: "documentation", reference: "docs/release.md", summary: "Thirty days" }],
+            status: "resolved",
+            conclusion: "Artifacts are retained for thirty days"
+          }
+        ]
+      }
+    });
 
     const pack = buildCheckpointRecoveryPack([older, latest], { project_id: "project-a", session_id: "session-1" });
 
     expect(pack.knowledge_investigations).toEqual([
-      expect.objectContaining({ resolution_id: "rollback", status: "unresolved", next_step: "Run rollback integration test", evidence: [expect.objectContaining({ reference: "src/release.ts" })] }),
-      expect.objectContaining({ resolution_id: "retention", status: "resolved", conclusion: "Artifacts are retained for thirty days" })
+      expect.objectContaining({
+        resolution_id: "rollback",
+        status: "unresolved",
+        next_step: "Run rollback integration test",
+        evidence: [expect.objectContaining({ reference: "src/release.ts" })]
+      }),
+      expect.objectContaining({
+        resolution_id: "retention",
+        status: "resolved",
+        conclusion: "Artifacts are retained for thirty days"
+      })
     ]);
   });
 
   it.each([0, -1, 1.5, 6, Number.NaN])("rejects invalid checkpoint recovery limit %s", (limit) => {
-    expect(() => buildCheckpointRecoveryPack([], { project_id: "project-a", session_id: "session-1", limit })).toThrow("Invalid argument: limit must be an integer between 1 and 5");
+    expect(() => buildCheckpointRecoveryPack([], { project_id: "project-a", session_id: "session-1", limit })).toThrow(
+      "Invalid argument: limit must be an integer between 1 and 5"
+    );
   });
 });
 
@@ -200,7 +408,11 @@ describe("engine.checkpoint", () => {
         source: authored.source,
         occurred_at: "2026-07-10T23:59:00.000Z"
       });
-      const input = { project_id: "project-a", ...authored, delta: { ...baseDelta, checkpoint_id: "learning-inbox", learnings: [] } };
+      const input = {
+        project_id: "project-a",
+        ...authored,
+        delta: { ...baseDelta, checkpoint_id: "learning-inbox", learnings: [] }
+      };
 
       const first = await engine.checkpoint(input);
       const replay = await engine.checkpoint(input);
@@ -216,7 +428,13 @@ describe("engine.checkpoint", () => {
       });
       expect(await pendingLearningInbox(storePath, { project_id: "project-a" })).toHaveLength(0);
       const [consumed] = await pendingLearningInbox(storePath, { project_id: "project-a", include_consumed: true });
-      expect(consumed).toMatchObject({ content: { status: "consumed", consumed_by_record_id: first.record.id, produced_record_ids: first.learning_ingestion.dispositions.map((item) => item.record_id) } });
+      expect(consumed).toMatchObject({
+        content: {
+          status: "consumed",
+          consumed_by_record_id: first.record.id,
+          produced_record_ids: first.learning_ingestion.dispositions.map((item) => item.record_id)
+        }
+      });
     });
   });
 
@@ -251,17 +469,19 @@ describe("engine.checkpoint", () => {
           ...baseDelta,
           checkpoint_id: "semantic-consolidation",
           learnings: [learning],
-          semantic_consolidation_proposals: [{
-            proposal_id: "proposal-1",
-            source_record_id: sourceRecordId,
-            target_record_id: target.record.id,
-            relationship: "duplicate_of" as const,
-            confidence: 0.99,
-            rationale: "Equivalent lifecycle fact.",
-            semantic_equivalence: "equivalent" as const,
-            material_differences: [],
-            evidence_record_ids: []
-          }]
+          semantic_consolidation_proposals: [
+            {
+              proposal_id: "proposal-1",
+              source_record_id: sourceRecordId,
+              target_record_id: target.record.id,
+              relationship: "duplicate_of" as const,
+              confidence: 0.99,
+              rationale: "Equivalent lifecycle fact.",
+              semantic_equivalence: "equivalent" as const,
+              material_differences: [],
+              evidence_record_ids: []
+            }
+          ]
         }
       };
 
@@ -269,19 +489,50 @@ describe("engine.checkpoint", () => {
       const replay = await engine.checkpoint(input);
 
       expect(first.committed).toBe(true);
-      expect(first.learning_ingestion).toMatchObject({ records_created: 1, dispositions: [{ record_id: sourceRecordId }] });
-      expect(first.semantic_consolidation).toMatchObject({ proposals_received: 1, links_created: 1, proposals_accepted: 1 });
-      expect(replay.semantic_consolidation).toMatchObject({ proposals_received: 1, links_created: 0, idempotent_replays: 1 });
+      expect(first.learning_ingestion).toMatchObject({
+        records_created: 1,
+        dispositions: [{ record_id: sourceRecordId }]
+      });
+      expect(first.semantic_consolidation).toMatchObject({
+        proposals_received: 1,
+        links_created: 1,
+        proposals_accepted: 1
+      });
+      expect(replay.semantic_consolidation).toMatchObject({
+        proposals_received: 1,
+        links_created: 0,
+        idempotent_replays: 1
+      });
       const events = await readEvents(storePath);
-      expect(events.findIndex((event) => event.op === "upsert_record" && event.record.id === sourceRecordId)).toBeLessThan(events.findIndex((event) => event.op === "link_records" && event.link_type === "duplicate_of"));
+      expect(
+        events.findIndex((event) => event.op === "upsert_record" && event.record.id === sourceRecordId)
+      ).toBeLessThan(events.findIndex((event) => event.op === "link_records" && event.link_type === "duplicate_of"));
     });
   });
 
   it("keeps checkpoint durable when semantic consolidation persistence fails", async () => {
     await withInitializedTempStore(async (storePath) => {
       const targetWriter = createTestEngine(storePath);
-      const target = await targetWriter.write({ kind: "memory", type: "fact", scope: "project", project_id: "project-a", content: { text: "Moryn pulls on agent enter." }, state: "canonical", confirmed: true, source: { client: "user" } });
-      const learning = { question: "When does Moryn pull?", conclusion: "Moryn pulls when an agent enters.", evidence_type: "source_code" as const, scope: "project" as const, confidence: 0.9, recommended_kind: "memory" as const, recommended_type: "fact", related_record_ids: [] };
+      const target = await targetWriter.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "project-a",
+        content: { text: "Moryn pulls on agent enter." },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const learning = {
+        question: "When does Moryn pull?",
+        conclusion: "Moryn pulls when an agent enters.",
+        evidence_type: "source_code" as const,
+        scope: "project" as const,
+        confidence: 0.9,
+        recommended_kind: "memory" as const,
+        recommended_type: "fact",
+        related_record_ids: []
+      };
       const sourceRecordId = learningRecordIdentity({ project_id: "project-a", learning }).record_id;
       const engine = createEngine({
         storePath,
@@ -298,12 +549,34 @@ describe("engine.checkpoint", () => {
           ...baseDelta,
           checkpoint_id: "semantic-failure",
           learnings: [learning],
-          semantic_consolidation_proposals: [{ proposal_id: "proposal-failure", source_record_id: sourceRecordId, target_record_id: target.record.id, relationship: "duplicate_of", confidence: 0.99, rationale: "Equivalent lifecycle fact.", semantic_equivalence: "equivalent", material_differences: [], evidence_record_ids: [] }]
+          semantic_consolidation_proposals: [
+            {
+              proposal_id: "proposal-failure",
+              source_record_id: sourceRecordId,
+              target_record_id: target.record.id,
+              relationship: "duplicate_of",
+              confidence: 0.99,
+              rationale: "Equivalent lifecycle fact.",
+              semantic_equivalence: "equivalent",
+              material_differences: [],
+              evidence_record_ids: []
+            }
+          ]
         }
       });
 
-      expect(result).toMatchObject({ committed: true, recovery_pack: { available: true }, semantic_consolidation: { proposals_received: 1, proposals_rejected: 1, rejected_by_reason: { persistence_failed: 1 } } });
-      expect(await engine.recall({ record_ids: [result.record.id], project_id: "project-a" })).toMatchObject({ results: [{ record: { id: result.record.id } }] });
+      expect(result).toMatchObject({
+        committed: true,
+        recovery_pack: { available: true },
+        semantic_consolidation: {
+          proposals_received: 1,
+          proposals_rejected: 1,
+          rejected_by_reason: { persistence_failed: 1 }
+        }
+      });
+      expect(await engine.recall({ record_ids: [result.record.id], project_id: "project-a" })).toMatchObject({
+        results: [{ record: { id: result.record.id } }]
+      });
     });
   });
 
@@ -333,7 +606,9 @@ describe("engine.checkpoint", () => {
 
       expect(result.record.content.checkpoint).toMatchObject({ semantic_consolidation_proposals: [proposal] });
       expect(result.recovery_pack.semantic_consolidation_proposals).toEqual([proposal]);
-      expect((await engine.boot({ project_id: "project-a", agent_session_id: "session-1" })).checkpoint_recovery_pack).toMatchObject({
+      expect(
+        (await engine.boot({ project_id: "project-a", agent_session_id: "session-1" })).checkpoint_recovery_pack
+      ).toMatchObject({
         semantic_consolidation_proposals: [proposal]
       });
     });
@@ -357,16 +632,18 @@ describe("engine.checkpoint", () => {
         ...authored,
         delta: {
           ...baseDelta,
-          learnings: [{
-            question: "When does Moryn pull?",
-            conclusion: "Moryn pulls on agent enter.",
-            evidence_type: "source_code" as const,
-            scope: "project" as const,
-            confidence: 0.9,
-            recommended_kind: "memory" as const,
-            recommended_type: "fact",
-            related_record_ids: []
-          }]
+          learnings: [
+            {
+              question: "When does Moryn pull?",
+              conclusion: "Moryn pulls on agent enter.",
+              evidence_type: "source_code" as const,
+              scope: "project" as const,
+              confidence: 0.9,
+              recommended_kind: "memory" as const,
+              recommended_type: "fact",
+              related_record_ids: []
+            }
+          ]
         }
       };
       const first = await engine.checkpoint(input);
@@ -382,15 +659,27 @@ describe("engine.checkpoint", () => {
         candidate_review: {
           action: "review_learning_candidates",
           owner: "agent",
-          candidate_pairs: [{
-            source_record_id: expect.any(String),
-            candidate_record_id: existing.record.id,
-            source_recall: { tool: "recall", arguments: { project_id: "project-a", record_ids: [expect.any(String)] } },
-            candidate_recall: { tool: "recall", arguments: { project_id: "project-a", record_ids: [existing.record.id] } }
-          }]
+          candidate_pairs: [
+            {
+              source_record_id: expect.any(String),
+              candidate_record_id: existing.record.id,
+              source_recall: {
+                tool: "recall",
+                arguments: { project_id: "project-a", record_ids: [expect.any(String)] }
+              },
+              candidate_recall: {
+                tool: "recall",
+                arguments: { project_id: "project-a", record_ids: [existing.record.id] }
+              }
+            }
+          ]
         }
       });
-      expect(replay.learning_ingestion).toMatchObject({ learnings_received: 1, records_created: 0, dispositions: [{ state: "canonical", created: false }] });
+      expect(replay.learning_ingestion).toMatchObject({
+        learnings_received: 1,
+        records_created: 0,
+        dispositions: [{ state: "canonical", created: false }]
+      });
       expect(await readEvents(storePath)).toHaveLength(4);
       const recall = await engine.recall({ project_id: "project-a", query: "Moryn pulls on agent enter." });
       expect(recall.outcome).toMatchObject({ status: "trusted_match" });
@@ -437,12 +726,7 @@ describe("engine.checkpoint", () => {
         }
       });
       expect(first.record.content.text).toContain("Persist checkpoints");
-      expect(first.record.tags).toEqual([
-        "checkpoint",
-        "checkpoint:checkpoint-1",
-        "custom",
-        "session:session-1",
-      ]);
+      expect(first.record.tags).toEqual(["checkpoint", "checkpoint:checkpoint-1", "custom", "session:session-1"]);
       expect(first.recovery_pack).toMatchObject({
         version: 1,
         available: true,
@@ -461,7 +745,10 @@ describe("engine.checkpoint", () => {
 
   it("canonicalizes tag order and duplicates for replay and deterministic bytes", async () => {
     const outputs: string[] = [];
-    const tagVariants = [[" zeta ", "alpha", "alpha", ""], ["alpha", "zeta"]];
+    const tagVariants = [
+      [" zeta ", "alpha", "alpha", ""],
+      ["alpha", "zeta"]
+    ];
     for (const tags of tagVariants) {
       await withInitializedTempStore(async (storePath) => {
         const engine = createTestEngine(storePath);
@@ -471,7 +758,13 @@ describe("engine.checkpoint", () => {
         const identity = checkpointIdentity(normalizeCheckpointInput(input));
         outputs.push(await readFile(join(storePath, "events", "idempotent", `${identity.event_id}.json`), "utf8"));
 
-        expect(first.record.tags).toEqual(["alpha", "checkpoint", "checkpoint:checkpoint-1", "session:session-1", "zeta"]);
+        expect(first.record.tags).toEqual([
+          "alpha",
+          "checkpoint",
+          "checkpoint:checkpoint-1",
+          "session:session-1",
+          "zeta"
+        ]);
         expect(replay.idempotent_replay).toBe(true);
       });
     }
@@ -482,10 +775,17 @@ describe("engine.checkpoint", () => {
     const tags = ["é", "z", "ä", "A"];
     const delta = {
       ...baseDelta,
-      learnings: [{
-        question: "问题", conclusion: "结论", evidence_type: "source_code" as const, scope: "project" as const,
-        confidence: 0.8, recommended_kind: "memory" as const, recommended_type: "事实"
-      }]
+      learnings: [
+        {
+          question: "问题",
+          conclusion: "结论",
+          evidence_type: "source_code" as const,
+          scope: "project" as const,
+          confidence: 0.8,
+          recommended_kind: "memory" as const,
+          recommended_type: "事实"
+        }
+      ]
     };
     const outputs: string[] = [];
     for (let index = 0; index < 2; index += 1) {
@@ -496,7 +796,15 @@ describe("engine.checkpoint", () => {
         const identity = checkpointIdentity(normalizeCheckpointInput(input));
         outputs.push(await readFile(join(storePath, "events", "idempotent", `${identity.event_id}.json`), "utf8"));
 
-        expect(result.record.tags).toEqual(["A", "checkpoint", "checkpoint:checkpoint-1", "session:session-1", "z", "ä", "é"]);
+        expect(result.record.tags).toEqual([
+          "A",
+          "checkpoint",
+          "checkpoint:checkpoint-1",
+          "session:session-1",
+          "z",
+          "ä",
+          "é"
+        ]);
       });
     }
     expect(outputs[0]).toBe(outputs[1]);
@@ -506,11 +814,36 @@ describe("engine.checkpoint", () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createTestEngine(storePath);
       const variants = [
-        { project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta },
-        { project_id: "project-b", source: { client: "codex", session_id: "session-1", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta },
-        { project_id: "project-a", source: { client: "claude", session_id: "session-1", device_id: "device-test" }, occurred_at: authored.occurred_at, delta: baseDelta },
-        { project_id: "project-a", source: { client: "codex", session_id: "session-2", device_id: "device-test" }, occurred_at: authored.occurred_at, delta: { ...baseDelta, session_id: "session-2" } },
-        { project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: { ...baseDelta, checkpoint_id: "checkpoint-2" } }
+        {
+          project_id: "project-a",
+          source: { client: "codex", session_id: "session-1", device_id: "device-test" },
+          occurred_at: "2026-07-11T00:00:00.000Z",
+          delta: baseDelta
+        },
+        {
+          project_id: "project-b",
+          source: { client: "codex", session_id: "session-1", device_id: "device-test" },
+          occurred_at: "2026-07-11T00:00:00.000Z",
+          delta: baseDelta
+        },
+        {
+          project_id: "project-a",
+          source: { client: "claude", session_id: "session-1", device_id: "device-test" },
+          occurred_at: authored.occurred_at,
+          delta: baseDelta
+        },
+        {
+          project_id: "project-a",
+          source: { client: "codex", session_id: "session-2", device_id: "device-test" },
+          occurred_at: authored.occurred_at,
+          delta: { ...baseDelta, session_id: "session-2" }
+        },
+        {
+          project_id: "project-a",
+          source: { client: "codex", session_id: "session-1", device_id: "device-test" },
+          occurred_at: "2026-07-11T00:00:00.000Z",
+          delta: { ...baseDelta, checkpoint_id: "checkpoint-2" }
+        }
       ];
 
       const results = [];
@@ -526,12 +859,54 @@ describe("engine.checkpoint", () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createTestEngine(storePath);
 
-      await expect(engine.checkpoint({ project_id: " ", source: { client: "codex", session_id: "session-1", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta })).rejects.toThrow();
-      await expect(engine.checkpoint({ project_id: "project-a", source: { client: " ", session_id: "session-1", device_id: "device-test" }, occurred_at: authored.occurred_at, delta: baseDelta })).rejects.toThrow();
-      await expect(engine.checkpoint({ project_id: "project-a", source: { client: "codex", session_id: " ", device_id: "device-test" }, occurred_at: authored.occurred_at, delta: baseDelta })).rejects.toThrow();
-      await expect(engine.checkpoint({ project_id: "project-a", source: { client: "codex", session_id: "other", device_id: "device-test" }, occurred_at: authored.occurred_at, delta: baseDelta })).rejects.toThrow(/session_id/i);
-      await expect(engine.checkpoint({ project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "" }, occurred_at: authored.occurred_at, delta: baseDelta })).rejects.toThrow(/device_id/i);
-      await expect(engine.checkpoint({ project_id: "project-a", source: authored.source, occurred_at: "2026-07-11", delta: baseDelta })).rejects.toThrow(/occurred_at/i);
+      await expect(
+        engine.checkpoint({
+          project_id: " ",
+          source: { client: "codex", session_id: "session-1", device_id: "device-test" },
+          occurred_at: "2026-07-11T00:00:00.000Z",
+          delta: baseDelta
+        })
+      ).rejects.toThrow();
+      await expect(
+        engine.checkpoint({
+          project_id: "project-a",
+          source: { client: " ", session_id: "session-1", device_id: "device-test" },
+          occurred_at: authored.occurred_at,
+          delta: baseDelta
+        })
+      ).rejects.toThrow();
+      await expect(
+        engine.checkpoint({
+          project_id: "project-a",
+          source: { client: "codex", session_id: " ", device_id: "device-test" },
+          occurred_at: authored.occurred_at,
+          delta: baseDelta
+        })
+      ).rejects.toThrow();
+      await expect(
+        engine.checkpoint({
+          project_id: "project-a",
+          source: { client: "codex", session_id: "other", device_id: "device-test" },
+          occurred_at: authored.occurred_at,
+          delta: baseDelta
+        })
+      ).rejects.toThrow(/session_id/i);
+      await expect(
+        engine.checkpoint({
+          project_id: "project-a",
+          source: { client: "codex", session_id: "session-1", device_id: "" },
+          occurred_at: authored.occurred_at,
+          delta: baseDelta
+        })
+      ).rejects.toThrow(/device_id/i);
+      await expect(
+        engine.checkpoint({
+          project_id: "project-a",
+          source: authored.source,
+          occurred_at: "2026-07-11",
+          delta: baseDelta
+        })
+      ).rejects.toThrow(/occurred_at/i);
       expect(await readEvents(storePath)).toHaveLength(0);
     });
   });
@@ -551,10 +926,19 @@ describe("engine.checkpoint", () => {
       const included = await engine.checkpoint({ ...input, include_private: true });
 
       expect(replay.idempotent_replay).toBe(true);
-      expect(replay.recovery_pack).toMatchObject({ available: false, bounded: true, source_record_ids: [], checkpoint_count: 0 });
+      expect(replay.recovery_pack).toMatchObject({
+        available: false,
+        bounded: true,
+        source_record_ids: [],
+        checkpoint_count: 0
+      });
       expect(replay.recovery_pack).not.toHaveProperty("checkpoint");
       expect(included.idempotent_replay).toBe(true);
-      expect(included.recovery_pack).toMatchObject({ available: true, current_task: "Persist checkpoints", progress: ["wrote tests"] });
+      expect(included.recovery_pack).toMatchObject({
+        available: true,
+        current_task: "Persist checkpoints",
+        progress: ["wrote tests"]
+      });
       expect(await readEvents(storePath)).toHaveLength(1);
     });
   });
@@ -562,7 +946,12 @@ describe("engine.checkpoint", () => {
   it("serializes concurrent duplicate calls into one event", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createTestEngine(storePath);
-      const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta };
+      const input = {
+        project_id: "project-a",
+        source: { client: "codex", session_id: "session-1", device_id: "device-test" },
+        occurred_at: "2026-07-11T00:00:00.000Z",
+        delta: baseDelta
+      };
 
       const [first, second] = await Promise.all([engine.checkpoint(input), engine.checkpoint(input)]);
 
@@ -576,7 +965,12 @@ describe("engine.checkpoint", () => {
     await withInitializedTempStore(async (storePath) => {
       const firstEngine = createTestEngine(storePath);
       const secondEngine = createTestEngine(storePath);
-      const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta };
+      const input = {
+        project_id: "project-a",
+        source: { client: "codex", session_id: "session-1", device_id: "device-test" },
+        occurred_at: "2026-07-11T00:00:00.000Z",
+        delta: baseDelta
+      };
 
       const [first, second] = await Promise.all([firstEngine.checkpoint(input), secondEngine.checkpoint(input)]);
 
@@ -590,10 +984,18 @@ describe("engine.checkpoint", () => {
     await withInitializedTempStore(async (storePath) => {
       const firstEngine = createEngine({ storePath, now: () => "2026-07-11T00:00:00.000Z", id: () => "random_a" });
       const secondEngine = createEngine({ storePath, now: () => "2026-07-12T00:00:00.000Z", id: () => "random_b" });
-      const firstInput = { project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "device-a" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta };
+      const firstInput = {
+        project_id: "project-a",
+        source: { client: "codex", session_id: "session-1", device_id: "device-a" },
+        occurred_at: "2026-07-11T00:00:00.000Z",
+        delta: baseDelta
+      };
       const secondInput = { ...firstInput };
 
-      const [first, second] = await Promise.all([firstEngine.checkpoint(firstInput), secondEngine.checkpoint(secondInput)]);
+      const [first, second] = await Promise.all([
+        firstEngine.checkpoint(firstInput),
+        secondEngine.checkpoint(secondInput)
+      ]);
 
       expect(first.record.id).toBe(second.record.id);
       expect(first.record.id).toMatch(/^rec_checkpoint_[a-f0-9]{64}$/);
@@ -606,11 +1008,32 @@ describe("engine.checkpoint", () => {
   it.each([
     { field: "progress", delta: { ...baseDelta, progress: ["different progress"] } },
     { field: "current_task", delta: { ...baseDelta, current_task: "Different task" } },
-    { field: "learnings", delta: { ...baseDelta, learnings: [{ question: "Q", conclusion: "C", evidence_type: "source_code", scope: "project", confidence: 0.8, recommended_kind: "memory", recommended_type: "fact" }] } }
+    {
+      field: "learnings",
+      delta: {
+        ...baseDelta,
+        learnings: [
+          {
+            question: "Q",
+            conclusion: "C",
+            evidence_type: "source_code",
+            scope: "project",
+            confidence: 0.8,
+            recommended_kind: "memory",
+            recommended_type: "fact"
+          }
+        ]
+      }
+    }
   ])("rejects same-key payload collision for $field", async ({ delta }) => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createTestEngine(storePath);
-      const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta };
+      const input = {
+        project_id: "project-a",
+        source: { client: "codex", session_id: "session-1", device_id: "device-test" },
+        occurred_at: "2026-07-11T00:00:00.000Z",
+        delta: baseDelta
+      };
       await engine.checkpoint(input);
 
       await expect(engine.checkpoint({ ...input, delta })).rejects.toThrow("Checkpoint idempotency collision");
@@ -635,8 +1058,16 @@ describe("engine.checkpoint", () => {
     const outputs: string[] = [];
     for (let index = 0; index < 2; index += 1) {
       await withInitializedTempStore(async (storePath) => {
-        const engine = createEngine({ storePath, now: () => index ? "2030-01-01T00:00:00.000Z" : "2020-01-01T00:00:00.000Z" });
-        const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "authored-device" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta };
+        const engine = createEngine({
+          storePath,
+          now: () => (index ? "2030-01-01T00:00:00.000Z" : "2020-01-01T00:00:00.000Z")
+        });
+        const input = {
+          project_id: "project-a",
+          source: { client: "codex", session_id: "session-1", device_id: "authored-device" },
+          occurred_at: "2026-07-11T00:00:00.000Z",
+          delta: baseDelta
+        };
         const result = await engine.checkpoint(input);
         const identity = checkpointIdentity(normalizeCheckpointInput(input));
         outputs.push(await readFile(join(storePath, "events", "idempotent", `${identity.event_id}.json`), "utf8"));
@@ -649,7 +1080,12 @@ describe("engine.checkpoint", () => {
   it("rejects deterministic event collisions with mismatched checkpoint content", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createTestEngine(storePath);
-      const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta };
+      const input = {
+        project_id: "project-a",
+        source: { client: "codex", session_id: "session-1", device_id: "device-test" },
+        occurred_at: "2026-07-11T00:00:00.000Z",
+        delta: baseDelta
+      };
       const normalized = normalizeCheckpointInput(input);
       const identity = checkpointIdentity(normalized);
       await appendEventIfAbsent(storePath, {
@@ -697,8 +1133,16 @@ describe("engine.checkpoint", () => {
       `;
       const options = { cwd: process.cwd(), maxBuffer: 1024 * 1024 };
       const [first, second] = await Promise.all([
-        execFileAsync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script, storePath, "shared-device"], options),
-        execFileAsync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script, storePath, "shared-device"], options)
+        execFileAsync(
+          process.execPath,
+          ["--import", "tsx", "--input-type=module", "-e", script, storePath, "shared-device"],
+          options
+        ),
+        execFileAsync(
+          process.execPath,
+          ["--import", "tsx", "--input-type=module", "-e", script, storePath, "shared-device"],
+          options
+        )
       ]);
       const results = [JSON.parse(first.stdout), JSON.parse(second.stdout)] as Array<{ id: string; replay: boolean }>;
 
@@ -708,20 +1152,23 @@ describe("engine.checkpoint", () => {
     });
   });
 
-  it.each(["private", "PRIVATE", "Secret", "sEnSiTiVe"])("hides %s checkpoint recovery by default", async (privateTag) => {
-    await withInitializedTempStore(async (storePath) => {
-      const engine = createTestEngine(storePath);
-      const result = await engine.checkpoint({
-        project_id: "project-a",
-        ...authored,
-        delta: baseDelta,
-        tags: [privateTag]
-      });
+  it.each(["private", "PRIVATE", "Secret", "sEnSiTiVe"])(
+    "hides %s checkpoint recovery by default",
+    async (privateTag) => {
+      await withInitializedTempStore(async (storePath) => {
+        const engine = createTestEngine(storePath);
+        const result = await engine.checkpoint({
+          project_id: "project-a",
+          ...authored,
+          delta: baseDelta,
+          tags: [privateTag]
+        });
 
-      expect(result.recovery_pack.available).toBe(false);
-      expect(result.recovery_pack).not.toHaveProperty("checkpoint");
-    });
-  });
+        expect(result.recovery_pack.available).toBe(false);
+        expect(result.recovery_pack).not.toHaveProperty("checkpoint");
+      });
+    }
+  );
 
   it("versions checkpoint content and ignores malformed manual checkpoint records", async () => {
     await withInitializedTempStore(async (storePath) => {
@@ -737,7 +1184,12 @@ describe("engine.checkpoint", () => {
           scope: "project",
           project_id: "project-a",
           tags: ["checkpoint", "session:session-1", "checkpoint:checkpoint-1"],
-          content: { format: "json", text: "manual", checkpoint_version: 1, checkpoint: { session_id: "session-1", checkpoint_id: "checkpoint-1" } },
+          content: {
+            format: "json",
+            text: "manual",
+            checkpoint_version: 1,
+            checkpoint: { session_id: "session-1", checkpoint_id: "checkpoint-1" }
+          },
           state: "candidate",
           confidence: 0.5,
           priority: "normal",
@@ -750,7 +1202,12 @@ describe("engine.checkpoint", () => {
       });
       const engine = createTestEngine(storePath);
 
-      const result = await engine.checkpoint({ project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta });
+      const result = await engine.checkpoint({
+        project_id: "project-a",
+        source: { client: "codex", session_id: "session-1", device_id: "device-test" },
+        occurred_at: "2026-07-11T00:00:00.000Z",
+        delta: baseDelta
+      });
 
       expect(result.idempotent_replay).toBe(false);
       expect(result.record.id).not.toBe("rec_manual");
@@ -761,25 +1218,33 @@ describe("engine.checkpoint", () => {
   });
 
   it("returns unavailable recovery for malformed checkpoint content", () => {
-    const pack = recoveryPack({
-      id: "rec_bad",
-      kind: "session_summary",
-      type: "checkpoint",
-      scope: "project",
-      project_id: "project-a",
-      tags: [],
-      content: { format: "json", checkpoint_version: 1, checkpoint: { session_id: "session-1" } },
-      state: "candidate",
-      confidence: 0.5,
-      priority: "normal",
-      visibility: "active",
-      created_at: "2026-07-11T00:00:00.000Z",
-      updated_at: "2026-07-11T00:00:00.000Z",
-      source: { client: "codex", session_id: "session-1" },
-      provenance: { method: "agent-proposed" }
-    }, true);
+    const pack = recoveryPack(
+      {
+        id: "rec_bad",
+        kind: "session_summary",
+        type: "checkpoint",
+        scope: "project",
+        project_id: "project-a",
+        tags: [],
+        content: { format: "json", checkpoint_version: 1, checkpoint: { session_id: "session-1" } },
+        state: "candidate",
+        confidence: 0.5,
+        priority: "normal",
+        visibility: "active",
+        created_at: "2026-07-11T00:00:00.000Z",
+        updated_at: "2026-07-11T00:00:00.000Z",
+        source: { client: "codex", session_id: "session-1" },
+        provenance: { method: "agent-proposed" }
+      },
+      true
+    );
 
-    expect(pack).toMatchObject({ available: false, session_id: "session-1", source_record_ids: [], checkpoint_count: 0 });
+    expect(pack).toMatchObject({
+      available: false,
+      session_id: "session-1",
+      source_record_ids: [],
+      checkpoint_count: 0
+    });
     expect(pack).not.toHaveProperty("checkpoint");
   });
 
@@ -788,16 +1253,35 @@ describe("engine.checkpoint", () => {
       const engine = createEngine({
         storePath,
         now: () => "2026-07-11T00:00:00.000Z",
-        id: (() => { let sequence = 0; return (prefix: string) => `${prefix}_${++sequence}`; })(),
-        rebuild: async () => { throw new Error("rebuild failed"); }
+        id: (() => {
+          let sequence = 0;
+          return (prefix: string) => `${prefix}_${++sequence}`;
+        })(),
+        rebuild: async () => {
+          throw new Error("rebuild failed");
+        }
       });
-      const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta };
+      const input = {
+        project_id: "project-a",
+        source: { client: "codex", session_id: "session-1", device_id: "device-test" },
+        occurred_at: "2026-07-11T00:00:00.000Z",
+        delta: baseDelta
+      };
 
       const first = await engine.checkpoint(input);
       const replay = await engine.checkpoint(input);
 
-      expect(first).toMatchObject({ committed: true, derived_views_refreshed: false, warnings: [{ code: "DERIVED_VIEW_REBUILD_FAILED" }] });
-      expect(replay).toMatchObject({ committed: true, idempotent_replay: true, derived_views_refreshed: false, warnings: [{ code: "DERIVED_VIEW_REBUILD_FAILED" }] });
+      expect(first).toMatchObject({
+        committed: true,
+        derived_views_refreshed: false,
+        warnings: [{ code: "DERIVED_VIEW_REBUILD_FAILED" }]
+      });
+      expect(replay).toMatchObject({
+        committed: true,
+        idempotent_replay: true,
+        derived_views_refreshed: false,
+        warnings: [{ code: "DERIVED_VIEW_REBUILD_FAILED" }]
+      });
       expect(replay.record.id).toBe(first.record.id);
       expect(await readEvents(storePath)).toHaveLength(1);
     });
@@ -805,10 +1289,25 @@ describe("engine.checkpoint", () => {
 
   it("returns the immediately aggregated recovery pack from replayed events even when rebuild fails", async () => {
     await withInitializedTempStore(async (storePath) => {
-      const engine = createEngine({ storePath, rebuild: async () => { throw new Error("rebuild failed"); } });
+      const engine = createEngine({
+        storePath,
+        rebuild: async () => {
+          throw new Error("rebuild failed");
+        }
+      });
       const source = { client: "codex", session_id: "session-1", device_id: "device-test" };
-      await engine.checkpoint({ project_id: "project-a", source, occurred_at: "2026-07-11T00:00:00.000Z", delta: { ...baseDelta, checkpoint_id: "checkpoint-1", progress: ["first"] } });
-      const second = await engine.checkpoint({ project_id: "project-a", source, occurred_at: "2026-07-11T00:01:00.000Z", delta: { ...baseDelta, checkpoint_id: "checkpoint-2", current_task: "Latest task", progress: ["second"] } });
+      await engine.checkpoint({
+        project_id: "project-a",
+        source,
+        occurred_at: "2026-07-11T00:00:00.000Z",
+        delta: { ...baseDelta, checkpoint_id: "checkpoint-1", progress: ["first"] }
+      });
+      const second = await engine.checkpoint({
+        project_id: "project-a",
+        source,
+        occurred_at: "2026-07-11T00:01:00.000Z",
+        delta: { ...baseDelta, checkpoint_id: "checkpoint-2", current_task: "Latest task", progress: ["second"] }
+      });
 
       expect(second.recovery_pack).toMatchObject({
         available: true,
@@ -826,7 +1325,9 @@ describe("engine.checkpoint", () => {
       const engine = createTestEngine(storePath);
       const delta = { ...baseDelta, current_task: "Use api_key=abcdefghijklmnop" };
 
-      await expect(engine.checkpoint({ project_id: "project-a", ...authored, delta })).rejects.toThrow(/Sensitive content detected/i);
+      await expect(engine.checkpoint({ project_id: "project-a", ...authored, delta })).rejects.toThrow(
+        /Sensitive content detected/i
+      );
       expect(await readEvents(storePath)).toHaveLength(0);
     });
   });
@@ -834,7 +1335,12 @@ describe("engine.checkpoint", () => {
   it("keeps the deterministic idempotency key after archive or quarantine", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createTestEngine(storePath);
-      const input = { project_id: "project-a", source: { client: "codex", session_id: "session-1", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: baseDelta };
+      const input = {
+        project_id: "project-a",
+        source: { client: "codex", session_id: "session-1", device_id: "device-test" },
+        occurred_at: "2026-07-11T00:00:00.000Z",
+        delta: baseDelta
+      };
 
       const archived = await engine.checkpoint(input);
       await engine.archive({ record_id: archived.record.id, source: input.source });

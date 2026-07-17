@@ -4,11 +4,19 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
-import { toErrorEnvelope } from "../../src/core/errors.js";
-import { createEngine } from "../../src/core/engine.js";
 import { initializeStore } from "../../src/core/config.js";
 import { rebuildDerivedViews } from "../../src/core/derived.js";
-import { getGitSyncStatus, getPendingSyncEvidence, initializeGitSync, isGitSyncConfigured, pullGitSync, pushGitSync, SYNC_RESULT_SELECTION_SOURCES as EXPORTED_SYNC_RESULT_SELECTION_SOURCES } from "../../src/sync/git.js";
+import { createEngine } from "../../src/core/engine.js";
+import { toErrorEnvelope } from "../../src/core/errors.js";
+import {
+  SYNC_RESULT_SELECTION_SOURCES as EXPORTED_SYNC_RESULT_SELECTION_SOURCES,
+  getGitSyncStatus,
+  getPendingSyncEvidence,
+  initializeGitSync,
+  isGitSyncConfigured,
+  pullGitSync,
+  pushGitSync
+} from "../../src/sync/git.js";
 
 const exec = promisify(execFile);
 const SYNC_STATUS_SELECTION_SOURCES = {
@@ -295,14 +303,18 @@ describe("git sync adapter", () => {
       const pull = await pullGitSync(storeB);
       expect(pull.pulled).toBe(true);
       expect(pull.selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
-      const recallIndex = JSON.parse(await readFile(join(storeB, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };
+      const recallIndex = JSON.parse(await readFile(join(storeB, "indexes", "recall.json"), "utf8")) as {
+        records: Array<{ text: string }>;
+      };
       expect(recallIndex.records.map((record) => record.text)).toContain("Sync events through Git.");
 
       const engineB = createEngine({ storePath: storeB });
       const recall = await engineB.recall({ query: "Git", project_id: "moryn" });
       expect(recall.results[0]?.record.content.text).toBe("Sync events through Git.");
       expect(recall.retrieval).toMatchObject({ source: "retrieval_index", repaired: false, candidate_count: 1 });
-      const retrievalMetadata = JSON.parse(await readFile(join(storeB, "snapshots", "retrieval", "metadata.json"), "utf8")) as { event_manifest: { count: number }; active_records: number };
+      const retrievalMetadata = JSON.parse(
+        await readFile(join(storeB, "snapshots", "retrieval", "metadata.json"), "utf8")
+      ) as { event_manifest: { count: number }; active_records: number };
       expect(retrievalMetadata).toMatchObject({ event_manifest: { count: 1 }, active_records: 1 });
 
       const status = await getGitSyncStatus(storeB);
@@ -313,16 +325,20 @@ describe("git sync adapter", () => {
       expect(status.dirty).toBe(false);
       expect(status.ahead).toBe(0);
       expect(status.behind).toBe(0);
-      expect(status.last_sync).toEqual(expect.objectContaining({
-        operation: "pull",
-        commit: expect.any(String),
-        at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/)
-      }));
+      expect(status.last_sync).toEqual(
+        expect.objectContaining({
+          operation: "pull",
+          commit: expect.any(String),
+          at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/)
+        })
+      );
 
       await rebuildDerivedViews(storeB);
-      await expect(getGitSyncStatus(storeB)).resolves.toEqual(expect.objectContaining({
-        last_sync: expect.objectContaining({ operation: "pull" })
-      }));
+      await expect(getGitSyncStatus(storeB)).resolves.toEqual(
+        expect.objectContaining({
+          last_sync: expect.objectContaining({ operation: "pull" })
+        })
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -399,8 +415,8 @@ describe("git sync adapter", () => {
 
       await mkdir(join(storeA, "events", "shared-device", "2026-05"), { recursive: true });
       await mkdir(join(storeB, "events", "shared-device", "2026-05"), { recursive: true });
-      await writeFile(join(storeA, conflictFile), "{\"from\":\"a\"}\n", "utf8");
-      await writeFile(join(storeB, conflictFile), "{\"from\":\"b\"}\n", "utf8");
+      await writeFile(join(storeA, conflictFile), '{"from":"a"}\n', "utf8");
+      await writeFile(join(storeB, conflictFile), '{"from":"b"}\n', "utf8");
       await exec("git", ["add", conflictFile], { cwd: storeA });
       await exec("git", ["commit", "-m", "device a conflicting event"], { cwd: storeA });
       await exec("git", ["push", "-u", "origin", "main"], { cwd: storeA });
@@ -409,27 +425,29 @@ describe("git sync adapter", () => {
 
       await expect(pullGitSync(storeB)).rejects.toThrow(/conflict/i);
 
-      await expect(getGitSyncStatus(storeB)).resolves.toEqual(expect.objectContaining({
-        configured: true,
-        selection_sources: SYNC_STATUS_SELECTION_SOURCES,
-        dirty: true,
-        sync_state: "conflict",
-        conflict: {
-          operation: "rebase",
-          files: [conflictFile],
-          files_by_path: {
-            [conflictFile]: {
-              path: conflictFile,
-              status: "unmerged",
-              safe_to_auto_resolve: false,
-              recommended_action: "resolve Git conflicts before retrying sync"
-            }
-          },
-          safe_to_auto_resolve: false,
-          safe_to_retry_sync: false,
-          recommended_action: "resolve Git conflicts before retrying sync"
-        }
-      }));
+      await expect(getGitSyncStatus(storeB)).resolves.toEqual(
+        expect.objectContaining({
+          configured: true,
+          selection_sources: SYNC_STATUS_SELECTION_SOURCES,
+          dirty: true,
+          sync_state: "conflict",
+          conflict: {
+            operation: "rebase",
+            files: [conflictFile],
+            files_by_path: {
+              [conflictFile]: {
+                path: conflictFile,
+                status: "unmerged",
+                safe_to_auto_resolve: false,
+                recommended_action: "resolve Git conflicts before retrying sync"
+              }
+            },
+            safe_to_auto_resolve: false,
+            safe_to_retry_sync: false,
+            recommended_action: "resolve Git conflicts before retrying sync"
+          }
+        })
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -471,8 +489,12 @@ describe("git sync adapter", () => {
       const init = await initializeGitSync(storeB, remote);
 
       expect(init.ok).toBe(true);
-      const recallIndex = JSON.parse(await readFile(join(storeB, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };
-      expect(recallIndex.records.map((record) => record.text)).toContain("Existing remote history is indexed on sync init.");
+      const recallIndex = JSON.parse(await readFile(join(storeB, "indexes", "recall.json"), "utf8")) as {
+        records: Array<{ text: string }>;
+      };
+      expect(recallIndex.records.map((record) => record.text)).toContain(
+        "Existing remote history is indexed on sync init."
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -489,28 +511,36 @@ describe("git sync adapter", () => {
       await exec("git", ["init"], { cwd: seed });
       await exec("git", ["config", "user.name", "Seed"], { cwd: seed });
       await exec("git", ["config", "user.email", "seed@example.local"], { cwd: seed });
-      await writeFile(join(seed, "events", "device_seed", "2026-05", "evt_seed.json"), `${JSON.stringify({
-        event_id: "evt_seed",
-        op: "upsert_record",
-        record: {
-          id: "rec_seed",
-          kind: "memory",
-          type: "decision",
-          scope: "project",
-          project_id: "moryn",
-          tags: [],
-          content: { text: "Imported older remote event.", format: "text" },
-          state: "canonical",
-          confidence: 0.5,
-          priority: "normal",
-          visibility: "active",
-          created_at: "2026-05-27T00:01:00.000Z",
-          updated_at: "2026-05-27T00:01:00.000Z",
-          source: { client: "seed", device_id: "device_seed" }
-        },
-        created_at: "2026-05-27T00:01:00.000Z",
-        source: { client: "seed", device_id: "device_seed" }
-      }, null, 2)}\n`, "utf8");
+      await writeFile(
+        join(seed, "events", "device_seed", "2026-05", "evt_seed.json"),
+        `${JSON.stringify(
+          {
+            event_id: "evt_seed",
+            op: "upsert_record",
+            record: {
+              id: "rec_seed",
+              kind: "memory",
+              type: "decision",
+              scope: "project",
+              project_id: "moryn",
+              tags: [],
+              content: { text: "Imported older remote event.", format: "text" },
+              state: "canonical",
+              confidence: 0.5,
+              priority: "normal",
+              visibility: "active",
+              created_at: "2026-05-27T00:01:00.000Z",
+              updated_at: "2026-05-27T00:01:00.000Z",
+              source: { client: "seed", device_id: "device_seed" }
+            },
+            created_at: "2026-05-27T00:01:00.000Z",
+            source: { client: "seed", device_id: "device_seed" }
+          },
+          null,
+          2
+        )}\n`,
+        "utf8"
+      );
       await exec("git", ["add", "events"], { cwd: seed });
       await exec("git", ["commit", "-m", "Seed legacy Moryn events"], { cwd: seed });
       await exec("git", ["branch", "-M", "main"], { cwd: seed });
@@ -523,7 +553,9 @@ describe("git sync adapter", () => {
       });
       await initializeGitSync(store, remote);
 
-      await expect(readFile(join(store, ".gitignore"), "utf8")).resolves.toBe("config.json\nsnapshots/\nindexes/\nstate/\n");
+      await expect(readFile(join(store, ".gitignore"), "utf8")).resolves.toBe(
+        "config.json\nsnapshots/\nindexes/\nstate/\n"
+      );
       const status = await getGitSyncStatus(store);
       expect(status.dirty).toBe(false);
     } finally {
@@ -544,35 +576,51 @@ describe("git sync adapter", () => {
       await exec("git", ["init"], { cwd: seed });
       await exec("git", ["config", "user.name", "Seed"], { cwd: seed });
       await exec("git", ["config", "user.email", "seed@example.local"], { cwd: seed });
-      await writeFile(join(seed, "config.json"), `${JSON.stringify({
-        store_version: 1,
-        device_id: "device_seed",
-        created_at: "2026-05-27T00:00:00.000Z"
-      }, null, 2)}\n`, "utf8");
-      await writeFile(join(seed, "events", "device_seed", "2026-05", "evt_seed.json"), `${JSON.stringify({
-        event_id: "evt_seed",
-        op: "upsert_record",
-        record: {
-          id: "rec_seed",
-          kind: "memory",
-          type: "decision",
-          scope: "project",
-          project_id: "moryn",
-          tags: [],
-          content: { text: "Imported remote event with legacy generated files.", format: "text" },
-          state: "canonical",
-          confidence: 0.5,
-          priority: "normal",
-          visibility: "active",
-          created_at: "2026-05-27T00:01:00.000Z",
-          updated_at: "2026-05-27T00:01:00.000Z",
-          source: { client: "seed", device_id: "device_seed" }
-        },
-        created_at: "2026-05-27T00:01:00.000Z",
-        source: { client: "seed", device_id: "device_seed" }
-      }, null, 2)}\n`, "utf8");
-      await writeFile(join(seed, "snapshots", "user.json"), "{\"legacy\":true}\n", "utf8");
-      await writeFile(join(seed, "indexes", "recall.json"), "{\"legacy\":true}\n", "utf8");
+      await writeFile(
+        join(seed, "config.json"),
+        `${JSON.stringify(
+          {
+            store_version: 1,
+            device_id: "device_seed",
+            created_at: "2026-05-27T00:00:00.000Z"
+          },
+          null,
+          2
+        )}\n`,
+        "utf8"
+      );
+      await writeFile(
+        join(seed, "events", "device_seed", "2026-05", "evt_seed.json"),
+        `${JSON.stringify(
+          {
+            event_id: "evt_seed",
+            op: "upsert_record",
+            record: {
+              id: "rec_seed",
+              kind: "memory",
+              type: "decision",
+              scope: "project",
+              project_id: "moryn",
+              tags: [],
+              content: { text: "Imported remote event with legacy generated files.", format: "text" },
+              state: "canonical",
+              confidence: 0.5,
+              priority: "normal",
+              visibility: "active",
+              created_at: "2026-05-27T00:01:00.000Z",
+              updated_at: "2026-05-27T00:01:00.000Z",
+              source: { client: "seed", device_id: "device_seed" }
+            },
+            created_at: "2026-05-27T00:01:00.000Z",
+            source: { client: "seed", device_id: "device_seed" }
+          },
+          null,
+          2
+        )}\n`,
+        "utf8"
+      );
+      await writeFile(join(seed, "snapshots", "user.json"), '{"legacy":true}\n', "utf8");
+      await writeFile(join(seed, "indexes", "recall.json"), '{"legacy":true}\n', "utf8");
       await exec("git", ["add", "."], { cwd: seed });
       await exec("git", ["commit", "-m", "Seed legacy synced generated files"], { cwd: seed });
       await exec("git", ["branch", "-M", "main"], { cwd: seed });
@@ -593,9 +641,11 @@ describe("git sync adapter", () => {
       expect(tracked).not.toContain("config.json");
       expect(tracked).not.toContain("snapshots/user.json");
       expect(tracked).not.toContain("indexes/recall.json");
-      await expect(getGitSyncStatus(store)).resolves.toEqual(expect.objectContaining({
-        dirty: false
-      }));
+      await expect(getGitSyncStatus(store)).resolves.toEqual(
+        expect.objectContaining({
+          dirty: false
+        })
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -614,26 +664,30 @@ describe("git sync adapter", () => {
       await initializeGitSync(store, remote);
       await mkdir(join(store, "snapshots"), { recursive: true });
       await mkdir(join(store, "indexes"), { recursive: true });
-      await writeFile(join(store, "snapshots", "user.json"), "{\"legacy\":true}\n", "utf8");
-      await writeFile(join(store, "indexes", "recall.json"), "{\"legacy\":true}\n", "utf8");
+      await writeFile(join(store, "snapshots", "user.json"), '{"legacy":true}\n', "utf8");
+      await writeFile(join(store, "indexes", "recall.json"), '{"legacy":true}\n', "utf8");
       await exec("git", ["add", "-f", "config.json", "snapshots", "indexes"], { cwd: store });
       await exec("git", ["commit", "-m", "Simulate legacy tracked local files"], { cwd: store });
 
       const push = await pushGitSync(store, { message: "drop legacy tracked local files" });
 
-      expect(push).toEqual(expect.objectContaining({
-        ok: true,
-        committed: true,
-        pushed: true
-      }));
+      expect(push).toEqual(
+        expect.objectContaining({
+          ok: true,
+          committed: true,
+          pushed: true
+        })
+      );
       const tracked = (await exec("git", ["ls-files"], { cwd: store })).stdout.trim().split(/\r?\n/).filter(Boolean);
       expect(tracked).toContain(".gitignore");
       expect(tracked).not.toContain("config.json");
       expect(tracked).not.toContain("snapshots/user.json");
       expect(tracked).not.toContain("indexes/recall.json");
-      await expect(getGitSyncStatus(store)).resolves.toEqual(expect.objectContaining({
-        dirty: false
-      }));
+      await expect(getGitSyncStatus(store)).resolves.toEqual(
+        expect.objectContaining({
+          dirty: false
+        })
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -659,24 +713,34 @@ describe("git sync adapter", () => {
       await mkdir(join(legacy, "snapshots"), { recursive: true });
       await mkdir(join(legacy, "indexes"), { recursive: true });
       await mkdir(join(legacy, "state"), { recursive: true });
-      await writeFile(join(legacy, "config.json"), `${JSON.stringify({
-        store_version: 1,
-        device_id: "device_legacy",
-        created_at: "2026-05-27T00:00:00.000Z"
-      }, null, 2)}\n`, "utf8");
-      await writeFile(join(legacy, "snapshots", "user.json"), "{\"legacy\":true}\n", "utf8");
-      await writeFile(join(legacy, "indexes", "recall.json"), "{\"legacy\":true}\n", "utf8");
-      await writeFile(join(legacy, "state", "sync-status.json"), "{\"legacy\":true}\n", "utf8");
+      await writeFile(
+        join(legacy, "config.json"),
+        `${JSON.stringify(
+          {
+            store_version: 1,
+            device_id: "device_legacy",
+            created_at: "2026-05-27T00:00:00.000Z"
+          },
+          null,
+          2
+        )}\n`,
+        "utf8"
+      );
+      await writeFile(join(legacy, "snapshots", "user.json"), '{"legacy":true}\n', "utf8");
+      await writeFile(join(legacy, "indexes", "recall.json"), '{"legacy":true}\n', "utf8");
+      await writeFile(join(legacy, "state", "sync-status.json"), '{"legacy":true}\n', "utf8");
       await exec("git", ["add", "-f", "config.json", "snapshots", "indexes", "state"], { cwd: legacy });
       await exec("git", ["commit", "-m", "Legacy tracks local-only files"], { cwd: legacy });
       await exec("git", ["push", "origin", "main"], { cwd: legacy });
 
       const pull = await pullGitSync(store);
 
-      expect(pull).toEqual(expect.objectContaining({
-        ok: true,
-        pulled: true
-      }));
+      expect(pull).toEqual(
+        expect.objectContaining({
+          ok: true,
+          pulled: true
+        })
+      );
       const localConfig = JSON.parse(await readFile(join(store, "config.json"), "utf8")) as { device_id: string };
       expect(localConfig.device_id).toBe("device_pull_untrack");
       const tracked = (await exec("git", ["ls-files"], { cwd: store })).stdout.trim().split(/\r?\n/).filter(Boolean);
@@ -685,9 +749,11 @@ describe("git sync adapter", () => {
       expect(tracked).not.toContain("snapshots/user.json");
       expect(tracked).not.toContain("indexes/recall.json");
       expect(tracked).not.toContain("state/sync-status.json");
-      await expect(getGitSyncStatus(store)).resolves.toEqual(expect.objectContaining({
-        dirty: false
-      }));
+      await expect(getGitSyncStatus(store)).resolves.toEqual(
+        expect.objectContaining({
+          dirty: false
+        })
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -713,35 +779,51 @@ describe("git sync adapter", () => {
       await mkdir(join(legacy, "events", "device_legacy", "2026-05"), { recursive: true });
       await mkdir(join(legacy, "snapshots"), { recursive: true });
       await mkdir(join(legacy, "indexes"), { recursive: true });
-      await writeFile(join(legacy, "config.json"), `${JSON.stringify({
-        store_version: 1,
-        device_id: "device_legacy",
-        created_at: "2026-05-27T00:00:00.000Z"
-      }, null, 2)}\n`, "utf8");
-      await writeFile(join(legacy, "events", "device_legacy", "2026-05", "evt_legacy.json"), `${JSON.stringify({
-        event_id: "evt_legacy",
-        op: "upsert_record",
-        record: {
-          id: "rec_legacy",
-          kind: "memory",
-          type: "decision",
-          scope: "project",
-          project_id: "moryn",
-          tags: [],
-          content: { text: "Legacy remote event survives push rebase.", format: "text" },
-          state: "canonical",
-          confidence: 0.5,
-          priority: "normal",
-          visibility: "active",
-          created_at: "2026-05-27T00:01:00.000Z",
-          updated_at: "2026-05-27T00:01:00.000Z",
-          source: { client: "legacy", device_id: "device_legacy" }
-        },
-        created_at: "2026-05-27T00:01:00.000Z",
-        source: { client: "legacy", device_id: "device_legacy" }
-      }, null, 2)}\n`, "utf8");
-      await writeFile(join(legacy, "snapshots", "user.json"), "{\"legacy\":true}\n", "utf8");
-      await writeFile(join(legacy, "indexes", "recall.json"), "{\"legacy\":true}\n", "utf8");
+      await writeFile(
+        join(legacy, "config.json"),
+        `${JSON.stringify(
+          {
+            store_version: 1,
+            device_id: "device_legacy",
+            created_at: "2026-05-27T00:00:00.000Z"
+          },
+          null,
+          2
+        )}\n`,
+        "utf8"
+      );
+      await writeFile(
+        join(legacy, "events", "device_legacy", "2026-05", "evt_legacy.json"),
+        `${JSON.stringify(
+          {
+            event_id: "evt_legacy",
+            op: "upsert_record",
+            record: {
+              id: "rec_legacy",
+              kind: "memory",
+              type: "decision",
+              scope: "project",
+              project_id: "moryn",
+              tags: [],
+              content: { text: "Legacy remote event survives push rebase.", format: "text" },
+              state: "canonical",
+              confidence: 0.5,
+              priority: "normal",
+              visibility: "active",
+              created_at: "2026-05-27T00:01:00.000Z",
+              updated_at: "2026-05-27T00:01:00.000Z",
+              source: { client: "legacy", device_id: "device_legacy" }
+            },
+            created_at: "2026-05-27T00:01:00.000Z",
+            source: { client: "legacy", device_id: "device_legacy" }
+          },
+          null,
+          2
+        )}\n`,
+        "utf8"
+      );
+      await writeFile(join(legacy, "snapshots", "user.json"), '{"legacy":true}\n', "utf8");
+      await writeFile(join(legacy, "indexes", "recall.json"), '{"legacy":true}\n', "utf8");
       await exec("git", ["add", "-f", "config.json", "events", "snapshots", "indexes"], { cwd: legacy });
       await exec("git", ["commit", "-m", "Legacy remote tracks local-only files"], { cwd: legacy });
       await exec("git", ["push", "origin", "main"], { cwd: legacy });
@@ -763,11 +845,13 @@ describe("git sync adapter", () => {
 
       const push = await pushGitSync(store, { message: "push after legacy remote" });
 
-      expect(push).toEqual(expect.objectContaining({
-        ok: true,
-        committed: true,
-        pushed: true
-      }));
+      expect(push).toEqual(
+        expect.objectContaining({
+          ok: true,
+          committed: true,
+          pushed: true
+        })
+      );
       const localConfig = JSON.parse(await readFile(join(store, "config.json"), "utf8")) as { device_id: string };
       expect(localConfig.device_id).toBe("device_push_rebase_untrack");
       const tracked = (await exec("git", ["ls-files"], { cwd: store })).stdout.trim().split(/\r?\n/).filter(Boolean);
@@ -776,16 +860,22 @@ describe("git sync adapter", () => {
       expect(tracked).not.toContain("config.json");
       expect(tracked).not.toContain("snapshots/user.json");
       expect(tracked).not.toContain("indexes/recall.json");
-      const recallIndex = JSON.parse(await readFile(join(store, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };
-      expect(recallIndex.records.map((record) => record.text)).toEqual(expect.arrayContaining([
-        "Legacy remote event survives push rebase.",
-        "Local event survives legacy push rebase."
-      ]));
-      await expect(getGitSyncStatus(store)).resolves.toEqual(expect.objectContaining({
-        dirty: false,
-        ahead: 0,
-        behind: 0
-      }));
+      const recallIndex = JSON.parse(await readFile(join(store, "indexes", "recall.json"), "utf8")) as {
+        records: Array<{ text: string }>;
+      };
+      expect(recallIndex.records.map((record) => record.text)).toEqual(
+        expect.arrayContaining([
+          "Legacy remote event survives push rebase.",
+          "Local event survives legacy push rebase."
+        ])
+      );
+      await expect(getGitSyncStatus(store)).resolves.toEqual(
+        expect.objectContaining({
+          dirty: false,
+          ahead: 0,
+          behind: 0
+        })
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -912,15 +1002,22 @@ describe("git sync adapter", () => {
       const pull = await pullGitSync(storeB);
       expect(pull.pulled).toBe(true);
 
-      const recallIndex = JSON.parse(await readFile(join(storeB, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };
-      expect(recallIndex.records.map((record) => record.text)).toEqual(expect.arrayContaining([
-        "Remote uncommitted pull event survives.",
-        "Local uncommitted event survives pull."
-      ]));
+      const recallIndex = JSON.parse(await readFile(join(storeB, "indexes", "recall.json"), "utf8")) as {
+        records: Array<{ text: string }>;
+      };
+      expect(recallIndex.records.map((record) => record.text)).toEqual(
+        expect.arrayContaining(["Remote uncommitted pull event survives.", "Local uncommitted event survives pull."])
+      );
 
       const engineBAfterPull = createEngine({ storePath: storeB });
-      expect((await engineBAfterPull.recall({ query: "Remote uncommitted", project_id: "moryn" })).results[0]?.record.content.text).toBe("Remote uncommitted pull event survives.");
-      expect((await engineBAfterPull.recall({ query: "Local uncommitted", project_id: "moryn" })).results[0]?.record.content.text).toBe("Local uncommitted event survives pull.");
+      expect(
+        (await engineBAfterPull.recall({ query: "Remote uncommitted", project_id: "moryn" })).results[0]?.record.content
+          .text
+      ).toBe("Remote uncommitted pull event survives.");
+      expect(
+        (await engineBAfterPull.recall({ query: "Local uncommitted", project_id: "moryn" })).results[0]?.record.content
+          .text
+      ).toBe("Local uncommitted event survives pull.");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -979,11 +1076,15 @@ describe("git sync adapter", () => {
       const push = await pushGitSync(storeB, { message: "device b pushes after remote moved" });
 
       expect(push.pushed).toBe(true);
-      const recallIndex = JSON.parse(await readFile(join(storeB, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };
-      expect(recallIndex.records.map((record) => record.text)).toEqual(expect.arrayContaining([
-        "Remote event should appear in rebuilt index.",
-        "Local event should survive push rebase."
-      ]));
+      const recallIndex = JSON.parse(await readFile(join(storeB, "indexes", "recall.json"), "utf8")) as {
+        records: Array<{ text: string }>;
+      };
+      expect(recallIndex.records.map((record) => record.text)).toEqual(
+        expect.arrayContaining([
+          "Remote event should appear in rebuilt index.",
+          "Local event should survive push rebase."
+        ])
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -1004,11 +1105,13 @@ describe("git sync adapter", () => {
 
       const push = await pushGitSync(store);
 
-      expect(push).toEqual(expect.objectContaining({
-        ok: true,
-        committed: false,
-        pushed: true
-      }));
+      expect(push).toEqual(
+        expect.objectContaining({
+          ok: true,
+          committed: false,
+          pushed: true
+        })
+      );
       await expect(readFile(join(store, "scratch.txt"), "utf8")).resolves.toBe("not managed by Moryn\n");
     } finally {
       await rm(root, { recursive: true, force: true });
@@ -1034,11 +1137,17 @@ describe("git sync adapter", () => {
 
       await rebuildDerivedViews(store);
 
-      await expect(readFile(join(store, "indexes", "sync-status.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
-      await expect(readFile(join(store, "state", "sync-status.json"), "utf8")).resolves.toBe(`${JSON.stringify(legacyStatus, null, 2)}\n`);
-      await expect(getGitSyncStatus(store)).resolves.toEqual(expect.objectContaining({
-        last_sync: legacyStatus
-      }));
+      await expect(readFile(join(store, "indexes", "sync-status.json"), "utf8")).rejects.toMatchObject({
+        code: "ENOENT"
+      });
+      await expect(readFile(join(store, "state", "sync-status.json"), "utf8")).resolves.toBe(
+        `${JSON.stringify(legacyStatus, null, 2)}\n`
+      );
+      await expect(getGitSyncStatus(store)).resolves.toEqual(
+        expect.objectContaining({
+          last_sync: legacyStatus
+        })
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -1070,11 +1179,17 @@ describe("git sync adapter", () => {
 
       await rebuildDerivedViews(store);
 
-      await expect(readFile(join(store, "indexes", "sync-status.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
-      await expect(readFile(join(store, "state", "sync-status.json"), "utf8")).resolves.toBe(`${JSON.stringify(currentStatus, null, 2)}\n`);
-      await expect(getGitSyncStatus(store)).resolves.toEqual(expect.objectContaining({
-        last_sync: currentStatus
-      }));
+      await expect(readFile(join(store, "indexes", "sync-status.json"), "utf8")).rejects.toMatchObject({
+        code: "ENOENT"
+      });
+      await expect(readFile(join(store, "state", "sync-status.json"), "utf8")).resolves.toBe(
+        `${JSON.stringify(currentStatus, null, 2)}\n`
+      );
+      await expect(getGitSyncStatus(store)).resolves.toEqual(
+        expect.objectContaining({
+          last_sync: currentStatus
+        })
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -1094,8 +1209,12 @@ describe("git sync adapter", () => {
 
       await expect(rebuildDerivedViews(store)).resolves.toEqual(expect.objectContaining({ ok: true }));
 
-      await expect(readFile(join(store, "indexes", "sync-status.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
-      await expect(readFile(join(store, "state", "sync-status.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(readFile(join(store, "indexes", "sync-status.json"), "utf8")).rejects.toMatchObject({
+        code: "ENOENT"
+      });
+      await expect(readFile(join(store, "state", "sync-status.json"), "utf8")).rejects.toMatchObject({
+        code: "ENOENT"
+      });
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -1111,12 +1230,28 @@ describe("pending sync evidence", () => {
       await exec("git", ["init", "--bare", remote]);
       await initializeStore(store, { id: () => "device-a" });
       await initializeGitSync(store, remote);
-      const engine = createEngine({ storePath: store, id: (prefix) => `${prefix}_pending`, now: () => "2026-07-12T00:00:00.000Z" });
-      await engine.write({ kind: "session_summary", type: "checkpoint", scope: "project", project_id: "moryn", content: { text: "Pending checkpoint" }, source: { client: "codex", session_id: "session" } });
+      const engine = createEngine({
+        storePath: store,
+        id: (prefix) => `${prefix}_pending`,
+        now: () => "2026-07-12T00:00:00.000Z"
+      });
+      await engine.write({
+        kind: "session_summary",
+        type: "checkpoint",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Pending checkpoint" },
+        source: { client: "codex", session_id: "session" }
+      });
 
       const evidence = await getPendingSyncEvidence(store);
       expect(evidence.paths.some((path) => path.startsWith("events/") && path.endsWith(".json"))).toBe(true);
-      expect(evidence.events).toEqual([expect.objectContaining({ op: "upsert_record", record: expect.objectContaining({ type: "checkpoint", project_id: "moryn" }) })]);
+      expect(evidence.events).toEqual([
+        expect.objectContaining({
+          op: "upsert_record",
+          record: expect.objectContaining({ type: "checkpoint", project_id: "moryn" })
+        })
+      ]);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -1130,10 +1265,26 @@ describe("pending sync evidence", () => {
       await exec("git", ["init", "--bare", remote]);
       await initializeStore(store, { id: () => "device-a" });
       await initializeGitSync(store, remote);
-      const engine = createEngine({ storePath: store, id: (prefix) => `${prefix}_deleted`, now: () => "2026-07-12T00:00:00.000Z" });
-      await engine.write({ kind: "memory", type: "fact", scope: "project", project_id: "moryn", content: { text: "Delete me" }, source: { client: "test" } });
+      const engine = createEngine({
+        storePath: store,
+        id: (prefix) => `${prefix}_deleted`,
+        now: () => "2026-07-12T00:00:00.000Z"
+      });
+      await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Delete me" },
+        source: { client: "test" }
+      });
       await pushGitSync(store);
-      const trackedEventPath = (await exec("git", ["ls-files", "events/*.json", "events/**/*.json"], { cwd: store })).stdout.trim().split(/\r?\n/).find((path) => path.endsWith(".json"));
+      const trackedEventPath = (
+        await exec("git", ["ls-files", "events/*.json", "events/**/*.json"], { cwd: store })
+      ).stdout
+        .trim()
+        .split(/\r?\n/)
+        .find((path) => path.endsWith(".json"));
       expect(trackedEventPath).toBeDefined();
       await rm(join(store, trackedEventPath!));
 

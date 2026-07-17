@@ -1,40 +1,101 @@
 import { createHash } from "node:crypto";
-import { appendEvent, appendEventIfAbsent, readEvents, type AppendEventIfAbsentResult } from "./store.js";
-import { rebuildDerivedViews } from "./derived.js";
-import { applyRecordPatch, replayEvents } from "./replay.js";
-import { PROVENANCE_METHODS, RECORD_KINDS, RECORD_PRIORITIES, RECORD_SCOPES, RECORD_STATES, isoDateTimeSchema, isValidPatchPath, recordKindSchema, recordPrioritySchema, recordScopeSchema, recordSourceSchema, recordStateSchema, parseRecord } from "./schema.js";
-import { detectSensitiveContent, isPrivateTags, redactSensitiveContent, sensitiveScanText } from "./sensitive.js";
-import type { MorynEvent, MorynRecord, RecordKind, RecordPriority, RecordProvenance, RecordScope, RecordSource, RecordState } from "./types.js";
-import { commandForPromoteContext, InvalidRefreshCursorError, PROMOTE_CANDIDATE_WHEN, withNextActionMetadata, type MorynErrorNextAction } from "./errors.js";
-import { createId } from "./id.js";
-import { displayRecordText, searchableContentText, searchableRecordText } from "./content-text.js";
-import { actionExecution, actionSafety } from "./action-safety.js";
-import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js";
-import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
 import { operationArgumentsByTool } from "../operation-contracts.js";
-import { diagnoseDogfood, type DogfoodReportInput } from "./dogfood-report.js";
-import { diagnoseMemoryLifecycle, type MemoryLifecycleInput } from "./memory-lifecycle.js";
-import { diagnoseCapturePolicy, type CapturePolicyInput } from "./capture-policy-report.js";
+import { type ActionInterfaces, actionInterfaces } from "./action-interfaces.js";
+import { actionExecution, actionSafety } from "./action-safety.js";
+import { discoverAutomaticDuplicateProposal } from "./automatic-consolidation.js";
+import { type CapturePolicyInput, diagnoseCapturePolicy } from "./capture-policy-report.js";
+import {
+  buildCheckpointRecoveryPack,
+  CHECKPOINT_SELECTION_SOURCES,
+  type CheckpointInput,
+  type CheckpointResult,
+  checkpointIdentity,
+  checkpointPayloadDigest,
+  checkpointSummary,
+  matchesCheckpoint,
+  matchesCheckpointPayload,
+  normalizeCheckpointInput,
+  parseCheckpointContent
+} from "./checkpoint.js";
+import { displayRecordText, searchableContentText, searchableRecordText } from "./content-text.js";
+import {
+  type LearningDelta,
+  learningDeltaSchema,
+  type SemanticConsolidationProposal,
+  semanticConsolidationProposalSchema
+} from "./context-delta.js";
+import { rebuildDerivedViews } from "./derived.js";
+import { type DogfoodReportInput, diagnoseDogfood } from "./dogfood-report.js";
+import {
+  commandForPromoteContext,
+  InvalidRefreshCursorError,
+  type MorynErrorNextAction,
+  PROMOTE_CANDIDATE_WHEN,
+  withNextActionMetadata
+} from "./errors.js";
 import { diagnoseHealthCheck, HEALTH_CHECK_SELECTION_SOURCES, type HealthCheckInput } from "./health-check.js";
 import { inspectHostActivation } from "./host-activation.js";
 import { normalizeHostId } from "./host-adapter-registry.js";
-import { diagnoseMemory, MEMORY_DOCTOR_SELECTION_SOURCES } from "./memory-doctor.js";
-import { evaluateRecall, RECALL_EVAL_SELECTION_SOURCES, type RecallEvalInput } from "./recall-eval.js";
-import { buildCheckpointRecoveryPack, CHECKPOINT_SELECTION_SOURCES, checkpointIdentity, checkpointPayloadDigest, checkpointSummary, matchesCheckpoint, matchesCheckpointPayload, normalizeCheckpointInput, parseCheckpointContent, type CheckpointInput, type CheckpointResult } from "./checkpoint.js";
-import { buildActiveLogicalMemoryView, compareLogicalMemoryTargets, logicalMemoryFingerprint, validateLogicalRelationship, type LogicalRelationshipType } from "./logical-memory.js";
-import { assessRecallOutcome } from "./recall-outcome.js";
-import { buildRecallNextActions, RECALL_ACTION_SELECTION_SOURCES } from "./recall-actions.js";
-import { learningDeltaSchema, semanticConsolidationProposalSchema, type LearningDelta, type SemanticConsolidationProposal } from "./context-delta.js";
-import { learningStatePolicy } from "./learning-policy.js";
-import { learningRecordIdentity, normalizeLearningRecord } from "./learning-ingestion.js";
-import { SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES, semanticConsolidationProposalDigest, validateSemanticConsolidationProposal, type SemanticConsolidationProposalResult, type SemanticConsolidationReceipt } from "./semantic-consolidation.js";
-import { retrieveSemanticConsolidationCandidates } from "./semantic-consolidation-candidates.js";
-import { discoverAutomaticDuplicateProposal } from "./automatic-consolidation.js";
-import { readCurrentRecords, type CurrentRecordReadResult } from "./record-read-model.js";
-import { readRetrievalCandidates, type ReadRetrievalCandidatesInput, type RetrievalCandidateReadResult } from "./retrieval-index.js";
-import { readSyncCompensationReceipt } from "./sync-compensation.js";
+import { createId } from "./id.js";
 import { buildLearningCandidateReviewWorkflow, unresolvedLearningCandidates } from "./learning-candidate-review.js";
 import { consumeLearningInbox, learningInboxForLifecycle } from "./learning-inbox.js";
+import { learningRecordIdentity, normalizeLearningRecord } from "./learning-ingestion.js";
+import { learningStatePolicy } from "./learning-policy.js";
+import {
+  buildActiveLogicalMemoryView,
+  compareLogicalMemoryTargets,
+  type LogicalRelationshipType,
+  logicalMemoryFingerprint,
+  validateLogicalRelationship
+} from "./logical-memory.js";
+import { diagnoseMemory, MEMORY_DOCTOR_SELECTION_SOURCES } from "./memory-doctor.js";
+import { diagnoseMemoryLifecycle, type MemoryLifecycleInput } from "./memory-lifecycle.js";
+import { buildRecallNextActions, RECALL_ACTION_SELECTION_SOURCES } from "./recall-actions.js";
+import { evaluateRecall, RECALL_EVAL_SELECTION_SOURCES, type RecallEvalInput } from "./recall-eval.js";
+import { assessRecallOutcome } from "./recall-outcome.js";
+import { type CurrentRecordReadResult, readCurrentRecords } from "./record-read-model.js";
+import { applyRecordPatch, replayEvents } from "./replay.js";
+import {
+  type ReadRetrievalCandidatesInput,
+  type RetrievalCandidateReadResult,
+  readRetrievalCandidates
+} from "./retrieval-index.js";
+import {
+  isoDateTimeSchema,
+  isValidPatchPath,
+  PROVENANCE_METHODS,
+  parseRecord,
+  RECORD_KINDS,
+  RECORD_PRIORITIES,
+  RECORD_SCOPES,
+  RECORD_STATES,
+  recordKindSchema,
+  recordPrioritySchema,
+  recordScopeSchema,
+  recordStateSchema
+} from "./schema.js";
+import {
+  SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES,
+  type SemanticConsolidationProposalResult,
+  type SemanticConsolidationReceipt,
+  semanticConsolidationProposalDigest,
+  validateSemanticConsolidationProposal
+} from "./semantic-consolidation.js";
+import { retrieveSemanticConsolidationCandidates } from "./semantic-consolidation-candidates.js";
+import { detectSensitiveContent, isPrivateTags, redactSensitiveContent, sensitiveScanText } from "./sensitive.js";
+import { type AppendEventIfAbsentResult, appendEvent, appendEventIfAbsent, readEvents } from "./store.js";
+import { readSyncCompensationReceipt } from "./sync-compensation.js";
+import type {
+  MorynEvent,
+  MorynRecord,
+  RecordKind,
+  RecordPriority,
+  RecordProvenance,
+  RecordScope,
+  RecordSource,
+  RecordState
+} from "./types.js";
+import { type RequiredFieldMetadata, withPhasesByName, withRequiredFieldsByName } from "./workflow.js";
 
 interface EngineDeps {
   storePath: string;
@@ -44,7 +105,10 @@ interface EngineDeps {
   rebuild?: (storePath: string) => Promise<unknown>;
   appendEventIfAbsent?: (storePath: string, event: MorynEvent) => Promise<AppendEventIfAbsentResult>;
   readCurrentRecords?: (storePath: string) => Promise<CurrentRecordReadResult>;
-  readRetrievalCandidates?: (storePath: string, input: ReadRetrievalCandidatesInput) => Promise<RetrievalCandidateReadResult>;
+  readRetrievalCandidates?: (
+    storePath: string,
+    input: ReadRetrievalCandidatesInput
+  ) => Promise<RetrievalCandidateReadResult>;
 }
 
 interface WriteInput {
@@ -131,7 +195,13 @@ interface BootInput {
   include_private?: unknown;
 }
 
-type ValidatedBootInput = BootInput & { agent_session_id?: string; default_skills?: string[]; current_task?: string; sync_remote?: string; include_private?: boolean };
+type ValidatedBootInput = BootInput & {
+  agent_session_id?: string;
+  default_skills?: string[];
+  current_task?: string;
+  sync_remote?: string;
+  include_private?: boolean;
+};
 
 interface ListRecentInput {
   limit?: unknown;
@@ -209,7 +279,9 @@ function semanticConsolidationEventId(sourceRecordId: string, targetRecordId: st
   return `evt_semantic_consolidation_${createHash("sha256").update(JSON.stringify({ sourceRecordId, targetRecordId, relationship })).digest("hex")}`;
 }
 
-function semanticConsolidationReceipt(proposalResults: SemanticConsolidationProposalResult[]): SemanticConsolidationReceipt {
+function semanticConsolidationReceipt(
+  proposalResults: SemanticConsolidationProposalResult[]
+): SemanticConsolidationReceipt {
   const acceptedByRelationship: SemanticConsolidationReceipt["accepted_by_relationship"] = {};
   const rejectedByReason: Record<string, number> = {};
   let proposalsAccepted = 0;
@@ -304,11 +376,14 @@ type WriteProvenanceArgumentSource =
   | typeof WRITE_PROVENANCE_METHOD_ARGUMENT_SOURCE
   | typeof WRITE_PROVENANCE_PROMOTED_AT_ARGUMENT_SOURCE;
 
-const WRITE_PROVENANCE_FIELDS: Record<WriteProvenanceField, {
-  argument: WriteProvenanceArgument;
-  source: WriteProvenanceArgumentSource;
-  placeholder: unknown;
-}> = {
+const WRITE_PROVENANCE_FIELDS: Record<
+  WriteProvenanceField,
+  {
+    argument: WriteProvenanceArgument;
+    source: WriteProvenanceArgumentSource;
+    placeholder: unknown;
+  }
+> = {
   derived_from: {
     argument: "provenance.derived_from",
     source: WRITE_PROVENANCE_DERIVED_FROM_ARGUMENT_SOURCE,
@@ -390,8 +465,10 @@ export const PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES = {
   ordered_required_field: "project_list.projects[].next.required_fields_by_name.<field>",
   required_input: "project_list.projects_by_id.<project_id>.next.execution.required_inputs_by_field.<field>",
   ordered_required_input: "project_list.projects[].next.execution.required_inputs_by_field.<field>",
-  required_input_argument_path: "project_list.projects_by_id.<project_id>.next.execution.required_inputs_by_argument_path.<argument_path>",
-  ordered_required_input_argument_path: "project_list.projects[].next.execution.required_inputs_by_argument_path.<argument_path>",
+  required_input_argument_path:
+    "project_list.projects_by_id.<project_id>.next.execution.required_inputs_by_argument_path.<argument_path>",
+  ordered_required_input_argument_path:
+    "project_list.projects[].next.execution.required_inputs_by_argument_path.<argument_path>",
   argument_source: "project_list.projects_by_id.<project_id>.next.argument_sources.<field>",
   ordered_argument_source: "project_list.projects[].next.argument_sources.<field>"
 };
@@ -401,8 +478,7 @@ export const LIST_RECENT_SELECTION_SOURCES = {
   record_id: "records_by_id.<record_id>.id"
 };
 
-export { MEMORY_DOCTOR_SELECTION_SOURCES };
-export { HEALTH_CHECK_SELECTION_SOURCES };
+export { HEALTH_CHECK_SELECTION_SOURCES, MEMORY_DOCTOR_SELECTION_SOURCES };
 
 export const RECALL_SELECTION_SOURCES = {
   result: "results_by_id.<record_id>",
@@ -458,8 +534,10 @@ export const REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES = {
   ordered_required_field: "refresh.changes[].next_action.required_fields_by_name.<field>",
   required_input: "refresh.changes_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
   ordered_required_input: "refresh.changes[].next_action.execution.required_inputs_by_field.<field>",
-  required_input_argument_path: "refresh.changes_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
-  ordered_required_input_argument_path: "refresh.changes[].next_action.execution.required_inputs_by_argument_path.<argument_path>",
+  required_input_argument_path:
+    "refresh.changes_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
+  ordered_required_input_argument_path:
+    "refresh.changes[].next_action.execution.required_inputs_by_argument_path.<argument_path>",
   argument_source: "refresh.changes_by_record_id.<record_id>.next_action.argument_sources.<field>",
   ordered_argument_source: "refresh.changes[].next_action.argument_sources.<field>"
 };
@@ -500,13 +578,17 @@ export const TIMELINE_ITEM_NEXT_ACTION_SELECTION_SOURCES = {
   ordered_required_field: "timeline.items[].next_action.required_fields_by_name.<field>",
   required_input: "timeline.items_by_event_id.<event_id>.next_action.execution.required_inputs_by_field.<field>",
   ordered_required_input: "timeline.items[].next_action.execution.required_inputs_by_field.<field>",
-  required_input_argument_path: "timeline.items_by_event_id.<event_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
-  ordered_required_input_argument_path: "timeline.items[].next_action.execution.required_inputs_by_argument_path.<argument_path>",
+  required_input_argument_path:
+    "timeline.items_by_event_id.<event_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
+  ordered_required_input_argument_path:
+    "timeline.items[].next_action.execution.required_inputs_by_argument_path.<argument_path>",
   argument_source: "timeline.items_by_event_id.<event_id>.next_action.argument_sources.<field>",
   ordered_argument_source: "timeline.items[].next_action.argument_sources.<field>"
 };
 
-function withActionInterfaces<T extends { tool: string; command: string; arguments: unknown; required_fields: string[] }>(
+function withActionInterfaces<
+  T extends { tool: string; command: string; arguments: unknown; required_fields: string[] }
+>(
   action: T
 ): T & {
   required_fields_by_name: Record<string, RequiredFieldMetadata>;
@@ -531,26 +613,28 @@ function withActionInterfaces<T extends { tool: string; command: string; argumen
 
 function actionArgumentSources(action: object): Record<string, string> | undefined {
   return "argument_sources" in action && action.argument_sources && typeof action.argument_sources === "object"
-    ? action.argument_sources as Record<string, string>
+    ? (action.argument_sources as Record<string, string>)
     : undefined;
 }
 
 function requiredInputSelectionSources(selectionSources: Record<string, string>): Record<string, string> | undefined {
-  const sources = Object.fromEntries(Object.entries(selectionSources).filter(([key]) => key.includes("required_input")));
+  const sources = Object.fromEntries(
+    Object.entries(selectionSources).filter(([key]) => key.includes("required_input"))
+  );
   return Object.keys(sources).length > 0 ? sources : undefined;
 }
 
-function withProjectListNextMetadata<T extends {
-  recommended_action: string;
-  tool: string;
-  command: string;
-  arguments: Record<string, unknown>;
-  safe_to_run: boolean;
-  required_when: string;
-  required_fields: string[];
-}>(
-  action: T
-) {
+function withProjectListNextMetadata<
+  T extends {
+    recommended_action: string;
+    tool: string;
+    command: string;
+    arguments: Record<string, unknown>;
+    safe_to_run: boolean;
+    required_when: string;
+    required_fields: string[];
+  }
+>(action: T) {
   const actionWithInterfaces = withActionInterfaces(action);
   const projectId = typeof action.arguments.project_id === "string" ? action.arguments.project_id : "<project_id>";
   return {
@@ -583,17 +667,17 @@ function withProjectListNextMetadata<T extends {
   };
 }
 
-function withRefreshChangeNextActionMetadata<T extends {
-  recommended_action: string;
-  tool: string;
-  command: string;
-  arguments: Record<string, unknown>;
-  safe_to_run: boolean;
-  required_when: string;
-  required_fields: string[];
-}>(
-  action: T
-) {
+function withRefreshChangeNextActionMetadata<
+  T extends {
+    recommended_action: string;
+    tool: string;
+    command: string;
+    arguments: Record<string, unknown>;
+    safe_to_run: boolean;
+    required_when: string;
+    required_fields: string[];
+  }
+>(action: T) {
   const actionWithInterfaces = withActionInterfaces(action);
   const recordIds = action.arguments.record_ids;
   const recordId = Array.isArray(recordIds) && typeof recordIds[0] === "string" ? recordIds[0] : "<record_id>";
@@ -627,17 +711,17 @@ function withRefreshChangeNextActionMetadata<T extends {
   };
 }
 
-function withTimelineItemNextActionMetadata<T extends {
-  recommended_action: string;
-  tool: string;
-  command: string;
-  arguments: Record<string, unknown>;
-  safe_to_run: boolean;
-  required_when: string;
-  required_fields: string[];
-}>(
-  action: T
-) {
+function withTimelineItemNextActionMetadata<
+  T extends {
+    recommended_action: string;
+    tool: string;
+    command: string;
+    arguments: Record<string, unknown>;
+    safe_to_run: boolean;
+    required_when: string;
+    required_fields: string[];
+  }
+>(action: T) {
   const actionWithInterfaces = withActionInterfaces(action);
   const recordIds = action.arguments.record_ids;
   const recordId = Array.isArray(recordIds) && typeof recordIds[0] === "string" ? recordIds[0] : "<record_id>";
@@ -729,7 +813,19 @@ type ValidatedProjectMigrateInput = ProjectMigrateInput & {
   include_private: boolean;
 };
 
-type ReadOperation = "recall" | "boot" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor" | "memory_lifecycle" | "capture_policy" | "dogfood_report" | "health_check" | "recall_eval";
+type ReadOperation =
+  | "recall"
+  | "boot"
+  | "refresh"
+  | "timeline"
+  | "list_recent"
+  | "project_list"
+  | "memory_doctor"
+  | "memory_lifecycle"
+  | "capture_policy"
+  | "dogfood_report"
+  | "health_check"
+  | "recall_eval";
 type ReadOperationContractSource = `operations_by_id.${ReadOperation}`;
 type ReadArgumentSource = `operations_by_id.${ReadOperation}.arguments_by_name.${string}`;
 type AgentIdentityField = "client" | "session_id" | "model" | "device_id";
@@ -739,7 +835,14 @@ type MutationOperation = "revise" | "promote" | "archive" | "quarantine" | "link
 type MutationOperationContractSource = `operations_by_id.${MutationOperation}`;
 type SourceIdentityField = "client" | "session_id" | "model" | "device_id";
 type SourceIdentityArgument = `source.${SourceIdentityField}`;
-type MutationArgumentName = "record_id" | "linked_record_id" | "reason" | SourceIdentityArgument | "link_type" | "confirmed" | "target_state";
+type MutationArgumentName =
+  | "record_id"
+  | "linked_record_id"
+  | "reason"
+  | SourceIdentityArgument
+  | "link_type"
+  | "confirmed"
+  | "target_state";
 type MutationArgumentSource = `operations_by_id.${MutationOperation}.arguments_by_name.${string}`;
 
 const SOURCE_IDENTITY_FIELDS = {
@@ -763,11 +866,14 @@ const SOURCE_IDENTITY_FIELDS = {
     contractArgument: "source_device_id",
     placeholder: "<source device id>"
   }
-} as const satisfies Record<SourceIdentityField, {
-  argument: SourceIdentityArgument;
-  contractArgument: string;
-  placeholder: string;
-}>;
+} as const satisfies Record<
+  SourceIdentityField,
+  {
+    argument: SourceIdentityArgument;
+    contractArgument: string;
+    placeholder: string;
+  }
+>;
 
 const AGENT_IDENTITY_FIELDS = {
   client: {
@@ -790,11 +896,14 @@ const AGENT_IDENTITY_FIELDS = {
     contractArgument: "agent_device_id",
     placeholder: "<agent device id>"
   }
-} as const satisfies Record<AgentIdentityField, {
-  argument: AgentIdentityArgument;
-  contractArgument: string;
-  placeholder: string;
-}>;
+} as const satisfies Record<
+  AgentIdentityField,
+  {
+    argument: AgentIdentityArgument;
+    contractArgument: string;
+    placeholder: string;
+  }
+>;
 
 function textOf(record: MorynRecord): string {
   return displayRecordText(record);
@@ -843,9 +952,12 @@ function isLargeString(value: unknown): boolean {
 }
 
 function shouldCompactContent(record: MorynRecord): boolean {
-  if (record.tags.some((tag) => ["full-content", "portable-install", "encoded-bundle", "hex-encoded"].includes(tag))) return true;
+  if (record.tags.some((tag) => ["full-content", "portable-install", "encoded-bundle", "hex-encoded"].includes(tag)))
+    return true;
   if (/(?:full_content|bundle|artifact)/i.test(record.type)) return true;
-  return Object.entries(record.content).some(([key, value]) => COMPACT_CONTENT_OMIT_KEYS.has(key) || isLargeString(value));
+  return Object.entries(record.content).some(
+    ([key, value]) => COMPACT_CONTENT_OMIT_KEYS.has(key) || isLargeString(value)
+  );
 }
 
 function compactSummaryText(record: MorynRecord, limit = 500): string {
@@ -919,10 +1031,16 @@ function assertPlainObject(value: unknown, name: string): asserts value is Recor
 type MutationArgumentRecoveryHint =
   | {
       operation_contract: MutationOperationContractSource;
-      rejected_argument: { argument: "record_id" | "linked_record_id" | "reason" | SourceIdentityArgument | "link_type"; value: unknown };
+      rejected_argument: {
+        argument: "record_id" | "linked_record_id" | "reason" | SourceIdentityArgument | "link_type";
+        value: unknown;
+      };
       expected: { kind: "non_empty_string"; min_length: 1 };
       argument_sources: Partial<Record<MutationArgumentName, MutationArgumentSource>>;
-      retry_with: { argument: "record_id" | "linked_record_id" | "reason" | SourceIdentityArgument | "link_type"; value_placeholder: string };
+      retry_with: {
+        argument: "record_id" | "linked_record_id" | "reason" | SourceIdentityArgument | "link_type";
+        value_placeholder: string;
+      };
     }
   | {
       operation_contract: MutationOperationContractSource;
@@ -980,22 +1098,19 @@ function invalidMutationStringError(
   argument: "record_id" | "linked_record_id" | "reason" | "link_type",
   value: unknown
 ): MutationArgumentError {
-  const action = argument === "link_type"
-    ? "retry link with a non-empty link_type"
-    : argument === "reason"
-      ? "retry mutation with a non-empty reason"
-      : `retry mutation with a valid ${argument}`;
-  return new MutationArgumentError(
-    `Invalid argument: Invalid ${argument}`,
-    action,
-    {
-      operation_contract: mutationOperationContractSource(operation),
-      rejected_argument: { argument, value },
-      expected: { kind: "non_empty_string", min_length: 1 },
-      argument_sources: { [argument]: mutationArgumentSource(operation, argument) },
-      retry_with: { argument, value_placeholder: `<${argument}>` }
-    }
-  );
+  const action =
+    argument === "link_type"
+      ? "retry link with a non-empty link_type"
+      : argument === "reason"
+        ? "retry mutation with a non-empty reason"
+        : `retry mutation with a valid ${argument}`;
+  return new MutationArgumentError(`Invalid argument: Invalid ${argument}`, action, {
+    operation_contract: mutationOperationContractSource(operation),
+    rejected_argument: { argument, value },
+    expected: { kind: "non_empty_string", min_length: 1 },
+    argument_sources: { [argument]: mutationArgumentSource(operation, argument) },
+    retry_with: { argument, value_placeholder: `<${argument}>` }
+  });
 }
 
 function invalidMutationConfirmedError(operation: MutationOperation, confirmed: unknown): MutationArgumentError {
@@ -1040,17 +1155,13 @@ function invalidSourceIdentityError(
 ): MutationArgumentError {
   const metadata = SOURCE_IDENTITY_FIELDS[field];
   const action = field === "client" ? recommendedAction : "retry mutation with valid source metadata";
-  return new MutationArgumentError(
-    `Invalid argument: Invalid ${metadata.argument}`,
-    action,
-    {
-      operation_contract: mutationOperationContractSource(operation),
-      rejected_argument: { argument: metadata.argument, value: sourceIdentityValue(source, field) },
-      expected: { kind: "non_empty_string", min_length: 1 },
-      argument_sources: { [metadata.argument]: mutationArgumentSource(operation, metadata.argument) },
-      retry_with: { argument: metadata.argument, value_placeholder: metadata.placeholder }
-    }
-  );
+  return new MutationArgumentError(`Invalid argument: Invalid ${metadata.argument}`, action, {
+    operation_contract: mutationOperationContractSource(operation),
+    rejected_argument: { argument: metadata.argument, value: sourceIdentityValue(source, field) },
+    expected: { kind: "non_empty_string", min_length: 1 },
+    argument_sources: { [metadata.argument]: mutationArgumentSource(operation, metadata.argument) },
+    retry_with: { argument: metadata.argument, value_placeholder: metadata.placeholder }
+  });
 }
 
 function invalidSourceUnknownFieldError(
@@ -1066,7 +1177,10 @@ function invalidSourceUnknownFieldError(
     {
       operation_contract: mutationOperationContractSource(operation),
       rejected_argument: { argument: `source.${field}`, value: source[field] },
-      expected: { kind: "known_object_field", allowed_fields: Object.keys(SOURCE_IDENTITY_FIELDS) as SourceIdentityField[] },
+      expected: {
+        kind: "known_object_field",
+        allowed_fields: Object.keys(SOURCE_IDENTITY_FIELDS) as SourceIdentityField[]
+      },
       argument_sources: { [metadata.argument]: mutationArgumentSource(operation, metadata.argument) },
       retry_with: { argument: metadata.argument, value_placeholder: metadata.placeholder },
       do_not: ["send_unknown_source_fields", "retry_with_same_unknown_field"]
@@ -1081,25 +1195,22 @@ function invalidGenericSourceIdentityError(
 ): MutationArgumentError {
   const metadata = SOURCE_IDENTITY_FIELDS[field];
   const action = field === "client" ? recommendedAction : "retry with valid source metadata";
-  return new MutationArgumentError(
-    `Invalid argument: Invalid ${metadata.argument}`,
-    action,
-    {
-      rejected_argument: { argument: metadata.argument, value: sourceIdentityValue(source, field) },
-      expected: { kind: "non_empty_string", min_length: 1 },
-      retry_with: { argument: metadata.argument, value_placeholder: metadata.placeholder }
-    }
-  );
+  return new MutationArgumentError(`Invalid argument: Invalid ${metadata.argument}`, action, {
+    rejected_argument: { argument: metadata.argument, value: sourceIdentityValue(source, field) },
+    expected: { kind: "non_empty_string", min_length: 1 },
+    retry_with: { argument: metadata.argument, value_placeholder: metadata.placeholder }
+  });
 }
 
 function closestIdentityField(field: string): SourceIdentityField {
   const normalized = normalizeIdentityFieldName(field);
-  return (Object.keys(SOURCE_IDENTITY_FIELDS) as SourceIdentityField[])
-    .sort((left, right) => {
+  return (
+    (Object.keys(SOURCE_IDENTITY_FIELDS) as SourceIdentityField[]).sort((left, right) => {
       const leftScore = identityFieldSuggestionScore(normalized, normalizeIdentityFieldName(left));
       const rightScore = identityFieldSuggestionScore(normalized, normalizeIdentityFieldName(right));
       return rightScore - leftScore || left.localeCompare(right);
-    })[0] ?? "client";
+    })[0] ?? "client"
+  );
 }
 
 function normalizeIdentityFieldName(field: string): string {
@@ -1118,9 +1229,8 @@ function longestCommonSubsequenceLength(left: string, right: string): number {
   const current = Array(right.length + 1).fill(0) as number[];
   for (const leftCharacter of left) {
     for (let index = 0; index < right.length; index += 1) {
-      current[index + 1] = leftCharacter === right[index]
-        ? previous[index] + 1
-        : Math.max(previous[index + 1] ?? 0, current[index] ?? 0);
+      current[index + 1] =
+        leftCharacter === right[index] ? previous[index] + 1 : Math.max(previous[index + 1] ?? 0, current[index] ?? 0);
     }
     previous.splice(0, previous.length, ...current);
     current.fill(0);
@@ -1228,7 +1338,11 @@ function invalidReadLimitError(operation: ReadOperation, limit: unknown): ReadAr
   );
 }
 
-function invalidReadWindowError(operation: ReadOperation, argument: "before" | "after", value: unknown): ReadArgumentError {
+function invalidReadWindowError(
+  operation: ReadOperation,
+  argument: "before" | "after",
+  value: unknown
+): ReadArgumentError {
   return new ReadArgumentError(
     `Invalid argument: Invalid ${argument}; must be an integer between 0 and 50`,
     "retry read with a timeline window between 0 and 50",
@@ -1242,18 +1356,18 @@ function invalidReadWindowError(operation: ReadOperation, argument: "before" | "
   );
 }
 
-function invalidReadBooleanError(operation: ReadOperation, argument: "include_private", value: unknown): ReadArgumentError {
-  return new ReadArgumentError(
-    `Invalid argument: Invalid ${argument}`,
-    `retry read with a boolean ${argument} value`,
-    {
-      operation_contract: readOperationContractSource(operation),
-      rejected_argument: { argument, value },
-      expected: { kind: "boolean" },
-      argument_sources: { [argument]: readArgumentSource(operation, argument) },
-      retry_with: { argument, value_placeholder: true }
-    }
-  );
+function invalidReadBooleanError(
+  operation: ReadOperation,
+  argument: "include_private",
+  value: unknown
+): ReadArgumentError {
+  return new ReadArgumentError(`Invalid argument: Invalid ${argument}`, `retry read with a boolean ${argument} value`, {
+    operation_contract: readOperationContractSource(operation),
+    rejected_argument: { argument, value },
+    expected: { kind: "boolean" },
+    argument_sources: { [argument]: readArgumentSource(operation, argument) },
+    retry_with: { argument, value_placeholder: true }
+  });
 }
 
 function invalidReadAnchorError(input: TimelineInput): ReadArgumentError {
@@ -1284,32 +1398,24 @@ function readPlaceholder(name: string): string {
 }
 
 function invalidReadStringError(operation: ReadOperation, name: string, value: unknown): ReadArgumentError {
-  return new ReadArgumentError(
-    `Invalid argument: Invalid ${name}`,
-    `retry read with a non-empty ${name}`,
-    {
-      operation_contract: readOperationContractSource(operation),
-      rejected_argument: { argument: name, value },
-      expected: { kind: "non_empty_string", min_length: 1 },
-      argument_sources: { [name]: readArgumentSource(operation, name) },
-      retry_with: { argument: name, value_placeholder: readPlaceholder(name) }
-    }
-  );
+  return new ReadArgumentError(`Invalid argument: Invalid ${name}`, `retry read with a non-empty ${name}`, {
+    operation_contract: readOperationContractSource(operation),
+    rejected_argument: { argument: name, value },
+    expected: { kind: "non_empty_string", min_length: 1 },
+    argument_sources: { [name]: readArgumentSource(operation, name) },
+    retry_with: { argument: name, value_placeholder: readPlaceholder(name) }
+  });
 }
 
 function invalidReadStringArrayError(operation: ReadOperation, name: string, value: unknown): ReadArgumentError {
   const singular = name.endsWith("s") ? name.slice(0, -1) : name;
-  return new ReadArgumentError(
-    `Invalid argument: Invalid ${name}`,
-    `retry read with ${name} as non-empty strings`,
-    {
-      operation_contract: readOperationContractSource(operation),
-      rejected_argument: { argument: name, value },
-      expected: { kind: "array_of_non_empty_strings" },
-      argument_sources: { [name]: readArgumentSource(operation, name) },
-      retry_with: { argument: name, value_placeholder: [readPlaceholder(singular)] }
-    }
-  );
+  return new ReadArgumentError(`Invalid argument: Invalid ${name}`, `retry read with ${name} as non-empty strings`, {
+    operation_contract: readOperationContractSource(operation),
+    rejected_argument: { argument: name, value },
+    expected: { kind: "array_of_non_empty_strings" },
+    argument_sources: { [name]: readArgumentSource(operation, name) },
+    retry_with: { argument: name, value_placeholder: [readPlaceholder(singular)] }
+  });
 }
 
 function invalidReadEnumArrayError<T extends string>(
@@ -1319,17 +1425,13 @@ function invalidReadEnumArrayError<T extends string>(
   allowedValues: readonly T[],
   placeholder: T
 ): ReadArgumentError {
-  return new ReadArgumentError(
-    `Invalid argument: Invalid ${name}`,
-    `retry read with supported ${name}`,
-    {
-      operation_contract: readOperationContractSource(operation),
-      rejected_argument: { argument: name, value },
-      expected: { kind: "array_of_allowed_values", allowed_values: [...allowedValues] },
-      argument_sources: { [name]: readArgumentSource(operation, name) },
-      retry_with: { argument: name, value_placeholder: [placeholder] }
-    }
-  );
+  return new ReadArgumentError(`Invalid argument: Invalid ${name}`, `retry read with supported ${name}`, {
+    operation_contract: readOperationContractSource(operation),
+    rejected_argument: { argument: name, value },
+    expected: { kind: "array_of_allowed_values", allowed_values: [...allowedValues] },
+    argument_sources: { [name]: readArgumentSource(operation, name) },
+    retry_with: { argument: name, value_placeholder: [placeholder] }
+  });
 }
 
 function agentIdentityValue(agent: unknown, field: AgentIdentityField): unknown {
@@ -1367,7 +1469,10 @@ function invalidProjectListAgentUnknownFieldError(agent: Record<string, unknown>
     {
       operation_contract: "operations_by_id.project_list",
       rejected_argument: { argument, value: agent[field] },
-      expected: { kind: "known_object_field", allowed_fields: Object.keys(AGENT_IDENTITY_FIELDS) as AgentIdentityField[] },
+      expected: {
+        kind: "known_object_field",
+        allowed_fields: Object.keys(AGENT_IDENTITY_FIELDS) as AgentIdentityField[]
+      },
       argument_sources: {
         [metadata.argument]: readArgumentSource("project_list", metadata.contractArgument)
       },
@@ -1448,7 +1553,8 @@ function validateOptionalSource(
 }
 
 function validateOptionalConfirmed(operation: MutationOperation, confirmed: unknown): void {
-  if (confirmed !== undefined && typeof confirmed !== "boolean") throw invalidMutationConfirmedError(operation, confirmed);
+  if (confirmed !== undefined && typeof confirmed !== "boolean")
+    throw invalidMutationConfirmedError(operation, confirmed);
 }
 
 function validateOptionalString(operation: ReadOperation, value: unknown, name: string): void {
@@ -1458,7 +1564,10 @@ function validateOptionalString(operation: ReadOperation, value: unknown, name: 
 }
 
 function validateOptionalStringArray(operation: ReadOperation, value: unknown, name: string): void {
-  if (value !== undefined && (!Array.isArray(value) || !value.every((item) => typeof item === "string" && item.length > 0))) {
+  if (
+    value !== undefined &&
+    (!Array.isArray(value) || !value.every((item) => typeof item === "string" && item.length > 0))
+  ) {
     throw invalidReadStringArrayError(operation, name, value);
   }
 }
@@ -1477,7 +1586,10 @@ function validateOptionalEnumArray<T extends string>(
   allowedValues: readonly T[],
   placeholder: T
 ): void {
-  if (value !== undefined && (!Array.isArray(value) || !value.every((item): item is T => schema.safeParse(item).success))) {
+  if (
+    value !== undefined &&
+    (!Array.isArray(value) || !value.every((item): item is T => schema.safeParse(item).success))
+  ) {
     throw invalidReadEnumArrayError(operation, name, value, allowedValues, placeholder);
   }
 }
@@ -1516,43 +1628,37 @@ class WriteContentError extends Error {
   }
 }
 
-function invalidWriteContentError(content: unknown, expectedKind: "content_object" | "non_empty_content_object"): WriteContentError {
-  return new WriteContentError(
-    "Invalid argument: Invalid content",
-    {
-      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
-      rejected_argument: { argument: "content", value: content },
-      expected: { kind: expectedKind, required: true },
-      argument_sources: { content: WRITE_CONTENT_ARGUMENT_SOURCE },
-      retry_with: { argument: "content", value_placeholder: { text: "<text>", format: "text" } }
-    }
-  );
+function invalidWriteContentError(
+  content: unknown,
+  expectedKind: "content_object" | "non_empty_content_object"
+): WriteContentError {
+  return new WriteContentError("Invalid argument: Invalid content", {
+    operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
+    rejected_argument: { argument: "content", value: content },
+    expected: { kind: expectedKind, required: true },
+    argument_sources: { content: WRITE_CONTENT_ARGUMENT_SOURCE },
+    retry_with: { argument: "content", value_placeholder: { text: "<text>", format: "text" } }
+  });
 }
 
 function invalidWriteContentTextError(text: unknown): WriteContentError {
-  return new WriteContentError(
-    "Invalid argument: Invalid content.text",
-    {
-      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
-      rejected_argument: { argument: "content.text", value: text },
-      expected: { kind: "non_empty_string", min_length: 1 },
-      argument_sources: { "content.text": WRITE_CONTENT_TEXT_ARGUMENT_SOURCE },
-      retry_with: { argument: "content.text", value_placeholder: "<non-empty text>" }
-    }
-  );
+  return new WriteContentError("Invalid argument: Invalid content.text", {
+    operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
+    rejected_argument: { argument: "content.text", value: text },
+    expected: { kind: "non_empty_string", min_length: 1 },
+    argument_sources: { "content.text": WRITE_CONTENT_TEXT_ARGUMENT_SOURCE },
+    retry_with: { argument: "content.text", value_placeholder: "<non-empty text>" }
+  });
 }
 
 function invalidWriteContentFormatError(format: unknown): WriteContentError {
-  return new WriteContentError(
-    "Invalid argument: Invalid content.format",
-    {
-      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
-      rejected_argument: { argument: "content.format", value: format },
-      expected: { kind: "allowed_values", allowed_values: ["text", "json"] },
-      argument_sources: { "content.format": WRITE_CONTENT_FORMAT_ARGUMENT_SOURCE },
-      retry_with: { argument: "content.format", value_placeholder: "text" }
-    }
-  );
+  return new WriteContentError("Invalid argument: Invalid content.format", {
+    operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
+    rejected_argument: { argument: "content.format", value: format },
+    expected: { kind: "allowed_values", allowed_values: ["text", "json"] },
+    argument_sources: { "content.format": WRITE_CONTENT_FORMAT_ARGUMENT_SOURCE },
+    retry_with: { argument: "content.format", value_placeholder: "text" }
+  });
 }
 
 type WriteCoreFieldRecoveryHint =
@@ -1594,59 +1700,43 @@ class WriteCoreFieldError extends Error {
 }
 
 function invalidWriteKindError(kind: unknown): WriteCoreFieldError {
-  return new WriteCoreFieldError(
-    "Invalid argument: Invalid kind",
-    "retry write with a supported kind",
-    {
-      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
-      rejected_argument: { argument: "kind", value: kind },
-      expected: { kind: "allowed_values", allowed_values: [...RECORD_KINDS] },
-      argument_sources: { kind: WRITE_KIND_ARGUMENT_SOURCE },
-      retry_with: { argument: "kind", value_placeholder: "memory" }
-    }
-  );
+  return new WriteCoreFieldError("Invalid argument: Invalid kind", "retry write with a supported kind", {
+    operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
+    rejected_argument: { argument: "kind", value: kind },
+    expected: { kind: "allowed_values", allowed_values: [...RECORD_KINDS] },
+    argument_sources: { kind: WRITE_KIND_ARGUMENT_SOURCE },
+    retry_with: { argument: "kind", value_placeholder: "memory" }
+  });
 }
 
 function invalidWriteTypeError(type: unknown): WriteCoreFieldError {
-  return new WriteCoreFieldError(
-    "Invalid argument: Invalid type",
-    "retry write with a non-empty type",
-    {
-      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
-      rejected_argument: { argument: "type", value: type },
-      expected: { kind: "non_empty_string", min_length: 1 },
-      argument_sources: { type: WRITE_TYPE_ARGUMENT_SOURCE },
-      retry_with: { argument: "type", value_placeholder: "<record type>" }
-    }
-  );
+  return new WriteCoreFieldError("Invalid argument: Invalid type", "retry write with a non-empty type", {
+    operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
+    rejected_argument: { argument: "type", value: type },
+    expected: { kind: "non_empty_string", min_length: 1 },
+    argument_sources: { type: WRITE_TYPE_ARGUMENT_SOURCE },
+    retry_with: { argument: "type", value_placeholder: "<record type>" }
+  });
 }
 
 function invalidWriteScopeError(scope: unknown): WriteCoreFieldError {
-  return new WriteCoreFieldError(
-    "Invalid argument: Invalid scope",
-    "retry write with a supported scope",
-    {
-      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
-      rejected_argument: { argument: "scope", value: scope },
-      expected: { kind: "allowed_values", allowed_values: [...RECORD_SCOPES] },
-      argument_sources: { scope: WRITE_SCOPE_ARGUMENT_SOURCE },
-      retry_with: { argument: "scope", value_placeholder: "project" }
-    }
-  );
+  return new WriteCoreFieldError("Invalid argument: Invalid scope", "retry write with a supported scope", {
+    operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
+    rejected_argument: { argument: "scope", value: scope },
+    expected: { kind: "allowed_values", allowed_values: [...RECORD_SCOPES] },
+    argument_sources: { scope: WRITE_SCOPE_ARGUMENT_SOURCE },
+    retry_with: { argument: "scope", value_placeholder: "project" }
+  });
 }
 
 function invalidWriteProjectIdError(projectId: unknown): WriteCoreFieldError {
-  return new WriteCoreFieldError(
-    "Invalid argument: Invalid project_id",
-    "retry write with a valid project_id",
-    {
-      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
-      rejected_argument: { argument: "project_id", value: projectId },
-      expected: { kind: "non_empty_string", min_length: 1 },
-      argument_sources: { project_id: WRITE_PROJECT_ID_ARGUMENT_SOURCE },
-      retry_with: { argument: "project_id", value_placeholder: "<project_id>" }
-    }
-  );
+  return new WriteCoreFieldError("Invalid argument: Invalid project_id", "retry write with a valid project_id", {
+    operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
+    rejected_argument: { argument: "project_id", value: projectId },
+    expected: { kind: "non_empty_string", min_length: 1 },
+    argument_sources: { project_id: WRITE_PROJECT_ID_ARGUMENT_SOURCE },
+    retry_with: { argument: "project_id", value_placeholder: "<project_id>" }
+  });
 }
 
 type WriteTagsRecoveryHint = {
@@ -1705,9 +1795,8 @@ class WriteSourceError extends Error {
     const metadata = SOURCE_IDENTITY_FIELDS[field];
     super(`Invalid argument: Invalid ${metadata.argument}`);
     this.name = "WriteSourceError";
-    this.recommended_action = field === "client"
-      ? "retry write with a valid source client"
-      : "retry write with valid source metadata";
+    this.recommended_action =
+      field === "client" ? "retry write with a valid source client" : "retry write with valid source metadata";
     this.recovery_hint = {
       operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: metadata.argument, value: sourceIdentityValue(source, field) },
@@ -1730,7 +1819,10 @@ class WriteUnknownSourceFieldError extends Error {
     this.recovery_hint = {
       operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: `source.${field}`, value: source[field] },
-      expected: { kind: "known_object_field", allowed_fields: Object.keys(SOURCE_IDENTITY_FIELDS) as SourceIdentityField[] },
+      expected: {
+        kind: "known_object_field",
+        allowed_fields: Object.keys(SOURCE_IDENTITY_FIELDS) as SourceIdentityField[]
+      },
       argument_sources: { [metadata.argument]: writeSourceArgumentSource(retryField) },
       retry_with: { argument: metadata.argument, value_placeholder: metadata.placeholder },
       do_not: ["send_unknown_source_fields", "retry_with_same_unknown_field"]
@@ -1794,59 +1886,43 @@ class WriteMetadataError extends Error {
 }
 
 function invalidWriteStateError(state: unknown): WriteMetadataError {
-  return new WriteMetadataError(
-    "Invalid argument: Invalid state",
-    "retry write with a supported state",
-    {
-      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
-      rejected_argument: { argument: "state", value: state },
-      expected: { kind: "allowed_values", allowed_values: [...RECORD_STATES] },
-      argument_sources: { state: WRITE_STATE_ARGUMENT_SOURCE },
-      retry_with: { argument: "state", value_placeholder: "candidate" }
-    }
-  );
+  return new WriteMetadataError("Invalid argument: Invalid state", "retry write with a supported state", {
+    operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
+    rejected_argument: { argument: "state", value: state },
+    expected: { kind: "allowed_values", allowed_values: [...RECORD_STATES] },
+    argument_sources: { state: WRITE_STATE_ARGUMENT_SOURCE },
+    retry_with: { argument: "state", value_placeholder: "candidate" }
+  });
 }
 
 function invalidWriteConfidenceError(confidence: unknown): WriteMetadataError {
-  return new WriteMetadataError(
-    "Invalid argument: Invalid confidence",
-    "retry write with confidence between 0 and 1",
-    {
-      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
-      rejected_argument: { argument: "confidence", value: confidence },
-      expected: { kind: "number_range", min: 0, max: 1, inclusive: true },
-      argument_sources: { confidence: WRITE_CONFIDENCE_ARGUMENT_SOURCE },
-      retry_with: { argument: "confidence", value_placeholder: 0.5 }
-    }
-  );
+  return new WriteMetadataError("Invalid argument: Invalid confidence", "retry write with confidence between 0 and 1", {
+    operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
+    rejected_argument: { argument: "confidence", value: confidence },
+    expected: { kind: "number_range", min: 0, max: 1, inclusive: true },
+    argument_sources: { confidence: WRITE_CONFIDENCE_ARGUMENT_SOURCE },
+    retry_with: { argument: "confidence", value_placeholder: 0.5 }
+  });
 }
 
 function invalidWritePriorityError(priority: unknown): WriteMetadataError {
-  return new WriteMetadataError(
-    "Invalid argument: Invalid priority",
-    "retry write with a supported priority",
-    {
-      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
-      rejected_argument: { argument: "priority", value: priority },
-      expected: { kind: "allowed_values", allowed_values: [...RECORD_PRIORITIES] },
-      argument_sources: { priority: WRITE_PRIORITY_ARGUMENT_SOURCE },
-      retry_with: { argument: "priority", value_placeholder: "normal" }
-    }
-  );
+  return new WriteMetadataError("Invalid argument: Invalid priority", "retry write with a supported priority", {
+    operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
+    rejected_argument: { argument: "priority", value: priority },
+    expected: { kind: "allowed_values", allowed_values: [...RECORD_PRIORITIES] },
+    argument_sources: { priority: WRITE_PRIORITY_ARGUMENT_SOURCE },
+    retry_with: { argument: "priority", value_placeholder: "normal" }
+  });
 }
 
 function invalidWriteConfirmedError(confirmed: unknown): WriteMetadataError {
-  return new WriteMetadataError(
-    "Invalid argument: Invalid confirmed",
-    "retry write with a boolean confirmed value",
-    {
-      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
-      rejected_argument: { argument: "confirmed", value: confirmed },
-      expected: { kind: "boolean" },
-      argument_sources: { confirmed: WRITE_CONFIRMED_ARGUMENT_SOURCE },
-      retry_with: { argument: "confirmed", value_placeholder: true }
-    }
-  );
+  return new WriteMetadataError("Invalid argument: Invalid confirmed", "retry write with a boolean confirmed value", {
+    operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
+    rejected_argument: { argument: "confirmed", value: confirmed },
+    expected: { kind: "boolean" },
+    argument_sources: { confirmed: WRITE_CONFIRMED_ARGUMENT_SOURCE },
+    retry_with: { argument: "confirmed", value_placeholder: true }
+  });
 }
 
 type WriteProvenanceRecoveryHint =
@@ -1995,7 +2071,10 @@ function invalidWriteProvenanceUnknownFieldError(
     {
       operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: `provenance.${field}`, value: provenance[field] },
-      expected: { kind: "known_object_field", allowed_fields: Object.keys(WRITE_PROVENANCE_FIELDS) as WriteProvenanceField[] },
+      expected: {
+        kind: "known_object_field",
+        allowed_fields: Object.keys(WRITE_PROVENANCE_FIELDS) as WriteProvenanceField[]
+      },
       argument_sources: { [metadata.argument]: metadata.source },
       retry_with: { argument: metadata.argument, value_placeholder: metadata.placeholder },
       do_not: ["send_unknown_provenance_fields", "retry_with_same_unknown_field"]
@@ -2005,12 +2084,13 @@ function invalidWriteProvenanceUnknownFieldError(
 
 function closestWriteProvenanceField(field: string): WriteProvenanceField {
   const normalized = normalizeWriteProvenanceFieldName(field);
-  return (Object.keys(WRITE_PROVENANCE_FIELDS) as WriteProvenanceField[])
-    .sort((left, right) => {
+  return (
+    (Object.keys(WRITE_PROVENANCE_FIELDS) as WriteProvenanceField[]).sort((left, right) => {
       const leftScore = writeProvenanceFieldSuggestionScore(normalized, normalizeWriteProvenanceFieldName(left));
       const rightScore = writeProvenanceFieldSuggestionScore(normalized, normalizeWriteProvenanceFieldName(right));
       return rightScore - leftScore || left.localeCompare(right);
-    })[0] ?? "derived_from";
+    })[0] ?? "derived_from"
+  );
 }
 
 function normalizeWriteProvenanceFieldName(field: string): string {
@@ -2035,7 +2115,10 @@ function validateWriteInput(input: WriteInput): void {
   if (input.scope === "project" && input.project_id === undefined) {
     throw new Error("Invalid argument: project_id is required for project scope");
   }
-  if (input.tags !== undefined && (!Array.isArray(input.tags) || !input.tags.every((tag) => typeof tag === "string" && tag.length > 0))) {
+  if (
+    input.tags !== undefined &&
+    (!Array.isArray(input.tags) || !input.tags.every((tag) => typeof tag === "string" && tag.length > 0))
+  ) {
     throw new WriteTagsError(input.tags);
   }
   if (typeof input.content !== "object" || input.content === null || Array.isArray(input.content)) {
@@ -2051,11 +2134,19 @@ function validateWriteInput(input: WriteInput): void {
   if (content.format !== undefined && content.format !== "text" && content.format !== "json") {
     throw invalidWriteContentFormatError(content.format);
   }
-  if (input.state !== undefined && !recordStateSchema.safeParse(input.state).success) throw invalidWriteStateError(input.state);
-  if (input.confidence !== undefined && (typeof input.confidence !== "number" || !Number.isFinite(input.confidence) || input.confidence < 0 || input.confidence > 1)) {
+  if (input.state !== undefined && !recordStateSchema.safeParse(input.state).success)
+    throw invalidWriteStateError(input.state);
+  if (
+    input.confidence !== undefined &&
+    (typeof input.confidence !== "number" ||
+      !Number.isFinite(input.confidence) ||
+      input.confidence < 0 ||
+      input.confidence > 1)
+  ) {
     throw invalidWriteConfidenceError(input.confidence);
   }
-  if (input.priority !== undefined && !recordPrioritySchema.safeParse(input.priority).success) throw invalidWritePriorityError(input.priority);
+  if (input.priority !== undefined && !recordPrioritySchema.safeParse(input.priority).success)
+    throw invalidWritePriorityError(input.priority);
   if (typeof input.source === "object" && input.source !== null && !Array.isArray(input.source)) {
     const sourceRecord = input.source as unknown as Record<string, unknown>;
     const unknownField = Object.keys(sourceRecord).find((field) => !(field in SOURCE_IDENTITY_FIELDS));
@@ -2067,7 +2158,12 @@ function validateWriteInput(input: WriteInput): void {
     validateOptionalSource(input.source);
   } catch (error) {
     if (error instanceof MutationArgumentError) {
-      if (error.recovery_hint.expected.kind === "known_object_field" && typeof input.source === "object" && input.source !== null && !Array.isArray(input.source)) {
+      if (
+        error.recovery_hint.expected.kind === "known_object_field" &&
+        typeof input.source === "object" &&
+        input.source !== null &&
+        !Array.isArray(input.source)
+      ) {
         const field = error.recovery_hint.rejected_argument.argument.slice("source.".length);
         throw new WriteUnknownSourceFieldError(input.source as unknown as Record<string, unknown>, field);
       }
@@ -2077,7 +2173,8 @@ function validateWriteInput(input: WriteInput): void {
     }
     throw error;
   }
-  if (input.confirmed !== undefined && typeof input.confirmed !== "boolean") throw invalidWriteConfirmedError(input.confirmed);
+  if (input.confirmed !== undefined && typeof input.confirmed !== "boolean")
+    throw invalidWriteConfirmedError(input.confirmed);
   if (input.provenance !== undefined) {
     if (typeof input.provenance !== "object" || input.provenance === null || Array.isArray(input.provenance)) {
       throw invalidWriteProvenanceError(input.provenance);
@@ -2088,24 +2185,25 @@ function validateWriteInput(input: WriteInput): void {
     if (unknownField !== undefined) {
       throw invalidWriteProvenanceUnknownFieldError(provenanceRecord, unknownField);
     }
-    if (provenance.derived_from !== undefined && (!Array.isArray(provenance.derived_from) || !provenance.derived_from.every((recordId) => typeof recordId === "string" && recordId.length > 0))) {
+    if (
+      provenance.derived_from !== undefined &&
+      (!Array.isArray(provenance.derived_from) ||
+        !provenance.derived_from.every((recordId) => typeof recordId === "string" && recordId.length > 0))
+    ) {
       throw invalidWriteProvenanceDerivedFromError(provenance.derived_from);
     }
     if (provenance.reason !== undefined && (typeof provenance.reason !== "string" || !provenance.reason.length)) {
       throw invalidWriteProvenanceReasonError(provenance.reason);
     }
     if (
-      provenance.method !== undefined
-      && provenance.method !== "agent-proposed"
-      && provenance.method !== "rule-promoted"
-      && provenance.method !== "user-confirmed"
+      provenance.method !== undefined &&
+      provenance.method !== "agent-proposed" &&
+      provenance.method !== "rule-promoted" &&
+      provenance.method !== "user-confirmed"
     ) {
       throw invalidWriteProvenanceMethodError(provenance.method);
     }
-    if (
-      provenance.promoted_at !== undefined
-      && !isoDateTimeSchema.safeParse(provenance.promoted_at).success
-    ) {
+    if (provenance.promoted_at !== undefined && !isoDateTimeSchema.safeParse(provenance.promoted_at).success) {
       throw invalidWriteProvenancePromotedAtError(provenance.promoted_at);
     }
   }
@@ -2166,7 +2264,14 @@ function validateRecallInput(input: RecallInput): void {
   validateOptionalEnumArray<RecordKind>("recall", input.kinds, "kinds", recordKindSchema, RECORD_KINDS, "memory");
   validateOptionalEnumArray<RecordScope>("recall", input.scopes, "scopes", recordScopeSchema, RECORD_SCOPES, "project");
   validateOptionalStringArray("recall", input.types, "types");
-  validateOptionalEnumArray<RecordState>("recall", input.states, "states", recordStateSchema, RECORD_STATES, "canonical");
+  validateOptionalEnumArray<RecordState>(
+    "recall",
+    input.states,
+    "states",
+    recordStateSchema,
+    RECORD_STATES,
+    "canonical"
+  );
   validateOptionalStringArray("recall", input.tags, "tags");
   validateOptionalStringArray("recall", input.files, "files");
   validateOptionalBoolean("recall", input.include_private, "include_private");
@@ -2295,7 +2400,10 @@ function appendCommandOption(parts: string[], name: string, value: string | unde
   parts.push(name, shellQuote(value));
 }
 
-function projectStartArguments(projectId: string, input: ValidatedListProjectsInput): {
+function projectStartArguments(
+  projectId: string,
+  input: ValidatedListProjectsInput
+): {
   project_id: string;
   sync_remote?: string;
   current_task?: string;
@@ -2413,30 +2521,37 @@ function isVisibleInDefaultRecall(record: MorynRecord): boolean {
 
 function skillMatchesSelector(record: MorynRecord, selector: string): boolean {
   const normalized = selector.toLowerCase();
-  return record.id === selector
-    || record.type.toLowerCase() === normalized
-    || record.tags.some((tag) => tag.toLowerCase() === normalized)
-    || String(record.content.name ?? "").toLowerCase() === normalized
-    || searchableText(record).toLowerCase().includes(normalized);
+  return (
+    record.id === selector ||
+    record.type.toLowerCase() === normalized ||
+    record.tags.some((tag) => tag.toLowerCase() === normalized) ||
+    String(record.content.name ?? "").toLowerCase() === normalized ||
+    searchableText(record).toLowerCase().includes(normalized)
+  );
 }
 
 function isProjectSkill(record: MorynRecord, projectId: string | undefined): boolean {
-  return record.kind === "skill"
-    && Boolean(projectId)
-    && (record.project_id === projectId || record.tags.includes(projectId as string));
+  return (
+    record.kind === "skill" &&
+    Boolean(projectId) &&
+    (record.project_id === projectId || record.tags.includes(projectId as string))
+  );
 }
 
 function bootSkills(records: MorynRecord[], input: ValidatedBootInput): MorynRecord[] {
   const selectors = input.default_skills ?? [];
-  const selected = records.filter((record) => record.kind === "skill" && (
-    isProjectSkill(record, input.project_id)
-    || selectors.some((selector) => skillMatchesSelector(record, selector))
-  ));
+  const selected = records.filter(
+    (record) =>
+      record.kind === "skill" &&
+      (isProjectSkill(record, input.project_id) || selectors.some((selector) => skillMatchesSelector(record, selector)))
+  );
   return [...new Map(selected.map((record) => [record.id, record])).values()];
 }
 
 function projectMemory(records: MorynRecord[], projectId: string | undefined): MorynRecord[] {
-  return records.filter((record) => record.kind === "memory" && record.scope === "project" && record.project_id === projectId);
+  return records.filter(
+    (record) => record.kind === "memory" && record.scope === "project" && record.project_id === projectId
+  );
 }
 
 function projectScopedRecords(records: MorynRecord[], projectId: string | undefined): MorynRecord[] {
@@ -2455,8 +2570,10 @@ function boundedBootTexts(records: MorynRecord[], limit = 5): string[] {
 
 function isImportantBootRecent(record: MorynRecord): boolean {
   if (record.kind === "session_summary") return record.state !== "raw";
-  return (record.kind === "memory" || record.kind === "skill")
-    && (record.state === "canonical" || (record.state === "candidate" && record.confidence >= 0.75));
+  return (
+    (record.kind === "memory" || record.kind === "skill") &&
+    (record.state === "canonical" || (record.state === "candidate" && record.confidence >= 0.75))
+  );
 }
 
 function bootPriorityScore(record: MorynRecord): number {
@@ -2465,7 +2582,12 @@ function bootPriorityScore(record: MorynRecord): number {
 
 function boundedBootRecords(records: MorynRecord[], limit = 5): MorynRecord[] {
   return [...records]
-    .sort((a, b) => (bootPriorityScore(b) - bootPriorityScore(a)) || b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id))
+    .sort(
+      (a, b) =>
+        bootPriorityScore(b) - bootPriorityScore(a) ||
+        b.updated_at.localeCompare(a.updated_at) ||
+        a.id.localeCompare(b.id)
+    )
     .slice(0, limit);
 }
 
@@ -2475,10 +2597,12 @@ function recordsById(records: MorynRecord[]): Record<string, MorynRecord> {
 
 function recallTypePriority(type: string): { score: number; reason: string } | undefined {
   const normalized = type.toLowerCase();
-  if (normalized === "blocker" || normalized === "warning" || normalized === "conflict") return { score: 4, reason: `type_priority:${normalized}` };
+  if (normalized === "blocker" || normalized === "warning" || normalized === "conflict")
+    return { score: 4, reason: `type_priority:${normalized}` };
   if (normalized === "decision") return { score: 3, reason: "type_priority:decision" };
   if (normalized === "preference") return { score: 2, reason: "type_priority:preference" };
-  if (normalized === "summary" || normalized === "project_summary") return { score: 1, reason: "type_priority:summary" };
+  if (normalized === "summary" || normalized === "project_summary")
+    return { score: 1, reason: "type_priority:summary" };
   return undefined;
 }
 
@@ -2574,23 +2698,37 @@ function recordIdFromEvent(event: MorynEvent): string {
   return event.op === "upsert_record" ? event.record.id : event.record_id;
 }
 
-function eventProjectMatches(event: MorynEvent, records: Map<string, MorynRecord>, projectId: string | undefined): boolean {
+function eventProjectMatches(
+  event: MorynEvent,
+  records: Map<string, MorynRecord>,
+  projectId: string | undefined
+): boolean {
   if (!projectId) return true;
   const record = event.op === "upsert_record" ? event.record : records.get(event.record_id);
   if (!record) return true;
   return recordProjectMatches(record, projectId);
 }
 
-function eventAllowedByPrivateBoundary(event: MorynEvent, records: Map<string, MorynRecord>, includePrivate: boolean | undefined): boolean {
+function eventAllowedByPrivateBoundary(
+  event: MorynEvent,
+  records: Map<string, MorynRecord>,
+  includePrivate: boolean | undefined
+): boolean {
   const record = event.op === "upsert_record" ? event.record : records.get(event.record_id);
   return !record || isAllowedByPrivateBoundary(record, includePrivate);
 }
 
-function sortedTimelineEvents(events: MorynEvent[], records: Map<string, MorynRecord>, input: ValidatedTimelineInput): MorynEvent[] {
+function sortedTimelineEvents(
+  events: MorynEvent[],
+  records: Map<string, MorynRecord>,
+  input: ValidatedTimelineInput
+): MorynEvent[] {
   return events
     .filter((event) => eventProjectMatches(event, records, input.project_id))
     .filter((event) => eventAllowedByPrivateBoundary(event, records, input.include_private))
-    .sort((left, right) => left.created_at.localeCompare(right.created_at) || left.event_id.localeCompare(right.event_id));
+    .sort(
+      (left, right) => left.created_at.localeCompare(right.created_at) || left.event_id.localeCompare(right.event_id)
+    );
 }
 
 function latestEventIndexForRecord(events: MorynEvent[], recordId: string): number {
@@ -2600,7 +2738,11 @@ function latestEventIndexForRecord(events: MorynEvent[], recordId: string): numb
   return -1;
 }
 
-function timelineQueryAnchor(records: MorynRecord[], events: MorynEvent[], input: ValidatedTimelineInput): { index: number; record_id: string } | undefined {
+function timelineQueryAnchor(
+  records: MorynRecord[],
+  events: MorynEvent[],
+  input: ValidatedTimelineInput
+): { index: number; record_id: string } | undefined {
   if (!input.query) return undefined;
   const recallInput = { query: input.query, project_id: input.project_id } as ValidatedRecallInput;
   const match = records
@@ -2610,13 +2752,22 @@ function timelineQueryAnchor(records: MorynRecord[], events: MorynEvent[], input
     .map((record) => ({ record, ...reasonAndScore(record, recallInput) }))
     .filter((result) => matchesQuery(result, recallInput))
     .filter((result) => result.score > 0)
-    .sort((a, b) => (b.score - a.score) || b.record.updated_at.localeCompare(a.record.updated_at) || a.record.id.localeCompare(b.record.id))[0];
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        b.record.updated_at.localeCompare(a.record.updated_at) ||
+        a.record.id.localeCompare(b.record.id)
+    )[0];
   if (!match) return undefined;
   const index = latestEventIndexForRecord(events, match.record.id);
   return index >= 0 ? { index, record_id: match.record.id } : undefined;
 }
 
-function timelineAnchor(events: MorynEvent[], records: MorynRecord[], input: ValidatedTimelineInput): {
+function timelineAnchor(
+  events: MorynEvent[],
+  records: MorynRecord[],
+  input: ValidatedTimelineInput
+): {
   index: number;
   source: TimelineAnchorSource;
   event_id: string;
@@ -2674,7 +2825,23 @@ function projectSummary(records: MorynRecord[]): string {
 }
 
 function taskTokens(task: string | undefined): string[] {
-  const stopWords = new Set(["add", "build", "check", "debug", "fix", "for", "from", "implement", "make", "path", "project", "the", "this", "use", "with"]);
+  const stopWords = new Set([
+    "add",
+    "build",
+    "check",
+    "debug",
+    "fix",
+    "for",
+    "from",
+    "implement",
+    "make",
+    "path",
+    "project",
+    "the",
+    "this",
+    "use",
+    "with"
+  ]);
   return (task ?? "")
     .toLowerCase()
     .split(/\W+/)
@@ -2702,16 +2869,21 @@ function nextRelationshipTimestamp(source: MorynRecord, target: MorynRecord, can
   return nextMutationTimestamp(latestEndpoint, candidate);
 }
 
-function refreshImportance(record: MorynRecord, currentTask: string | undefined): { importance: "silent" | "notice" | "interrupt"; reason?: string } {
+function refreshImportance(
+  record: MorynRecord,
+  currentTask: string | undefined
+): { importance: "silent" | "notice" | "interrupt"; reason?: string } {
   if (record.state === "raw" || record.kind === "agent_note") return { importance: "silent" };
   if (record.kind === "session_summary") return { importance: "notice" };
-  const interruptCandidate = record.type === "blocker" || record.type === "warning" || record.type === "conflict" || record.priority === "high";
+  const interruptCandidate =
+    record.type === "blocker" || record.type === "warning" || record.type === "conflict" || record.priority === "high";
   if (interruptCandidate) {
     if (!currentTask) return { importance: "interrupt" };
     if (matchesCurrentTask(record, currentTask)) return { importance: "interrupt", reason: "current_task_match" };
     return { importance: "silent" };
   }
-  if (record.state === "canonical" || (record.state === "candidate" && record.confidence >= 0.75)) return { importance: "notice" };
+  if (record.state === "canonical" || (record.state === "candidate" && record.confidence >= 0.75))
+    return { importance: "notice" };
   return { importance: "silent" };
 }
 
@@ -2723,10 +2895,10 @@ function isSensitiveKey(key: string): boolean {
     .map((segment) => segment.toUpperCase());
   const joinedSegments = segments.join("_");
   if (
-    segments.includes("AUTHORIZATION")
-    || segments.includes("COOKIE")
-    || joinedSegments.endsWith("AUTH_HEADER")
-    || joinedSegments.endsWith("SET_COOKIE")
+    segments.includes("AUTHORIZATION") ||
+    segments.includes("COOKIE") ||
+    joinedSegments.endsWith("AUTH_HEADER") ||
+    joinedSegments.endsWith("SET_COOKIE")
   ) {
     return true;
   }
@@ -2737,12 +2909,15 @@ function redactSensitiveValue(value: unknown, keyPath?: string): unknown {
   if (typeof value === "string") {
     return keyPath && isSensitiveKey(keyPath) ? "[REDACTED_SECRET]" : redactSensitiveContent(value);
   }
-  if (Array.isArray(value)) return value.map((item, index) => redactSensitiveValue(item, keyPath ? `${keyPath}.${index}` : String(index)));
+  if (Array.isArray(value))
+    return value.map((item, index) => redactSensitiveValue(item, keyPath ? `${keyPath}.${index}` : String(index)));
   if (typeof value === "object" && value !== null) {
-    return Object.fromEntries(Object.entries(value).map(([key, nested]) => {
-      const nextPath = keyPath ? `${keyPath}.${key}` : key;
-      return [key, redactSensitiveValue(nested, nextPath)];
-    }));
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nested]) => {
+        const nextPath = keyPath ? `${keyPath}.${key}` : key;
+        return [key, redactSensitiveValue(nested, nextPath)];
+      })
+    );
   }
   return value;
 }
@@ -2785,7 +2960,11 @@ type RevisionPatchRecoveryHint =
   | {
       rejected_patch: { path: string; value: unknown };
       expected: { kind: "user_editable_patch"; managed_fields: string[] };
-      retry_with: { remove_patch_path: string; use_operation?: "promote"; operation_arguments?: Record<string, unknown> };
+      retry_with: {
+        remove_patch_path: string;
+        use_operation?: "promote";
+        operation_arguments?: Record<string, unknown>;
+      };
     };
 
 class RevisionPatchError extends Error {
@@ -2801,39 +2980,27 @@ class RevisionPatchError extends Error {
 }
 
 function invalidRevisionPatchShapeError(patch: unknown, expectedKind: "patch_object"): RevisionPatchError {
-  return new RevisionPatchError(
-    "Invalid argument: Invalid patch",
-    "retry revise with a valid patch",
-    {
-      rejected_patch: { patch },
-      expected: { kind: expectedKind },
-      retry_with: { patch_placeholder: { "content.text": "<updated text>" } }
-    }
-  );
+  return new RevisionPatchError("Invalid argument: Invalid patch", "retry revise with a valid patch", {
+    rejected_patch: { patch },
+    expected: { kind: expectedKind },
+    retry_with: { patch_placeholder: { "content.text": "<updated text>" } }
+  });
 }
 
 function emptyRevisionPatchError(patch: Record<string, unknown>): RevisionPatchError {
-  return new RevisionPatchError(
-    "Invalid argument: Invalid patch",
-    "retry revise with a valid patch",
-    {
-      rejected_patch: { patch },
-      expected: { kind: "non_empty_patch" },
-      retry_with: { patch_placeholder: { "content.text": "<updated text>" } }
-    }
-  );
+  return new RevisionPatchError("Invalid argument: Invalid patch", "retry revise with a valid patch", {
+    rejected_patch: { patch },
+    expected: { kind: "non_empty_patch" },
+    retry_with: { patch_placeholder: { "content.text": "<updated text>" } }
+  });
 }
 
 function invalidRevisionPatchPathError(path: string, value: unknown): RevisionPatchError {
-  return new RevisionPatchError(
-    "Invalid argument: Invalid patch",
-    "retry revise with a valid patch",
-    {
-      rejected_patch: { path, value },
-      expected: { kind: "valid_patch_path", format: "dot-separated record field path" },
-      retry_with: { patch_path_placeholder: "content.text" }
-    }
-  );
+  return new RevisionPatchError("Invalid argument: Invalid patch", "retry revise with a valid patch", {
+    rejected_patch: { path, value },
+    expected: { kind: "valid_patch_path", format: "dot-separated record field path" },
+    retry_with: { patch_path_placeholder: "content.text" }
+  });
 }
 
 function invalidRevisionRecordPatchError(patch: Record<string, unknown>, detail?: string): RevisionPatchError {
@@ -2873,7 +3040,10 @@ function isUserConfirmed(source: RecordSource, confirmed?: boolean): boolean {
   return confirmed === true || source.client === "user";
 }
 
-function provenanceMethod(source: RecordSource, confirmed?: boolean): "agent-proposed" | "rule-promoted" | "user-confirmed" {
+function provenanceMethod(
+  source: RecordSource,
+  confirmed?: boolean
+): "agent-proposed" | "rule-promoted" | "user-confirmed" {
   if (isUserConfirmed(source, confirmed)) return "user-confirmed";
   if (source.client === "moryn") return "rule-promoted";
   return "agent-proposed";
@@ -2922,11 +3092,13 @@ function requiresCanonicalConfirmation(input: { kind: RecordKind; type: string; 
   if (input.kind === "skill" && input.scope === "global") return true;
   const type = input.type.toLowerCase();
   if (input.kind === "memory" && input.scope === "global" && type === "preference") return true;
-  return type === "security_rule"
-    || type === "deployment_rule"
-    || type === "permission_rule"
-    || type === "credential_rule"
-    || (type === "rule" && input.scope === "global");
+  return (
+    type === "security_rule" ||
+    type === "deployment_rule" ||
+    type === "permission_rule" ||
+    type === "credential_rule" ||
+    (type === "rule" && input.scope === "global")
+  );
 }
 
 function textFromContent(content: Record<string, unknown> & { text?: string }): string {
@@ -2940,32 +3112,53 @@ function tagOverlap(left: string[], right: string[]): boolean {
 }
 
 function subjectTokens(content: Record<string, unknown> & { text?: string }): string[] {
-  const stopWords = new Set(["about", "after", "agent", "before", "from", "into", "only", "source", "that", "the", "this", "truth", "with"]);
+  const stopWords = new Set([
+    "about",
+    "after",
+    "agent",
+    "before",
+    "from",
+    "into",
+    "only",
+    "source",
+    "that",
+    "the",
+    "this",
+    "truth",
+    "with"
+  ]);
   return textFromContent(content)
     .split(/\W+/)
     .filter((token) => token.length >= 4)
     .filter((token) => !stopWords.has(token));
 }
 
-function subjectOverlap(left: Record<string, unknown> & { text?: string }, right: Record<string, unknown> & { text?: string }): boolean {
+function subjectOverlap(
+  left: Record<string, unknown> & { text?: string },
+  right: Record<string, unknown> & { text?: string }
+): boolean {
   const rightTokens = new Set(subjectTokens(right));
   const matches = subjectTokens(left).filter((token) => rightTokens.has(token));
   return new Set(matches).size >= 2;
 }
 
-function semanticConflicts(records: MorynRecord[], input: {
-  id?: string;
-  kind: RecordKind;
-  type: string;
-  scope: RecordScope;
-  project_id?: string;
-  tags?: string[];
-  content: Record<string, unknown> & { text?: string };
-}): MorynRecord[] {
+function semanticConflicts(
+  records: MorynRecord[],
+  input: {
+    id?: string;
+    kind: RecordKind;
+    type: string;
+    scope: RecordScope;
+    project_id?: string;
+    tags?: string[];
+    content: Record<string, unknown> & { text?: string };
+  }
+): MorynRecord[] {
   if (input.kind !== "memory") return [];
   const inputText = textFromContent(input.content);
   if (!inputText) return [];
-  return records.filter((record) => record.state === "canonical")
+  return records
+    .filter((record) => record.state === "canonical")
     .filter((record) => record.id !== input.id)
     .filter((record) => record.kind === input.kind)
     .filter((record) => record.type === input.type)
@@ -3013,7 +3206,11 @@ export function createEngine(deps: EngineDeps) {
   const engine = {
     async ingestLearnings(input: IngestLearningsInput) {
       if (!Array.isArray(input.learnings)) throw new Error("Invalid argument: learnings must be an array");
-      if (typeof input.occurred_at !== "string" || !Number.isFinite(Date.parse(input.occurred_at)) || new Date(Date.parse(input.occurred_at)).toISOString() !== input.occurred_at) {
+      if (
+        typeof input.occurred_at !== "string" ||
+        !Number.isFinite(Date.parse(input.occurred_at)) ||
+        new Date(Date.parse(input.occurred_at)).toISOString() !== input.occurred_at
+      ) {
         throw new Error("Invalid argument: occurred_at must be a canonical ISO timestamp");
       }
       const learnings = input.learnings.map((learning) => learningDeltaSchema.parse(learning)) as LearningDelta[];
@@ -3022,21 +3219,38 @@ export function createEngine(deps: EngineDeps) {
       let createdCount = 0;
       let evidenceLinksCreated = 0;
       for (const learning of learnings) {
-        if (learning.scope === "project" && !input.project_id) throw new Error("Invalid argument: project learning requires project_id");
+        if (learning.scope === "project" && !input.project_id)
+          throw new Error("Invalid argument: project learning requires project_id");
         const policy = learningStatePolicy(learning, { now: input.occurred_at });
-        const record = normalizeLearningRecord({ project_id: input.project_id, learning, source: input.source, occurred_at: input.occurred_at, policy });
+        const record = normalizeLearningRecord({
+          project_id: input.project_id,
+          learning,
+          source: input.source,
+          occurred_at: input.occurred_at,
+          policy
+        });
         const identity = learningRecordIdentity({ project_id: input.project_id, learning });
-        const event: MorynEvent = { event_id: identity.event_id, op: "upsert_record", record, created_at: input.occurred_at, source: input.source };
+        const event: MorynEvent = {
+          event_id: identity.event_id,
+          op: "upsert_record",
+          record,
+          created_at: input.occurred_at,
+          source: input.source
+        };
         const appended = await appendIdempotentEvent(deps.storePath, event);
-        if (appended.event.op !== "upsert_record" || logicalMemoryFingerprint(appended.event.record) !== logicalMemoryFingerprint(record)) {
+        if (
+          appended.event.op !== "upsert_record" ||
+          logicalMemoryFingerprint(appended.event.record) !== logicalMemoryFingerprint(record)
+        ) {
           throw new Error(`Learning idempotency collision: ${identity.event_id}`);
         }
         if (appended.created) createdCount += 1;
         if (input.origin_record_id) {
           const originRecord = await requireRecord(input.origin_record_id);
-          const evidenceBaseTimestamp = originRecord.updated_at > appended.event.record.updated_at
-            ? originRecord.updated_at
-            : appended.event.record.updated_at;
+          const evidenceBaseTimestamp =
+            originRecord.updated_at > appended.event.record.updated_at
+              ? originRecord.updated_at
+              : appended.event.record.updated_at;
           const evidenceEvent: MorynEvent = {
             event_id: duplicateLinkEventId(input.origin_record_id, appended.event.record.id),
             op: "link_records",
@@ -3044,7 +3258,10 @@ export function createEngine(deps: EngineDeps) {
             linked_record_id: appended.event.record.id,
             link_type: "supports",
             reason: `Learning evidence: ${learning.evidence_type}`,
-            created_at: nextMutationTimestamp({ ...appended.event.record, updated_at: evidenceBaseTimestamp }, input.occurred_at),
+            created_at: nextMutationTimestamp(
+              { ...appended.event.record, updated_at: evidenceBaseTimestamp },
+              input.occurred_at
+            ),
             source: input.source
           };
           const evidenceAppended = await appendIdempotentEvent(deps.storePath, evidenceEvent);
@@ -3064,12 +3281,21 @@ export function createEngine(deps: EngineDeps) {
       const discoveredProposals = ingestedRecordIds
         .map((recordId) => discoverAutomaticDuplicateProposal(records, recordId))
         .filter((proposal): proposal is SemanticConsolidationProposal => proposal !== undefined);
-      const proposals = [...new Map(discoveredProposals.map((proposal) => [
-        `${proposal.source_record_id}\u0000${proposal.target_record_id}\u0000${proposal.relationship}`,
-        proposal
-      ])).values()];
+      const proposals = [
+        ...new Map(
+          discoveredProposals.map((proposal) => [
+            `${proposal.source_record_id}\u0000${proposal.target_record_id}\u0000${proposal.relationship}`,
+            proposal
+          ])
+        ).values()
+      ];
       const automaticConsolidation = proposals.length
-        ? await engine.consolidateSemanticProposals({ proposals, project_id: input.project_id, source: input.source, occurred_at: input.occurred_at })
+        ? await engine.consolidateSemanticProposals({
+            proposals,
+            project_id: input.project_id,
+            source: input.source,
+            occurred_at: input.occurred_at
+          })
         : semanticConsolidationReceipt([]);
       const semanticCandidates = await (async () => {
         try {
@@ -3080,23 +3306,27 @@ export function createEngine(deps: EngineDeps) {
             per_source_limit: 3,
             total_limit: 12
           });
-          const candidates = result.candidates.filter((candidate) =>
-            candidate.token_overlap >= 0.35
-            || candidate.signals.includes("shared_file")
-            || candidate.signals.includes("shared_provenance")
+          const candidates = result.candidates.filter(
+            (candidate) =>
+              candidate.token_overlap >= 0.35 ||
+              candidate.signals.includes("shared_file") ||
+              candidate.signals.includes("shared_provenance")
           );
           return {
             candidates,
-            candidates_by_source_record_id: Object.fromEntries(ingestedRecordIds.map((recordId) => [
-              recordId,
-              candidates.filter((candidate) => candidate.source_record_id === recordId)
-            ])),
+            candidates_by_source_record_id: Object.fromEntries(
+              ingestedRecordIds.map((recordId) => [
+                recordId,
+                candidates.filter((candidate) => candidate.source_record_id === recordId)
+              ])
+            ),
             next_action: {
               action: "recall_then_propose_semantic_relationship" as const,
               recall_tool: "recall" as const,
               proposal_tool: "consolidate_semantic" as const,
               relationships: ["duplicate_of", "revises", "supersedes", "conflicts_with"] as const,
-              instruction: "Recall candidate records before proposing a semantic relationship; do not infer equivalence from score alone."
+              instruction:
+                "Recall candidate records before proposing a semantic relationship; do not infer equivalence from score alone."
             },
             selection_sources: result.selection_sources
           };
@@ -3112,7 +3342,14 @@ export function createEngine(deps: EngineDeps) {
           };
         }
       })();
-      return { learnings_received: learnings.length, records_created: createdCount, evidence_links_created: evidenceLinksCreated, dispositions, automatic_consolidation: automaticConsolidation, semantic_candidates: semanticCandidates };
+      return {
+        learnings_received: learnings.length,
+        records_created: createdCount,
+        evidence_links_created: evidenceLinksCreated,
+        dispositions,
+        automatic_consolidation: automaticConsolidation,
+        semantic_candidates: semanticCandidates
+      };
     },
 
     async checkpoint(input: CheckpointInput): Promise<CheckpointResult> {
@@ -3128,7 +3365,13 @@ export function createEngine(deps: EngineDeps) {
           scope: "project",
           project_id: normalized.project_id,
           tags: normalized.tags,
-          content: { format: "json", text: checkpointSummary(normalized.delta), checkpoint_version: 1, checkpoint_payload_digest: checkpointPayloadDigest(normalized), checkpoint: normalized.delta },
+          content: {
+            format: "json",
+            text: checkpointSummary(normalized.delta),
+            checkpoint_version: 1,
+            checkpoint_payload_digest: checkpointPayloadDigest(normalized),
+            checkpoint: normalized.delta
+          },
           state: "candidate",
           confidence: 0.5,
           priority: "normal",
@@ -3138,12 +3381,28 @@ export function createEngine(deps: EngineDeps) {
           source,
           provenance: { method: "agent-proposed" }
         };
-        const event: MorynEvent = { event_id: identity.event_id, op: "upsert_record", record, created_at: createdAt, source };
+        const event: MorynEvent = {
+          event_id: identity.event_id,
+          op: "upsert_record",
+          record,
+          created_at: createdAt,
+          source
+        };
         const appended = await appendEventIfAbsent(deps.storePath, event);
-        if (appended.event.op !== "upsert_record" || !matchesCheckpoint(appended.event.record, normalized) || !matchesCheckpointPayload(appended.event.record, normalized) || appended.event.record.id !== identity.record_id) {
+        if (
+          appended.event.op !== "upsert_record" ||
+          !matchesCheckpoint(appended.event.record, normalized) ||
+          !matchesCheckpointPayload(appended.event.record, normalized) ||
+          appended.event.record.id !== identity.record_id
+        ) {
           throw new Error(`Checkpoint idempotency collision: ${identity.event_id}`);
         }
-        return { record: appended.event.record, idempotent_replay: !appended.created, durability: appended.durability, append_warnings: appended.warnings ?? [] };
+        return {
+          record: appended.event.record,
+          idempotent_replay: !appended.created,
+          durability: appended.durability,
+          append_warnings: appended.warnings ?? []
+        };
       })();
       const warnings: NonNullable<CheckpointResult["warnings"]> = [...outcome.append_warnings];
       const inboxRecords = await learningInboxForLifecycle(deps.storePath, {
@@ -3151,10 +3410,13 @@ export function createEngine(deps: EngineDeps) {
         session_id: normalized.source.session_id,
         consumed_by_record_id: outcome.record.id
       });
-      const combinedLearnings = [...new Map([
-        ...normalized.delta.learnings,
-        ...inboxRecords.map((record) => record.content.learning_delta)
-      ].map((learning) => [learningRecordIdentity({ project_id: normalized.project_id, learning }).record_id, learning])).values()];
+      const combinedLearnings = [
+        ...new Map(
+          [...normalized.delta.learnings, ...inboxRecords.map((record) => record.content.learning_delta)].map(
+            (learning) => [learningRecordIdentity({ project_id: normalized.project_id, learning }).record_id, learning]
+          )
+        ).values()
+      ];
       const learningIngestion = await engine.ingestLearnings({
         project_id: normalized.project_id,
         learnings: combinedLearnings,
@@ -3186,15 +3448,31 @@ export function createEngine(deps: EngineDeps) {
         source: normalized.source
       });
       const learningInbox = { selected: inboxRecords.length, ...inboxConsumption };
-      const recoveryPack = buildCheckpointRecoveryPack(
-        [...replayEvents(await readEvents(deps.storePath)).values()],
-        { project_id: normalized.project_id, session_id: normalized.delta.session_id, include_private: normalized.include_private }
-      );
+      const recoveryPack = buildCheckpointRecoveryPack([...replayEvents(await readEvents(deps.storePath)).values()], {
+        project_id: normalized.project_id,
+        session_id: normalized.delta.session_id,
+        include_private: normalized.include_private
+      });
       try {
         await checkpointRebuild(deps.storePath);
-        return { record: outcome.record, idempotent_replay: outcome.idempotent_replay, committed: true, durability: outcome.durability, derived_views_refreshed: true, ...(warnings.length ? { warnings } : {}), recovery_pack: recoveryPack, learning_ingestion: learningIngestionResult, learning_inbox: learningInbox, semantic_consolidation: semanticConsolidation, selection_sources: CHECKPOINT_SELECTION_SOURCES };
+        return {
+          record: outcome.record,
+          idempotent_replay: outcome.idempotent_replay,
+          committed: true,
+          durability: outcome.durability,
+          derived_views_refreshed: true,
+          ...(warnings.length ? { warnings } : {}),
+          recovery_pack: recoveryPack,
+          learning_ingestion: learningIngestionResult,
+          learning_inbox: learningInbox,
+          semantic_consolidation: semanticConsolidation,
+          selection_sources: CHECKPOINT_SELECTION_SOURCES
+        };
       } catch (error) {
-        warnings.push({ code: "DERIVED_VIEW_REBUILD_FAILED", reason: error instanceof Error ? error.message : String(error) });
+        warnings.push({
+          code: "DERIVED_VIEW_REBUILD_FAILED",
+          reason: error instanceof Error ? error.message : String(error)
+        });
         return {
           record: outcome.record,
           idempotent_replay: outcome.idempotent_replay,
@@ -3218,11 +3496,17 @@ export function createEngine(deps: EngineDeps) {
       const tags = Array.isArray(writeInput.tags) ? writeInput.tags : [];
       const inputContent = input.content as Record<string, unknown> & { text?: string; format?: "text" | "json" };
       const sensitive = detectSensitiveContent(sensitiveScanText(inputContent));
-      const conflicts = sensitive.sensitive ? [] : semanticConflicts(await currentRecords(), { ...writeInput, tags, content: inputContent });
-      const needsConflictConfirmation = writeInput.state === "canonical" && conflicts.length > 0 && !isUserConfirmed(writeInput.source, writeInput.confirmed);
-      const needsConfirmation = writeInput.state === "canonical"
-        && (requiresCanonicalConfirmation(writeInput) || conflicts.length > 0)
-        && !isUserConfirmed(writeInput.source, writeInput.confirmed);
+      const conflicts = sensitive.sensitive
+        ? []
+        : semanticConflicts(await currentRecords(), { ...writeInput, tags, content: inputContent });
+      const needsConflictConfirmation =
+        writeInput.state === "canonical" &&
+        conflicts.length > 0 &&
+        !isUserConfirmed(writeInput.source, writeInput.confirmed);
+      const needsConfirmation =
+        writeInput.state === "canonical" &&
+        (requiresCanonicalConfirmation(writeInput) || conflicts.length > 0) &&
+        !isUserConfirmed(writeInput.source, writeInput.confirmed);
       const state = sensitive.sensitive
         ? "quarantined"
         : needsConfirmation
@@ -3254,7 +3538,13 @@ export function createEngine(deps: EngineDeps) {
           ? { kind: "semantic", with: conflicts.map((record) => record.id), resolution: "needs_review" }
           : undefined
       };
-      const event: MorynEvent = { event_id: id("evt"), op: "upsert_record", record, created_at: createdAt, source: writeInput.source };
+      const event: MorynEvent = {
+        event_id: id("evt"),
+        op: "upsert_record",
+        record,
+        created_at: createdAt,
+        source: writeInput.source
+      };
       await appendEventAndRebuild(event);
       const warning: EngineWarning | undefined = sensitive.sensitive
         ? { code: "SENSITIVE_CONTENT_DETECTED", reason: sensitive.reason }
@@ -3280,7 +3570,9 @@ export function createEngine(deps: EngineDeps) {
       }
       const includePrivate = input.include_private === true;
       const records = (await currentRecords())
-        .filter((record) => record.visibility === "active" && record.state !== "archived" && record.state !== "quarantined")
+        .filter(
+          (record) => record.visibility === "active" && record.state !== "archived" && record.state !== "quarantined"
+        )
         .filter((record) => !input.project_id || record.project_id === input.project_id)
         .filter((record) => includePrivate || !isPrivateTags(record.tags));
       const recordsByFingerprint = new Map<string, MorynRecord[]>();
@@ -3302,7 +3594,9 @@ export function createEngine(deps: EngineDeps) {
       const source = input.source ?? { client: "moryn" };
       for (const group of groups) {
         for (const duplicate of group.duplicates) {
-          const exists = duplicate.links?.some((link) => link.link_type === "duplicate_of" && link.record_id === group.target.id) ?? false;
+          const exists =
+            duplicate.links?.some((link) => link.link_type === "duplicate_of" && link.record_id === group.target.id) ??
+            false;
           if (exists) {
             linksExisting += 1;
             continue;
@@ -3333,12 +3627,20 @@ export function createEngine(deps: EngineDeps) {
       };
     },
 
-    async consolidateSemanticProposals(input: ConsolidateSemanticProposalsInput): Promise<SemanticConsolidationReceipt> {
-      if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Invalid argument: semantic consolidation input must be an object");
-      if (!Array.isArray(input.proposals)) throw new Error("Invalid argument: semantic consolidation proposals must be an array");
-      if (input.proposals.length > 24) throw new Error("Invalid argument: semantic consolidation proposals must contain at most 24 items");
-      if (input.include_private !== undefined && typeof input.include_private !== "boolean") throw new Error("Invalid argument: semantic consolidation include_private must be a boolean");
-      const proposals = input.proposals.map((proposal) => semanticConsolidationProposalSchema.parse(proposal)) as SemanticConsolidationProposal[];
+    async consolidateSemanticProposals(
+      input: ConsolidateSemanticProposalsInput
+    ): Promise<SemanticConsolidationReceipt> {
+      if (!input || typeof input !== "object" || Array.isArray(input))
+        throw new Error("Invalid argument: semantic consolidation input must be an object");
+      if (!Array.isArray(input.proposals))
+        throw new Error("Invalid argument: semantic consolidation proposals must be an array");
+      if (input.proposals.length > 24)
+        throw new Error("Invalid argument: semantic consolidation proposals must contain at most 24 items");
+      if (input.include_private !== undefined && typeof input.include_private !== "boolean")
+        throw new Error("Invalid argument: semantic consolidation include_private must be a boolean");
+      const proposals = input.proposals.map((proposal) =>
+        semanticConsolidationProposalSchema.parse(proposal)
+      ) as SemanticConsolidationProposal[];
       const proposalResults: SemanticConsolidationProposalResult[] = [];
       const acceptedByRelationship: SemanticConsolidationReceipt["accepted_by_relationship"] = {};
       const rejectedByReason: Record<string, number> = {};
@@ -3350,11 +3652,16 @@ export function createEngine(deps: EngineDeps) {
 
       for (const proposal of proposals) {
         const records = await currentRecords();
-        const validation = validateSemanticConsolidationProposal(records, proposal, { include_private: input.include_private === true });
+        const validation = validateSemanticConsolidationProposal(records, proposal, {
+          include_private: input.include_private === true
+        });
         if (input.project_id) {
           const sourceRecord = records.find((record) => record.id === validation.source_record_id);
           const targetRecord = records.find((record) => record.id === validation.target_record_id);
-          if ((sourceRecord?.scope === "project" && sourceRecord.project_id !== input.project_id) || (targetRecord?.scope === "project" && targetRecord.project_id !== input.project_id)) {
+          if (
+            (sourceRecord?.scope === "project" && sourceRecord.project_id !== input.project_id) ||
+            (targetRecord?.scope === "project" && targetRecord.project_id !== input.project_id)
+          ) {
             proposalResults.push({ ...validation, status: "rejected", reason: "incompatible_domain" });
             proposalsRejected += 1;
             rejectedByReason.incompatible_domain = (rejectedByReason.incompatible_domain ?? 0) + 1;
@@ -3367,7 +3674,11 @@ export function createEngine(deps: EngineDeps) {
           rejectedByReason[validation.reason] = (rejectedByReason[validation.reason] ?? 0) + 1;
           continue;
         }
-        const eventId = semanticConsolidationEventId(validation.source_record_id, validation.target_record_id, validation.relationship);
+        const eventId = semanticConsolidationEventId(
+          validation.source_record_id,
+          validation.target_record_id,
+          validation.relationship
+        );
         if (validation.status === "idempotent") {
           proposalResults.push({ ...validation, event_id: eventId });
           idempotentReplays += 1;
@@ -3393,20 +3704,28 @@ export function createEngine(deps: EngineDeps) {
         };
         try {
           const appended = await appendIdempotentEvent(deps.storePath, event);
-          if (appended.event.op !== "link_records"
-            || appended.event.record_id !== event.record_id
-            || appended.event.linked_record_id !== event.linked_record_id
-            || appended.event.link_type !== event.link_type) {
+          if (
+            appended.event.op !== "link_records" ||
+            appended.event.record_id !== event.record_id ||
+            appended.event.linked_record_id !== event.linked_record_id ||
+            appended.event.link_type !== event.link_type
+          ) {
             throw new Error("semantic consolidation idempotency collision");
           }
           if (appended.created) {
             linksCreated += 1;
             proposalsAccepted += 1;
-            acceptedByRelationship[validation.relationship] = (acceptedByRelationship[validation.relationship] ?? 0) + 1;
+            acceptedByRelationship[validation.relationship] =
+              (acceptedByRelationship[validation.relationship] ?? 0) + 1;
             proposalResults.push({ ...validation, event_id: eventId });
           } else {
             idempotentReplays += 1;
-            proposalResults.push({ ...validation, status: "idempotent", reason: "existing_relationship", event_id: eventId });
+            proposalResults.push({
+              ...validation,
+              status: "idempotent",
+              reason: "existing_relationship",
+              event_id: eventId
+            });
           }
         } catch {
           proposalsRejected += 1;
@@ -3428,32 +3747,83 @@ export function createEngine(deps: EngineDeps) {
       };
     },
 
-    async consolidateLearningProposals(input: ConsolidateLearningProposalsInput): Promise<SemanticConsolidationReceipt> {
-      if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Invalid argument: learning consolidation input must be an object");
-      if (!Array.isArray(input.proposals)) throw new Error("Invalid argument: semantic consolidation proposals must be an array");
-      if (!Array.isArray(input.source_record_ids) || input.source_record_ids.some((recordId) => typeof recordId !== "string" || !recordId.trim())) throw new Error("Invalid argument: semantic consolidation source_record_ids must be non-empty strings");
-      const proposals = input.proposals.map((proposal) => semanticConsolidationProposalSchema.parse(proposal)) as SemanticConsolidationProposal[];
+    async consolidateLearningProposals(
+      input: ConsolidateLearningProposalsInput
+    ): Promise<SemanticConsolidationReceipt> {
+      if (!input || typeof input !== "object" || Array.isArray(input))
+        throw new Error("Invalid argument: learning consolidation input must be an object");
+      if (!Array.isArray(input.proposals))
+        throw new Error("Invalid argument: semantic consolidation proposals must be an array");
+      if (
+        !Array.isArray(input.source_record_ids) ||
+        input.source_record_ids.some((recordId) => typeof recordId !== "string" || !recordId.trim())
+      )
+        throw new Error("Invalid argument: semantic consolidation source_record_ids must be non-empty strings");
+      const proposals = input.proposals.map((proposal) =>
+        semanticConsolidationProposalSchema.parse(proposal)
+      ) as SemanticConsolidationProposal[];
       if (!proposals.length) return semanticConsolidationReceipt([]);
       try {
         const sourceRecordIds = [...new Set(input.source_record_ids.map((recordId) => recordId.trim()))];
         const records = await currentRecords();
         const recordsById = new Map(records.map((record) => [record.id, record]));
-        const candidates = retrieveSemanticConsolidationCandidates(records, { source_record_ids: sourceRecordIds, include_private: input.include_private === true, per_source_limit: 8, total_limit: 24 });
-        const allowedTargetsBySource = new Map(Object.entries(candidates.candidates_by_source_record_id).map(([sourceRecordId, items]) => [sourceRecordId, new Set(items.map((item) => item.record_id))]));
+        const candidates = retrieveSemanticConsolidationCandidates(records, {
+          source_record_ids: sourceRecordIds,
+          include_private: input.include_private === true,
+          per_source_limit: 8,
+          total_limit: 24
+        });
+        const allowedTargetsBySource = new Map(
+          Object.entries(candidates.candidates_by_source_record_id).map(([sourceRecordId, items]) => [
+            sourceRecordId,
+            new Set(items.map((item) => item.record_id))
+          ])
+        );
         const bounded: SemanticConsolidationProposal[] = [];
         const rejected: SemanticConsolidationProposalResult[] = [];
         for (const proposal of proposals) {
-          const existingLink = recordsById.get(proposal.source_record_id)?.links?.some((link) => link.record_id === proposal.target_record_id && link.link_type === proposal.relationship);
-          if (!sourceRecordIds.includes(proposal.source_record_id) || (!existingLink && !allowedTargetsBySource.get(proposal.source_record_id)?.has(proposal.target_record_id))) {
-            rejected.push({ status: "rejected", reason: "candidate_not_bounded", source_record_id: proposal.source_record_id, target_record_id: proposal.target_record_id, relationship: proposal.relationship, proposal_digest: semanticConsolidationProposalDigest(proposal) });
+          const existingLink = recordsById
+            .get(proposal.source_record_id)
+            ?.links?.some(
+              (link) => link.record_id === proposal.target_record_id && link.link_type === proposal.relationship
+            );
+          if (
+            !sourceRecordIds.includes(proposal.source_record_id) ||
+            (!existingLink && !allowedTargetsBySource.get(proposal.source_record_id)?.has(proposal.target_record_id))
+          ) {
+            rejected.push({
+              status: "rejected",
+              reason: "candidate_not_bounded",
+              source_record_id: proposal.source_record_id,
+              target_record_id: proposal.target_record_id,
+              relationship: proposal.relationship,
+              proposal_digest: semanticConsolidationProposalDigest(proposal)
+            });
           } else {
             bounded.push(proposal);
           }
         }
-        const persisted = bounded.length ? await engine.consolidateSemanticProposals({ proposals: bounded, project_id: input.project_id, include_private: input.include_private, source: input.source, occurred_at: input.occurred_at }) : semanticConsolidationReceipt([]);
+        const persisted = bounded.length
+          ? await engine.consolidateSemanticProposals({
+              proposals: bounded,
+              project_id: input.project_id,
+              include_private: input.include_private,
+              source: input.source,
+              occurred_at: input.occurred_at
+            })
+          : semanticConsolidationReceipt([]);
         return semanticConsolidationReceipt([...persisted.proposal_results, ...rejected]);
       } catch {
-        return semanticConsolidationReceipt(proposals.map((proposal) => ({ status: "failed", reason: "pipeline_failed", source_record_id: proposal.source_record_id, target_record_id: proposal.target_record_id, relationship: proposal.relationship, proposal_digest: semanticConsolidationProposalDigest(proposal) })));
+        return semanticConsolidationReceipt(
+          proposals.map((proposal) => ({
+            status: "failed",
+            reason: "pipeline_failed",
+            source_record_id: proposal.source_record_id,
+            target_record_id: proposal.target_record_id,
+            relationship: proposal.relationship,
+            proposal_digest: semanticConsolidationProposalDigest(proposal)
+          }))
+        );
       }
     },
 
@@ -3476,9 +3846,8 @@ export function createEngine(deps: EngineDeps) {
         throw invalidRevisionRecordPatchError(patch, message);
       }
       const sensitive = detectSensitiveContent(sensitiveScanText(patched.content));
-      const conflicts = !sensitive.sensitive && patched.state === "canonical"
-        ? semanticConflicts(await currentRecords(), patched)
-        : [];
+      const conflicts =
+        !sensitive.sensitive && patched.state === "canonical" ? semanticConflicts(await currentRecords(), patched) : [];
       if (conflicts.length > 0 && !isUserConfirmed(source, input.confirmed)) {
         throw new Error("Confirmation required: conflicting canonical memory requires explicit user confirmation");
       }
@@ -3527,15 +3896,20 @@ export function createEngine(deps: EngineDeps) {
       const promoteInput = input as ValidatedPromoteInput;
       const record = await requireRecord(promoteInput.record_id);
       const source = input.source ?? { client: "moryn" };
-      const conflicts = promoteInput.target_state === "canonical" ? semanticConflicts(await currentRecords(), record) : [];
-      if (promoteInput.target_state === "canonical"
-        && requiresCanonicalConfirmation(record)
-        && !isUserConfirmed(source, input.confirmed)) {
+      const conflicts =
+        promoteInput.target_state === "canonical" ? semanticConflicts(await currentRecords(), record) : [];
+      if (
+        promoteInput.target_state === "canonical" &&
+        requiresCanonicalConfirmation(record) &&
+        !isUserConfirmed(source, input.confirmed)
+      ) {
         throw new Error("Confirmation required: canonical state requires explicit user confirmation");
       }
-      if (promoteInput.target_state === "canonical"
-        && conflicts.length > 0
-        && !isUserConfirmed(source, input.confirmed)) {
+      if (
+        promoteInput.target_state === "canonical" &&
+        conflicts.length > 0 &&
+        !isUserConfirmed(source, input.confirmed)
+      ) {
         throw new Error("Confirmation required: conflicting canonical memory requires explicit user confirmation");
       }
       const createdAt = nextMutationTimestamp(record, now());
@@ -3629,7 +4003,13 @@ export function createEngine(deps: EngineDeps) {
         source: input.source ?? { client: "moryn" }
       };
       await appendEventAndRebuild(event);
-      return { event, relationship: validated.relationship, direction: validated.direction, reason: validated.reason, selection_sources: LINK_EVENT_SELECTION_SOURCES };
+      return {
+        event,
+        relationship: validated.relationship,
+        direction: validated.direction,
+        reason: validated.reason,
+        selection_sources: LINK_EVENT_SELECTION_SOURCES
+      };
     },
 
     async recall(input: RecallInput) {
@@ -3649,16 +4029,26 @@ export function createEngine(deps: EngineDeps) {
         await requireRecord(recordId);
       }
       const limit = validateLimit(recallInput.limit, 10, "recall");
-      const useRetrievalIndex = Boolean(recallInput.project_id && !recallInput.record_ids?.length && !includesHiddenState(recallInput));
+      const useRetrievalIndex = Boolean(
+        recallInput.project_id && !recallInput.record_ids?.length && !includesHiddenState(recallInput)
+      );
       const retrieval = useRetrievalIndex
-        ? await readCandidates(deps.storePath, { project_id: recallInput.project_id!, read_current_records: readRecords })
+        ? await readCandidates(deps.storePath, {
+            project_id: recallInput.project_id!,
+            read_current_records: readRecords
+          })
         : undefined;
       const current = retrieval ? undefined : await readRecords(deps.storePath);
-      const logicalRecords = retrieval?.records ?? (recallInput.record_ids?.length || includesHiddenState(recallInput)
-        ? current!.records
-        : buildActiveLogicalMemoryView(current!.records).active_records);
+      const logicalRecords =
+        retrieval?.records ??
+        (recallInput.record_ids?.length || includesHiddenState(recallInput)
+          ? current!.records
+          : buildActiveLogicalMemoryView(current!.records).active_records);
       const rankedRecords = logicalRecords
-        .filter((record) => includesHiddenState(recallInput) || includesRawState(recallInput) || isVisibleInDefaultRecall(record))
+        .filter(
+          (record) =>
+            includesHiddenState(recallInput) || includesRawState(recallInput) || isVisibleInDefaultRecall(record)
+        )
         .filter((record) => isAllowedByPrivateBoundary(record, recallInput.include_private))
         .filter((record) => recordProjectMatchesRecall(record, recallInput))
         .filter((record) => !recallInput.record_ids?.length || recallInput.record_ids.includes(record.id))
@@ -3667,18 +4057,33 @@ export function createEngine(deps: EngineDeps) {
         .filter((record) => !recallInput.types?.length || recallInput.types.includes(record.type))
         .filter((record) => !recallInput.states?.length || recallInput.states.includes(record.state))
         .filter((record) => matchesAny(record.tags, recallInput.tags))
-        .filter((record) => !recallInput.files?.length || recallInput.files.some((file) => `${searchableText(record)} ${record.tags.join(" ")}`.toLowerCase().includes(file.toLowerCase())))
+        .filter(
+          (record) =>
+            !recallInput.files?.length ||
+            recallInput.files.some((file) =>
+              `${searchableText(record)} ${record.tags.join(" ")}`.toLowerCase().includes(file.toLowerCase())
+            )
+        )
         .map((record) => ({ record, ...reasonAndScore(record, recallInput) }))
         .filter((result) => matchesQuery(result, recallInput))
         .filter((result) => result.score > 0 || (!recallInput.query && !recallInput.record_ids?.length))
-        .sort((a, b) => (b.score - a.score) || b.record.updated_at.localeCompare(a.record.updated_at) || a.record.id.localeCompare(b.record.id))
+        .sort(
+          (a, b) =>
+            b.score - a.score ||
+            b.record.updated_at.localeCompare(a.record.updated_at) ||
+            a.record.id.localeCompare(b.record.id)
+        )
         .slice(0, limit);
       const outcome = recallInput.query
         ? assessRecallOutcome({ query: recallInput.query, results: rankedRecords, now: now() })
         : undefined;
       const records = outcome?.status === "knowledge_gap" ? [] : rankedRecords;
       const actionContract = outcome
-        ? buildRecallNextActions({ query: recallInput.query ?? "", outcome, include_private: recallInput.include_private })
+        ? buildRecallNextActions({
+            query: recallInput.query ?? "",
+            outcome,
+            include_private: recallInput.include_private
+          })
         : undefined;
       return {
         results: records,
@@ -3700,8 +4105,9 @@ export function createEngine(deps: EngineDeps) {
       } as ValidatedTimelineInput;
       const events = await readEvents(deps.storePath);
       const recordsMap = replayEvents(events);
-      const records = [...recordsMap.values()]
-        .filter((record) => isAllowedByPrivateBoundary(record, timelineInput.include_private));
+      const records = [...recordsMap.values()].filter((record) =>
+        isAllowedByPrivateBoundary(record, timelineInput.include_private)
+      );
       const orderedEvents = sortedTimelineEvents(events, recordsMap, timelineInput);
       const anchor = timelineAnchor(orderedEvents, records, timelineInput);
       const start = Math.max(0, anchor.index - timelineInput.before);
@@ -3718,7 +4124,9 @@ export function createEngine(deps: EngineDeps) {
           record_id: recordId,
           source: event.source,
           summary: record ? summarizeRecord(record) : event.op,
-          ...(record ? { record: compactRecord(record), next_action: timelineItemNextAction(recordId, timelineInput) } : {})
+          ...(record
+            ? { record: compactRecord(record), next_action: timelineItemNextAction(recordId, timelineInput) }
+            : {})
         };
       });
       const itemsByRecordId: Record<string, typeof items> = {};
@@ -3755,35 +4163,55 @@ export function createEngine(deps: EngineDeps) {
         .filter(isVisibleByDefault)
         .filter((record) => isAllowedByPrivateBoundary(record, bootInput.include_private))
         .filter((record) => recordBootContextMatches(record, bootInput.project_id));
-      const records = visibleRecords
-        .filter(isTrustedForBoot)
+      const records = visibleRecords.filter(isTrustedForBoot);
       const recent = [...visibleRecords]
         .filter(isImportantBootRecent)
         .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
       const projectMemoryRecords = projectMemory(records, bootInput.project_id);
       const trustedProjectRecords = projectScopedRecords(records, bootInput.project_id);
       const taskRelevant = bootInput.current_task
-        ? boundedBootRecords(records
-          .filter((record) => record.kind === "memory" && record.scope === "project")
-          .filter((record) => matchesCurrentTask(record, bootInput.current_task)))
+        ? boundedBootRecords(
+            records
+              .filter((record) => record.kind === "memory" && record.scope === "project")
+              .filter((record) => matchesCurrentTask(record, bootInput.current_task))
+          )
         : [];
       const compactTaskRelevant = compactRecords(taskRelevant);
-      const userPreferences = compactRecords(boundedBootRecords(records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "preference")));
+      const userPreferences = compactRecords(
+        boundedBootRecords(
+          records.filter(
+            (record) => record.kind === "memory" && record.scope === "global" && record.type === "preference"
+          )
+        )
+      );
       const soul = compactRecords(boundedBootRecords(records.filter((record) => record.kind === "soul")));
-      const globalRules = compactRecords(boundedBootRecords(records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "rule")));
-      const importantDecisions = compactRecords(boundedBootRecords(trustedProjectRecords.filter((record) => record.type === "decision")));
-      const warnings = compactRecords(boundedBootRecords(trustedProjectRecords.filter((record) => record.type === "warning" || record.type === "blocker")));
+      const globalRules = compactRecords(
+        boundedBootRecords(
+          records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "rule")
+        )
+      );
+      const importantDecisions = compactRecords(
+        boundedBootRecords(trustedProjectRecords.filter((record) => record.type === "decision"))
+      );
+      const warnings = compactRecords(
+        boundedBootRecords(
+          trustedProjectRecords.filter((record) => record.type === "warning" || record.type === "blocker")
+        )
+      );
       const skills = compactRecords(boundedBootRecords(bootSkills(records, bootInput)));
       const recentChanges = compactRecords(recent.filter((record) => record.kind !== "soul").slice(0, 5));
-      const cursor = [...visibleRecords].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]?.updated_at ?? new Date().toISOString();
+      const cursor =
+        [...visibleRecords].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]?.updated_at ??
+        new Date().toISOString();
       const remoteUpdates = await remoteHasUpdates();
-      const checkpointRecoveryPack = bootInput.project_id && bootInput.agent_session_id
-        ? buildCheckpointRecoveryPack(allCurrentRecords, {
-          project_id: bootInput.project_id,
-          session_id: bootInput.agent_session_id,
-          include_private: bootInput.include_private
-        })
-        : undefined;
+      const checkpointRecoveryPack =
+        bootInput.project_id && bootInput.agent_session_id
+          ? buildCheckpointRecoveryPack(allCurrentRecords, {
+              project_id: bootInput.project_id,
+              session_id: bootInput.agent_session_id,
+              include_private: bootInput.include_private
+            })
+          : undefined;
       const currentRecordsById = new Map(allCurrentRecords.map((record) => [record.id, record]));
       const activeCheckpoint = checkpointRecoveryPack?.source_record_ids
         .map((recordId) => currentRecordsById.get(recordId))
@@ -3804,7 +4232,9 @@ export function createEngine(deps: EngineDeps) {
         project: {
           summary: projectSummary(projectMemoryRecords),
           tech_stack: boundedBootTexts(projectMemoryRecords.filter((record) => record.type === "tech_stack")),
-          active_goals: boundedBootTexts(projectMemoryRecords.filter((record) => record.type === "active_goal" || record.type === "goal")),
+          active_goals: boundedBootTexts(
+            projectMemoryRecords.filter((record) => record.type === "active_goal" || record.type === "goal")
+          ),
           important_decisions: importantDecisions,
           important_decisions_by_id: recordsById(importantDecisions),
           warnings,
@@ -3816,7 +4246,9 @@ export function createEngine(deps: EngineDeps) {
         task_relevant_by_id: recordsById(compactTaskRelevant),
         recent_changes: recentChanges,
         recent_changes_by_id: recordsById(recentChanges),
-        ...(bootInput.agent_session_id ? { active_checkpoint: activeCheckpoint, checkpoint_recovery_pack: checkpointRecoveryPack } : {}),
+        ...(bootInput.agent_session_id
+          ? { active_checkpoint: activeCheckpoint, checkpoint_recovery_pack: checkpointRecoveryPack }
+          : {}),
         selection_sources: BOOT_SELECTION_SOURCES,
         records_by_id: recordsById([
           ...userPreferences,
@@ -3858,9 +4290,10 @@ export function createEngine(deps: EngineDeps) {
       });
       const reportableChanges = allChanges.filter((change) => change.change.importance !== "silent");
       const changes = reportableChanges.slice(0, limit);
-      const latest = (reportableChanges.length > changes.length ? changes.at(-1)?.record.updated_at : records.at(-1)?.updated_at)
-        ?? refreshInput.cursor
-        ?? new Date().toISOString();
+      const latest =
+        (reportableChanges.length > changes.length ? changes.at(-1)?.record.updated_at : records.at(-1)?.updated_at) ??
+        refreshInput.cursor ??
+        new Date().toISOString();
       return {
         cursor: latest,
         changes: changes.map((change) => change.change),
@@ -3871,18 +4304,21 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async listRecent(input: unknown = 20) {
-      const listRecentInput = (typeof input === "object" && input !== null && !Array.isArray(input))
-        ? input as ListRecentInput
-        : { limit: input };
+      const listRecentInput =
+        typeof input === "object" && input !== null && !Array.isArray(input)
+          ? (input as ListRecentInput)
+          : { limit: input };
       validateListRecentInput(listRecentInput);
       const resolvedInput = {
         ...listRecentInput,
         include_private: listRecentInput.include_private === true
       } as ValidatedListRecentInput;
-      const records = compactRecords((await currentRecords())
-        .filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private))
-        .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
-        .slice(0, validateLimit(resolvedInput.limit, 20, "list_recent")));
+      const records = compactRecords(
+        (await currentRecords())
+          .filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private))
+          .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+          .slice(0, validateLimit(resolvedInput.limit, 20, "list_recent"))
+      );
       return {
         records,
         selection_sources: LIST_RECENT_SELECTION_SOURCES,
@@ -3898,8 +4334,7 @@ export function createEngine(deps: EngineDeps) {
       } as ValidatedMemoryDoctorInput;
       const limit = validateLimit(resolvedInput.limit, 20, "memory_doctor");
       const allRecords = await currentRecords();
-      const records = allRecords
-        .filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private));
+      const records = allRecords.filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private));
       return diagnoseMemory({
         records,
         project_id: resolvedInput.project_id,
@@ -3928,7 +4363,9 @@ export function createEngine(deps: EngineDeps) {
         include_private: resolvedInput.include_private,
         now: resolvedInput.now,
         private_record_ids: allRecords.filter(isPrivateRecord).map((record) => record.id),
-        excluded_private_records: allRecords.length - allRecords.filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private)).length
+        excluded_private_records:
+          allRecords.length -
+          allRecords.filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private)).length
       });
     },
 
@@ -3950,7 +4387,9 @@ export function createEngine(deps: EngineDeps) {
         project_id: resolvedInput.project_id,
         limit,
         include_private: resolvedInput.include_private,
-        excluded_private_records: allRecords.length - allRecords.filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private)).length
+        excluded_private_records:
+          allRecords.length -
+          allRecords.filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private)).length
       });
     },
 
@@ -3972,7 +4411,9 @@ export function createEngine(deps: EngineDeps) {
         project_id: resolvedInput.project_id,
         limit,
         include_private: resolvedInput.include_private,
-        excluded_private_records: allRecords.length - allRecords.filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private)).length
+        excluded_private_records:
+          allRecords.length -
+          allRecords.filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private)).length
       });
     },
 
@@ -3986,19 +4427,33 @@ export function createEngine(deps: EngineDeps) {
       const events = await readEvents(deps.storePath);
       const recordReadModel = await readRecords(deps.storePath);
       const retrievalIndex = resolvedInput.project_id
-        ? await readCandidates(deps.storePath, { project_id: resolvedInput.project_id, read_current_records: readRecords })
+        ? await readCandidates(deps.storePath, {
+            project_id: resolvedInput.project_id,
+            read_current_records: readRecords
+          })
         : undefined;
       const allRecords = recordReadModel.records;
-      const visibleRecords = allRecords
-        .filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private));
+      const visibleRecords = allRecords.filter((record) =>
+        isAllowedByPrivateBoundary(record, resolvedInput.include_private)
+      );
       const normalizedHost = resolvedInput.host ? normalizeHostId(resolvedInput.host) : undefined;
-      const activationStatus = resolvedInput.project_id && resolvedInput.project_path && (normalizedHost === "codex" || normalizedHost === "claude")
-        ? await inspectHostActivation({ store_path: deps.storePath, project_path: resolvedInput.project_path, project_id: resolvedInput.project_id, host: normalizedHost }).catch(() => undefined)
-        : undefined;
+      const activationStatus =
+        resolvedInput.project_id &&
+        resolvedInput.project_path &&
+        (normalizedHost === "codex" || normalizedHost === "claude")
+          ? await inspectHostActivation({
+              store_path: deps.storePath,
+              project_path: resolvedInput.project_path,
+              project_id: resolvedInput.project_id,
+              host: normalizedHost
+            }).catch(() => undefined)
+          : undefined;
       const latestSyncCompensation = await readSyncCompensationReceipt(deps.storePath);
-      const syncCompensation = latestSyncCompensation && (!resolvedInput.project_id || latestSyncCompensation.project_id === resolvedInput.project_id)
-        ? latestSyncCompensation
-        : undefined;
+      const syncCompensation =
+        latestSyncCompensation &&
+        (!resolvedInput.project_id || latestSyncCompensation.project_id === resolvedInput.project_id)
+          ? latestSyncCompensation
+          : undefined;
       return diagnoseHealthCheck({
         records: visibleRecords,
         events,
@@ -4044,7 +4499,9 @@ export function createEngine(deps: EngineDeps) {
       const matchingRecords = allRecords
         .filter((record) => record.project_id === resolvedInput.from_project_id)
         .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id));
-      const records = matchingRecords.filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private));
+      const records = matchingRecords.filter((record) =>
+        isAllowedByPrivateBoundary(record, resolvedInput.include_private)
+      );
       const skippedPrivateRecords = matchingRecords.length - records.length;
       const compactedRecords = compactRecords(records);
       const base = {
@@ -4097,14 +4554,18 @@ export function createEngine(deps: EngineDeps) {
       const listProjectsInput = input as ValidatedListProjectsInput;
       const byProject = new Map<string, MorynRecord[]>();
 
-      for (const record of (await currentRecords()).filter(isVisibleByDefault).filter((record) => isAllowedByPrivateBoundary(record, false))) {
+      for (const record of (await currentRecords())
+        .filter(isVisibleByDefault)
+        .filter((record) => isAllowedByPrivateBoundary(record, false))) {
         if (record.scope !== "project" || !record.project_id) continue;
         byProject.set(record.project_id, [...(byProject.get(record.project_id) ?? []), record]);
       }
 
       const projects = [...byProject.entries()]
         .map(([projectId, records]) => {
-          const sorted = [...records].sort((a, b) => b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id));
+          const sorted = [...records].sort(
+            (a, b) => b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id)
+          );
           const latest = sorted[0] as MorynRecord;
           const tags = [...new Set(records.flatMap((record) => record.tags))].sort();
           return {
@@ -4123,7 +4584,11 @@ export function createEngine(deps: EngineDeps) {
             })
           };
         })
-        .sort((a, b) => b.latest_activity.updated_at.localeCompare(a.latest_activity.updated_at) || a.project_id.localeCompare(b.project_id))
+        .sort(
+          (a, b) =>
+            b.latest_activity.updated_at.localeCompare(a.latest_activity.updated_at) ||
+            a.project_id.localeCompare(b.project_id)
+        )
         .slice(0, limit);
 
       return {

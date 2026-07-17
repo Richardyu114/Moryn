@@ -1,14 +1,8 @@
-import { actionExecution, actionSafety, type ActionExecution, type ActionSafety } from "./core/action-safety.js";
+import { type ActionExecution, type ActionSafety, actionExecution, actionSafety } from "./core/action-safety.js";
 import { commandLineForCliInterface } from "./core/cli-command-line.js";
 import { PROJECT_SYNC_MODE_INPUTS } from "./core/project.js";
-import {
-  PROVENANCE_METHODS,
-  RECORD_KINDS,
-  RECORD_PRIORITIES,
-  RECORD_SCOPES,
-  RECORD_STATES
-} from "./core/schema.js";
-import { requiredFieldsByName, type RequiredFieldMetadata } from "./core/workflow.js";
+import { PROVENANCE_METHODS, RECORD_KINDS, RECORD_PRIORITIES, RECORD_SCOPES, RECORD_STATES } from "./core/schema.js";
+import { type RequiredFieldMetadata, requiredFieldsByName } from "./core/workflow.js";
 
 type OperationCategory = "setup" | "core" | "sync" | "lifecycle" | "contracts" | "maintenance" | "observability";
 
@@ -93,7 +87,10 @@ type OperationArgumentMetadataInput = Omit<OperationArgumentMetadata, "name"> & 
   name?: string;
 };
 
-type OperationContractInput = Omit<OperationContract, "required_fields_by_name" | "arguments_by_name" | "interfaces" | "safety" | "execution" | "selection_sources"> & {
+type OperationContractInput = Omit<
+  OperationContract,
+  "required_fields_by_name" | "arguments_by_name" | "interfaces" | "safety" | "execution" | "selection_sources"
+> & {
   required_fields_by_name?: Record<string, OperationRequiredFieldMetadata>;
   arguments_by_name?: Record<string, OperationArgumentMetadataInput>;
   interfaces: OperationInterfacesInput;
@@ -160,10 +157,7 @@ export type OperationContractLookupSuggestion = {
     cli: string;
     mcp: {
       tool: "operation_contracts";
-      arguments:
-        | { operation: string }
-        | { mcp_tool: string }
-        | { cli_command: string };
+      arguments: { operation: string } | { mcp_tool: string } | { cli_command: string };
     };
   };
 };
@@ -303,13 +297,19 @@ export function validateOperationContractIndexArgument(index: unknown): asserts 
   }
 }
 
-export function validateOperationContractLookupArgument(kind: OperationContractLookupKind, value: unknown): asserts value is string | undefined {
+export function validateOperationContractLookupArgument(
+  kind: OperationContractLookupKind,
+  value: unknown
+): asserts value is string | undefined {
   if (value !== undefined && (typeof value !== "string" || value.length === 0)) {
     throw new OperationContractLookupArgumentError(kind, value);
   }
 }
 
-function validateRequiredOperationContractLookupArgument(kind: OperationContractLookupKind, value: unknown): asserts value is string {
+function validateRequiredOperationContractLookupArgument(
+  kind: OperationContractLookupKind,
+  value: unknown
+): asserts value is string {
   validateOperationContractLookupArgument(kind, value);
   if (value === undefined) {
     throw new OperationContractLookupArgumentError(kind, value);
@@ -406,8 +406,10 @@ export const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   required_field: "operations_by_id.<operation>.required_fields_by_name.<field>",
   allowed_value: "operations_by_id.<operation>.required_fields_by_name.<field>.allowed_values[]",
   required_input: "operations_by_id.<operation>.execution.required_inputs_by_field.<field>",
-  required_input_argument_path: "operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>",
-  required_input_path_by_value_path: "operations_by_id.<operation>.execution.required_input_paths_by_value_path.<value_path>",
+  required_input_argument_path:
+    "operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>",
+  required_input_path_by_value_path:
+    "operations_by_id.<operation>.execution.required_input_paths_by_value_path.<value_path>",
   argument: "operations_by_id.<operation>.arguments_by_name.<argument>",
   argument_allowed_value: "operations_by_id.<operation>.arguments_by_name.<argument>.allowed_values[]",
   argument_source: "operations_by_id.<operation>.argument_sources.<field>",
@@ -430,7 +432,8 @@ export const OPERATION_CONTRACT_INDEX_SELECTION_SOURCES = {
   operation_source_lookup: "operation_source_lookup",
   ordered_operation: OPERATION_CONTRACTS_SELECTION_SOURCES.ordered_operation,
   execution_hint: "operations_by_id.<operation>.execution_hint",
-  execution_hint_required_input_by_value_path: "operations_by_id.<operation>.execution_hint.required_input_sources.by_value_path",
+  execution_hint_required_input_by_value_path:
+    "operations_by_id.<operation>.execution_hint.required_input_sources.by_value_path",
   full_contract_lookup: "operations_by_id.<operation>.full_contract_lookup",
   full_contract_lookup_cli: "operations_by_id.<operation>.full_contract_lookup.cli",
   full_contract_lookup_mcp: "operations_by_id.<operation>.full_contract_lookup.mcp"
@@ -447,7 +450,10 @@ function operationLookupKindLabel(kind: OperationContractLookupKind): string {
   }
 }
 
-function operationContractLookupRecoveryHint(kind: OperationContractLookupKind, value: string): OperationContractLookupRecoveryHint {
+function operationContractLookupRecoveryHint(
+  kind: OperationContractLookupKind,
+  value: string
+): OperationContractLookupRecoveryHint {
   return {
     rejected_lookup: { kind, value },
     suggested_matches: operationContractLookupSuggestions(kind, value),
@@ -504,13 +510,15 @@ function operationContractLookupRecoveryHint(kind: OperationContractLookupKind, 
   };
 }
 
-function operationContractLookupSuggestions(kind: OperationContractLookupKind, value: string): OperationContractLookupSuggestion[] {
-  return OPERATION_CONTRACTS
-    .map((operation, index) => ({
-      operation,
-      index,
-      score: operationContractLookupSuggestionScore(value, lookupValueForOperation(kind, operation))
-    }))
+function operationContractLookupSuggestions(
+  kind: OperationContractLookupKind,
+  value: string
+): OperationContractLookupSuggestion[] {
+  return OPERATION_CONTRACTS.map((operation, index) => ({
+    operation,
+    index,
+    score: operationContractLookupSuggestionScore(value, lookupValueForOperation(kind, operation))
+  }))
     .sort((left, right) => left.score - right.score || left.index - right.index)
     .slice(0, 3)
     .map(({ operation }) => operationContractLookupSuggestion(kind, operation));
@@ -522,7 +530,10 @@ function lookupValueForOperation(kind: OperationContractLookupKind, operation: O
   return operation.operation;
 }
 
-function operationContractLookupSuggestion(kind: OperationContractLookupKind, operation: OperationContract): OperationContractLookupSuggestion {
+function operationContractLookupSuggestion(
+  kind: OperationContractLookupKind,
+  operation: OperationContract
+): OperationContractLookupSuggestion {
   const value = lookupValueForOperation(kind, operation);
   return {
     value,
@@ -532,7 +543,10 @@ function operationContractLookupSuggestion(kind: OperationContractLookupKind, op
   };
 }
 
-function operationContractLookupSuggestionRetry(kind: OperationContractLookupKind, value: string): OperationContractLookupSuggestion["retry_with"] {
+function operationContractLookupSuggestionRetry(
+  kind: OperationContractLookupKind,
+  value: string
+): OperationContractLookupSuggestion["retry_with"] {
   if (kind === "mcp_tool") {
     return {
       package_helper: `getOperationContractByMcpTool('${value}')`,
@@ -570,7 +584,8 @@ function operationContractLookupSuggestionScore(query: string, candidate: string
   const comparableCandidate = comparableLookupValue(candidate);
   let score = Math.min(
     levenshteinDistance(normalizedQuery, normalizedCandidate),
-    levenshteinDistance(comparableQuery, comparableCandidate) + tokenLookupDistance(comparableQuery, comparableCandidate)
+    levenshteinDistance(comparableQuery, comparableCandidate) +
+      tokenLookupDistance(comparableQuery, comparableCandidate)
   );
   if (normalizedCandidate.startsWith(normalizedQuery) || normalizedQuery.startsWith(normalizedCandidate)) {
     score -= 8;
@@ -599,13 +614,16 @@ function comparableLookupValue(value: string): string {
 function tokenLookupDistance(query: string, candidate: string): number {
   const queryTokens = query.split(/[\s_-]+/u).filter(Boolean);
   const candidateTokens = candidate.split(/[\s_-]+/u).filter(Boolean);
-  return queryTokens.reduce((total, queryToken) => {
-    const bestTokenDistance = candidateTokens.reduce(
-      (best, candidateToken) => Math.min(best, levenshteinDistance(queryToken, candidateToken)),
-      Number.POSITIVE_INFINITY
-    );
-    return total + (Number.isFinite(bestTokenDistance) ? bestTokenDistance : queryToken.length);
-  }, Math.max(0, candidateTokens.length - queryTokens.length));
+  return queryTokens.reduce(
+    (total, queryToken) => {
+      const bestTokenDistance = candidateTokens.reduce(
+        (best, candidateToken) => Math.min(best, levenshteinDistance(queryToken, candidateToken)),
+        Number.POSITIVE_INFINITY
+      );
+      return total + (Number.isFinite(bestTokenDistance) ? bestTokenDistance : queryToken.length);
+    },
+    Math.max(0, candidateTokens.length - queryTokens.length)
+  );
 }
 
 function levenshteinDistance(left: string, right: string): number {
@@ -625,7 +643,9 @@ function levenshteinDistance(left: string, right: string): number {
   return distances[left.length][right.length];
 }
 
-function operationContractLookupConflictRecoveryHint(provided: OperationContractLookupOption[]): OperationContractLookupConflictRecoveryHint {
+function operationContractLookupConflictRecoveryHint(
+  provided: OperationContractLookupOption[]
+): OperationContractLookupConflictRecoveryHint {
   return {
     rejected_lookup: {
       kind: "multiple_lookup_options",
@@ -674,14 +694,17 @@ function operationContractLookupConflictRecoveryHint(provided: OperationContract
 }
 
 const OPERATION_LOCAL_SELECTION_SOURCES = Object.fromEntries(
-  Object.entries(OPERATION_CONTRACTS_SELECTION_SOURCES).filter(([key]) => ![
-    "category",
-    "category_operation",
-    "mcp_tool_operation",
-    "cli_command_operation",
-    "required_input_path_by_value_path",
-    "ordered_operation"
-  ].includes(key))
+  Object.entries(OPERATION_CONTRACTS_SELECTION_SOURCES).filter(
+    ([key]) =>
+      ![
+        "category",
+        "category_operation",
+        "mcp_tool_operation",
+        "cli_command_operation",
+        "required_input_path_by_value_path",
+        "ordered_operation"
+      ].includes(key)
+  )
 ) as Omit<typeof OPERATION_CONTRACTS_SELECTION_SOURCES, "required_input_path_by_value_path">;
 
 function userInputSources(fields: readonly string[]): Record<string, string> | undefined {
@@ -725,24 +748,29 @@ function operationRequiredFieldsByName(input: OperationContractInput): Record<st
 }
 
 function operationArgumentsByName(input: OperationContractInput): Record<string, OperationArgumentMetadata> {
-  return Object.fromEntries(Object.entries(input.arguments_by_name ?? {}).map(([name, metadata]) => [
-    name,
-    { ...metadata, name }
-  ]));
+  return Object.fromEntries(
+    Object.entries(input.arguments_by_name ?? {}).map(([name, metadata]) => [name, { ...metadata, name }])
+  );
 }
 
 function requiredInputSelectionSources(selectionSources: Record<string, string>): Record<string, string> | undefined {
-  const sources = Object.fromEntries(Object.entries(selectionSources).filter(([key]) =>
-    key === "required_input" || key === "required_input_argument_path"
-  ));
+  const sources = Object.fromEntries(
+    Object.entries(selectionSources).filter(
+      ([key]) => key === "required_input" || key === "required_input_argument_path"
+    )
+  );
   return Object.keys(sources).length > 0 ? sources : undefined;
 }
 
 function cliPlaceholders(argv: readonly string[]): string[] {
-  return Array.from(new Set(argv.flatMap((arg) => {
-    const match = /^<([^<>]+)>$/.exec(arg);
-    return match ? [match[1]!] : [];
-  })));
+  return Array.from(
+    new Set(
+      argv.flatMap((arg) => {
+        const match = /^<([^<>]+)>$/.exec(arg);
+        return match ? [match[1]!] : [];
+      })
+    )
+  );
 }
 
 function operationContract(input: OperationContractInput): OperationContract {
@@ -1114,7 +1142,8 @@ export const OPERATION_CONTRACTS = [
   operationContract({
     operation: "agent_start",
     category: "lifecycle",
-    summary: "Resolve project context, pull sync when appropriate, boot context, refresh changes, and return next actions.",
+    summary:
+      "Resolve project context, pull sync when appropriate, boot context, refresh changes, and return next actions.",
     safe_to_run: true,
     required_when: "After project context is known, or when following agent_enter/agent_guide startup actions.",
     required_fields: [],
@@ -1129,7 +1158,8 @@ export const OPERATION_CONTRACTS = [
     category: "lifecycle",
     summary: "Write an in-progress project status checkpoint for handoff and coordination.",
     safe_to_run: false,
-    required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
+    required_when:
+      "During meaningful long-running work, before interruption, or when another agent may need coordination.",
     required_fields: ["status"],
     argument_sources: userInputSources(["status"]),
     arguments_by_name: {
@@ -1156,11 +1186,28 @@ export const OPERATION_CONTRACTS = [
     argument_sources: userInputSources(["proposals"]),
     arguments_by_name: {
       ...projectContextArguments,
-      proposals: { type: "object", required: true, cli: { flag: "--proposal-json", repeatable: true }, mcp: { argument: "proposals" } },
-      include_private: { type: "boolean", required: false, default: false, cli: { flag: "--include-private" }, mcp: { argument: "include_private" } },
+      proposals: {
+        type: "object",
+        required: true,
+        cli: { flag: "--proposal-json", repeatable: true },
+        mcp: { argument: "proposals" }
+      },
+      include_private: {
+        type: "boolean",
+        required: false,
+        default: false,
+        cli: { flag: "--include-private" },
+        mcp: { argument: "include_private" }
+      },
       source: { type: "object", required: false, mcp: { argument: "source" } }
     },
-    interfaces: { cli: { command: "moryn consolidate semantic --proposal-json <proposal>", argv: ["consolidate", "semantic", "--proposal-json", "<proposal>"] }, mcp: { tool: "consolidate_semantic", arguments: { proposals: ["<proposal>"] } } }
+    interfaces: {
+      cli: {
+        command: "moryn consolidate semantic --proposal-json <proposal>",
+        argv: ["consolidate", "semantic", "--proposal-json", "<proposal>"]
+      },
+      mcp: { tool: "consolidate_semantic", arguments: { proposals: ["<proposal>"] } }
+    }
   }),
   operationContract({
     operation: "checkpoint",
@@ -1213,7 +1260,10 @@ export const OPERATION_CONTRACTS = [
       }
     },
     interfaces: {
-      cli: { command: "moryn agent checkpoint --occurred-at <occurred_at> --delta <json>", argv: ["agent", "checkpoint", "--occurred-at", "<occurred_at>", "--delta", "<json>"] },
+      cli: {
+        command: "moryn agent checkpoint --occurred-at <occurred_at> --delta <json>",
+        argv: ["agent", "checkpoint", "--occurred-at", "<occurred_at>", "--delta", "<json>"]
+      },
       mcp: { tool: "checkpoint", arguments: { occurred_at: "<occurred_at>", delta: "<json>" } }
     }
   }),
@@ -1229,20 +1279,78 @@ export const OPERATION_CONTRACTS = [
       ...projectContextArguments,
       question: { type: "string", required: true, cli: { flag: "--question" }, mcp: { argument: "question" } },
       conclusion: { type: "string", required: true, cli: { flag: "--conclusion" }, mcp: { argument: "conclusion" } },
-      evidence_type: { type: "string", required: true, cli: { flag: "--evidence-type" }, mcp: { argument: "evidence_type" } },
-      scope: { type: "string", required: false, default: "project", cli: { flag: "--scope", default: "project" }, mcp: { argument: "scope" } },
-      confidence: { type: "number", required: false, default: 0.8, cli: { flag: "--confidence", default: 0.8 }, mcp: { argument: "confidence" } },
-      valid_until: { type: "string", required: false, cli: { flag: "--valid-until" }, mcp: { argument: "valid_until" } },
-      recommended_kind: { type: "string", required: false, default: "memory", cli: { flag: "--recommended-kind", default: "memory" }, mcp: { argument: "recommended_kind" } },
-      recommended_type: { type: "string", required: false, default: "fact", cli: { flag: "--recommended-type", default: "fact" }, mcp: { argument: "recommended_type" } },
-      related_record_ids: { type: "string", required: false, cli: { flag: "--related-record-id", repeatable: true }, mcp: { argument: "related_record_ids" } },
-      current_task: { type: "string", required: false, cli: { flag: "--current-task" }, mcp: { argument: "current_task" } },
+      evidence_type: {
+        type: "string",
+        required: true,
+        cli: { flag: "--evidence-type" },
+        mcp: { argument: "evidence_type" }
+      },
+      scope: {
+        type: "string",
+        required: false,
+        default: "project",
+        cli: { flag: "--scope", default: "project" },
+        mcp: { argument: "scope" }
+      },
+      confidence: {
+        type: "number",
+        required: false,
+        default: 0.8,
+        cli: { flag: "--confidence", default: 0.8 },
+        mcp: { argument: "confidence" }
+      },
+      valid_until: {
+        type: "string",
+        required: false,
+        cli: { flag: "--valid-until" },
+        mcp: { argument: "valid_until" }
+      },
+      recommended_kind: {
+        type: "string",
+        required: false,
+        default: "memory",
+        cli: { flag: "--recommended-kind", default: "memory" },
+        mcp: { argument: "recommended_kind" }
+      },
+      recommended_type: {
+        type: "string",
+        required: false,
+        default: "fact",
+        cli: { flag: "--recommended-type", default: "fact" },
+        mcp: { argument: "recommended_type" }
+      },
+      related_record_ids: {
+        type: "string",
+        required: false,
+        cli: { flag: "--related-record-id", repeatable: true },
+        mcp: { argument: "related_record_ids" }
+      },
+      current_task: {
+        type: "string",
+        required: false,
+        cli: { flag: "--current-task" },
+        mcp: { argument: "current_task" }
+      },
       ...checkpointSourceArguments,
       occurred_at: { type: "string", required: false, cli: { flag: "--occurred-at" }, mcp: { argument: "occurred_at" } }
     },
     interfaces: {
-      cli: { command: "moryn learn --question <question> --conclusion <conclusion> --evidence-type <evidence_type>", argv: ["learn", "--question", "<question>", "--conclusion", "<conclusion>", "--evidence-type", "<evidence_type>"] },
-      mcp: { tool: "learn", arguments: { question: "<question>", conclusion: "<conclusion>", evidence_type: "<evidence_type>" } }
+      cli: {
+        command: "moryn learn --question <question> --conclusion <conclusion> --evidence-type <evidence_type>",
+        argv: [
+          "learn",
+          "--question",
+          "<question>",
+          "--conclusion",
+          "<conclusion>",
+          "--evidence-type",
+          "<evidence_type>"
+        ]
+      },
+      mcp: {
+        tool: "learn",
+        arguments: { question: "<question>", conclusion: "<conclusion>", evidence_type: "<evidence_type>" }
+      }
     }
   }),
   operationContract({
@@ -1266,7 +1374,12 @@ export const OPERATION_CONTRACTS = [
         cli: { flag: "--learning", repeatable: true },
         mcp: { argument: "learnings" }
       },
-      semantic_consolidation_proposals: { type: "object", required: false, cli: { flag: "--semantic-consolidation-proposal", repeatable: true }, mcp: { argument: "semantic_consolidation_proposals" } },
+      semantic_consolidation_proposals: {
+        type: "object",
+        required: false,
+        cli: { flag: "--semantic-consolidation-proposal", repeatable: true },
+        mcp: { argument: "semantic_consolidation_proposals" }
+      },
       ...publishSessionArguments
     },
     interfaces: {
@@ -1277,7 +1390,8 @@ export const OPERATION_CONTRACTS = [
   operationContract({
     operation: "context_pack",
     category: "lifecycle",
-    summary: "Build a host-normalized startup context pack with Handoff Pack v0.2, read-only quality gate, boot, refresh, raw handoff evidence, and a required capture next action.",
+    summary:
+      "Build a host-normalized startup context pack with Handoff Pack v0.2, read-only quality gate, boot, refresh, raw handoff evidence, and a required capture next action.",
     safe_to_run: true,
     required_when: "At the start of a host session when an agent wants the simplest Moryn entrypoint.",
     required_fields: [],
@@ -1290,14 +1404,19 @@ export const OPERATION_CONTRACTS = [
   operationContract({
     operation: "capture_session",
     category: "lifecycle",
-    summary: "Capture a host-normalized session handoff summary, evaluate default_autocapture_policy, and keep canonical promotion under user control.",
+    summary:
+      "Capture a host-normalized session handoff summary, evaluate default_autocapture_policy, and keep canonical promotion under user control.",
     safe_to_run: false,
-    required_when: "Before ending a host session or handing work to another agent/device; policy may auto-capture low-risk handoffs, route risky handoffs to Capture Inbox, or archive obvious noise.",
+    required_when:
+      "Before ending a host session or handing work to another agent/device; policy may auto-capture low-risk handoffs, route risky handoffs to Capture Inbox, or archive obvious noise.",
     required_fields: ["summary"],
     argument_sources: userInputSources(["summary"]),
     arguments_by_name: captureSessionArguments,
     interfaces: {
-      cli: { command: "moryn capture session --summary <summary>", argv: ["capture", "session", "--summary", "<summary>"] },
+      cli: {
+        command: "moryn capture session --summary <summary>",
+        argv: ["capture", "session", "--summary", "<summary>"]
+      },
       mcp: { tool: "capture_session", arguments: { summary: "<summary>" } }
     }
   }),
@@ -1397,7 +1516,8 @@ export const OPERATION_CONTRACTS = [
     category: "setup",
     summary: "Diagnose local Moryn readiness and optionally apply safe local setup in one audited plan.",
     safe_to_run: false,
-    required_when: "When a user or agent wants one setup entrypoint instead of choosing init, project init, install, and context commands manually.",
+    required_when:
+      "When a user or agent wants one setup entrypoint instead of choosing init, project init, install, and context commands manually.",
     required_fields: [],
     arguments_by_name: setupArguments,
     interfaces: {
@@ -1507,7 +1627,8 @@ export const OPERATION_CONTRACTS = [
     category: "maintenance",
     summary: "Move records from one project id to another by appending auditable revision events.",
     safe_to_run: false,
-    required_when: "After memory_doctor or project_list reveals split project identity and the user has chosen the canonical project id.",
+    required_when:
+      "After memory_doctor or project_list reveals split project identity and the user has chosen the canonical project id.",
     required_fields: ["from_project_id", "to_project_id"],
     argument_sources: userInputSources(["from_project_id", "to_project_id"]),
     arguments_by_name: {
@@ -1674,7 +1795,8 @@ export const OPERATION_CONTRACTS = [
     category: "core",
     summary: "Return chronological event context around a record, event, or query anchor.",
     safe_to_run: true,
-    required_when: "When recall returns an isolated record and the agent needs nearby events or the record's recent mutation context.",
+    required_when:
+      "When recall returns an isolated record and the agent needs nearby events or the record's recent mutation context.",
     required_fields: [],
     arguments_by_name: {
       record_id: {
@@ -1927,7 +2049,10 @@ export const OPERATION_CONTRACTS = [
       ...sourceIdentityArguments
     },
     interfaces: {
-      cli: { command: "moryn revise <record_id> --set <path=value>", argv: ["revise", "<record_id>", "--set", "<path=value>"] },
+      cli: {
+        command: "moryn revise <record_id> --set <path=value>",
+        argv: ["revise", "<record_id>", "--set", "<path=value>"]
+      },
       mcp: { tool: "revise", arguments: { record_id: "<record_id>", patch: { "<path>": "<value>" } } }
     }
   }),
@@ -1982,7 +2107,10 @@ export const OPERATION_CONTRACTS = [
       }
     },
     interfaces: {
-      cli: { command: "moryn promote <record_id> --state <state>", argv: ["promote", "<record_id>", "--state", "<state>"] },
+      cli: {
+        command: "moryn promote <record_id> --state <state>",
+        argv: ["promote", "<record_id>", "--state", "<state>"]
+      },
       mcp: { tool: "promote", arguments: { record_id: "<record_id>", target_state: "<state>" } }
     }
   }),
@@ -2091,7 +2219,10 @@ export const OPERATION_CONTRACTS = [
         command: "moryn link <record_id> <linked_record_id> --type <type>",
         argv: ["link", "<record_id>", "<linked_record_id>", "--type", "<type>"]
       },
-      mcp: { tool: "link", arguments: { record_id: "<record_id>", linked_record_id: "<linked_record_id>", link_type: "<type>" } }
+      mcp: {
+        tool: "link",
+        arguments: { record_id: "<record_id>", linked_record_id: "<linked_record_id>", link_type: "<type>" }
+      }
     }
   }),
   operationContract({
@@ -2119,9 +2250,11 @@ export const OPERATION_CONTRACTS = [
   operationContract({
     operation: "memory_doctor",
     category: "core",
-    summary: "Read-only memory health check that surfaces candidate backlog, promotable records, marker noise, and project-id splits.",
+    summary:
+      "Read-only memory health check that surfaces candidate backlog, promotable records, marker noise, and project-id splits.",
     safe_to_run: true,
-    required_when: "When an agent or user wants to audit memory quality before promoting, archiving, or repairing project identity.",
+    required_when:
+      "When an agent or user wants to audit memory quality before promoting, archiving, or repairing project identity.",
     required_fields: [],
     arguments_by_name: {
       ...projectContextArguments,
@@ -2142,9 +2275,11 @@ export const OPERATION_CONTRACTS = [
   operationContract({
     operation: "memory_lifecycle",
     category: "core",
-    summary: "Read-only memory lifecycle report that classifies retained, stale, and archive-candidate records with auditable follow-up actions.",
+    summary:
+      "Read-only memory lifecycle report that classifies retained, stale, and archive-candidate records with auditable follow-up actions.",
     safe_to_run: true,
-    required_when: "When memory has accumulated and an agent or user needs to decide what to retain, inspect, or archive without mutating records.",
+    required_when:
+      "When memory has accumulated and an agent or user needs to decide what to retain, inspect, or archive without mutating records.",
     required_fields: [],
     arguments_by_name: {
       ...projectContextArguments,
@@ -2171,9 +2306,11 @@ export const OPERATION_CONTRACTS = [
   operationContract({
     operation: "capture_policy",
     category: "core",
-    summary: "Read-only Capture Policy Audit that explains autocapture capture, review, and archive decisions with rule evidence.",
+    summary:
+      "Read-only Capture Policy Audit that explains autocapture capture, review, and archive decisions with rule evidence.",
     safe_to_run: true,
-    required_when: "When an agent or user needs to inspect why autocaptured handoffs were auto-captured, entered Capture Inbox, or were policy-archived before review.",
+    required_when:
+      "When an agent or user needs to inspect why autocaptured handoffs were auto-captured, entered Capture Inbox, or were policy-archived before review.",
     required_fields: [],
     arguments_by_name: {
       ...projectContextArguments,
@@ -2194,9 +2331,11 @@ export const OPERATION_CONTRACTS = [
   operationContract({
     operation: "dogfood_report",
     category: "core",
-    summary: "Read-only dogfood report that surfaces capture-review backlog, duplicate handoffs, and failure or timeout signals from the local store.",
+    summary:
+      "Read-only dogfood report that surfaces capture-review backlog, duplicate handoffs, and failure or timeout signals from the local store.",
     safe_to_run: true,
-    required_when: "When improving Moryn itself or auditing friction from recent local agent work before adding automation.",
+    required_when:
+      "When improving Moryn itself or auditing friction from recent local agent work before adding automation.",
     required_fields: [],
     arguments_by_name: {
       ...projectContextArguments,
@@ -2223,25 +2362,40 @@ export const OPERATION_CONTRACTS = [
     required_fields: ["host"],
     argument_sources: userInputSources(["host"]),
     arguments_by_name: { ...projectContextArguments, host: installArguments.host },
-    interfaces: { cli: { command: "moryn activation status --host <host> --project <path>", argv: ["activation", "status", "--host", "<host>", "--project", "<path>"] }, mcp: { tool: "activation_status", arguments: { host: "<host>" } } }
+    interfaces: {
+      cli: {
+        command: "moryn activation status --host <host> --project <path>",
+        argv: ["activation", "status", "--host", "<host>", "--project", "<path>"]
+      },
+      mcp: { tool: "activation_status", arguments: { host: "<host>" } }
+    }
   }),
   operationContract({
     operation: "activation_apply",
     category: "lifecycle",
     summary: "Generate and safely activate Moryn-owned Claude Code or Codex lifecycle hooks.",
     safe_to_run: false,
-    required_when: "When Claude or Codex activation diagnosis says the local project hook configuration is safely repairable.",
+    required_when:
+      "When Claude or Codex activation diagnosis says the local project hook configuration is safely repairable.",
     required_fields: ["host"],
     argument_sources: userInputSources(["host"]),
     arguments_by_name: { ...projectContextArguments, host: installArguments.host },
-    interfaces: { cli: { command: "moryn activation apply --host <claude|codex> --project <path>", argv: ["activation", "apply", "--host", "<claude|codex>", "--project", "<path>"] }, mcp: { tool: "activation_apply", arguments: { host: "<claude|codex>" } } }
+    interfaces: {
+      cli: {
+        command: "moryn activation apply --host <claude|codex> --project <path>",
+        argv: ["activation", "apply", "--host", "<claude|codex>", "--project", "<path>"]
+      },
+      mcp: { tool: "activation_apply", arguments: { host: "<claude|codex>" } }
+    }
   }),
   operationContract({
     operation: "health_check",
     category: "core",
-    summary: "Read-only installation and store health check for setup trust, project readiness, privacy boundary, and capture review backlog.",
+    summary:
+      "Read-only installation and store health check for setup trust, project readiness, privacy boundary, and capture review backlog.",
     safe_to_run: true,
-    required_when: "After install, before dogfooding a new host, or whenever a user needs one compact readiness report without mutating memory.",
+    required_when:
+      "After install, before dogfooding a new host, or whenever a user needs one compact readiness report without mutating memory.",
     required_fields: [],
     arguments_by_name: {
       ...projectContextArguments,
@@ -2264,9 +2418,11 @@ export const OPERATION_CONTRACTS = [
   operationContract({
     operation: "recall_eval",
     category: "core",
-    summary: "Read-only recall quality eval for golden queries, expected record ids, privacy checks, ranking reasons, and follow-up actions.",
+    summary:
+      "Read-only recall quality eval for golden queries, expected record ids, privacy checks, ranking reasons, and follow-up actions.",
     safe_to_run: true,
-    required_when: "When recall quality needs measurable evidence from golden queries before changing memory, ranking, or release readiness.",
+    required_when:
+      "When recall quality needs measurable evidence from golden queries before changing memory, ranking, or release readiness.",
     required_fields: ["cases"],
     arguments_by_name: {
       cases: {
@@ -2394,7 +2550,8 @@ export const OPERATION_CONTRACTS = [
     category: "observability",
     summary: "Generate or serve a local HTML dashboard showing sync state, records, events, and agent activity.",
     safe_to_run: true,
-    required_when: "When the user or agent needs to inspect what Moryn has synced or recently stored; use --serve for live browser monitoring.",
+    required_when:
+      "When the user or agent needs to inspect what Moryn has synced or recently stored; use --serve for live browser monitoring.",
     required_fields: [],
     arguments_by_name: dashboardArguments,
     interfaces: {
@@ -2439,7 +2596,10 @@ export function operationCliArgvByTool(tool: string): readonly string[] {
   return OPERATION_CONTRACTS_BY_TOOL[tool]?.interfaces.cli.argv ?? tool.split("_");
 }
 
-function singleOperationContractResponse(contract: OperationContract, matchedSource: string): SingleOperationContractResponse {
+function singleOperationContractResponse(
+  contract: OperationContract,
+  matchedSource: string
+): SingleOperationContractResponse {
   return {
     operation: contract,
     operation_source: `operations_by_id.${contract.operation}`,
@@ -2448,7 +2608,10 @@ function singleOperationContractResponse(contract: OperationContract, matchedSou
   };
 }
 
-function operationContractLookup(operation: string, options: { includeExecFile?: boolean } = {}): OperationContractIndexEntry["full_contract_lookup"] {
+function operationContractLookup(
+  operation: string,
+  options: { includeExecFile?: boolean } = {}
+): OperationContractIndexEntry["full_contract_lookup"] {
   const args = ["contracts", "operations", "--operation", operation];
   return {
     package_helper: `getOperationContract('${operation}')`,
@@ -2456,10 +2619,14 @@ function operationContractLookup(operation: string, options: { includeExecFile?:
       command: commandLineForCliInterface("moryn", args),
       executable: "moryn",
       args,
-      ...(options.includeExecFile ? { exec_file: {
-        executable: "moryn",
-        args
-      } } : {})
+      ...(options.includeExecFile
+        ? {
+            exec_file: {
+              executable: "moryn",
+              args
+            }
+          }
+        : {})
     },
     mcp: {
       tool: "operation_contracts",
@@ -2470,7 +2637,8 @@ function operationContractLookup(operation: string, options: { includeExecFile?:
 
 function operationContractIndexEntry(operation: OperationContract): OperationContractIndexEntry {
   const includeDetailedInputHint = !operation.safe_to_run || operation.safety.requires_user_confirmation;
-  const includeExecutionHint = includeDetailedInputHint && (operation.execution.required_inputs.length > 0 || !operation.execution.ready_to_run);
+  const includeExecutionHint =
+    includeDetailedInputHint && (operation.execution.required_inputs.length > 0 || !operation.execution.ready_to_run);
   return {
     operation: operation.operation,
     operation_source: `operations_by_id.${operation.operation}`,
@@ -2482,21 +2650,29 @@ function operationContractIndexEntry(operation: OperationContract): OperationCon
     cli_command: operation.interfaces.cli.command,
     required_fields: operation.required_fields,
     missing_required_fields: operation.execution.missing_required_fields,
-    ...(includeDetailedInputHint && operation.execution.required_inputs.length > 0 ? { summary: operation.summary } : {}),
-    ...(includeExecutionHint ? { execution_hint: {
-      guard: "execution.ready_to_run",
-      ready_to_run: operation.execution.ready_to_run,
-      next_step: operation.execution.next_step,
-      required_fields: operation.required_fields,
-      missing_required_fields: operation.execution.missing_required_fields,
-      ...(operation.execution.required_inputs.length > 0 ? {
-        required_input_sources: {
-          by_field: "execution.required_inputs_by_field.<field>",
-          by_argument_path: "execution.required_inputs_by_argument_path.<argument_path>",
-          by_value_path: "execution.required_input_paths_by_value_path.<value_path>"
+    ...(includeDetailedInputHint && operation.execution.required_inputs.length > 0
+      ? { summary: operation.summary }
+      : {}),
+    ...(includeExecutionHint
+      ? {
+          execution_hint: {
+            guard: "execution.ready_to_run",
+            ready_to_run: operation.execution.ready_to_run,
+            next_step: operation.execution.next_step,
+            required_fields: operation.required_fields,
+            missing_required_fields: operation.execution.missing_required_fields,
+            ...(operation.execution.required_inputs.length > 0
+              ? {
+                  required_input_sources: {
+                    by_field: "execution.required_inputs_by_field.<field>",
+                    by_argument_path: "execution.required_inputs_by_argument_path.<argument_path>",
+                    by_value_path: "execution.required_input_paths_by_value_path.<value_path>"
+                  }
+                }
+              : {})
+          }
         }
-      } : {})
-    } } : {}),
+      : {}),
     full_contract_lookup: operationContractLookup(operation.operation, {
       includeExecFile: operation.operation === "agent_finish"
     })
@@ -2513,7 +2689,12 @@ function operationsByCliCommandId(operations: readonly OperationContract[]): Rec
 
 export function getOperationContractIndex(): OperationContractIndexResponse {
   const operationEntries = OPERATION_CONTRACTS.map(operationContractIndexEntry);
-  const operations = operationEntries.map(({ operation, mcp_tool, cli_command, next_step }) => ({ operation, mcp_tool, cli_command, next_step }));
+  const operations = operationEntries.map(({ operation, mcp_tool, cli_command, next_step }) => ({
+    operation,
+    mcp_tool,
+    cli_command,
+    next_step
+  }));
   return {
     recommended_entrypoint: "agent_enter",
     index_use: "Use an operation id, MCP tool, or CLI command from this compact index to fetch one operation contract.",
@@ -2581,11 +2762,9 @@ function operationContractReference(operation: OperationContract): OperationCont
   };
 }
 
-function operationContractReferences(operations: readonly OperationContract[]): OperationContractReference[] {
-  return operations.map(operationContractReference);
-}
-
-function operationsByCategory(operations: readonly OperationContract[]): Record<string, Record<string, OperationContractReference>> {
+function operationsByCategory(
+  operations: readonly OperationContract[]
+): Record<string, Record<string, OperationContractReference>> {
   const categories: Record<string, Record<string, OperationContractReference>> = {};
   for (const operation of operations) {
     categories[operation.category] ??= {};
@@ -2595,11 +2774,15 @@ function operationsByCategory(operations: readonly OperationContract[]): Record<
 }
 
 function operationsByMcpTool(operations: readonly OperationContract[]): Record<string, OperationContractReference> {
-  return Object.fromEntries(operations.map((operation) => [operation.interfaces.mcp.tool, operationContractReference(operation)]));
+  return Object.fromEntries(
+    operations.map((operation) => [operation.interfaces.mcp.tool, operationContractReference(operation)])
+  );
 }
 
 function operationsByCliCommand(operations: readonly OperationContract[]): Record<string, OperationContractReference> {
-  return Object.fromEntries(operations.map((operation) => [operation.interfaces.cli.command, operationContractReference(operation)]));
+  return Object.fromEntries(
+    operations.map((operation) => [operation.interfaces.cli.command, operationContractReference(operation)])
+  );
 }
 
 export function getOperationContracts() {

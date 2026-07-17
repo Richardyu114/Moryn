@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { learningStatePolicy } from "../../src/core/learning-policy.js";
 import type { LearningDelta } from "../../src/core/context-delta.js";
+import { learningStatePolicy } from "../../src/core/learning-policy.js";
 
 function learning(overrides: Partial<LearningDelta> = {}): LearningDelta {
   return {

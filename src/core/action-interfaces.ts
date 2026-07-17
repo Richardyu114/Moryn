@@ -1,7 +1,11 @@
-import { operationArgumentsByTool, operationCliArgvByTool, type OperationArgumentMetadata } from "../operation-contracts.js";
+import {
+  type OperationArgumentMetadata,
+  operationArgumentsByTool,
+  operationCliArgvByTool
+} from "../operation-contracts.js";
 import { commandLineForCliInterface } from "./cli-command-line.js";
 
-type ActionInterfaces<TArguments> = {
+type ActionInterfaces<_TArguments> = {
   cli: {
     command: string;
     command_line: string;
@@ -46,7 +50,7 @@ const RUNTIME_TOOL_ARGUMENTS: Record<string, OperationArgumentMetadata[]> = {
 
 function operationArgumentList(tool: string): OperationArgumentMetadata[] {
   const operationArguments = Object.values(operationArgumentsByTool(tool));
-  return operationArguments.length > 0 ? operationArguments : RUNTIME_TOOL_ARGUMENTS[tool] ?? [];
+  return operationArguments.length > 0 ? operationArguments : (RUNTIME_TOOL_ARGUMENTS[tool] ?? []);
 }
 
 function pathValue(root: Record<string, unknown>, path: string): unknown {
@@ -74,12 +78,14 @@ function setPathValue(root: Record<string, unknown>, path: string, value: unknow
 function hasScalarPathParent(root: Record<string, unknown>, path: string): boolean {
   const parentKey = path.split(".").at(0);
   const parentValue = parentKey ? root[parentKey] : undefined;
-  return parentValue !== undefined && (typeof parentValue !== "object" || parentValue === null || Array.isArray(parentValue));
+  return (
+    parentValue !== undefined && (typeof parentValue !== "object" || parentValue === null || Array.isArray(parentValue))
+  );
 }
 
 function clonePlainValue(value: unknown): unknown {
   if (Array.isArray(value)) return [...value];
-  if (typeof value === "object" && value !== null) return { ...value as Record<string, unknown> };
+  if (typeof value === "object" && value !== null) return { ...(value as Record<string, unknown>) };
   return value;
 }
 
@@ -99,11 +105,17 @@ function shouldSkipNestedCliArgument(
 ): boolean {
   if (!argument.parent_argument || !argument.cli || !argument.mcp?.path) return false;
   const parentArgument = operationArguments.find((candidate) => candidate.name === argument.parent_argument);
-  return Boolean(parentArgument?.cli && cliArgumentValue(argumentsByName, parentArgument, operationArguments) !== undefined);
+  return Boolean(
+    parentArgument?.cli && cliArgumentValue(argumentsByName, parentArgument, operationArguments) !== undefined
+  );
 }
 
-function cliArgumentValue(argumentsByName: Record<string, unknown>, argument: OperationArgumentMetadata, operationArguments: OperationArgumentMetadata[]): unknown {
-  return Boolean(argument.cli && argument.mcp && argument.mcp.argument === argument.name)
+function cliArgumentValue(
+  argumentsByName: Record<string, unknown>,
+  argument: OperationArgumentMetadata,
+  operationArguments: OperationArgumentMetadata[]
+): unknown {
+  return argument.cli && argument.mcp && argument.mcp.argument === argument.name
     ? parentObjectValueForArguments(argumentsByName, argument, operationArguments)
     : argumentValue(argumentsByName, argument);
 }
@@ -114,10 +126,15 @@ function parentObjectValueForArguments(
   operationArguments: OperationArgumentMetadata[]
 ): unknown {
   const parentValue = argumentValue(argumentsByName, argument);
-  if (parentValue !== undefined && (typeof parentValue !== "object" || parentValue === null || Array.isArray(parentValue))) return parentValue;
-  const mergedValue = typeof parentValue === "object" && parentValue !== null && !Array.isArray(parentValue)
-    ? { ...parentValue as Record<string, unknown> }
-    : {};
+  if (
+    parentValue !== undefined &&
+    (typeof parentValue !== "object" || parentValue === null || Array.isArray(parentValue))
+  )
+    return parentValue;
+  const mergedValue =
+    typeof parentValue === "object" && parentValue !== null && !Array.isArray(parentValue)
+      ? { ...(parentValue as Record<string, unknown>) }
+      : {};
   for (const childArgument of operationArguments) {
     if (childArgument.parent_argument !== argument.name || !childArgument.mcp?.path) continue;
     const key = childArgument.mcp.path.split(".").at(-1);
@@ -177,18 +194,24 @@ function cliArgvPrefix(tool: string): string[] {
 }
 
 function cliPlaceholders(argv: readonly string[]): string[] {
-  return Array.from(new Set(argv.flatMap((arg) => {
-    const match = /^<([^<>]+)>$/.exec(arg);
-    return match ? [match[1]!] : [];
-  })));
+  return Array.from(
+    new Set(
+      argv.flatMap((arg) => {
+        const match = /^<([^<>]+)>$/.exec(arg);
+        return match ? [match[1]!] : [];
+      })
+    )
+  );
 }
 
 export function mcpArgumentsForAction(tool: string, argumentsByName: Record<string, unknown>): Record<string, unknown> {
   const operationArguments = operationArgumentList(tool);
   if (operationArguments.length === 0) return argumentsByName;
-  const flattenedNestedArguments = new Set(operationArguments.flatMap((argument) => {
-    return argument.parent_argument && argument.mcp?.path ? [argument.name, argument.mcp.path] : [];
-  }));
+  const flattenedNestedArguments = new Set(
+    operationArguments.flatMap((argument) => {
+      return argument.parent_argument && argument.mcp?.path ? [argument.name, argument.mcp.path] : [];
+    })
+  );
   const normalizedArguments = Object.fromEntries(
     Object.entries(argumentsByName)
       .filter(([name]) => !flattenedNestedArguments.has(name))
@@ -217,9 +240,11 @@ export function cliArgvForAction(tool: string, argumentsByName: Record<string, u
       name: POSITIONAL_ALIASES[argument.cli?.positional ?? ""] ?? argument.cli?.positional ?? argument.name
     }))
     .sort((left, right) => {
-      return Object.prototype.hasOwnProperty.call(argumentsByName, left.name) === Object.prototype.hasOwnProperty.call(argumentsByName, right.name)
+      return Object.hasOwn(argumentsByName, left.name) === Object.hasOwn(argumentsByName, right.name)
         ? 0
-        : Object.prototype.hasOwnProperty.call(argumentsByName, left.name) ? -1 : 1;
+        : Object.hasOwn(argumentsByName, left.name)
+          ? -1
+          : 1;
     });
   const argv = cliArgvPrefix(tool);
   for (const { argument } of positionals) {

@@ -1,31 +1,53 @@
 import { access } from "node:fs/promises";
-import { createEngine } from "./engine.js";
-import { initializeStore, readStoreConfig } from "./config.js";
-import { resolveProjectContext, type ProjectContext, type SyncMode } from "./project.js";
-import { displayRecordText } from "./content-text.js";
-import type { MorynRecord, RecordSource } from "./types.js";
+import { type OperationArgumentMetadata, operationArgumentsByTool } from "../operation-contracts.js";
+import {
+  type GitSyncResult,
+  type GitSyncStatus,
+  getGitSyncStatus,
+  getPendingSyncEvidence,
+  initializeGitSync,
+  pullGitSync,
+  pushGitSync,
+  SYNC_STATUS_SELECTION_SOURCES
+} from "../sync/git.js";
+import { type ActionInterfaces, actionInterfaces } from "./action-interfaces.js";
+import { type ActionExecution, type ActionSafety, actionExecution, actionSafety } from "./action-safety.js";
 import type { RecoveryPack } from "./checkpoint.js";
 import { buildCheckpointRecoveryPack } from "./checkpoint.js";
-import { getGitSyncStatus, getPendingSyncEvidence, initializeGitSync, pullGitSync, pushGitSync, SYNC_STATUS_SELECTION_SOURCES, type GitSyncResult, type GitSyncStatus } from "../sync/git.js";
-import { toErrorEnvelope, type MorynErrorEnvelope } from "./errors.js";
-import { actionExecution, actionSafety, type ActionExecution, type ActionSafety } from "./action-safety.js";
-import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js";
-import { requiredFieldsByName, withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
-import { operationArgumentsByTool, type OperationArgumentMetadata } from "../operation-contracts.js";
-import { learningDeltaSchema, type LearningDeltaInput, type SemanticConsolidationProposalInput } from "./context-delta.js";
-import { normalizeHostId } from "./host-adapter-registry.js";
-import { knowledgeProtocolForHost, type KnowledgeProtocol } from "./knowledge-protocol.js";
-import { inspectHostActivation, type HostActivationStatus } from "./host-activation.js";
-import { writeHostIntegrationArtifact, type HostRuntimeDescriptor } from "./host-integration-artifacts.js";
 import { activateClaudeSettings } from "./claude-activation.js";
 import { activateCodexHooks } from "./codex-activation.js";
-import { synthesizeSession, type SessionSynthesis } from "./session-synthesis.js";
-import { assessSyncCompensation, writeSyncCompensationReceipt, type SyncCompensationAssessment } from "./sync-compensation.js";
+import { initializeStore, readStoreConfig } from "./config.js";
+import { displayRecordText } from "./content-text.js";
+import {
+  type LearningDeltaInput,
+  learningDeltaSchema,
+  type SemanticConsolidationProposalInput
+} from "./context-delta.js";
+import { createEngine } from "./engine.js";
+import { type MorynErrorEnvelope, toErrorEnvelope } from "./errors.js";
+import { type FinalizationAssuranceSelection, selectPriorSessionForFinalization } from "./finalization-assurance.js";
+import { type HostActivationStatus, inspectHostActivation } from "./host-activation.js";
+import { normalizeHostId } from "./host-adapter-registry.js";
+import { type HostRuntimeDescriptor, writeHostIntegrationArtifact } from "./host-integration-artifacts.js";
+import { type KnowledgeProtocol, knowledgeProtocolForHost } from "./knowledge-protocol.js";
 import { buildLearningCandidateReviewWorkflow, unresolvedLearningCandidates } from "./learning-candidate-review.js";
 import { consumeLearningInbox, learningInboxForLifecycle } from "./learning-inbox.js";
 import { learningRecordIdentity } from "./learning-ingestion.js";
+import { type ProjectContext, resolveProjectContext, type SyncMode } from "./project.js";
 import { readCurrentRecords } from "./record-read-model.js";
-import { selectPriorSessionForFinalization, type FinalizationAssuranceSelection } from "./finalization-assurance.js";
+import { type SessionSynthesis, synthesizeSession } from "./session-synthesis.js";
+import {
+  assessSyncCompensation,
+  type SyncCompensationAssessment,
+  writeSyncCompensationReceipt
+} from "./sync-compensation.js";
+import type { MorynRecord, RecordSource } from "./types.js";
+import {
+  type RequiredFieldMetadata,
+  requiredFieldsByName,
+  withPhasesByName,
+  withRequiredFieldsByName
+} from "./workflow.js";
 
 interface AgentIdentity {
   client: string;
@@ -80,15 +102,18 @@ export type AgentSyncCompensation = Omit<SyncCompensationAssessment, "decision">
   error_details?: MorynErrorEnvelope["error"];
 };
 
-export type FinalizationAssuranceReceipt = (FinalizationAssuranceSelection | {
-  status: "recovered";
-  prior_session: { host: string; session_id: string; device_id: string };
-  evidence_record_ids: string[];
-  recovery_key: string;
-  recovered_handoff_record_id: string;
-  learning_inbox: { selected: number; consumed: number; already_consumed: number; inbox_record_ids: string[] };
-  sync: unknown;
-}) & { selection_sources: typeof FINALIZATION_ASSURANCE_SELECTION_SOURCES };
+export type FinalizationAssuranceReceipt = (
+  | FinalizationAssuranceSelection
+  | {
+      status: "recovered";
+      prior_session: { host: string; session_id: string; device_id: string };
+      evidence_record_ids: string[];
+      recovery_key: string;
+      recovered_handoff_record_id: string;
+      learning_inbox: { selected: number; consumed: number; already_consumed: number; inbox_record_ids: string[] };
+      sync: unknown;
+    }
+) & { selection_sources: typeof FINALIZATION_ASSURANCE_SELECTION_SOURCES };
 
 export const FINALIZATION_ASSURANCE_SELECTION_SOURCES = {
   receipt: "finalization_assurance",
@@ -202,7 +227,14 @@ type LifecycleActionTemplate = {
   workflow?: Record<string, unknown>;
 };
 
-type LifecycleOperation = "agent_guide" | "agent_doctor" | "agent_enter" | "agent_start" | "agent_status" | "agent_finish" | "checkpoint";
+type LifecycleOperation =
+  | "agent_guide"
+  | "agent_doctor"
+  | "agent_enter"
+  | "agent_start"
+  | "agent_status"
+  | "agent_finish"
+  | "checkpoint";
 type AgentIdentityField = "client" | "session_id" | "model" | "device_id";
 
 const AGENT_IDENTITY_FIELDS = {
@@ -226,11 +258,14 @@ const AGENT_IDENTITY_FIELDS = {
     contractArgument: "agent_device_id",
     placeholder: "<agent device id>"
   }
-} as const satisfies Record<AgentIdentityField, {
-  argument: `agent.${string}`;
-  contractArgument: string;
-  placeholder: string;
-}>;
+} as const satisfies Record<
+  AgentIdentityField,
+  {
+    argument: `agent.${string}`;
+    contractArgument: string;
+    placeholder: string;
+  }
+>;
 
 class AgentIdentityError extends Error {
   readonly recommended_action: string;
@@ -239,14 +274,20 @@ class AgentIdentityError extends Error {
         operation_contract: `operations_by_id.${LifecycleOperation}`;
         rejected_argument: { argument: `agent.${string}`; value: unknown };
         expected: { kind: "non_empty_string"; min_length: 1 };
-        argument_sources: Record<`agent.${string}`, `operations_by_id.${LifecycleOperation}.arguments_by_name.${string}`>;
+        argument_sources: Record<
+          `agent.${string}`,
+          `operations_by_id.${LifecycleOperation}.arguments_by_name.${string}`
+        >;
         retry_with: { argument: `agent.${string}`; value_placeholder: string };
       }
     | {
         operation_contract: `operations_by_id.${LifecycleOperation}`;
         rejected_argument: { argument: `agent.${string}`; value: unknown };
         expected: { kind: "known_object_field"; allowed_fields: AgentIdentityField[] };
-        argument_sources: Record<`agent.${string}`, `operations_by_id.${LifecycleOperation}.arguments_by_name.${string}`>;
+        argument_sources: Record<
+          `agent.${string}`,
+          `operations_by_id.${LifecycleOperation}.arguments_by_name.${string}`
+        >;
         retry_with: { argument: `agent.${string}`; value_placeholder: string };
         do_not: ["send_unknown_agent_fields", "retry_with_same_unknown_field"];
       };
@@ -255,9 +296,10 @@ class AgentIdentityError extends Error {
     const metadata = AGENT_IDENTITY_FIELDS[field];
     super(`Invalid argument: Invalid ${metadata.argument}`);
     this.name = "AgentIdentityError";
-    this.recommended_action = field === "client"
-      ? "retry agent lifecycle with a valid agent client"
-      : "retry agent lifecycle with valid agent identity metadata";
+    this.recommended_action =
+      field === "client"
+        ? "retry agent lifecycle with a valid agent client"
+        : "retry agent lifecycle with valid agent identity metadata";
     this.recovery_hint = {
       operation_contract: `operations_by_id.${operation}`,
       rejected_argument: { argument: metadata.argument, value },
@@ -282,7 +324,10 @@ class AgentUnknownIdentityFieldError extends Error {
     this.recovery_hint = {
       operation_contract: `operations_by_id.${operation}`,
       rejected_argument: { argument: `agent.${field}`, value: agent[field] },
-      expected: { kind: "known_object_field", allowed_fields: Object.keys(AGENT_IDENTITY_FIELDS) as AgentIdentityField[] },
+      expected: {
+        kind: "known_object_field",
+        allowed_fields: Object.keys(AGENT_IDENTITY_FIELDS) as AgentIdentityField[]
+      },
       argument_sources: {
         [metadata.argument]: `operations_by_id.${operation}.arguments_by_name.${metadata.contractArgument}`
       },
@@ -294,12 +339,13 @@ class AgentUnknownIdentityFieldError extends Error {
 
 function closestAgentIdentityField(field: string): AgentIdentityField {
   const normalized = normalizeAgentIdentityFieldName(field);
-  return (Object.keys(AGENT_IDENTITY_FIELDS) as AgentIdentityField[])
-    .sort((left, right) => {
+  return (
+    (Object.keys(AGENT_IDENTITY_FIELDS) as AgentIdentityField[]).sort((left, right) => {
       const leftScore = agentIdentityFieldSuggestionScore(normalized, normalizeAgentIdentityFieldName(left));
       const rightScore = agentIdentityFieldSuggestionScore(normalized, normalizeAgentIdentityFieldName(right));
       return rightScore - leftScore || left.localeCompare(right);
-    })[0] ?? "client";
+    })[0] ?? "client"
+  );
 }
 
 function normalizeAgentIdentityFieldName(field: string): string {
@@ -318,9 +364,8 @@ function longestCommonSubsequenceLength(left: string, right: string): number {
   const current = Array(right.length + 1).fill(0) as number[];
   for (const leftCharacter of left) {
     for (let index = 0; index < right.length; index += 1) {
-      current[index + 1] = leftCharacter === right[index]
-        ? previous[index] + 1
-        : Math.max(previous[index + 1] ?? 0, current[index] ?? 0);
+      current[index + 1] =
+        leftCharacter === right[index] ? previous[index] + 1 : Math.max(previous[index + 1] ?? 0, current[index] ?? 0);
     }
     previous.splice(0, previous.length, ...current);
     current.fill(0);
@@ -334,7 +379,10 @@ class AgentLifecycleBooleanArgumentError extends Error {
     operation_contract: `operations_by_id.${LifecycleOperation}`;
     rejected_argument: { argument: "pull" | "push"; value: unknown };
     expected: { kind: "boolean" };
-    argument_sources: Record<"pull" | "push", `operations_by_id.${LifecycleOperation}.arguments_by_name.${"pull" | "push"}`>;
+    argument_sources: Record<
+      "pull" | "push",
+      `operations_by_id.${LifecycleOperation}.arguments_by_name.${"pull" | "push"}`
+    >;
     retry_with: { argument: "pull" | "push"; value_placeholder: true };
   };
 
@@ -360,7 +408,10 @@ class AgentLifecycleTextArgumentError extends Error {
     operation_contract: `operations_by_id.${"agent_status" | "agent_finish"}`;
     rejected_argument: { argument: "status" | "summary"; value: unknown };
     expected: { kind: "non_empty_string"; min_length: 1 };
-    argument_sources: Record<"status" | "summary", `operations_by_id.${"agent_status" | "agent_finish"}.arguments_by_name.${"status" | "summary"}`>;
+    argument_sources: Record<
+      "status" | "summary",
+      `operations_by_id.${"agent_status" | "agent_finish"}.arguments_by_name.${"status" | "summary"}`
+    >;
     retry_with: { argument: "status" | "summary"; value_placeholder: "<status>" | "<summary>" };
   };
 
@@ -374,7 +425,10 @@ class AgentLifecycleTextArgumentError extends Error {
       expected: { kind: "non_empty_string", min_length: 1 },
       argument_sources: {
         [argument]: `operations_by_id.${operation}.arguments_by_name.${argument}`
-      } as Record<"status" | "summary", `operations_by_id.${"agent_status" | "agent_finish"}.arguments_by_name.${"status" | "summary"}`>,
+      } as Record<
+        "status" | "summary",
+        `operations_by_id.${"agent_status" | "agent_finish"}.arguments_by_name.${"status" | "summary"}`
+      >,
       retry_with: { argument, value_placeholder: `<${argument}>` }
     };
   }
@@ -433,36 +487,82 @@ class AgentLifecycleSyncRemoteArgumentError extends Error {
 }
 
 type HandoffRecordIdArgumentSource =
-  "handoff.inbox_by_record_id.<record_id>.record_id"
+  | "handoff.inbox_by_record_id.<record_id>.record_id"
   | "handoff.active_sessions_by_record_id.<record_id>.record_id";
 
 export type HandoffEntrySelectionSources = {
   entry: "handoff.inbox_by_record_id.<record_id>" | "handoff.active_sessions_by_record_id.<record_id>";
   record_id: HandoffRecordIdArgumentSource;
-  next_action: "handoff.inbox_by_record_id.<record_id>.next_action" | "handoff.active_sessions_by_record_id.<record_id>.next_action";
+  next_action:
+    | "handoff.inbox_by_record_id.<record_id>.next_action"
+    | "handoff.active_sessions_by_record_id.<record_id>.next_action";
   ordered_next_action: "handoff.inbox[].next_action" | "handoff.active_sessions[].next_action";
-  cli_executable: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.executable" | "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.executable";
-  cli_argv: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.argv[]" | "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.argv[]";
-  cli_args: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.args[]" | "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.args[]";
-  cli_exec_file: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.exec_file" | "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.exec_file";
-  cli_placeholder: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.placeholders[]" | "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.placeholders[]";
-  cli_command_line: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.command_line" | "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.command_line";
-  ordered_cli_executable: "handoff.inbox[].next_action.interfaces.cli.executable" | "handoff.active_sessions[].next_action.interfaces.cli.executable";
-  ordered_cli_argv: "handoff.inbox[].next_action.interfaces.cli.argv[]" | "handoff.active_sessions[].next_action.interfaces.cli.argv[]";
-  ordered_cli_args: "handoff.inbox[].next_action.interfaces.cli.args[]" | "handoff.active_sessions[].next_action.interfaces.cli.args[]";
-  ordered_cli_exec_file: "handoff.inbox[].next_action.interfaces.cli.exec_file" | "handoff.active_sessions[].next_action.interfaces.cli.exec_file";
-  ordered_cli_placeholder: "handoff.inbox[].next_action.interfaces.cli.placeholders[]" | "handoff.active_sessions[].next_action.interfaces.cli.placeholders[]";
-  ordered_cli_command_line: "handoff.inbox[].next_action.interfaces.cli.command_line" | "handoff.active_sessions[].next_action.interfaces.cli.command_line";
-  argument: "handoff.inbox_by_record_id.<record_id>.next_action.arguments_by_name.<argument>" | "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>";
-  ordered_argument: "handoff.inbox[].next_action.arguments_by_name.<argument>" | "handoff.active_sessions[].next_action.arguments_by_name.<argument>";
-  required_field: "handoff.inbox_by_record_id.<record_id>.next_action.required_fields_by_name.<field>" | "handoff.active_sessions_by_record_id.<record_id>.next_action.required_fields_by_name.<field>";
-  ordered_required_field: "handoff.inbox[].next_action.required_fields_by_name.<field>" | "handoff.active_sessions[].next_action.required_fields_by_name.<field>";
-  required_input: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>" | "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>";
-  ordered_required_input: "handoff.inbox[].next_action.execution.required_inputs_by_field.<field>" | "handoff.active_sessions[].next_action.execution.required_inputs_by_field.<field>";
-  required_input_argument_path: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>" | "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>";
-  ordered_required_input_argument_path: "handoff.inbox[].next_action.execution.required_inputs_by_argument_path.<argument_path>" | "handoff.active_sessions[].next_action.execution.required_inputs_by_argument_path.<argument_path>";
-  argument_source: "handoff.inbox_by_record_id.<record_id>.next_action.argument_sources.<field>" | "handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>";
-  ordered_argument_source: "handoff.inbox[].next_action.argument_sources.<field>" | "handoff.active_sessions[].next_action.argument_sources.<field>";
+  cli_executable:
+    | "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.executable"
+    | "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.executable";
+  cli_argv:
+    | "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.argv[]"
+    | "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.argv[]";
+  cli_args:
+    | "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.args[]"
+    | "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.args[]";
+  cli_exec_file:
+    | "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.exec_file"
+    | "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.exec_file";
+  cli_placeholder:
+    | "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.placeholders[]"
+    | "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.placeholders[]";
+  cli_command_line:
+    | "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.command_line"
+    | "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.command_line";
+  ordered_cli_executable:
+    | "handoff.inbox[].next_action.interfaces.cli.executable"
+    | "handoff.active_sessions[].next_action.interfaces.cli.executable";
+  ordered_cli_argv:
+    | "handoff.inbox[].next_action.interfaces.cli.argv[]"
+    | "handoff.active_sessions[].next_action.interfaces.cli.argv[]";
+  ordered_cli_args:
+    | "handoff.inbox[].next_action.interfaces.cli.args[]"
+    | "handoff.active_sessions[].next_action.interfaces.cli.args[]";
+  ordered_cli_exec_file:
+    | "handoff.inbox[].next_action.interfaces.cli.exec_file"
+    | "handoff.active_sessions[].next_action.interfaces.cli.exec_file";
+  ordered_cli_placeholder:
+    | "handoff.inbox[].next_action.interfaces.cli.placeholders[]"
+    | "handoff.active_sessions[].next_action.interfaces.cli.placeholders[]";
+  ordered_cli_command_line:
+    | "handoff.inbox[].next_action.interfaces.cli.command_line"
+    | "handoff.active_sessions[].next_action.interfaces.cli.command_line";
+  argument:
+    | "handoff.inbox_by_record_id.<record_id>.next_action.arguments_by_name.<argument>"
+    | "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>";
+  ordered_argument:
+    | "handoff.inbox[].next_action.arguments_by_name.<argument>"
+    | "handoff.active_sessions[].next_action.arguments_by_name.<argument>";
+  required_field:
+    | "handoff.inbox_by_record_id.<record_id>.next_action.required_fields_by_name.<field>"
+    | "handoff.active_sessions_by_record_id.<record_id>.next_action.required_fields_by_name.<field>";
+  ordered_required_field:
+    | "handoff.inbox[].next_action.required_fields_by_name.<field>"
+    | "handoff.active_sessions[].next_action.required_fields_by_name.<field>";
+  required_input:
+    | "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>"
+    | "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>";
+  ordered_required_input:
+    | "handoff.inbox[].next_action.execution.required_inputs_by_field.<field>"
+    | "handoff.active_sessions[].next_action.execution.required_inputs_by_field.<field>";
+  required_input_argument_path:
+    | "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>"
+    | "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>";
+  ordered_required_input_argument_path:
+    | "handoff.inbox[].next_action.execution.required_inputs_by_argument_path.<argument_path>"
+    | "handoff.active_sessions[].next_action.execution.required_inputs_by_argument_path.<argument_path>";
+  argument_source:
+    | "handoff.inbox_by_record_id.<record_id>.next_action.argument_sources.<field>"
+    | "handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>";
+  ordered_argument_source:
+    | "handoff.inbox[].next_action.argument_sources.<field>"
+    | "handoff.active_sessions[].next_action.argument_sources.<field>";
 };
 
 type HandoffEntryNextAction = {
@@ -501,7 +601,9 @@ type HandoffEntryNextAction = {
     phases: Array<{
       phase: "call_recall_with_record_id";
       order: 1;
-      action_source: "handoff.inbox_by_record_id.<record_id>.next_action" | "handoff.active_sessions_by_record_id.<record_id>.next_action";
+      action_source:
+        | "handoff.inbox_by_record_id.<record_id>.next_action"
+        | "handoff.active_sessions_by_record_id.<record_id>.next_action";
       tool: "recall";
       required_when: string;
       required_fields: [];
@@ -518,13 +620,16 @@ export interface AgentGuideInput extends AgentLifecycleInput {}
 const ACTIVE_SESSION_TTL_MINUTES = 120;
 const ACTIVE_SESSION_TTL_MS = ACTIVE_SESSION_TTL_MINUTES * 60 * 1000;
 const START_OR_RESUME_WHEN = "At the start of an agent turn, or whenever store/project/sync context is uncertain.";
-const PUBLISH_STATUS_WHEN = "During meaningful long-running work, before interruption, or when another agent may need coordination.";
+const PUBLISH_STATUS_WHEN =
+  "During meaningful long-running work, before interruption, or when another agent may need coordination.";
 const FINISH_HANDOFF_WHEN = "At the end of meaningful work, before stopping, or before handing off to another agent.";
-const REFRESH_CONTEXT_WHEN = "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.";
+const REFRESH_CONTEXT_WHEN =
+  "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.";
 const START_NEXT_SESSION_WHEN = "When another agent or device should start the next session from this handoff.";
 const RECALL_HANDOFF_ENTRY_WHEN = "After reading this handoff entry and needing the full session record.";
 const LIST_PROJECTS_WHEN = "When the shared store has projects but this agent has no explicit project context.";
-const CHOOSE_DISCOVERED_PROJECT_ID_WHEN = "When agent_enter returns discover_projects mode, choose one returned project_id before calling agent_start.";
+const CHOOSE_DISCOVERED_PROJECT_ID_WHEN =
+  "When agent_enter returns discover_projects mode, choose one returned project_id before calling agent_start.";
 const CHOOSE_DISCOVERED_PROJECT_WHEN = "After choosing this project from discovery results.";
 export const DISCOVER_PROJECT_SELECTION_SOURCES = {
   project: "projects.projects_by_id.<project_id>",
@@ -545,7 +650,8 @@ export const DISCOVER_PROJECT_SELECTION_SOURCES = {
   start_action_argument: "next.actions_by_project_id.<project_id>.arguments_by_name.<argument>",
   start_action_required_field: "next.actions_by_project_id.<project_id>.required_fields_by_name.<field>",
   start_action_required_input: "next.actions_by_project_id.<project_id>.execution.required_inputs_by_field.<field>",
-  start_action_required_input_argument_path: "next.actions_by_project_id.<project_id>.execution.required_inputs_by_argument_path.<argument_path>",
+  start_action_required_input_argument_path:
+    "next.actions_by_project_id.<project_id>.execution.required_inputs_by_argument_path.<argument_path>",
   start_action_argument_source: "next.actions_by_project_id.<project_id>.argument_sources.<field>",
   lifecycle_actions: "next.actions_by_project_id.<project_id>.lifecycle_by_step"
 };
@@ -560,26 +666,40 @@ export const HANDOFF_SELECTION_SOURCES = {
   inbox_next_action_cli_placeholder: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.placeholders[]",
   inbox_next_action_cli_command_line: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.command_line",
   inbox_next_action_argument: "handoff.inbox_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
-  inbox_next_action_required_field: "handoff.inbox_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
-  inbox_next_action_required_input: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
-  inbox_next_action_required_input_argument_path: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
+  inbox_next_action_required_field:
+    "handoff.inbox_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
+  inbox_next_action_required_input:
+    "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
+  inbox_next_action_required_input_argument_path:
+    "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
   inbox_next_action_argument_source: "handoff.inbox_by_record_id.<record_id>.next_action.argument_sources.<field>",
   recovered_status_entry: "handoff.recovered_statuses_by_record_id.<record_id>",
   recovered_status_record_id: "handoff.recovered_statuses_by_record_id.<record_id>.record_id",
   active_session_entry: "handoff.active_sessions_by_record_id.<record_id>",
   active_session_record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
   active_session_next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action",
-  active_session_next_action_cli_executable: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.executable",
-  active_session_next_action_cli_argv: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
-  active_session_next_action_cli_args: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.args[]",
-  active_session_next_action_cli_exec_file: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.exec_file",
-  active_session_next_action_cli_placeholder: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.placeholders[]",
-  active_session_next_action_cli_command_line: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.command_line",
-  active_session_next_action_argument: "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
-  active_session_next_action_required_field: "handoff.active_sessions_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
-  active_session_next_action_required_input: "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
-  active_session_next_action_required_input_argument_path: "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
-  active_session_next_action_argument_source: "handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>"
+  active_session_next_action_cli_executable:
+    "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.executable",
+  active_session_next_action_cli_argv:
+    "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
+  active_session_next_action_cli_args:
+    "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.args[]",
+  active_session_next_action_cli_exec_file:
+    "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.exec_file",
+  active_session_next_action_cli_placeholder:
+    "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.placeholders[]",
+  active_session_next_action_cli_command_line:
+    "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.command_line",
+  active_session_next_action_argument:
+    "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
+  active_session_next_action_required_field:
+    "handoff.active_sessions_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
+  active_session_next_action_required_input:
+    "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
+  active_session_next_action_required_input_argument_path:
+    "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
+  active_session_next_action_argument_source:
+    "handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>"
 };
 export const LIFECYCLE_NEXT_SELECTION_SOURCES = {
   action: "next.actions_by_id.<action>",
@@ -593,7 +713,8 @@ export const LIFECYCLE_NEXT_SELECTION_SOURCES = {
   action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
   action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
   action_required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
-  action_required_input_argument_path: "next.actions_by_id.<action>.execution.required_inputs_by_argument_path.<argument_path>",
+  action_required_input_argument_path:
+    "next.actions_by_id.<action>.execution.required_inputs_by_argument_path.<argument_path>",
   action_argument_source: "next.actions_by_id.<action>.argument_sources.<field>"
 };
 export const LIFECYCLE_ACTION_SELECTION_SOURCES: LifecycleActionSelectionSources = {
@@ -618,7 +739,8 @@ export const LIFECYCLE_ACTION_SELECTION_SOURCES: LifecycleActionSelectionSources
   ordered_required_field: "next.actions[].required_fields_by_name.<field>",
   required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
   ordered_required_input: "next.actions[].execution.required_inputs_by_field.<field>",
-  required_input_argument_path: "next.actions_by_id.<action>.execution.required_inputs_by_argument_path.<argument_path>",
+  required_input_argument_path:
+    "next.actions_by_id.<action>.execution.required_inputs_by_argument_path.<argument_path>",
   ordered_required_input_argument_path: "next.actions[].execution.required_inputs_by_argument_path.<argument_path>",
   argument_source: "next.actions_by_id.<action>.argument_sources.<field>",
   ordered_argument_source: "next.actions[].argument_sources.<field>"
@@ -720,10 +842,14 @@ export const DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES = {
   ordered_argument: "next.actions_by_project_id.<project_id>.lifecycle[].arguments_by_name.<argument>",
   required_field: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.required_fields_by_name.<field>",
   ordered_required_field: "next.actions_by_project_id.<project_id>.lifecycle[].required_fields_by_name.<field>",
-  required_input: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.execution.required_inputs_by_field.<field>",
-  ordered_required_input: "next.actions_by_project_id.<project_id>.lifecycle[].execution.required_inputs_by_field.<field>",
-  required_input_argument_path: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.execution.required_inputs_by_argument_path.<argument_path>",
-  ordered_required_input_argument_path: "next.actions_by_project_id.<project_id>.lifecycle[].execution.required_inputs_by_argument_path.<argument_path>",
+  required_input:
+    "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.execution.required_inputs_by_field.<field>",
+  ordered_required_input:
+    "next.actions_by_project_id.<project_id>.lifecycle[].execution.required_inputs_by_field.<field>",
+  required_input_argument_path:
+    "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.execution.required_inputs_by_argument_path.<argument_path>",
+  ordered_required_input_argument_path:
+    "next.actions_by_project_id.<project_id>.lifecycle[].execution.required_inputs_by_argument_path.<argument_path>",
   argument_source: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.argument_sources.<field>",
   ordered_argument_source: "next.actions_by_project_id.<project_id>.lifecycle[].argument_sources.<field>"
 } satisfies LifecycleStepSelectionSources;
@@ -817,7 +943,10 @@ interface AgentEnterActivation {
   error?: string;
 }
 
-async function lifecycleActivationStatus(input: AgentLifecycleInput, project: ProjectContext): Promise<HostActivationStatus | undefined> {
+async function lifecycleActivationStatus(
+  input: AgentLifecycleInput,
+  project: ProjectContext
+): Promise<HostActivationStatus | undefined> {
   const client = agentIdentityFromInput(input)?.client;
   if (!client) return undefined;
   const host = normalizeHostId(client);
@@ -857,7 +986,8 @@ async function prepareAgentEnterActivation(input: AgentEnterInput): Promise<Agen
 
   try {
     const generated = await writeHostIntegrationArtifact(activationInput);
-    if (host === "claude") await activateClaudeSettings({ project_path: project.project_path, artifact: generated.artifact });
+    if (host === "claude")
+      await activateClaudeSettings({ project_path: project.project_path, artifact: generated.artifact });
     else await activateCodexHooks({ project_path: project.project_path, artifact: generated.artifact });
     const after = await inspectHostActivation(activationInput);
     return {
@@ -906,19 +1036,29 @@ function validateLifecycleBoolean(value: unknown, argument: "pull" | "push", ope
   }
 }
 
-function validateLifecycleText(value: unknown, argument: "status" | "summary", operation: "agent_status" | "agent_finish"): asserts value is string {
+function validateLifecycleText(
+  value: unknown,
+  argument: "status" | "summary",
+  operation: "agent_status" | "agent_finish"
+): asserts value is string {
   if (typeof value !== "string" || value.length === 0) {
     throw new AgentLifecycleTextArgumentError(operation, argument, value);
   }
 }
 
-function validateLifecycleCurrentTask(value: unknown, operation: LifecycleOperation): asserts value is string | undefined {
+function validateLifecycleCurrentTask(
+  value: unknown,
+  operation: LifecycleOperation
+): asserts value is string | undefined {
   if (value !== undefined && (typeof value !== "string" || value.length === 0)) {
     throw new AgentLifecycleCurrentTaskArgumentError(operation, value);
   }
 }
 
-function validateLifecycleSyncRemote(value: unknown, operation: LifecycleOperation): asserts value is string | undefined {
+function validateLifecycleSyncRemote(
+  value: unknown,
+  operation: LifecycleOperation
+): asserts value is string | undefined {
   if (value !== undefined && (typeof value !== "string" || value.length === 0)) {
     throw new AgentLifecycleSyncRemoteArgumentError(operation, value);
   }
@@ -943,11 +1083,15 @@ function projectEnvelope(project: ProjectContext): {
 }
 
 function requiredInputSelectionSources(selectionSources: Record<string, string>): Record<string, string> | undefined {
-  const sources = Object.fromEntries(Object.entries(selectionSources).filter(([key]) => key.includes("required_input")));
+  const sources = Object.fromEntries(
+    Object.entries(selectionSources).filter(([key]) => key.includes("required_input"))
+  );
   return Object.keys(sources).length > 0 ? sources : undefined;
 }
 
-function withActionInterfaces<T extends { tool: string; command: string; arguments: unknown; safe_to_run: boolean; required_fields: string[] }>(
+function withActionInterfaces<
+  T extends { tool: string; command: string; arguments: unknown; safe_to_run: boolean; required_fields: string[] }
+>(
   action: T
 ): T & {
   required_fields_by_name: Record<string, RequiredFieldMetadata>;
@@ -974,25 +1118,29 @@ function withActionInterfaces<T extends { tool: string; command: string; argumen
       ...action,
       required_fields_by_name: actionWithRequiredFields.required_fields_by_name,
       arguments_by_name: operationArgumentsByTool(action.tool),
-      argument_sources: "argument_sources" in action && action.argument_sources && typeof action.argument_sources === "object"
-        ? action.argument_sources as Record<string, string>
-        : undefined,
-      required_input_selection_sources: "selection_sources" in action && action.selection_sources && typeof action.selection_sources === "object"
-        ? requiredInputSelectionSources(action.selection_sources as Record<string, string>)
-        : undefined
+      argument_sources:
+        "argument_sources" in action && action.argument_sources && typeof action.argument_sources === "object"
+          ? (action.argument_sources as Record<string, string>)
+          : undefined,
+      required_input_selection_sources:
+        "selection_sources" in action && action.selection_sources && typeof action.selection_sources === "object"
+          ? requiredInputSelectionSources(action.selection_sources as Record<string, string>)
+          : undefined
     })
   };
 }
 
-function withRequiredInputSelectionSources<T extends {
-  tool: string;
-  safe_to_run: boolean;
-  required_fields: string[];
-  required_fields_by_name: Record<string, RequiredFieldMetadata>;
-  arguments_by_name: Record<string, OperationArgumentMetadata>;
-  argument_sources?: Record<string, string>;
-  execution: ActionExecution;
-}>(action: T, selectionSources: Record<string, string>): T {
+function withRequiredInputSelectionSources<
+  T extends {
+    tool: string;
+    safe_to_run: boolean;
+    required_fields: string[];
+    required_fields_by_name: Record<string, RequiredFieldMetadata>;
+    arguments_by_name: Record<string, OperationArgumentMetadata>;
+    argument_sources?: Record<string, string>;
+    execution: ActionExecution;
+  }
+>(action: T, selectionSources: Record<string, string>): T {
   const inputSelectionSources = requiredInputSelectionSources(selectionSources);
   if (!inputSelectionSources) return action;
   return {
@@ -1105,7 +1253,9 @@ function agentAuthoredArgumentSources(requiredFields: string[]): Record<string, 
   return Object.keys(sources).length > 0 ? sources : undefined;
 }
 
-async function trySync<T>(fn: () => Promise<T>): Promise<{ ok: true; result: T } | { ok: false; error: string; cause: unknown }> {
+async function trySync<T>(
+  fn: () => Promise<T>
+): Promise<{ ok: true; result: T } | { ok: false; error: string; cause: unknown }> {
   try {
     return { ok: true, result: await fn() };
   } catch (error) {
@@ -1126,13 +1276,18 @@ async function knownProjectIds(input: AgentLifecycleInput): Promise<string[]> {
   return knownProjects.ok ? knownProjects.result.projects.map((project) => project.project_id) : [];
 }
 
-async function resolveLifecycleProjectContext(input: AgentLifecycleInput, options: { requireExplicitProject?: boolean } = {}): Promise<ProjectContext> {
+async function resolveLifecycleProjectContext(
+  input: AgentLifecycleInput,
+  options: { requireExplicitProject?: boolean } = {}
+): Promise<ProjectContext> {
   if (input.projectPath) {
     try {
       await access(input.projectPath);
     } catch (error) {
       if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-        throw new Error(`Project path does not exist: ${input.projectPath}. Run project_init for a new project, or pass the correct project_path/project_id.`);
+        throw new Error(
+          `Project path does not exist: ${input.projectPath}. Run project_init for a new project, or pass the correct project_path/project_id.`
+        );
       }
       throw error;
     }
@@ -1141,18 +1296,29 @@ async function resolveLifecycleProjectContext(input: AgentLifecycleInput, option
   if (input.projectId) {
     const projectIds = await knownProjectIds(input);
     if (projectIds.length > 0 && !projectIds.includes(input.projectId)) {
-      throw new Error(`Project id is not known in this store: ${input.projectId}. Run project_list and choose one of: ${projectIds.join(", ")}.`);
+      throw new Error(
+        `Project id is not known in this store: ${input.projectId}. Run project_list and choose one of: ${projectIds.join(", ")}.`
+      );
     }
   }
 
   const project = await resolveProjectContext({ projectPath: input.projectPath, projectId: input.projectId });
-  if (input.projectPath && input.projectId && project.config?.project_id && project.config.project_id !== input.projectId) {
-    throw new Error(`Project id conflict: project_path resolves to ${project.config.project_id}, but project_id was ${input.projectId}. Use the .moryn.json project_id or update the project config.`);
+  if (
+    input.projectPath &&
+    input.projectId &&
+    project.config?.project_id &&
+    project.config.project_id !== input.projectId
+  ) {
+    throw new Error(
+      `Project id conflict: project_path resolves to ${project.config.project_id}, but project_id was ${input.projectId}. Use the .moryn.json project_id or update the project config.`
+    );
   }
   if (options.requireExplicitProject && !input.projectPath && !input.projectId && project.source !== "config") {
     const projectIds = await knownProjectIds(input);
     if (projectIds.length > 0) {
-      throw new Error(`Project context required: this store already has known projects (${projectIds.join(", ")}). Run project_list or agent_enter, then retry with project_path/project_id.`);
+      throw new Error(
+        `Project context required: this store already has known projects (${projectIds.join(", ")}). Run project_list or agent_enter, then retry with project_path/project_id.`
+      );
     }
   }
   return project;
@@ -1347,7 +1513,10 @@ function projectInitInput(input: AgentLifecycleInput, projectError: string | und
   return input;
 }
 
-function projectInitArguments(input: AgentLifecycleInput, requiredFields: string[] = []): {
+function projectInitArguments(
+  input: AgentLifecycleInput,
+  requiredFields: string[] = []
+): {
   path?: string;
   project_id?: string;
 } {
@@ -1379,15 +1548,17 @@ function lifecycleActionArguments(input: AgentLifecycleInput): {
 
 function agentEnterActionTemplate(command: string, args: ReturnType<typeof lifecycleActionArguments>) {
   const requiredFields: string[] = [];
-  return withGuideEntrypointSelectionSources(withActionInterfaces({
-    tool: "agent_enter",
-    command,
-    safe_to_run: true,
-    required_when: START_OR_RESUME_WHEN,
-    required_fields: requiredFields,
-    workflow: singleNextWorkflow("call_agent_enter", "agent_enter", START_OR_RESUME_WHEN, requiredFields, "startup"),
-    arguments: args
-  }));
+  return withGuideEntrypointSelectionSources(
+    withActionInterfaces({
+      tool: "agent_enter",
+      command,
+      safe_to_run: true,
+      required_when: START_OR_RESUME_WHEN,
+      required_fields: requiredFields,
+      workflow: singleNextWorkflow("call_agent_enter", "agent_enter", START_OR_RESUME_WHEN, requiredFields, "startup"),
+      arguments: args
+    })
+  );
 }
 
 function agentGuideGuardrails(startup: ReturnType<typeof agentEnterActionTemplate>) {
@@ -1409,7 +1580,8 @@ function agentGuideGuardrails(startup: ReturnType<typeof agentEnterActionTemplat
       when: "When project context is unclear or no project_path/project_id was provided.",
       risk: "Guessing project ids can write status or handoff records into the wrong project.",
       avoid: ["guess_project_id", "write_project_scoped_lifecycle_without_project_id"],
-      required_behavior: "When project context is unclear, call agent_enter discovery and choose a returned project before lifecycle writes.",
+      required_behavior:
+        "When project context is unclear, call agent_enter discovery and choose a returned project before lifecycle writes.",
       use_instead: callAgentEnter
     },
     {
@@ -1417,7 +1589,8 @@ function agentGuideGuardrails(startup: ReturnType<typeof agentEnterActionTemplat
       when: "Before executing lifecycle follow-up actions.",
       risk: "Reconstructing commands can rename fields, omit placeholders, or bypass required_fields checks.",
       avoid: ["reconstruct_command_from_memory", "rename_argument_fields", "drop_required_fields"],
-      required_behavior: "Use returned command strings or arguments exactly; fill only placeholders named in required_fields.",
+      required_behavior:
+        "Use returned command strings or arguments exactly; fill only placeholders named in required_fields.",
       allowed_action_sources: ["startup", "next", "lifecycle_by_step", "lifecycle", "response.next.actions"]
     },
     {
@@ -1425,7 +1598,8 @@ function agentGuideGuardrails(startup: ReturnType<typeof agentEnterActionTemplat
       when: `${PUBLISH_STATUS_WHEN} ${FINISH_HANDOFF_WHEN}`,
       risk: "Silent sessions leave other agents without coordination or handoff context.",
       avoid: ["stop_without_status_or_summary", "leave_active_work_unpublished"],
-      required_behavior: "Publish agent_status before long interruptions and call agent_finish with a concise final summary when meaningful work ends.",
+      required_behavior:
+        "Publish agent_status before long interruptions and call agent_finish with a concise final summary when meaningful work ends.",
       allowed_action_sources: ["lifecycle_by_step", "lifecycle", "response.next.actions"]
     },
     {
@@ -1433,7 +1607,8 @@ function agentGuideGuardrails(startup: ReturnType<typeof agentEnterActionTemplat
       when: "When cross-device handoff or shared memory sync matters.",
       risk: "Without sync_remote, status and summaries may stay local to this machine.",
       avoid: ["omit_sync_remote_for_shared_handoff", "assume_local_store_is_shared"],
-      required_behavior: "Pass sync_remote whenever cross-device handoff matters so lifecycle writes reach the shared store.",
+      required_behavior:
+        "Pass sync_remote whenever cross-device handoff matters so lifecycle writes reach the shared store.",
       allowed_action_sources: ["startup", "next", "lifecycle_by_step", "lifecycle", "response.next.actions"]
     }
   ];
@@ -1464,7 +1639,10 @@ function agentGuideRules() {
   ];
 }
 
-function refreshActionArguments(input: AgentLifecycleInput, cursor: string): {
+function refreshActionArguments(
+  input: AgentLifecycleInput,
+  cursor: string
+): {
   project_path?: string;
   project_id?: string;
   sync_remote?: string;
@@ -1506,7 +1684,10 @@ function finishActionArguments(input: AgentLifecycleInput): {
   };
 }
 
-function agentStartActionArguments(input: AgentLifecycleInput, requiredFields: string[] = []): {
+function agentStartActionArguments(
+  input: AgentLifecycleInput,
+  requiredFields: string[] = []
+): {
   project_path?: string;
   project_id?: string;
   sync_remote?: string;
@@ -1555,103 +1736,139 @@ function checkpointActionArguments(input: AgentLifecycleInput, projectId: string
   };
 }
 
-function checkpointAction(input: AgentLifecycleInput, projectId: string, identity: AgentIdentity, action: string, requiredWhen: string) {
+function checkpointAction(
+  input: AgentLifecycleInput,
+  projectId: string,
+  identity: AgentIdentity,
+  action: string,
+  requiredWhen: string
+) {
   const argumentsByName = checkpointActionArguments(input, projectId, identity);
-  return withLifecycleActionSelectionSources(withActionInterfaces({
-    action,
-    tool: "checkpoint",
-    safe_to_run: true,
-    command: "moryn agent checkpoint --occurred-at <occurred_at> --delta <json>",
-    required_when: requiredWhen,
-    required_fields: ["occurred_at", "delta"],
-    arguments: argumentsByName,
-    argument_sources: {
-      occurred_at: "authored_checkpoint.occurred_at",
-      delta: "authored_checkpoint.delta"
-    },
-    workflow: {
-      version: 1,
-      collect: ["occurred_at", "delta.checkpoint_id", "delta.semantic_content"],
-      then: "call checkpoint locally",
-      remote_push: false
-    }
-  }));
+  return withLifecycleActionSelectionSources(
+    withActionInterfaces({
+      action,
+      tool: "checkpoint",
+      safe_to_run: true,
+      command: "moryn agent checkpoint --occurred-at <occurred_at> --delta <json>",
+      required_when: requiredWhen,
+      required_fields: ["occurred_at", "delta"],
+      arguments: argumentsByName,
+      argument_sources: {
+        occurred_at: "authored_checkpoint.occurred_at",
+        delta: "authored_checkpoint.delta"
+      },
+      workflow: {
+        version: 1,
+        collect: ["occurred_at", "delta.checkpoint_id", "delta.semantic_content"],
+        then: "call checkpoint locally",
+        remote_push: false
+      }
+    })
+  );
 }
 
-function checkpointLifecycleActions(input: AgentLifecycleInput, projectId: string, now: number, recovery?: RecoveryPack): LifecycleActionTemplate[] {
+function checkpointLifecycleActions(
+  input: AgentLifecycleInput,
+  projectId: string,
+  now: number,
+  recovery?: RecoveryPack
+): LifecycleActionTemplate[] {
   const identity = checkpointIdentity(input);
   if (!identity) return [];
   const actions: LifecycleActionTemplate[] = [];
   if (recovery?.available) {
-    actions.push(withLifecycleActionSelectionSources(withActionInterfaces({
-      action: "resume_from_checkpoint",
-      tool: "agent_start",
-      safe_to_run: true,
-      command: buildAgentStartCommand(input),
-      required_when: "After compaction or when reopening this agent session and boot.checkpoint_recovery_pack.available is true.",
-      required_fields: [],
-      arguments: lifecycleActionArguments(input),
-      argument_sources: { recovery_pack: "boot.checkpoint_recovery_pack" },
-      workflow: { version: 1, consume: "boot.checkpoint_recovery_pack", then: "continue current task" }
-    })));
+    actions.push(
+      withLifecycleActionSelectionSources(
+        withActionInterfaces({
+          action: "resume_from_checkpoint",
+          tool: "agent_start",
+          safe_to_run: true,
+          command: buildAgentStartCommand(input),
+          required_when:
+            "After compaction or when reopening this agent session and boot.checkpoint_recovery_pack.available is true.",
+          required_fields: [],
+          arguments: lifecycleActionArguments(input),
+          argument_sources: { recovery_pack: "boot.checkpoint_recovery_pack" },
+          workflow: { version: 1, consume: "boot.checkpoint_recovery_pack", then: "continue current task" }
+        })
+      )
+    );
   }
-  actions.push(checkpointAction(
-    input,
-    projectId,
-    identity,
-    "checkpoint_before_compaction",
-    "When the host is about to compact the active session, author a delta and append it before compaction begins."
-  ));
-  const latestAt = recovery?.latest_occurred_at ? Date.parse(recovery.latest_occurred_at) : Number.NaN;
-  const isStale = !Number.isFinite(latestAt) || now - latestAt >= CHECKPOINT_FALLBACK_INTERVAL_MS;
-  if (input.currentTask && isStale) {
-    actions.push(checkpointAction(
+  actions.push(
+    checkpointAction(
       input,
       projectId,
       identity,
-      "checkpoint_long_task",
-      "When the latest checkpoint is more than 30 minutes old, or none exists, and the current task is still active."
-    ));
+      "checkpoint_before_compaction",
+      "When the host is about to compact the active session, author a delta and append it before compaction begins."
+    )
+  );
+  const latestAt = recovery?.latest_occurred_at ? Date.parse(recovery.latest_occurred_at) : Number.NaN;
+  const isStale = !Number.isFinite(latestAt) || now - latestAt >= CHECKPOINT_FALLBACK_INTERVAL_MS;
+  if (input.currentTask && isStale) {
+    actions.push(
+      checkpointAction(
+        input,
+        projectId,
+        identity,
+        "checkpoint_long_task",
+        "When the latest checkpoint is more than 30 minutes old, or none exists, and the current task is still active."
+      )
+    );
   }
   return actions;
 }
 
-function nextActions(input: AgentLifecycleInput, now: number, cursor?: string, recovery?: RecoveryPack, projectId?: string): LifecycleActionTemplate[] {
+function nextActions(
+  input: AgentLifecycleInput,
+  now: number,
+  cursor?: string,
+  recovery?: RecoveryPack,
+  projectId?: string
+): LifecycleActionTemplate[] {
   const actions: LifecycleActionTemplate[] = [
-    withLifecycleActionSelectionSources(withActionInterfaces({
-      action: "publish_status",
-      tool: "agent_status",
-      safe_to_run: true,
-      command: buildAgentStatusCommand(input),
-      required_when: PUBLISH_STATUS_WHEN,
-      required_fields: ["status"],
-      arguments: statusActionArguments(input),
-      argument_sources: agentAuthoredArgumentSources(["status"])
-    })),
-    withLifecycleActionSelectionSources(withActionInterfaces({
-      action: "finish_session",
-      tool: "agent_finish",
-      safe_to_run: true,
-      command: buildAgentFinishCommand(input),
-      required_when: FINISH_HANDOFF_WHEN,
-      required_fields: ["summary"],
-      arguments: finishActionArguments(input),
-      argument_sources: agentAuthoredArgumentSources(["summary"])
-    }))
+    withLifecycleActionSelectionSources(
+      withActionInterfaces({
+        action: "publish_status",
+        tool: "agent_status",
+        safe_to_run: true,
+        command: buildAgentStatusCommand(input),
+        required_when: PUBLISH_STATUS_WHEN,
+        required_fields: ["status"],
+        arguments: statusActionArguments(input),
+        argument_sources: agentAuthoredArgumentSources(["status"])
+      })
+    ),
+    withLifecycleActionSelectionSources(
+      withActionInterfaces({
+        action: "finish_session",
+        tool: "agent_finish",
+        safe_to_run: true,
+        command: buildAgentFinishCommand(input),
+        required_when: FINISH_HANDOFF_WHEN,
+        required_fields: ["summary"],
+        arguments: finishActionArguments(input),
+        argument_sources: agentAuthoredArgumentSources(["summary"])
+      })
+    )
   ];
   if (cursor) {
-    actions.push(withLifecycleActionSelectionSources(withActionInterfaces({
-      action: "refresh_context",
-      tool: "agent_start",
-      safe_to_run: true,
-      command: buildAgentRefreshCommand(input, cursor),
-      required_when: REFRESH_CONTEXT_WHEN,
-      required_fields: [],
-      arguments: refreshActionArguments(input, cursor),
-      argument_sources: {
-        refresh_since: "refresh.cursor"
-      }
-    })));
+    actions.push(
+      withLifecycleActionSelectionSources(
+        withActionInterfaces({
+          action: "refresh_context",
+          tool: "agent_start",
+          safe_to_run: true,
+          command: buildAgentRefreshCommand(input, cursor),
+          required_when: REFRESH_CONTEXT_WHEN,
+          required_fields: [],
+          arguments: refreshActionArguments(input, cursor),
+          argument_sources: {
+            refresh_since: "refresh.cursor"
+          }
+        })
+      )
+    );
   }
   if (projectId) actions.push(...checkpointLifecycleActions(input, projectId, now, recovery));
   return actions;
@@ -1707,16 +1924,19 @@ function buildStartupOverview(input: {
       source: "start.handoff"
     })
   ];
-  const status: AgentStartupOverviewStatus = signals.some((signal) => signal.status === "review") ? "needs_attention" : "ready";
+  const status: AgentStartupOverviewStatus = signals.some((signal) => signal.status === "review")
+    ? "needs_attention"
+    : "ready";
   const hasRecoveredContext = signals.some((signal) => signal.status === "available");
   return {
     status,
     project_id: input.project.project_id,
-    headline: status === "ready"
-      ? hasRecoveredContext
-        ? `Ready to work in ${input.project.project_id} with recovered context.`
-        : `Ready to work in ${input.project.project_id}.`
-      : `Review startup context before working in ${input.project.project_id}.`,
+    headline:
+      status === "ready"
+        ? hasRecoveredContext
+          ? `Ready to work in ${input.project.project_id} with recovered context.`
+          : `Ready to work in ${input.project.project_id}.`
+        : `Review startup context before working in ${input.project.project_id}.`,
     primary_next_step: {
       action_id: finishAction?.action ?? "finish_session",
       action_source: finishAction?.action_source ?? "next.actions_by_id.finish_session",
@@ -1749,20 +1969,6 @@ function actionsByProjectId<T extends { project_id: string }>(actions: T[]): Rec
   return Object.fromEntries(actions.map((action) => [action.project_id, action]));
 }
 
-function syncConflictNextActions() {
-  return [
-    withLifecycleActionSelectionSources(withActionInterfaces({
-      action: "inspect_sync_conflict",
-      tool: "sync_status",
-      safe_to_run: true,
-      command: "moryn sync --status",
-      required_when: INSPECT_SYNC_CONFLICT_WHEN,
-      required_fields: [],
-      arguments: {}
-    }))
-  ];
-}
-
 function syncConflictNextAction() {
   return withActionInterfaces({
     recommended_action: "resolve_sync_conflict_before_lifecycle",
@@ -1771,7 +1977,12 @@ function syncConflictNextAction() {
     command: "moryn sync --status",
     required_when: INSPECT_SYNC_CONFLICT_WHEN,
     required_fields: [],
-    workflow: singleNextWorkflow("resolve_sync_conflict_before_lifecycle", "sync_status", INSPECT_SYNC_CONFLICT_WHEN, []),
+    workflow: singleNextWorkflow(
+      "resolve_sync_conflict_before_lifecycle",
+      "sync_status",
+      INSPECT_SYNC_CONFLICT_WHEN,
+      []
+    ),
     arguments: {}
   });
 }
@@ -1784,63 +1995,79 @@ async function assertSyncNotConflicted(storePath: string): Promise<GitSyncStatus
   return status;
 }
 
-export function buildLearningCandidateReviewAction(projectId: string, candidates: Parameters<typeof buildLearningCandidateReviewWorkflow>[1]) {
+export function buildLearningCandidateReviewAction(
+  projectId: string,
+  candidates: Parameters<typeof buildLearningCandidateReviewWorkflow>[1]
+) {
   const review = buildLearningCandidateReviewWorkflow(projectId, candidates);
   const first = review?.candidate_pairs[0];
   if (!review || !first) return undefined;
   const recallArguments = { project_id: projectId, record_ids: [first.source_record_id] };
-  return withLifecycleActionSelectionSources(withActionInterfaces({
-    ...review,
-    tool: "recall",
-    command: buildRecallRecordCommand(first.source_record_id, projectId),
-    required_when: "When learning ingestion returns unresolved semantic candidates that require evidence-based agent review.",
-    required_fields: [],
-    arguments: recallArguments
-  }));
+  return withLifecycleActionSelectionSources(
+    withActionInterfaces({
+      ...review,
+      tool: "recall",
+      command: buildRecallRecordCommand(first.source_record_id, projectId),
+      required_when:
+        "When learning ingestion returns unresolved semantic candidates that require evidence-based agent review.",
+      required_fields: [],
+      arguments: recallArguments
+    })
+  );
 }
 
-function finishNextActions(input: AgentLifecycleInput, projectId: string, candidates: Parameters<typeof buildLearningCandidateReviewWorkflow>[1] = []) {
+function finishNextActions(
+  input: AgentLifecycleInput,
+  projectId: string,
+  candidates: Parameters<typeof buildLearningCandidateReviewWorkflow>[1] = []
+) {
   const requiredFields = input.currentTask ? [] : ["current_task"];
   const candidateAction = buildLearningCandidateReviewAction(projectId, candidates);
   return [
     ...(candidateAction ? [candidateAction] : []),
-    withLifecycleActionSelectionSources(withActionInterfaces({
-      action: "start_next_session",
-      tool: "agent_start",
-      safe_to_run: true,
-      command: buildAgentStartTemplateCommand(input, requiredFields),
-      required_when: START_NEXT_SESSION_WHEN,
-      required_fields: requiredFields,
-      arguments: agentStartActionArguments(input, requiredFields),
-      argument_sources: userInputArgumentSources(requiredFields)
-    }))
+    withLifecycleActionSelectionSources(
+      withActionInterfaces({
+        action: "start_next_session",
+        tool: "agent_start",
+        safe_to_run: true,
+        command: buildAgentStartTemplateCommand(input, requiredFields),
+        required_when: START_NEXT_SESSION_WHEN,
+        required_fields: requiredFields,
+        arguments: agentStartActionArguments(input, requiredFields),
+        argument_sources: userInputArgumentSources(requiredFields)
+      })
+    )
   ];
 }
 
 function statusNextActions(input: AgentLifecycleInput, cursor: string) {
   return [
-    withLifecycleActionSelectionSources(withActionInterfaces({
-      action: "finish_session",
-      tool: "agent_finish",
-      safe_to_run: true,
-      command: buildAgentFinishCommand(input),
-      required_when: FINISH_HANDOFF_WHEN,
-      required_fields: ["summary"],
-      arguments: finishActionArguments(input),
-      argument_sources: agentAuthoredArgumentSources(["summary"])
-    })),
-    withLifecycleActionSelectionSources(withActionInterfaces({
-      action: "refresh_context",
-      tool: "agent_start",
-      safe_to_run: true,
-      command: buildAgentRefreshCommand(input, cursor),
-      required_when: REFRESH_CONTEXT_WHEN,
-      required_fields: [],
-      arguments: refreshActionArguments(input, cursor),
-      argument_sources: {
-        refresh_since: "record.updated_at"
-      }
-    }))
+    withLifecycleActionSelectionSources(
+      withActionInterfaces({
+        action: "finish_session",
+        tool: "agent_finish",
+        safe_to_run: true,
+        command: buildAgentFinishCommand(input),
+        required_when: FINISH_HANDOFF_WHEN,
+        required_fields: ["summary"],
+        arguments: finishActionArguments(input),
+        argument_sources: agentAuthoredArgumentSources(["summary"])
+      })
+    ),
+    withLifecycleActionSelectionSources(
+      withActionInterfaces({
+        action: "refresh_context",
+        tool: "agent_start",
+        safe_to_run: true,
+        command: buildAgentRefreshCommand(input, cursor),
+        required_when: REFRESH_CONTEXT_WHEN,
+        required_fields: [],
+        arguments: refreshActionArguments(input, cursor),
+        argument_sources: {
+          refresh_since: "record.updated_at"
+        }
+      })
+    )
   ];
 }
 
@@ -1860,25 +2087,29 @@ function lifecycleSmokeActionArguments(input: AgentLifecycleInput): {
 
 function doctorNextActions(input: AgentLifecycleInput) {
   return [
-    withLifecycleActionSelectionSources(withActionInterfaces({
-      action: "start_session",
-      tool: "agent_start",
-      safe_to_run: true,
-      command: buildAgentStartCommand(input),
-      required_when: START_OR_RESUME_WHEN,
-      required_fields: [],
-      arguments: agentStartActionArguments(input)
-    })),
-    withLifecycleActionSelectionSources(withActionInterfaces({
-      action: "run_lifecycle_smoke",
-      tool: "moryn-agent-smoke",
-      safe_to_run: true,
-      command: buildLifecycleSmokeCommand(input),
-      required_when: LIFECYCLE_SMOKE_WHEN,
-      required_fields: input.syncRemote ? [] : ["remote"],
-      arguments: lifecycleSmokeActionArguments(input),
-      argument_sources: userInputArgumentSources(input.syncRemote ? [] : ["remote"])
-    }))
+    withLifecycleActionSelectionSources(
+      withActionInterfaces({
+        action: "start_session",
+        tool: "agent_start",
+        safe_to_run: true,
+        command: buildAgentStartCommand(input),
+        required_when: START_OR_RESUME_WHEN,
+        required_fields: [],
+        arguments: agentStartActionArguments(input)
+      })
+    ),
+    withLifecycleActionSelectionSources(
+      withActionInterfaces({
+        action: "run_lifecycle_smoke",
+        tool: "moryn-agent-smoke",
+        safe_to_run: true,
+        command: buildLifecycleSmokeCommand(input),
+        required_when: LIFECYCLE_SMOKE_WHEN,
+        required_fields: input.syncRemote ? [] : ["remote"],
+        arguments: lifecycleSmokeActionArguments(input),
+        argument_sources: userInputArgumentSources(input.syncRemote ? [] : ["remote"])
+      })
+    )
   ];
 }
 
@@ -1912,16 +2143,13 @@ function doctorReadiness(
     }
   };
   const nextRequiredFields = next.required_fields ?? [];
-  const nextRequiredFieldsByName = next.required_fields_by_name ?? requiredFieldsByName(nextRequiredFields, nextArguments);
+  const nextRequiredFieldsByName =
+    next.required_fields_by_name ?? requiredFieldsByName(nextRequiredFields, nextArguments);
   const nextArgumentSources = next.argument_sources ?? {};
   const nextSelectionSources = next.selection_sources ?? {};
   const nextRequiredWhen = next.required_when ?? "When this action is the selected next action.";
-  const nextWorkflow = next.workflow ?? singleNextWorkflow(
-    next.recommended_action,
-    next.tool,
-    nextRequiredWhen,
-    nextRequiredFields
-  );
+  const nextWorkflow =
+    next.workflow ?? singleNextWorkflow(next.recommended_action, next.tool, nextRequiredWhen, nextRequiredFields);
 
   return {
     safe_to_start: next.tool === "agent_start",
@@ -1946,15 +2174,17 @@ function doctorReadiness(
 
 function projectListNextActions() {
   return [
-    withLifecycleActionSelectionSources(withActionInterfaces({
-      action: "list_projects",
-      tool: "project_list",
-      safe_to_run: true,
-      command: buildProjectListCommand(),
-      required_when: LIST_PROJECTS_WHEN,
-      required_fields: [],
-      arguments: {}
-    }))
+    withLifecycleActionSelectionSources(
+      withActionInterfaces({
+        action: "list_projects",
+        tool: "project_list",
+        safe_to_run: true,
+        command: buildProjectListCommand(),
+        required_when: LIST_PROJECTS_WHEN,
+        required_fields: [],
+        arguments: {}
+      })
+    )
   ];
 }
 
@@ -1988,60 +2218,73 @@ function agentGuideLifecycleWithSelectionSources(
 ) {
   const lifecycleInput = ensureGuideProjectIdentity(input);
   const lifecycleArguments = lifecycleActionArguments(lifecycleInput);
-  const startCommand = startTool === "agent_start"
-    ? buildAgentStartCommand(lifecycleInput)
-    : buildAgentEnterCommand(input);
-  const startArguments = startTool === "agent_start"
-    ? lifecycleArguments
-    : lifecycleActionArguments(input);
+  const startCommand =
+    startTool === "agent_start" ? buildAgentStartCommand(lifecycleInput) : buildAgentEnterCommand(input);
+  const startArguments = startTool === "agent_start" ? lifecycleArguments : lifecycleActionArguments(input);
   const startRequiredFields: string[] = [];
   const statusRequiredFields = guideRequiredFields(input, ["status"]);
   const finishRequiredFields = guideRequiredFields(input, ["summary"]);
   const refreshRequiredFields = guideRequiredFields(input, ["refresh_since"]);
   return [
-    withLifecycleStepSelectionSources(withActionInterfaces({
-      step: "start_or_resume",
-      tool: startTool,
-      safe_to_run: true,
-      required_when: START_OR_RESUME_WHEN,
-      command: startCommand,
-      required_fields: startRequiredFields,
-      workflow: lifecycleStepWorkflow("start_or_resume", startTool, START_OR_RESUME_WHEN, startRequiredFields),
-      arguments: startArguments
-    }), selectionSources, actionSourceForStep("start_or_resume")),
-    withLifecycleStepSelectionSources(withActionInterfaces({
-      step: "publish_status",
-      tool: "agent_status",
-      safe_to_run: true,
-      required_when: PUBLISH_STATUS_WHEN,
-      command: buildAgentStatusTemplateCommand(lifecycleInput),
-      required_fields: statusRequiredFields,
-      workflow: lifecycleStepWorkflow("publish_status", "agent_status", PUBLISH_STATUS_WHEN, statusRequiredFields),
-      arguments: { ...lifecycleArguments, status: "<status>" },
-      argument_sources: agentAuthoredArgumentSources(statusRequiredFields)
-    }), selectionSources, actionSourceForStep("publish_status")),
-    withLifecycleStepSelectionSources(withActionInterfaces({
-      step: "finish_handoff",
-      tool: "agent_finish",
-      safe_to_run: true,
-      required_when: FINISH_HANDOFF_WHEN,
-      command: buildAgentFinishTemplateCommand(lifecycleInput),
-      required_fields: finishRequiredFields,
-      workflow: lifecycleStepWorkflow("finish_handoff", "agent_finish", FINISH_HANDOFF_WHEN, finishRequiredFields),
-      arguments: { ...lifecycleArguments, summary: "<summary>" },
-      argument_sources: agentAuthoredArgumentSources(finishRequiredFields)
-    }), selectionSources, actionSourceForStep("finish_handoff")),
-    withLifecycleStepSelectionSources(withActionInterfaces({
-      step: "refresh_context",
-      tool: "agent_start",
-      safe_to_run: true,
-      required_when: REFRESH_CONTEXT_WHEN,
-      command: buildAgentRefreshTemplateCommand(lifecycleInput),
-      required_fields: refreshRequiredFields,
-      workflow: lifecycleStepWorkflow("refresh_context", "agent_start", REFRESH_CONTEXT_WHEN, refreshRequiredFields),
-      arguments: { ...lifecycleArguments, refresh_since: "<refresh_since>" },
-      argument_sources: userInputArgumentSources(refreshRequiredFields)
-    }), selectionSources, actionSourceForStep("refresh_context"))
+    withLifecycleStepSelectionSources(
+      withActionInterfaces({
+        step: "start_or_resume",
+        tool: startTool,
+        safe_to_run: true,
+        required_when: START_OR_RESUME_WHEN,
+        command: startCommand,
+        required_fields: startRequiredFields,
+        workflow: lifecycleStepWorkflow("start_or_resume", startTool, START_OR_RESUME_WHEN, startRequiredFields),
+        arguments: startArguments
+      }),
+      selectionSources,
+      actionSourceForStep("start_or_resume")
+    ),
+    withLifecycleStepSelectionSources(
+      withActionInterfaces({
+        step: "publish_status",
+        tool: "agent_status",
+        safe_to_run: true,
+        required_when: PUBLISH_STATUS_WHEN,
+        command: buildAgentStatusTemplateCommand(lifecycleInput),
+        required_fields: statusRequiredFields,
+        workflow: lifecycleStepWorkflow("publish_status", "agent_status", PUBLISH_STATUS_WHEN, statusRequiredFields),
+        arguments: { ...lifecycleArguments, status: "<status>" },
+        argument_sources: agentAuthoredArgumentSources(statusRequiredFields)
+      }),
+      selectionSources,
+      actionSourceForStep("publish_status")
+    ),
+    withLifecycleStepSelectionSources(
+      withActionInterfaces({
+        step: "finish_handoff",
+        tool: "agent_finish",
+        safe_to_run: true,
+        required_when: FINISH_HANDOFF_WHEN,
+        command: buildAgentFinishTemplateCommand(lifecycleInput),
+        required_fields: finishRequiredFields,
+        workflow: lifecycleStepWorkflow("finish_handoff", "agent_finish", FINISH_HANDOFF_WHEN, finishRequiredFields),
+        arguments: { ...lifecycleArguments, summary: "<summary>" },
+        argument_sources: agentAuthoredArgumentSources(finishRequiredFields)
+      }),
+      selectionSources,
+      actionSourceForStep("finish_handoff")
+    ),
+    withLifecycleStepSelectionSources(
+      withActionInterfaces({
+        step: "refresh_context",
+        tool: "agent_start",
+        safe_to_run: true,
+        required_when: REFRESH_CONTEXT_WHEN,
+        command: buildAgentRefreshTemplateCommand(lifecycleInput),
+        required_fields: refreshRequiredFields,
+        workflow: lifecycleStepWorkflow("refresh_context", "agent_start", REFRESH_CONTEXT_WHEN, refreshRequiredFields),
+        arguments: { ...lifecycleArguments, refresh_since: "<refresh_since>" },
+        argument_sources: userInputArgumentSources(refreshRequiredFields)
+      }),
+      selectionSources,
+      actionSourceForStep("refresh_context")
+    )
   ];
 }
 
@@ -2057,11 +2300,7 @@ function rulesById<T extends { id: string; text: string }>(rules: T[]): Record<s
   return Object.fromEntries(rules.map((rule) => [rule.id, rule]));
 }
 
-function lifecyclePhase(
-  lifecycle: ReturnType<typeof agentGuideLifecycle>,
-  step: string,
-  order: number
-) {
+function lifecyclePhase(lifecycle: ReturnType<typeof agentGuideLifecycle>, step: string, order: number) {
   const action = lifecycle.find((item) => item.step === step);
   if (!action) throw new Error(`Missing guide lifecycle step: ${step}`);
   return {
@@ -2104,12 +2343,7 @@ function agentGuideWorkflow(lifecycle: ReturnType<typeof agentGuideLifecycle>) {
   });
 }
 
-function runtimeActionPhase(
-  actions: LifecycleActionTemplate[],
-  actionName: string,
-  phase: string,
-  order: number
-) {
+function runtimeActionPhase(actions: LifecycleActionTemplate[], actionName: string, phase: string, order: number) {
   const action = actions.find((item) => item.action === actionName);
   if (!action) throw new Error(`Missing runtime action: ${actionName}`);
   return {
@@ -2132,7 +2366,8 @@ function startSessionWorkflow(actions: LifecycleActionTemplate[]) {
         phase: "work_with_handoff_context",
         order: 1,
         action_source: "start",
-        required_when: "Immediately after agent_enter returns start_session mode, review boot, refresh, and handoff context before taking user-task actions.",
+        required_when:
+          "Immediately after agent_enter returns start_session mode, review boot, refresh, and handoff context before taking user-task actions.",
         required_fields: []
       },
       runtimeActionPhase(actions, "publish_status", "publish_status", 2),
@@ -2152,7 +2387,8 @@ function directStartWorkflow(actions: LifecycleActionTemplate[]) {
         phase: "review_context",
         order: 1,
         action_source: "boot+refresh+handoff",
-        required_when: "Immediately after agent_start returns, review boot, refresh, and handoff context before taking user-task actions.",
+        required_when:
+          "Immediately after agent_start returns, review boot, refresh, and handoff context before taking user-task actions.",
         required_fields: []
       },
       runtimeActionPhase(actions, "publish_status", "publish_status", 2),
@@ -2179,9 +2415,7 @@ function directFinishWorkflow(actions: LifecycleActionTemplate[]) {
     version: 1,
     start: "next.actions_by_id",
     continue_from: ["next.actions_by_id", "next.actions"],
-    phases: [
-      runtimeActionPhase(actions, "start_next_session", "start_next_session", 1)
-    ]
+    phases: [runtimeActionPhase(actions, "start_next_session", "start_next_session", 1)]
   });
 }
 
@@ -2226,7 +2460,8 @@ function discoverProjectsWorkflow() {
         phase: "choose_project",
         order: 1,
         action_source: "projects.projects",
-        required_when: "When agent_enter returns discover_projects mode, choose one returned project instead of guessing a project id.",
+        required_when:
+          "When agent_enter returns discover_projects mode, choose one returned project instead of guessing a project id.",
         required_fields: []
       },
       {
@@ -2241,40 +2476,46 @@ function discoverProjectsWorkflow() {
         phase: "continue_selected_project_lifecycle",
         order: 3,
         action_source: "next.actions_by_project_id.<project_id>.lifecycle_by_step",
-        required_when: "After the selected project starts, use that action's lifecycle templates for status, finish, and refresh.",
+        required_when:
+          "After the selected project starts, use that action's lifecycle templates for status, finish, and refresh.",
         required_fields: []
       }
     ]
   });
 }
 
-function discoverProjectsNextAction(input: AgentLifecycleInput, actions: Array<{
-  action: string;
-  project_id: string;
-  tool: string;
-  safe_to_run: boolean;
-  command: string;
-  required_when: string;
-  required_fields: string[];
-  arguments: Record<string, unknown>;
-}>) {
+function discoverProjectsNextAction(
+  input: AgentLifecycleInput,
+  actions: Array<{
+    action: string;
+    project_id: string;
+    tool: string;
+    safe_to_run: boolean;
+    command: string;
+    required_when: string;
+    required_fields: string[];
+    arguments: Record<string, unknown>;
+  }>
+) {
   const requiredFields = ["project_id"];
-  return withTopLevelNextActionSource(withActionInterfaces({
-    recommended_action: "choose_project_and_call_agent_start",
-    tool: "agent_start",
-    safe_to_run: true,
-    command: buildDiscoveredProjectStartTemplateCommand(input),
-    required_when: CHOOSE_DISCOVERED_PROJECT_ID_WHEN,
-    required_fields: requiredFields,
-    workflow: discoverProjectsWorkflow(),
-    actions,
-    actions_by_project_id: actionsByProjectId(actions),
-    arguments: agentStartActionArguments({ ...input, projectId: "<project_id>" }),
-    argument_sources: {
-      project_id: "next.actions_by_project_id.<project_id>.project_id"
-    },
-    selection_sources: DISCOVER_PROJECT_SELECTION_SOURCES
-  }));
+  return withTopLevelNextActionSource(
+    withActionInterfaces({
+      recommended_action: "choose_project_and_call_agent_start",
+      tool: "agent_start",
+      safe_to_run: true,
+      command: buildDiscoveredProjectStartTemplateCommand(input),
+      required_when: CHOOSE_DISCOVERED_PROJECT_ID_WHEN,
+      required_fields: requiredFields,
+      workflow: discoverProjectsWorkflow(),
+      actions,
+      actions_by_project_id: actionsByProjectId(actions),
+      arguments: agentStartActionArguments({ ...input, projectId: "<project_id>" }),
+      argument_sources: {
+        project_id: "next.actions_by_project_id.<project_id>.project_id"
+      },
+      selection_sources: DISCOVER_PROJECT_SELECTION_SOURCES
+    })
+  );
 }
 
 async function hasKnownProjects(input: AgentLifecycleInput, storeInitialized: boolean): Promise<boolean> {
@@ -2295,11 +2536,7 @@ function shouldDiscoverProjects(
 }
 
 function sourceSessionKey(source: RecordSource): string {
-  return [
-    source.client,
-    source.session_id ?? "",
-    source.device_id ?? ""
-  ].join("\0");
+  return [source.client, source.session_id ?? "", source.device_id ?? ""].join("\0");
 }
 
 function sourceActorKey(source: RecordSource): string {
@@ -2307,78 +2544,91 @@ function sourceActorKey(source: RecordSource): string {
 }
 
 function isSameAgentSession(source: RecordSource, agent: AgentIdentity | undefined): boolean {
-  return Boolean(agent?.session_id)
-    && source.client === agent?.client
-    && source.session_id === agent.session_id;
+  return Boolean(agent?.session_id) && source.client === agent?.client && source.session_id === agent.session_id;
 }
 
-function handoffEntryNextAction(record: MorynRecord, projectId: string, source: "inbox" | "active_sessions"): HandoffEntryNextAction {
-  const recordIdSource: HandoffRecordIdArgumentSource = source === "inbox"
-    ? "handoff.inbox_by_record_id.<record_id>.record_id"
-    : "handoff.active_sessions_by_record_id.<record_id>.record_id";
-  const actionSource = source === "inbox"
-    ? "handoff.inbox_by_record_id.<record_id>.next_action"
-    : "handoff.active_sessions_by_record_id.<record_id>.next_action";
-  const resolvedActionSource = source === "inbox"
-    ? `handoff.inbox_by_record_id.${record.id}.next_action`
-    : `handoff.active_sessions_by_record_id.${record.id}.next_action`;
-  const selectionSources: HandoffEntrySelectionSources = source === "inbox"
-    ? {
-        entry: "handoff.inbox_by_record_id.<record_id>",
-        record_id: "handoff.inbox_by_record_id.<record_id>.record_id",
-        next_action: "handoff.inbox_by_record_id.<record_id>.next_action",
-        ordered_next_action: "handoff.inbox[].next_action",
-        cli_executable: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.executable",
-        cli_argv: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
-        cli_args: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.args[]",
-        cli_exec_file: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.exec_file",
-        cli_placeholder: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.placeholders[]",
-        cli_command_line: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.command_line",
-        ordered_cli_executable: "handoff.inbox[].next_action.interfaces.cli.executable",
-        ordered_cli_argv: "handoff.inbox[].next_action.interfaces.cli.argv[]",
-        ordered_cli_args: "handoff.inbox[].next_action.interfaces.cli.args[]",
-        ordered_cli_exec_file: "handoff.inbox[].next_action.interfaces.cli.exec_file",
-        ordered_cli_placeholder: "handoff.inbox[].next_action.interfaces.cli.placeholders[]",
-        ordered_cli_command_line: "handoff.inbox[].next_action.interfaces.cli.command_line",
-        argument: "handoff.inbox_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
-        ordered_argument: "handoff.inbox[].next_action.arguments_by_name.<argument>",
-        required_field: "handoff.inbox_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
-        ordered_required_field: "handoff.inbox[].next_action.required_fields_by_name.<field>",
-        required_input: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
-        ordered_required_input: "handoff.inbox[].next_action.execution.required_inputs_by_field.<field>",
-        required_input_argument_path: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
-        ordered_required_input_argument_path: "handoff.inbox[].next_action.execution.required_inputs_by_argument_path.<argument_path>",
-        argument_source: "handoff.inbox_by_record_id.<record_id>.next_action.argument_sources.<field>",
-        ordered_argument_source: "handoff.inbox[].next_action.argument_sources.<field>"
-      }
-    : {
-        entry: "handoff.active_sessions_by_record_id.<record_id>",
-        record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
-        next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action",
-        ordered_next_action: "handoff.active_sessions[].next_action",
-        cli_executable: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.executable",
-        cli_argv: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
-        cli_args: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.args[]",
-        cli_exec_file: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.exec_file",
-        cli_placeholder: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.placeholders[]",
-        cli_command_line: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.command_line",
-        ordered_cli_executable: "handoff.active_sessions[].next_action.interfaces.cli.executable",
-        ordered_cli_argv: "handoff.active_sessions[].next_action.interfaces.cli.argv[]",
-        ordered_cli_args: "handoff.active_sessions[].next_action.interfaces.cli.args[]",
-        ordered_cli_exec_file: "handoff.active_sessions[].next_action.interfaces.cli.exec_file",
-        ordered_cli_placeholder: "handoff.active_sessions[].next_action.interfaces.cli.placeholders[]",
-        ordered_cli_command_line: "handoff.active_sessions[].next_action.interfaces.cli.command_line",
-        argument: "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
-        ordered_argument: "handoff.active_sessions[].next_action.arguments_by_name.<argument>",
-        required_field: "handoff.active_sessions_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
-        ordered_required_field: "handoff.active_sessions[].next_action.required_fields_by_name.<field>",
-        required_input: "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
-        ordered_required_input: "handoff.active_sessions[].next_action.execution.required_inputs_by_field.<field>",
-        required_input_argument_path: "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
-        ordered_required_input_argument_path: "handoff.active_sessions[].next_action.execution.required_inputs_by_argument_path.<argument_path>",
-        argument_source: "handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>",
-        ordered_argument_source: "handoff.active_sessions[].next_action.argument_sources.<field>"
-      };
+function handoffEntryNextAction(
+  record: MorynRecord,
+  projectId: string,
+  source: "inbox" | "active_sessions"
+): HandoffEntryNextAction {
+  const recordIdSource: HandoffRecordIdArgumentSource =
+    source === "inbox"
+      ? "handoff.inbox_by_record_id.<record_id>.record_id"
+      : "handoff.active_sessions_by_record_id.<record_id>.record_id";
+  const actionSource =
+    source === "inbox"
+      ? "handoff.inbox_by_record_id.<record_id>.next_action"
+      : "handoff.active_sessions_by_record_id.<record_id>.next_action";
+  const resolvedActionSource =
+    source === "inbox"
+      ? `handoff.inbox_by_record_id.${record.id}.next_action`
+      : `handoff.active_sessions_by_record_id.${record.id}.next_action`;
+  const selectionSources: HandoffEntrySelectionSources =
+    source === "inbox"
+      ? {
+          entry: "handoff.inbox_by_record_id.<record_id>",
+          record_id: "handoff.inbox_by_record_id.<record_id>.record_id",
+          next_action: "handoff.inbox_by_record_id.<record_id>.next_action",
+          ordered_next_action: "handoff.inbox[].next_action",
+          cli_executable: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.executable",
+          cli_argv: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
+          cli_args: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.args[]",
+          cli_exec_file: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.exec_file",
+          cli_placeholder: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.placeholders[]",
+          cli_command_line: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.command_line",
+          ordered_cli_executable: "handoff.inbox[].next_action.interfaces.cli.executable",
+          ordered_cli_argv: "handoff.inbox[].next_action.interfaces.cli.argv[]",
+          ordered_cli_args: "handoff.inbox[].next_action.interfaces.cli.args[]",
+          ordered_cli_exec_file: "handoff.inbox[].next_action.interfaces.cli.exec_file",
+          ordered_cli_placeholder: "handoff.inbox[].next_action.interfaces.cli.placeholders[]",
+          ordered_cli_command_line: "handoff.inbox[].next_action.interfaces.cli.command_line",
+          argument: "handoff.inbox_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
+          ordered_argument: "handoff.inbox[].next_action.arguments_by_name.<argument>",
+          required_field: "handoff.inbox_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
+          ordered_required_field: "handoff.inbox[].next_action.required_fields_by_name.<field>",
+          required_input:
+            "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
+          ordered_required_input: "handoff.inbox[].next_action.execution.required_inputs_by_field.<field>",
+          required_input_argument_path:
+            "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
+          ordered_required_input_argument_path:
+            "handoff.inbox[].next_action.execution.required_inputs_by_argument_path.<argument_path>",
+          argument_source: "handoff.inbox_by_record_id.<record_id>.next_action.argument_sources.<field>",
+          ordered_argument_source: "handoff.inbox[].next_action.argument_sources.<field>"
+        }
+      : {
+          entry: "handoff.active_sessions_by_record_id.<record_id>",
+          record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
+          next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action",
+          ordered_next_action: "handoff.active_sessions[].next_action",
+          cli_executable: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.executable",
+          cli_argv: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
+          cli_args: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.args[]",
+          cli_exec_file: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.exec_file",
+          cli_placeholder: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.placeholders[]",
+          cli_command_line: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.command_line",
+          ordered_cli_executable: "handoff.active_sessions[].next_action.interfaces.cli.executable",
+          ordered_cli_argv: "handoff.active_sessions[].next_action.interfaces.cli.argv[]",
+          ordered_cli_args: "handoff.active_sessions[].next_action.interfaces.cli.args[]",
+          ordered_cli_exec_file: "handoff.active_sessions[].next_action.interfaces.cli.exec_file",
+          ordered_cli_placeholder: "handoff.active_sessions[].next_action.interfaces.cli.placeholders[]",
+          ordered_cli_command_line: "handoff.active_sessions[].next_action.interfaces.cli.command_line",
+          argument: "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
+          ordered_argument: "handoff.active_sessions[].next_action.arguments_by_name.<argument>",
+          required_field:
+            "handoff.active_sessions_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
+          ordered_required_field: "handoff.active_sessions[].next_action.required_fields_by_name.<field>",
+          required_input:
+            "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
+          ordered_required_input: "handoff.active_sessions[].next_action.execution.required_inputs_by_field.<field>",
+          required_input_argument_path:
+            "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
+          ordered_required_input_argument_path:
+            "handoff.active_sessions[].next_action.execution.required_inputs_by_argument_path.<argument_path>",
+          argument_source: "handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>",
+          ordered_argument_source: "handoff.active_sessions[].next_action.argument_sources.<field>"
+        };
   const action = withActionInterfaces({
     recommended_action: "call_recall_with_record_id" as const,
     tool: "recall" as const,
@@ -2421,12 +2671,17 @@ function handoffEntryNextAction(record: MorynRecord, projectId: string, source: 
   };
 }
 
-function handoffEntry(record: MorynRecord, projectId: string, recommendedAction: AgentHandoffEntry["recommended_action"]): AgentHandoffEntry {
+function handoffEntry(
+  record: MorynRecord,
+  projectId: string,
+  recommendedAction: AgentHandoffEntry["recommended_action"]
+): AgentHandoffEntry {
   const currentTask = typeof record.content.current_task === "string" ? record.content.current_task : undefined;
   const updatedAt = Date.parse(record.updated_at);
-  const activeUntil = recommendedAction === "coordinate_with_active_session" && Number.isFinite(updatedAt)
-    ? new Date(updatedAt + ACTIVE_SESSION_TTL_MS).toISOString()
-    : undefined;
+  const activeUntil =
+    recommendedAction === "coordinate_with_active_session" && Number.isFinite(updatedAt)
+      ? new Date(updatedAt + ACTIVE_SESSION_TTL_MS).toISOString()
+      : undefined;
   return {
     record_id: record.id,
     type: record.type,
@@ -2449,7 +2704,12 @@ function isFreshActiveStatus(record: MorynRecord, now: Date): boolean {
   return Number.isFinite(updatedAt) && updatedAt + ACTIVE_SESSION_TTL_MS > now.getTime();
 }
 
-function buildHandoff(records: MorynRecord[], projectId: string, input: AgentLifecycleInput, now = new Date()): {
+function buildHandoff(
+  records: MorynRecord[],
+  projectId: string,
+  input: AgentLifecycleInput,
+  now = new Date()
+): {
   inbox: AgentHandoffEntry[];
   inbox_by_record_id: Record<string, AgentHandoffEntry>;
   recovered_statuses: AgentHandoffEntry[];
@@ -2508,7 +2768,9 @@ function buildHandoff(records: MorynRecord[], projectId: string, input: AgentLif
     .slice(0, 5)
     .map((record) => handoffEntry(record, projectId, "review_handoff_summary"));
   const inbox = [...finalInbox, ...recoveredStatuses]
-    .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.record_id.localeCompare(right.record_id))
+    .sort(
+      (left, right) => right.updated_at.localeCompare(left.updated_at) || left.record_id.localeCompare(right.record_id)
+    )
     .slice(0, 5);
   const nextAction = activeSessions[0]?.next_action ?? inbox[0]?.next_action;
 
@@ -2530,7 +2792,12 @@ function buildHandoff(records: MorynRecord[], projectId: string, input: AgentLif
   };
 }
 
-async function agentHandoff(engine: ReturnType<typeof createEngine>, projectId: string, input: AgentLifecycleInput & { includePrivate?: boolean }, now: Date) {
+async function agentHandoff(
+  engine: ReturnType<typeof createEngine>,
+  projectId: string,
+  input: AgentLifecycleInput & { includePrivate?: boolean },
+  now: Date
+) {
   const summaries = await engine.recall({
     project_id: projectId,
     kinds: ["session_summary"],
@@ -2538,10 +2805,19 @@ async function agentHandoff(engine: ReturnType<typeof createEngine>, projectId: 
     limit: 100,
     include_private: input.includePrivate
   });
-  return buildHandoff(summaries.results.map((result) => result.record), projectId, input, now);
+  return buildHandoff(
+    summaries.results.map((result) => result.record),
+    projectId,
+    input,
+    now
+  );
 }
 
-async function initializeLifecycleSync(storePath: string, syncRemote: string | undefined, result: BootstrapResult): Promise<void> {
+async function initializeLifecycleSync(
+  storePath: string,
+  syncRemote: string | undefined,
+  result: BootstrapResult
+): Promise<void> {
   if (!syncRemote) return;
   const initialized = await trySync(() => initializeGitSync(storePath, syncRemote));
   if (initialized.ok) {
@@ -2582,7 +2858,7 @@ async function pullLifecycleSync(storePath: string, result: BootstrapResult): Pr
 async function enterDiscoveryBootstrap(input: AgentEnterInput): Promise<BootstrapResult | undefined> {
   if (!input.syncRemote || input.projectPath || input.projectId) return undefined;
   const store = await trySync(() => readStoreConfig(input.storePath));
-  if (store.ok && await hasKnownProjects(input, true)) return undefined;
+  if (store.ok && (await hasKnownProjects(input, true))) return undefined;
   const bootstrap = await ensureLifecycleBootstrap(input);
   if (!bootstrap.sync_init_error) {
     await pullLifecycleSync(input.storePath, bootstrap);
@@ -2618,9 +2894,11 @@ export async function agentDoctor(input: AgentDoctorInput) {
   const projectResult = project.ok
     ? { ok: true, ...projectEnvelope(project.result) }
     : { ok: false, error: project.error };
-  checks.push(project.ok
-    ? { name: "project", ok: true, severity: "ok", message: `Project resolves as ${project.result.project_id}.` }
-    : { name: "project", ok: false, severity: "warning", message: project.error });
+  checks.push(
+    project.ok
+      ? { name: "project", ok: true, severity: "ok", message: `Project resolves as ${project.result.project_id}.` }
+      : { name: "project", ok: false, severity: "warning", message: project.error }
+  );
 
   const syncStatus = storeInitialized
     ? await getGitSyncStatus(input.storePath)
@@ -2635,10 +2913,10 @@ export async function agentDoctor(input: AgentDoctorInput) {
     message: syncConflict
       ? "Sync has unresolved Git conflicts; inspect sync_status and resolve conflicts before lifecycle writes."
       : syncConfigured && remoteMatches
-      ? "Sync is configured."
-      : input.syncRemote
-        ? "Sync is not connected to the expected remote; agent_start can initialize or update it."
-        : "Sync is not configured; pass sync_remote when cross-device handoff is needed."
+        ? "Sync is configured."
+        : input.syncRemote
+          ? "Sync is not connected to the expected remote; agent_start can initialize or update it."
+          : "Sync is not configured; pass sync_remote when cross-device handoff is needed."
   });
 
   const discoverProjects = shouldDiscoverProjects(input, await hasKnownProjects(input, storeInitialized), project);
@@ -2646,53 +2924,60 @@ export async function agentDoctor(input: AgentDoctorInput) {
   const setupRequiredFields = setupInput.projectPath ? [] : ["path"];
   const doctorActions = doctorNextActions(input);
   const listProjectActions = projectListNextActions();
-  const next = withTopLevelNextActionSource(syncConflict
-    ? syncConflictNextAction()
-    : discoverProjects
-    ? withActionInterfaces({
-        recommended_action: "list_projects",
-        tool: "project_list",
-        safe_to_run: true,
-        command: buildProjectListCommand(),
-        required_when: LIST_PROJECTS_WHEN,
-        required_fields: [],
-        workflow: singleNextWorkflow("list_projects", "project_list", LIST_PROJECTS_WHEN, []),
-        actions: listProjectActions,
-        actions_by_id: lifecycleActionsById(listProjectActions),
-        selection_sources: LIFECYCLE_NEXT_SELECTION_SOURCES,
-        arguments: {}
-      })
-    : project.ok
-    ? withActionInterfaces({
-        recommended_action: "call_agent_start",
-        tool: "agent_start",
-        safe_to_run: true,
-        command: buildAgentStartCommand(input),
-        required_when: START_OR_RESUME_WHEN,
-        required_fields: [],
-        workflow: singleNextWorkflow("call_agent_start", "agent_start", START_OR_RESUME_WHEN, []),
-        actions: doctorActions,
-        actions_by_id: lifecycleActionsById(doctorActions),
-        selection_sources: LIFECYCLE_NEXT_SELECTION_SOURCES,
-        arguments: {
-          project_path: input.projectPath,
-          project_id: input.projectId,
-          sync_remote: input.syncRemote,
-          current_task: input.currentTask,
-          agent: agentIdentityFromInput(input)
-        }
-      })
-    : withActionInterfaces({
-        recommended_action: "fix_project_config",
-        tool: "project_init",
-        safe_to_run: false,
-        command: buildProjectInitCommand(setupInput, setupRequiredFields),
-        required_when: FIX_PROJECT_CONFIG_WHEN,
-        required_fields: setupRequiredFields,
-        workflow: singleNextWorkflow("fix_project_config", "project_init", FIX_PROJECT_CONFIG_WHEN, setupRequiredFields),
-        arguments: projectInitArguments(setupInput, setupRequiredFields),
-        argument_sources: userInputArgumentSources(setupRequiredFields)
-      }));
+  const next = withTopLevelNextActionSource(
+    syncConflict
+      ? syncConflictNextAction()
+      : discoverProjects
+        ? withActionInterfaces({
+            recommended_action: "list_projects",
+            tool: "project_list",
+            safe_to_run: true,
+            command: buildProjectListCommand(),
+            required_when: LIST_PROJECTS_WHEN,
+            required_fields: [],
+            workflow: singleNextWorkflow("list_projects", "project_list", LIST_PROJECTS_WHEN, []),
+            actions: listProjectActions,
+            actions_by_id: lifecycleActionsById(listProjectActions),
+            selection_sources: LIFECYCLE_NEXT_SELECTION_SOURCES,
+            arguments: {}
+          })
+        : project.ok
+          ? withActionInterfaces({
+              recommended_action: "call_agent_start",
+              tool: "agent_start",
+              safe_to_run: true,
+              command: buildAgentStartCommand(input),
+              required_when: START_OR_RESUME_WHEN,
+              required_fields: [],
+              workflow: singleNextWorkflow("call_agent_start", "agent_start", START_OR_RESUME_WHEN, []),
+              actions: doctorActions,
+              actions_by_id: lifecycleActionsById(doctorActions),
+              selection_sources: LIFECYCLE_NEXT_SELECTION_SOURCES,
+              arguments: {
+                project_path: input.projectPath,
+                project_id: input.projectId,
+                sync_remote: input.syncRemote,
+                current_task: input.currentTask,
+                agent: agentIdentityFromInput(input)
+              }
+            })
+          : withActionInterfaces({
+              recommended_action: "fix_project_config",
+              tool: "project_init",
+              safe_to_run: false,
+              command: buildProjectInitCommand(setupInput, setupRequiredFields),
+              required_when: FIX_PROJECT_CONFIG_WHEN,
+              required_fields: setupRequiredFields,
+              workflow: singleNextWorkflow(
+                "fix_project_config",
+                "project_init",
+                FIX_PROJECT_CONFIG_WHEN,
+                setupRequiredFields
+              ),
+              arguments: projectInitArguments(setupInput, setupRequiredFields),
+              argument_sources: userInputArgumentSources(setupRequiredFields)
+            })
+  );
 
   return {
     ok: true,
@@ -2851,9 +3136,15 @@ export async function agentGuide(input: AgentGuideInput) {
   };
 }
 
-async function assurePriorSessionFinalization(input: AgentStartInput, project: ProjectContext, nowIso: string, deps: AgentLifecycleDeps): Promise<FinalizationAssuranceReceipt> {
+async function assurePriorSessionFinalization(
+  input: AgentStartInput,
+  project: ProjectContext,
+  nowIso: string,
+  deps: AgentLifecycleDeps
+): Promise<FinalizationAssuranceReceipt> {
   const incoming = sourceFromAgent(input.agent);
-  if (!incoming.session_id || !incoming.device_id) return { status: "nothing_to_finalize", selection_sources: FINALIZATION_ASSURANCE_SELECTION_SOURCES };
+  if (!incoming.session_id || !incoming.device_id)
+    return { status: "nothing_to_finalize", selection_sources: FINALIZATION_ASSURANCE_SELECTION_SOURCES };
   const current = await readCurrentRecords(input.storePath);
   const selection = selectPriorSessionForFinalization(current.records, {
     project_id: project.project_id,
@@ -2861,7 +3152,8 @@ async function assurePriorSessionFinalization(input: AgentStartInput, project: P
     session_id: incoming.session_id,
     device_id: incoming.device_id
   });
-  if (selection.status !== "eligible") return { ...selection, selection_sources: FINALIZATION_ASSURANCE_SELECTION_SOURCES };
+  if (selection.status !== "eligible")
+    return { ...selection, selection_sources: FINALIZATION_ASSURANCE_SELECTION_SOURCES };
   const recoveryPack = buildCheckpointRecoveryPack(current.records, {
     project_id: project.project_id,
     session_id: selection.prior_session.session_id,
@@ -2873,26 +3165,30 @@ async function assurePriorSessionFinalization(input: AgentStartInput, project: P
   const synthesis = recoveryPack.available
     ? synthesizeSession({ recovery_pack: recoveryPack })
     : synthesizeSession({ host_summary: statusEvidence ? displayRecordText(statusEvidence) : undefined });
-  if (synthesis.mode === "minimal_fallback") return { status: "nothing_to_finalize", selection_sources: FINALIZATION_ASSURANCE_SELECTION_SOURCES };
-  const recovered = await agentFinish({
-    storePath: input.storePath,
-    projectPath: project.project_path,
-    projectId: project.project_id,
-    currentTask: synthesis.current_task,
-    agent: {
-      client: selection.prior_session.host,
-      session_id: selection.prior_session.session_id,
-      device_id: selection.prior_session.device_id
+  if (synthesis.mode === "minimal_fallback")
+    return { status: "nothing_to_finalize", selection_sources: FINALIZATION_ASSURANCE_SELECTION_SOURCES };
+  const recovered = await agentFinish(
+    {
+      storePath: input.storePath,
+      projectPath: project.project_path,
+      projectId: project.project_id,
+      currentTask: synthesis.current_task,
+      agent: {
+        client: selection.prior_session.host,
+        session_id: selection.prior_session.session_id,
+        device_id: selection.prior_session.device_id
+      },
+      summary: synthesis.summary,
+      synthesis
     },
-    summary: synthesis.summary,
-    synthesis
-  }, {
-    now: () => nowIso,
-    createEngine: deps.createEngine,
-    pushGitSync: deps.pushGitSync,
-    handoffPayloadFingerprint: selection.recovery_key,
-    finalizationRecovery: { recovery_key: selection.recovery_key, evidence_record_ids: selection.evidence_record_ids }
-  });
+    {
+      now: () => nowIso,
+      createEngine: deps.createEngine,
+      pushGitSync: deps.pushGitSync,
+      handoffPayloadFingerprint: selection.recovery_key,
+      finalizationRecovery: { recovery_key: selection.recovery_key, evidence_record_ids: selection.evidence_record_ids }
+    }
+  );
   return {
     status: "recovered",
     prior_session: selection.prior_session,
@@ -2931,21 +3227,39 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
   if (shouldPull) {
     try {
       const pending = await getPendingSyncEvidence(input.storePath);
-      const assessment = assessSyncCompensation({ project_id: project.project_id, status: sync.before, pending_paths: pending.paths, pending_events: pending.events });
+      const assessment = assessSyncCompensation({
+        project_id: project.project_id,
+        status: sync.before,
+        pending_paths: pending.paths,
+        pending_events: pending.events
+      });
       if (assessment.decision === "safe_to_push") {
-        const pushed = await trySync(() => pushGitSync(input.storePath, { message: `Recover Moryn continuity for ${project.project_id}` }));
+        const pushed = await trySync(() =>
+          pushGitSync(input.storePath, { message: `Recover Moryn continuity for ${project.project_id}` })
+        );
         sync.compensation = pushed.ok
           ? { ...assessment, decision: "pushed", push: pushed.result }
           : { ...assessment, decision: "failed", error: pushed.error, error_details: syncErrorDetails(pushed.cause) };
       } else {
-      sync.compensation = { ...assessment, decision: assessment.decision };
+        sync.compensation = { ...assessment, decision: assessment.decision };
       }
     } catch (error) {
-      sync.compensation = { decision: "failed", reason: "evidence_unavailable", pending_paths: [], continuity_record_ids: [], error: error instanceof Error ? error.message : String(error), error_details: syncErrorDetails(error) };
+      sync.compensation = {
+        decision: "failed",
+        reason: "evidence_unavailable",
+        pending_paths: [],
+        continuity_record_ids: [],
+        error: error instanceof Error ? error.message : String(error),
+        error_details: syncErrorDetails(error)
+      };
     }
     if (sync.compensation) {
       const { error_details: _errorDetails, push: _push, ...receipt } = sync.compensation;
-      await writeSyncCompensationReceipt(input.storePath, { occurred_at: nowIso, project_id: project.project_id, ...receipt }).catch(() => undefined);
+      await writeSyncCompensationReceipt(input.storePath, {
+        occurred_at: nowIso,
+        project_id: project.project_id,
+        ...receipt
+      }).catch(() => undefined);
     }
     const pulled = await trySync(() => pullGitSync(input.storePath));
     if (pulled.ok) {
@@ -2978,7 +3292,13 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
     include_private: input.includePrivate
   });
   const handoff = await agentHandoff(engine, project.project_id, input, now);
-  const actions = nextActions(actionInput, now.getTime(), refresh.cursor, boot.checkpoint_recovery_pack, project.project_id);
+  const actions = nextActions(
+    actionInput,
+    now.getTime(),
+    refresh.cursor,
+    boot.checkpoint_recovery_pack,
+    project.project_id
+  );
   const startupOverview = buildStartupOverview({
     project: projectInfo,
     boot,
@@ -3038,24 +3358,28 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     content: {
       text: input.summary,
       format: "text",
-      ...(input.synthesis ? {
-        synthesis_version: input.synthesis.version,
-        synthesis_mode: input.synthesis.mode,
-        synthesis_current_task: input.synthesis.current_task,
-        synthesis_progress: input.synthesis.progress,
-        synthesis_decisions: input.synthesis.decisions,
-        synthesis_blockers: input.synthesis.blockers,
-        synthesis_next_steps: input.synthesis.next_steps,
-        synthesis_learning_conclusions: input.synthesis.learning_conclusions,
-        synthesis_unresolved_investigations: input.synthesis.unresolved_investigations,
-        synthesis_source_record_ids: input.synthesis.source_record_ids
-      } : {}),
+      ...(input.synthesis
+        ? {
+            synthesis_version: input.synthesis.version,
+            synthesis_mode: input.synthesis.mode,
+            synthesis_current_task: input.synthesis.current_task,
+            synthesis_progress: input.synthesis.progress,
+            synthesis_decisions: input.synthesis.decisions,
+            synthesis_blockers: input.synthesis.blockers,
+            synthesis_next_steps: input.synthesis.next_steps,
+            synthesis_learning_conclusions: input.synthesis.learning_conclusions,
+            synthesis_unresolved_investigations: input.synthesis.unresolved_investigations,
+            synthesis_source_record_ids: input.synthesis.source_record_ids
+          }
+        : {}),
       ...(deps.handoffPayloadFingerprint ? { handoff_payload_fingerprint: deps.handoffPayloadFingerprint } : {}),
-      ...(deps.finalizationRecovery ? {
-        finalization_assurance_version: 1,
-        finalization_recovery_key: deps.finalizationRecovery.recovery_key,
-        finalization_evidence_record_ids: deps.finalizationRecovery.evidence_record_ids
-      } : {})
+      ...(deps.finalizationRecovery
+        ? {
+            finalization_assurance_version: 1,
+            finalization_recovery_key: deps.finalizationRecovery.recovery_key,
+            finalization_evidence_record_ids: deps.finalizationRecovery.evidence_record_ids
+          }
+        : {})
     },
     source: sourceFromAgent(input.agent)
   });
@@ -3064,10 +3388,17 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     session_id: sourceFromAgent(input.agent).session_id,
     consumed_by_record_id: record.record.id
   });
-  const combinedLearnings = [...new Map([
-    ...(input.learnings ?? []),
-    ...pendingInbox.map((inboxRecord) => inboxRecord.content.learning_delta)
-  ].map((learning) => [learningRecordIdentity({ project_id: project.project_id, learning: learningDeltaSchema.parse(learning) }).record_id, learning])).values()];
+  const combinedLearnings = [
+    ...new Map(
+      [...(input.learnings ?? []), ...pendingInbox.map((inboxRecord) => inboxRecord.content.learning_delta)].map(
+        (learning) => [
+          learningRecordIdentity({ project_id: project.project_id, learning: learningDeltaSchema.parse(learning) })
+            .record_id,
+          learning
+        ]
+      )
+    ).values()
+  ];
   const learningIngestion = await engine.ingestLearnings({
     project_id: project.project_id,
     learnings: combinedLearnings,
@@ -3099,7 +3430,9 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
   } = {};
 
   if (shouldPush) {
-    const pushed = await trySync(() => (deps.pushGitSync ?? pushGitSync)(input.storePath, { message: `agent finish: ${project.project_id}` }));
+    const pushed = await trySync(() =>
+      (deps.pushGitSync ?? pushGitSync)(input.storePath, { message: `agent finish: ${project.project_id}` })
+    );
     if (pushed.ok) {
       sync.push = pushed.result;
     } else {
@@ -3160,18 +3493,20 @@ export async function agentStatus(input: AgentStatusInput, deps: AgentLifecycleD
       format: "json",
       current_task: input.currentTask,
       status: input.status,
-      ...(input.synthesis ? {
-        synthesis_version: input.synthesis.version,
-        synthesis_mode: input.synthesis.mode,
-        synthesis_current_task: input.synthesis.current_task,
-        synthesis_progress: input.synthesis.progress,
-        synthesis_decisions: input.synthesis.decisions,
-        synthesis_blockers: input.synthesis.blockers,
-        synthesis_next_steps: input.synthesis.next_steps,
-        synthesis_learning_conclusions: input.synthesis.learning_conclusions,
-        synthesis_unresolved_investigations: input.synthesis.unresolved_investigations,
-        synthesis_source_record_ids: input.synthesis.source_record_ids
-      } : {})
+      ...(input.synthesis
+        ? {
+            synthesis_version: input.synthesis.version,
+            synthesis_mode: input.synthesis.mode,
+            synthesis_current_task: input.synthesis.current_task,
+            synthesis_progress: input.synthesis.progress,
+            synthesis_decisions: input.synthesis.decisions,
+            synthesis_blockers: input.synthesis.blockers,
+            synthesis_next_steps: input.synthesis.next_steps,
+            synthesis_learning_conclusions: input.synthesis.learning_conclusions,
+            synthesis_unresolved_investigations: input.synthesis.unresolved_investigations,
+            synthesis_source_record_ids: input.synthesis.source_record_ids
+          }
+        : {})
     },
     source: sourceFromAgent(input.agent)
   });
@@ -3184,7 +3519,9 @@ export async function agentStatus(input: AgentStatusInput, deps: AgentLifecycleD
   } = {};
 
   if (shouldPush) {
-    const pushed = await trySync(() => (deps.pushGitSync ?? pushGitSync)(input.storePath, { message: `agent status: ${project.project_id}` }));
+    const pushed = await trySync(() =>
+      (deps.pushGitSync ?? pushGitSync)(input.storePath, { message: `agent status: ${project.project_id}` })
+    );
     if (pushed.ok) {
       sync.push = pushed.result;
     } else {

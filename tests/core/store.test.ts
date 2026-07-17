@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { toErrorEnvelope } from "../../src/core/errors.js";
@@ -8,12 +8,26 @@ import { withInitializedTempStore, withTempStore } from "../helpers/temp-store.j
 describe("event store", () => {
   function checkpointStoreEvent(eventId: string) {
     return {
-      event_id: eventId, op: "upsert_record" as const, created_at: "2026-05-27T00:00:00.000Z",
+      event_id: eventId,
+      op: "upsert_record" as const,
+      created_at: "2026-05-27T00:00:00.000Z",
       source: { client: "test", device_id: "device_a" },
-      record: { id: eventId.replace("evt_", "rec_"), kind: "session_summary" as const, type: "checkpoint", scope: "project" as const,
-        project_id: "project-a", tags: [], content: { text: "complete", format: "json" as const }, state: "candidate" as const,
-        confidence: 0.5, priority: "normal" as const, visibility: "active" as const, created_at: "2026-05-27T00:00:00.000Z",
-        updated_at: "2026-05-27T00:00:00.000Z", source: { client: "test", device_id: "device_a" } }
+      record: {
+        id: eventId.replace("evt_", "rec_"),
+        kind: "session_summary" as const,
+        type: "checkpoint",
+        scope: "project" as const,
+        project_id: "project-a",
+        tags: [],
+        content: { text: "complete", format: "json" as const },
+        state: "candidate" as const,
+        confidence: 0.5,
+        priority: "normal" as const,
+        visibility: "active" as const,
+        created_at: "2026-05-27T00:00:00.000Z",
+        updated_at: "2026-05-27T00:00:00.000Z",
+        source: { client: "test", device_id: "device_a" }
+      }
     };
   }
   it("atomically appends a global event once and returns the persisted event to losers", async () => {
@@ -60,21 +74,40 @@ describe("event store", () => {
         created_at: "2026-05-27T00:00:00.000Z",
         source: { client: "test", device_id: "device_a" },
         record: {
-          id: "rec_checkpoint_publish", kind: "session_summary" as const, type: "checkpoint", scope: "project" as const,
-          project_id: "project-a", tags: ["checkpoint"], content: { text: "complete", format: "json" as const },
-          state: "candidate" as const, confidence: 0.5, priority: "normal" as const, visibility: "active" as const,
-          created_at: "2026-05-27T00:00:00.000Z", updated_at: "2026-05-27T00:00:00.000Z", source: { client: "test", device_id: "device_a" }
+          id: "rec_checkpoint_publish",
+          kind: "session_summary" as const,
+          type: "checkpoint",
+          scope: "project" as const,
+          project_id: "project-a",
+          tags: ["checkpoint"],
+          content: { text: "complete", format: "json" as const },
+          state: "candidate" as const,
+          confidence: 0.5,
+          priority: "normal" as const,
+          visibility: "active" as const,
+          created_at: "2026-05-27T00:00:00.000Z",
+          updated_at: "2026-05-27T00:00:00.000Z",
+          source: { client: "test", device_id: "device_a" }
         }
       };
       const tempDir = join(storePath, "state", "event-writes");
       await mkdir(tempDir, { recursive: true });
       await writeFile(join(tempDir, "orphan.tmp"), "{partial", "utf8");
       let releasePublish!: () => void;
-      const publishGate = new Promise<void>((resolve) => { releasePublish = resolve; });
+      const publishGate = new Promise<void>((resolve) => {
+        releasePublish = resolve;
+      });
       let tempReady!: () => void;
-      const tempReadyPromise = new Promise<void>((resolve) => { tempReady = resolve; });
+      const tempReadyPromise = new Promise<void>((resolve) => {
+        tempReady = resolve;
+      });
 
-      const paused = appendEventIfAbsent(storePath, event, { before_publish: async () => { tempReady(); await publishGate; } });
+      const paused = appendEventIfAbsent(storePath, event, {
+        before_publish: async () => {
+          tempReady();
+          await publishGate;
+        }
+      });
       await tempReadyPromise;
       const competitor = appendEventIfAbsent(storePath, event);
       releasePublish();
@@ -93,15 +126,31 @@ describe("event store", () => {
       await mkdir(finalDir, { recursive: true });
       await writeFile(join(finalDir, "evt_checkpoint_corrupt.json"), "{partial", "utf8");
       const event = {
-        event_id: "evt_checkpoint_corrupt", op: "upsert_record" as const, created_at: "2026-05-27T00:00:00.000Z",
+        event_id: "evt_checkpoint_corrupt",
+        op: "upsert_record" as const,
+        created_at: "2026-05-27T00:00:00.000Z",
         source: { client: "test", device_id: "device_a" },
-        record: { id: "rec_checkpoint_corrupt", kind: "session_summary" as const, type: "checkpoint", scope: "project" as const,
-          project_id: "project-a", tags: [], content: { text: "complete", format: "json" as const }, state: "candidate" as const,
-          confidence: 0.5, priority: "normal" as const, visibility: "active" as const, created_at: "2026-05-27T00:00:00.000Z",
-          updated_at: "2026-05-27T00:00:00.000Z", source: { client: "test", device_id: "device_a" } }
+        record: {
+          id: "rec_checkpoint_corrupt",
+          kind: "session_summary" as const,
+          type: "checkpoint",
+          scope: "project" as const,
+          project_id: "project-a",
+          tags: [],
+          content: { text: "complete", format: "json" as const },
+          state: "candidate" as const,
+          confidence: 0.5,
+          priority: "normal" as const,
+          visibility: "active" as const,
+          created_at: "2026-05-27T00:00:00.000Z",
+          updated_at: "2026-05-27T00:00:00.000Z",
+          source: { client: "test", device_id: "device_a" }
+        }
       };
 
-      await expect(appendEventIfAbsent(storePath, event)).rejects.toThrow("Corrupt idempotent event: evt_checkpoint_corrupt");
+      await expect(appendEventIfAbsent(storePath, event)).rejects.toThrow(
+        "Corrupt idempotent event: evt_checkpoint_corrupt"
+      );
     });
   });
 
@@ -113,7 +162,12 @@ describe("event store", () => {
         fs: {
           open: async (path, flags) => {
             if (flags === "r" && path.endsWith(join("events", "idempotent"))) {
-              return { sync: async () => { directorySynced = true; }, close: async () => undefined };
+              return {
+                sync: async () => {
+                  directorySynced = true;
+                },
+                close: async () => undefined
+              };
             }
             const { open } = await import("node:fs/promises");
             return open(path, flags);
@@ -129,7 +183,13 @@ describe("event store", () => {
   it("preserves a published result when temp cleanup fails", async () => {
     await withInitializedTempStore(async (storePath) => {
       const result = await appendEventIfAbsent(storePath, checkpointStoreEvent("evt_checkpoint_cleanup"), {
-        fs: { unlink: async () => { const error = new Error("cleanup failed") as NodeJS.ErrnoException; error.code = "EIO"; throw error; } }
+        fs: {
+          unlink: async () => {
+            const error = new Error("cleanup failed") as NodeJS.ErrnoException;
+            error.code = "EIO";
+            throw error;
+          }
+        }
       });
 
       expect(result).toMatchObject({
@@ -145,9 +205,15 @@ describe("event store", () => {
     await withInitializedTempStore(async (storePath) => {
       const error = new Error("link unsupported") as NodeJS.ErrnoException;
       error.code = code;
-      await expect(appendEventIfAbsent(storePath, checkpointStoreEvent(`evt_checkpoint_${code.toLowerCase()}`), {
-        fs: { link: async () => { throw error; } }
-      })).rejects.toThrow(`Atomic idempotent event publish unsupported: ${code}`);
+      await expect(
+        appendEventIfAbsent(storePath, checkpointStoreEvent(`evt_checkpoint_${code.toLowerCase()}`), {
+          fs: {
+            link: async () => {
+              throw error;
+            }
+          }
+        })
+      ).rejects.toThrow(`Atomic idempotent event publish unsupported: ${code}`);
     });
   });
 
@@ -157,7 +223,12 @@ describe("event store", () => {
         fs: {
           open: async (path, flags) => {
             if (flags === "r" && path.endsWith(join("events", "idempotent"))) {
-              return { sync: async () => { throw new Error("directory sync failed"); }, close: async () => undefined };
+              return {
+                sync: async () => {
+                  throw new Error("directory sync failed");
+                },
+                close: async () => undefined
+              };
             }
             const { open } = await import("node:fs/promises");
             return open(path, flags);
@@ -173,29 +244,38 @@ describe("event store", () => {
     });
   });
 
-  it.each(["EINVAL", "ENOTSUP"])("reports best-effort durability when directory fsync is unsupported with %s", async (code) => {
-    await withInitializedTempStore(async (storePath) => {
-      const result = await appendEventIfAbsent(storePath, checkpointStoreEvent(`evt_checkpoint_dirsync_${code.toLowerCase()}`), {
-        fs: {
-          open: async (path, flags) => {
-            if (flags === "r" && path.endsWith(join("events", "idempotent"))) {
-              const error = new Error("unsupported") as NodeJS.ErrnoException;
-              error.code = code;
-              throw error;
+  it.each(["EINVAL", "ENOTSUP"])(
+    "reports best-effort durability when directory fsync is unsupported with %s",
+    async (code) => {
+      await withInitializedTempStore(async (storePath) => {
+        const result = await appendEventIfAbsent(
+          storePath,
+          checkpointStoreEvent(`evt_checkpoint_dirsync_${code.toLowerCase()}`),
+          {
+            fs: {
+              open: async (path, flags) => {
+                if (flags === "r" && path.endsWith(join("events", "idempotent"))) {
+                  const error = new Error("unsupported") as NodeJS.ErrnoException;
+                  error.code = code;
+                  throw error;
+                }
+                const { open } = await import("node:fs/promises");
+                return open(path, flags);
+              }
             }
-            const { open } = await import("node:fs/promises");
-            return open(path, flags);
           }
-        }
-      });
+        );
 
-      expect(result).toMatchObject({
-        created: true,
-        durability: "best_effort",
-        warnings: [{ code: "IDEMPOTENT_EVENT_DIRECTORY_SYNC_UNSUPPORTED", reason: `directory sync unsupported: ${code}` }]
+        expect(result).toMatchObject({
+          created: true,
+          durability: "best_effort",
+          warnings: [
+            { code: "IDEMPOTENT_EVENT_DIRECTORY_SYNC_UNSUPPORTED", reason: `directory sync unsupported: ${code}` }
+          ]
+        });
       });
-    });
-  });
+    }
+  );
 
   it("reports directory close failure without replacing the published result", async () => {
     await withInitializedTempStore(async (storePath) => {
@@ -203,7 +283,12 @@ describe("event store", () => {
         fs: {
           open: async (path, flags) => {
             if (flags === "r" && path.endsWith(join("events", "idempotent"))) {
-              return { sync: async () => undefined, close: async () => { throw new Error("close failed"); } };
+              return {
+                sync: async () => undefined,
+                close: async () => {
+                  throw new Error("close failed");
+                }
+              };
             }
             const { open } = await import("node:fs/promises");
             return open(path, flags);
@@ -251,7 +336,11 @@ describe("event store", () => {
     });
   }
 
-  async function expectInvalidEventPathComponent(action: () => Promise<unknown>, componentName: string, value: string): Promise<void> {
+  async function expectInvalidEventPathComponent(
+    action: () => Promise<unknown>,
+    componentName: string,
+    value: string
+  ): Promise<void> {
     let caught: unknown;
     try {
       await action();
@@ -283,75 +372,85 @@ describe("event store", () => {
       const uninitialized = join(storePath, "uninitialized");
 
       await expect(readEvents(uninitialized)).rejects.toThrow(/Store not initialized/);
-      await expect(appendEvent(uninitialized, {
-        event_id: "evt_missing_store",
-        op: "upsert_record",
-        created_at: "2026-05-27T00:00:00.000Z",
-        source: { client: "test", device_id: "device_a" },
-        record: {
-          id: "rec_missing_store",
-          kind: "memory",
-          type: "decision",
-          scope: "project",
-          tags: [],
-          content: { text: "Should not write before init.", format: "text" },
-          state: "canonical",
-          confidence: 1,
-          priority: "normal",
-          visibility: "active",
+      await expect(
+        appendEvent(uninitialized, {
+          event_id: "evt_missing_store",
+          op: "upsert_record",
           created_at: "2026-05-27T00:00:00.000Z",
-          updated_at: "2026-05-27T00:00:00.000Z",
-          source: { client: "test" }
-        }
-      })).rejects.toThrow(/Store not initialized/);
+          source: { client: "test", device_id: "device_a" },
+          record: {
+            id: "rec_missing_store",
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            tags: [],
+            content: { text: "Should not write before init.", format: "text" },
+            state: "canonical",
+            confidence: 1,
+            priority: "normal",
+            visibility: "active",
+            created_at: "2026-05-27T00:00:00.000Z",
+            updated_at: "2026-05-27T00:00:00.000Z",
+            source: { client: "test" }
+          }
+        })
+      ).rejects.toThrow(/Store not initialized/);
     });
   });
 
   it("rejects invalid store paths before checking initialization", async () => {
     await expectInvalidStorePath(() => readEvents(""), "");
     await expectInvalidStorePath(() => readEvents(null as never), null);
-    await expectInvalidStorePath(() => appendEvent("", {
-      event_id: "evt_invalid_store_path",
-      op: "upsert_record",
-      created_at: "2026-05-27T00:00:00.000Z",
-      source: { client: "test", device_id: "device_a" },
-      record: {
-        id: "rec_invalid_store_path",
-        kind: "memory",
-        type: "decision",
-        scope: "project",
-        tags: [],
-        content: { text: "Should reject path before initialization checks.", format: "text" },
-        state: "canonical",
-        confidence: 1,
-        priority: "normal",
-        visibility: "active",
-        created_at: "2026-05-27T00:00:00.000Z",
-        updated_at: "2026-05-27T00:00:00.000Z",
-        source: { client: "test" }
-      }
-    }), "");
-    await expectInvalidStorePath(() => appendEvent(123 as never, {
-      event_id: "evt_invalid_store_path_number",
-      op: "upsert_record",
-      created_at: "2026-05-27T00:00:00.000Z",
-      source: { client: "test", device_id: "device_a" },
-      record: {
-        id: "rec_invalid_store_path_number",
-        kind: "memory",
-        type: "decision",
-        scope: "project",
-        tags: [],
-        content: { text: "Should reject non-string path before initialization checks.", format: "text" },
-        state: "canonical",
-        confidence: 1,
-        priority: "normal",
-        visibility: "active",
-        created_at: "2026-05-27T00:00:00.000Z",
-        updated_at: "2026-05-27T00:00:00.000Z",
-        source: { client: "test" }
-      }
-    }), 123);
+    await expectInvalidStorePath(
+      () =>
+        appendEvent("", {
+          event_id: "evt_invalid_store_path",
+          op: "upsert_record",
+          created_at: "2026-05-27T00:00:00.000Z",
+          source: { client: "test", device_id: "device_a" },
+          record: {
+            id: "rec_invalid_store_path",
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            tags: [],
+            content: { text: "Should reject path before initialization checks.", format: "text" },
+            state: "canonical",
+            confidence: 1,
+            priority: "normal",
+            visibility: "active",
+            created_at: "2026-05-27T00:00:00.000Z",
+            updated_at: "2026-05-27T00:00:00.000Z",
+            source: { client: "test" }
+          }
+        }),
+      ""
+    );
+    await expectInvalidStorePath(
+      () =>
+        appendEvent(123 as never, {
+          event_id: "evt_invalid_store_path_number",
+          op: "upsert_record",
+          created_at: "2026-05-27T00:00:00.000Z",
+          source: { client: "test", device_id: "device_a" },
+          record: {
+            id: "rec_invalid_store_path_number",
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            tags: [],
+            content: { text: "Should reject non-string path before initialization checks.", format: "text" },
+            state: "canonical",
+            confidence: 1,
+            priority: "normal",
+            visibility: "active",
+            created_at: "2026-05-27T00:00:00.000Z",
+            updated_at: "2026-05-27T00:00:00.000Z",
+            source: { client: "test" }
+          }
+        }),
+      123
+    );
   });
 
   it("appends events under device and month partitions", async () => {
@@ -423,27 +522,31 @@ describe("event store", () => {
     await withInitializedTempStore(async (storePath) => {
       const path = join(storePath, "events", "device_default", "2026-05", "evt_invalid.json");
       await mkdir(join(storePath, "events", "device_default", "2026-05"), { recursive: true });
-      await writeFile(path, `${JSON.stringify({
-        event_id: "evt_invalid",
-        op: "upsert_record",
-        created_at: "2026-05-27T00:00:00.000Z",
-        source: { client: "test" },
-        record: {
-          id: "rec_bad",
-          kind: "memory",
-          type: "decision",
-          scope: "project",
-          tags: [],
-          content: { text: "Bad", format: "text" },
-          state: "published",
-          confidence: 0.5,
-          priority: "normal",
-          visibility: "active",
+      await writeFile(
+        path,
+        `${JSON.stringify({
+          event_id: "evt_invalid",
+          op: "upsert_record",
           created_at: "2026-05-27T00:00:00.000Z",
-          updated_at: "2026-05-27T00:00:00.000Z",
-          source: { client: "test" }
-        }
-      })}\n`, "utf8");
+          source: { client: "test" },
+          record: {
+            id: "rec_bad",
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            tags: [],
+            content: { text: "Bad", format: "text" },
+            state: "published",
+            confidence: 0.5,
+            priority: "normal",
+            visibility: "active",
+            created_at: "2026-05-27T00:00:00.000Z",
+            updated_at: "2026-05-27T00:00:00.000Z",
+            source: { client: "test" }
+          }
+        })}\n`,
+        "utf8"
+      );
 
       await expect(readEvents(storePath)).rejects.toThrow(/Invalid event/);
     });
@@ -451,27 +554,29 @@ describe("event store", () => {
 
   it("rejects invalid events before appending", async () => {
     await withInitializedTempStore(async (storePath) => {
-      await expect(appendEvent(storePath, {
-        event_id: "evt_invalid",
-        op: "upsert_record",
-        created_at: "2026-05-27T00:00:00.000Z",
-        source: { client: "test" },
-        record: {
-          id: "rec_bad",
-          kind: "memory",
-          type: "decision",
-          scope: "project",
-          tags: [],
-          content: { text: "Bad", format: "text" },
-          state: "published",
-          confidence: 0.5,
-          priority: "normal",
-          visibility: "active",
+      await expect(
+        appendEvent(storePath, {
+          event_id: "evt_invalid",
+          op: "upsert_record",
           created_at: "2026-05-27T00:00:00.000Z",
-          updated_at: "2026-05-27T00:00:00.000Z",
-          source: { client: "test" }
-        }
-      } as never)).rejects.toThrow(/Invalid event/);
+          source: { client: "test" },
+          record: {
+            id: "rec_bad",
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            tags: [],
+            content: { text: "Bad", format: "text" },
+            state: "published",
+            confidence: 0.5,
+            priority: "normal",
+            visibility: "active",
+            created_at: "2026-05-27T00:00:00.000Z",
+            updated_at: "2026-05-27T00:00:00.000Z",
+            source: { client: "test" }
+          }
+        } as never)
+      ).rejects.toThrow(/Invalid event/);
     });
   });
 
@@ -481,50 +586,60 @@ describe("event store", () => {
         const outsidePath = join(root, "evt_escape.json");
 
         const unsafeEventId = `..${outsidePath}`;
-        await expectInvalidEventPathComponent(() => appendEvent(storePath, {
-          event_id: unsafeEventId,
-          op: "upsert_record",
-          created_at: "2026-05-27T00:00:00.000Z",
-          source: { client: "test", device_id: "device_a" },
-          record: {
-            id: "rec_unsafe_event_id",
-            kind: "memory",
-            type: "decision",
-            scope: "project",
-            tags: [],
-            content: { text: "Unsafe event ids must not affect file paths.", format: "text" },
-            state: "canonical",
-            confidence: 1,
-            priority: "normal",
-            visibility: "active",
-            created_at: "2026-05-27T00:00:00.000Z",
-            updated_at: "2026-05-27T00:00:00.000Z",
-            source: { client: "test" }
-          }
-        }), "event_id", unsafeEventId);
+        await expectInvalidEventPathComponent(
+          () =>
+            appendEvent(storePath, {
+              event_id: unsafeEventId,
+              op: "upsert_record",
+              created_at: "2026-05-27T00:00:00.000Z",
+              source: { client: "test", device_id: "device_a" },
+              record: {
+                id: "rec_unsafe_event_id",
+                kind: "memory",
+                type: "decision",
+                scope: "project",
+                tags: [],
+                content: { text: "Unsafe event ids must not affect file paths.", format: "text" },
+                state: "canonical",
+                confidence: 1,
+                priority: "normal",
+                visibility: "active",
+                created_at: "2026-05-27T00:00:00.000Z",
+                updated_at: "2026-05-27T00:00:00.000Z",
+                source: { client: "test" }
+              }
+            }),
+          "event_id",
+          unsafeEventId
+        );
 
         const unsafeDeviceId = "../device_escape";
-        await expectInvalidEventPathComponent(() => appendEvent(storePath, {
-          event_id: "evt_unsafe_device",
-          op: "upsert_record",
-          created_at: "2026-05-27T00:00:00.000Z",
-          source: { client: "test", device_id: unsafeDeviceId },
-          record: {
-            id: "rec_unsafe_device",
-            kind: "memory",
-            type: "decision",
-            scope: "project",
-            tags: [],
-            content: { text: "Unsafe device ids must not affect file paths.", format: "text" },
-            state: "canonical",
-            confidence: 1,
-            priority: "normal",
-            visibility: "active",
-            created_at: "2026-05-27T00:00:00.000Z",
-            updated_at: "2026-05-27T00:00:00.000Z",
-            source: { client: "test" }
-          }
-        }), "source.device_id", unsafeDeviceId);
+        await expectInvalidEventPathComponent(
+          () =>
+            appendEvent(storePath, {
+              event_id: "evt_unsafe_device",
+              op: "upsert_record",
+              created_at: "2026-05-27T00:00:00.000Z",
+              source: { client: "test", device_id: unsafeDeviceId },
+              record: {
+                id: "rec_unsafe_device",
+                kind: "memory",
+                type: "decision",
+                scope: "project",
+                tags: [],
+                content: { text: "Unsafe device ids must not affect file paths.", format: "text" },
+                state: "canonical",
+                confidence: 1,
+                priority: "normal",
+                visibility: "active",
+                created_at: "2026-05-27T00:00:00.000Z",
+                updated_at: "2026-05-27T00:00:00.000Z",
+                source: { client: "test" }
+              }
+            }),
+          "source.device_id",
+          unsafeDeviceId
+        );
 
         await expect(readFile(outsidePath, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
         expect(await readEvents(storePath)).toHaveLength(0);
@@ -537,29 +652,29 @@ describe("event store", () => {
       let caught: unknown;
       try {
         await appendEvent(storePath, {
-        event_id: "evt_secret",
-        op: "upsert_record",
-        created_at: "2026-05-27T00:00:00.000Z",
-        source: { client: "test" },
-        record: {
-          id: "rec_secret",
-          kind: "memory",
-          type: "warning",
-          scope: "project",
-          tags: [],
-          content: {
-            text: "Review deployment settings.",
-            format: "text",
-            token: "abcdef1234567890"
-          },
-          state: "quarantined",
-          confidence: 0.5,
-          priority: "normal",
-          visibility: "quarantined",
+          event_id: "evt_secret",
+          op: "upsert_record",
           created_at: "2026-05-27T00:00:00.000Z",
-          updated_at: "2026-05-27T00:00:00.000Z",
-          source: { client: "test" }
-        }
+          source: { client: "test" },
+          record: {
+            id: "rec_secret",
+            kind: "memory",
+            type: "warning",
+            scope: "project",
+            tags: [],
+            content: {
+              text: "Review deployment settings.",
+              format: "text",
+              token: "abcdef1234567890"
+            },
+            state: "quarantined",
+            confidence: 0.5,
+            priority: "normal",
+            visibility: "quarantined",
+            created_at: "2026-05-27T00:00:00.000Z",
+            updated_at: "2026-05-27T00:00:00.000Z",
+            source: { client: "test" }
+          }
         });
       } catch (error) {
         caught = error;

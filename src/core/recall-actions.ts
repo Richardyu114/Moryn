@@ -55,7 +55,11 @@ const LEARNING_FIELDS = {
   recommended_type: "recommended_type"
 };
 
-function timelineAction(id: "inspect_record_timeline" | "inspect_recalled_candidate", recordId: string, includePrivate: boolean): RecallNextAction {
+function timelineAction(
+  id: "inspect_record_timeline" | "inspect_recalled_candidate",
+  recordId: string,
+  includePrivate: boolean
+): RecallNextAction {
   const argv = ["timeline", "--record-id", recordId, ...(includePrivate ? ["--include-private"] : [])];
   return {
     id,
@@ -101,15 +105,18 @@ export function buildRecallNextActions(input: {
 }): RecallActionContract {
   const includePrivate = input.include_private === true;
   if (input.outcome.status === "trusted_match" && input.outcome.best_record_id) {
-    return keyed([{
-      id: "use_recalled_knowledge",
-      title: "Use recalled knowledge",
-      description: "Use the trusted record and retain its record ID as answer evidence.",
-      executor: "host_agent",
-      safe_to_run: true,
-      evidence: { record_ids: [input.outcome.best_record_id] },
-      execution: { external_side_effects: false }
-    }, timelineAction("inspect_record_timeline", input.outcome.best_record_id, includePrivate)]);
+    return keyed([
+      {
+        id: "use_recalled_knowledge",
+        title: "Use recalled knowledge",
+        description: "Use the trusted record and retain its record ID as answer evidence.",
+        executor: "host_agent",
+        safe_to_run: true,
+        evidence: { record_ids: [input.outcome.best_record_id] },
+        execution: { external_side_effects: false }
+      },
+      timelineAction("inspect_record_timeline", input.outcome.best_record_id, includePrivate)
+    ]);
   }
   if (input.outcome.status === "verification_required" && input.outcome.best_record_id) {
     return keyed([
@@ -117,7 +124,8 @@ export function buildRecallNextActions(input: {
       {
         id: "verify_with_external_evidence",
         title: "Verify with external evidence",
-        description: "Verify the candidate with project files, local tools, web sources, or the user before relying on it.",
+        description:
+          "Verify the candidate with project files, local tools, web sources, or the user before relying on it.",
         executor: "host_agent",
         safe_to_run: true,
         source_order: ["project_files", "local_tools", "web_when_needed", "user_when_needed"],
@@ -126,21 +134,26 @@ export function buildRecallNextActions(input: {
       captureLearningAction()
     ]);
   }
-  return keyed([{
-    id: "explore_external_sources",
-    title: "Explore external sources",
-    description: "Moryn has no reliable answer; investigate the bounded question using host-accessible sources.",
-    executor: "host_agent",
-    safe_to_run: true,
-    source_order: ["project_files", "local_tools", "web_when_needed", "user_when_needed"],
-    execution: { external_side_effects: false }
-  }, captureLearningAction(), {
-    id: "preserve_unresolved_investigation",
-    title: "Preserve unresolved investigation",
-    description: "If still unresolved, checkpoint the question, evidence, blocker, and exact next verification step before compact or handoff.",
-    executor: "host_agent",
-    safe_to_run: true,
-    destinations: ["checkpoint.delta.blockers[]", "checkpoint.delta.next_steps[]", "checkpoint.delta.files[]"],
-    execution: { external_side_effects: false }
-  }]);
+  return keyed([
+    {
+      id: "explore_external_sources",
+      title: "Explore external sources",
+      description: "Moryn has no reliable answer; investigate the bounded question using host-accessible sources.",
+      executor: "host_agent",
+      safe_to_run: true,
+      source_order: ["project_files", "local_tools", "web_when_needed", "user_when_needed"],
+      execution: { external_side_effects: false }
+    },
+    captureLearningAction(),
+    {
+      id: "preserve_unresolved_investigation",
+      title: "Preserve unresolved investigation",
+      description:
+        "If still unresolved, checkpoint the question, evidence, blocker, and exact next verification step before compact or handoff.",
+      executor: "host_agent",
+      safe_to_run: true,
+      destinations: ["checkpoint.delta.blockers[]", "checkpoint.delta.next_steps[]", "checkpoint.delta.files[]"],
+      execution: { external_side_effects: false }
+    }
+  ]);
 }

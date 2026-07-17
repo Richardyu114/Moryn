@@ -10,11 +10,12 @@ function outcome(status: RecallOutcome["status"], bestRecordId?: string): Recall
     coverage: bestRecordId ? 1 : 0,
     trust: status === "trusted_match" ? "trusted" : bestRecordId ? "limited" : "none",
     stale: false,
-    recommended_action: status === "trusted_match"
-      ? "use_recalled_knowledge"
-      : status === "verification_required"
-        ? "verify_then_use_or_learn"
-        : "explore_then_capture_learning"
+    recommended_action:
+      status === "trusted_match"
+        ? "use_recalled_knowledge"
+        : status === "verification_required"
+          ? "verify_then_use_or_learn"
+          : "explore_then_capture_learning"
   };
 }
 

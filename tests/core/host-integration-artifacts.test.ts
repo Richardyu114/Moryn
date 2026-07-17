@@ -1,7 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { activationId, buildHostIntegrationArtifact, writeHostIntegrationArtifact } from "../../src/core/host-integration-artifacts.js";
+import {
+  activationId,
+  buildHostIntegrationArtifact,
+  writeHostIntegrationArtifact
+} from "../../src/core/host-integration-artifacts.js";
 import { withTempStore } from "../helpers/temp-store.js";
 
 describe("host integration artifacts", () => {
@@ -56,18 +60,44 @@ describe("host integration artifacts", () => {
     });
     expect(artifact.path).toBe(".claude/moryn-settings.json");
     const parsed = JSON.parse(artifact.content);
-    expect(Object.keys(parsed.hooks)).toEqual(["SessionStart", "UserPromptSubmit", "PreCompact", "PostCompact", "Stop", "SessionEnd"]);
+    expect(Object.keys(parsed.hooks)).toEqual([
+      "SessionStart",
+      "UserPromptSubmit",
+      "PreCompact",
+      "PostCompact",
+      "Stop",
+      "SessionEnd"
+    ]);
     expect(parsed.hooks.PreCompact[0].hooks[0].command).toContain("host hook --host claude");
     expect(parsed.hooks.PreCompact[0].hooks[0].command).toContain("--activation-id moryn-v03-moryn-claude");
     expect(parsed.hooks.PreCompact[0].hooks[0].command).toContain("--host-output");
     expect(parsed.hooks.PreCompact[0].hooks[0].command).not.toContain("MORYN_DEVICE_ID");
     expect(parsed.hooks.PreCompact[0].hooks[0].command).not.toContain("--device-id");
-    expect(artifact.expected_events).toEqual(["SessionStart", "UserPromptSubmit", "PreCompact", "PostCompact", "Stop", "SessionEnd"]);
+    expect(artifact.expected_events).toEqual([
+      "SessionStart",
+      "UserPromptSubmit",
+      "PreCompact",
+      "PostCompact",
+      "Stop",
+      "SessionEnd"
+    ]);
   });
 
   it("changes command identity when the activating CLI runtime changes", () => {
-    const first = buildHostIntegrationArtifact({ host: "codex", project_id: "moryn", project_path: "/repo", store_path: "/store", runtime: { exec_file: "/runtime/node", cli_entry: "/runtime/one/cli.js", package_version: "0.3.0" } });
-    const second = buildHostIntegrationArtifact({ host: "codex", project_id: "moryn", project_path: "/repo", store_path: "/store", runtime: { exec_file: "/runtime/node", cli_entry: "/runtime/two/cli.js", package_version: "0.3.0" } });
+    const first = buildHostIntegrationArtifact({
+      host: "codex",
+      project_id: "moryn",
+      project_path: "/repo",
+      store_path: "/store",
+      runtime: { exec_file: "/runtime/node", cli_entry: "/runtime/one/cli.js", package_version: "0.3.0" }
+    });
+    const second = buildHostIntegrationArtifact({
+      host: "codex",
+      project_id: "moryn",
+      project_path: "/repo",
+      store_path: "/store",
+      runtime: { exec_file: "/runtime/node", cli_entry: "/runtime/two/cli.js", package_version: "0.3.0" }
+    });
     expect(first.activation_id).toBe(second.activation_id);
     expect(first.command_digest).not.toBe(second.command_digest);
     expect(first.command).not.toBe(second.command);
@@ -86,8 +116,18 @@ describe("host integration artifacts", () => {
 
   it("writes artifacts idempotently and preserves unrelated project files", async () => {
     await withTempStore(async (projectPath) => {
-      const first = await writeHostIntegrationArtifact({ host: "claude", project_id: "moryn", project_path: projectPath, store_path: "/store" });
-      const second = await writeHostIntegrationArtifact({ host: "claude", project_id: "moryn", project_path: projectPath, store_path: "/store" });
+      const first = await writeHostIntegrationArtifact({
+        host: "claude",
+        project_id: "moryn",
+        project_path: projectPath,
+        store_path: "/store"
+      });
+      const second = await writeHostIntegrationArtifact({
+        host: "claude",
+        project_id: "moryn",
+        project_path: projectPath,
+        store_path: "/store"
+      });
       expect(first.created).toBe(true);
       expect(second.created).toBe(false);
       expect(await readFile(join(projectPath, ".claude", "moryn-settings.json"), "utf8")).toBe(first.artifact.content);

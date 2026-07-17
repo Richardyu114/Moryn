@@ -15,9 +15,7 @@ const KNOWN_AGENT_PATTERNS: Array<{ family: string; display: string; patterns: R
 const GENERIC_LOCAL_CLIENTS = new Set(["agent", "cli", "mcp", "moryn"]);
 
 function titleCase(value: string): string {
-  return value
-    .replace(/[_-]+/g, " ")
-    .replace(/\b\w/g, (match) => match.toUpperCase());
+  return value.replace(/[_-]+/g, " ").replace(/\b\w/g, (match) => match.toUpperCase());
 }
 
 export function normalizeAgentIdentity(rawClient: string | undefined): AgentIdentityDisplay {

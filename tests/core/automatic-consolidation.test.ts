@@ -58,8 +58,23 @@ describe("automatic near-duplicate consolidation", () => {
 
   it("rejects weak overlap, private boundaries, and incompatible domains", () => {
     const source = record();
-    expect(discoverAutomaticDuplicateProposal([source, record({ id: "weak", content: { text: "Dashboard uses a quiet status pulse." } })], source.id)).toBeUndefined();
-    expect(discoverAutomaticDuplicateProposal([source, record({ id: "private", tags: ["private"], content: { text: source.content.text } })], source.id)).toBeUndefined();
-    expect(discoverAutomaticDuplicateProposal([source, record({ id: "skill", kind: "skill", content: { text: source.content.text } })], source.id)).toBeUndefined();
+    expect(
+      discoverAutomaticDuplicateProposal(
+        [source, record({ id: "weak", content: { text: "Dashboard uses a quiet status pulse." } })],
+        source.id
+      )
+    ).toBeUndefined();
+    expect(
+      discoverAutomaticDuplicateProposal(
+        [source, record({ id: "private", tags: ["private"], content: { text: source.content.text } })],
+        source.id
+      )
+    ).toBeUndefined();
+    expect(
+      discoverAutomaticDuplicateProposal(
+        [source, record({ id: "skill", kind: "skill", content: { text: source.content.text } })],
+        source.id
+      )
+    ).toBeUndefined();
   });
 });

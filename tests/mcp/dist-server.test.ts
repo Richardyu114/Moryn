@@ -37,28 +37,34 @@ describe("built MCP stdio server", () => {
         const tools = await client.listTools();
         expect(tools.tools.map((tool) => tool.name)).toContain("boot");
 
-        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(
+          true
+        );
 
-        const write = parseTextContent(await client.callTool({
-          name: "write",
-          arguments: {
-            kind: "memory",
-            type: "decision",
-            scope: "project",
-            project_id: "moryn",
-            text: "Built MCP server works.",
-            state: "canonical",
-            source: { client: "dist-mcp-test" }
-          }
-        })) as { record: { id: string } };
+        const write = parseTextContent(
+          await client.callTool({
+            name: "write",
+            arguments: {
+              kind: "memory",
+              type: "decision",
+              scope: "project",
+              project_id: "moryn",
+              text: "Built MCP server works.",
+              state: "canonical",
+              source: { client: "dist-mcp-test" }
+            }
+          })
+        ) as { record: { id: string } };
 
-        const recall = parseTextContent(await client.callTool({
-          name: "recall",
-          arguments: {
-            record_ids: [write.record.id],
-            project_id: "moryn"
-          }
-        })) as { results: Array<{ record: { content: { text: string } } }> };
+        const recall = parseTextContent(
+          await client.callTool({
+            name: "recall",
+            arguments: {
+              record_ids: [write.record.id],
+              project_id: "moryn"
+            }
+          })
+        ) as { results: Array<{ record: { content: { text: string } } }> };
 
         expect(recall.results[0]?.record.content.text).toBe("Built MCP server works.");
       });

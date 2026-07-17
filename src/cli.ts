@@ -1,42 +1,20 @@
 #!/usr/bin/env node
 
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { homedir } from "node:os";
 import { Command, CommanderError } from "commander";
-import {
-  getOperationContract,
-  getOperationContractByCliCommand,
-  getOperationContractByMcpTool,
-  getOperationContractIndex,
-  getOperationContracts,
-  getSelectionSourceContracts,
-  captureSession,
-  contextPack,
-  planInstall,
-  setupWizard,
-  version,
-  writeHostIntegrationArtifact,
-  activateCodexHooks,
-  activateClaudeSettings,
-  inspectHostActivation,
-  buildHostIntegrationArtifact
-} from "./index.js";
-import {
-  OperationContractLookupConflictError,
-  OperationContractLookupError,
-  type OperationArgumentMetadata,
-  type OperationContract,
-  type OperationContractLookupOption
-} from "./operation-contracts.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "./core/agent-lifecycle.js";
 import { commandLineForCliInterface } from "./core/cli-command-line.js";
 import { initializeStore, readStoreConfig } from "./core/config.js";
-import type { ContextDeltaInput, KnowledgeInvestigationInput, LearningDeltaInput, SemanticConsolidationProposalInput } from "./core/context-delta.js";
-import { LOGICAL_RELATIONSHIP_TYPES, type LogicalRelationshipType } from "./core/logical-memory.js";
+import type {
+  ContextDeltaInput,
+  KnowledgeInvestigationInput,
+  LearningDeltaInput,
+  SemanticConsolidationProposalInput
+} from "./core/context-delta.js";
 import { rebuildDerivedViews } from "./core/derived.js";
 import { createEngine } from "./core/engine.js";
-import { queueLearning } from "./core/learning-inbox.js";
 import {
   commandForAgentEnterContext,
   commandForAgentFinishContext,
@@ -45,39 +23,70 @@ import {
   commandForArchiveContext,
   commandForLinkContext,
   commandForPromoteContext,
-  commandForRecallContext,
   commandForQuarantineContext,
+  commandForRecallContext,
   commandForRefreshContext,
   commandForReviseContext,
   commandForTimelineContext,
-  type MorynErrorEnvelope,
   type MorynErrorContext,
+  type MorynErrorEnvelope,
   toErrorEnvelope
 } from "./core/errors.js";
-import { PROJECT_SYNC_MODE_INPUTS, initializeProjectConfig, resolveProjectContext, type SyncMode } from "./core/project.js";
+import { formatHostHookOutput } from "./core/host-hook-output.js";
+import { runHostHook } from "./core/host-hook-runner.js";
+import { normalizeHostHookEvent } from "./core/host-hooks.js";
+import { queueLearning } from "./core/learning-inbox.js";
+import { LOGICAL_RELATIONSHIP_TYPES, type LogicalRelationshipType } from "./core/logical-memory.js";
 import {
-  RECORD_KINDS,
-  RECORD_PRIORITIES,
-  RECORD_SCOPES,
-  RECORD_STATES,
-  isValidPatchPath
-} from "./core/schema.js";
+  initializeProjectConfig,
+  PROJECT_SYNC_MODE_INPUTS,
+  resolveProjectContext,
+  type SyncMode
+} from "./core/project.js";
+import type { RecallEvalCaseInput } from "./core/recall-eval.js";
+import { isValidPatchPath, RECORD_KINDS, RECORD_PRIORITIES, RECORD_SCOPES, RECORD_STATES } from "./core/schema.js";
+import {
+  activateClaudeSettings,
+  activateCodexHooks,
+  buildHostIntegrationArtifact,
+  captureSession,
+  contextPack,
+  getOperationContract,
+  getOperationContractByCliCommand,
+  getOperationContractByMcpTool,
+  getOperationContractIndex,
+  getOperationContracts,
+  getSelectionSourceContracts,
+  inspectHostActivation,
+  planInstall,
+  setupWizard,
+  version,
+  writeHostIntegrationArtifact
+} from "./index.js";
 import { runMcpServer } from "./mcp/server.js";
 import {
+  type DashboardServerHandle,
+  type DashboardSnapshot,
   openDashboard,
   startDashboardServer,
-  writeDashboardSnapshot,
-  type DashboardServerHandle,
-  type DashboardSnapshot
+  writeDashboardSnapshot
 } from "./observability/dashboard.js";
+import {
+  type OperationArgumentMetadata,
+  type OperationContract,
+  OperationContractLookupConflictError,
+  OperationContractLookupError,
+  type OperationContractLookupOption
+} from "./operation-contracts.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "./sync/git.js";
-import type { RecallEvalCaseInput } from "./core/recall-eval.js";
-import { normalizeHostHookEvent } from "./core/host-hooks.js";
-import { runHostHook } from "./core/host-hook-runner.js";
-import { formatHostHookOutput } from "./core/host-hook-output.js";
 
 const program = new Command();
-const hostRuntime = { exec_file: process.execPath, exec_args: process.execArgv, cli_entry: fileURLToPath(import.meta.url), package_version: version };
+const hostRuntime = {
+  exec_file: process.execPath,
+  exec_args: process.execArgv,
+  cli_entry: fileURLToPath(import.meta.url),
+  package_version: version
+};
 const recordKinds = RECORD_KINDS;
 const recordScopes = RECORD_SCOPES;
 const recordStates = RECORD_STATES;
@@ -103,7 +112,22 @@ const CLI_GLOBAL_OPTIONS = [
   { option: "--version", position: "before_command" },
   { option: "-V", position: "before_command" }
 ] as const;
-type CliLimitOperation = "recall" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor" | "memory_lifecycle" | "capture_policy" | "dogfood_report" | "health_check" | "recall_eval" | "agent_enter" | "agent_start" | "context_pack" | "dashboard";
+type CliLimitOperation =
+  | "recall"
+  | "refresh"
+  | "timeline"
+  | "list_recent"
+  | "project_list"
+  | "memory_doctor"
+  | "memory_lifecycle"
+  | "capture_policy"
+  | "dogfood_report"
+  | "health_check"
+  | "recall_eval"
+  | "agent_enter"
+  | "agent_start"
+  | "context_pack"
+  | "dashboard";
 type CliLimitOperationContractSource = `operations_by_id.${CliLimitOperation}`;
 type CliLimitArgumentSource = `operations_by_id.${CliLimitOperation}.arguments_by_name.limit`;
 type CliEnumOperation = "write" | "recall" | "promote" | "project_init";
@@ -187,7 +211,7 @@ type CliSyncOperation = "sync_status" | "sync_push" | "sync_pull";
 type CliSyncOperationContractSource = `operations_by_id.${CliSyncOperation}`;
 type CliOperationContractSource = `operations_by_id.${string}`;
 type CliArgumentContractSource = `operations_by_id.${string}.arguments_by_name.${string}`;
-type CliRecallFilterOption = typeof RECALL_FILTER_OPTIONS[number];
+type CliRecallFilterOption = (typeof RECALL_FILTER_OPTIONS)[number];
 type CliRecallFilterArgument = "record_ids" | "kinds" | "scopes" | "types" | "states" | "tags" | "files";
 type CliAgentLifecycleCommandPath = ["agent", "status"] | ["agent", "finish"];
 type CliAgentLifecycleOption = "--status" | "--summary";
@@ -325,7 +349,10 @@ type CliArgumentRecoveryHint =
       do_not: ["retry_agent_lifecycle_positional_values", "invent_positional_arguments"];
     }
   | {
-      operation_contract: typeof REVISE_OPERATION_CONTRACT_SOURCE | typeof PROMOTE_OPERATION_CONTRACT_SOURCE | typeof LINK_OPERATION_CONTRACT_SOURCE;
+      operation_contract:
+        | typeof REVISE_OPERATION_CONTRACT_SOURCE
+        | typeof PROMOTE_OPERATION_CONTRACT_SOURCE
+        | typeof LINK_OPERATION_CONTRACT_SOURCE;
       rejected_arguments: { positional_values: string[]; command_path: CliMutationPositionalCommandPath };
       expected: {
         kind: "required_option";
@@ -459,16 +486,28 @@ type CliArgumentRecoveryHint =
     }
   | {
       operation_contracts: Record<"--status" | "--push" | "--pull", CliSyncOperationContractSource>;
-      rejected_arguments: Array<{ option: "--status" | "--push" | "--pull"; value: true; operation_contract: CliSyncOperationContractSource }>;
+      rejected_arguments: Array<{
+        option: "--status" | "--push" | "--pull";
+        value: true;
+        operation_contract: CliSyncOperationContractSource;
+      }>;
       expected: { kind: "choose_one"; options: ["--status", "--push", "--pull"] };
-      retry_with: Array<{ option: "--status" | "--push" | "--pull"; operation_contract: CliSyncOperationContractSource }>;
+      retry_with: Array<{
+        option: "--status" | "--push" | "--pull";
+        operation_contract: CliSyncOperationContractSource;
+      }>;
     }
   | {
       operation_contract: "operations_by_id.sync_push";
       rejected_argument: { option: "--message"; value: string };
       expected: { kind: "requires_option"; option: "--message"; requires: "--push" };
       argument_sources: { message: "operations_by_id.sync_push.arguments_by_name.message" };
-      retry_with: { required_option: "--push"; operation_contract: "operations_by_id.sync_push"; option: "--message"; value_placeholder: "<message>" };
+      retry_with: {
+        required_option: "--push";
+        operation_contract: "operations_by_id.sync_push";
+        option: "--message";
+        value_placeholder: "<message>";
+      };
     }
   | {
       operation_contract: "operations_by_id.revise";
@@ -542,7 +581,10 @@ function cliOptionForCoreArgument(argument: string, context?: MorynErrorContext)
   return undefined;
 }
 
-function cliArgumentObjectToOption(value: Record<string, unknown>, context?: MorynErrorContext): Record<string, unknown> {
+function cliArgumentObjectToOption(
+  value: Record<string, unknown>,
+  context?: MorynErrorContext
+): Record<string, unknown> {
   if (value.cli_preserve_argument === true) {
     const { cli_preserve_argument: _preserve, ...rest } = value;
     return rest;
@@ -609,10 +651,18 @@ function cliRequiredArgumentError(message: string, args = process.argv.slice(2))
   if (!match) return undefined;
   const [, positional] = match;
   if (!positional) return undefined;
-  return requiredCliPositionalArgumentError(positional, `<${positional}>`, message, requiredCliPositionalArgumentSource(positional, args));
+  return requiredCliPositionalArgumentError(
+    positional,
+    `<${positional}>`,
+    message,
+    requiredCliPositionalArgumentSource(positional, args)
+  );
 }
 
-function naturalWritePositionalCliArgumentError(message: string, args = process.argv.slice(2)): CliArgumentError | undefined {
+function naturalWritePositionalCliArgumentError(
+  message: string,
+  args = process.argv.slice(2)
+): CliArgumentError | undefined {
   if (cliCommandPath(args).join(" ") !== "write") return undefined;
   const positionalValues = cliCommandPositionals(args, "write");
   if (positionalValues.length < 3) return undefined;
@@ -682,9 +732,7 @@ function naturalAgentLifecyclePositionalCliArgumentError(
         operation_contract: AGENT_STATUS_OPERATION_CONTRACT_SOURCE,
         rejected_arguments: { positional_values: positionalValues, command_path: ["agent", "status"] },
         expected: { kind: "required_option", required_option: "--status" },
-        positional_mapping: [
-          naturalAgentLifecyclePositionalMapping(status, "--status", "status", "agent_status")
-        ],
+        positional_mapping: [naturalAgentLifecyclePositionalMapping(status, "--status", "status", "agent_status")],
         retry_with: {
           args: retryArgs,
           cli: commandLineForCliInterface("moryn", retryArgs),
@@ -706,9 +754,7 @@ function naturalAgentLifecyclePositionalCliArgumentError(
         operation_contract: AGENT_FINISH_OPERATION_CONTRACT_SOURCE,
         rejected_arguments: { positional_values: positionalValues, command_path: ["agent", "finish"] },
         expected: { kind: "required_option", required_option: "--summary" },
-        positional_mapping: [
-          naturalAgentLifecyclePositionalMapping(summary, "--summary", "summary", "agent_finish")
-        ],
+        positional_mapping: [naturalAgentLifecyclePositionalMapping(summary, "--summary", "summary", "agent_finish")],
         retry_with: {
           args: retryArgs,
           cli: commandLineForCliInterface("moryn", retryArgs),
@@ -805,9 +851,7 @@ function naturalPromotePositionalCliArgumentError(
       operation_contract: PROMOTE_OPERATION_CONTRACT_SOURCE,
       rejected_arguments: { positional_values: positionalValues, command_path: ["promote"] },
       expected: { kind: "required_option", required_option: "--state" },
-      positional_mapping: [
-        naturalMutationPositionalMapping(state, "--state", "target_state", "promote")
-      ],
+      positional_mapping: [naturalMutationPositionalMapping(state, "--state", "target_state", "promote")],
       retry_with: {
         args: retryArgs,
         cli: commandLineForCliInterface("moryn", retryArgs),
@@ -833,9 +877,7 @@ function naturalLinkPositionalCliArgumentError(
       operation_contract: LINK_OPERATION_CONTRACT_SOURCE,
       rejected_arguments: { positional_values: positionalValues, command_path: ["link"] },
       expected: { kind: "required_option", required_option: "--type" },
-      positional_mapping: [
-        naturalMutationPositionalMapping(linkType, "--type", "link_type", "link")
-      ],
+      positional_mapping: [naturalMutationPositionalMapping(linkType, "--type", "link_type", "link")],
       retry_with: {
         args: retryArgs,
         cli: commandLineForCliInterface("moryn", retryArgs),
@@ -869,23 +911,19 @@ function cliUnknownCommandError(message: string, args = process.argv.slice(2)): 
   const commandPath = cliCommandPath(args, { rejectedCommand });
   const rejectedCommandPath = commandPath.length > 0 ? commandPath : [rejectedCommand];
   const suggestions = cliUnknownCommandSuggestions(rejectedCommandPath.join(" "), preferredCommand);
-  return new CliArgumentError(
-    `Invalid argument: ${message}`,
-    CLI_UNKNOWN_INPUT_RECOVERY_ACTION,
-    {
-      rejected_command: {
-        command: rejectedCommandPath.join(" "),
-        command_path: rejectedCommandPath
-      },
-      suggested_commands: suggestions,
-      index_lookup: {
-        command: "moryn contracts operations --index",
-        args: ["contracts", "operations", "--index"],
-        mcp: { tool: "operation_contracts", arguments: { index: true } }
-      },
-      do_not: ["retry_unknown_command", "invent_command_names"]
-    }
-  );
+  return new CliArgumentError(`Invalid argument: ${message}`, CLI_UNKNOWN_INPUT_RECOVERY_ACTION, {
+    rejected_command: {
+      command: rejectedCommandPath.join(" "),
+      command_path: rejectedCommandPath
+    },
+    suggested_commands: suggestions,
+    index_lookup: {
+      command: "moryn contracts operations --index",
+      args: ["contracts", "operations", "--index"],
+      mcp: { tool: "operation_contracts", arguments: { index: true } }
+    },
+    do_not: ["retry_unknown_command", "invent_command_names"]
+  });
 }
 
 function cliTooManyArgumentsCommandError(message: string, args = process.argv.slice(2)): CliArgumentError | undefined {
@@ -897,50 +935,51 @@ function cliTooManyArgumentsCommandError(message: string, args = process.argv.sl
   if (commandPath.length < 2 || !cliCommandGroupTokens().has(commandPath[0]!)) return undefined;
   const suggestions = cliUnknownCommandSuggestions(commandPath.join(" "), undefined, { commandGroup: commandPath[0] });
   if (suggestions.length === 0) return undefined;
-  return new CliArgumentError(
-    `Invalid argument: ${message}`,
-    CLI_UNKNOWN_INPUT_RECOVERY_ACTION,
-    {
-      rejected_command: {
-        command: commandPath.join(" "),
-        command_path: commandPath
-      },
-      suggested_commands: suggestions,
-      index_lookup: {
-        command: "moryn contracts operations --index",
-        args: ["contracts", "operations", "--index"],
-        mcp: { tool: "operation_contracts", arguments: { index: true } }
-      },
-      do_not: ["retry_unknown_command", "invent_command_names"]
-    }
-  );
+  return new CliArgumentError(`Invalid argument: ${message}`, CLI_UNKNOWN_INPUT_RECOVERY_ACTION, {
+    rejected_command: {
+      command: commandPath.join(" "),
+      command_path: commandPath
+    },
+    suggested_commands: suggestions,
+    index_lookup: {
+      command: "moryn contracts operations --index",
+      args: ["contracts", "operations", "--index"],
+      mcp: { tool: "operation_contracts", arguments: { index: true } }
+    },
+    do_not: ["retry_unknown_command", "invent_command_names"]
+  });
 }
 
-function cliExtraPositionalsError(message: string, args: string[], commandPath = cliCommandPath(args)): CliArgumentError | undefined {
+function cliExtraPositionalsError(
+  message: string,
+  args: string[],
+  commandPath = cliCommandPath(args)
+): CliArgumentError | undefined {
   const operation = cliOperationsForCommandPath(commandPath)[0];
   if (operation === undefined) return undefined;
   const extraPositionals = cliExtraPositionals(args, operation);
   if (extraPositionals.length === 0) return undefined;
   const positionalRecallHint = naturalRecallFilterPositionalCliArgumentError(message, args, commandPath);
   if (positionalRecallHint !== undefined) return positionalRecallHint;
-  const positionalMutationHint = naturalMutationExtraPositionalsCliArgumentError(message, args, commandPath, extraPositionals);
-  if (positionalMutationHint !== undefined) return positionalMutationHint;
-  return new CliArgumentError(
-    `Invalid argument: ${message}`,
-    "retry without extra positional arguments",
-    {
-      operation_contract: `operations_by_id.${operation.operation}` as const,
-      rejected_arguments: { extra_positionals: extraPositionals, command_path: commandPath },
-      expected: {
-        kind: "no_extra_positionals",
-        accepted_cli_arguments: cliCommandTokens(operation),
-        accepted_options: cliOperationOptions(operation)
-      },
-      command: operation.interfaces.cli.command,
-      retry_with: { remove_positionals: extraPositionals, args: cliCommandTokens(operation) },
-      do_not: ["retry_extra_positionals", "invent_positional_arguments"]
-    }
+  const positionalMutationHint = naturalMutationExtraPositionalsCliArgumentError(
+    message,
+    args,
+    commandPath,
+    extraPositionals
   );
+  if (positionalMutationHint !== undefined) return positionalMutationHint;
+  return new CliArgumentError(`Invalid argument: ${message}`, "retry without extra positional arguments", {
+    operation_contract: `operations_by_id.${operation.operation}` as const,
+    rejected_arguments: { extra_positionals: extraPositionals, command_path: commandPath },
+    expected: {
+      kind: "no_extra_positionals",
+      accepted_cli_arguments: cliCommandTokens(operation),
+      accepted_options: cliOperationOptions(operation)
+    },
+    command: operation.interfaces.cli.command,
+    retry_with: { remove_positionals: extraPositionals, args: cliCommandTokens(operation) },
+    do_not: ["retry_extra_positionals", "invent_positional_arguments"]
+  });
 }
 
 function naturalRecallFilterPositionalCliArgumentError(
@@ -976,12 +1015,12 @@ function naturalRecallFilterPositionalCliArgumentError(
   );
 }
 
-function naturalRecallFilterPositionalMappings(positionalValues: readonly string[]): CliRecallFilterPositionalMapping[] | undefined {
+function naturalRecallFilterPositionalMappings(
+  positionalValues: readonly string[]
+): CliRecallFilterPositionalMapping[] | undefined {
   const [kind, ...filters] = positionalValues;
   if (!kind || filters.length === 0 || !(recordKinds as readonly string[]).includes(kind)) return undefined;
-  const mappings: CliRecallFilterPositionalMapping[] = [
-    naturalRecallFilterPositionalMapping(kind, "--kind", "kinds")
-  ];
+  const mappings: CliRecallFilterPositionalMapping[] = [naturalRecallFilterPositionalMapping(kind, "--kind", "kinds")];
   for (const value of filters) {
     if ((recordScopes as readonly string[]).includes(value)) {
       mappings.push(naturalRecallFilterPositionalMapping(value, "--scope", "scopes"));
@@ -1034,20 +1073,16 @@ function cliUnknownOptionError(message: string, args = process.argv.slice(2)): C
   const commandPath = cliCommandPath(args, { rejectedOption, skipRejectedOptionValue });
   const matchingOperations = cliOperationsForCommandPath(commandPath);
   const { suggestions, operation } = cliUnknownOptionSuggestions(rejectedOption, matchingOperations, preferredOption);
-  return new CliArgumentError(
-    `Invalid argument: ${message}`,
-    CLI_UNKNOWN_INPUT_RECOVERY_ACTION,
-    {
-      ...(operation !== undefined ? { operation_contract: `operations_by_id.${operation.operation}` as const } : {}),
-      rejected_option: {
-        option: rejectedOption,
-        command_path: commandPath
-      },
-      suggested_options: suggestions,
-      ...(operation !== undefined ? { command: operation.interfaces.cli.command } : {}),
-      do_not: ["retry_unknown_option", "invent_cli_flags"]
-    }
-  );
+  return new CliArgumentError(`Invalid argument: ${message}`, CLI_UNKNOWN_INPUT_RECOVERY_ACTION, {
+    ...(operation !== undefined ? { operation_contract: `operations_by_id.${operation.operation}` as const } : {}),
+    rejected_option: {
+      option: rejectedOption,
+      command_path: commandPath
+    },
+    suggested_options: suggestions,
+    ...(operation !== undefined ? { command: operation.interfaces.cli.command } : {}),
+    do_not: ["retry_unknown_option", "invent_cli_flags"]
+  });
 }
 
 function cliCommanderSuggestedOption(message: string): string | undefined {
@@ -1077,7 +1112,10 @@ function requiredCliOptionSource(option: string, args = process.argv.slice(2)): 
   return undefined;
 }
 
-function requiredCliPositionalArgumentSource(positional: string, args = process.argv.slice(2)): CliRequiredPositionalSource | undefined {
+function requiredCliPositionalArgumentSource(
+  positional: string,
+  args = process.argv.slice(2)
+): CliRequiredPositionalSource | undefined {
   const commandPath = cliCommandPath(args);
   if (commandPath[0] === "revise" && positional === "record-id") {
     return { operation: "revise", argument: "record_id", positional };
@@ -1118,7 +1156,12 @@ function cliCommandPath(
     if (arg?.startsWith("--store=")) {
       continue;
     }
-    if (arg === options.rejectedOption && options.skipRejectedOptionValue === true && args[index + 1] && !args[index + 1]!.startsWith("-")) {
+    if (
+      arg === options.rejectedOption &&
+      options.skipRejectedOptionValue === true &&
+      args[index + 1] &&
+      !args[index + 1]!.startsWith("-")
+    ) {
       index += 1;
       continue;
     }
@@ -1139,10 +1182,12 @@ function cliCommandPath(
 }
 
 function cliCommandGroupTokens(): Set<string> {
-  return new Set(cliOperationContracts().flatMap((operation) => {
-    const tokens = cliCommandTokens(operation);
-    return tokens.length > 1 ? [tokens[0]!] : [];
-  }));
+  return new Set(
+    cliOperationContracts().flatMap((operation) => {
+      const tokens = cliCommandTokens(operation);
+      return tokens.length > 1 ? [tokens[0]!] : [];
+    })
+  );
 }
 
 function cliOperationContracts(): readonly OperationContract[] {
@@ -1223,7 +1268,9 @@ function cliPositionalsAfterCommandPath(args: readonly string[], commandPath: re
 function cliExtraPositionals(args: readonly string[], operation: OperationContract): string[] {
   const commandTokens = cliCommandTokens(operation);
   const acceptedPositionals = new Set(
-    Object.values(operation.arguments_by_name).flatMap((argument) => argument.cli?.positional !== undefined ? [argument.cli.positional] : [])
+    Object.values(operation.arguments_by_name).flatMap((argument) =>
+      argument.cli?.positional !== undefined ? [argument.cli.positional] : []
+    )
   );
   const extras: string[] = [];
   let commandIndex = 0;
@@ -1267,16 +1314,18 @@ function cliOperationOptions(operation: OperationContract): string[] {
 }
 
 function isBooleanCliOption(operation: OperationContract, option: string): boolean {
-  return Object.values(operation.arguments_by_name).some((argument) =>
-    argument.type === "boolean" && (
-      argument.cli?.flag === option
-      || argument.cli?.negative_flag === option
-      || argument.cli?.flags?.includes(option)
-    )
+  return Object.values(operation.arguments_by_name).some(
+    (argument) =>
+      argument.type === "boolean" &&
+      (argument.cli?.flag === option || argument.cli?.negative_flag === option || argument.cli?.flags?.includes(option))
   );
 }
 
-function cliUnknownCommandSuggestions(query: string, preferredCommand?: string, filter?: { commandGroup?: string }): Array<{
+function cliUnknownCommandSuggestions(
+  query: string,
+  preferredCommand?: string,
+  filter?: { commandGroup?: string }
+): Array<{
   command: string;
   operation: string;
   operation_source: CliOperationContractSource;
@@ -1293,15 +1342,16 @@ function cliUnknownCommandSuggestions(query: string, preferredCommand?: string, 
       if (!command || seenCommands.has(command)) return [];
       if (filter?.commandGroup !== undefined && !command.startsWith(`${filter.commandGroup} `)) return [];
       seenCommands.add(command);
-      const preferredCandidate = preferredCommand === undefined
-        ? undefined
-        : [preferredCommand, ...query.split(/\s+/u).slice(1)].join(" ");
-      return [{
-        operation,
-        command,
-        order,
-        score: command === preferredCandidate ? Number.NEGATIVE_INFINITY : cliSuggestionScore(query, command)
-      }];
+      const preferredCandidate =
+        preferredCommand === undefined ? undefined : [preferredCommand, ...query.split(/\s+/u).slice(1)].join(" ");
+      return [
+        {
+          operation,
+          command,
+          order,
+          score: command === preferredCandidate ? Number.NEGATIVE_INFINITY : cliSuggestionScore(query, command)
+        }
+      ];
     })
     .sort((left, right) => left.score - right.score || left.order - right.order)
     .slice(0, 1)
@@ -1329,14 +1379,14 @@ function cliUnknownOptionSuggestions(
   operation?: OperationContract;
 } {
   const operations = commandOperations.length > 0 ? commandOperations : cliOperationContracts();
-  const candidates = [
-    ...cliGlobalOptionCandidates(),
-    ...cliOptionCandidates(operations)
-  ].map((candidate, order) => ({
-    ...candidate,
-    order,
-    score: candidate.option === preferredOption ? Number.NEGATIVE_INFINITY : cliSuggestionScore(query, candidate.option)
-  })).sort((left, right) => left.score - right.score || left.directness - right.directness || left.order - right.order);
+  const candidates = [...cliGlobalOptionCandidates(), ...cliOptionCandidates(operations)]
+    .map((candidate, order) => ({
+      ...candidate,
+      order,
+      score:
+        candidate.option === preferredOption ? Number.NEGATIVE_INFINITY : cliSuggestionScore(query, candidate.option)
+    }))
+    .sort((left, right) => left.score - right.score || left.directness - right.directness || left.order - right.order);
   const selected = [];
   const seenOptions = new Set<string>();
   for (const candidate of candidates) {
@@ -1364,7 +1414,8 @@ function cliUnknownOptionSuggestions(
       return {
         option: candidate.option,
         argument: candidate.argument,
-        argument_source: `operations_by_id.${candidate.operation.operation}.arguments_by_name.${candidate.argument}` as const,
+        argument_source:
+          `operations_by_id.${candidate.operation.operation}.arguments_by_name.${candidate.argument}` as const,
         retry_with: {
           option: candidate.option,
           ...(valuePlaceholder !== undefined ? { value_placeholder: valuePlaceholder } : {})
@@ -1376,14 +1427,14 @@ function cliUnknownOptionSuggestions(
 }
 
 function cliOptionSuggestionNeedsValue(query: string, preferredOption?: string): boolean {
-  const candidates = [
-    ...cliGlobalOptionCandidates(),
-    ...cliOptionCandidates(cliOperationContracts())
-  ].map((candidate, order) => ({
-    ...candidate,
-    order,
-    score: candidate.option === preferredOption ? Number.NEGATIVE_INFINITY : cliSuggestionScore(query, candidate.option)
-  })).sort((left, right) => left.score - right.score || left.directness - right.directness || left.order - right.order);
+  const candidates = [...cliGlobalOptionCandidates(), ...cliOptionCandidates(cliOperationContracts())]
+    .map((candidate, order) => ({
+      ...candidate,
+      order,
+      score:
+        candidate.option === preferredOption ? Number.NEGATIVE_INFINITY : cliSuggestionScore(query, candidate.option)
+    }))
+    .sort((left, right) => left.score - right.score || left.directness - right.directness || left.order - right.order);
   const candidate = candidates[0];
   if (candidate === undefined) return false;
   if (candidate.kind === "global") return candidate.value_placeholder !== undefined;
@@ -1428,7 +1479,14 @@ function cliOptionCandidates(operations: readonly OperationContract[]): Array<{
         candidates.push({ kind: "operation", operation, option: metadata.cli.flag, argument, metadata, directness: 1 });
       }
       if (metadata.cli?.negative_flag !== undefined) {
-        candidates.push({ kind: "operation", operation, option: metadata.cli.negative_flag, argument, metadata, directness: 1 });
+        candidates.push({
+          kind: "operation",
+          operation,
+          option: metadata.cli.negative_flag,
+          argument,
+          metadata,
+          directness: 1
+        });
       }
       for (const option of metadata.cli?.flags ?? []) {
         candidates.push({ kind: "operation", operation, option, argument, metadata, directness: 2 });
@@ -1438,7 +1496,11 @@ function cliOptionCandidates(operations: readonly OperationContract[]): Array<{
   return candidates;
 }
 
-function cliOptionValuePlaceholder(argument: string, metadata: OperationArgumentMetadata, option: string): string | undefined {
+function cliOptionValuePlaceholder(
+  argument: string,
+  metadata: OperationArgumentMetadata,
+  option: string
+): string | undefined {
   if (metadata.type === "boolean") return undefined;
   if (metadata.type === "number") return "<number>";
   if (metadata.type === "object" || option.endsWith("-json")) return "<json object>";
@@ -1483,7 +1545,12 @@ function cliLevenshteinDistance(left: string, right: string): number {
   return distances[left.length][right.length];
 }
 
-function requiredCliOptionError(option: string, placeholder: string, message?: string, source = requiredCliOptionSource(option)): CliArgumentError {
+function requiredCliOptionError(
+  option: string,
+  placeholder: string,
+  message?: string,
+  source = requiredCliOptionSource(option)
+): CliArgumentError {
   return new CliArgumentError(
     `Invalid argument: ${message ?? `required option '${option} ${placeholder}' not specified`}`,
     `retry with required ${option}`,
@@ -1492,7 +1559,11 @@ function requiredCliOptionError(option: string, placeholder: string, message?: s
       missing_argument: { option, placeholder },
       expected: { kind: "required_option", required: true },
       ...(source !== undefined
-        ? { argument_sources: { [source.argument]: `operations_by_id.${source.operation}.arguments_by_name.${source.argument}` as const } }
+        ? {
+            argument_sources: {
+              [source.argument]: `operations_by_id.${source.operation}.arguments_by_name.${source.argument}` as const
+            }
+          }
         : {}),
       retry_with: { option, value_placeholder: placeholder }
     }
@@ -1513,7 +1584,11 @@ function requiredCliPositionalArgumentError(
       missing_argument: { positional, placeholder },
       expected: { kind: "required_positional", required: true },
       ...(source !== undefined
-        ? { argument_sources: { [source.argument]: `operations_by_id.${source.operation}.arguments_by_name.${source.argument}` as const } }
+        ? {
+            argument_sources: {
+              [source.argument]: `operations_by_id.${source.operation}.arguments_by_name.${source.argument}` as const
+            }
+          }
         : {}),
       retry_with: { positional, value_placeholder: placeholder }
     }
@@ -1602,7 +1677,11 @@ function nonEmptyCliArgumentError(option: string, source = cliParserArgumentSour
       rejected_argument: { option, value: "" },
       expected: { kind: "non_empty_string", min_length: 1 },
       ...(source !== undefined
-        ? { argument_sources: { [source.argument]: `operations_by_id.${source.operation}.arguments_by_name.${source.argument}` as const } }
+        ? {
+            argument_sources: {
+              [source.argument]: `operations_by_id.${source.operation}.arguments_by_name.${source.argument}` as const
+            }
+          }
         : {}),
       retry_with: { option, value_placeholder: cliValuePlaceholderForOption(option, source) }
     }
@@ -1618,14 +1697,22 @@ function nonEmptyCliPositionalArgumentError(positional: string, source?: CliPars
       rejected_argument: { positional, value: "" },
       expected: { kind: "non_empty_string", min_length: 1 },
       ...(source !== undefined
-        ? { argument_sources: { [source.argument]: `operations_by_id.${source.operation}.arguments_by_name.${source.argument}` as const } }
+        ? {
+            argument_sources: {
+              [source.argument]: `operations_by_id.${source.operation}.arguments_by_name.${source.argument}` as const
+            }
+          }
         : {}),
       retry_with: { positional, value_placeholder: `<non-empty ${positional}>` }
     }
   );
 }
 
-function contentJsonCliArgumentError(value: string, expectedKind: "valid_json_object" | "json_object", detail?: string): CliArgumentError {
+function contentJsonCliArgumentError(
+  value: string,
+  expectedKind: "valid_json_object" | "json_object",
+  detail?: string
+): CliArgumentError {
   return new CliArgumentError(
     `Invalid argument: Invalid --content-json${detail ? `; ${detail}` : ""}`,
     "retry with a valid --content-json JSON object",
@@ -1648,22 +1735,18 @@ function writeContentChoiceCliArgumentError(
   message: string,
   rejectedArguments?: Array<{ option: "--text" | "--content-json"; value: string }>
 ): CliArgumentError {
-  return new CliArgumentError(
-    `Invalid argument: ${message}`,
-    "retry with exactly one write content input",
-    {
-      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
-      ...(rejectedArguments
-        ? { rejected_arguments: rejectedArguments }
-        : { missing_one_of: [...WRITE_CONTENT_RETRY_OPTIONS] }),
-      expected: { kind: "choose_one", options: ["--text", "--content-json"] },
-      argument_sources: {
-        "--text": WRITE_TEXT_ARGUMENT_SOURCE,
-        "--content-json": WRITE_CONTENT_ARGUMENT_SOURCE
-      },
-      retry_with: [...WRITE_CONTENT_RETRY_OPTIONS]
-    }
-  );
+  return new CliArgumentError(`Invalid argument: ${message}`, "retry with exactly one write content input", {
+    operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
+    ...(rejectedArguments
+      ? { rejected_arguments: rejectedArguments }
+      : { missing_one_of: [...WRITE_CONTENT_RETRY_OPTIONS] }),
+    expected: { kind: "choose_one", options: ["--text", "--content-json"] },
+    argument_sources: {
+      "--text": WRITE_TEXT_ARGUMENT_SOURCE,
+      "--content-json": WRITE_CONTENT_ARGUMENT_SOURCE
+    },
+    retry_with: [...WRITE_CONTENT_RETRY_OPTIONS]
+  });
 }
 
 function setAssignmentCliArgumentError(assignment: string): CliArgumentError {
@@ -1699,7 +1782,11 @@ const SYNC_OPERATION_RETRY_OPTIONS = [
   { option: "--pull", operation_contract: SYNC_OPERATION_CONTRACTS["--pull"] }
 ] as const;
 
-type SyncOperationArgument = { option: "--status" | "--push" | "--pull"; value: true; operation_contract: CliSyncOperationContractSource };
+type SyncOperationArgument = {
+  option: "--status" | "--push" | "--pull";
+  value: true;
+  operation_contract: CliSyncOperationContractSource;
+};
 
 function syncOperationChoiceCliArgumentError(rejectedArguments: SyncOperationArgument[]): CliArgumentError {
   return new CliArgumentError(
@@ -1715,24 +1802,20 @@ function syncOperationChoiceCliArgumentError(rejectedArguments: SyncOperationArg
 }
 
 function syncMessageRequiresPushCliArgumentError(message: string): CliArgumentError {
-  return new CliArgumentError(
-    "Invalid argument: --message requires --push",
-    "retry with --push when using --message",
-    {
+  return new CliArgumentError("Invalid argument: --message requires --push", "retry with --push when using --message", {
+    operation_contract: "operations_by_id.sync_push",
+    rejected_argument: { option: "--message", value: message },
+    expected: { kind: "requires_option", option: "--message", requires: "--push" },
+    argument_sources: {
+      message: "operations_by_id.sync_push.arguments_by_name.message"
+    },
+    retry_with: {
+      required_option: "--push",
       operation_contract: "operations_by_id.sync_push",
-      rejected_argument: { option: "--message", value: message },
-      expected: { kind: "requires_option", option: "--message", requires: "--push" },
-      argument_sources: {
-        message: "operations_by_id.sync_push.arguments_by_name.message"
-      },
-      retry_with: {
-        required_option: "--push",
-        operation_contract: "operations_by_id.sync_push",
-        option: "--message",
-        value_placeholder: "<message>"
-      }
+      option: "--message",
+      value_placeholder: "<message>"
     }
-  );
+  });
 }
 
 function createCliEngine() {
@@ -1743,14 +1826,20 @@ function createCliEngine() {
   });
 }
 
-async function resolveOptionalProject(options: { project?: string; projectId?: string }, operation: CliParserOperation): Promise<string | undefined> {
+async function resolveOptionalProject(
+  options: { project?: string; projectId?: string },
+  operation: CliParserOperation
+): Promise<string | undefined> {
   const projectPath = parseNonEmptyCliString(options.project, "--project", { operation, argument: "project_path" });
   const projectId = parseNonEmptyCliString(options.projectId, "--project-id", { operation, argument: "project_id" });
   if (!projectPath && !projectId) return undefined;
   return (await resolveProjectContext({ projectPath, projectId })).project_id;
 }
 
-async function resolveProjectOptions(options: { project?: string; projectId?: string }, operation: CliParserOperation): Promise<{ project_id?: string; default_skills?: string[] }> {
+async function resolveProjectOptions(
+  options: { project?: string; projectId?: string },
+  operation: CliParserOperation
+): Promise<{ project_id?: string; default_skills?: string[] }> {
   const projectPath = parseNonEmptyCliString(options.project, "--project", { operation, argument: "project_path" });
   const projectId = parseNonEmptyCliString(options.projectId, "--project-id", { operation, argument: "project_id" });
   if (!projectPath && !projectId) return {};
@@ -1789,13 +1878,18 @@ function parseAssignments(assignments: string[]): Record<string, unknown> {
       }
     }
   }
-  return patch ?? Object.fromEntries(assignments.map((assignment) => {
-    const [key, ...rest] = assignment.split("=");
-    if (!key || !rest.length) {
-      throw setAssignmentCliArgumentError(assignment);
-    }
-    return [key, parseAssignmentValue(rest.join("="))];
-  }));
+  return (
+    patch ??
+    Object.fromEntries(
+      assignments.map((assignment) => {
+        const [key, ...rest] = assignment.split("=");
+        if (!key || !rest.length) {
+          throw setAssignmentCliArgumentError(assignment);
+        }
+        return [key, parseAssignmentValue(rest.join("="))];
+      })
+    )
+  );
 }
 
 function parseContentJson(value: string | undefined): Record<string, unknown> | undefined {
@@ -1844,7 +1938,10 @@ function parseRecallEvalCases(value: string | undefined): RecallEvalCaseInput[] 
         rejected_argument: { option: "--cases", value: raw },
         expected: { kind: "json_array" },
         argument_sources: { cases: "operations_by_id.recall_eval.arguments_by_name.cases" },
-        retry_with: { option: "--cases", value_placeholder: "[{\"case_id\":\"<id>\",\"query\":\"<query>\",\"expected_record_ids\":[\"<record_id>\"]}]" }
+        retry_with: {
+          option: "--cases",
+          value_placeholder: '[{"case_id":"<id>","query":"<query>","expected_record_ids":["<record_id>"]}]'
+        }
       }
     );
   }
@@ -1860,7 +1957,9 @@ function parseLimit(value: string, operation?: CliLimitOperation, option = "--li
         ...(operation !== undefined ? { operation_contract: `operations_by_id.${operation}` as const } : {}),
         rejected_argument: { option, value },
         expected: { kind: "integer_range", min: 1, max: 100, integer: true },
-        ...(operation !== undefined ? { argument_sources: { limit: `operations_by_id.${operation}.arguments_by_name.limit` as const } } : {}),
+        ...(operation !== undefined
+          ? { argument_sources: { limit: `operations_by_id.${operation}.arguments_by_name.limit` as const } }
+          : {}),
         retry_with: { option, value_placeholder: "<integer 1-100>" }
       }
     );
@@ -1887,7 +1986,11 @@ function parseTimelineWindow(value: string, option: "--before" | "--after"): num
   return parsed;
 }
 
-function parseConfidence(value: string | undefined, option = "--confidence", source?: CliWriteSource): number | undefined {
+function parseConfidence(
+  value: string | undefined,
+  option = "--confidence",
+  source?: CliWriteSource
+): number | undefined {
   if (value === undefined) return undefined;
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) {
@@ -1898,7 +2001,13 @@ function parseConfidence(value: string | undefined, option = "--confidence", sou
         ...(source !== undefined ? { operation_contract: WRITE_OPERATION_CONTRACT_SOURCE } : {}),
         rejected_argument: { option, value },
         expected: { kind: "number_range", min: 0, max: 1, inclusive: true },
-        ...(source !== undefined ? { argument_sources: { [source.argument]: `operations_by_id.write.arguments_by_name.${source.argument}` as const } } : {}),
+        ...(source !== undefined
+          ? {
+              argument_sources: {
+                [source.argument]: `operations_by_id.write.arguments_by_name.${source.argument}` as const
+              }
+            }
+          : {}),
         retry_with: { option, value_placeholder: "<number 0-1>" }
       }
     );
@@ -1906,7 +2015,12 @@ function parseConfidence(value: string | undefined, option = "--confidence", sou
   return parsed;
 }
 
-function parseEnum<T extends string>(value: string | undefined, allowed: readonly T[], option: string, source?: CliEnumSource): T | undefined {
+function parseEnum<T extends string>(
+  value: string | undefined,
+  allowed: readonly T[],
+  option: string,
+  source?: CliEnumSource
+): T | undefined {
   if (value === undefined) return undefined;
   if (!allowed.includes(value as T)) {
     throw new CliArgumentError(
@@ -1917,7 +2031,11 @@ function parseEnum<T extends string>(value: string | undefined, allowed: readonl
         rejected_argument: { option, value },
         expected: { kind: "allowed_values", allowed_values: [...allowed] },
         ...(source !== undefined
-          ? { argument_sources: { [source.argument]: `operations_by_id.${source.operation}.arguments_by_name.${source.argument}` as const } }
+          ? {
+              argument_sources: {
+                [source.argument]: `operations_by_id.${source.operation}.arguments_by_name.${source.argument}` as const
+              }
+            }
           : {}),
         retry_with: { option, value_placeholder: `<${option.slice(2)} from allowed_values>` }
       }
@@ -1926,12 +2044,20 @@ function parseEnum<T extends string>(value: string | undefined, allowed: readonl
   return value as T;
 }
 
-function parseEnumList<T extends string>(values: string[], allowed: readonly T[], option: string, source?: CliEnumSource): T[] {
+function parseEnumList<T extends string>(
+  values: string[],
+  allowed: readonly T[],
+  option: string,
+  source?: CliEnumSource
+): T[] {
   return values.map((value) => parseEnum(value, allowed, option, source) as T);
 }
 
 function parseProjectSyncMode(value: string | undefined): SyncMode | undefined {
-  const parsed = parseEnum(value, projectSyncModeInputs, "--sync-mode", { operation: "project_init", argument: "sync_mode" });
+  const parsed = parseEnum(value, projectSyncModeInputs, "--sync-mode", {
+    operation: "project_init",
+    argument: "sync_mode"
+  });
   return parsed === "auto" ? "interval" : parsed;
 }
 
@@ -1943,7 +2069,11 @@ function parseNonEmptyString(value: string | undefined, option: string): string 
   return value;
 }
 
-function parseNonEmptyCliString(value: string | undefined, option: string, source?: CliParserSource): string | undefined {
+function parseNonEmptyCliString(
+  value: string | undefined,
+  option: string,
+  source?: CliParserSource
+): string | undefined {
   if (value === undefined) return undefined;
   if (value.length === 0) {
     throw nonEmptyCliArgumentError(option, source);
@@ -1967,11 +2097,28 @@ function collectNonEmptyOption(option: string, source?: CliParserSource) {
   };
 }
 
-function validateSyncOperationOptions(options: { status?: boolean; push?: boolean; pull?: boolean; message?: string }): void {
+function validateSyncOperationOptions(options: {
+  status?: boolean;
+  push?: boolean;
+  pull?: boolean;
+  message?: string;
+}): void {
   const selected: SyncOperationArgument[] = [
-    ...(options.status ? [{ option: "--status" as const, value: true as const, operation_contract: SYNC_OPERATION_CONTRACTS["--status"] }] : []),
-    ...(options.push ? [{ option: "--push" as const, value: true as const, operation_contract: SYNC_OPERATION_CONTRACTS["--push"] }] : []),
-    ...(options.pull ? [{ option: "--pull" as const, value: true as const, operation_contract: SYNC_OPERATION_CONTRACTS["--pull"] }] : [])
+    ...(options.status
+      ? [
+          {
+            option: "--status" as const,
+            value: true as const,
+            operation_contract: SYNC_OPERATION_CONTRACTS["--status"]
+          }
+        ]
+      : []),
+    ...(options.push
+      ? [{ option: "--push" as const, value: true as const, operation_contract: SYNC_OPERATION_CONTRACTS["--push"] }]
+      : []),
+    ...(options.pull
+      ? [{ option: "--pull" as const, value: true as const, operation_contract: SYNC_OPERATION_CONTRACTS["--pull"] }]
+      : [])
   ];
   if (selected.length > 1) {
     throw syncOperationChoiceCliArgumentError(selected);
@@ -1985,7 +2132,15 @@ function parseBooleanDefault(value: unknown, fallback: boolean): boolean {
   return value === undefined ? fallback : Boolean(value);
 }
 
-function parseCheckpointJson(value: string, option: "--delta" | "--learning" | "--knowledge-investigation" | "--proposal-json" | "--semantic-consolidation-proposal"): unknown {
+function parseCheckpointJson(
+  value: string,
+  option:
+    | "--delta"
+    | "--learning"
+    | "--knowledge-investigation"
+    | "--proposal-json"
+    | "--semantic-consolidation-proposal"
+): unknown {
   try {
     return JSON.parse(value) as unknown;
   } catch (error) {
@@ -2089,7 +2244,10 @@ async function dashboardMetadata(options: DashboardCliOptions = {}): Promise<Das
   }
 }
 
-async function withDashboard<T extends object>(result: T, options: DashboardCliOptions = {}): Promise<T & { dashboard: DashboardCliMetadata }> {
+async function withDashboard<T extends object>(
+  result: T,
+  options: DashboardCliOptions = {}
+): Promise<T & { dashboard: DashboardCliMetadata }> {
   return {
     ...result,
     dashboard: await dashboardMetadata(options)
@@ -2100,17 +2258,29 @@ function agentOptionSource(operation: CliParserOperation | undefined, argument: 
   return operation === undefined ? undefined : { operation, argument };
 }
 
-function parseAgentOptions(options: { agent?: string; sessionId?: string; model?: string; deviceId?: string }, operation?: CliParserOperation) {
+function parseAgentOptions(
+  options: { agent?: string; sessionId?: string; model?: string; deviceId?: string },
+  operation?: CliParserOperation
+) {
   return {
     client: parseNonEmptyCliString(options.agent, "--agent", agentOptionSource(operation, "agent_client")) ?? "cli",
-    session_id: parseNonEmptyCliString(options.sessionId, "--session-id", agentOptionSource(operation, "agent_session_id")),
+    session_id: parseNonEmptyCliString(
+      options.sessionId,
+      "--session-id",
+      agentOptionSource(operation, "agent_session_id")
+    ),
     model: parseNonEmptyCliString(options.model, "--model", agentOptionSource(operation, "agent_model")),
     device_id: parseNonEmptyCliString(options.deviceId, "--device-id", agentOptionSource(operation, "agent_device_id"))
   };
 }
 
 function hasAgentOptions(options: { agent?: string; sessionId?: string; model?: string; deviceId?: string }): boolean {
-  return options.agent !== undefined || options.sessionId !== undefined || options.model !== undefined || options.deviceId !== undefined;
+  return (
+    options.agent !== undefined ||
+    options.sessionId !== undefined ||
+    options.model !== undefined ||
+    options.deviceId !== undefined
+  );
 }
 
 function lifecycleStringSource(operation: CliParserOperation, argument: string): CliParserSource {
@@ -2131,13 +2301,15 @@ program
   .exitOverride()
   .option("--store <path>", "Override Moryn store path");
 
-program.command("init")
+program
+  .command("init")
   .option("--repair", "Replace an invalid local config.json after explicit confirmation")
   .action(async (options) => {
-    printJson({ ok: true, ...await initializeStore(storePath(), { repair: options.repair }) });
+    printJson({ ok: true, ...(await initializeStore(storePath(), { repair: options.repair })) });
   });
 
-program.command("install")
+program
+  .command("install")
   .option("--host <host>", "Agent host to prepare: claude, codex, gemini, cursor, or shell")
   .option("--project <path>", "Project path to attach to Moryn")
   .option("--sync-remote <remote>", "User-owned Git remote to include in generated commands")
@@ -2159,13 +2331,31 @@ program.command("install")
         if (host === "codex" || host === "claude" || host === "claude-code") {
           const projectId = projectConfig.config.project_id;
           if (!projectId) throw new Error("Invalid project config: missing project_id after initialization");
-          const artifact = await writeHostIntegrationArtifact({ host, project_id: projectId, project_path: projectPath, store_path: storePath(), runtime: hostRuntime });
+          const artifact = await writeHostIntegrationArtifact({
+            host,
+            project_id: projectId,
+            project_path: projectPath,
+            store_path: storePath(),
+            runtime: hostRuntime
+          });
           const normalizedHost = host === "claude-code" ? "claude" : host;
-          const activation = normalizedHost === "claude"
-            ? await activateClaudeSettings({ project_path: projectPath, artifact: artifact.artifact })
-            : await activateCodexHooks({ project_path: projectPath, artifact: artifact.artifact });
-          const activationStatus = await inspectHostActivation({ store_path: storePath(), project_path: projectPath, project_id: projectId, host: normalizedHost, runtime: hostRuntime });
-          printJson({ ...plan, integration_artifact: artifact, ...(activation ? { activation } : {}), activation_status: activationStatus });
+          const activation =
+            normalizedHost === "claude"
+              ? await activateClaudeSettings({ project_path: projectPath, artifact: artifact.artifact })
+              : await activateCodexHooks({ project_path: projectPath, artifact: artifact.artifact });
+          const activationStatus = await inspectHostActivation({
+            store_path: storePath(),
+            project_path: projectPath,
+            project_id: projectId,
+            host: normalizedHost,
+            runtime: hostRuntime
+          });
+          printJson({
+            ...plan,
+            integration_artifact: artifact,
+            ...(activation ? { activation } : {}),
+            activation_status: activationStatus
+          });
           return;
         }
       }
@@ -2175,17 +2365,27 @@ program.command("install")
 
 const activation = program.command("activation").description("Inspect or apply host lifecycle activation");
 
-activation.command("status")
+activation
+  .command("status")
   .requiredOption("--host <host>", "Host: claude or codex")
   .requiredOption("--project <path>", "Project path")
   .action(async (options) => {
     const host = parseNonEmptyString(options.host, "--host")!;
     const projectPath = parseNonEmptyString(options.project, "--project")!;
     const project = await resolveProjectContext({ projectPath });
-    printJson(await inspectHostActivation({ store_path: storePath(), project_path: project.project_path, project_id: project.project_id, host, runtime: hostRuntime }));
+    printJson(
+      await inspectHostActivation({
+        store_path: storePath(),
+        project_path: project.project_path,
+        project_id: project.project_id,
+        host,
+        runtime: hostRuntime
+      })
+    );
   });
 
-activation.command("apply")
+activation
+  .command("apply")
   .requiredOption("--host <host>", "Host: claude")
   .requiredOption("--project <path>", "Project path")
   .action(async (options) => {
@@ -2193,11 +2393,33 @@ activation.command("apply")
     const projectPath = parseNonEmptyString(options.project, "--project")!;
     const project = await resolveProjectContext({ projectPath });
     const normalizedHost = host === "claude-code" ? "claude" : host;
-    if (normalizedHost !== "claude" && normalizedHost !== "codex") throw new Error(`Invalid argument: activation apply is unsupported for host: ${host}`);
-    const artifact = buildHostIntegrationArtifact({ host: normalizedHost, project_id: project.project_id, project_path: project.project_path, store_path: storePath(), runtime: hostRuntime });
-    const fragment = await writeHostIntegrationArtifact({ host: normalizedHost, project_id: project.project_id, project_path: project.project_path, store_path: storePath(), runtime: hostRuntime });
-    const applied = normalizedHost === "claude" ? await activateClaudeSettings({ project_path: project.project_path, artifact }) : await activateCodexHooks({ project_path: project.project_path, artifact });
-    const status = await inspectHostActivation({ store_path: storePath(), project_path: project.project_path, project_id: project.project_id, host: normalizedHost, runtime: hostRuntime });
+    if (normalizedHost !== "claude" && normalizedHost !== "codex")
+      throw new Error(`Invalid argument: activation apply is unsupported for host: ${host}`);
+    const artifact = buildHostIntegrationArtifact({
+      host: normalizedHost,
+      project_id: project.project_id,
+      project_path: project.project_path,
+      store_path: storePath(),
+      runtime: hostRuntime
+    });
+    const fragment = await writeHostIntegrationArtifact({
+      host: normalizedHost,
+      project_id: project.project_id,
+      project_path: project.project_path,
+      store_path: storePath(),
+      runtime: hostRuntime
+    });
+    const applied =
+      normalizedHost === "claude"
+        ? await activateClaudeSettings({ project_path: project.project_path, artifact })
+        : await activateCodexHooks({ project_path: project.project_path, artifact });
+    const status = await inspectHostActivation({
+      store_path: storePath(),
+      project_path: project.project_path,
+      project_id: project.project_id,
+      host: normalizedHost,
+      runtime: hostRuntime
+    });
     printJson({ ok: true, fragment, activation: applied, status });
   });
 
@@ -2209,7 +2431,8 @@ async function readStdinText(): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-host.command("hook")
+host
+  .command("hook")
   .requiredOption("--host <host>", "Host name: codex or claude")
   .option("--project-id <id>")
   .option("--project <path>")
@@ -2221,17 +2444,26 @@ host.command("hook")
   .option("--host-output", "Emit only the host hook wire response")
   .option("--input-json <json>", "Hook input JSON; defaults to stdin")
   .option("--learning <json>", "Learning Delta JSON", collectNonEmptyOption("--learning"))
-  .option("--knowledge-investigation <json>", "Knowledge investigation JSON", collectNonEmptyOption("--knowledge-investigation"))
-  .option("--semantic-consolidation-proposal <json>", "Semantic consolidation proposal JSON", collectNonEmptyOption("--semantic-consolidation-proposal"))
+  .option(
+    "--knowledge-investigation <json>",
+    "Knowledge investigation JSON",
+    collectNonEmptyOption("--knowledge-investigation")
+  )
+  .option(
+    "--semantic-consolidation-proposal <json>",
+    "Semantic consolidation proposal JSON",
+    collectNonEmptyOption("--semantic-consolidation-proposal")
+  )
   .option("--no-pull")
   .option("--no-push")
   .action(async (options) => {
     try {
-      const raw = options.inputJson ?? await readStdinText();
+      const raw = options.inputJson ?? (await readStdinText());
       const payload = JSON.parse(raw);
-      const configuredDeviceId = typeof options.deviceId === "string" && options.deviceId.trim()
-        ? options.deviceId.trim()
-        : (await readStoreConfig(storePath())).device_id;
+      const configuredDeviceId =
+        typeof options.deviceId === "string" && options.deviceId.trim()
+          ? options.deviceId.trim()
+          : (await readStoreConfig(storePath())).device_id;
       const hookEvent = normalizeHostHookEvent(options.host, payload, {
         device_id: configuredDeviceId,
         occurred_at: options.occurredAt ?? new Date().toISOString()
@@ -2244,9 +2476,16 @@ host.command("hook")
         current_task: options.currentTask,
         activation_id: options.activationId,
         command_digest: options.commandDigest,
-        learnings: (options.learning ?? []).map((value: string) => parseCheckpointJson(value, "--learning") as LearningDeltaInput),
-        knowledge_investigations: (options.knowledgeInvestigation ?? []).map((value: string) => parseCheckpointJson(value, "--knowledge-investigation") as KnowledgeInvestigationInput),
-        semantic_consolidation_proposals: (options.semanticConsolidationProposal ?? []).map((value: string) => parseCheckpointJson(value, "--semantic-consolidation-proposal") as SemanticConsolidationProposalInput),
+        learnings: (options.learning ?? []).map(
+          (value: string) => parseCheckpointJson(value, "--learning") as LearningDeltaInput
+        ),
+        knowledge_investigations: (options.knowledgeInvestigation ?? []).map(
+          (value: string) => parseCheckpointJson(value, "--knowledge-investigation") as KnowledgeInvestigationInput
+        ),
+        semantic_consolidation_proposals: (options.semanticConsolidationProposal ?? []).map(
+          (value: string) =>
+            parseCheckpointJson(value, "--semantic-consolidation-proposal") as SemanticConsolidationProposalInput
+        ),
         pull: options.pull,
         push: options.push
       });
@@ -2262,7 +2501,8 @@ host.command("hook")
     }
   });
 
-program.command("setup")
+program
+  .command("setup")
   .option("--host <host>", "Agent host to prepare: claude, codex, gemini, cursor, or shell")
   .option("--project <path>", "Project path to attach to Moryn")
   .option("--sync-remote <remote>", "User-owned Git remote to include in generated commands")
@@ -2289,13 +2529,15 @@ program.command("setup")
       arguments: contextArguments
     };
     try {
-      printJson(await setupWizard({
-        storePath: storePath(),
-        host,
-        projectPath,
-        syncRemote,
-        apply: Boolean(options.apply)
-      }));
+      printJson(
+        await setupWizard({
+          storePath: storePath(),
+          host,
+          projectPath,
+          syncRemote,
+          apply: Boolean(options.apply)
+        })
+      );
     } catch (error) {
       printError(error, context);
       process.exitCode = 1;
@@ -2304,13 +2546,19 @@ program.command("setup")
 
 const capture = program.command("capture");
 
-capture.command("session")
+capture
+  .command("session")
   .requiredOption("--summary <text>", "Session handoff summary to capture")
   .option("--project-id <id>")
   .option("--project <path>")
   .option("--sync-remote <remote>")
   .option("--current-task <task>")
-  .option("--file <path>", "Touched file path", collectNonEmptyOption("--file", { operation: "capture_session", argument: "files" }), [])
+  .option(
+    "--file <path>",
+    "Touched file path",
+    collectNonEmptyOption("--file", { operation: "capture_session", argument: "files" }),
+    []
+  )
   .option("--agent <client>", "Agent host/client name")
   .option("--session-id <id>")
   .option("--model <model>")
@@ -2330,7 +2578,8 @@ capture.command("session")
     printJson(result);
   });
 
-capture.command("policy")
+capture
+  .command("policy")
   .option("--project-id <id>")
   .option("--project <path>")
   .option("--limit <n>", "Decision/action limit", "20")
@@ -2338,16 +2587,19 @@ capture.command("policy")
   .action(async (options) => {
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options, "capture_policy");
-    printJson(await engine.capturePolicy({
-      project_id: projectId,
-      limit: parseLimit(options.limit, "capture_policy"),
-      include_private: options.includePrivate
-    }));
+    printJson(
+      await engine.capturePolicy({
+        project_id: projectId,
+        limit: parseLimit(options.limit, "capture_policy"),
+        include_private: options.includePrivate
+      })
+    );
   });
 
 const context = program.command("context");
 
-context.command("pack")
+context
+  .command("pack")
   .option("--project-id <id>")
   .option("--project <path>")
   .option("--sync-remote <remote>")
@@ -2375,7 +2627,8 @@ context.command("pack")
     printJson(result);
   });
 
-program.command("write")
+program
+  .command("write")
   .requiredOption("--kind <kind>")
   .option("--type <type>")
   .option("--scope <scope>")
@@ -2393,27 +2646,33 @@ program.command("write")
   .action(async (options) => {
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options, "write");
-    const projectPath = parseNonEmptyCliString(options.project, "--project", { operation: "write", argument: "project_path" });
-    const optionProjectId = parseNonEmptyCliString(options.projectId, "--project-id", { operation: "write", argument: "project_id" });
+    const projectPath = parseNonEmptyCliString(options.project, "--project", {
+      operation: "write",
+      argument: "project_path"
+    });
+    const optionProjectId = parseNonEmptyCliString(options.projectId, "--project-id", {
+      operation: "write",
+      argument: "project_id"
+    });
     const project = projectPath ? await resolveProjectContext({ projectPath, projectId: optionProjectId }) : undefined;
     const type = options.type ?? (options.kind === "session_summary" ? "summary" : undefined);
     const scope = options.scope ?? (options.kind === "session_summary" ? "project" : undefined);
     if (!type) throw requiredCliOptionError("--type", "<type>", undefined, { operation: "write", argument: "type" });
-    if (!scope) throw requiredCliOptionError("--scope", "<scope>", undefined, { operation: "write", argument: "scope" });
+    if (!scope)
+      throw requiredCliOptionError("--scope", "<scope>", undefined, { operation: "write", argument: "scope" });
     const content = parseContentJson(options.contentJson);
     const text = parseNonEmptyString(options.text, "--text");
     const reason = parseNonEmptyCliString(options.reason, "--reason", { operation: "write", argument: "reason" });
     if (content && text !== undefined) {
-      throw writeContentChoiceCliArgumentError(
-        "use either --text or --content-json, not both",
-        [
-          { option: "--text", value: text },
-          { option: "--content-json", value: options.contentJson }
-        ]
-      );
+      throw writeContentChoiceCliArgumentError("use either --text or --content-json, not both", [
+        { option: "--text", value: text },
+        { option: "--content-json", value: options.contentJson }
+      ]);
     }
     if (!content && text === undefined) {
-      throw writeContentChoiceCliArgumentError("required option '--text <text>' or '--content-json <json>' not specified");
+      throw writeContentChoiceCliArgumentError(
+        "required option '--text <text>' or '--content-json <json>' not specified"
+      );
     }
     const result = await engine.write({
       kind: parseEnum(options.kind, recordKinds, "--kind", { operation: "write", argument: "kind" })!,
@@ -2424,27 +2683,59 @@ program.command("write")
       content: content ?? { text, format: "text" },
       state: parseEnum(options.state, recordStates, "--state", { operation: "write", argument: "state" }),
       confidence: parseConfidence(options.confidence, "--confidence", { operation: "write", argument: "confidence" }),
-      priority: parseEnum(options.priority, recordPriorities, "--priority", { operation: "write", argument: "priority" }),
+      priority: parseEnum(options.priority, recordPriorities, "--priority", {
+        operation: "write",
+        argument: "priority"
+      }),
       source: { client: "cli" },
       confirmed: options.confirm,
-      provenance: reason || options.derivedFrom.length
-        ? { reason, derived_from: options.derivedFrom }
-        : undefined
+      provenance: reason || options.derivedFrom.length ? { reason, derived_from: options.derivedFrom } : undefined
     });
     printJson(result);
   });
 
-program.command("recall")
+program
+  .command("recall")
   .argument("[query]", "Search query")
-  .option("--record-id <id>", "Record id", collectNonEmptyOption("--record-id", { operation: "recall", argument: "record_ids" }), [])
+  .option(
+    "--record-id <id>",
+    "Record id",
+    collectNonEmptyOption("--record-id", { operation: "recall", argument: "record_ids" }),
+    []
+  )
   .option("--project-id <id>")
   .option("--project <path>")
-  .option("--kind <kind>", "Record kind", collectNonEmptyOption("--kind", { operation: "recall", argument: "kinds" }), [])
-  .option("--scope <scope>", "Record scope", collectNonEmptyOption("--scope", { operation: "recall", argument: "scopes" }), [])
-  .option("--type <type>", "Record type", collectNonEmptyOption("--type", { operation: "recall", argument: "types" }), [])
-  .option("--state <state>", "Record state", collectNonEmptyOption("--state", { operation: "recall", argument: "states" }), [])
+  .option(
+    "--kind <kind>",
+    "Record kind",
+    collectNonEmptyOption("--kind", { operation: "recall", argument: "kinds" }),
+    []
+  )
+  .option(
+    "--scope <scope>",
+    "Record scope",
+    collectNonEmptyOption("--scope", { operation: "recall", argument: "scopes" }),
+    []
+  )
+  .option(
+    "--type <type>",
+    "Record type",
+    collectNonEmptyOption("--type", { operation: "recall", argument: "types" }),
+    []
+  )
+  .option(
+    "--state <state>",
+    "Record state",
+    collectNonEmptyOption("--state", { operation: "recall", argument: "states" }),
+    []
+  )
   .option("--tag <tag>", "Record tag", collectNonEmptyOption("--tag", { operation: "recall", argument: "tags" }), [])
-  .option("--file <path>", "Related file path", collectNonEmptyOption("--file", { operation: "recall", argument: "files" }), [])
+  .option(
+    "--file <path>",
+    "Related file path",
+    collectNonEmptyOption("--file", { operation: "recall", argument: "files" }),
+    []
+  )
   .option("--limit <n>", "Result limit", "10")
   .option("--include-private", "Include private-tagged records")
   .action(async (query, options) => {
@@ -2453,9 +2744,10 @@ program.command("recall")
     const limit = parseLimit(options.limit, "recall");
     const recallInput = {
       record_ids: options.recordId,
-      query: query === undefined
-        ? undefined
-        : parseNonEmptyCliPositional(query, "query", { operation: "recall", argument: "query" }),
+      query:
+        query === undefined
+          ? undefined
+          : parseNonEmptyCliPositional(query, "query", { operation: "recall", argument: "query" }),
       project_id: projectId,
       kinds: parseEnumList(options.kind, recordKinds, "--kind", { operation: "recall", argument: "kinds" }),
       scopes: parseEnumList(options.scope, recordScopes, "--scope", { operation: "recall", argument: "scopes" }),
@@ -2492,7 +2784,8 @@ program.command("recall")
     }
   });
 
-program.command("timeline")
+program
+  .command("timeline")
   .option("--record-id <id>")
   .option("--event-id <id>")
   .option("--query <query>")
@@ -2504,8 +2797,14 @@ program.command("timeline")
   .action(async (options) => {
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options, "timeline");
-    const recordId = parseNonEmptyCliString(options.recordId, "--record-id", { operation: "timeline", argument: "record_id" });
-    const eventId = parseNonEmptyCliString(options.eventId, "--event-id", { operation: "timeline", argument: "event_id" });
+    const recordId = parseNonEmptyCliString(options.recordId, "--record-id", {
+      operation: "timeline",
+      argument: "record_id"
+    });
+    const eventId = parseNonEmptyCliString(options.eventId, "--event-id", {
+      operation: "timeline",
+      argument: "event_id"
+    });
     const query = parseNonEmptyCliString(options.query, "--query", { operation: "timeline", argument: "query" });
     const before = parseTimelineWindow(options.before, "--before");
     const after = parseTimelineWindow(options.after, "--after");
@@ -2525,22 +2824,25 @@ program.command("timeline")
       arguments: contextArguments
     };
     try {
-      printJson(await engine.timeline({
-        record_id: recordId,
-        event_id: eventId,
-        query,
-        project_id: projectId,
-        before,
-        after,
-        include_private: options.includePrivate
-      }));
+      printJson(
+        await engine.timeline({
+          record_id: recordId,
+          event_id: eventId,
+          query,
+          project_id: projectId,
+          before,
+          after,
+          include_private: options.includePrivate
+        })
+      );
     } catch (error) {
       printError(error, context);
       process.exitCode = 1;
     }
   });
 
-program.command("boot")
+program
+  .command("boot")
   .option("--project-id <id>")
   .option("--project <path>")
   .option("--current-task <task>")
@@ -2549,25 +2851,45 @@ program.command("boot")
   .action(async (options) => {
     const engine = createCliEngine();
     const project = await resolveProjectOptions(options, "boot");
-    printJson(await engine.boot({
-      project_id: project.project_id,
-      default_skills: project.default_skills,
-      current_task: parseNonEmptyCliString(options.currentTask, "--current-task", { operation: "boot", argument: "current_task" }),
-      agent_session_id: parseNonEmptyCliString(options.sessionId, "--session-id", { operation: "boot", argument: "agent_session_id" }),
-      include_private: options.includePrivate
-    }));
+    printJson(
+      await engine.boot({
+        project_id: project.project_id,
+        default_skills: project.default_skills,
+        current_task: parseNonEmptyCliString(options.currentTask, "--current-task", {
+          operation: "boot",
+          argument: "current_task"
+        }),
+        agent_session_id: parseNonEmptyCliString(options.sessionId, "--session-id", {
+          operation: "boot",
+          argument: "agent_session_id"
+        }),
+        include_private: options.includePrivate
+      })
+    );
   });
 
-program.command("revise")
+program
+  .command("revise")
   .argument("<record-id>")
-  .requiredOption("--set <assignment>", "Patch assignment, repeatable", (value: string, previous: string[] = []) => [...previous, value], [])
+  .requiredOption(
+    "--set <assignment>",
+    "Patch assignment, repeatable",
+    (value: string, previous: string[] = []) => [...previous, value],
+    []
+  )
   .option("--reason <reason>")
   .option("--confirm", "Confirm a high-risk or conflicting canonical revision")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
-    const parsedRecordId = parseNonEmptyCliPositional(recordId, "record-id", { operation: "revise", argument: "record_id" });
+    const parsedRecordId = parseNonEmptyCliPositional(recordId, "record-id", {
+      operation: "revise",
+      argument: "record_id"
+    });
     if (!options.set.length) {
-      throw requiredCliOptionError("--set", "<assignment>", "required option '--set <assignment>' not specified", { operation: "revise", argument: "patch" });
+      throw requiredCliOptionError("--set", "<assignment>", "required option '--set <assignment>' not specified", {
+        operation: "revise",
+        argument: "patch"
+      });
     }
     const patch = parseAssignments(options.set);
     const reason = parseNonEmptyCliString(options.reason, "--reason", { operation: "revise", argument: "reason" });
@@ -2581,28 +2903,37 @@ program.command("revise")
       }
     };
     try {
-      printJson(await engine.revise({
-        record_id: parsedRecordId,
-        patch,
-        reason,
-        source: { client: "cli" },
-        confirmed: options.confirm
-      }));
+      printJson(
+        await engine.revise({
+          record_id: parsedRecordId,
+          patch,
+          reason,
+          source: { client: "cli" },
+          confirmed: options.confirm
+        })
+      );
     } catch (error) {
       printError(error, context);
       process.exitCode = 1;
     }
   });
 
-program.command("promote")
+program
+  .command("promote")
   .argument("<record-id>")
   .requiredOption("--state <state>")
   .option("--reason <reason>")
   .option("--confirm", "Confirm a high-risk canonical promotion")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
-    const parsedRecordId = parseNonEmptyCliPositional(recordId, "record-id", { operation: "promote", argument: "record_id" });
-    const targetState = parseEnum(options.state, recordStates, "--state", { operation: "promote", argument: "target_state" })!;
+    const parsedRecordId = parseNonEmptyCliPositional(recordId, "record-id", {
+      operation: "promote",
+      argument: "record_id"
+    });
+    const targetState = parseEnum(options.state, recordStates, "--state", {
+      operation: "promote",
+      argument: "target_state"
+    })!;
     const reason = parseNonEmptyCliString(options.reason, "--reason", { operation: "promote", argument: "reason" });
     const context = {
       tool: "promote",
@@ -2614,25 +2945,31 @@ program.command("promote")
       }
     };
     try {
-      printJson(await engine.promote({
-        record_id: parsedRecordId,
-        target_state: targetState,
-        reason,
-        source: { client: "cli" },
-        confirmed: options.confirm
-      }));
+      printJson(
+        await engine.promote({
+          record_id: parsedRecordId,
+          target_state: targetState,
+          reason,
+          source: { client: "cli" },
+          confirmed: options.confirm
+        })
+      );
     } catch (error) {
       printError(error, context);
       process.exitCode = 1;
     }
   });
 
-program.command("archive")
+program
+  .command("archive")
   .argument("<record-id>")
   .option("--reason <reason>")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
-    const parsedRecordId = parseNonEmptyCliPositional(recordId, "record-id", { operation: "archive", argument: "record_id" });
+    const parsedRecordId = parseNonEmptyCliPositional(recordId, "record-id", {
+      operation: "archive",
+      argument: "record_id"
+    });
     const reason = parseNonEmptyCliString(options.reason, "--reason", { operation: "archive", argument: "reason" });
     const context = {
       tool: "archive",
@@ -2650,12 +2987,16 @@ program.command("archive")
     }
   });
 
-program.command("quarantine")
+program
+  .command("quarantine")
   .argument("<record-id>")
   .option("--reason <reason>")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
-    const parsedRecordId = parseNonEmptyCliPositional(recordId, "record-id", { operation: "quarantine", argument: "record_id" });
+    const parsedRecordId = parseNonEmptyCliPositional(recordId, "record-id", {
+      operation: "quarantine",
+      argument: "record_id"
+    });
     const reason = parseNonEmptyCliString(options.reason, "--reason", { operation: "quarantine", argument: "reason" });
     const context = {
       tool: "quarantine",
@@ -2673,18 +3014,29 @@ program.command("quarantine")
     }
   });
 
-program.command("link")
+program
+  .command("link")
   .argument("<record-id>")
   .argument("<linked-record-id>")
   .requiredOption("--type <type>")
   .action(async (recordId, linkedRecordId, options) => {
     const engine = createCliEngine();
-    const parsedRecordId = parseNonEmptyCliPositional(recordId, "record-id", { operation: "link", argument: "record_id" });
-    const parsedLinkedRecordId = parseNonEmptyCliPositional(linkedRecordId, "linked-record-id", { operation: "link", argument: "linked_record_id" });
+    const parsedRecordId = parseNonEmptyCliPositional(recordId, "record-id", {
+      operation: "link",
+      argument: "record_id"
+    });
+    const parsedLinkedRecordId = parseNonEmptyCliPositional(linkedRecordId, "linked-record-id", {
+      operation: "link",
+      argument: "linked_record_id"
+    });
     const linkType = parseNonEmptyCliString(options.type, "--type", { operation: "link", argument: "link_type" })!;
     const context = {
       tool: "link",
-      command: commandForLinkContext({ record_id: parsedRecordId, linked_record_id: parsedLinkedRecordId, link_type: linkType }),
+      command: commandForLinkContext({
+        record_id: parsedRecordId,
+        linked_record_id: parsedLinkedRecordId,
+        link_type: linkType
+      }),
       arguments: {
         record_id: parsedRecordId,
         linked_record_id: parsedLinkedRecordId,
@@ -2692,19 +3044,22 @@ program.command("link")
       }
     };
     try {
-      printJson(await engine.link({
-        record_id: parsedRecordId,
-        linked_record_id: parsedLinkedRecordId,
-        link_type: linkType,
-        source: { client: "cli" }
-      }));
+      printJson(
+        await engine.link({
+          record_id: parsedRecordId,
+          linked_record_id: parsedLinkedRecordId,
+          link_type: linkType,
+          source: { client: "cli" }
+        })
+      );
     } catch (error) {
       printError(error, context);
       process.exitCode = 1;
     }
   });
 
-program.command("logical-link")
+program
+  .command("logical-link")
   .argument("<record-id>")
   .argument("<linked-record-id>")
   .requiredOption("--relationship <relationship>")
@@ -2712,34 +3067,44 @@ program.command("logical-link")
   .action(async (recordId, linkedRecordId, options) => {
     const engine = createCliEngine();
     try {
-      const relationship = parseEnum(options.relationship, LOGICAL_RELATIONSHIP_TYPES, "--relationship") as LogicalRelationshipType;
-      printJson(await engine.logicalLink({
-        record_id: parseNonEmptyCliPositional(recordId, "record-id"),
-        linked_record_id: parseNonEmptyCliPositional(linkedRecordId, "linked-record-id"),
-        relationship,
-        reason: parseNonEmptyCliString(options.reason, "--reason")!,
-        source: { client: "cli" }
-      }));
+      const relationship = parseEnum(
+        options.relationship,
+        LOGICAL_RELATIONSHIP_TYPES,
+        "--relationship"
+      ) as LogicalRelationshipType;
+      printJson(
+        await engine.logicalLink({
+          record_id: parseNonEmptyCliPositional(recordId, "record-id"),
+          linked_record_id: parseNonEmptyCliPositional(linkedRecordId, "linked-record-id"),
+          relationship,
+          reason: parseNonEmptyCliString(options.reason, "--reason")!,
+          source: { client: "cli" }
+        })
+      );
     } catch (error) {
       printError(error);
       process.exitCode = 1;
     }
   });
 
-program.command("list-recent")
+program
+  .command("list-recent")
   .option("--limit <n>", "Result limit", "20")
   .option("--include-private", "Include private-tagged records")
   .action(async (options) => {
     const engine = createCliEngine();
-    printJson(await engine.listRecent({
-      limit: parseLimit(options.limit, "list_recent"),
-      include_private: options.includePrivate
-    }));
+    printJson(
+      await engine.listRecent({
+        limit: parseLimit(options.limit, "list_recent"),
+        include_private: options.includePrivate
+      })
+    );
   });
 
 const memory = program.command("memory");
 
-memory.command("doctor")
+memory
+  .command("doctor")
   .option("--project-id <id>")
   .option("--project <path>")
   .option("--limit <n>", "Finding/action limit", "20")
@@ -2747,14 +3112,17 @@ memory.command("doctor")
   .action(async (options) => {
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options, "memory_doctor");
-    printJson(await engine.memoryDoctor({
-      project_id: projectId,
-      limit: parseLimit(options.limit, "memory_doctor"),
-      include_private: options.includePrivate
-    }));
+    printJson(
+      await engine.memoryDoctor({
+        project_id: projectId,
+        limit: parseLimit(options.limit, "memory_doctor"),
+        include_private: options.includePrivate
+      })
+    );
   });
 
-memory.command("lifecycle")
+memory
+  .command("lifecycle")
   .option("--project-id <id>")
   .option("--project <path>")
   .option("--limit <n>", "Assessment/action limit", "20")
@@ -2763,17 +3131,20 @@ memory.command("lifecycle")
   .action(async (options) => {
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options, "memory_lifecycle");
-    printJson(await engine.memoryLifecycle({
-      project_id: projectId,
-      limit: parseLimit(options.limit, "memory_lifecycle"),
-      now: parseNonEmptyCliString(options.now, "--now", { operation: "memory_lifecycle", argument: "now" }),
-      include_private: options.includePrivate
-    }));
+    printJson(
+      await engine.memoryLifecycle({
+        project_id: projectId,
+        limit: parseLimit(options.limit, "memory_lifecycle"),
+        now: parseNonEmptyCliString(options.now, "--now", { operation: "memory_lifecycle", argument: "now" }),
+        include_private: options.includePrivate
+      })
+    );
   });
 
 const dogfood = program.command("dogfood");
 
-dogfood.command("report")
+dogfood
+  .command("report")
   .option("--project-id <id>")
   .option("--project <path>")
   .option("--limit <n>", "Finding/action limit", "20")
@@ -2781,16 +3152,19 @@ dogfood.command("report")
   .action(async (options) => {
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options, "dogfood_report");
-    printJson(await engine.dogfoodReport({
-      project_id: projectId,
-      limit: parseLimit(options.limit, "dogfood_report"),
-      include_private: options.includePrivate
-    }));
+    printJson(
+      await engine.dogfoodReport({
+        project_id: projectId,
+        limit: parseLimit(options.limit, "dogfood_report"),
+        include_private: options.includePrivate
+      })
+    );
   });
 
 const health = program.command("health");
 
-health.command("check")
+health
+  .command("check")
   .option("--project-id <id>")
   .option("--project <path>")
   .option("--host <host>", "Host adapter to include in setup readiness commands")
@@ -2799,22 +3173,34 @@ health.command("check")
   .option("--include-private", "Include private-tagged records")
   .action(async (options) => {
     const engine = createCliEngine();
-    const projectPath = parseNonEmptyCliString(options.project, "--project", { operation: "health_check", argument: "project_path" });
-    const projectIdInput = parseNonEmptyCliString(options.projectId, "--project-id", { operation: "health_check", argument: "project_id" });
-    const project = projectPath || projectIdInput ? await resolveProjectContext({ projectPath, projectId: projectIdInput }) : undefined;
-    printJson(await engine.healthCheck({
-      project_id: project?.project_id,
-      project_path: project?.project_path,
-      host: parseNonEmptyString(options.host, "--host"),
-      sync_remote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
-      limit: parseLimit(options.limit, "health_check"),
-      include_private: options.includePrivate
-    }));
+    const projectPath = parseNonEmptyCliString(options.project, "--project", {
+      operation: "health_check",
+      argument: "project_path"
+    });
+    const projectIdInput = parseNonEmptyCliString(options.projectId, "--project-id", {
+      operation: "health_check",
+      argument: "project_id"
+    });
+    const project =
+      projectPath || projectIdInput
+        ? await resolveProjectContext({ projectPath, projectId: projectIdInput })
+        : undefined;
+    printJson(
+      await engine.healthCheck({
+        project_id: project?.project_id,
+        project_path: project?.project_path,
+        host: parseNonEmptyString(options.host, "--host"),
+        sync_remote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
+        limit: parseLimit(options.limit, "health_check"),
+        include_private: options.includePrivate
+      })
+    );
   });
 
 const evalCommand = program.command("eval");
 
-evalCommand.command("recall")
+evalCommand
+  .command("recall")
   .requiredOption("--cases <json>", "JSON array of golden recall cases")
   .option("--project-id <id>")
   .option("--project <path>")
@@ -2822,14 +3208,17 @@ evalCommand.command("recall")
   .action(async (options) => {
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options, "recall_eval");
-    printJson(await engine.recallEval({
-      project_id: projectId,
-      cases: parseRecallEvalCases(options.cases),
-      include_private: options.includePrivate
-    }));
+    printJson(
+      await engine.recallEval({
+        project_id: projectId,
+        cases: parseRecallEvalCases(options.cases),
+        include_private: options.includePrivate
+      })
+    );
   });
 
-program.command("refresh")
+program
+  .command("refresh")
   .option("--project-id <id>")
   .option("--project <path>")
   .option("--cursor <cursor>")
@@ -2840,7 +3229,10 @@ program.command("refresh")
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options, "refresh");
     const cursor = parseNonEmptyString(options.cursor, "--cursor");
-    const currentTask = parseNonEmptyCliString(options.currentTask, "--current-task", { operation: "refresh", argument: "current_task" });
+    const currentTask = parseNonEmptyCliString(options.currentTask, "--current-task", {
+      operation: "refresh",
+      argument: "current_task"
+    });
     const limit = parseLimit(options.limit, "refresh");
     const contextArguments = compactUndefined({
       ...(projectId !== undefined ? { project_id: projectId } : {}),
@@ -2855,13 +3247,15 @@ program.command("refresh")
       arguments: contextArguments
     };
     try {
-      printJson(await engine.refresh({
-        project_id: projectId,
-        cursor,
-        current_task: currentTask,
-        limit,
-        include_private: options.includePrivate
-      }));
+      printJson(
+        await engine.refresh({
+          project_id: projectId,
+          cursor,
+          current_task: currentTask,
+          limit,
+          include_private: options.includePrivate
+        })
+      );
     } catch (error) {
       printError(error, context);
       process.exitCode = 1;
@@ -2872,7 +3266,8 @@ program.command("rebuild").action(async () => {
   printJson(await rebuildDerivedViews(storePath()));
 });
 
-program.command("dashboard")
+program
+  .command("dashboard")
   .option("--project <path>", "Resolve dashboard project context from a project path")
   .option("--project-id <id>", "Use an explicit dashboard project id")
   .option("--open", "Open the generated dashboard in the default browser")
@@ -2908,13 +3303,15 @@ program.command("dashboard")
 
 const contracts = program.command("contracts");
 
-contracts.command("selection-sources")
+contracts
+  .command("selection-sources")
   .description("Print stable selection-source field-path contracts.")
   .action(() => {
     printJson(getSelectionSourceContracts());
   });
 
-contracts.command("operations")
+contracts
+  .command("operations")
   .description("Print stable CLI and MCP operation contracts.")
   .option("--index", "Print a compact operation lookup index")
   .option("--operation <id>", "Print one operation contract by id")
@@ -2931,7 +3328,10 @@ contracts.command("operations")
       ...(cliCommand ? [{ mode: "cli_command" as const, option: "--cli-command" }] : [])
     ];
     if (lookupOptions.length > 1) {
-      throw new OperationContractLookupConflictError(lookupOptions, "--index, --operation, --mcp-tool, or --cli-command");
+      throw new OperationContractLookupConflictError(
+        lookupOptions,
+        "--index, --operation, --mcp-tool, or --cli-command"
+      );
     }
     if (options.index) {
       printJson(getOperationContractIndex(), { pretty: false });
@@ -2971,8 +3371,13 @@ const agent = program.command("agent");
 
 const consolidate = program.command("consolidate");
 
-consolidate.command("semantic")
-  .requiredOption("--proposal-json <json>", "Semantic consolidation proposal JSON", collectNonEmptyOption("--proposal-json"))
+consolidate
+  .command("semantic")
+  .requiredOption(
+    "--proposal-json <json>",
+    "Semantic consolidation proposal JSON",
+    collectNonEmptyOption("--proposal-json")
+  )
   .option("--project-id <id>")
   .option("--project <path>")
   .option("--include-private")
@@ -2980,7 +3385,9 @@ consolidate.command("semantic")
   .option("--session-id <id>")
   .action(async (options) => {
     const project = await resolveProjectOptions(options, "consolidate_semantic");
-    const proposals = (options.proposalJson ?? []).map((value: string) => parseCheckpointJson(value, "--proposal-json") as SemanticConsolidationProposalInput);
+    const proposals = (options.proposalJson ?? []).map(
+      (value: string) => parseCheckpointJson(value, "--proposal-json") as SemanticConsolidationProposalInput
+    );
     const result = await createCliEngine().consolidateSemanticProposals({
       proposals,
       project_id: project.project_id,
@@ -2990,7 +3397,8 @@ consolidate.command("semantic")
     printJson(result);
   });
 
-program.command("learn")
+program
+  .command("learn")
   .option("--project-id <id>")
   .option("--project <path>")
   .requiredOption("--question <question>")
@@ -3010,29 +3418,32 @@ program.command("learn")
   .option("--occurred-at <timestamp>")
   .action(async (options) => {
     const project = await resolveProjectOptions(options, "learn");
-    printJson(await queueLearning(storePath(), {
-      project_id: project.project_id,
-      question: options.question,
-      conclusion: options.conclusion,
-      evidence_type: options.evidenceType,
-      scope: options.scope,
-      confidence: parseConfidence(options.confidence),
-      valid_until: options.validUntil,
-      recommended_kind: options.recommendedKind,
-      recommended_type: options.recommendedType,
-      related_record_ids: options.relatedRecordId,
-      current_task: options.currentTask,
-      source: {
-        client: options.agent,
-        session_id: options.sessionId,
-        model: options.model,
-        device_id: options.deviceId
-      },
-      occurred_at: options.occurredAt ?? new Date().toISOString()
-    }));
+    printJson(
+      await queueLearning(storePath(), {
+        project_id: project.project_id,
+        question: options.question,
+        conclusion: options.conclusion,
+        evidence_type: options.evidenceType,
+        scope: options.scope,
+        confidence: parseConfidence(options.confidence),
+        valid_until: options.validUntil,
+        recommended_kind: options.recommendedKind,
+        recommended_type: options.recommendedType,
+        related_record_ids: options.relatedRecordId,
+        current_task: options.currentTask,
+        source: {
+          client: options.agent,
+          session_id: options.sessionId,
+          model: options.model,
+          device_id: options.deviceId
+        },
+        occurred_at: options.occurredAt ?? new Date().toISOString()
+      })
+    );
   });
 
-agent.command("checkpoint")
+agent
+  .command("checkpoint")
   .option("--project-id <id>")
   .option("--project <path>")
   .requiredOption("--agent <client>")
@@ -3052,30 +3463,69 @@ agent.command("checkpoint")
   .option("--candidate-memory <text>", "Candidate memory", collectNonEmptyOption("--candidate-memory"))
   .option("--candidate-skill <text>", "Candidate skill", collectNonEmptyOption("--candidate-skill"))
   .option("--learning <json>", "Learning Delta JSON", collectNonEmptyOption("--learning"))
-  .option("--knowledge-investigation <json>", "Knowledge investigation JSON", collectNonEmptyOption("--knowledge-investigation"))
-  .option("--semantic-consolidation-proposal <json>", "Semantic consolidation proposal JSON", collectNonEmptyOption("--semantic-consolidation-proposal"))
+  .option(
+    "--knowledge-investigation <json>",
+    "Knowledge investigation JSON",
+    collectNonEmptyOption("--knowledge-investigation")
+  )
+  .option(
+    "--semantic-consolidation-proposal <json>",
+    "Semantic consolidation proposal JSON",
+    collectNonEmptyOption("--semantic-consolidation-proposal")
+  )
   .option("--tag <tag>", "Checkpoint tag", collectNonEmptyOption("--tag"))
   .option("--include-private")
   .action(async (options) => {
     const operation = "checkpoint";
     const project = await resolveProjectOptions(options, operation);
-    const semanticFlags = ["checkpointId", "currentTask", "progress", "decision", "changedFact", "blocker", "nextStep", "file", "candidateMemory", "candidateSkill", "learning", "knowledgeInvestigation", "semanticConsolidationProposal"];
+    const semanticFlags = [
+      "checkpointId",
+      "currentTask",
+      "progress",
+      "decision",
+      "changedFact",
+      "blocker",
+      "nextStep",
+      "file",
+      "candidateMemory",
+      "candidateSkill",
+      "learning",
+      "knowledgeInvestigation",
+      "semanticConsolidationProposal"
+    ];
     if (options.delta !== undefined && semanticFlags.some((flag) => options[flag] !== undefined)) {
       throw new Error("Invalid argument: --delta cannot be combined with checkpoint semantic flags");
     }
-    const sessionId = parseNonEmptyCliString(options.sessionId, "--session-id", { operation, argument: "source_session_id" })!;
-    const delta = options.delta !== undefined
-      ? parseCheckpointJson(options.delta, "--delta") as ContextDeltaInput
-      : {
-          session_id: sessionId,
-          checkpoint_id: options.checkpointId,
-          current_task: options.currentTask,
-          progress: options.progress ?? [], decisions: options.decision ?? [], changed_facts: options.changedFact ?? [], blockers: options.blocker ?? [],
-          next_steps: options.nextStep ?? [], files: options.file ?? [], candidate_memories: options.candidateMemory ?? [], candidate_skills: options.candidateSkill ?? [],
-          learnings: (options.learning ?? []).map((value: string) => parseCheckpointJson(value, "--learning") as LearningDeltaInput),
-          knowledge_investigations: (options.knowledgeInvestigation ?? []).map((value: string) => parseCheckpointJson(value, "--knowledge-investigation") as KnowledgeInvestigationInput),
-          semantic_consolidation_proposals: (options.semanticConsolidationProposal ?? []).map((value: string) => parseCheckpointJson(value, "--semantic-consolidation-proposal") as SemanticConsolidationProposalInput)
-        };
+    const sessionId = parseNonEmptyCliString(options.sessionId, "--session-id", {
+      operation,
+      argument: "source_session_id"
+    })!;
+    const delta =
+      options.delta !== undefined
+        ? (parseCheckpointJson(options.delta, "--delta") as ContextDeltaInput)
+        : {
+            session_id: sessionId,
+            checkpoint_id: options.checkpointId,
+            current_task: options.currentTask,
+            progress: options.progress ?? [],
+            decisions: options.decision ?? [],
+            changed_facts: options.changedFact ?? [],
+            blockers: options.blocker ?? [],
+            next_steps: options.nextStep ?? [],
+            files: options.file ?? [],
+            candidate_memories: options.candidateMemory ?? [],
+            candidate_skills: options.candidateSkill ?? [],
+            learnings: (options.learning ?? []).map(
+              (value: string) => parseCheckpointJson(value, "--learning") as LearningDeltaInput
+            ),
+            knowledge_investigations: (options.knowledgeInvestigation ?? []).map(
+              (value: string) => parseCheckpointJson(value, "--knowledge-investigation") as KnowledgeInvestigationInput
+            ),
+            semantic_consolidation_proposals: (options.semanticConsolidationProposal ?? []).map(
+              (value: string) =>
+                parseCheckpointJson(value, "--semantic-consolidation-proposal") as SemanticConsolidationProposalInput
+            )
+          };
     const result = await createCliEngine().checkpoint({
       project_id: project.project_id ?? "",
       source: {
@@ -3092,7 +3542,8 @@ agent.command("checkpoint")
     printJson(result);
   });
 
-agent.command("guide")
+agent
+  .command("guide")
   .option("--project-id <id>")
   .option("--project <path>")
   .option("--sync-remote <remote>", "Shared Git remote for cross-device handoff")
@@ -3103,17 +3554,36 @@ agent.command("guide")
   .option("--device-id <id>")
   .action(async (options) => {
     const operation = "agent_guide";
-    printJson(await agentGuide({
-      storePath: storePath(),
-      projectPath: parseNonEmptyCliString(options.project, "--project", lifecycleStringSource(operation, "project_path")),
-      projectId: parseNonEmptyCliString(options.projectId, "--project-id", lifecycleStringSource(operation, "project_id")),
-      syncRemote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
-      currentTask: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
-      agent: parseAgentOptions(options, operation)
-    }));
+    printJson(
+      await agentGuide({
+        storePath: storePath(),
+        projectPath: parseNonEmptyCliString(
+          options.project,
+          "--project",
+          lifecycleStringSource(operation, "project_path")
+        ),
+        projectId: parseNonEmptyCliString(
+          options.projectId,
+          "--project-id",
+          lifecycleStringSource(operation, "project_id")
+        ),
+        syncRemote: parseNonEmptyCliString(
+          options.syncRemote,
+          "--sync-remote",
+          lifecycleStringSource(operation, "sync_remote")
+        ),
+        currentTask: parseNonEmptyCliString(
+          options.currentTask,
+          "--current-task",
+          lifecycleStringSource(operation, "current_task")
+        ),
+        agent: parseAgentOptions(options, operation)
+      })
+    );
   });
 
-agent.command("enter")
+agent
+  .command("enter")
   .option("--project-id <id>")
   .option("--project <path>")
   .option("--sync-remote <remote>", "Initialize or connect Git sync before startup")
@@ -3132,11 +3602,31 @@ agent.command("enter")
     const pull = parseBooleanDefault(options.pull, true);
     const agentOptions = parseAgentOptions(options, operation);
     const contextArguments = compactUndefined({
-      project_id: parseNonEmptyCliString(options.projectId, "--project-id", lifecycleStringSource(operation, "project_id")),
-      project_path: parseNonEmptyCliString(options.project, "--project", lifecycleStringSource(operation, "project_path")),
-      sync_remote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
-      current_task: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
-      refresh_since: parseNonEmptyCliString(options.refreshSince, "--refresh-since", lifecycleStringSource(operation, "refresh_since")),
+      project_id: parseNonEmptyCliString(
+        options.projectId,
+        "--project-id",
+        lifecycleStringSource(operation, "project_id")
+      ),
+      project_path: parseNonEmptyCliString(
+        options.project,
+        "--project",
+        lifecycleStringSource(operation, "project_path")
+      ),
+      sync_remote: parseNonEmptyCliString(
+        options.syncRemote,
+        "--sync-remote",
+        lifecycleStringSource(operation, "sync_remote")
+      ),
+      current_task: parseNonEmptyCliString(
+        options.currentTask,
+        "--current-task",
+        lifecycleStringSource(operation, "current_task")
+      ),
+      refresh_since: parseNonEmptyCliString(
+        options.refreshSince,
+        "--refresh-since",
+        lifecycleStringSource(operation, "refresh_since")
+      ),
       ...(options.limit !== "20" ? { limit: parseLimit(options.limit, "agent_enter") } : {}),
       ...(pull === false ? { pull } : {}),
       agent: agentOptions
@@ -3151,9 +3641,21 @@ agent.command("enter")
         storePath: storePath(),
         projectPath: options.project,
         projectId: options.projectId,
-        syncRemote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
-        currentTask: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
-        refreshSince: parseNonEmptyCliString(options.refreshSince, "--refresh-since", lifecycleStringSource(operation, "refresh_since")),
+        syncRemote: parseNonEmptyCliString(
+          options.syncRemote,
+          "--sync-remote",
+          lifecycleStringSource(operation, "sync_remote")
+        ),
+        currentTask: parseNonEmptyCliString(
+          options.currentTask,
+          "--current-task",
+          lifecycleStringSource(operation, "current_task")
+        ),
+        refreshSince: parseNonEmptyCliString(
+          options.refreshSince,
+          "--refresh-since",
+          lifecycleStringSource(operation, "refresh_since")
+        ),
         limit: parseLimit(options.limit, "agent_enter"),
         pull,
         agent: agentOptions,
@@ -3166,7 +3668,8 @@ agent.command("enter")
     }
   });
 
-agent.command("doctor")
+agent
+  .command("doctor")
   .option("--project-id <id>")
   .option("--project <path>")
   .option("--sync-remote <remote>", "Expected Git sync remote for cross-device handoff")
@@ -3177,17 +3680,36 @@ agent.command("doctor")
   .option("--device-id <id>")
   .action(async (options) => {
     const operation = "agent_doctor";
-    printJson(await agentDoctor({
-      storePath: storePath(),
-      projectPath: parseNonEmptyCliString(options.project, "--project", lifecycleStringSource(operation, "project_path")),
-      projectId: parseNonEmptyCliString(options.projectId, "--project-id", lifecycleStringSource(operation, "project_id")),
-      syncRemote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
-      currentTask: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
-      agent: parseAgentOptions(options, operation)
-    }));
+    printJson(
+      await agentDoctor({
+        storePath: storePath(),
+        projectPath: parseNonEmptyCliString(
+          options.project,
+          "--project",
+          lifecycleStringSource(operation, "project_path")
+        ),
+        projectId: parseNonEmptyCliString(
+          options.projectId,
+          "--project-id",
+          lifecycleStringSource(operation, "project_id")
+        ),
+        syncRemote: parseNonEmptyCliString(
+          options.syncRemote,
+          "--sync-remote",
+          lifecycleStringSource(operation, "sync_remote")
+        ),
+        currentTask: parseNonEmptyCliString(
+          options.currentTask,
+          "--current-task",
+          lifecycleStringSource(operation, "current_task")
+        ),
+        agent: parseAgentOptions(options, operation)
+      })
+    );
   });
 
-agent.command("start")
+agent
+  .command("start")
   .option("--project-id <id>")
   .option("--project <path>")
   .option("--sync-remote <remote>", "Initialize or connect Git sync before startup")
@@ -3206,11 +3728,31 @@ agent.command("start")
     const pull = parseBooleanDefault(options.pull, true);
     const agentOptions = parseAgentOptions(options, operation);
     const contextArguments = compactUndefined({
-      project_id: parseNonEmptyCliString(options.projectId, "--project-id", lifecycleStringSource(operation, "project_id")),
-      project_path: parseNonEmptyCliString(options.project, "--project", lifecycleStringSource(operation, "project_path")),
-      sync_remote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
-      current_task: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
-      refresh_since: parseNonEmptyCliString(options.refreshSince, "--refresh-since", lifecycleStringSource(operation, "refresh_since")),
+      project_id: parseNonEmptyCliString(
+        options.projectId,
+        "--project-id",
+        lifecycleStringSource(operation, "project_id")
+      ),
+      project_path: parseNonEmptyCliString(
+        options.project,
+        "--project",
+        lifecycleStringSource(operation, "project_path")
+      ),
+      sync_remote: parseNonEmptyCliString(
+        options.syncRemote,
+        "--sync-remote",
+        lifecycleStringSource(operation, "sync_remote")
+      ),
+      current_task: parseNonEmptyCliString(
+        options.currentTask,
+        "--current-task",
+        lifecycleStringSource(operation, "current_task")
+      ),
+      refresh_since: parseNonEmptyCliString(
+        options.refreshSince,
+        "--refresh-since",
+        lifecycleStringSource(operation, "refresh_since")
+      ),
       ...(options.limit !== "20" ? { limit: parseLimit(options.limit, "agent_start") } : {}),
       ...(pull === false ? { pull } : {}),
       agent: agentOptions
@@ -3225,9 +3767,21 @@ agent.command("start")
         storePath: storePath(),
         projectPath: options.project,
         projectId: options.projectId,
-        syncRemote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
-        currentTask: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
-        refreshSince: parseNonEmptyCliString(options.refreshSince, "--refresh-since", lifecycleStringSource(operation, "refresh_since")),
+        syncRemote: parseNonEmptyCliString(
+          options.syncRemote,
+          "--sync-remote",
+          lifecycleStringSource(operation, "sync_remote")
+        ),
+        currentTask: parseNonEmptyCliString(
+          options.currentTask,
+          "--current-task",
+          lifecycleStringSource(operation, "current_task")
+        ),
+        refreshSince: parseNonEmptyCliString(
+          options.refreshSince,
+          "--refresh-since",
+          lifecycleStringSource(operation, "refresh_since")
+        ),
         limit: parseLimit(options.limit, "agent_start"),
         pull,
         agent: agentOptions
@@ -3239,7 +3793,8 @@ agent.command("start")
     }
   });
 
-agent.command("status")
+agent
+  .command("status")
   .requiredOption("--status <text>")
   .option("--project-id <id>")
   .option("--project <path>")
@@ -3258,10 +3813,26 @@ agent.command("status")
     const agentOptions = parseAgentOptions(options, operation);
     const status = parseNonEmptyCliString(options.status, "--status", lifecycleStringSource(operation, "status"))!;
     const contextInput = {
-      project_id: parseNonEmptyCliString(options.projectId, "--project-id", lifecycleStringSource(operation, "project_id")),
-      project_path: parseNonEmptyCliString(options.project, "--project", lifecycleStringSource(operation, "project_path")),
-      sync_remote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
-      current_task: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
+      project_id: parseNonEmptyCliString(
+        options.projectId,
+        "--project-id",
+        lifecycleStringSource(operation, "project_id")
+      ),
+      project_path: parseNonEmptyCliString(
+        options.project,
+        "--project",
+        lifecycleStringSource(operation, "project_path")
+      ),
+      sync_remote: parseNonEmptyCliString(
+        options.syncRemote,
+        "--sync-remote",
+        lifecycleStringSource(operation, "sync_remote")
+      ),
+      current_task: parseNonEmptyCliString(
+        options.currentTask,
+        "--current-task",
+        lifecycleStringSource(operation, "current_task")
+      ),
       status,
       ...(push === false ? { push } : {}),
       agent: agentOptions
@@ -3277,8 +3848,16 @@ agent.command("status")
         storePath: storePath(),
         projectPath: options.project,
         projectId: options.projectId,
-        syncRemote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
-        currentTask: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
+        syncRemote: parseNonEmptyCliString(
+          options.syncRemote,
+          "--sync-remote",
+          lifecycleStringSource(operation, "sync_remote")
+        ),
+        currentTask: parseNonEmptyCliString(
+          options.currentTask,
+          "--current-task",
+          lifecycleStringSource(operation, "current_task")
+        ),
         status,
         push,
         agent: agentOptions
@@ -3290,7 +3869,8 @@ agent.command("status")
     }
   });
 
-agent.command("finish")
+agent
+  .command("finish")
   .requiredOption("--summary <text>")
   .option("--project-id <id>")
   .option("--project <path>")
@@ -3304,24 +3884,51 @@ agent.command("finish")
   .option("--model <model>")
   .option("--device-id <id>")
   .option("--learning <json>", "Learning Delta JSON", collectNonEmptyOption("--learning"))
-  .option("--semantic-consolidation-proposal <json>", "Semantic consolidation proposal JSON", collectNonEmptyOption("--semantic-consolidation-proposal"))
+  .option(
+    "--semantic-consolidation-proposal <json>",
+    "Semantic consolidation proposal JSON",
+    collectNonEmptyOption("--semantic-consolidation-proposal")
+  )
   .action(async (options) => {
     const operation = "agent_finish";
     const push = parseBooleanDefault(options.push, true);
     const agentOptions = parseAgentOptions(options, operation);
     const summary = parseNonEmptyCliString(options.summary, "--summary", lifecycleStringSource(operation, "summary"))!;
-    const learnings = (options.learning ?? []).map((value: string) => parseCheckpointJson(value, "--learning") as LearningDeltaInput);
-    const semanticConsolidationProposals = (options.semanticConsolidationProposal ?? []).map((value: string) => parseCheckpointJson(value, "--semantic-consolidation-proposal") as SemanticConsolidationProposalInput);
+    const learnings = (options.learning ?? []).map(
+      (value: string) => parseCheckpointJson(value, "--learning") as LearningDeltaInput
+    );
+    const semanticConsolidationProposals = (options.semanticConsolidationProposal ?? []).map(
+      (value: string) =>
+        parseCheckpointJson(value, "--semantic-consolidation-proposal") as SemanticConsolidationProposalInput
+    );
     const contextInput = {
-      project_id: parseNonEmptyCliString(options.projectId, "--project-id", lifecycleStringSource(operation, "project_id")),
-      project_path: parseNonEmptyCliString(options.project, "--project", lifecycleStringSource(operation, "project_path")),
-      sync_remote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
-      current_task: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
+      project_id: parseNonEmptyCliString(
+        options.projectId,
+        "--project-id",
+        lifecycleStringSource(operation, "project_id")
+      ),
+      project_path: parseNonEmptyCliString(
+        options.project,
+        "--project",
+        lifecycleStringSource(operation, "project_path")
+      ),
+      sync_remote: parseNonEmptyCliString(
+        options.syncRemote,
+        "--sync-remote",
+        lifecycleStringSource(operation, "sync_remote")
+      ),
+      current_task: parseNonEmptyCliString(
+        options.currentTask,
+        "--current-task",
+        lifecycleStringSource(operation, "current_task")
+      ),
       summary,
       ...(push === false ? { push } : {}),
       agent: agentOptions,
       ...(learnings.length ? { learnings } : {}),
-      ...(semanticConsolidationProposals.length ? { semantic_consolidation_proposals: semanticConsolidationProposals } : {})
+      ...(semanticConsolidationProposals.length
+        ? { semantic_consolidation_proposals: semanticConsolidationProposals }
+        : {})
     };
     const contextArguments = compactUndefined(contextInput);
     const context = {
@@ -3334,8 +3941,16 @@ agent.command("finish")
         storePath: storePath(),
         projectPath: options.project,
         projectId: options.projectId,
-        syncRemote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
-        currentTask: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
+        syncRemote: parseNonEmptyCliString(
+          options.syncRemote,
+          "--sync-remote",
+          lifecycleStringSource(operation, "sync_remote")
+        ),
+        currentTask: parseNonEmptyCliString(
+          options.currentTask,
+          "--current-task",
+          lifecycleStringSource(operation, "current_task")
+        ),
         summary,
         push,
         agent: agentOptions,
@@ -3351,16 +3966,33 @@ agent.command("finish")
 
 const project = program.command("project");
 
-project.command("init")
+project
+  .command("init")
   .option("--path <path>", "Project path", process.cwd())
   .option("--project-id <id>")
-  .option("--tag <tag>", "Project tag", collectNonEmptyOption("--tag", { operation: "project_init", argument: "tags" }), [])
-  .option("--default-skill <selector>", "Default skill selector", collectNonEmptyOption("--default-skill", { operation: "project_init", argument: "default_skills" }), [])
+  .option(
+    "--tag <tag>",
+    "Project tag",
+    collectNonEmptyOption("--tag", { operation: "project_init", argument: "tags" }),
+    []
+  )
+  .option(
+    "--default-skill <selector>",
+    "Default skill selector",
+    collectNonEmptyOption("--default-skill", { operation: "project_init", argument: "default_skills" }),
+    []
+  )
   .option("--sync-mode <mode>", "Sync mode")
   .option("--repair", "Replace an invalid existing .moryn.json after explicit confirmation")
   .action(async (options) => {
-    const projectPath = parseNonEmptyCliString(options.path, "--path", { operation: "project_init", argument: "path" })!;
-    const projectId = parseNonEmptyCliString(options.projectId, "--project-id", { operation: "project_init", argument: "project_id" });
+    const projectPath = parseNonEmptyCliString(options.path, "--path", {
+      operation: "project_init",
+      argument: "path"
+    })!;
+    const projectId = parseNonEmptyCliString(options.projectId, "--project-id", {
+      operation: "project_init",
+      argument: "project_id"
+    });
     const syncMode = parseProjectSyncMode(options.syncMode);
     const contextArguments = compactUndefined({
       path: projectPath,
@@ -3378,13 +4010,13 @@ project.command("init")
     try {
       printJson({
         ok: true,
-        ...await initializeProjectConfig(projectPath, {
+        ...(await initializeProjectConfig(projectPath, {
           project_id: projectId,
           tags: options.tag.length ? options.tag : undefined,
           default_skills: options.defaultSkill.length ? options.defaultSkill : undefined,
           sync: syncMode === undefined ? undefined : { mode: syncMode },
           repair: options.repair
-        })
+        }))
       });
     } catch (error) {
       printError(error, context);
@@ -3392,7 +4024,8 @@ project.command("init")
     }
   });
 
-project.command("list")
+project
+  .command("list")
   .option("--limit <n>", "Project limit", "20")
   .option("--current-task <task>", "Current task to prefill in each agent_start next action")
   .option("--sync-remote <remote>", "Shared Git remote to prefill in each agent_start next action")
@@ -3404,15 +4037,26 @@ project.command("list")
     const engine = createCliEngine();
     const operation = "project_list";
     const agentOptions = hasAgentOptions(options) ? parseAgentOptions(options, operation) : undefined;
-    printJson(await engine.listProjects({
-      limit: parseLimit(options.limit, "project_list"),
-      current_task: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
-      sync_remote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
-      agent: agentOptions
-    }));
+    printJson(
+      await engine.listProjects({
+        limit: parseLimit(options.limit, "project_list"),
+        current_task: parseNonEmptyCliString(
+          options.currentTask,
+          "--current-task",
+          lifecycleStringSource(operation, "current_task")
+        ),
+        sync_remote: parseNonEmptyCliString(
+          options.syncRemote,
+          "--sync-remote",
+          lifecycleStringSource(operation, "sync_remote")
+        ),
+        agent: agentOptions
+      })
+    );
   });
 
-project.command("migrate")
+project
+  .command("migrate")
   .option("--from <project-id>", "Project id to migrate records from")
   .option("--to <project-id>", "Project id to migrate records to")
   .option("--dry-run", "Preview matching records without writing events", true)
@@ -3421,23 +4065,40 @@ project.command("migrate")
   .option("--include-private", "Include private-tagged records in migration")
   .action(async (options) => {
     const engine = createCliEngine();
-    const fromProjectId = parseNonEmptyCliString(options.from, "--from", { operation: "project_migrate", argument: "from_project_id" });
-    const toProjectId = parseNonEmptyCliString(options.to, "--to", { operation: "project_migrate", argument: "to_project_id" });
-    if (fromProjectId === undefined) throw requiredCliOptionError("--from", "<from_project_id>", undefined, { operation: "project_migrate", argument: "from_project_id" });
-    if (toProjectId === undefined) throw requiredCliOptionError("--to", "<to_project_id>", undefined, { operation: "project_migrate", argument: "to_project_id" });
-    printJson(await engine.migrateProject({
-      from_project_id: fromProjectId,
-      to_project_id: toProjectId,
-      dry_run: options.apply ? false : options.dryRun,
-      confirmed: options.confirm,
-      include_private: options.includePrivate,
-      source: { client: "cli" }
-    }));
+    const fromProjectId = parseNonEmptyCliString(options.from, "--from", {
+      operation: "project_migrate",
+      argument: "from_project_id"
+    });
+    const toProjectId = parseNonEmptyCliString(options.to, "--to", {
+      operation: "project_migrate",
+      argument: "to_project_id"
+    });
+    if (fromProjectId === undefined)
+      throw requiredCliOptionError("--from", "<from_project_id>", undefined, {
+        operation: "project_migrate",
+        argument: "from_project_id"
+      });
+    if (toProjectId === undefined)
+      throw requiredCliOptionError("--to", "<to_project_id>", undefined, {
+        operation: "project_migrate",
+        argument: "to_project_id"
+      });
+    printJson(
+      await engine.migrateProject({
+        from_project_id: fromProjectId,
+        to_project_id: toProjectId,
+        dry_run: options.apply ? false : options.dryRun,
+        confirmed: options.confirm,
+        include_private: options.includePrivate,
+        source: { client: "cli" }
+      })
+    );
   });
 
 const sync = program.command("sync");
 
-sync.command("init")
+sync
+  .command("init")
   .argument("<remote>")
   .option("--open", "Open the generated dashboard after sync initialization")
   .option("--no-open", "Do not open the generated dashboard after sync initialization")
@@ -3456,10 +4117,12 @@ sync
   .action(async (options) => {
     validateSyncOperationOptions(options);
     if (options.push) {
-      printJson(await withDashboard(
-        await pushGitSync(storePath(), { message: parseNonEmptyString(options.message, "--message") }),
-        { open: options.open }
-      ));
+      printJson(
+        await withDashboard(
+          await pushGitSync(storePath(), { message: parseNonEmptyString(options.message, "--message") }),
+          { open: options.open }
+        )
+      );
       return;
     }
     if (options.pull) {
@@ -3478,12 +4141,12 @@ program.parseAsync().catch((error: unknown) => {
   if (error instanceof CommanderError) {
     const message = error.message.startsWith("error: ") ? error.message.slice("error: ".length) : error.message;
     printError(
-      cliRequiredOptionError(message)
-        ?? cliRequiredArgumentError(message)
-        ?? cliUnknownCommandError(message)
-        ?? cliTooManyArgumentsCommandError(message)
-        ?? cliUnknownOptionError(message)
-        ?? new Error(`Invalid argument: ${message}`)
+      cliRequiredOptionError(message) ??
+        cliRequiredArgumentError(message) ??
+        cliUnknownCommandError(message) ??
+        cliTooManyArgumentsCommandError(message) ??
+        cliUnknownOptionError(message) ??
+        new Error(`Invalid argument: ${message}`)
     );
     process.exitCode = error.exitCode;
     return;

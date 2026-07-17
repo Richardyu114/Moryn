@@ -1,12 +1,16 @@
 import { operationArgumentsByTool } from "../operation-contracts.js";
+import { type ActionInterfaces, actionInterfaces } from "./action-interfaces.js";
 import { actionExecution, actionSafety } from "./action-safety.js";
-import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js";
-import { DEFAULT_AUTOCAPTURE_POLICY, type AutocapturePolicyDecision, type AutocapturePolicyRuleId } from "./autocapture-policy.js";
+import {
+  type AutocapturePolicyDecision,
+  type AutocapturePolicyRuleId,
+  DEFAULT_AUTOCAPTURE_POLICY
+} from "./autocapture-policy.js";
 import { currentAutocaptureDecisionForRecord, currentPolicyTreatsAsLowRiskCapture } from "./capture-review.js";
 import { displayRecordText } from "./content-text.js";
 import { commandForTimelineContext } from "./errors.js";
 import type { MorynEvent, MorynRecord, RecordState } from "./types.js";
-import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
+import { type RequiredFieldMetadata, withPhasesByName, withRequiredFieldsByName } from "./workflow.js";
 
 export interface CapturePolicyInput {
   project_id?: string;
@@ -62,19 +66,21 @@ export interface CapturePolicySuggestedAction {
   interfaces: ActionInterfaces<Record<string, unknown>>;
   safety: ReturnType<typeof actionSafety>;
   execution: ReturnType<typeof actionExecution>;
-  workflow: ReturnType<typeof withPhasesByName<{
-    version: 1;
-    start: "suggested_action";
-    continue_from: string[];
-    phases: Array<{
-      phase: string;
-      order: number;
-      action_source: string;
-      tool: CapturePolicyActionTool;
-      required_when: string;
-      required_fields: string[];
-    }>;
-  }>>;
+  workflow: ReturnType<
+    typeof withPhasesByName<{
+      version: 1;
+      start: "suggested_action";
+      continue_from: string[];
+      phases: Array<{
+        phase: string;
+        order: number;
+        action_source: string;
+        tool: CapturePolicyActionTool;
+        required_when: string;
+        required_fields: string[];
+      }>;
+    }>
+  >;
 }
 
 export interface CapturePolicyStats {
@@ -125,8 +131,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isAutocaptureRecord(record: MorynRecord): boolean {
-  return record.kind === "session_summary"
-    && record.tags.some((tag) => tag.toLowerCase() === "autocapture");
+  return record.kind === "session_summary" && record.tags.some((tag) => tag.toLowerCase() === "autocapture");
 }
 
 function isRuleId(value: unknown): value is AutocapturePolicyRuleId {
@@ -142,12 +147,8 @@ function policyPayload(record: MorynRecord): Record<string, unknown> | undefined
 
 function captureRuleIds(record: MorynRecord): AutocapturePolicyRuleId[] {
   const payload = policyPayload(record);
-  const payloadRuleIds = Array.isArray(payload?.rule_ids)
-    ? payload.rule_ids.filter(isRuleId)
-    : [];
-  const tagRuleIds = record.tags
-    .map((tag) => tag.match(/^(?:noise|capture):(.+)$/)?.[1])
-    .filter(isRuleId);
+  const payloadRuleIds = Array.isArray(payload?.rule_ids) ? payload.rule_ids.filter(isRuleId) : [];
+  const tagRuleIds = record.tags.map((tag) => tag.match(/^(?:noise|capture):(.+)$/)?.[1]).filter(isRuleId);
   if (payloadRuleIds.length || tagRuleIds.length) return [...new Set([...payloadRuleIds, ...tagRuleIds])];
   if (record.tags.includes("policy-archived") || record.state === "archived") return ["smoke_test_marker"];
   if (record.tags.includes("auto-captured")) return ["low_risk_handoff_auto_capture"];
@@ -164,7 +165,8 @@ function captureReasons(record: MorynRecord, ruleIds: AutocapturePolicyRuleId[])
 
 function captureDecision(record: MorynRecord): AutocapturePolicyDecision {
   const payloadDecision = policyPayload(record)?.decision;
-  if (payloadDecision === "capture" || payloadDecision === "review" || payloadDecision === "archive") return payloadDecision;
+  if (payloadDecision === "capture" || payloadDecision === "review" || payloadDecision === "archive")
+    return payloadDecision;
   if (record.state === "archived" || record.tags.includes("policy-archived")) return "archive";
   if (record.tags.includes("auto-captured")) return "capture";
   return "review";
@@ -175,20 +177,22 @@ function duplicateOfRecordId(record: MorynRecord): string | undefined {
   return typeof duplicate === "string" && duplicate.length > 0 ? duplicate : undefined;
 }
 
-function currentCaptureDecision(record: MorynRecord): {
-  decision: AutocapturePolicyDecision;
-  rule_ids: AutocapturePolicyRuleId[];
-  reasons: string[];
-  duplicate_of_record_id?: string;
-} | undefined {
+function currentCaptureDecision(record: MorynRecord):
+  | {
+      decision: AutocapturePolicyDecision;
+      rule_ids: AutocapturePolicyRuleId[];
+      reasons: string[];
+      duplicate_of_record_id?: string;
+    }
+  | undefined {
   const storedDecision = captureDecision(record);
   const current = currentAutocaptureDecisionForRecord(record);
   if (
-    storedDecision !== "review"
-    || record.state !== "candidate"
-    || record.visibility !== "active"
-    || current?.decision !== "capture"
-    || !currentPolicyTreatsAsLowRiskCapture(record)
+    storedDecision !== "review" ||
+    record.state !== "candidate" ||
+    record.visibility !== "active" ||
+    current?.decision !== "capture" ||
+    !currentPolicyTreatsAsLowRiskCapture(record)
   ) {
     return undefined;
   }
@@ -242,7 +246,11 @@ function stableRecordSort(left: MorynRecord, right: MorynRecord): number {
 
 function stableDecisionSort(left: CapturePolicyDecisionAudit, right: CapturePolicyDecisionAudit): number {
   const priority = { review: 3, capture: 2, archive: 1 } satisfies Record<AutocapturePolicyDecision, number>;
-  return priority[right.decision] - priority[left.decision] || right.updated_at.localeCompare(left.updated_at) || left.record_id.localeCompare(right.record_id);
+  return (
+    priority[right.decision] - priority[left.decision] ||
+    right.updated_at.localeCompare(left.updated_at) ||
+    left.record_id.localeCompare(right.record_id)
+  );
 }
 
 function recordsById(records: MorynRecord[]): Record<string, MorynRecord> {
@@ -278,13 +286,13 @@ function stats(decisions: CapturePolicyDecisionAudit[], excludedPrivateRecords: 
 }
 
 function isActionableReviewDecision(decision: CapturePolicyDecisionAudit): boolean {
-  return decision.decision === "review"
-    && decision.review_required
-    && decision.state === "candidate";
+  return decision.decision === "review" && decision.review_required && decision.state === "candidate";
 }
 
 function captureFinding(decisions: CapturePolicyDecisionAudit[]): CapturePolicyFinding | undefined {
-  const recordIds = decisions.filter((decision) => decision.decision === "capture").map((decision) => decision.record_id);
+  const recordIds = decisions
+    .filter((decision) => decision.decision === "capture")
+    .map((decision) => decision.record_id);
   if (!recordIds.length) return undefined;
   return {
     id: "auto_captured",
@@ -310,7 +318,9 @@ function reviewFinding(decisions: CapturePolicyDecisionAudit[]): CapturePolicyFi
 }
 
 function archiveFinding(decisions: CapturePolicyDecisionAudit[]): CapturePolicyFinding | undefined {
-  const recordIds = decisions.filter((decision) => decision.decision === "archive").map((decision) => decision.record_id);
+  const recordIds = decisions
+    .filter((decision) => decision.decision === "archive")
+    .map((decision) => decision.record_id);
   if (!recordIds.length) return undefined;
   return {
     id: "policy_archived",
@@ -388,7 +398,11 @@ function reviewCaptureAction(projectId: string | undefined): CapturePolicySugges
   });
 }
 
-function inspectDecisionAction(decision: AutocapturePolicyDecision, recordId: string, projectId: string | undefined): CapturePolicySuggestedAction {
+function inspectDecisionAction(
+  decision: AutocapturePolicyDecision,
+  recordId: string,
+  projectId: string | undefined
+): CapturePolicySuggestedAction {
   const args = {
     record_id: recordId,
     ...(projectId ? { project_id: projectId } : {}),
@@ -421,22 +435,25 @@ export function diagnoseCapturePolicy(input: CapturePolicyDiagnoseInput): Captur
   const limit = input.limit ?? 20;
   const records = [...input.records].filter(isAutocaptureRecord).sort(stableRecordSort);
   const decisions = records.map((record) => decisionAudit(record, input.events)).sort(stableDecisionSort);
-  const findings = [
-    captureFinding(decisions),
-    reviewFinding(decisions),
-    archiveFinding(decisions)
-  ].filter((finding): finding is CapturePolicyFinding => finding !== undefined);
+  const findings = [captureFinding(decisions), reviewFinding(decisions), archiveFinding(decisions)].filter(
+    (finding): finding is CapturePolicyFinding => finding !== undefined
+  );
   const sourceRecordsById = recordsById(records);
-  const actions = uniqueActions([
-    ...(decisions.some(isActionableReviewDecision) ? [reviewCaptureAction(input.project_id)] : []),
-    ...decisions
-      .filter((decision) => decision.decision === "capture" || decision.decision === "archive")
-      .map((decision) => inspectDecisionAction(
-        decision.decision,
-        decision.record_id,
-        input.project_id ?? sourceRecordsById[decision.record_id]?.project_id
-      ))
-  ], limit);
+  const actions = uniqueActions(
+    [
+      ...(decisions.some(isActionableReviewDecision) ? [reviewCaptureAction(input.project_id)] : []),
+      ...decisions
+        .filter((decision) => decision.decision === "capture" || decision.decision === "archive")
+        .map((decision) =>
+          inspectDecisionAction(
+            decision.decision,
+            decision.record_id,
+            input.project_id ?? sourceRecordsById[decision.record_id]?.project_id
+          )
+        )
+    ],
+    limit
+  );
   const referencedRecordIds = new Set([
     ...findings.flatMap((finding) => finding.record_ids),
     ...actions.flatMap((action) => {
@@ -447,7 +464,11 @@ export function diagnoseCapturePolicy(input: CapturePolicyDiagnoseInput): Captur
   const referencedEventIds = new Set(
     decisions
       .filter((decision) => referencedRecordIds.has(decision.record_id))
-      .flatMap((decision) => decision.evidence.map((evidence) => evidence.event_id).filter((eventId): eventId is string => typeof eventId === "string"))
+      .flatMap((decision) =>
+        decision.evidence
+          .map((evidence) => evidence.event_id)
+          .filter((eventId): eventId is string => typeof eventId === "string")
+      )
   );
   const recordSelection = records.filter((record) => referencedRecordIds.has(record.id)).slice(0, limit);
   const eventSelection = input.events.filter((event) => referencedEventIds.has(event.event_id)).slice(0, limit);

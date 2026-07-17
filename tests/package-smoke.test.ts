@@ -30,87 +30,154 @@ describe("published package smoke", () => {
 
       try {
         await exec("npm", ["init", "-y"], { cwd: dir });
-        await exec("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund", "--silent", tarball], { cwd: dir });
+        await exec("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund", "--silent", tarball], {
+          cwd: dir
+        });
 
         const moryn = join(dir, "node_modules", ".bin", "moryn");
         await exec(moryn, ["--store", store, "init"], { cwd: dir });
-        await exec(moryn, ["project", "init", "--path", project, "--project-id", "moryn", "--default-skill", "release"], { cwd: dir });
-        await exec(moryn, [
-          "--store", store,
-          "write",
-          "--kind", "skill",
-          "--type", "procedure",
-          "--scope", "global",
-          "--tag", "release",
-          "--state", "canonical",
-          "--text", "Release from packed CLI",
-          "--confirm"
-        ], { cwd: dir });
-        const decision = await exec(moryn, [
-          "--store", store,
-          "write",
-          "--kind", "memory",
-          "--type", "decision",
-          "--scope", "project",
-          "--project", project,
-          "--state", "canonical",
-          "--text", "Packed CLI can write memory"
-        ], { cwd: dir });
+        await exec(
+          moryn,
+          ["project", "init", "--path", project, "--project-id", "moryn", "--default-skill", "release"],
+          { cwd: dir }
+        );
+        await exec(
+          moryn,
+          [
+            "--store",
+            store,
+            "write",
+            "--kind",
+            "skill",
+            "--type",
+            "procedure",
+            "--scope",
+            "global",
+            "--tag",
+            "release",
+            "--state",
+            "canonical",
+            "--text",
+            "Release from packed CLI",
+            "--confirm"
+          ],
+          { cwd: dir }
+        );
+        const decision = await exec(
+          moryn,
+          [
+            "--store",
+            store,
+            "write",
+            "--kind",
+            "memory",
+            "--type",
+            "decision",
+            "--scope",
+            "project",
+            "--project",
+            project,
+            "--state",
+            "canonical",
+            "--text",
+            "Packed CLI can write memory"
+          ],
+          { cwd: dir }
+        );
 
         const recordId = (JSON.parse(decision.stdout) as { record: { id: string } }).record.id;
         const boot = await exec(moryn, ["--store", store, "boot", "--project", project], { cwd: dir });
-        const recall = await exec(moryn, ["--store", store, "recall", "--record-id", recordId, "--project", project], { cwd: dir });
+        const recall = await exec(moryn, ["--store", store, "recall", "--record-id", recordId, "--project", project], {
+          cwd: dir
+        });
         const contracts = await exec(moryn, ["contracts", "selection-sources"], { cwd: dir });
         const operations = await exec(moryn, ["contracts", "operations"], { cwd: dir });
         const operationsIndex = await exec(moryn, ["contracts", "operations", "--index"], { cwd: dir });
-        const importCheck = await exec("node", [
-          "--input-type=module",
-          "-e",
-          "import { BOOT_SELECTION_SOURCES, DOGFOOD_REPORT_SELECTION_SOURCES, GUIDE_SELECTION_SOURCES, HANDOFF_PACK_SELECTION_SOURCES, HANDOFF_QUALITY_GATE_SELECTION_SOURCES, NEXT_ACTION_SELECTION_SOURCES, OPERATION_CONTRACT_INDEX_SELECTION_SOURCES, OPERATION_CONTRACTS_SELECTION_SOURCES, OperationContractLookupArgumentError, SELECTION_SOURCE_CONTRACTS, SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES, getOperationContract, getOperationContractByCliCommand, getOperationContractByMcpTool, getOperationContractIndex, getOperationContracts, getSelectionSourceContracts, STORE_INIT_SELECTION_SOURCES, SYNC_RESULT_SELECTION_SOURCES } from '@richardyu114/moryn'; const selectionResponse = getSelectionSourceContracts(); const operationResponse = getOperationContracts(); const operationIndex = getOperationContractIndex(); const singleOperationResponse = getOperationContract('agent_finish'); const byMcpToolResponse = getOperationContractByMcpTool('agent_finish'); const byCliCommandResponse = getOperationContractByCliCommand('moryn agent finish --summary <summary>'); let lookupError; try { getOperationContract(123); } catch (error) { lookupError = error; } const summaryCollect = operationResponse.operations_by_id.agent_finish.execution.required_inputs_by_field.summary.collect; console.log(`${STORE_INIT_SELECTION_SOURCES.config_file}|${BOOT_SELECTION_SOURCES.skill}|${DOGFOOD_REPORT_SELECTION_SOURCES.finding}|${SYNC_RESULT_SELECTION_SOURCES.pushed}|${GUIDE_SELECTION_SOURCES.guardrail}|${HANDOFF_PACK_SELECTION_SOURCES.recent_decision}|${HANDOFF_QUALITY_GATE_SELECTION_SOURCES.check}|${NEXT_ACTION_SELECTION_SOURCES.error_next_action}|${NEXT_ACTION_SELECTION_SOURCES.error_argument}|${SELECTION_SOURCE_CONTRACTS.core.dogfood_report.finding}|${SELECTION_SOURCE_CONTRACTS.lifecycle.guide.guardrail}|${SELECTION_SOURCE_CONTRACTS.lifecycle.handoff_pack.recent_decision}|${SELECTION_SOURCE_CONTRACTS.sync.result.pushed}|${SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES.contract}|${selectionResponse.contracts.setup.store_init.config_file}|${selectionResponse.contracts.core.dogfood_report.action}|${selectionResponse.contracts.lifecycle.handoff_pack.open_thread}|${selectionResponse.contracts.lifecycle.handoff_quality_gate.check}|${selectionResponse.selection_sources.field}|${OPERATION_CONTRACTS_SELECTION_SOURCES.operation}|${OPERATION_CONTRACTS_SELECTION_SOURCES.mcp_tool_operation}|${OPERATION_CONTRACTS_SELECTION_SOURCES.cli_command_operation}|${OPERATION_CONTRACTS_SELECTION_SOURCES.allowed_value}|${OPERATION_CONTRACTS_SELECTION_SOURCES.required_input}|${OPERATION_CONTRACTS_SELECTION_SOURCES.required_input_argument_path}|${OPERATION_CONTRACTS_SELECTION_SOURCES.required_input_path_by_value_path}|${OPERATION_CONTRACTS_SELECTION_SOURCES.argument}|${OPERATION_CONTRACTS_SELECTION_SOURCES.cli_argv}|${OPERATION_CONTRACTS_SELECTION_SOURCES.cli_executable}|${OPERATION_CONTRACTS_SELECTION_SOURCES.cli_args}|${OPERATION_CONTRACTS_SELECTION_SOURCES.cli_exec_file}|${OPERATION_CONTRACTS_SELECTION_SOURCES.cli_placeholder}|${OPERATION_CONTRACTS_SELECTION_SOURCES.cli_command_line}|${OPERATION_CONTRACT_INDEX_SELECTION_SOURCES.operation_source}|${operationIndex.selection_sources.operation_source}|${operationIndex.operations_by_id.agent_finish.operation_source}|${OPERATION_CONTRACT_INDEX_SELECTION_SOURCES.full_contract_lookup_cli}|${operationIndex.selection_sources.full_contract_lookup_cli}|${operationResponse.operations_by_id.agent_enter.interfaces.mcp.tool}|${operationResponse.operations_by_mcp_tool.agent_enter.operation}|${operationResponse.operations_by_cli_command['moryn agent enter'].operation}|${operationResponse.operations_by_id.agent_enter.selection_sources.operation}|${operationResponse.operations_by_id.agent_enter.interfaces.cli.executable}|${operationResponse.operations_by_id.agent_enter.interfaces.cli.args.join(' ')}|${operationResponse.operations_by_id.agent_enter.interfaces.cli.exec_file.executable}|${operationResponse.operations_by_id.agent_enter.interfaces.cli.exec_file.args.join(' ')}|${operationResponse.operations_by_id.agent_enter.interfaces.cli.argv.join(' ')}|${operationResponse.operations_by_id.agent_enter.interfaces.cli.command_line}|${operationResponse.operations_by_id.operation_contracts.interfaces.cli.command}|${operationResponse.operations_by_id.operation_contracts.interfaces.cli.executable}|${operationResponse.operations_by_id.operation_contracts.interfaces.cli.args.join(' ')}|${operationResponse.operations_by_id.operation_contracts.interfaces.cli.exec_file.executable}|${operationResponse.operations_by_id.operation_contracts.interfaces.cli.exec_file.args.join(' ')}|${operationResponse.operations_by_id.operation_contracts.interfaces.cli.argv.join(' ')}|${operationResponse.operations_by_id.operation_contracts.interfaces.cli.command_line}|${operationResponse.operations_by_id.write.interfaces.cli.executable}|${operationResponse.operations_by_id.write.interfaces.cli.args.join(' ')}|${operationResponse.operations_by_id.write.interfaces.cli.exec_file.executable}|${operationResponse.operations_by_id.write.interfaces.cli.exec_file.args.join(' ')}|${operationResponse.operations_by_id.write.interfaces.cli.argv.join(' ')}|${operationResponse.operations_by_id.write.interfaces.cli.command_line}|${operationResponse.operations_by_id.write.arguments_by_name.kind.allowed_values.join(',')}|${operationResponse.operations_by_id.recall.execution.next_step}|${operationResponse.operations_by_id.agent_finish.execution.next_step}|${operationResponse.operations_by_id.agent_finish.execution.required_inputs[0].argument_source}|${operationResponse.operations_by_id.agent_finish.execution.required_inputs_by_field.summary.argument_source}|${operationResponse.operations_by_id.agent_finish.execution.required_inputs_by_field.summary.selection_sources.required_input}|${operationResponse.operations_by_id.agent_finish.execution.required_inputs_by_field.summary.selection_sources.required_input_argument_path}|${operationResponse.operations_by_id.agent_finish.execution.required_input_paths_by_value_path['user_input.summary']}|${singleOperationResponse.operation_source}|${singleOperationResponse.matched_source}|${singleOperationResponse.operation.operation}|${byMcpToolResponse.matched_source}|${byCliCommandResponse.matched_source}|${operationIndex.operations_by_mcp_tool.agent_finish}|${operationIndex.operations_by_cli_command['moryn agent finish --summary <summary>']}|${summaryCollect.prompt}|${summaryCollect.apply_to.mcp_targets[0].argument}|${summaryCollect.apply_to.cli_targets[0].flag}|${lookupError instanceof OperationContractLookupArgumentError}|${lookupError.name}|${lookupError.recovery_hint.argument_sources.operation}`);"
-        ], { cwd: dir });
-        const operationIndexImportCheck = await exec("node", [
-          "--input-type=module",
-          "-e",
-          "import { OPERATION_CONTRACT_INDEX_SELECTION_SOURCES, getOperationContractIndex } from '@richardyu114/moryn'; const index = getOperationContractIndex(); console.log(`${OPERATION_CONTRACT_INDEX_SELECTION_SOURCES.operation_source_lookup}|${index.selection_sources.operation_source_lookup}|${index.operation_source_lookup.by_mcp_tool.operation_id}|${index.operation_source_lookup.by_mcp_tool.operation_source}|${index.operation_source_lookup.by_cli_command.operation_id}|${index.operation_source_lookup.by_cli_command.operation_source}`);"
-        ], { cwd: dir });
-        const lifecycleImportCheck = await exec("node", [
-          "--input-type=module",
-          "-e",
-          "import { MEMORY_LIFECYCLE_SELECTION_SOURCES, SELECTION_SOURCE_CONTRACTS, getSelectionSourceContracts, getOperationContract, getOperationContractByMcpTool } from '@richardyu114/moryn'; const selectionResponse = getSelectionSourceContracts(); const operation = getOperationContract('memory_lifecycle'); const byMcp = getOperationContractByMcpTool('memory_lifecycle'); console.log(`${MEMORY_LIFECYCLE_SELECTION_SOURCES.assessment}|${SELECTION_SOURCE_CONTRACTS.core.memory_lifecycle.assessment}|${selectionResponse.contracts.core.memory_lifecycle.action}|${operation.operation.interfaces.cli.command}|${operation.operation.interfaces.mcp.tool}|${byMcp.operation.operation}`);"
-        ], { cwd: dir });
-        const autocapturePolicyImportCheck = await exec("node", [
-          "--input-type=module",
-          "-e",
-          "import { CAPTURE_SESSION_SELECTION_SOURCES, DEFAULT_AUTOCAPTURE_POLICY, SELECTION_SOURCE_CONTRACTS } from '@richardyu114/moryn'; console.log(`${DEFAULT_AUTOCAPTURE_POLICY.id}|${DEFAULT_AUTOCAPTURE_POLICY.auto_canonical}|${CAPTURE_SESSION_SELECTION_SOURCES.policy_decision}|${SELECTION_SOURCE_CONTRACTS.lifecycle.capture_session.policy_decision}`);"
-        ], { cwd: dir });
-        const capturePolicyImportCheck = await exec("node", [
-          "--input-type=module",
-          "-e",
-          "import { CAPTURE_POLICY_SELECTION_SOURCES, SELECTION_SOURCE_CONTRACTS, getOperationContract, getOperationContractByCliCommand, getOperationContractByMcpTool } from '@richardyu114/moryn'; const operation = getOperationContract('capture_policy'); const byMcp = getOperationContractByMcpTool('capture_policy'); const byCli = getOperationContractByCliCommand('moryn capture policy'); console.log(`${CAPTURE_POLICY_SELECTION_SOURCES.decision}|${SELECTION_SOURCE_CONTRACTS.core.capture_policy.action}|${operation.operation.interfaces.cli.command}|${operation.operation.interfaces.mcp.tool}|${byMcp.operation.operation}|${byCli.operation.operation}`);"
-        ], { cwd: dir });
-        const recallEvalImportCheck = await exec("node", [
-          "--input-type=module",
-          "-e",
-          "import { RECALL_EVAL_SELECTION_SOURCES, SELECTION_SOURCE_CONTRACTS, getOperationContract, getOperationContractByCliCommand, getOperationContractByMcpTool } from '@richardyu114/moryn'; const operation = getOperationContract('recall_eval'); const byMcp = getOperationContractByMcpTool('recall_eval'); const byCli = getOperationContractByCliCommand('moryn eval recall --cases <json>'); console.log(`${RECALL_EVAL_SELECTION_SOURCES.case}|${SELECTION_SOURCE_CONTRACTS.core.recall_eval.case}|${operation.operation.interfaces.cli.command}|${operation.operation.interfaces.mcp.tool}|${byMcp.operation.operation}|${byCli.operation.operation}`);"
-        ], { cwd: dir });
-        const healthImportCheck = await exec("node", [
-          "--input-type=module",
-          "-e",
-          "import { HEALTH_CHECK_SELECTION_SOURCES, SELECTION_SOURCE_CONTRACTS, getOperationContract, getOperationContractByCliCommand, getOperationContractByMcpTool } from '@richardyu114/moryn'; const operation = getOperationContract('health_check'); const byMcp = getOperationContractByMcpTool('health_check'); const byCli = getOperationContractByCliCommand('moryn health check'); console.log(`${HEALTH_CHECK_SELECTION_SOURCES.check}|${SELECTION_SOURCE_CONTRACTS.core.health_check.action}|${operation.operation.interfaces.cli.command}|${operation.operation.interfaces.mcp.tool}|${byMcp.operation.operation}|${byCli.operation.operation}`);"
-        ], { cwd: dir });
-        const setupWizardImportCheck = await exec("node", [
-          "--input-type=module",
-          "-e",
-          "import { SETUP_WIZARD_SELECTION_SOURCES, SELECTION_SOURCE_CONTRACTS } from '@richardyu114/moryn'; console.log(`${SETUP_WIZARD_SELECTION_SOURCES.planned_write}|${SELECTION_SOURCE_CONTRACTS.setup.setup_wizard.planned_write}`);"
-        ], { cwd: dir });
-        const operationLookupErrorImportCheck = await exec("node", [
-          "--input-type=module",
-          "-e",
-          "import { OperationContractLookupError } from '@richardyu114/moryn'; const error = new OperationContractLookupError('mcp_tool', 'agent_statuz'); const suggestion = error.recovery_hint.suggested_matches[0]; console.log(`${error instanceof OperationContractLookupError}|${suggestion.value}|${suggestion.operation}|${suggestion.operation_source}|${suggestion.retry_with.mcp.arguments.mcp_tool}`);"
-        ], { cwd: dir });
+        const importCheck = await exec(
+          "node",
+          [
+            "--input-type=module",
+            "-e",
+            "import { BOOT_SELECTION_SOURCES, DOGFOOD_REPORT_SELECTION_SOURCES, GUIDE_SELECTION_SOURCES, HANDOFF_PACK_SELECTION_SOURCES, HANDOFF_QUALITY_GATE_SELECTION_SOURCES, NEXT_ACTION_SELECTION_SOURCES, OPERATION_CONTRACT_INDEX_SELECTION_SOURCES, OPERATION_CONTRACTS_SELECTION_SOURCES, OperationContractLookupArgumentError, SELECTION_SOURCE_CONTRACTS, SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES, getOperationContract, getOperationContractByCliCommand, getOperationContractByMcpTool, getOperationContractIndex, getOperationContracts, getSelectionSourceContracts, STORE_INIT_SELECTION_SOURCES, SYNC_RESULT_SELECTION_SOURCES } from '@richardyu114/moryn'; const selectionResponse = getSelectionSourceContracts(); const operationResponse = getOperationContracts(); const operationIndex = getOperationContractIndex(); const singleOperationResponse = getOperationContract('agent_finish'); const byMcpToolResponse = getOperationContractByMcpTool('agent_finish'); const byCliCommandResponse = getOperationContractByCliCommand('moryn agent finish --summary <summary>'); let lookupError; try { getOperationContract(123); } catch (error) { lookupError = error; } const summaryCollect = operationResponse.operations_by_id.agent_finish.execution.required_inputs_by_field.summary.collect; console.log(`${STORE_INIT_SELECTION_SOURCES.config_file}|${BOOT_SELECTION_SOURCES.skill}|${DOGFOOD_REPORT_SELECTION_SOURCES.finding}|${SYNC_RESULT_SELECTION_SOURCES.pushed}|${GUIDE_SELECTION_SOURCES.guardrail}|${HANDOFF_PACK_SELECTION_SOURCES.recent_decision}|${HANDOFF_QUALITY_GATE_SELECTION_SOURCES.check}|${NEXT_ACTION_SELECTION_SOURCES.error_next_action}|${NEXT_ACTION_SELECTION_SOURCES.error_argument}|${SELECTION_SOURCE_CONTRACTS.core.dogfood_report.finding}|${SELECTION_SOURCE_CONTRACTS.lifecycle.guide.guardrail}|${SELECTION_SOURCE_CONTRACTS.lifecycle.handoff_pack.recent_decision}|${SELECTION_SOURCE_CONTRACTS.sync.result.pushed}|${SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES.contract}|${selectionResponse.contracts.setup.store_init.config_file}|${selectionResponse.contracts.core.dogfood_report.action}|${selectionResponse.contracts.lifecycle.handoff_pack.open_thread}|${selectionResponse.contracts.lifecycle.handoff_quality_gate.check}|${selectionResponse.selection_sources.field}|${OPERATION_CONTRACTS_SELECTION_SOURCES.operation}|${OPERATION_CONTRACTS_SELECTION_SOURCES.mcp_tool_operation}|${OPERATION_CONTRACTS_SELECTION_SOURCES.cli_command_operation}|${OPERATION_CONTRACTS_SELECTION_SOURCES.allowed_value}|${OPERATION_CONTRACTS_SELECTION_SOURCES.required_input}|${OPERATION_CONTRACTS_SELECTION_SOURCES.required_input_argument_path}|${OPERATION_CONTRACTS_SELECTION_SOURCES.required_input_path_by_value_path}|${OPERATION_CONTRACTS_SELECTION_SOURCES.argument}|${OPERATION_CONTRACTS_SELECTION_SOURCES.cli_argv}|${OPERATION_CONTRACTS_SELECTION_SOURCES.cli_executable}|${OPERATION_CONTRACTS_SELECTION_SOURCES.cli_args}|${OPERATION_CONTRACTS_SELECTION_SOURCES.cli_exec_file}|${OPERATION_CONTRACTS_SELECTION_SOURCES.cli_placeholder}|${OPERATION_CONTRACTS_SELECTION_SOURCES.cli_command_line}|${OPERATION_CONTRACT_INDEX_SELECTION_SOURCES.operation_source}|${operationIndex.selection_sources.operation_source}|${operationIndex.operations_by_id.agent_finish.operation_source}|${OPERATION_CONTRACT_INDEX_SELECTION_SOURCES.full_contract_lookup_cli}|${operationIndex.selection_sources.full_contract_lookup_cli}|${operationResponse.operations_by_id.agent_enter.interfaces.mcp.tool}|${operationResponse.operations_by_mcp_tool.agent_enter.operation}|${operationResponse.operations_by_cli_command['moryn agent enter'].operation}|${operationResponse.operations_by_id.agent_enter.selection_sources.operation}|${operationResponse.operations_by_id.agent_enter.interfaces.cli.executable}|${operationResponse.operations_by_id.agent_enter.interfaces.cli.args.join(' ')}|${operationResponse.operations_by_id.agent_enter.interfaces.cli.exec_file.executable}|${operationResponse.operations_by_id.agent_enter.interfaces.cli.exec_file.args.join(' ')}|${operationResponse.operations_by_id.agent_enter.interfaces.cli.argv.join(' ')}|${operationResponse.operations_by_id.agent_enter.interfaces.cli.command_line}|${operationResponse.operations_by_id.operation_contracts.interfaces.cli.command}|${operationResponse.operations_by_id.operation_contracts.interfaces.cli.executable}|${operationResponse.operations_by_id.operation_contracts.interfaces.cli.args.join(' ')}|${operationResponse.operations_by_id.operation_contracts.interfaces.cli.exec_file.executable}|${operationResponse.operations_by_id.operation_contracts.interfaces.cli.exec_file.args.join(' ')}|${operationResponse.operations_by_id.operation_contracts.interfaces.cli.argv.join(' ')}|${operationResponse.operations_by_id.operation_contracts.interfaces.cli.command_line}|${operationResponse.operations_by_id.write.interfaces.cli.executable}|${operationResponse.operations_by_id.write.interfaces.cli.args.join(' ')}|${operationResponse.operations_by_id.write.interfaces.cli.exec_file.executable}|${operationResponse.operations_by_id.write.interfaces.cli.exec_file.args.join(' ')}|${operationResponse.operations_by_id.write.interfaces.cli.argv.join(' ')}|${operationResponse.operations_by_id.write.interfaces.cli.command_line}|${operationResponse.operations_by_id.write.arguments_by_name.kind.allowed_values.join(',')}|${operationResponse.operations_by_id.recall.execution.next_step}|${operationResponse.operations_by_id.agent_finish.execution.next_step}|${operationResponse.operations_by_id.agent_finish.execution.required_inputs[0].argument_source}|${operationResponse.operations_by_id.agent_finish.execution.required_inputs_by_field.summary.argument_source}|${operationResponse.operations_by_id.agent_finish.execution.required_inputs_by_field.summary.selection_sources.required_input}|${operationResponse.operations_by_id.agent_finish.execution.required_inputs_by_field.summary.selection_sources.required_input_argument_path}|${operationResponse.operations_by_id.agent_finish.execution.required_input_paths_by_value_path['user_input.summary']}|${singleOperationResponse.operation_source}|${singleOperationResponse.matched_source}|${singleOperationResponse.operation.operation}|${byMcpToolResponse.matched_source}|${byCliCommandResponse.matched_source}|${operationIndex.operations_by_mcp_tool.agent_finish}|${operationIndex.operations_by_cli_command['moryn agent finish --summary <summary>']}|${summaryCollect.prompt}|${summaryCollect.apply_to.mcp_targets[0].argument}|${summaryCollect.apply_to.cli_targets[0].flag}|${lookupError instanceof OperationContractLookupArgumentError}|${lookupError.name}|${lookupError.recovery_hint.argument_sources.operation}`);"
+          ],
+          { cwd: dir }
+        );
+        const operationIndexImportCheck = await exec(
+          "node",
+          [
+            "--input-type=module",
+            "-e",
+            "import { OPERATION_CONTRACT_INDEX_SELECTION_SOURCES, getOperationContractIndex } from '@richardyu114/moryn'; const index = getOperationContractIndex(); console.log(`${OPERATION_CONTRACT_INDEX_SELECTION_SOURCES.operation_source_lookup}|${index.selection_sources.operation_source_lookup}|${index.operation_source_lookup.by_mcp_tool.operation_id}|${index.operation_source_lookup.by_mcp_tool.operation_source}|${index.operation_source_lookup.by_cli_command.operation_id}|${index.operation_source_lookup.by_cli_command.operation_source}`);"
+          ],
+          { cwd: dir }
+        );
+        const lifecycleImportCheck = await exec(
+          "node",
+          [
+            "--input-type=module",
+            "-e",
+            "import { MEMORY_LIFECYCLE_SELECTION_SOURCES, SELECTION_SOURCE_CONTRACTS, getSelectionSourceContracts, getOperationContract, getOperationContractByMcpTool } from '@richardyu114/moryn'; const selectionResponse = getSelectionSourceContracts(); const operation = getOperationContract('memory_lifecycle'); const byMcp = getOperationContractByMcpTool('memory_lifecycle'); console.log(`${MEMORY_LIFECYCLE_SELECTION_SOURCES.assessment}|${SELECTION_SOURCE_CONTRACTS.core.memory_lifecycle.assessment}|${selectionResponse.contracts.core.memory_lifecycle.action}|${operation.operation.interfaces.cli.command}|${operation.operation.interfaces.mcp.tool}|${byMcp.operation.operation}`);"
+          ],
+          { cwd: dir }
+        );
+        const autocapturePolicyImportCheck = await exec(
+          "node",
+          [
+            "--input-type=module",
+            "-e",
+            "import { CAPTURE_SESSION_SELECTION_SOURCES, DEFAULT_AUTOCAPTURE_POLICY, SELECTION_SOURCE_CONTRACTS } from '@richardyu114/moryn'; console.log(`${DEFAULT_AUTOCAPTURE_POLICY.id}|${DEFAULT_AUTOCAPTURE_POLICY.auto_canonical}|${CAPTURE_SESSION_SELECTION_SOURCES.policy_decision}|${SELECTION_SOURCE_CONTRACTS.lifecycle.capture_session.policy_decision}`);"
+          ],
+          { cwd: dir }
+        );
+        const capturePolicyImportCheck = await exec(
+          "node",
+          [
+            "--input-type=module",
+            "-e",
+            "import { CAPTURE_POLICY_SELECTION_SOURCES, SELECTION_SOURCE_CONTRACTS, getOperationContract, getOperationContractByCliCommand, getOperationContractByMcpTool } from '@richardyu114/moryn'; const operation = getOperationContract('capture_policy'); const byMcp = getOperationContractByMcpTool('capture_policy'); const byCli = getOperationContractByCliCommand('moryn capture policy'); console.log(`${CAPTURE_POLICY_SELECTION_SOURCES.decision}|${SELECTION_SOURCE_CONTRACTS.core.capture_policy.action}|${operation.operation.interfaces.cli.command}|${operation.operation.interfaces.mcp.tool}|${byMcp.operation.operation}|${byCli.operation.operation}`);"
+          ],
+          { cwd: dir }
+        );
+        const recallEvalImportCheck = await exec(
+          "node",
+          [
+            "--input-type=module",
+            "-e",
+            "import { RECALL_EVAL_SELECTION_SOURCES, SELECTION_SOURCE_CONTRACTS, getOperationContract, getOperationContractByCliCommand, getOperationContractByMcpTool } from '@richardyu114/moryn'; const operation = getOperationContract('recall_eval'); const byMcp = getOperationContractByMcpTool('recall_eval'); const byCli = getOperationContractByCliCommand('moryn eval recall --cases <json>'); console.log(`${RECALL_EVAL_SELECTION_SOURCES.case}|${SELECTION_SOURCE_CONTRACTS.core.recall_eval.case}|${operation.operation.interfaces.cli.command}|${operation.operation.interfaces.mcp.tool}|${byMcp.operation.operation}|${byCli.operation.operation}`);"
+          ],
+          { cwd: dir }
+        );
+        const healthImportCheck = await exec(
+          "node",
+          [
+            "--input-type=module",
+            "-e",
+            "import { HEALTH_CHECK_SELECTION_SOURCES, SELECTION_SOURCE_CONTRACTS, getOperationContract, getOperationContractByCliCommand, getOperationContractByMcpTool } from '@richardyu114/moryn'; const operation = getOperationContract('health_check'); const byMcp = getOperationContractByMcpTool('health_check'); const byCli = getOperationContractByCliCommand('moryn health check'); console.log(`${HEALTH_CHECK_SELECTION_SOURCES.check}|${SELECTION_SOURCE_CONTRACTS.core.health_check.action}|${operation.operation.interfaces.cli.command}|${operation.operation.interfaces.mcp.tool}|${byMcp.operation.operation}|${byCli.operation.operation}`);"
+          ],
+          { cwd: dir }
+        );
+        const setupWizardImportCheck = await exec(
+          "node",
+          [
+            "--input-type=module",
+            "-e",
+            "import { SETUP_WIZARD_SELECTION_SOURCES, SELECTION_SOURCE_CONTRACTS } from '@richardyu114/moryn'; console.log(`${SETUP_WIZARD_SELECTION_SOURCES.planned_write}|${SELECTION_SOURCE_CONTRACTS.setup.setup_wizard.planned_write}`);"
+          ],
+          { cwd: dir }
+        );
+        const operationLookupErrorImportCheck = await exec(
+          "node",
+          [
+            "--input-type=module",
+            "-e",
+            "import { OperationContractLookupError } from '@richardyu114/moryn'; const error = new OperationContractLookupError('mcp_tool', 'agent_statuz'); const suggestion = error.recovery_hint.suggested_matches[0]; console.log(`${error instanceof OperationContractLookupError}|${suggestion.value}|${suggestion.operation}|${suggestion.operation_source}|${suggestion.retry_with.mcp.arguments.mcp_tool}`);"
+          ],
+          { cwd: dir }
+        );
         const operationRequiredInputSources = {
           required_input: "operations_by_id.<operation>.execution.required_inputs_by_field.<field>",
-          required_input_argument_path: "operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>"
+          required_input_argument_path:
+            "operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>"
         };
         const parsedContracts = JSON.parse(contracts.stdout) as {
           contracts: {
@@ -130,28 +197,320 @@ describe("published package smoke", () => {
             "moryn contracts operations": { operation: string; operation_source: string };
           };
           operations_by_id: {
-            agent_enter: { interfaces: { cli: { command: string; executable: string; argv: string[]; args: string[]; exec_file: { executable: string; args: string[] }; placeholders: string[]; has_placeholders: boolean; command_line: string } } };
+            agent_enter: {
+              interfaces: {
+                cli: {
+                  command: string;
+                  executable: string;
+                  argv: string[];
+                  args: string[];
+                  exec_file: { executable: string; args: string[] };
+                  placeholders: string[];
+                  has_placeholders: boolean;
+                  command_line: string;
+                };
+              };
+            };
             agent_finish: {
               argument_sources?: Record<string, string>;
               execution: {
                 next_step: string;
                 blocked_by: string[];
                 missing_required_fields: string[];
-                required_inputs: Array<{ field: string; argument_path: string; argument_paths: string[]; collect?: { source: string; input_key: string; prompt: string; apply_to: { mcp_argument_paths: string[]; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }; value_path?: string; placeholder?: string }; argument_source?: string; selection_sources?: Record<string, string>; placeholder?: string; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }>;
-                required_inputs_by_field: Record<string, { field: string; argument_path: string; argument_paths: string[]; collect?: { source: string; input_key: string; prompt: string; apply_to: { mcp_argument_paths: string[]; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }; value_path?: string; placeholder?: string }; argument_source?: string; selection_sources?: Record<string, string>; placeholder?: string; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }>;
-                required_inputs_by_argument_path: Record<string, { field: string; argument_path: string; argument_paths: string[]; argument_source?: string; selection_sources?: Record<string, string>; placeholder?: string; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }>;
+                required_inputs: Array<{
+                  field: string;
+                  argument_path: string;
+                  argument_paths: string[];
+                  collect?: {
+                    source: string;
+                    input_key: string;
+                    prompt: string;
+                    apply_to: {
+                      mcp_argument_paths: string[];
+                      mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>;
+                      cli_targets?: Array<{
+                        flag?: string;
+                        positional?: string;
+                        type?: string;
+                        required?: boolean;
+                        repeatable?: boolean;
+                        default?: unknown;
+                        preferred: boolean;
+                      }>;
+                    };
+                    value_path?: string;
+                    placeholder?: string;
+                  };
+                  argument_source?: string;
+                  selection_sources?: Record<string, string>;
+                  placeholder?: string;
+                  mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>;
+                  cli_targets?: Array<{
+                    flag?: string;
+                    positional?: string;
+                    type?: string;
+                    required?: boolean;
+                    repeatable?: boolean;
+                    default?: unknown;
+                    preferred: boolean;
+                  }>;
+                }>;
+                required_inputs_by_field: Record<
+                  string,
+                  {
+                    field: string;
+                    argument_path: string;
+                    argument_paths: string[];
+                    collect?: {
+                      source: string;
+                      input_key: string;
+                      prompt: string;
+                      apply_to: {
+                        mcp_argument_paths: string[];
+                        mcp_targets?: Array<{
+                          argument: string;
+                          type?: string;
+                          required?: boolean;
+                          preferred: boolean;
+                        }>;
+                        cli_targets?: Array<{
+                          flag?: string;
+                          positional?: string;
+                          type?: string;
+                          required?: boolean;
+                          repeatable?: boolean;
+                          default?: unknown;
+                          preferred: boolean;
+                        }>;
+                      };
+                      value_path?: string;
+                      placeholder?: string;
+                    };
+                    argument_source?: string;
+                    selection_sources?: Record<string, string>;
+                    placeholder?: string;
+                    mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>;
+                    cli_targets?: Array<{
+                      flag?: string;
+                      positional?: string;
+                      type?: string;
+                      required?: boolean;
+                      repeatable?: boolean;
+                      default?: unknown;
+                      preferred: boolean;
+                    }>;
+                  }
+                >;
+                required_inputs_by_argument_path: Record<
+                  string,
+                  {
+                    field: string;
+                    argument_path: string;
+                    argument_paths: string[];
+                    argument_source?: string;
+                    selection_sources?: Record<string, string>;
+                    placeholder?: string;
+                    mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>;
+                    cli_targets?: Array<{
+                      flag?: string;
+                      positional?: string;
+                      type?: string;
+                      required?: boolean;
+                      repeatable?: boolean;
+                      default?: unknown;
+                      preferred: boolean;
+                    }>;
+                  }
+                >;
                 required_input_paths_by_value_path: Record<string, string>;
               };
               required_fields_by_name: { summary: { placeholder?: string } };
             };
-            write: { interfaces: { cli: { executable: string; argv: string[]; args: string[]; exec_file: { executable: string; args: string[] }; placeholders: string[]; has_placeholders: boolean; command_line: string } }; selection_sources?: Record<string, string>; execution: { required_inputs: Array<{ field: string; argument_paths: string[]; collect?: { prompt: string; alternatives?: string[]; apply_to: { mcp_argument_paths: string[] } }; selection_sources?: Record<string, string>; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }>; required_inputs_by_field: Record<string, { argument_paths: string[]; collect?: { prompt: string; alternatives?: string[]; apply_to: { mcp_argument_paths: string[] } }; selection_sources?: Record<string, string>; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }>; required_inputs_by_argument_path: Record<string, { field: string; argument_paths: string[]; selection_sources?: Record<string, string> }>; required_input_paths_by_value_path: Record<string, string> }; required_fields_by_name: { kind: { allowed_values?: string[] } }; arguments_by_name: { kind: { allowed_values?: string[] } } };
-            recall: { execution: { next_step: string; blocked_by: string[]; ready_to_run: boolean; required_inputs: unknown[]; required_inputs_by_field: Record<string, unknown>; required_inputs_by_argument_path: Record<string, unknown>; required_input_paths_by_value_path: Record<string, string> } };
-            promote: { execution: { next_step: string; blocked_by: string[]; missing_required_fields: string[]; required_inputs: Array<{ field: string; argument_path: string; argument_paths: string[]; selection_sources?: Record<string, string>; allowed_values?: string[]; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }>; required_inputs_by_field: Record<string, { field: string; argument_path: string; argument_paths: string[]; selection_sources?: Record<string, string>; allowed_values?: string[]; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }>; required_inputs_by_argument_path: Record<string, { field: string; argument_path: string; argument_paths: string[]; selection_sources?: Record<string, string>; allowed_values?: string[] }>; required_input_paths_by_value_path: Record<string, string> }; required_fields_by_name: { target_state: { allowed_values?: string[] } } };
-            project_init: { execution: { next_step: string; blocked_by: string[]; missing_required_fields: string[]; required_inputs: Array<{ field: string; argument_source?: string; selection_sources?: Record<string, string>; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }>; required_inputs_by_field: Record<string, { field: string; argument_source?: string; selection_sources?: Record<string, string>; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }>; required_inputs_by_argument_path: Record<string, { field: string; argument_source?: string; selection_sources?: Record<string, string> }>; required_input_paths_by_value_path: Record<string, string>; requires_user_confirmation: boolean } };
-            operation_contracts: {
-              arguments_by_name: Record<string, { name: string; type: string; required: boolean; cli?: { flag?: string }; mcp?: { argument: string } }>;
+            write: {
               interfaces: {
-                cli: { executable: string; argv: string[]; args: string[]; exec_file: { executable: string; args: string[] }; placeholders: string[]; has_placeholders: boolean; command_line: string };
+                cli: {
+                  executable: string;
+                  argv: string[];
+                  args: string[];
+                  exec_file: { executable: string; args: string[] };
+                  placeholders: string[];
+                  has_placeholders: boolean;
+                  command_line: string;
+                };
+              };
+              selection_sources?: Record<string, string>;
+              execution: {
+                required_inputs: Array<{
+                  field: string;
+                  argument_paths: string[];
+                  collect?: { prompt: string; alternatives?: string[]; apply_to: { mcp_argument_paths: string[] } };
+                  selection_sources?: Record<string, string>;
+                  mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>;
+                  cli_targets?: Array<{
+                    flag?: string;
+                    positional?: string;
+                    type?: string;
+                    required?: boolean;
+                    repeatable?: boolean;
+                    default?: unknown;
+                    preferred: boolean;
+                  }>;
+                }>;
+                required_inputs_by_field: Record<
+                  string,
+                  {
+                    argument_paths: string[];
+                    collect?: { prompt: string; alternatives?: string[]; apply_to: { mcp_argument_paths: string[] } };
+                    selection_sources?: Record<string, string>;
+                    mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>;
+                    cli_targets?: Array<{
+                      flag?: string;
+                      positional?: string;
+                      type?: string;
+                      required?: boolean;
+                      repeatable?: boolean;
+                      default?: unknown;
+                      preferred: boolean;
+                    }>;
+                  }
+                >;
+                required_inputs_by_argument_path: Record<
+                  string,
+                  { field: string; argument_paths: string[]; selection_sources?: Record<string, string> }
+                >;
+                required_input_paths_by_value_path: Record<string, string>;
+              };
+              required_fields_by_name: { kind: { allowed_values?: string[] } };
+              arguments_by_name: { kind: { allowed_values?: string[] } };
+            };
+            recall: {
+              execution: {
+                next_step: string;
+                blocked_by: string[];
+                ready_to_run: boolean;
+                required_inputs: unknown[];
+                required_inputs_by_field: Record<string, unknown>;
+                required_inputs_by_argument_path: Record<string, unknown>;
+                required_input_paths_by_value_path: Record<string, string>;
+              };
+            };
+            promote: {
+              execution: {
+                next_step: string;
+                blocked_by: string[];
+                missing_required_fields: string[];
+                required_inputs: Array<{
+                  field: string;
+                  argument_path: string;
+                  argument_paths: string[];
+                  selection_sources?: Record<string, string>;
+                  allowed_values?: string[];
+                  mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>;
+                  cli_targets?: Array<{
+                    flag?: string;
+                    positional?: string;
+                    type?: string;
+                    required?: boolean;
+                    repeatable?: boolean;
+                    default?: unknown;
+                    preferred: boolean;
+                  }>;
+                }>;
+                required_inputs_by_field: Record<
+                  string,
+                  {
+                    field: string;
+                    argument_path: string;
+                    argument_paths: string[];
+                    selection_sources?: Record<string, string>;
+                    allowed_values?: string[];
+                    mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>;
+                    cli_targets?: Array<{
+                      flag?: string;
+                      positional?: string;
+                      type?: string;
+                      required?: boolean;
+                      repeatable?: boolean;
+                      default?: unknown;
+                      preferred: boolean;
+                    }>;
+                  }
+                >;
+                required_inputs_by_argument_path: Record<
+                  string,
+                  {
+                    field: string;
+                    argument_path: string;
+                    argument_paths: string[];
+                    selection_sources?: Record<string, string>;
+                    allowed_values?: string[];
+                  }
+                >;
+                required_input_paths_by_value_path: Record<string, string>;
+              };
+              required_fields_by_name: { target_state: { allowed_values?: string[] } };
+            };
+            project_init: {
+              execution: {
+                next_step: string;
+                blocked_by: string[];
+                missing_required_fields: string[];
+                required_inputs: Array<{
+                  field: string;
+                  argument_source?: string;
+                  selection_sources?: Record<string, string>;
+                  mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>;
+                  cli_targets?: Array<{
+                    flag?: string;
+                    positional?: string;
+                    type?: string;
+                    required?: boolean;
+                    repeatable?: boolean;
+                    default?: unknown;
+                    preferred: boolean;
+                  }>;
+                }>;
+                required_inputs_by_field: Record<
+                  string,
+                  {
+                    field: string;
+                    argument_source?: string;
+                    selection_sources?: Record<string, string>;
+                    mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>;
+                    cli_targets?: Array<{
+                      flag?: string;
+                      positional?: string;
+                      type?: string;
+                      required?: boolean;
+                      repeatable?: boolean;
+                      default?: unknown;
+                      preferred: boolean;
+                    }>;
+                  }
+                >;
+                required_inputs_by_argument_path: Record<
+                  string,
+                  { field: string; argument_source?: string; selection_sources?: Record<string, string> }
+                >;
+                required_input_paths_by_value_path: Record<string, string>;
+                requires_user_confirmation: boolean;
+              };
+            };
+            operation_contracts: {
+              arguments_by_name: Record<
+                string,
+                { name: string; type: string; required: boolean; cli?: { flag?: string }; mcp?: { argument: string } }
+              >;
+              interfaces: {
+                cli: {
+                  executable: string;
+                  argv: string[];
+                  args: string[];
+                  exec_file: { executable: string; args: string[] };
+                  placeholders: string[];
+                  has_placeholders: boolean;
+                  command_line: string;
+                };
                 mcp: { tool: string; arguments: Record<string, unknown> };
               };
             };
@@ -159,19 +518,22 @@ describe("published package smoke", () => {
         };
         const parsedOperationsIndex = JSON.parse(operationsIndex.stdout) as {
           recommended_entrypoint: string;
-          operations_by_id: Record<string, {
-            operation: string;
-            operation_source: string;
-            category: string;
-            summary: string;
-            safe_to_run: boolean;
-            ready_to_run: boolean;
-            next_step: string;
-            mcp_tool: string;
-            cli_command: string;
-            required_fields: string[];
-            missing_required_fields: string[];
-          }>;
+          operations_by_id: Record<
+            string,
+            {
+              operation: string;
+              operation_source: string;
+              category: string;
+              summary: string;
+              safe_to_run: boolean;
+              ready_to_run: boolean;
+              next_step: string;
+              mcp_tool: string;
+              cli_command: string;
+              required_fields: string[];
+              missing_required_fields: string[];
+            }
+          >;
           operations_by_mcp_tool: Record<string, string>;
           operations_by_cli_command: Record<string, string>;
           operation_source_lookup: Record<string, unknown>;
@@ -185,13 +547,23 @@ describe("published package smoke", () => {
         expect(parsedContracts.selection_sources.contract).toBe("contracts.<group>.<contract>");
         expect(parsedOperations.recommended_entrypoint).toBe("agent_enter");
         expect(parsedOperations.operations_by_mcp_tool.agent_enter.operation).toBe("agent_enter");
-        expect(parsedOperations.operations_by_mcp_tool.agent_enter.operation_source).toBe("operations_by_id.agent_enter");
+        expect(parsedOperations.operations_by_mcp_tool.agent_enter.operation_source).toBe(
+          "operations_by_id.agent_enter"
+        );
         expect(parsedOperations.operations_by_mcp_tool.operation_contracts.operation).toBe("operation_contracts");
-        expect(parsedOperations.operations_by_mcp_tool.operation_contracts.operation_source).toBe("operations_by_id.operation_contracts");
+        expect(parsedOperations.operations_by_mcp_tool.operation_contracts.operation_source).toBe(
+          "operations_by_id.operation_contracts"
+        );
         expect(parsedOperations.operations_by_cli_command["moryn agent enter"].operation).toBe("agent_enter");
-        expect(parsedOperations.operations_by_cli_command["moryn agent enter"].operation_source).toBe("operations_by_id.agent_enter");
-        expect(parsedOperations.operations_by_cli_command["moryn contracts operations"].operation).toBe("operation_contracts");
-        expect(parsedOperations.operations_by_cli_command["moryn contracts operations"].operation_source).toBe("operations_by_id.operation_contracts");
+        expect(parsedOperations.operations_by_cli_command["moryn agent enter"].operation_source).toBe(
+          "operations_by_id.agent_enter"
+        );
+        expect(parsedOperations.operations_by_cli_command["moryn contracts operations"].operation).toBe(
+          "operation_contracts"
+        );
+        expect(parsedOperations.operations_by_cli_command["moryn contracts operations"].operation_source).toBe(
+          "operations_by_id.operation_contracts"
+        );
         expect(parsedOperations.operations_by_id.agent_enter.interfaces.cli.command).toBe("moryn agent enter");
         expect(parsedOperations.operations_by_id.agent_enter.interfaces.cli.executable).toBe("moryn");
         expect(parsedOperations.operations_by_id.agent_enter.interfaces.cli.argv).toEqual(["agent", "enter"]);
@@ -204,15 +576,23 @@ describe("published package smoke", () => {
         expect(parsedOperations.operations_by_id.agent_enter.interfaces.cli.has_placeholders).toBe(false);
         expect(parsedOperations.operations_by_id.agent_enter.interfaces.cli.command_line).toBe("moryn agent enter");
         expect(parsedOperations.operations_by_id.operation_contracts.interfaces.cli.executable).toBe("moryn");
-        expect(parsedOperations.operations_by_id.operation_contracts.interfaces.cli.argv).toEqual(["contracts", "operations"]);
-        expect(parsedOperations.operations_by_id.operation_contracts.interfaces.cli.args).toEqual(["contracts", "operations"]);
+        expect(parsedOperations.operations_by_id.operation_contracts.interfaces.cli.argv).toEqual([
+          "contracts",
+          "operations"
+        ]);
+        expect(parsedOperations.operations_by_id.operation_contracts.interfaces.cli.args).toEqual([
+          "contracts",
+          "operations"
+        ]);
         expect(parsedOperations.operations_by_id.operation_contracts.interfaces.cli.exec_file).toEqual({
           executable: "moryn",
           args: ["contracts", "operations"]
         });
         expect(parsedOperations.operations_by_id.operation_contracts.interfaces.cli.placeholders).toEqual([]);
         expect(parsedOperations.operations_by_id.operation_contracts.interfaces.cli.has_placeholders).toBe(false);
-        expect(parsedOperations.operations_by_id.operation_contracts.interfaces.cli.command_line).toBe("moryn contracts operations");
+        expect(parsedOperations.operations_by_id.operation_contracts.interfaces.cli.command_line).toBe(
+          "moryn contracts operations"
+        );
         expect(parsedOperations.operations_by_id.operation_contracts.arguments_by_name).toMatchObject({
           index: {
             name: "index",
@@ -251,25 +631,49 @@ describe("published package smoke", () => {
         });
         expect(parsedOperations.operations_by_id.write.interfaces.cli.executable).toBe("moryn");
         expect(parsedOperations.operations_by_id.write.interfaces.cli.argv).toEqual([
-          "write", "--kind", "<kind>", "--type", "<type>", "--scope", "<scope>", "--text", "<text>"
+          "write",
+          "--kind",
+          "<kind>",
+          "--type",
+          "<type>",
+          "--scope",
+          "<scope>",
+          "--text",
+          "<text>"
         ]);
         expect(parsedOperations.operations_by_id.write.interfaces.cli.args).toEqual([
-          "write", "--kind", "<kind>", "--type", "<type>", "--scope", "<scope>", "--text", "<text>"
+          "write",
+          "--kind",
+          "<kind>",
+          "--type",
+          "<type>",
+          "--scope",
+          "<scope>",
+          "--text",
+          "<text>"
         ]);
         expect(parsedOperations.operations_by_id.write.interfaces.cli.exec_file).toEqual({
           executable: "moryn",
           args: ["write", "--kind", "<kind>", "--type", "<type>", "--scope", "<scope>", "--text", "<text>"]
         });
-        expect(parsedOperations.operations_by_id.write.interfaces.cli.placeholders).toEqual(["kind", "type", "scope", "text"]);
+        expect(parsedOperations.operations_by_id.write.interfaces.cli.placeholders).toEqual([
+          "kind",
+          "type",
+          "scope",
+          "text"
+        ]);
         expect(parsedOperations.operations_by_id.write.interfaces.cli.has_placeholders).toBe(true);
-        expect(parsedOperations.operations_by_id.write.interfaces.cli.command_line).toBe("moryn write --kind '<kind>' --type '<type>' --scope '<scope>' --text '<text>'");
+        expect(parsedOperations.operations_by_id.write.interfaces.cli.command_line).toBe(
+          "moryn write --kind '<kind>' --type '<type>' --scope '<scope>' --text '<text>'"
+        );
         expect(parsedOperations.operations_by_id.write.selection_sources).toEqual({
           operation: "operations_by_id.<operation>",
           operation_id: "operations_by_id.<operation>.operation",
           required_field: "operations_by_id.<operation>.required_fields_by_name.<field>",
           allowed_value: "operations_by_id.<operation>.required_fields_by_name.<field>.allowed_values[]",
           required_input: "operations_by_id.<operation>.execution.required_inputs_by_field.<field>",
-          required_input_argument_path: "operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>",
+          required_input_argument_path:
+            "operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>",
           argument: "operations_by_id.<operation>.arguments_by_name.<argument>",
           argument_allowed_value: "operations_by_id.<operation>.arguments_by_name.<argument>.allowed_values[]",
           argument_source: "operations_by_id.<operation>.argument_sources.<field>",
@@ -302,7 +706,9 @@ describe("published package smoke", () => {
             steps: [expect.objectContaining({ step: "call_mcp" })]
           }
         });
-        expect(parsedOperations.operations_by_id.agent_finish.required_fields_by_name.summary.placeholder).toBe("<summary>");
+        expect(parsedOperations.operations_by_id.agent_finish.required_fields_by_name.summary.placeholder).toBe(
+          "<summary>"
+        );
         expect(parsedOperations.operations_by_id.agent_finish.argument_sources?.summary).toBe("user_input.summary");
         expect(parsedOperations.operations_by_id.agent_finish.execution).toMatchObject({
           next_step: "collect_required_fields",
@@ -330,55 +736,67 @@ describe("published package smoke", () => {
                 required_input_choices_by_option: "execution.required_inputs[].collect.choices_by_option",
                 required_input_choice_apply_to: "execution.required_inputs[].collect.choices[].apply_to",
                 required_input_choice_expected_value: "execution.required_inputs[].collect.choices[].expected_value",
-                required_input_choice_by_option_apply_to: "execution.required_inputs[].collect.choices_by_option.<option>.apply_to",
-                required_input_choice_by_option_expected_value: "execution.required_inputs[].collect.choices_by_option.<option>.expected_value",
+                required_input_choice_by_option_apply_to:
+                  "execution.required_inputs[].collect.choices_by_option.<option>.apply_to",
+                required_input_choice_by_option_expected_value:
+                  "execution.required_inputs[].collect.choices_by_option.<option>.expected_value",
                 required_input_paths_by_value_path: "execution.required_input_paths_by_value_path"
               }),
               expect.objectContaining({ step: "call_mcp" })
             ]
           },
-          required_inputs: [{
-            field: "summary",
-            argument_path: "summary",
-            argument_paths: ["summary"],
-            argument_source: "user_input.summary",
-            selection_sources: operationRequiredInputSources,
-            placeholder: "<summary>",
-            collect: {
-              source: "user",
-              input_key: "summary",
-              prompt: "Provide summary.",
-              apply_to: {
-                mcp_argument_paths: ["summary"],
-                mcp_targets: [{
+          required_inputs: [
+            {
+              field: "summary",
+              argument_path: "summary",
+              argument_paths: ["summary"],
+              argument_source: "user_input.summary",
+              selection_sources: operationRequiredInputSources,
+              placeholder: "<summary>",
+              collect: {
+                source: "user",
+                input_key: "summary",
+                prompt: "Provide summary.",
+                apply_to: {
+                  mcp_argument_paths: ["summary"],
+                  mcp_targets: [
+                    {
+                      argument: "summary",
+                      type: "string",
+                      required: true,
+                      preferred: true
+                    }
+                  ],
+                  cli_targets: [
+                    {
+                      flag: "--summary",
+                      type: "string",
+                      required: true,
+                      preferred: true
+                    }
+                  ]
+                },
+                value_path: "user_input.summary",
+                placeholder: "<summary>"
+              },
+              mcp_targets: [
+                {
                   argument: "summary",
                   type: "string",
                   required: true,
                   preferred: true
-                }],
-                cli_targets: [{
+                }
+              ],
+              cli_targets: [
+                {
                   flag: "--summary",
                   type: "string",
                   required: true,
                   preferred: true
-                }]
-              },
-              value_path: "user_input.summary",
-              placeholder: "<summary>"
-            },
-            mcp_targets: [{
-              argument: "summary",
-              type: "string",
-              required: true,
-              preferred: true
-            }],
-            cli_targets: [{
-              flag: "--summary",
-              type: "string",
-              required: true,
-              preferred: true
-            }]
-          }],
+                }
+              ]
+            }
+          ],
           required_inputs_by_field: {
             summary: {
               field: "summary",
@@ -393,34 +811,42 @@ describe("published package smoke", () => {
                 prompt: "Provide summary.",
                 apply_to: {
                   mcp_argument_paths: ["summary"],
-                  mcp_targets: [{
-                    argument: "summary",
-                    type: "string",
-                    required: true,
-                    preferred: true
-                  }],
-                  cli_targets: [{
-                    flag: "--summary",
-                    type: "string",
-                    required: true,
-                    preferred: true
-                  }]
+                  mcp_targets: [
+                    {
+                      argument: "summary",
+                      type: "string",
+                      required: true,
+                      preferred: true
+                    }
+                  ],
+                  cli_targets: [
+                    {
+                      flag: "--summary",
+                      type: "string",
+                      required: true,
+                      preferred: true
+                    }
+                  ]
                 },
                 value_path: "user_input.summary",
                 placeholder: "<summary>"
               },
-              mcp_targets: [{
-                argument: "summary",
-                type: "string",
-                required: true,
-                preferred: true
-              }],
-              cli_targets: [{
-                flag: "--summary",
-                type: "string",
-                required: true,
-                preferred: true
-              }]
+              mcp_targets: [
+                {
+                  argument: "summary",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ],
+              cli_targets: [
+                {
+                  flag: "--summary",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ]
             }
           },
           required_inputs_by_argument_path: {
@@ -431,30 +857,54 @@ describe("published package smoke", () => {
               argument_source: "user_input.summary",
               selection_sources: operationRequiredInputSources,
               placeholder: "<summary>",
-              mcp_targets: [{
-                argument: "summary",
-                type: "string",
-                required: true,
-                preferred: true
-              }],
-              cli_targets: [{
-                flag: "--summary",
-                type: "string",
-                required: true,
-                preferred: true
-              }]
+              mcp_targets: [
+                {
+                  argument: "summary",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ],
+              cli_targets: [
+                {
+                  flag: "--summary",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ]
             }
           },
           required_input_paths_by_value_path: {
             "user_input.summary": "execution.required_inputs_by_field.summary"
           }
         });
-        expect(parsedOperations.operations_by_id.write.required_fields_by_name.kind.allowed_values).toEqual(["memory", "skill", "soul", "session_summary", "agent_note"]);
-        expect(parsedOperations.operations_by_id.write.execution.required_inputs.find((input) => input.field === "text_or_content")?.argument_paths).toEqual(["text", "content"]);
-        expect(parsedOperations.operations_by_id.write.execution.required_inputs.find((input) => input.field === "text_or_content")?.selection_sources).toEqual(operationRequiredInputSources);
-        expect(parsedOperations.operations_by_id.write.execution.required_inputs_by_field.text_or_content.argument_paths).toEqual(["text", "content"]);
-        expect(parsedOperations.operations_by_id.write.execution.required_inputs_by_field.text_or_content.selection_sources).toEqual(operationRequiredInputSources);
-        expect(parsedOperations.operations_by_id.write.execution.required_inputs_by_field.text_or_content.collect).toMatchObject({
+        expect(parsedOperations.operations_by_id.write.required_fields_by_name.kind.allowed_values).toEqual([
+          "memory",
+          "skill",
+          "soul",
+          "session_summary",
+          "agent_note"
+        ]);
+        expect(
+          parsedOperations.operations_by_id.write.execution.required_inputs.find(
+            (input) => input.field === "text_or_content"
+          )?.argument_paths
+        ).toEqual(["text", "content"]);
+        expect(
+          parsedOperations.operations_by_id.write.execution.required_inputs.find(
+            (input) => input.field === "text_or_content"
+          )?.selection_sources
+        ).toEqual(operationRequiredInputSources);
+        expect(
+          parsedOperations.operations_by_id.write.execution.required_inputs_by_field.text_or_content.argument_paths
+        ).toEqual(["text", "content"]);
+        expect(
+          parsedOperations.operations_by_id.write.execution.required_inputs_by_field.text_or_content.selection_sources
+        ).toEqual(operationRequiredInputSources);
+        expect(
+          parsedOperations.operations_by_id.write.execution.required_inputs_by_field.text_or_content.collect
+        ).toMatchObject({
           prompt: "Provide text or content.",
           input_mode: "choose_one",
           choice_options: ["text", "content"],
@@ -472,13 +922,15 @@ describe("published package smoke", () => {
               },
               apply_to: {
                 mcp_argument_paths: ["text"],
-                cli_assignments: [{
-                  flag: "--text",
-                  value_path: "user_input.text_or_content",
-                  argv_template: ["--text", "<user_input.text_or_content>"],
-                  value_encoding: "string",
-                  preferred: true
-                }]
+                cli_assignments: [
+                  {
+                    flag: "--text",
+                    value_path: "user_input.text_or_content",
+                    argv_template: ["--text", "<user_input.text_or_content>"],
+                    value_encoding: "string",
+                    preferred: true
+                  }
+                ]
               }
             },
             {
@@ -493,13 +945,15 @@ describe("published package smoke", () => {
               },
               apply_to: {
                 mcp_argument_paths: ["content"],
-                cli_assignments: [{
-                  flag: "--content-json",
-                  value_path: "user_input.text_or_content",
-                  argv_template: ["--content-json", "<json:user_input.text_or_content>"],
-                  value_encoding: "json",
-                  preferred: false
-                }]
+                cli_assignments: [
+                  {
+                    flag: "--content-json",
+                    value_path: "user_input.text_or_content",
+                    argv_template: ["--content-json", "<json:user_input.text_or_content>"],
+                    value_encoding: "json",
+                    preferred: false
+                  }
+                ]
               }
             }
           ],
@@ -516,13 +970,15 @@ describe("published package smoke", () => {
               },
               apply_to: {
                 mcp_argument_paths: ["text"],
-                cli_assignments: [{
-                  flag: "--text",
-                  value_path: "user_input.text_or_content",
-                  argv_template: ["--text", "<user_input.text_or_content>"],
-                  value_encoding: "string",
-                  preferred: true
-                }]
+                cli_assignments: [
+                  {
+                    flag: "--text",
+                    value_path: "user_input.text_or_content",
+                    argv_template: ["--text", "<user_input.text_or_content>"],
+                    value_encoding: "string",
+                    preferred: true
+                  }
+                ]
               }
             },
             content: {
@@ -537,13 +993,15 @@ describe("published package smoke", () => {
               },
               apply_to: {
                 mcp_argument_paths: ["content"],
-                cli_assignments: [{
-                  flag: "--content-json",
-                  value_path: "user_input.text_or_content",
-                  argv_template: ["--content-json", "<json:user_input.text_or_content>"],
-                  value_encoding: "json",
-                  preferred: false
-                }]
+                cli_assignments: [
+                  {
+                    flag: "--content-json",
+                    value_path: "user_input.text_or_content",
+                    argv_template: ["--content-json", "<json:user_input.text_or_content>"],
+                    value_encoding: "json",
+                    preferred: false
+                  }
+                ]
               }
             }
           },
@@ -585,16 +1043,24 @@ describe("published package smoke", () => {
           },
           alternatives: ["text", "content"]
         });
-        expect(parsedOperations.operations_by_id.write.execution.required_inputs_by_argument_path.text.argument_paths).toEqual(["text", "content"]);
-        expect(parsedOperations.operations_by_id.write.execution.required_inputs_by_argument_path.text.selection_sources).toEqual(operationRequiredInputSources);
-        expect(parsedOperations.operations_by_id.write.execution.required_inputs_by_argument_path.content).toEqual(parsedOperations.operations_by_id.write.execution.required_inputs_by_argument_path.text);
+        expect(
+          parsedOperations.operations_by_id.write.execution.required_inputs_by_argument_path.text.argument_paths
+        ).toEqual(["text", "content"]);
+        expect(
+          parsedOperations.operations_by_id.write.execution.required_inputs_by_argument_path.text.selection_sources
+        ).toEqual(operationRequiredInputSources);
+        expect(parsedOperations.operations_by_id.write.execution.required_inputs_by_argument_path.content).toEqual(
+          parsedOperations.operations_by_id.write.execution.required_inputs_by_argument_path.text
+        );
         expect(parsedOperations.operations_by_id.write.execution.required_input_paths_by_value_path).toMatchObject({
           "user_input.kind": "execution.required_inputs_by_field.kind",
           "user_input.type": "execution.required_inputs_by_field.type",
           "user_input.scope": "execution.required_inputs_by_field.scope",
           "user_input.text_or_content": "execution.required_inputs_by_field.text_or_content"
         });
-        expect(parsedOperations.operations_by_id.write.execution.required_inputs_by_field.text_or_content.mcp_targets).toEqual([
+        expect(
+          parsedOperations.operations_by_id.write.execution.required_inputs_by_field.text_or_content.mcp_targets
+        ).toEqual([
           {
             argument: "text",
             type: "string",
@@ -608,7 +1074,9 @@ describe("published package smoke", () => {
             preferred: false
           }
         ]);
-        expect(parsedOperations.operations_by_id.write.execution.required_inputs_by_field.text_or_content.cli_targets).toEqual([
+        expect(
+          parsedOperations.operations_by_id.write.execution.required_inputs_by_field.text_or_content.cli_targets
+        ).toEqual([
           {
             flag: "--text",
             type: "string",
@@ -622,14 +1090,29 @@ describe("published package smoke", () => {
             preferred: false
           }
         ]);
-        expect(parsedOperations.operations_by_id.write.arguments_by_name.kind.allowed_values).toEqual(["memory", "skill", "soul", "session_summary", "agent_note"]);
-        expect(parsedOperations.operations_by_id.promote.required_fields_by_name.target_state.allowed_values).toEqual(["raw", "candidate", "canonical", "archived", "quarantined"]);
-        expect(parsedOperations.operations_by_id.promote.execution.required_inputs.map((input) => input.selection_sources)).toEqual([
-          operationRequiredInputSources,
-          operationRequiredInputSources
+        expect(parsedOperations.operations_by_id.write.arguments_by_name.kind.allowed_values).toEqual([
+          "memory",
+          "skill",
+          "soul",
+          "session_summary",
+          "agent_note"
         ]);
-        expect(parsedOperations.operations_by_id.promote.execution.required_inputs_by_field.record_id.selection_sources).toEqual(operationRequiredInputSources);
-        expect(parsedOperations.operations_by_id.promote.execution.required_inputs_by_field.target_state.selection_sources).toEqual(operationRequiredInputSources);
+        expect(parsedOperations.operations_by_id.promote.required_fields_by_name.target_state.allowed_values).toEqual([
+          "raw",
+          "candidate",
+          "canonical",
+          "archived",
+          "quarantined"
+        ]);
+        expect(
+          parsedOperations.operations_by_id.promote.execution.required_inputs.map((input) => input.selection_sources)
+        ).toEqual([operationRequiredInputSources, operationRequiredInputSources]);
+        expect(
+          parsedOperations.operations_by_id.promote.execution.required_inputs_by_field.record_id.selection_sources
+        ).toEqual(operationRequiredInputSources);
+        expect(
+          parsedOperations.operations_by_id.promote.execution.required_inputs_by_field.target_state.selection_sources
+        ).toEqual(operationRequiredInputSources);
         expect(parsedOperations.operations_by_id.promote.execution).toMatchObject({
           next_step: "collect_required_fields",
           blocked_by: ["required_fields"],
@@ -639,36 +1122,44 @@ describe("published package smoke", () => {
               field: "record_id",
               argument_path: "record_id",
               argument_paths: ["record_id"],
-              mcp_targets: [{
-                argument: "record_id",
-                type: "string",
-                required: true,
-                preferred: true
-              }],
-              cli_targets: [{
-                positional: "record-id",
-                type: "string",
-                required: true,
-                preferred: true
-              }]
+              mcp_targets: [
+                {
+                  argument: "record_id",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ],
+              cli_targets: [
+                {
+                  positional: "record-id",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ]
             },
             {
               field: "target_state",
               argument_path: "target_state",
               argument_paths: ["target_state"],
               allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"],
-              mcp_targets: [{
-                argument: "target_state",
-                type: "string",
-                required: true,
-                preferred: true
-              }],
-              cli_targets: [{
-                flag: "--state",
-                type: "string",
-                required: true,
-                preferred: true
-              }]
+              mcp_targets: [
+                {
+                  argument: "target_state",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ],
+              cli_targets: [
+                {
+                  flag: "--state",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ]
             }
           ],
           required_inputs_by_field: {
@@ -676,36 +1167,44 @@ describe("published package smoke", () => {
               field: "record_id",
               argument_path: "record_id",
               argument_paths: ["record_id"],
-              mcp_targets: [{
-                argument: "record_id",
-                type: "string",
-                required: true,
-                preferred: true
-              }],
-              cli_targets: [{
-                positional: "record-id",
-                type: "string",
-                required: true,
-                preferred: true
-              }]
+              mcp_targets: [
+                {
+                  argument: "record_id",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ],
+              cli_targets: [
+                {
+                  positional: "record-id",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ]
             },
             target_state: {
               field: "target_state",
               argument_path: "target_state",
               argument_paths: ["target_state"],
               allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"],
-              mcp_targets: [{
-                argument: "target_state",
-                type: "string",
-                required: true,
-                preferred: true
-              }],
-              cli_targets: [{
-                flag: "--state",
-                type: "string",
-                required: true,
-                preferred: true
-              }]
+              mcp_targets: [
+                {
+                  argument: "target_state",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ],
+              cli_targets: [
+                {
+                  flag: "--state",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ]
             }
           }
         });
@@ -713,47 +1212,63 @@ describe("published package smoke", () => {
           next_step: "collect_required_fields",
           blocked_by: ["required_fields", "user_confirmation"],
           missing_required_fields: ["path"],
-          required_inputs: [{
-            field: "path",
-            argument_source: "user_input.path",
-            mcp_targets: [{
-              argument: "path",
-              type: "string",
-              required: true,
-              preferred: true
-            }],
-            cli_targets: [{
-              flag: "--path",
-              type: "string",
-              required: true,
-              default: ".",
-              preferred: true
-            }]
-          }],
+          required_inputs: [
+            {
+              field: "path",
+              argument_source: "user_input.path",
+              mcp_targets: [
+                {
+                  argument: "path",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ],
+              cli_targets: [
+                {
+                  flag: "--path",
+                  type: "string",
+                  required: true,
+                  default: ".",
+                  preferred: true
+                }
+              ]
+            }
+          ],
           required_inputs_by_field: {
             path: {
               field: "path",
               argument_source: "user_input.path",
-              mcp_targets: [{
-                argument: "path",
-                type: "string",
-                required: true,
-                preferred: true
-              }],
-              cli_targets: [{
-                flag: "--path",
-                type: "string",
-                required: true,
-                default: ".",
-                preferred: true
-              }]
+              mcp_targets: [
+                {
+                  argument: "path",
+                  type: "string",
+                  required: true,
+                  preferred: true
+                }
+              ],
+              cli_targets: [
+                {
+                  flag: "--path",
+                  type: "string",
+                  required: true,
+                  default: ".",
+                  preferred: true
+                }
+              ]
             }
           },
           requires_user_confirmation: true
         });
-        expect(parsedOperations.operations_by_id.project_init.execution.required_inputs[0]?.selection_sources).toEqual(operationRequiredInputSources);
-        expect(parsedOperations.operations_by_id.project_init.execution.required_inputs_by_field.path.selection_sources).toEqual(operationRequiredInputSources);
-        expect(parsedOperations.operations_by_id.project_init.execution.required_inputs_by_field.path.collect).toMatchObject({
+        expect(parsedOperations.operations_by_id.project_init.execution.required_inputs[0]?.selection_sources).toEqual(
+          operationRequiredInputSources
+        );
+        expect(
+          parsedOperations.operations_by_id.project_init.execution.required_inputs_by_field.path.selection_sources
+        ).toEqual(operationRequiredInputSources);
+        expect(
+          parsedOperations.operations_by_id.project_init.execution.required_inputs_by_field.path.collect
+        ).toMatchObject({
           source: "user",
           input_key: "path",
           prompt: "Provide path.",
@@ -770,7 +1285,8 @@ describe("published package smoke", () => {
           operation_source_lookup: "operation_source_lookup",
           ordered_operation: "operations[]",
           execution_hint: "operations_by_id.<operation>.execution_hint",
-          execution_hint_required_input_by_value_path: "operations_by_id.<operation>.execution_hint.required_input_sources.by_value_path",
+          execution_hint_required_input_by_value_path:
+            "operations_by_id.<operation>.execution_hint.required_input_sources.by_value_path",
           full_contract_lookup: "operations_by_id.<operation>.full_contract_lookup",
           full_contract_lookup_cli: "operations_by_id.<operation>.full_contract_lookup.cli",
           full_contract_lookup_mcp: "operations_by_id.<operation>.full_contract_lookup.mcp"
@@ -817,7 +1333,9 @@ describe("published package smoke", () => {
           }
         });
         expect(parsedOperationsIndex.operations_by_mcp_tool.agent_finish).toBe("agent_finish");
-        expect(parsedOperationsIndex.operations_by_cli_command["moryn agent finish --summary <summary>"]).toBe("agent_finish");
+        expect(parsedOperationsIndex.operations_by_cli_command["moryn agent finish --summary <summary>"]).toBe(
+          "agent_finish"
+        );
         expect(parsedOperationsIndex.operation_source_lookup).toEqual({
           by_mcp_tool: {
             operation_id: "operations_by_mcp_tool.<tool>",
@@ -828,15 +1346,33 @@ describe("published package smoke", () => {
             operation_source: "operations_by_id.<operation>.operation_source"
           }
         });
-        expect(importCheck.stdout.trim()).toBe("artifacts.config|skills_by_id.<record_id>|findings_by_id.<finding_id>|pushed|guardrails_by_id.<guardrail_id>|handoff_pack.recent_decisions[]|handoff_pack.quality_gate.checks_by_id.<check_id>|error.next_action|error.next_action.arguments_by_name.<argument>|findings_by_id.<finding_id>|guardrails_by_id.<guardrail_id>|handoff_pack.recent_decisions[]|pushed|contracts.<group>.<contract>|artifacts.config|suggested_actions_by_id.<action_id>|handoff_pack.open_threads[]|handoff_pack.quality_gate.checks_by_id.<check_id>|contracts.<group>.<contract>.<field>|operations_by_id.<operation>|operations_by_mcp_tool.<tool>|operations_by_cli_command.<command>|operations_by_id.<operation>.required_fields_by_name.<field>.allowed_values[]|operations_by_id.<operation>.execution.required_inputs_by_field.<field>|operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>|operations_by_id.<operation>.execution.required_input_paths_by_value_path.<value_path>|operations_by_id.<operation>.arguments_by_name.<argument>|operations_by_id.<operation>.interfaces.cli.argv[]|operations_by_id.<operation>.interfaces.cli.executable|operations_by_id.<operation>.interfaces.cli.args[]|operations_by_id.<operation>.interfaces.cli.exec_file|operations_by_id.<operation>.interfaces.cli.placeholders[]|operations_by_id.<operation>.interfaces.cli.command_line|operations_by_id.<operation>.operation_source|operations_by_id.<operation>.operation_source|operations_by_id.agent_finish|operations_by_id.<operation>.full_contract_lookup.cli|operations_by_id.<operation>.full_contract_lookup.cli|agent_enter|agent_enter|agent_enter|operations_by_id.<operation>|moryn|agent enter|moryn|agent enter|agent enter|moryn agent enter|moryn contracts operations|moryn|contracts operations|moryn|contracts operations|contracts operations|moryn contracts operations|moryn|write --kind <kind> --type <type> --scope <scope> --text <text>|moryn|write --kind <kind> --type <type> --scope <scope> --text <text>|write --kind <kind> --type <type> --scope <scope> --text <text>|moryn write --kind '<kind>' --type '<type>' --scope '<scope>' --text '<text>'|memory,skill,soul,session_summary,agent_note|run|collect_required_fields|user_input.summary|user_input.summary|operations_by_id.<operation>.execution.required_inputs_by_field.<field>|operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>|execution.required_inputs_by_field.summary|operations_by_id.agent_finish|operations_by_id.agent_finish|agent_finish|operations_by_mcp_tool.agent_finish|operations_by_cli_command.moryn agent finish --summary <summary>|agent_finish|agent_finish|Provide summary.|summary|--summary|true|OperationContractLookupArgumentError|operations_by_id.operation_contracts.arguments_by_name.operation");
-        expect(operationIndexImportCheck.stdout.trim()).toBe("operation_source_lookup|operation_source_lookup|operations_by_mcp_tool.<tool>|operations_by_id.<operation>.operation_source|operations_by_cli_command.<command>|operations_by_id.<operation>.operation_source");
-        expect(lifecycleImportCheck.stdout.trim()).toBe("assessments_by_record_id.<record_id>|assessments_by_record_id.<record_id>|suggested_actions_by_id.<action_id>|moryn memory lifecycle|memory_lifecycle|memory_lifecycle");
-        expect(autocapturePolicyImportCheck.stdout.trim()).toBe("default_autocapture_policy|false|policy_decision|policy_decision");
-        expect(capturePolicyImportCheck.stdout.trim()).toBe("decisions_by_record_id.<record_id>|suggested_actions_by_id.<action_id>|moryn capture policy|capture_policy|capture_policy|capture_policy");
-        expect(recallEvalImportCheck.stdout.trim()).toBe("cases_by_id.<case_id>|cases_by_id.<case_id>|moryn eval recall --cases <json>|recall_eval|recall_eval|recall_eval");
-        expect(healthImportCheck.stdout.trim()).toBe("checks_by_id.<check_id>|suggested_actions_by_id.<action_id>|moryn health check|health_check|health_check|health_check");
-        expect(setupWizardImportCheck.stdout.trim()).toBe("planned_writes_by_id.<planned_write>|planned_writes_by_id.<planned_write>");
-        expect(operationLookupErrorImportCheck.stdout.trim()).toBe("true|agent_status|agent_status|operations_by_id.agent_status|agent_status");
+        expect(importCheck.stdout.trim()).toBe(
+          "artifacts.config|skills_by_id.<record_id>|findings_by_id.<finding_id>|pushed|guardrails_by_id.<guardrail_id>|handoff_pack.recent_decisions[]|handoff_pack.quality_gate.checks_by_id.<check_id>|error.next_action|error.next_action.arguments_by_name.<argument>|findings_by_id.<finding_id>|guardrails_by_id.<guardrail_id>|handoff_pack.recent_decisions[]|pushed|contracts.<group>.<contract>|artifacts.config|suggested_actions_by_id.<action_id>|handoff_pack.open_threads[]|handoff_pack.quality_gate.checks_by_id.<check_id>|contracts.<group>.<contract>.<field>|operations_by_id.<operation>|operations_by_mcp_tool.<tool>|operations_by_cli_command.<command>|operations_by_id.<operation>.required_fields_by_name.<field>.allowed_values[]|operations_by_id.<operation>.execution.required_inputs_by_field.<field>|operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>|operations_by_id.<operation>.execution.required_input_paths_by_value_path.<value_path>|operations_by_id.<operation>.arguments_by_name.<argument>|operations_by_id.<operation>.interfaces.cli.argv[]|operations_by_id.<operation>.interfaces.cli.executable|operations_by_id.<operation>.interfaces.cli.args[]|operations_by_id.<operation>.interfaces.cli.exec_file|operations_by_id.<operation>.interfaces.cli.placeholders[]|operations_by_id.<operation>.interfaces.cli.command_line|operations_by_id.<operation>.operation_source|operations_by_id.<operation>.operation_source|operations_by_id.agent_finish|operations_by_id.<operation>.full_contract_lookup.cli|operations_by_id.<operation>.full_contract_lookup.cli|agent_enter|agent_enter|agent_enter|operations_by_id.<operation>|moryn|agent enter|moryn|agent enter|agent enter|moryn agent enter|moryn contracts operations|moryn|contracts operations|moryn|contracts operations|contracts operations|moryn contracts operations|moryn|write --kind <kind> --type <type> --scope <scope> --text <text>|moryn|write --kind <kind> --type <type> --scope <scope> --text <text>|write --kind <kind> --type <type> --scope <scope> --text <text>|moryn write --kind '<kind>' --type '<type>' --scope '<scope>' --text '<text>'|memory,skill,soul,session_summary,agent_note|run|collect_required_fields|user_input.summary|user_input.summary|operations_by_id.<operation>.execution.required_inputs_by_field.<field>|operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>|execution.required_inputs_by_field.summary|operations_by_id.agent_finish|operations_by_id.agent_finish|agent_finish|operations_by_mcp_tool.agent_finish|operations_by_cli_command.moryn agent finish --summary <summary>|agent_finish|agent_finish|Provide summary.|summary|--summary|true|OperationContractLookupArgumentError|operations_by_id.operation_contracts.arguments_by_name.operation"
+        );
+        expect(operationIndexImportCheck.stdout.trim()).toBe(
+          "operation_source_lookup|operation_source_lookup|operations_by_mcp_tool.<tool>|operations_by_id.<operation>.operation_source|operations_by_cli_command.<command>|operations_by_id.<operation>.operation_source"
+        );
+        expect(lifecycleImportCheck.stdout.trim()).toBe(
+          "assessments_by_record_id.<record_id>|assessments_by_record_id.<record_id>|suggested_actions_by_id.<action_id>|moryn memory lifecycle|memory_lifecycle|memory_lifecycle"
+        );
+        expect(autocapturePolicyImportCheck.stdout.trim()).toBe(
+          "default_autocapture_policy|false|policy_decision|policy_decision"
+        );
+        expect(capturePolicyImportCheck.stdout.trim()).toBe(
+          "decisions_by_record_id.<record_id>|suggested_actions_by_id.<action_id>|moryn capture policy|capture_policy|capture_policy|capture_policy"
+        );
+        expect(recallEvalImportCheck.stdout.trim()).toBe(
+          "cases_by_id.<case_id>|cases_by_id.<case_id>|moryn eval recall --cases <json>|recall_eval|recall_eval|recall_eval"
+        );
+        expect(healthImportCheck.stdout.trim()).toBe(
+          "checks_by_id.<check_id>|suggested_actions_by_id.<action_id>|moryn health check|health_check|health_check|health_check"
+        );
+        expect(setupWizardImportCheck.stdout.trim()).toBe(
+          "planned_writes_by_id.<planned_write>|planned_writes_by_id.<planned_write>"
+        );
+        expect(operationLookupErrorImportCheck.stdout.trim()).toBe(
+          "true|agent_status|agent_status|operations_by_id.agent_status|agent_status"
+        );
         expect(JSON.parse(await readFile(join(store, "config.json"), "utf8"))).toMatchObject({ store_version: 1 });
       } finally {
         if (tarball) {
@@ -853,7 +1389,11 @@ describe("published package smoke", () => {
 
       try {
         await exec("npm", ["init", "-y"], { cwd: dir });
-        await exec("npm", ["install", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--silent", tarball], { cwd: dir });
+        await exec(
+          "npm",
+          ["install", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--silent", tarball],
+          { cwd: dir }
+        );
 
         const smoke = join(dir, "node_modules", ".bin", "moryn-agent-smoke");
         const result = await exec(smoke, [], { cwd: dir });
@@ -898,11 +1438,17 @@ describe("published package smoke", () => {
 
       try {
         await exec("npm", ["init", "-y"], { cwd: dir });
-        await exec("npm", ["install", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--silent", tarball], { cwd: dir });
+        await exec(
+          "npm",
+          ["install", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--silent", tarball],
+          { cwd: dir }
+        );
 
         const packageRoot = join(dir, "node_modules", "@richardyu114", "moryn");
         const learning = await exec("node", [join(packageRoot, "scripts", "learning-inbox-smoke.js")], { cwd: dir });
-        const finalization = await exec("node", [join(packageRoot, "scripts", "finalization-assurance-smoke.js")], { cwd: dir });
+        const finalization = await exec("node", [join(packageRoot, "scripts", "finalization-assurance-smoke.js")], {
+          cwd: dir
+        });
 
         expect(learning.stdout).toContain("learning inbox smoke passed");
         expect(finalization.stdout).toContain("finalization assurance smoke passed");
@@ -921,10 +1467,16 @@ describe("published package smoke", () => {
 
       try {
         await exec("npm", ["init", "-y"], { cwd: dir });
-        await exec("npm", ["install", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--silent", tarball], { cwd: dir });
+        await exec(
+          "npm",
+          ["install", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--silent", tarball],
+          { cwd: dir }
+        );
 
         const moryn = join(dir, "node_modules", ".bin", "moryn");
-        const dryRun = await exec(moryn, ["--store", store, "setup", "--host", "codex", "--project", project], { cwd: dir });
+        const dryRun = await exec(moryn, ["--store", store, "setup", "--host", "codex", "--project", project], {
+          cwd: dir
+        });
         const dryPlan = JSON.parse(dryRun.stdout) as {
           mode: string;
           status: string;
@@ -950,7 +1502,11 @@ describe("published package smoke", () => {
           requires_apply: true
         });
 
-        const applied = await exec(moryn, ["--store", store, "setup", "--host", "codex", "--project", project, "--apply"], { cwd: dir });
+        const applied = await exec(
+          moryn,
+          ["--store", store, "setup", "--host", "codex", "--project", project, "--apply"],
+          { cwd: dir }
+        );
         const appliedPlan = JSON.parse(applied.stdout) as {
           mode: string;
           status: string;
@@ -964,7 +1520,11 @@ describe("published package smoke", () => {
           }
         });
 
-        const health = await exec(moryn, ["--store", store, "health", "check", "--project", project, "--host", "codex", "--limit", "20"], { cwd: dir });
+        const health = await exec(
+          moryn,
+          ["--store", store, "health", "check", "--project", project, "--host", "codex", "--limit", "20"],
+          { cwd: dir }
+        );
         const healthReport = JSON.parse(health.stdout) as {
           read_only: boolean;
           setup_readiness: { host: string; context_pack_command: string; capture_command: string };
@@ -983,18 +1543,30 @@ describe("published package smoke", () => {
           safe_to_run: true
         });
 
-        const context = await exec(moryn, [
-          "--store", store,
-          "context", "pack",
-          "--project", project,
-          "--agent", "codex",
-          "--current-task", "package setup smoke",
-          "--no-pull"
-        ], { cwd: dir });
+        const context = await exec(
+          moryn,
+          [
+            "--store",
+            store,
+            "context",
+            "pack",
+            "--project",
+            project,
+            "--agent",
+            "codex",
+            "--current-task",
+            "package setup smoke",
+            "--no-pull"
+          ],
+          { cwd: dir }
+        );
         const contextPack = JSON.parse(context.stdout) as {
           kind: string;
           handoff_pack: { quality_gate: { status: string } };
-          next: { required_end_action_id: string; actions_by_id: Record<string, { tool: string; required_fields: string[] }> };
+          next: {
+            required_end_action_id: string;
+            actions_by_id: Record<string, { tool: string; required_fields: string[] }>;
+          };
         };
         expect(contextPack).toMatchObject({
           kind: "context_pack",
@@ -1022,7 +1594,11 @@ describe("published package smoke", () => {
 
       try {
         await exec("npm", ["init", "-y"], { cwd: dir });
-        await exec("npm", ["install", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--silent", tarball], { cwd: dir });
+        await exec(
+          "npm",
+          ["install", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--silent", tarball],
+          { cwd: dir }
+        );
 
         const smoke = join(dir, "node_modules", ".bin", "moryn-dogfood-demo");
         const result = await exec(smoke, [], { cwd: dir });

@@ -45,14 +45,15 @@ function collectSensitiveScanFragments(value: unknown, keyPath?: string): string
     if (value === REDACTED_SECRET) return [value];
     if (!keyPath) return [value];
     const leafKey = keyPath.split(".").at(-1);
-    const keyedValues = value.split(/\r?\n/).flatMap((line) => [
-      `${keyPath}=${line}`,
-      ...(leafKey && leafKey !== keyPath ? [`${leafKey}=${line}`] : [])
-    ]);
+    const keyedValues = value
+      .split(/\r?\n/)
+      .flatMap((line) => [`${keyPath}=${line}`, ...(leafKey && leafKey !== keyPath ? [`${leafKey}=${line}`] : [])]);
     return [value, ...keyedValues];
   }
   if (Array.isArray(value)) {
-    return value.flatMap((item, index) => collectSensitiveScanFragments(item, keyPath ? `${keyPath}.${index}` : String(index)));
+    return value.flatMap((item, index) =>
+      collectSensitiveScanFragments(item, keyPath ? `${keyPath}.${index}` : String(index))
+    );
   }
   if (typeof value === "object" && value !== null) {
     return Object.entries(value).flatMap(([key, nested]) => {
@@ -64,10 +65,7 @@ function collectSensitiveScanFragments(value: unknown, keyPath?: string): string
 }
 
 export function sensitiveScanText(value: unknown): string {
-  return [
-    ...collectSensitiveScanFragments(value),
-    JSON.stringify(value) ?? ""
-  ].join("\n");
+  return [...collectSensitiveScanFragments(value), JSON.stringify(value) ?? ""].join("\n");
 }
 
 export function redactSensitiveContent(text: string): string {

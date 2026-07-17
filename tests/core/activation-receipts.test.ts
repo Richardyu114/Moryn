@@ -30,7 +30,10 @@ describe("activation receipts", () => {
       const replay = await recordActivationReceipt(storePath, input);
       const events = (await readEvents(storePath)).filter((event) => event.event_id.startsWith("evt_activation_"));
 
-      expect(first).toMatchObject({ created: true, receipt: { activation_id: input.activation_id, event: "pre_compact" } });
+      expect(first).toMatchObject({
+        created: true,
+        receipt: { activation_id: input.activation_id, event: "pre_compact" }
+      });
       expect(replay).toMatchObject({ created: false, record: { id: first.record.id } });
       expect(events).toHaveLength(1);
       expect(first.record.content).toEqual({
@@ -51,20 +54,31 @@ describe("activation receipts", () => {
 
   it("coalesces high-frequency Stop receipts by session and UTC hour", async () => {
     await withInitializedTempStore(async (storePath) => {
-      const stop = { ...input, host: "codex" as const, event: "stop" as const, occurred_at: "2026-07-12T03:01:00.000Z" };
+      const stop = {
+        ...input,
+        host: "codex" as const,
+        event: "stop" as const,
+        occurred_at: "2026-07-12T03:01:00.000Z"
+      };
       const first = await recordActivationReceipt(storePath, stop);
       const sameHour = await recordActivationReceipt(storePath, { ...stop, occurred_at: "2026-07-12T03:59:59.999Z" });
       const nextHour = await recordActivationReceipt(storePath, { ...stop, occurred_at: "2026-07-12T04:00:00.000Z" });
       const events = (await readEvents(storePath)).filter((event) => event.event_id.startsWith("evt_activation_"));
 
       expect(first).toMatchObject({ created: true, receipt: { occurred_at: "2026-07-12T03:00:00.000Z" } });
-      expect(sameHour).toMatchObject({ created: false, record: { id: first.record.id }, receipt: { occurred_at: "2026-07-12T03:00:00.000Z" } });
+      expect(sameHour).toMatchObject({
+        created: false,
+        record: { id: first.record.id },
+        receipt: { occurred_at: "2026-07-12T03:00:00.000Z" }
+      });
       expect(nextHour).toMatchObject({ created: true, receipt: { occurred_at: "2026-07-12T04:00:00.000Z" } });
       expect(events).toHaveLength(2);
     });
   });
 
   it("keeps exact receipt timing for lifecycle boundary events", () => {
-    expect(activationReceiptIdentity(input)).not.toEqual(activationReceiptIdentity({ ...input, occurred_at: "2026-07-12T00:00:01.000Z" }));
+    expect(activationReceiptIdentity(input)).not.toEqual(
+      activationReceiptIdentity({ ...input, occurred_at: "2026-07-12T00:00:01.000Z" })
+    );
   });
 });

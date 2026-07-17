@@ -1,11 +1,11 @@
 import { operationArgumentsByTool } from "../operation-contracts.js";
+import { type ActionInterfaces, actionInterfaces } from "./action-interfaces.js";
 import { actionExecution, actionSafety } from "./action-safety.js";
-import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js";
 import { isCaptureReviewCandidate } from "./capture-review.js";
 import { displayRecordText } from "./content-text.js";
 import { commandForTimelineContext } from "./errors.js";
 import type { MorynEvent, MorynRecord, RecordKind, RecordState } from "./types.js";
-import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
+import { type RequiredFieldMetadata, withPhasesByName, withRequiredFieldsByName } from "./workflow.js";
 
 export interface DogfoodReportInput {
   project_id?: string;
@@ -50,19 +50,21 @@ export interface DogfoodSuggestedAction {
   interfaces: ActionInterfaces<Record<string, unknown>>;
   safety: ReturnType<typeof actionSafety>;
   execution: ReturnType<typeof actionExecution>;
-  workflow: ReturnType<typeof withPhasesByName<{
-    version: 1;
-    start: "suggested_action";
-    continue_from: string[];
-    phases: Array<{
-      phase: string;
-      order: number;
-      action_source: string;
-      tool: DogfoodActionTool;
-      required_when: string;
-      required_fields: string[];
-    }>;
-  }>>;
+  workflow: ReturnType<
+    typeof withPhasesByName<{
+      version: 1;
+      start: "suggested_action";
+      continue_from: string[];
+      phases: Array<{
+        phase: string;
+        order: number;
+        action_source: string;
+        tool: DogfoodActionTool;
+        required_when: string;
+        required_fields: string[];
+      }>;
+    }>
+  >;
 }
 
 export interface DogfoodStats {
@@ -105,8 +107,10 @@ export const DOGFOOD_REPORT_SELECTION_SOURCES = {
 } as const;
 
 const FAILURE_WORDS = /\b(?:fail(?:ed|ure)?|timeout|timed out|error|blocked|stuck|regression|flaky)\b/i;
-const RESOLVED_IMPLEMENTATION_WORDS = /\b(?:added|aligned|completed|complete|finished|fixed|parameterized|resolved|implemented|updated|shipped|landed|committed|pushed|restarted)\b/i;
-const VERIFICATION_WORDS = /\b(?:verified|verification completed|passing|passed|typecheck|build|release check|tests? passed|regression tests?|healthy|zero\s+\w+(?:\s+\w+){0,3}\s+(?:backlog|candidates|items)|no\s+dogfood\s+\w+(?:\s+\w+){0,2}\s+backlog)\b/i;
+const RESOLVED_IMPLEMENTATION_WORDS =
+  /\b(?:added|aligned|completed|complete|finished|fixed|parameterized|resolved|implemented|updated|shipped|landed|committed|pushed|restarted)\b/i;
+const VERIFICATION_WORDS =
+  /\b(?:verified|verification completed|passing|passed|typecheck|build|release check|tests? passed|regression tests?|healthy|zero\s+\w+(?:\s+\w+){0,3}\s+(?:backlog|candidates|items)|no\s+dogfood\s+\w+(?:\s+\w+){0,2}\s+backlog)\b/i;
 
 function countBy<T extends string>(values: T[]): Partial<Record<T, number>> {
   const counts: Partial<Record<T, number>> = {};
@@ -176,7 +180,11 @@ function stats(records: MorynRecord[], events: MorynEvent[], excludedPrivateReco
   };
 }
 
-function evidenceForRecords(source: string, records: MorynRecord[], events: MorynEvent[]): Array<{ source: string; record_id: string; event_id?: string }> {
+function evidenceForRecords(
+  source: string,
+  records: MorynRecord[],
+  events: MorynEvent[]
+): Array<{ source: string; record_id: string; event_id?: string }> {
   return records.map((record) => {
     const event = events.find((candidate) => candidate.op === "upsert_record" && candidate.record.id === record.id);
     return {
@@ -187,7 +195,11 @@ function evidenceForRecords(source: string, records: MorynRecord[], events: Mory
   });
 }
 
-function captureBacklogFinding(records: MorynRecord[], events: MorynEvent[], projectId: string | undefined): DogfoodFinding | undefined {
+function captureBacklogFinding(
+  records: MorynRecord[],
+  events: MorynEvent[],
+  projectId: string | undefined
+): DogfoodFinding | undefined {
   const captures = records.filter(isCaptureReviewCandidate);
   if (!captures.length) return undefined;
   const recordIds = captures.map((record) => record.id);
@@ -204,7 +216,11 @@ function captureBacklogFinding(records: MorynRecord[], events: MorynEvent[], pro
   };
 }
 
-function duplicateCaptureFinding(records: MorynRecord[], events: MorynEvent[], projectId: string | undefined): DogfoodFinding | undefined {
+function duplicateCaptureFinding(
+  records: MorynRecord[],
+  events: MorynEvent[],
+  projectId: string | undefined
+): DogfoodFinding | undefined {
   const groups = duplicateAutocaptureGroups(records);
   if (!groups.length) return undefined;
   const duplicateRecords = groups.flat();
@@ -222,7 +238,12 @@ function duplicateCaptureFinding(records: MorynRecord[], events: MorynEvent[], p
   };
 }
 
-function failureSignalFinding(records: MorynRecord[], events: MorynEvent[], projectId: string | undefined, limit: number): DogfoodFinding | undefined {
+function failureSignalFinding(
+  records: MorynRecord[],
+  events: MorynEvent[],
+  projectId: string | undefined,
+  limit: number
+): DogfoodFinding | undefined {
   const failures = records.filter(isFailureSignal).slice(0, limit);
   if (!failures.length) return undefined;
   const recordIds = failures.map((record) => record.id);
@@ -335,12 +356,21 @@ export function diagnoseDogfood(input: DogfoodReportDiagnoseInput): DogfoodRepor
     failureSignalFinding(records, events, input.project_id, limit)
   ].filter((finding): finding is DogfoodFinding => finding !== undefined);
   const actions = [
-    ...(findings.some((finding) => finding.id === "capture_review_backlog") ? [reviewCaptureAction(input.project_id)] : []),
+    ...(findings.some((finding) => finding.id === "capture_review_backlog")
+      ? [reviewCaptureAction(input.project_id)]
+      : []),
     ...(findings.some((finding) => finding.id === "failure_signals")
-      ? [inspectFailureAction(findings.find((finding) => finding.id === "failure_signals")!.record_id!, input.project_id)]
+      ? [
+          inspectFailureAction(
+            findings.find((finding) => finding.id === "failure_signals")!.record_id!,
+            input.project_id
+          )
+        ]
       : [])
   ].slice(0, limit);
-  const referencedRecordIds = new Set(findings.flatMap((finding) => finding.record_ids ?? (finding.record_id ? [finding.record_id] : [])));
+  const referencedRecordIds = new Set(
+    findings.flatMap((finding) => finding.record_ids ?? (finding.record_id ? [finding.record_id] : []))
+  );
   const referencedEventIds = new Set(findings.flatMap((finding) => finding.event_ids ?? []));
   const recordSelection = records.filter((record) => referencedRecordIds.has(record.id)).slice(0, limit);
   const eventSelection = events.filter((event) => referencedEventIds.has(event.event_id)).slice(0, limit);

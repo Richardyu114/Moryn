@@ -1,5 +1,5 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { normalizeHostId } from "./host-adapter-registry.js";
 
@@ -29,13 +29,22 @@ function shellQuote(value: string): string {
 
 export function activationId(projectId: string, hostInput: string): string {
   const host = normalizeHostId(hostInput);
-  if (host !== "codex" && host !== "claude") throw new Error(`Invalid argument: official integration unavailable for host: ${hostInput}`);
-  const slug = projectId.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 64);
+  if (host !== "codex" && host !== "claude")
+    throw new Error(`Invalid argument: official integration unavailable for host: ${hostInput}`);
+  const slug = projectId
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 64);
   if (!slug) throw new Error("Invalid argument: project_id must contain an alphanumeric character");
   return `moryn-v03-${slug}-${host}`;
 }
 
-function hookCommandBase(host: "codex" | "claude", input: { project_id: string; project_path: string; store_path: string; runtime?: HostRuntimeDescriptor }): string {
+function hookCommandBase(
+  host: "codex" | "claude",
+  input: { project_id: string; project_path: string; store_path: string; runtime?: HostRuntimeDescriptor }
+): string {
   const executable = input.runtime
     ? [input.runtime.exec_file, ...(input.runtime.exec_args ?? []), input.runtime.cli_entry].map(shellQuote).join(" ")
     : "moryn";
@@ -50,23 +59,36 @@ function codexHook(command: string) {
   return [{ hooks: [{ type: "command", command, timeout: 30, statusMessage: "Syncing Moryn context" }] }];
 }
 
-export function buildHostIntegrationArtifact(input: { host: string; project_id: string; project_path: string; store_path: string; runtime?: HostRuntimeDescriptor }): HostIntegrationArtifact {
+export function buildHostIntegrationArtifact(input: {
+  host: string;
+  project_id: string;
+  project_path: string;
+  store_path: string;
+  runtime?: HostRuntimeDescriptor;
+}): HostIntegrationArtifact {
   const host = normalizeHostId(input.host);
-  if (host !== "codex" && host !== "claude") throw new Error(`Invalid argument: official integration unavailable for host: ${input.host}`);
+  if (host !== "codex" && host !== "claude")
+    throw new Error(`Invalid argument: official integration unavailable for host: ${input.host}`);
   const commandBase = hookCommandBase(host, input);
   const activation_id = activationId(input.project_id, host);
   const command_digest = createHash("sha256").update(commandBase).digest("hex");
   const command = `${commandBase} --command-digest ${command_digest}`;
   if (host === "claude") {
     const expected_events = ["SessionStart", "UserPromptSubmit", "PreCompact", "PostCompact", "Stop", "SessionEnd"];
-    const content = `${JSON.stringify({ hooks: {
-      SessionStart: claudeHook(command),
-      UserPromptSubmit: claudeHook(command),
-      PreCompact: claudeHook(command),
-      PostCompact: claudeHook(command),
-      Stop: claudeHook(command),
-      SessionEnd: claudeHook(command)
-    } }, null, 2)}\n`;
+    const content = `${JSON.stringify(
+      {
+        hooks: {
+          SessionStart: claudeHook(command),
+          UserPromptSubmit: claudeHook(command),
+          PreCompact: claudeHook(command),
+          PostCompact: claudeHook(command),
+          Stop: claudeHook(command),
+          SessionEnd: claudeHook(command)
+        }
+      },
+      null,
+      2
+    )}\n`;
     return {
       host,
       path: ".claude/moryn-settings.json",
@@ -81,20 +103,27 @@ export function buildHostIntegrationArtifact(input: { host: string; project_id: 
     };
   }
   const expected_events = ["SessionStart", "UserPromptSubmit", "PreCompact", "PostCompact", "Stop"];
-  const content = `${JSON.stringify({ hooks: {
-    SessionStart: codexHook(command),
-    UserPromptSubmit: codexHook(command),
-    PreCompact: codexHook(command),
-    PostCompact: codexHook(command),
-    Stop: codexHook(command)
-  } }, null, 2)}\n`;
+  const content = `${JSON.stringify(
+    {
+      hooks: {
+        SessionStart: codexHook(command),
+        UserPromptSubmit: codexHook(command),
+        PreCompact: codexHook(command),
+        PostCompact: codexHook(command),
+        Stop: codexHook(command)
+      }
+    },
+    null,
+    2
+  )}\n`;
   return {
     host,
     path: ".codex/moryn-hooks.json",
     format: "json",
     content,
     merge_target: ".codex/hooks.json",
-    merge_instruction: "Merge the hooks object from .codex/moryn-hooks.json into .codex/hooks.json, then review the project hook trust prompt in Codex.",
+    merge_instruction:
+      "Merge the hooks object from .codex/moryn-hooks.json into .codex/hooks.json, then review the project hook trust prompt in Codex.",
     activation_id,
     command,
     command_digest,
@@ -102,11 +131,19 @@ export function buildHostIntegrationArtifact(input: { host: string; project_id: 
   };
 }
 
-export async function writeHostIntegrationArtifact(input: { host: string; project_id: string; project_path: string; store_path: string; runtime?: HostRuntimeDescriptor }) {
+export async function writeHostIntegrationArtifact(input: {
+  host: string;
+  project_id: string;
+  project_path: string;
+  store_path: string;
+  runtime?: HostRuntimeDescriptor;
+}) {
   const artifact = buildHostIntegrationArtifact(input);
   const path = join(input.project_path, artifact.path);
   let existing: string | undefined;
-  try { existing = await readFile(path, "utf8"); } catch {}
+  try {
+    existing = await readFile(path, "utf8");
+  } catch {}
   if (existing === artifact.content) return { created: false, updated: false, path, artifact };
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, artifact.content, "utf8");

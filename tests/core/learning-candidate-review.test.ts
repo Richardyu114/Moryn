@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildLearningCandidateReviewWorkflow, unresolvedLearningCandidates } from "../../src/core/learning-candidate-review.js";
+import {
+  buildLearningCandidateReviewWorkflow,
+  unresolvedLearningCandidates
+} from "../../src/core/learning-candidate-review.js";
 import type { SemanticConsolidationCandidate } from "../../src/core/semantic-consolidation-candidates.js";
 
 function candidate(index: number): SemanticConsolidationCandidate {
@@ -37,8 +40,22 @@ describe("learning candidate review workflow", () => {
     const candidates = [candidate(0), candidate(1), candidate(2)];
     const unresolved = unresolvedLearningCandidates(candidates, {
       proposal_results: [
-        { ...candidate(0), target_record_id: candidate(0).record_id, relationship: "duplicate_of", proposal_digest: "a", status: "accepted", reason: "accepted" },
-        { source_record_id: candidate(1).record_id, target_record_id: candidate(1).source_record_id, relationship: "revises", proposal_digest: "b", status: "idempotent", reason: "existing_relationship" }
+        {
+          ...candidate(0),
+          target_record_id: candidate(0).record_id,
+          relationship: "duplicate_of",
+          proposal_digest: "a",
+          status: "accepted",
+          reason: "accepted"
+        },
+        {
+          source_record_id: candidate(1).record_id,
+          target_record_id: candidate(1).source_record_id,
+          relationship: "revises",
+          proposal_digest: "b",
+          status: "idempotent",
+          reason: "existing_relationship"
+        }
       ]
     });
 

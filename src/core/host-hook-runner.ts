@@ -1,20 +1,30 @@
 import { createHash } from "node:crypto";
+import { type GitSyncResult, isGitSyncConfigured, pushGitSync } from "../sync/git.js";
+import { type ActivationReceiptInput, recordActivationReceipt } from "./activation-receipts.js";
 import { agentFinish, agentStart, agentStatus, buildLearningCandidateReviewAction } from "./agent-lifecycle.js";
+import {
+  type KnowledgeInvestigationInput,
+  type LearningDeltaInput,
+  learningDeltaSchema,
+  type SemanticConsolidationProposalInput,
+  semanticConsolidationProposalSchema
+} from "./context-delta.js";
 import { createEngine } from "./engine.js";
 import { getHostCapabilities } from "./host-capabilities.js";
 import type { NormalizedHostHookEvent } from "./host-hooks.js";
-import { learningDeltaSchema, semanticConsolidationProposalSchema, type KnowledgeInvestigationInput, type LearningDeltaInput, type SemanticConsolidationProposalInput } from "./context-delta.js";
-import { resolveProjectContext } from "./project.js";
-import { recordActivationReceipt, type ActivationReceiptInput } from "./activation-receipts.js";
 import { buildHostIntegrationArtifact } from "./host-integration-artifacts.js";
-import { synthesizeSession, type SessionSynthesis } from "./session-synthesis.js";
 import { buildPromptRecallContext } from "./host-prompt-recall.js";
-import { evaluateTurnSyncCadence, recordTurnSyncSuccess, type TurnSyncCadenceDecision } from "./turn-sync-cadence.js";
-import { isGitSyncConfigured, pushGitSync, type GitSyncResult } from "../sync/git.js";
-import { readCurrentRecords } from "./record-read-model.js";
+import {
+  defaultHostTranscriptRoots,
+  type HostTranscriptEvidence,
+  readHostTranscriptEvidence
+} from "./host-transcript-evidence.js";
 import { unresolvedLearningCandidates } from "./learning-candidate-review.js";
-import { defaultHostTranscriptRoots, readHostTranscriptEvidence, type HostTranscriptEvidence } from "./host-transcript-evidence.js";
+import { resolveProjectContext } from "./project.js";
+import { readCurrentRecords } from "./record-read-model.js";
 import { detectSensitiveContent } from "./sensitive.js";
+import { type SessionSynthesis, synthesizeSession } from "./session-synthesis.js";
+import { evaluateTurnSyncCadence, recordTurnSyncSuccess, type TurnSyncCadenceDecision } from "./turn-sync-cadence.js";
 
 export interface RunHostHookInput {
   storePath: string;
@@ -39,7 +49,12 @@ export interface RunHostHookDeps {
 
 export type HostHookSyncCadence = {
   due: boolean;
-  reason: TurnSyncCadenceDecision["reason"] | "explicit_push" | "explicit_no_push" | "manual_mode" | "remote_unconfigured";
+  reason:
+    | TurnSyncCadenceDecision["reason"]
+    | "explicit_push"
+    | "explicit_no_push"
+    | "manual_mode"
+    | "remote_unconfigured";
   interval_minutes: 15;
   last_success_at?: string;
   push_requested: boolean;
@@ -48,7 +63,13 @@ export type HostHookSyncCadence = {
 
 export type HostHookCheckpointSync = {
   requested: boolean;
-  reason: "explicit_push" | "explicit_no_push" | "manual_mode" | "remote_unconfigured" | "new_checkpoint" | "idempotent_replay";
+  reason:
+    | "explicit_push"
+    | "explicit_no_push"
+    | "manual_mode"
+    | "remote_unconfigured"
+    | "new_checkpoint"
+    | "idempotent_replay";
   succeeded?: boolean;
   push?: GitSyncResult;
   error?: string;
@@ -61,14 +82,26 @@ export type HostHookDuplicateHandoffSync = {
   error?: string;
 };
 
-export type HostTranscriptEvidenceSummary = Pick<HostTranscriptEvidence, "status" | "reason" | "lines_considered" | "malformed_lines" | "truncated"> & {
+export type HostTranscriptEvidenceSummary = Pick<
+  HostTranscriptEvidence,
+  "status" | "reason" | "lines_considered" | "malformed_lines" | "truncated"
+> & {
   source: "hook_payload" | "transcript" | "none";
 };
 
 export interface HostHookRunResult {
   ok: true;
   event: NormalizedHostHookEvent["event"];
-  action: "agent_start" | "recall_prompt" | "checkpoint_before_compaction" | "resume_from_checkpoint" | "agent_status" | "agent_finish" | "skip_empty_status" | "skip_duplicate_status" | "skip_duplicate_handoff";
+  action:
+    | "agent_start"
+    | "recall_prompt"
+    | "checkpoint_before_compaction"
+    | "resume_from_checkpoint"
+    | "agent_status"
+    | "agent_finish"
+    | "skip_empty_status"
+    | "skip_duplicate_status"
+    | "skip_duplicate_handoff";
   degradation: { mode: "native" } | { mode: "fallback"; reason: "host_hook_unavailable" };
   hook_output: { additional_context: string };
   checkpoint?: { idempotent_replay: boolean; record: { id: string } };
@@ -128,12 +161,19 @@ function sessionEndPayloadFingerprint(input: RunHostHookInput, synthesis: Sessio
     .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
   const proposals = (input.semantic_consolidation_proposals ?? [])
     .map((proposal) => semanticConsolidationProposalSchema.parse(proposal))
-    .sort((left, right) => left.proposal_id.localeCompare(right.proposal_id) || JSON.stringify(left).localeCompare(JSON.stringify(right)));
-  return createHash("sha256").update(JSON.stringify({ synthesis: JSON.parse(synthesisFingerprint(synthesis)), learnings, proposals })).digest("hex");
+    .sort(
+      (left, right) =>
+        left.proposal_id.localeCompare(right.proposal_id) || JSON.stringify(left).localeCompare(JSON.stringify(right))
+    );
+  return createHash("sha256")
+    .update(JSON.stringify({ synthesis: JSON.parse(synthesisFingerprint(synthesis)), learnings, proposals }))
+    .digest("hex");
 }
 
 function checkpointId(hook: NormalizedHostHookEvent): string {
-  const digest = createHash("sha256").update(`${hook.host}\u0000${hook.session_id}\u0000${hook.occurred_at}\u0000${hook.trigger ?? "compact"}`).digest("hex");
+  const digest = createHash("sha256")
+    .update(`${hook.host}\u0000${hook.session_id}\u0000${hook.occurred_at}\u0000${hook.trigger ?? "compact"}`)
+    .digest("hex");
   return `hook-${digest.slice(0, 24)}`;
 }
 
@@ -151,50 +191,136 @@ function contextText(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
-function evidenceSummary(evidence: HostTranscriptEvidence, source: HostTranscriptEvidenceSummary["source"]): HostTranscriptEvidenceSummary {
-  return { status: evidence.status, ...(evidence.reason ? { reason: evidence.reason } : {}), lines_considered: evidence.lines_considered, malformed_lines: evidence.malformed_lines, truncated: evidence.truncated, source };
+function evidenceSummary(
+  evidence: HostTranscriptEvidence,
+  source: HostTranscriptEvidenceSummary["source"]
+): HostTranscriptEvidenceSummary {
+  return {
+    status: evidence.status,
+    ...(evidence.reason ? { reason: evidence.reason } : {}),
+    lines_considered: evidence.lines_considered,
+    malformed_lines: evidence.malformed_lines,
+    truncated: evidence.truncated,
+    source
+  };
 }
 
-async function hookTranscriptEvidence(input: RunHostHookInput): Promise<{ assistant?: string; summary: HostTranscriptEvidenceSummary }> {
+async function hookTranscriptEvidence(
+  input: RunHostHookInput
+): Promise<{ assistant?: string; summary: HostTranscriptEvidenceSummary }> {
   const payloadAssistant = input.hook.last_assistant_message?.trim();
   if (payloadAssistant) {
-    if (detectSensitiveContent(payloadAssistant).sensitive) return { summary: { status: "protected", reason: "sensitive_content", lines_considered: 0, malformed_lines: 0, truncated: false, source: "hook_payload" } };
-    return { assistant: payloadAssistant, summary: { status: "available", lines_considered: 0, malformed_lines: 0, truncated: false, source: "hook_payload" } };
+    if (detectSensitiveContent(payloadAssistant).sensitive)
+      return {
+        summary: {
+          status: "protected",
+          reason: "sensitive_content",
+          lines_considered: 0,
+          malformed_lines: 0,
+          truncated: false,
+          source: "hook_payload"
+        }
+      };
+    return {
+      assistant: payloadAssistant,
+      summary: {
+        status: "available",
+        lines_considered: 0,
+        malformed_lines: 0,
+        truncated: false,
+        source: "hook_payload"
+      }
+    };
   }
-  if (!input.hook.transcript_path) return { summary: { status: "unavailable", reason: "missing_path", lines_considered: 0, malformed_lines: 0, truncated: false, source: "none" } };
+  if (!input.hook.transcript_path)
+    return {
+      summary: {
+        status: "unavailable",
+        reason: "missing_path",
+        lines_considered: 0,
+        malformed_lines: 0,
+        truncated: false,
+        source: "none"
+      }
+    };
   const host = input.hook.host === "claude" ? "claude" : "codex";
-  const evidence = await readHostTranscriptEvidence({ host, transcript_path: input.hook.transcript_path, allowed_roots: input.transcript_roots?.length ? input.transcript_roots : defaultHostTranscriptRoots(host) });
-  return { ...(evidence.last_assistant_message ? { assistant: evidence.last_assistant_message } : {}), summary: evidenceSummary(evidence, "transcript") };
+  const evidence = await readHostTranscriptEvidence({
+    host,
+    transcript_path: input.hook.transcript_path,
+    allowed_roots: input.transcript_roots?.length ? input.transcript_roots : defaultHostTranscriptRoots(host)
+  });
+  return {
+    ...(evidence.last_assistant_message ? { assistant: evidence.last_assistant_message } : {}),
+    summary: evidenceSummary(evidence, "transcript")
+  };
 }
 
-async function sessionSynthesis(input: RunHostHookInput, projectId: string, assistantEvidence?: string): Promise<SessionSynthesis> {
+async function sessionSynthesis(
+  input: RunHostHookInput,
+  projectId: string,
+  assistantEvidence?: string
+): Promise<SessionSynthesis> {
   try {
     const engine = createEngine({ storePath: input.storePath });
     const boot = await engine.boot({ project_id: projectId, agent_session_id: input.hook.session_id });
     const recovery = boot.checkpoint_recovery_pack;
-    const hasRecoveryEvidence = recovery?.available === true && Boolean(recovery.progress?.length || recovery.decisions?.length || recovery.blockers?.length || recovery.next_steps?.length || recovery.learnings?.length || recovery.source_record_ids?.length);
-    return synthesizeSession({ host_summary: input.hook.compact_summary ?? (hasRecoveryEvidence ? undefined : assistantEvidence), current_task: input.current_task, recovery_pack: recovery });
+    const hasRecoveryEvidence =
+      recovery?.available === true &&
+      Boolean(
+        recovery.progress?.length ||
+          recovery.decisions?.length ||
+          recovery.blockers?.length ||
+          recovery.next_steps?.length ||
+          recovery.learnings?.length ||
+          recovery.source_record_ids?.length
+      );
+    return synthesizeSession({
+      host_summary: input.hook.compact_summary ?? (hasRecoveryEvidence ? undefined : assistantEvidence),
+      current_task: input.current_task,
+      recovery_pack: recovery
+    });
   } catch {
-    return synthesizeSession({ host_summary: input.hook.compact_summary ?? assistantEvidence, current_task: input.current_task });
+    return synthesizeSession({
+      host_summary: input.hook.compact_summary ?? assistantEvidence,
+      current_task: input.current_task
+    });
   }
 }
 
 export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps = {}): Promise<HostHookRunResult> {
-  const project = await resolveProjectContext({ projectId: input.project_id, projectPath: input.project_path ?? input.hook.cwd });
+  const project = await resolveProjectContext({
+    projectId: input.project_id,
+    projectPath: input.project_path ?? input.hook.cwd
+  });
   let syncConfigured: boolean | undefined;
-  const hasConfiguredSync = async () => syncConfigured ??= await (deps.isGitSyncConfigured ?? isGitSyncConfigured)(input.storePath);
+  const hasConfiguredSync = async () =>
+    (syncConfigured ??= await (deps.isGitSyncConfigured ?? isGitSyncConfigured)(input.storePath));
   const capabilities = getHostCapabilities(input.hook.host);
   const native = capabilities.events[input.hook.event];
   const degradation = native
     ? { mode: "native" as const }
     : { mode: "fallback" as const, reason: "host_hook_unavailable" as const };
-  const common = lifecycleInput({ ...input, project_id: project.project_id, project_path: input.project_id && !input.project_path ? undefined : project.project_path });
+  const common = lifecycleInput({
+    ...input,
+    project_id: project.project_id,
+    project_path: input.project_id && !input.project_path ? undefined : project.project_path
+  });
   let activation_receipt: Awaited<ReturnType<typeof recordActivationReceipt>> | undefined;
   let activation_warning: HostHookRunResult["activation_warning"];
-  if (input.activation_id && input.hook.event !== "user_prompt_submit" && (input.hook.host === "codex" || input.hook.host === "claude")) {
+  if (
+    input.activation_id &&
+    input.hook.event !== "user_prompt_submit" &&
+    (input.hook.host === "codex" || input.hook.host === "claude")
+  ) {
     try {
-      const expectedArtifact = buildHostIntegrationArtifact({ host: input.hook.host, project_id: project.project_id, project_path: project.project_path, store_path: input.storePath });
-      if (input.activation_id !== expectedArtifact.activation_id) throw new Error(`Activation ID mismatch: expected ${expectedArtifact.activation_id}`);
+      const expectedArtifact = buildHostIntegrationArtifact({
+        host: input.hook.host,
+        project_id: project.project_id,
+        project_path: project.project_path,
+        store_path: input.storePath
+      });
+      if (input.activation_id !== expectedArtifact.activation_id)
+        throw new Error(`Activation ID mismatch: expected ${expectedArtifact.activation_id}`);
       activation_receipt = await recordActivationReceipt(input.storePath, {
         activation_id: input.activation_id,
         host: input.hook.host,
@@ -206,7 +332,10 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
         command_digest: input.command_digest ?? expectedArtifact.command_digest
       } satisfies ActivationReceiptInput);
     } catch (error) {
-      activation_warning = { code: "ACTIVATION_RECEIPT_FAILED", reason: error instanceof Error ? error.message : String(error) };
+      activation_warning = {
+        code: "ACTIVATION_RECEIPT_FAILED",
+        reason: error instanceof Error ? error.message : String(error)
+      };
     }
   }
   const activationEvidence = {
@@ -251,34 +380,39 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
     };
   }
   if (input.hook.event === "session_start" || input.hook.event === "post_compact") {
-    const pull = input.pull !== undefined
-      ? input.pull
-      : project.config?.sync.mode === "manual"
-        ? false
-        : await hasConfiguredSync();
+    const pull =
+      input.pull !== undefined
+        ? input.pull
+        : project.config?.sync.mode === "manual"
+          ? false
+          : await hasConfiguredSync();
     const result = await agentStart({ ...common, pull });
-    const safeCompactSummary = input.hook.event === "post_compact" && input.hook.compact_summary && !detectSensitiveContent(input.hook.compact_summary).sensitive
-      ? input.hook.compact_summary
-      : undefined;
+    const safeCompactSummary =
+      input.hook.event === "post_compact" &&
+      input.hook.compact_summary &&
+      !detectSensitiveContent(input.hook.compact_summary).sensitive
+        ? input.hook.compact_summary
+        : undefined;
     const restoreContext = contextText({
       current_task: input.current_task,
       ...(safeCompactSummary ? { host_compact_summary: safeCompactSummary } : {}),
       startup_overview: result.startup_overview,
-      finalization_assurance: result.finalization_assurance.status === "recovered"
-        ? {
-            status: result.finalization_assurance.status,
-            prior_session: result.finalization_assurance.prior_session,
-            recovered_handoff_record_id: result.finalization_assurance.recovered_handoff_record_id,
-            learning_inbox: result.finalization_assurance.learning_inbox
-          }
-        : { status: result.finalization_assurance.status },
+      finalization_assurance:
+        result.finalization_assurance.status === "recovered"
+          ? {
+              status: result.finalization_assurance.status,
+              prior_session: result.finalization_assurance.prior_session,
+              recovered_handoff_record_id: result.finalization_assurance.recovered_handoff_record_id,
+              learning_inbox: result.finalization_assurance.learning_inbox
+            }
+          : { status: result.finalization_assurance.status },
       checkpoint_recovery_pack: result.boot.checkpoint_recovery_pack,
       active_checkpoint: result.boot.active_checkpoint
     });
     return {
       ok: true as const,
       event: input.hook.event,
-      action: input.hook.event === "session_start" ? "agent_start" as const : "resume_from_checkpoint" as const,
+      action: input.hook.event === "session_start" ? ("agent_start" as const) : ("resume_from_checkpoint" as const),
       degradation,
       details: result,
       hook_output: { additional_context: restoreContext },
@@ -288,7 +422,10 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
   if (input.hook.event === "pre_compact") {
     const engine = createEngine({ storePath: input.storePath });
     const transcriptEvidence = await hookTranscriptEvidence(input);
-    const summary = input.hook.compact_summary ?? transcriptEvidence.assistant ?? `Checkpoint before ${input.hook.trigger ?? "compaction"}`;
+    const summary =
+      input.hook.compact_summary ??
+      transcriptEvidence.assistant ??
+      `Checkpoint before ${input.hook.trigger ?? "compaction"}`;
     const checkpoint = await engine.checkpoint({
       project_id: project.project_id,
       source: { client: input.hook.host, session_id: input.hook.session_id, device_id: input.hook.device_id },
@@ -310,7 +447,7 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       checkpointSync = { requested: false, reason: "explicit_no_push" };
     } else if (project.config?.sync.mode === "manual") {
       checkpointSync = { requested: false, reason: "manual_mode" };
-    } else if (!await hasConfiguredSync()) {
+    } else if (!(await hasConfiguredSync())) {
       checkpointSync = { requested: false, reason: "remote_unconfigured" };
     } else if (checkpoint.idempotent_replay) {
       checkpointSync = { requested: false, reason: "idempotent_replay" };
@@ -319,20 +456,27 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
     }
     if (checkpointSync.requested) {
       try {
-        checkpointSync.push = await (deps.pushGitSync ?? pushGitSync)(input.storePath, { message: `precompact checkpoint: ${project.project_id}` });
+        checkpointSync.push = await (deps.pushGitSync ?? pushGitSync)(input.storePath, {
+          message: `precompact checkpoint: ${project.project_id}`
+        });
         checkpointSync.succeeded = checkpointSync.push.ok;
-        if (!checkpointSync.succeeded) checkpointSync.error = checkpointSync.push.message ?? "remote synchronization failed";
+        if (!checkpointSync.succeeded)
+          checkpointSync.error = checkpointSync.push.message ?? "remote synchronization failed";
       } catch (error) {
         checkpointSync.succeeded = false;
         checkpointSync.error = error instanceof Error ? error.message : String(error);
       }
     }
-    const additionalContext = checkpointSync.succeeded === false
-      ? `Moryn checkpoint saved and locally protected: ${checkpoint.record.id}. Remote synchronization is pending.`
-      : `Moryn checkpoint saved: ${checkpoint.record.id}`;
+    const additionalContext =
+      checkpointSync.succeeded === false
+        ? `Moryn checkpoint saved and locally protected: ${checkpoint.record.id}. Remote synchronization is pending.`
+        : `Moryn checkpoint saved: ${checkpoint.record.id}`;
     const candidateReview = buildLearningCandidateReviewAction(
       project.project_id,
-      unresolvedLearningCandidates(checkpoint.learning_ingestion.semantic_candidates.candidates, checkpoint.semantic_consolidation)
+      unresolvedLearningCandidates(
+        checkpoint.learning_ingestion.semantic_candidates.candidates,
+        checkpoint.semantic_consolidation
+      )
     );
     const candidateContext = candidateReview
       ? `${additionalContext} Moryn found ${candidateReview.candidate_pairs.length} bounded semantic candidate pair(s); follow candidate_review recalls before proposing a relationship.`
@@ -354,28 +498,33 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
     const transcriptEvidence = await hookTranscriptEvidence(input);
     const synthesis = await sessionSynthesis(input, project.project_id, transcriptEvidence.assistant);
     const payloadFingerprint = sessionEndPayloadFingerprint(input, synthesis);
-    const push = input.push !== undefined
-      ? input.push
-      : project.config?.sync.mode === "manual"
-        ? false
-        : await hasConfiguredSync();
+    const push =
+      input.push !== undefined
+        ? input.push
+        : project.config?.sync.mode === "manual"
+          ? false
+          : await hasConfiguredSync();
     const current = await readCurrentRecords(input.storePath);
     const priorSummary = current.records
-      .filter((record) =>
-        record.project_id === project.project_id
-        && record.type === "summary"
-        && record.source.client === input.hook.host
-        && record.source.session_id === input.hook.session_id
-        && record.source.device_id === input.hook.device_id
+      .filter(
+        (record) =>
+          record.project_id === project.project_id &&
+          record.type === "summary" &&
+          record.source.client === input.hook.host &&
+          record.source.session_id === input.hook.session_id &&
+          record.source.device_id === input.hook.device_id
       )
       .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id))[0];
     if (priorSummary?.content.handoff_payload_fingerprint === payloadFingerprint) {
       const duplicateSync: HostHookDuplicateHandoffSync = { requested: input.push === true };
       if (duplicateSync.requested) {
         try {
-          duplicateSync.push = await (deps.pushGitSync ?? pushGitSync)(input.storePath, { message: `agent finish: ${project.project_id}` });
+          duplicateSync.push = await (deps.pushGitSync ?? pushGitSync)(input.storePath, {
+            message: `agent finish: ${project.project_id}`
+          });
           duplicateSync.succeeded = duplicateSync.push.ok;
-          if (!duplicateSync.succeeded) duplicateSync.error = duplicateSync.push.message ?? "remote synchronization failed";
+          if (!duplicateSync.succeeded)
+            duplicateSync.error = duplicateSync.push.message ?? "remote synchronization failed";
         } catch (error) {
           duplicateSync.succeeded = false;
           duplicateSync.error = error instanceof Error ? error.message : String(error);
@@ -393,8 +542,27 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
         ...activationEvidence
       };
     }
-    const result = await agentFinish({ ...common, summary: synthesis.summary, synthesis, push, learnings: input.learnings, semanticConsolidationProposals: input.semantic_consolidation_proposals }, { pushGitSync: deps.pushGitSync, handoffPayloadFingerprint: payloadFingerprint });
-    return { ok: true, event: input.hook.event, action: "agent_finish", degradation, details: result, transcript_evidence: transcriptEvidence.summary, hook_output: { additional_context: `Moryn handoff saved: ${result.record.id}` }, ...activationEvidence };
+    const result = await agentFinish(
+      {
+        ...common,
+        summary: synthesis.summary,
+        synthesis,
+        push,
+        learnings: input.learnings,
+        semanticConsolidationProposals: input.semantic_consolidation_proposals
+      },
+      { pushGitSync: deps.pushGitSync, handoffPayloadFingerprint: payloadFingerprint }
+    );
+    return {
+      ok: true,
+      event: input.hook.event,
+      action: "agent_finish",
+      degradation,
+      details: result,
+      transcript_evidence: transcriptEvidence.summary,
+      hook_output: { additional_context: `Moryn handoff saved: ${result.record.id}` },
+      ...activationEvidence
+    };
   }
   const transcriptEvidence = await hookTranscriptEvidence(input);
   const synthesis = await sessionSynthesis(input, project.project_id, transcriptEvidence.assistant);
@@ -406,7 +574,9 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       degradation,
       skipped: { reason: "no_durable_session_evidence" },
       transcript_evidence: transcriptEvidence.summary,
-      hook_output: { additional_context: "Moryn skipped an empty turn status because no durable session evidence was available." },
+      hook_output: {
+        additional_context: "Moryn skipped an empty turn status because no durable session evidence was available."
+      },
       ...activationEvidence
     };
   }
@@ -427,7 +597,7 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
     } else if (project.config?.sync.mode === "manual") {
       syncCadence = { due: false, reason: "manual_mode", interval_minutes: 15, push_requested: false };
       push = false;
-    } else if (!await hasConfiguredSync()) {
+    } else if (!(await hasConfiguredSync())) {
       syncCadence = { due: false, reason: "remote_unconfigured", interval_minutes: 15, push_requested: false };
       push = false;
     } else {
@@ -437,18 +607,21 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
     }
     const current = await readCurrentRecords(input.storePath);
     const priorStatus = current.records
-      .filter((record) =>
-        record.project_id === project.project_id
-        && record.type === "status"
-        && record.source.client === input.hook.host
-        && record.source.session_id === input.hook.session_id
-        && record.source.device_id === input.hook.device_id
+      .filter(
+        (record) =>
+          record.project_id === project.project_id &&
+          record.type === "status" &&
+          record.source.client === input.hook.host &&
+          record.source.session_id === input.hook.session_id &&
+          record.source.device_id === input.hook.device_id
       )
       .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id))[0];
     if (priorStatus && recordSynthesisFingerprint(priorStatus.content) === synthesisFingerprint(synthesis)) {
       if (syncCadence.push_requested) {
         try {
-          const pushed = await (deps.pushGitSync ?? pushGitSync)(input.storePath, { message: `agent status: ${project.project_id}` });
+          const pushed = await (deps.pushGitSync ?? pushGitSync)(input.storePath, {
+            message: `agent status: ${project.project_id}`
+          });
           syncCadence.push_succeeded = pushed.ok;
           if (pushed.ok) await recordTurnSyncSuccess(input.storePath, identity);
         } catch {
@@ -467,13 +640,38 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
         ...activationEvidence
       };
     }
-    const result = await agentStatus({ ...common, status: synthesis.summary, synthesis, push }, { pushGitSync: deps.pushGitSync });
+    const result = await agentStatus(
+      { ...common, status: synthesis.summary, synthesis, push },
+      { pushGitSync: deps.pushGitSync }
+    );
     if (syncCadence.push_requested) {
       syncCadence.push_succeeded = result.sync.push?.ok === true;
       if (syncCadence.push_succeeded) await recordTurnSyncSuccess(input.storePath, identity);
     }
-    return { ok: true, event: input.hook.event, action: "agent_status", degradation, details: result, transcript_evidence: transcriptEvidence.summary, sync_cadence: syncCadence, hook_output: { additional_context: `Moryn status saved: ${result.record.id}` }, ...activationEvidence };
+    return {
+      ok: true,
+      event: input.hook.event,
+      action: "agent_status",
+      degradation,
+      details: result,
+      transcript_evidence: transcriptEvidence.summary,
+      sync_cadence: syncCadence,
+      hook_output: { additional_context: `Moryn status saved: ${result.record.id}` },
+      ...activationEvidence
+    };
   }
-  const result = await agentStatus({ ...common, status: synthesis.summary, synthesis, push }, { pushGitSync: deps.pushGitSync });
-  return { ok: true, event: input.hook.event, action: "agent_status", degradation, details: result, transcript_evidence: transcriptEvidence.summary, hook_output: { additional_context: `Moryn status saved: ${result.record.id}` }, ...activationEvidence };
+  const result = await agentStatus(
+    { ...common, status: synthesis.summary, synthesis, push },
+    { pushGitSync: deps.pushGitSync }
+  );
+  return {
+    ok: true,
+    event: input.hook.event,
+    action: "agent_status",
+    degradation,
+    details: result,
+    transcript_evidence: transcriptEvidence.summary,
+    hook_output: { additional_context: `Moryn status saved: ${result.record.id}` },
+    ...activationEvidence
+  };
 }

@@ -1,15 +1,14 @@
 import { operationArgumentsByTool } from "../operation-contracts.js";
+import { type ActionInterfaces, actionInterfaces } from "./action-interfaces.js";
 import { actionExecution, actionSafety } from "./action-safety.js";
-import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js";
 import { isCaptureReviewCandidate } from "./capture-review.js";
-import { displayRecordText } from "./content-text.js";
-import { getHostAdapter, type HostAdapterId } from "./host-adapter-registry.js";
-import type { MorynEvent, MorynRecord } from "./types.js";
 import type { HostActivationStatus } from "./host-activation.js";
+import { getHostAdapter, type HostAdapterId } from "./host-adapter-registry.js";
 import type { CurrentRecordReadResult, RecordReadFallbackReason } from "./record-read-model.js";
 import type { RetrievalCandidateReadResult, RetrievalIndexFallbackReason } from "./retrieval-index.js";
 import type { SyncCompensationReceipt } from "./sync-compensation.js";
-import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
+import type { MorynEvent, MorynRecord } from "./types.js";
+import { type RequiredFieldMetadata, withPhasesByName, withRequiredFieldsByName } from "./workflow.js";
 
 export type HealthCheckStatus = "healthy" | "needs_attention" | "unhealthy";
 export type HealthCheckComponentStatus = "pass" | "info" | "warning" | "fail";
@@ -80,19 +79,21 @@ export interface HealthCheckSuggestedAction {
   interfaces: ActionInterfaces<Record<string, unknown>>;
   safety: ReturnType<typeof actionSafety>;
   execution: ReturnType<typeof actionExecution>;
-  workflow: ReturnType<typeof withPhasesByName<{
-    version: 1;
-    start: "suggested_action";
-    continue_from: string[];
-    phases: Array<{
-      phase: string;
-      order: number;
-      action_source: string;
-      tool: "dashboard" | "project_list" | "install" | "context_pack" | "capture_session" | "sync_init";
-      required_when: string;
-      required_fields: string[];
-    }>;
-  }>>;
+  workflow: ReturnType<
+    typeof withPhasesByName<{
+      version: 1;
+      start: "suggested_action";
+      continue_from: string[];
+      phases: Array<{
+        phase: string;
+        order: number;
+        action_source: string;
+        tool: "dashboard" | "project_list" | "install" | "context_pack" | "capture_session" | "sync_init";
+        required_when: string;
+        required_fields: string[];
+      }>;
+    }>
+  >;
 }
 
 export interface HealthCheckStats {
@@ -163,11 +164,15 @@ function isPrivateRecord(record: MorynRecord): boolean {
 
 function recordEventIds(events: MorynEvent[], recordIds: Set<string>): string[] {
   return events
-    .filter((event) => event.op === "upsert_record" ? recordIds.has(event.record.id) : recordIds.has(event.record_id))
+    .filter((event) => (event.op === "upsert_record" ? recordIds.has(event.record.id) : recordIds.has(event.record_id)))
     .map((event) => event.event_id);
 }
 
-function evidenceForRecords(source: string, records: MorynRecord[], events: MorynEvent[]): Array<{ source: string; record_id: string; event_id?: string }> {
+function evidenceForRecords(
+  source: string,
+  records: MorynRecord[],
+  events: MorynEvent[]
+): Array<{ source: string; record_id: string; event_id?: string }> {
   return records.map((record) => {
     const event = events.find((candidate) => candidate.op === "upsert_record" && candidate.record.id === record.id);
     return {
@@ -184,8 +189,16 @@ function healthStatus(checks: HealthCheckItem[]): HealthCheckStatus {
   return "healthy";
 }
 
-function healthSummary(status: HealthCheckStatus, checks: HealthCheckItem[], actions: HealthCheckSuggestedAction[]): HealthCheckSummary {
-  const nextStep = actions[0]?.command ?? (status === "healthy" ? "Moryn health check passed; continue with context pack, capture, and recall." : "Review failed health checks before relying on this store.");
+function healthSummary(
+  status: HealthCheckStatus,
+  checks: HealthCheckItem[],
+  actions: HealthCheckSuggestedAction[]
+): HealthCheckSummary {
+  const nextStep =
+    actions[0]?.command ??
+    (status === "healthy"
+      ? "Moryn health check passed; continue with context pack, capture, and recall."
+      : "Review failed health checks before relying on this store.");
   return {
     status,
     passing_checks: checks.filter((check) => check.status === "pass").length,
@@ -308,7 +321,8 @@ function dashboardAccessCheck(): HealthCheckItem {
     status: "info",
     label: "Dashboard access",
     summary: "Dashboard can be opened locally for review.",
-    reason: "Use the dashboard command when a browser review surface is useful; the health check does not start a server."
+    reason:
+      "Use the dashboard command when a browser review surface is useful; the health check does not start a server."
   };
 }
 
@@ -329,7 +343,8 @@ function syncRemoteCheck(syncRemote: string | undefined): HealthCheckItem {
     status: "info",
     label: "Sync remote not supplied",
     summary: "No sync remote was supplied.",
-    reason: "Pass --sync-remote when checking cross-device handoff readiness; Health Check will still not configure sync automatically."
+    reason:
+      "Pass --sync-remote when checking cross-device handoff readiness; Health Check will still not configure sync automatically."
   };
 }
 
@@ -340,11 +355,15 @@ function hostAdapterCheck(readiness: HealthCheckSetupReadiness): HealthCheckItem
     status: "pass",
     label: "Host adapter",
     summary: `${readiness.host_adapter} adapter commands are available.`,
-    reason: "Moryn can generate host-specific MCP registration, context pack, and capture commands without mutating host configuration."
+    reason:
+      "Moryn can generate host-specific MCP registration, context pack, and capture commands without mutating host configuration."
   };
 }
 
-function openDashboardAction(readiness: HealthCheckSetupReadiness, projectId: string | undefined): HealthCheckSuggestedAction {
+function openDashboardAction(
+  readiness: HealthCheckSetupReadiness,
+  projectId: string | undefined
+): HealthCheckSuggestedAction {
   return withSuggestedActionMetadata({
     action_id: "open_dashboard",
     recommended_action: "open_dashboard",
@@ -374,7 +393,10 @@ function reviewInstallPlanAction(readiness: HealthCheckSetupReadiness): HealthCh
   });
 }
 
-function runContextPackAction(readiness: HealthCheckSetupReadiness, projectId: string | undefined): HealthCheckSuggestedAction {
+function runContextPackAction(
+  readiness: HealthCheckSetupReadiness,
+  projectId: string | undefined
+): HealthCheckSuggestedAction {
   return withSuggestedActionMetadata({
     action_id: "run_context_pack",
     recommended_action: "run_context_pack",
@@ -391,7 +413,10 @@ function runContextPackAction(readiness: HealthCheckSetupReadiness, projectId: s
   });
 }
 
-function captureSessionAction(readiness: HealthCheckSetupReadiness, projectId: string | undefined): HealthCheckSuggestedAction {
+function captureSessionAction(
+  readiness: HealthCheckSetupReadiness,
+  projectId: string | undefined
+): HealthCheckSuggestedAction {
   return withSuggestedActionMetadata({
     action_id: "capture_session",
     recommended_action: "capture_session",
@@ -422,7 +447,11 @@ function configureSyncRemoteAction(): HealthCheckSuggestedAction {
   });
 }
 
-function stats(input: HealthCheckDiagnoseInput, projectRecords: MorynRecord[], reviewCandidates: MorynRecord[]): HealthCheckStats {
+function stats(
+  input: HealthCheckDiagnoseInput,
+  projectRecords: MorynRecord[],
+  reviewCandidates: MorynRecord[]
+): HealthCheckStats {
   return {
     visible_records: input.records.length,
     excluded_private_records: input.excluded_private_records ?? input.records.filter(isPrivateRecord).length,
@@ -430,9 +459,15 @@ function stats(input: HealthCheckDiagnoseInput, projectRecords: MorynRecord[], r
     project_records: projectRecords.length,
     capture_review_candidates: reviewCandidates.length,
     canonical_records: input.records.filter((record) => record.state === "canonical").length,
-    session_synthesis_host_authored: projectRecords.filter((record) => record.kind === "session_summary" && record.content.synthesis_mode === "host_authored").length,
-    session_synthesis_evidence_synthesized: projectRecords.filter((record) => record.kind === "session_summary" && record.content.synthesis_mode === "evidence_synthesized").length,
-    session_synthesis_minimal_fallback: projectRecords.filter((record) => record.kind === "session_summary" && record.content.synthesis_mode === "minimal_fallback").length
+    session_synthesis_host_authored: projectRecords.filter(
+      (record) => record.kind === "session_summary" && record.content.synthesis_mode === "host_authored"
+    ).length,
+    session_synthesis_evidence_synthesized: projectRecords.filter(
+      (record) => record.kind === "session_summary" && record.content.synthesis_mode === "evidence_synthesized"
+    ).length,
+    session_synthesis_minimal_fallback: projectRecords.filter(
+      (record) => record.kind === "session_summary" && record.content.synthesis_mode === "minimal_fallback"
+    ).length
   };
 }
 
@@ -474,7 +509,10 @@ function projectContextCheck(projectId: string | undefined, projectRecords: Mory
     category: "project",
     status: projectRecords.length > 0 ? "pass" : "info",
     label: "Project context",
-    summary: projectRecords.length > 0 ? "Project-specific records are visible." : "Project id is explicit, but no visible records matched it yet.",
+    summary:
+      projectRecords.length > 0
+        ? "Project-specific records are visible."
+        : "Project id is explicit, but no visible records matched it yet.",
     reason: `${projectRecords.length} visible record${projectRecords.length === 1 ? "" : "s"} matched project ${projectId}.`
   };
 }
@@ -511,7 +549,8 @@ function mcpRuntimeFreshnessCheck(): HealthCheckItem {
     status: "info",
     label: "MCP runtime freshness",
     summary: "MCP hosts load Moryn when the host process starts.",
-    reason: "After upgrading, rebuilding, or linking a local checkout, restart the MCP host if MCP tool output disagrees with the CLI or dashboard."
+    reason:
+      "After upgrading, rebuilding, or linking a local checkout, restart the MCP host if MCP tool output disagrees with the CLI or dashboard."
   };
 }
 
@@ -521,10 +560,12 @@ function privateBoundaryCheck(excludedPrivateRecords: number): HealthCheckItem {
     category: "privacy",
     status: excludedPrivateRecords > 0 ? "info" : "pass",
     label: "Private boundary",
-    summary: excludedPrivateRecords > 0 ? "Private records are hidden by default." : "No private records were excluded.",
-    reason: excludedPrivateRecords > 0
-      ? `${excludedPrivateRecords} private record${excludedPrivateRecords === 1 ? "" : "s"} excluded from this read-only report.`
-      : "The default read boundary did not need to hide private-tagged records."
+    summary:
+      excludedPrivateRecords > 0 ? "Private records are hidden by default." : "No private records were excluded.",
+    reason:
+      excludedPrivateRecords > 0
+        ? `${excludedPrivateRecords} private record${excludedPrivateRecords === 1 ? "" : "s"} excluded from this read-only report.`
+        : "The default read boundary did not need to hide private-tagged records."
   };
 }
 
@@ -564,24 +605,38 @@ export function diagnoseHealthCheck(input: HealthCheckDiagnoseInput): HealthChec
     ...(!input.sync_remote ? [configureSyncRemoteAction()] : [])
   ].slice(0, limit);
   const status = healthStatus(checks);
-  const recordReadModel = input.record_read_model ? {
-    status: input.record_read_model.source === "read_model" ? "fresh" as const : input.record_read_model.repaired ? "repaired" as const : "degraded" as const,
-    source: input.record_read_model.source,
-    repaired: input.record_read_model.repaired,
-    record_count: input.record_read_model.records.length,
-    event_count: input.record_read_model.event_manifest.count,
-    ...(input.record_read_model.fallback_reason ? { fallback_reason: input.record_read_model.fallback_reason } : {})
-  } : undefined;
-  const retrievalIndex = input.retrieval_index ? {
-    status: input.retrieval_index.source === "retrieval_index" ? "fresh" as const : input.retrieval_index.repaired ? "repaired" as const : "degraded" as const,
-    source: input.retrieval_index.source,
-    repaired: input.retrieval_index.repaired,
-    total_active_records: input.retrieval_index.total_active_records,
-    global_records: input.retrieval_index.global_records,
-    project_buckets: input.retrieval_index.project_buckets,
-    candidate_count: input.retrieval_index.candidate_count,
-    ...(input.retrieval_index.fallback_reason ? { fallback_reason: input.retrieval_index.fallback_reason } : {})
-  } : undefined;
+  const recordReadModel = input.record_read_model
+    ? {
+        status:
+          input.record_read_model.source === "read_model"
+            ? ("fresh" as const)
+            : input.record_read_model.repaired
+              ? ("repaired" as const)
+              : ("degraded" as const),
+        source: input.record_read_model.source,
+        repaired: input.record_read_model.repaired,
+        record_count: input.record_read_model.records.length,
+        event_count: input.record_read_model.event_manifest.count,
+        ...(input.record_read_model.fallback_reason ? { fallback_reason: input.record_read_model.fallback_reason } : {})
+      }
+    : undefined;
+  const retrievalIndex = input.retrieval_index
+    ? {
+        status:
+          input.retrieval_index.source === "retrieval_index"
+            ? ("fresh" as const)
+            : input.retrieval_index.repaired
+              ? ("repaired" as const)
+              : ("degraded" as const),
+        source: input.retrieval_index.source,
+        repaired: input.retrieval_index.repaired,
+        total_active_records: input.retrieval_index.total_active_records,
+        global_records: input.retrieval_index.global_records,
+        project_buckets: input.retrieval_index.project_buckets,
+        candidate_count: input.retrieval_index.candidate_count,
+        ...(input.retrieval_index.fallback_reason ? { fallback_reason: input.retrieval_index.fallback_reason } : {})
+      }
+    : undefined;
   return nonPrivateTextLeakGuard({
     read_only: true,
     version: 1,

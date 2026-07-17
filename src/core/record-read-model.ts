@@ -3,7 +3,7 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { replayEvents } from "./replay.js";
 import { parseRecord } from "./schema.js";
-import { readEventFileManifest, readEvents, type EventFileManifest } from "./store.js";
+import { type EventFileManifest, readEventFileManifest, readEvents } from "./store.js";
 import type { MorynEvent, MorynRecord } from "./types.js";
 
 export interface EventManifest extends EventFileManifest {}
@@ -17,7 +17,9 @@ export interface RecordReadModelV1 {
 
 export function eventManifest(events: MorynEvent[]): EventManifest {
   const identities = [...events]
-    .sort((left, right) => left.created_at.localeCompare(right.created_at) || left.event_id.localeCompare(right.event_id))
+    .sort(
+      (left, right) => left.created_at.localeCompare(right.created_at) || left.event_id.localeCompare(right.event_id)
+    )
     .map((event) => `${event.created_at}\u0000${event.event_id}\u0000${event.op}`);
   return {
     count: identities.length,
@@ -25,10 +27,17 @@ export function eventManifest(events: MorynEvent[]): EventManifest {
   };
 }
 
-export function buildRecordReadModel(events: MorynEvent[], records: MorynRecord[], manifest: EventManifest): RecordReadModelV1 {
+export function buildRecordReadModel(
+  events: MorynEvent[],
+  records: MorynRecord[],
+  manifest: EventManifest
+): RecordReadModelV1 {
   return {
     version: 1,
-    generated_at: [...events].sort((left, right) => right.created_at.localeCompare(left.created_at) || right.event_id.localeCompare(left.event_id))[0]?.created_at ?? "1970-01-01T00:00:00.000Z",
+    generated_at:
+      [...events].sort(
+        (left, right) => right.created_at.localeCompare(left.created_at) || right.event_id.localeCompare(left.event_id)
+      )[0]?.created_at ?? "1970-01-01T00:00:00.000Z",
     event_manifest: manifest,
     records: [...records].sort((left, right) => left.id.localeCompare(right.id))
   };
@@ -57,7 +66,14 @@ function parseReadModel(value: unknown): RecordReadModelV1 {
   const model = value as Record<string, unknown>;
   if (model.version !== 1) throw new Error("version_mismatch");
   const manifest = model.event_manifest as Record<string, unknown> | undefined;
-  if (!manifest || typeof manifest.count !== "number" || typeof manifest.digest !== "string" || !Array.isArray(model.records) || typeof model.generated_at !== "string") throw new Error("invalid");
+  if (
+    !manifest ||
+    typeof manifest.count !== "number" ||
+    typeof manifest.digest !== "string" ||
+    !Array.isArray(model.records) ||
+    typeof model.generated_at !== "string"
+  )
+    throw new Error("invalid");
   return {
     version: 1,
     generated_at: model.generated_at,
@@ -77,7 +93,9 @@ async function writeReadModel(path: string, model: RecordReadModelV1): Promise<v
   }
 }
 
-async function authoritativeReplay(storePath: string): Promise<{ events: MorynEvent[]; records: MorynRecord[]; manifest: EventManifest }> {
+async function authoritativeReplay(
+  storePath: string
+): Promise<{ events: MorynEvent[]; records: MorynRecord[]; manifest: EventManifest }> {
   let events = await readEvents(storePath);
   let manifest = await readEventFileManifest(storePath);
   if (manifest.count !== events.length) {
@@ -87,7 +105,10 @@ async function authoritativeReplay(storePath: string): Promise<{ events: MorynEv
   return { events, records: [...replayEvents(events).values()], manifest };
 }
 
-export async function readCurrentRecords(storePath: string, options: ReadCurrentRecordsOptions = {}): Promise<CurrentRecordReadResult> {
+export async function readCurrentRecords(
+  storePath: string,
+  options: ReadCurrentRecordsOptions = {}
+): Promise<CurrentRecordReadResult> {
   const path = join(storePath, "snapshots", "records.json");
   const before = await readEventFileManifest(storePath);
   let fallbackReason: RecordReadFallbackReason | undefined;
@@ -107,7 +128,10 @@ export async function readCurrentRecords(storePath: string, options: ReadCurrent
   const replay = await authoritativeReplay(storePath);
   let repaired = false;
   try {
-    await (options.write_read_model ?? writeReadModel)(path, buildRecordReadModel(replay.events, replay.records, replay.manifest));
+    await (options.write_read_model ?? writeReadModel)(
+      path,
+      buildRecordReadModel(replay.events, replay.records, replay.manifest)
+    );
     repaired = true;
   } catch {}
   return {

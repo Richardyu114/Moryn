@@ -12,7 +12,12 @@ const ARCHIVE_MARKER_REASON = "Memory doctor: e2e marker/noise candidate";
 export type DashboardMaintenancePlanType = "project_identity_repair" | "candidate_noise_archive";
 
 export interface DashboardMaintenanceSafetyCheck {
-  id: "dry_run_completed" | "target_project_explicit" | "candidate_noise_detected" | "no_private_records" | "append_only";
+  id:
+    | "dry_run_completed"
+    | "target_project_explicit"
+    | "candidate_noise_detected"
+    | "no_private_records"
+    | "append_only";
   label: string;
   ok: boolean;
 }
@@ -72,37 +77,37 @@ export interface DashboardMaintenanceOptions {
 
 export type DashboardMaintenanceApprovalResult =
   | {
-    ok: true;
-    status: "applied";
-    plan_id: string;
-    plan_hash: string;
-    from_project_id?: string;
-    to_project_id?: string;
-    migrated_records: number;
-    records_changed: number;
-    events_written: number;
-    record_ids: string[];
-    event_ids: string[];
-    trace: DashboardMaintenanceApprovalTrace;
-  }
+      ok: true;
+      status: "applied";
+      plan_id: string;
+      plan_hash: string;
+      from_project_id?: string;
+      to_project_id?: string;
+      migrated_records: number;
+      records_changed: number;
+      events_written: number;
+      record_ids: string[];
+      event_ids: string[];
+      trace: DashboardMaintenanceApprovalTrace;
+    }
   | {
-    ok: true;
-    status: "applied";
-    plan_id: string;
-    plan_hash: string;
-    archived_records: number;
-    records_changed: number;
-    events_written: number;
-    record_ids: string[];
-    event_ids: string[];
-    trace: DashboardMaintenanceApprovalTrace;
-  }
+      ok: true;
+      status: "applied";
+      plan_id: string;
+      plan_hash: string;
+      archived_records: number;
+      records_changed: number;
+      events_written: number;
+      record_ids: string[];
+      event_ids: string[];
+      trace: DashboardMaintenanceApprovalTrace;
+    }
   | {
-    ok: false;
-    status: "plan_not_found" | "stale_plan";
-    plan_id: string;
-    message: string;
-  };
+      ok: false;
+      status: "plan_not_found" | "stale_plan";
+      plan_id: string;
+      message: string;
+    };
 
 function isPrivateRecord(record: MorynRecord): boolean {
   return record.tags.some((tag) => PRIVATE_RECORD_TAGS.has(tag.toLowerCase()));
@@ -127,7 +132,11 @@ function meaningfulTagProjectCounts(records: MorynRecord[]): Map<string, number>
   return new Map([...projectIdsByTag].map(([tag, projectIds]) => [tag, projectIds.size]));
 }
 
-function hasSharedMeaningfulTag(leftTags: Set<string>, record: MorynRecord, tagProjectCounts: Map<string, number>): boolean {
+function hasSharedMeaningfulTag(
+  leftTags: Set<string>,
+  record: MorynRecord,
+  tagProjectCounts: Map<string, number>
+): boolean {
   return meaningfulTags(record).some((tag) => leftTags.has(tag) && (tagProjectCounts.get(tag) ?? 0) <= 2);
 }
 
@@ -188,7 +197,11 @@ function timelineEventCommand(eventId: string, projectId: string | undefined): s
   return parts.join(" ");
 }
 
-function approvalTrace(eventIds: string[], recordIds: string[], projectId: string | undefined): DashboardMaintenanceApprovalTrace {
+function approvalTrace(
+  eventIds: string[],
+  recordIds: string[],
+  projectId: string | undefined
+): DashboardMaintenanceApprovalTrace {
   return {
     timeline_commands: eventIds.map((eventId) => timelineEventCommand(eventId, projectId)),
     recall_commands: recordIds.map((recordId) => recallCommand(recordId, projectId))
@@ -225,13 +238,9 @@ function planHash(input: {
 
 function candidateArchiveApplyCommand(records: MorynRecord[]): string {
   return records
-    .map((record) => [
-      "moryn",
-      "archive",
-      shellQuote(record.id),
-      "--reason",
-      shellQuote(ARCHIVE_MARKER_REASON)
-    ].join(" "))
+    .map((record) =>
+      ["moryn", "archive", shellQuote(record.id), "--reason", shellQuote(ARCHIVE_MARKER_REASON)].join(" ")
+    )
     .join(" && ");
 }
 
@@ -290,7 +299,8 @@ function buildCandidateNoiseArchivePlan(
       issue: `${pluralize(records.length, "candidate record")} look${records.length === 1 ? "s" : ""} like smoke/e2e marker noise.`,
       impact: "Candidate review stays noisy until confirmed test markers are archived.",
       recommended_action: "Archive these candidates only after confirming they are test noise or obsolete markers.",
-      rollback_path: "If this was wrong, use the record ids and timeline events below to inspect the append-only archive before restoring manually.",
+      rollback_path:
+        "If this was wrong, use the record ids and timeline events below to inspect the append-only archive before restoring manually.",
       evidence: [
         `Matched records: ${pluralize(records.length, "record")}; ${stateSummary(states)}.`,
         `Private records: ${privateRecordsSummary(skippedPrivateRecords, includedPrivateRecords)}`,
@@ -312,9 +322,7 @@ function buildProjectIdentityPlan(
   toProjectId: string,
   includePrivate: boolean
 ): DashboardMaintenancePlan | undefined {
-  const matchingRecords = allRecords
-    .filter((record) => record.project_id === fromProjectId)
-    .sort(stableRecordSort);
+  const matchingRecords = allRecords.filter((record) => record.project_id === fromProjectId).sort(stableRecordSort);
   const records = matchingRecords.filter((record) => includePrivate || !isPrivateRecord(record));
   if (records.length === 0) return undefined;
 
@@ -395,11 +403,14 @@ export function buildDashboardMaintenance(
   const currentProjectTags = new Set(currentProjectRecords.flatMap(meaningfulTags));
   const tagProjectCounts = meaningfulTagProjectCounts(allRecords);
 
-  const relatedProjectIds = [...new Set(allRecords
-    .filter((record) => record.project_id && record.project_id !== projectId)
-    .filter((record) => hasSharedMeaningfulTag(currentProjectTags, record, tagProjectCounts))
-    .map((record) => record.project_id as string))]
-    .sort();
+  const relatedProjectIds = [
+    ...new Set(
+      allRecords
+        .filter((record) => record.project_id && record.project_id !== projectId)
+        .filter((record) => hasSharedMeaningfulTag(currentProjectTags, record, tagProjectCounts))
+        .map((record) => record.project_id as string)
+    )
+  ].sort();
 
   const plans = relatedProjectIds
     .map((fromProjectId) => buildProjectIdentityPlan(allRecords, fromProjectId, projectId, includePrivate))
@@ -413,7 +424,10 @@ export function buildDashboardMaintenance(
   };
 }
 
-async function currentMaintenancePlans(storePath: string, options: DashboardMaintenanceOptions): Promise<DashboardMaintenancePlan[]> {
+async function currentMaintenancePlans(
+  storePath: string,
+  options: DashboardMaintenanceOptions
+): Promise<DashboardMaintenancePlan[]> {
   const events = await readEvents(storePath);
   const allRecords = [...replayEvents(events).values()];
   return buildDashboardMaintenance(allRecords, options).plans;
@@ -493,6 +507,10 @@ export async function approveMaintenancePlan(
     events_written: applied.events.length,
     record_ids: plan.record_ids,
     event_ids: applied.events.map((event) => event.event_id),
-    trace: approvalTrace(applied.events.map((event) => event.event_id), plan.record_ids, toProjectId)
+    trace: approvalTrace(
+      applied.events.map((event) => event.event_id),
+      plan.record_ids,
+      toProjectId
+    )
   };
 }

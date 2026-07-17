@@ -1,9 +1,9 @@
-import { join, resolve } from "node:path";
 import { stat } from "node:fs/promises";
-import { readStoreConfig, initializeStore } from "./config.js";
-import { readProjectConfig, initializeProjectConfig } from "./project.js";
-import { normalizeHostId, planInstall, type HostAdapterId, type InstallPlanAction } from "./host-adapters.js";
-import { inspectHostActivation, type HostActivationStatus } from "./host-activation.js";
+import { join, resolve } from "node:path";
+import { initializeStore, readStoreConfig } from "./config.js";
+import { type HostActivationStatus, inspectHostActivation } from "./host-activation.js";
+import { type HostAdapterId, type InstallPlanAction, normalizeHostId, planInstall } from "./host-adapters.js";
+import { initializeProjectConfig, readProjectConfig } from "./project.js";
 
 export type SetupWizardCheckId = "store" | "project" | "sync" | "host_adapter";
 export type SetupWizardCheckStatus = "ready" | "missing" | "manual" | "skipped";
@@ -126,7 +126,9 @@ async function assertProjectPathCanBeDirectory(projectPath: string): Promise<voi
   try {
     const stats = await stat(projectPath);
     if (!stats.isDirectory()) {
-      throw new Error(`Project path does not exist: ${projectPath}. Run project_init for a new project, or pass the correct project_path/project_id.`);
+      throw new Error(
+        `Project path does not exist: ${projectPath}. Run project_init for a new project, or pass the correct project_path/project_id.`
+      );
     }
   } catch (error) {
     if (isNotFoundError(error)) return;
@@ -183,7 +185,8 @@ function syncCheck(syncRemote?: string): SetupWizardCheck {
     ? {
         id: "sync",
         status: "manual",
-        message: "Sync remote was supplied; setup includes it in generated commands but does not initialize Git sync automatically."
+        message:
+          "Sync remote was supplied; setup includes it in generated commands but does not initialize Git sync automatically."
       }
     : {
         id: "sync",
@@ -197,9 +200,10 @@ function hostAdapterCheck(host?: string): SetupWizardCheck {
   return {
     id: "host_adapter",
     status: "manual",
-    message: normalized === "all"
-      ? "Host MCP registration is printed for each adapter and must be applied outside Moryn."
-      : `Host MCP registration for ${normalized} is printed and must be applied outside Moryn.`
+    message:
+      normalized === "all"
+        ? "Host MCP registration is printed for each adapter and must be applied outside Moryn."
+        : `Host MCP registration for ${normalized} is printed and must be applied outside Moryn.`
   };
 }
 
@@ -207,7 +211,10 @@ function checksById(checks: SetupWizardCheck[]): Record<SetupWizardCheckId, Setu
   return Object.fromEntries(checks.map((check) => [check.id, check])) as Record<SetupWizardCheckId, SetupWizardCheck>;
 }
 
-function plannedWrites(input: SetupWizardInput, checks: Record<SetupWizardCheckId, SetupWizardCheck>): SetupWizardPlannedWrite[] {
+function plannedWrites(
+  input: SetupWizardInput,
+  checks: Record<SetupWizardCheckId, SetupWizardCheck>
+): SetupWizardPlannedWrite[] {
   const writes: SetupWizardPlannedWrite[] = [];
   if (checks.store.status === "missing") {
     writes.push({
@@ -263,7 +270,9 @@ async function applySetup(input: SetupWizardInput, actions: InstallPlanAction[])
   const applied = new Set<string>(appliedActionIds);
   return {
     applied_action_ids: appliedActionIds,
-    skipped_action_ids: uniqueActions(actions).map((action) => action.action).filter((action) => !applied.has(action)),
+    skipped_action_ids: uniqueActions(actions)
+      .map((action) => action.action)
+      .filter((action) => !applied.has(action)),
     host_config_writes: "none"
   };
 }
@@ -302,17 +311,18 @@ export async function setupWizard(input: SetupWizardInput): Promise<SetupWizardP
     }
   }
   const actions = installPlan.actions;
-  const next = input.apply || status === "ready"
-    ? {
-        recommended_action: "run_context_pack" as const,
-        command: installPlan.next.command,
-        safe_to_run: true
-      }
-    : {
-        recommended_action: "apply_setup" as const,
-        command: setupCommand(input),
-        safe_to_run: false
-      };
+  const next =
+    input.apply || status === "ready"
+      ? {
+          recommended_action: "run_context_pack" as const,
+          command: installPlan.next.command,
+          safe_to_run: true
+        }
+      : {
+          recommended_action: "apply_setup" as const,
+          command: setupCommand(input),
+          safe_to_run: false
+        };
 
   return {
     ok: true,
@@ -332,10 +342,7 @@ export async function setupWizard(input: SetupWizardInput): Promise<SetupWizardP
     planned_writes_by_id: Object.fromEntries(writes.map((write) => [write.id, write])),
     actions,
     actions_by_id: installPlan.actions_by_id,
-    warnings: [
-      "Setup never mutates host configuration files.",
-      ...installPlan.warnings
-    ],
+    warnings: ["Setup never mutates host configuration files.", ...installPlan.warnings],
     next,
     ...(applyResult ? { apply_result: applyResult } : {}),
     ...(activationStatus ? { activation_status: activationStatus } : {}),
