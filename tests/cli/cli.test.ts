@@ -1,26 +1,25 @@
-import { execFile } from "node:child_process";
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
-import { readEvents } from "../../src/core/store.js";
+import { CHECKPOINT_SELECTION_SOURCES } from "../../src/core/checkpoint.js";
+import { BOOT_SELECTION_SOURCES, createEngine } from "../../src/core/engine.js";
 import { learningRecordIdentity } from "../../src/core/learning-ingestion.js";
 import { SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES } from "../../src/core/semantic-consolidation.js";
-import { BOOT_SELECTION_SOURCES, createEngine } from "../../src/core/engine.js";
-import { CHECKPOINT_SELECTION_SOURCES } from "../../src/core/checkpoint.js";
+import { readEvents } from "../../src/core/store.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
 const exec = promisify(execFile);
 const repoRoot = process.cwd();
-const require = createRequire(import.meta.url);
-const tsxCliPath = require.resolve("tsx/cli");
-const tsxLoader = require.resolve("tsx/esm");
-const cliPath = join(repoRoot, "src/cli.ts");
+const cliJsPath = join(repoRoot, "dist/cli.js");
 
-async function execInTty(command: string, args: string[], options: { cwd?: string; env?: NodeJS.ProcessEnv } = {}): Promise<{ stdout: string; stderr: string }> {
+async function execInTty(
+  command: string,
+  args: string[],
+  options: { cwd?: string; env?: NodeJS.ProcessEnv } = {}
+): Promise<{ stdout: string; stderr: string }> {
   const escaped = [command, ...args].map((part) => `'${part.replace(/'/g, `'\\''`)}'`).join(" ");
   return new Promise((resolve, reject) => {
     const child = spawn("script", ["-q", "-e", "-c", escaped, "/dev/null"], {
@@ -117,7 +116,8 @@ const NEXT_ACTION_SELECTION_SOURCES = {
   error_required_input: "error.next_action.execution.required_inputs_by_field.<field>",
   warning_required_input: "warning.next_action.execution.required_inputs_by_field.<field>",
   error_required_input_argument_path: "error.next_action.execution.required_inputs_by_argument_path.<argument_path>",
-  warning_required_input_argument_path: "warning.next_action.execution.required_inputs_by_argument_path.<argument_path>",
+  warning_required_input_argument_path:
+    "warning.next_action.execution.required_inputs_by_argument_path.<argument_path>",
   error_argument: "error.next_action.arguments_by_name.<argument>",
   warning_argument: "warning.next_action.arguments_by_name.<argument>",
   error_argument_source: "error.next_action.argument_sources.<field>",
@@ -147,7 +147,8 @@ const LIFECYCLE_ACTION_SELECTION_SOURCES = {
   ordered_required_field: "next.actions[].required_fields_by_name.<field>",
   required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
   ordered_required_input: "next.actions[].execution.required_inputs_by_field.<field>",
-  required_input_argument_path: "next.actions_by_id.<action>.execution.required_inputs_by_argument_path.<argument_path>",
+  required_input_argument_path:
+    "next.actions_by_id.<action>.execution.required_inputs_by_argument_path.<argument_path>",
   ordered_required_input_argument_path: "next.actions[].execution.required_inputs_by_argument_path.<argument_path>",
   argument_source: "next.actions_by_id.<action>.argument_sources.<field>",
   ordered_argument_source: "next.actions[].argument_sources.<field>"
@@ -288,8 +289,10 @@ const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   required_field: "operations_by_id.<operation>.required_fields_by_name.<field>",
   allowed_value: "operations_by_id.<operation>.required_fields_by_name.<field>.allowed_values[]",
   required_input: "operations_by_id.<operation>.execution.required_inputs_by_field.<field>",
-  required_input_argument_path: "operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>",
-  required_input_path_by_value_path: "operations_by_id.<operation>.execution.required_input_paths_by_value_path.<value_path>",
+  required_input_argument_path:
+    "operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>",
+  required_input_path_by_value_path:
+    "operations_by_id.<operation>.execution.required_input_paths_by_value_path.<value_path>",
   argument: "operations_by_id.<operation>.arguments_by_name.<argument>",
   argument_allowed_value: "operations_by_id.<operation>.arguments_by_name.<argument>.allowed_values[]",
   argument_source: "operations_by_id.<operation>.argument_sources.<field>",
@@ -339,7 +342,14 @@ function expectActionInterfaces(action: {
   command: string;
   arguments: Record<string, unknown>;
   interfaces?: {
-    cli?: { command?: string; command_line?: string; argv?: string[]; executable?: string; args?: string[]; exec_file?: { executable?: string; args?: string[] } };
+    cli?: {
+      command?: string;
+      command_line?: string;
+      argv?: string[];
+      executable?: string;
+      args?: string[];
+      exec_file?: { executable?: string; args?: string[] };
+    };
     mcp?: { tool?: string; arguments?: Record<string, unknown> };
   };
 }) {
@@ -382,8 +392,45 @@ function expectLifecycleActionSelectionSources(action: {
     next_step?: string;
     blocked_by?: string[];
     missing_required_fields?: string[];
-    required_inputs?: Array<{ field?: string; argument_path?: string; argument_paths?: string[]; mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>; cli_targets?: Array<{ flag?: string; flags?: string[]; positional?: string; type?: string; required?: boolean; repeatable?: boolean; preferred?: boolean }> }>;
-    required_inputs_by_field?: Record<string, { field?: string; argument_path?: string; argument_paths?: string[]; mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>; cli_targets?: Array<{ flag?: string; flags?: string[]; positional?: string; type?: string; required?: boolean; repeatable?: boolean; preferred?: boolean }> }>;
+    required_inputs?: Array<{
+      field?: string;
+      argument_path?: string;
+      argument_paths?: string[];
+      mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>;
+      cli_targets?: Array<{
+        flag?: string;
+        flags?: string[];
+        positional?: string;
+        type?: string;
+        required?: boolean;
+        repeatable?: boolean;
+        preferred?: boolean;
+      }>;
+    }>;
+    required_inputs_by_field?: Record<
+      string,
+      {
+        field?: string;
+        argument_path?: string;
+        argument_paths?: string[];
+        mcp_targets?: Array<{
+          argument?: string;
+          path?: string;
+          type?: string;
+          required?: boolean;
+          preferred?: boolean;
+        }>;
+        cli_targets?: Array<{
+          flag?: string;
+          flags?: string[];
+          positional?: string;
+          type?: string;
+          required?: boolean;
+          repeatable?: boolean;
+          preferred?: boolean;
+        }>;
+      }
+    >;
     requires_user_confirmation?: boolean;
     reason?: string;
   };
@@ -418,8 +465,45 @@ function expectGuideLifecycleStepSelectionSources(action: {
     next_step?: string;
     blocked_by?: string[];
     missing_required_fields?: string[];
-    required_inputs?: Array<{ field?: string; argument_path?: string; argument_paths?: string[]; mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>; cli_targets?: Array<{ flag?: string; flags?: string[]; positional?: string; type?: string; required?: boolean; repeatable?: boolean; preferred?: boolean }> }>;
-    required_inputs_by_field?: Record<string, { field?: string; argument_path?: string; argument_paths?: string[]; mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>; cli_targets?: Array<{ flag?: string; flags?: string[]; positional?: string; type?: string; required?: boolean; repeatable?: boolean; preferred?: boolean }> }>;
+    required_inputs?: Array<{
+      field?: string;
+      argument_path?: string;
+      argument_paths?: string[];
+      mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>;
+      cli_targets?: Array<{
+        flag?: string;
+        flags?: string[];
+        positional?: string;
+        type?: string;
+        required?: boolean;
+        repeatable?: boolean;
+        preferred?: boolean;
+      }>;
+    }>;
+    required_inputs_by_field?: Record<
+      string,
+      {
+        field?: string;
+        argument_path?: string;
+        argument_paths?: string[];
+        mcp_targets?: Array<{
+          argument?: string;
+          path?: string;
+          type?: string;
+          required?: boolean;
+          preferred?: boolean;
+        }>;
+        cli_targets?: Array<{
+          flag?: string;
+          flags?: string[];
+          positional?: string;
+          type?: string;
+          required?: boolean;
+          repeatable?: boolean;
+          preferred?: boolean;
+        }>;
+      }
+    >;
     requires_user_confirmation?: boolean;
     reason?: string;
   };
@@ -442,26 +526,72 @@ function expectGuideLifecycleStepSelectionSources(action: {
   }
 }
 
-function expectGuideEntrypointSelectionSources(action: {
-  action_source?: string;
-  selection_sources?: Record<string, string>;
-  safe_to_run?: boolean;
-  required_fields?: string[];
-  required_fields_by_name?: Record<string, { argument_path?: string }>;
-  execution?: {
-    ready_to_run?: boolean;
-    next_step?: string;
-    blocked_by?: string[];
-    missing_required_fields?: string[];
-    required_inputs?: Array<{ field?: string; argument_path?: string; argument_paths?: string[]; mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>; cli_targets?: Array<{ flag?: string; flags?: string[]; positional?: string; type?: string; required?: boolean; repeatable?: boolean; preferred?: boolean }> }>;
-    required_inputs_by_field?: Record<string, { field?: string; argument_path?: string; argument_paths?: string[]; mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>; cli_targets?: Array<{ flag?: string; flags?: string[]; positional?: string; type?: string; required?: boolean; repeatable?: boolean; preferred?: boolean }> }>;
-    requires_user_confirmation?: boolean;
-    reason?: string;
-  };
-  safety?: {
-    requires_user_confirmation?: boolean;
-  };
-}, expectedActionSource: "startup" | "next") {
+function expectGuideEntrypointSelectionSources(
+  action: {
+    action_source?: string;
+    selection_sources?: Record<string, string>;
+    safe_to_run?: boolean;
+    required_fields?: string[];
+    required_fields_by_name?: Record<string, { argument_path?: string }>;
+    execution?: {
+      ready_to_run?: boolean;
+      next_step?: string;
+      blocked_by?: string[];
+      missing_required_fields?: string[];
+      required_inputs?: Array<{
+        field?: string;
+        argument_path?: string;
+        argument_paths?: string[];
+        mcp_targets?: Array<{
+          argument?: string;
+          path?: string;
+          type?: string;
+          required?: boolean;
+          preferred?: boolean;
+        }>;
+        cli_targets?: Array<{
+          flag?: string;
+          flags?: string[];
+          positional?: string;
+          type?: string;
+          required?: boolean;
+          repeatable?: boolean;
+          preferred?: boolean;
+        }>;
+      }>;
+      required_inputs_by_field?: Record<
+        string,
+        {
+          field?: string;
+          argument_path?: string;
+          argument_paths?: string[];
+          mcp_targets?: Array<{
+            argument?: string;
+            path?: string;
+            type?: string;
+            required?: boolean;
+            preferred?: boolean;
+          }>;
+          cli_targets?: Array<{
+            flag?: string;
+            flags?: string[];
+            positional?: string;
+            type?: string;
+            required?: boolean;
+            repeatable?: boolean;
+            preferred?: boolean;
+          }>;
+        }
+      >;
+      requires_user_confirmation?: boolean;
+      reason?: string;
+    };
+    safety?: {
+      requires_user_confirmation?: boolean;
+    };
+  },
+  expectedActionSource: "startup" | "next"
+) {
   expect(action.action_source).toBe(expectedActionSource);
   expect(action.selection_sources).toEqual(GUIDE_ENTRYPOINT_SELECTION_SOURCES);
   if (typeof action.safe_to_run === "boolean" && Array.isArray(action.required_fields)) {
@@ -496,21 +626,23 @@ function expectRecoveryWorkflow(action: {
 }) {
   expect(action.required_when).toEqual(expect.any(String));
   expect(action.required_when).not.toHaveLength(0);
-  expect(action.workflow).toEqual(withPhasesByName({
-    version: 1,
-    start: "next_action",
-    continue_from: ["error.next_action", "warning.next_action"],
-    phases: [
-      {
-        phase: action.recommended_action,
-        order: 1,
-        action_source: "next_action",
-        tool: action.tool,
-        required_when: action.required_when,
-        required_fields: action.required_fields
-      }
-    ]
-  }));
+  expect(action.workflow).toEqual(
+    withPhasesByName({
+      version: 1,
+      start: "next_action",
+      continue_from: ["error.next_action", "warning.next_action"],
+      phases: [
+        {
+          phase: action.recommended_action,
+          order: 1,
+          action_source: "next_action",
+          tool: action.tool,
+          required_when: action.required_when,
+          required_fields: action.required_fields
+        }
+      ]
+    })
+  );
 }
 
 function expectCandidatePromoteWorkflow(action: {
@@ -530,22 +662,24 @@ function expectCandidatePromoteWorkflow(action: {
     }>;
   };
 }) {
-  expect(action.workflow).toEqual(withPhasesByName({
-    version: 1,
-    start: "next_action",
-    continue_from: ["error.next_action", "warning.next_action", "write.record.id"],
-    phases: [
-      {
-        phase: "ask_user_then_promote_candidate",
-        order: 1,
-        action_source: "write.record.id",
-        tool: "promote",
-        required_when: action.required_when,
-        required_fields: ["record_id"],
-        replace_arguments: { record_id: "write.record.id" }
-      }
-    ]
-  }));
+  expect(action.workflow).toEqual(
+    withPhasesByName({
+      version: 1,
+      start: "next_action",
+      continue_from: ["error.next_action", "warning.next_action", "write.record.id"],
+      phases: [
+        {
+          phase: "ask_user_then_promote_candidate",
+          order: 1,
+          action_source: "write.record.id",
+          tool: "promote",
+          required_when: action.required_when,
+          required_fields: ["record_id"],
+          replace_arguments: { record_id: "write.record.id" }
+        }
+      ]
+    })
+  );
 }
 
 function expectLifecycleWorkflow(action: {
@@ -567,21 +701,23 @@ function expectLifecycleWorkflow(action: {
     }>;
   };
 }) {
-  expect(action.workflow).toEqual(withPhasesByName({
-    version: 1,
-    start: "lifecycle_by_step",
-    continue_from: ["lifecycle_by_step", "lifecycle"],
-    phases: [
-      {
-        phase: action.step,
-        order: 1,
-        action_source: `lifecycle_by_step.${action.step}`,
-        tool: action.tool,
-        required_when: action.required_when,
-        required_fields: action.required_fields
-      }
-    ]
-  }));
+  expect(action.workflow).toEqual(
+    withPhasesByName({
+      version: 1,
+      start: "lifecycle_by_step",
+      continue_from: ["lifecycle_by_step", "lifecycle"],
+      phases: [
+        {
+          phase: action.step,
+          order: 1,
+          action_source: `lifecycle_by_step.${action.step}`,
+          tool: action.tool,
+          required_when: action.required_when,
+          required_fields: action.required_fields
+        }
+      ]
+    })
+  );
 }
 
 function expectGuideEntrypointWorkflow(action: {
@@ -602,21 +738,23 @@ function expectGuideEntrypointWorkflow(action: {
     }>;
   };
 }) {
-  expect(action.workflow).toEqual(withPhasesByName({
-    version: 1,
-    start: "startup",
-    continue_from: ["startup"],
-    phases: [
-      {
-        phase: "call_agent_enter",
-        order: 1,
-        action_source: "startup",
-        tool: action.tool,
-        required_when: action.required_when,
-        required_fields: action.required_fields
-      }
-    ]
-  }));
+  expect(action.workflow).toEqual(
+    withPhasesByName({
+      version: 1,
+      start: "startup",
+      continue_from: ["startup"],
+      phases: [
+        {
+          phase: "call_agent_enter",
+          order: 1,
+          action_source: "startup",
+          tool: action.tool,
+          required_when: action.required_when,
+          required_fields: action.required_fields
+        }
+      ]
+    })
+  );
 }
 
 function expectGuideNextWorkflow(action: {
@@ -637,21 +775,23 @@ function expectGuideNextWorkflow(action: {
     }>;
   };
 }) {
-  expect(action.workflow).toEqual(withPhasesByName({
-    version: 1,
-    start: "next",
-    continue_from: ["next"],
-    phases: [
-      {
-        phase: "call_agent_enter",
-        order: 1,
-        action_source: "next",
-        tool: action.tool,
-        required_when: action.required_when,
-        required_fields: action.required_fields
-      }
-    ]
-  }));
+  expect(action.workflow).toEqual(
+    withPhasesByName({
+      version: 1,
+      start: "next",
+      continue_from: ["next"],
+      phases: [
+        {
+          phase: "call_agent_enter",
+          order: 1,
+          action_source: "next",
+          tool: action.tool,
+          required_when: action.required_when,
+          required_fields: action.required_fields
+        }
+      ]
+    })
+  );
 }
 
 function expectProjectListNextWorkflow(action: {
@@ -673,21 +813,23 @@ function expectProjectListNextWorkflow(action: {
     }>;
   };
 }) {
-  expect(action.workflow).toEqual(withPhasesByName({
-    version: 1,
-    start: "next",
-    continue_from: ["project_list.projects_by_id.<project_id>.next", "project_list.projects[].next"],
-    phases: [
-      {
-        phase: action.recommended_action,
-        order: 1,
-        action_source: "project_list.projects_by_id.<project_id>.next",
-        tool: action.tool,
-        required_when: action.required_when,
-        required_fields: action.required_fields
-      }
-    ]
-  }));
+  expect(action.workflow).toEqual(
+    withPhasesByName({
+      version: 1,
+      start: "next",
+      continue_from: ["project_list.projects_by_id.<project_id>.next", "project_list.projects[].next"],
+      phases: [
+        {
+          phase: action.recommended_action,
+          order: 1,
+          action_source: "project_list.projects_by_id.<project_id>.next",
+          tool: action.tool,
+          required_when: action.required_when,
+          required_fields: action.required_fields
+        }
+      ]
+    })
+  );
 }
 
 function expectActionSafety(action: {
@@ -719,8 +861,47 @@ function expectActionExecution(action: {
     next_step?: string;
     blocked_by?: string[];
     missing_required_fields?: string[];
-    required_inputs?: Array<{ field?: string; argument_path?: string; argument_paths?: string[]; selection_sources?: Record<string, string>; mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>; cli_targets?: Array<{ flag?: string; flags?: string[]; positional?: string; type?: string; required?: boolean; repeatable?: boolean; preferred?: boolean }> }>;
-    required_inputs_by_field?: Record<string, { field?: string; argument_path?: string; argument_paths?: string[]; selection_sources?: Record<string, string>; mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>; cli_targets?: Array<{ flag?: string; flags?: string[]; positional?: string; type?: string; required?: boolean; repeatable?: boolean; preferred?: boolean }> }>;
+    required_inputs?: Array<{
+      field?: string;
+      argument_path?: string;
+      argument_paths?: string[];
+      selection_sources?: Record<string, string>;
+      mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>;
+      cli_targets?: Array<{
+        flag?: string;
+        flags?: string[];
+        positional?: string;
+        type?: string;
+        required?: boolean;
+        repeatable?: boolean;
+        preferred?: boolean;
+      }>;
+    }>;
+    required_inputs_by_field?: Record<
+      string,
+      {
+        field?: string;
+        argument_path?: string;
+        argument_paths?: string[];
+        selection_sources?: Record<string, string>;
+        mcp_targets?: Array<{
+          argument?: string;
+          path?: string;
+          type?: string;
+          required?: boolean;
+          preferred?: boolean;
+        }>;
+        cli_targets?: Array<{
+          flag?: string;
+          flags?: string[];
+          positional?: string;
+          type?: string;
+          required?: boolean;
+          repeatable?: boolean;
+          preferred?: boolean;
+        }>;
+      }
+    >;
     requires_user_confirmation?: boolean;
     reason?: string;
   };
@@ -728,24 +909,35 @@ function expectActionExecution(action: {
     requires_user_confirmation?: boolean;
   };
 }) {
-  const expectedArgumentPaths = action.required_fields.map((field) => action.required_fields_by_name[field]?.argument_path ?? field);
+  const expectedArgumentPaths = action.required_fields.map(
+    (field) => action.required_fields_by_name[field]?.argument_path ?? field
+  );
   const expectedSplitArgumentPaths = expectedArgumentPaths.map((argumentPath) =>
-    argumentPath.split("|").map((path) => path.trim()).filter(Boolean)
+    argumentPath
+      .split("|")
+      .map((path) => path.trim())
+      .filter(Boolean)
   );
   expect(action.execution?.missing_required_fields).toEqual(action.required_fields);
   expect(action.execution?.required_inputs?.map((input) => input.field)).toEqual(action.required_fields);
   expect(action.execution?.required_inputs?.map((input) => input.argument_path)).toEqual(expectedArgumentPaths);
   expect(action.execution?.required_inputs?.map((input) => input.argument_paths)).toEqual(expectedSplitArgumentPaths);
   expect(Object.keys(action.execution?.required_inputs_by_field ?? {})).toEqual(action.required_fields);
-  expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.field)).toEqual(action.required_fields);
-  expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.argument_path)).toEqual(expectedArgumentPaths);
-  expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.argument_paths)).toEqual(expectedSplitArgumentPaths);
-  expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.mcp_targets)).toEqual(
-    action.execution?.required_inputs?.map((input) => input.mcp_targets)
+  expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.field)).toEqual(
+    action.required_fields
   );
-  expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.cli_targets)).toEqual(
-    action.execution?.required_inputs?.map((input) => input.cli_targets)
-  );
+  expect(
+    action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.argument_path)
+  ).toEqual(expectedArgumentPaths);
+  expect(
+    action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.argument_paths)
+  ).toEqual(expectedSplitArgumentPaths);
+  expect(
+    action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.mcp_targets)
+  ).toEqual(action.execution?.required_inputs?.map((input) => input.mcp_targets));
+  expect(
+    action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.cli_targets)
+  ).toEqual(action.execution?.required_inputs?.map((input) => input.cli_targets));
   const expectedRequiredInputSelectionSources = Object.fromEntries(
     Object.entries(action.selection_sources ?? {}).filter(([key]) => key.includes("required_input"))
   );
@@ -753,19 +945,16 @@ function expectActionExecution(action: {
     expect(action.execution?.required_inputs?.map((input) => input.selection_sources)).toEqual(
       action.required_fields.map(() => expectedRequiredInputSelectionSources)
     );
-    expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.selection_sources)).toEqual(
-      action.required_fields.map(() => expectedRequiredInputSelectionSources)
-    );
+    expect(
+      action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.selection_sources)
+    ).toEqual(action.required_fields.map(() => expectedRequiredInputSelectionSources));
   }
   expect(action.execution?.requires_user_confirmation).toBe(Boolean(action.safety?.requires_user_confirmation));
   if (action.required_fields.length > 0) {
     expect(action.execution).toMatchObject({
       ready_to_run: false,
       next_step: "collect_required_fields",
-      blocked_by: [
-        "required_fields",
-        ...(action.safety?.requires_user_confirmation ? ["user_confirmation"] : [])
-      ]
+      blocked_by: ["required_fields", ...(action.safety?.requires_user_confirmation ? ["user_confirmation"] : [])]
     });
   } else if (action.safety?.requires_user_confirmation) {
     expect(action.execution).toMatchObject({
@@ -783,42 +972,46 @@ function expectActionExecution(action: {
   expect(action.execution?.reason).toEqual(expect.any(String));
 }
 
-function expectRefreshChangeNextAction(action: {
-  action_source?: string;
-  recommended_action: string;
-  tool: string;
-  command: string;
-  arguments: Record<string, unknown>;
-  argument_sources?: Record<string, string>;
-  selection_sources?: Record<string, string>;
-  safe_to_run: boolean;
-  required_when: string;
-  required_fields: string[];
-  interfaces?: {
-    cli?: { command?: string };
-    mcp?: { tool?: string; arguments?: Record<string, unknown> };
-  };
-  safety?: {
-    safe_to_auto_run?: boolean;
-    requires_user_confirmation?: boolean;
-    requires_authored_input?: boolean;
-    writes_local_config?: boolean;
-    reasons?: string[];
-  };
-  workflow?: {
-    version?: number;
-    start?: string;
-    continue_from?: string[];
-    phases?: Array<{
-      phase?: string;
-      order?: number;
-      action_source?: string;
-      tool?: string;
-      required_when?: string;
-      required_fields?: string[];
-    }>;
-  };
-}, recordId: string, projectId?: string) {
+function expectRefreshChangeNextAction(
+  action: {
+    action_source?: string;
+    recommended_action: string;
+    tool: string;
+    command: string;
+    arguments: Record<string, unknown>;
+    argument_sources?: Record<string, string>;
+    selection_sources?: Record<string, string>;
+    safe_to_run: boolean;
+    required_when: string;
+    required_fields: string[];
+    interfaces?: {
+      cli?: { command?: string };
+      mcp?: { tool?: string; arguments?: Record<string, unknown> };
+    };
+    safety?: {
+      safe_to_auto_run?: boolean;
+      requires_user_confirmation?: boolean;
+      requires_authored_input?: boolean;
+      writes_local_config?: boolean;
+      reasons?: string[];
+    };
+    workflow?: {
+      version?: number;
+      start?: string;
+      continue_from?: string[];
+      phases?: Array<{
+        phase?: string;
+        order?: number;
+        action_source?: string;
+        tool?: string;
+        required_when?: string;
+        required_fields?: string[];
+      }>;
+    };
+  },
+  recordId: string,
+  projectId?: string
+) {
   expect(action).toMatchObject({
     recommended_action: "call_recall_with_record_id",
     action_source: `refresh.changes_by_record_id.${recordId}.next_action`,
@@ -859,8 +1052,10 @@ function expectRefreshChangeNextAction(action: {
       ordered_required_field: "refresh.changes[].next_action.required_fields_by_name.<field>",
       required_input: "refresh.changes_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
       ordered_required_input: "refresh.changes[].next_action.execution.required_inputs_by_field.<field>",
-      required_input_argument_path: "refresh.changes_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
-      ordered_required_input_argument_path: "refresh.changes[].next_action.execution.required_inputs_by_argument_path.<argument_path>",
+      required_input_argument_path:
+        "refresh.changes_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
+      ordered_required_input_argument_path:
+        "refresh.changes[].next_action.execution.required_inputs_by_argument_path.<argument_path>",
       argument_source: "refresh.changes_by_record_id.<record_id>.next_action.argument_sources.<field>",
       ordered_argument_source: "refresh.changes[].next_action.argument_sources.<field>"
     }
@@ -869,68 +1064,78 @@ function expectRefreshChangeNextAction(action: {
   expectActionSafety(action);
   expectActionExecution(action);
   expect(action.safety?.reasons).toEqual(["safe_read_or_status_check"]);
-  expect(action.workflow).toEqual(withPhasesByName({
-    version: 1,
-    start: "next_action",
-    continue_from: ["refresh.changes_by_record_id.<record_id>.next_action", "refresh.changes[].next_action"],
-    phases: [
-      {
-        phase: action.recommended_action,
-        order: 1,
-        action_source: "refresh.changes_by_record_id.<record_id>.next_action",
-        tool: action.tool,
-        required_when: action.required_when,
-        required_fields: action.required_fields
-      }
-    ]
-  }));
+  expect(action.workflow).toEqual(
+    withPhasesByName({
+      version: 1,
+      start: "next_action",
+      continue_from: ["refresh.changes_by_record_id.<record_id>.next_action", "refresh.changes[].next_action"],
+      phases: [
+        {
+          phase: action.recommended_action,
+          order: 1,
+          action_source: "refresh.changes_by_record_id.<record_id>.next_action",
+          tool: action.tool,
+          required_when: action.required_when,
+          required_fields: action.required_fields
+        }
+      ]
+    })
+  );
 }
 
-function expectHandoffEntryNextAction(action: {
-  action_source?: string;
-  recommended_action: string;
-  tool: string;
-  command: string;
-  arguments: Record<string, unknown>;
-  argument_sources?: Record<string, string>;
-  selection_sources?: Record<string, string>;
-  safe_to_run: boolean;
-  required_when: string;
-  required_fields: string[];
-  interfaces?: {
-    cli?: { command?: string };
-    mcp?: { tool?: string; arguments?: Record<string, unknown> };
-  };
-  safety?: {
-    safe_to_auto_run?: boolean;
-    requires_user_confirmation?: boolean;
-    requires_authored_input?: boolean;
-    writes_local_config?: boolean;
-    reasons?: string[];
-  };
-  workflow?: {
-    version?: number;
-    start?: string;
-    continue_from?: string[];
-    phases?: Array<{
-      phase?: string;
-      order?: number;
-      action_source?: string;
-      tool?: string;
-      required_when?: string;
-      required_fields?: string[];
-    }>;
-  };
-}, recordId: string, projectId: string, source: "inbox" | "active_sessions" = "inbox") {
-  const actionSource = source === "inbox"
-    ? "handoff.inbox_by_record_id.<record_id>.next_action"
-    : "handoff.active_sessions_by_record_id.<record_id>.next_action";
-  const resolvedActionSource = source === "inbox"
-    ? `handoff.inbox_by_record_id.${recordId}.next_action`
-    : `handoff.active_sessions_by_record_id.${recordId}.next_action`;
-  const recordIdSource = source === "inbox"
-    ? "handoff.inbox_by_record_id.<record_id>.record_id"
-    : "handoff.active_sessions_by_record_id.<record_id>.record_id";
+function expectHandoffEntryNextAction(
+  action: {
+    action_source?: string;
+    recommended_action: string;
+    tool: string;
+    command: string;
+    arguments: Record<string, unknown>;
+    argument_sources?: Record<string, string>;
+    selection_sources?: Record<string, string>;
+    safe_to_run: boolean;
+    required_when: string;
+    required_fields: string[];
+    interfaces?: {
+      cli?: { command?: string };
+      mcp?: { tool?: string; arguments?: Record<string, unknown> };
+    };
+    safety?: {
+      safe_to_auto_run?: boolean;
+      requires_user_confirmation?: boolean;
+      requires_authored_input?: boolean;
+      writes_local_config?: boolean;
+      reasons?: string[];
+    };
+    workflow?: {
+      version?: number;
+      start?: string;
+      continue_from?: string[];
+      phases?: Array<{
+        phase?: string;
+        order?: number;
+        action_source?: string;
+        tool?: string;
+        required_when?: string;
+        required_fields?: string[];
+      }>;
+    };
+  },
+  recordId: string,
+  projectId: string,
+  source: "inbox" | "active_sessions" = "inbox"
+) {
+  const actionSource =
+    source === "inbox"
+      ? "handoff.inbox_by_record_id.<record_id>.next_action"
+      : "handoff.active_sessions_by_record_id.<record_id>.next_action";
+  const resolvedActionSource =
+    source === "inbox"
+      ? `handoff.inbox_by_record_id.${recordId}.next_action`
+      : `handoff.active_sessions_by_record_id.${recordId}.next_action`;
+  const recordIdSource =
+    source === "inbox"
+      ? "handoff.inbox_by_record_id.<record_id>.record_id"
+      : "handoff.active_sessions_by_record_id.<record_id>.record_id";
   expect(action).toMatchObject({
     recommended_action: "call_recall_with_record_id",
     action_source: resolvedActionSource,
@@ -947,60 +1152,66 @@ function expectHandoffEntryNextAction(action: {
       record_ids: recordIdSource
     },
     selection_sources: {
-      entry: source === "inbox"
-        ? "handoff.inbox_by_record_id.<record_id>"
-        : "handoff.active_sessions_by_record_id.<record_id>",
+      entry:
+        source === "inbox"
+          ? "handoff.inbox_by_record_id.<record_id>"
+          : "handoff.active_sessions_by_record_id.<record_id>",
       record_id: recordIdSource,
       next_action: actionSource,
-      ordered_next_action: source === "inbox"
-        ? "handoff.inbox[].next_action"
-        : "handoff.active_sessions[].next_action",
+      ordered_next_action: source === "inbox" ? "handoff.inbox[].next_action" : "handoff.active_sessions[].next_action",
       argument: `${actionSource}.arguments_by_name.<argument>`,
-      ordered_argument: source === "inbox"
-        ? "handoff.inbox[].next_action.arguments_by_name.<argument>"
-        : "handoff.active_sessions[].next_action.arguments_by_name.<argument>",
+      ordered_argument:
+        source === "inbox"
+          ? "handoff.inbox[].next_action.arguments_by_name.<argument>"
+          : "handoff.active_sessions[].next_action.arguments_by_name.<argument>",
       required_field: `${actionSource}.required_fields_by_name.<field>`,
-      ordered_required_field: source === "inbox"
-        ? "handoff.inbox[].next_action.required_fields_by_name.<field>"
-        : "handoff.active_sessions[].next_action.required_fields_by_name.<field>",
+      ordered_required_field:
+        source === "inbox"
+          ? "handoff.inbox[].next_action.required_fields_by_name.<field>"
+          : "handoff.active_sessions[].next_action.required_fields_by_name.<field>",
       required_input: `${actionSource}.execution.required_inputs_by_field.<field>`,
-      ordered_required_input: source === "inbox"
-        ? "handoff.inbox[].next_action.execution.required_inputs_by_field.<field>"
-        : "handoff.active_sessions[].next_action.execution.required_inputs_by_field.<field>",
+      ordered_required_input:
+        source === "inbox"
+          ? "handoff.inbox[].next_action.execution.required_inputs_by_field.<field>"
+          : "handoff.active_sessions[].next_action.execution.required_inputs_by_field.<field>",
       required_input_argument_path: `${actionSource}.execution.required_inputs_by_argument_path.<argument_path>`,
-      ordered_required_input_argument_path: source === "inbox"
-        ? "handoff.inbox[].next_action.execution.required_inputs_by_argument_path.<argument_path>"
-        : "handoff.active_sessions[].next_action.execution.required_inputs_by_argument_path.<argument_path>",
+      ordered_required_input_argument_path:
+        source === "inbox"
+          ? "handoff.inbox[].next_action.execution.required_inputs_by_argument_path.<argument_path>"
+          : "handoff.active_sessions[].next_action.execution.required_inputs_by_argument_path.<argument_path>",
       argument_source: `${actionSource}.argument_sources.<field>`,
-      ordered_argument_source: source === "inbox"
-        ? "handoff.inbox[].next_action.argument_sources.<field>"
-        : "handoff.active_sessions[].next_action.argument_sources.<field>"
+      ordered_argument_source:
+        source === "inbox"
+          ? "handoff.inbox[].next_action.argument_sources.<field>"
+          : "handoff.active_sessions[].next_action.argument_sources.<field>"
     }
   });
   expectActionInterfaces(action);
   expectActionSafety(action);
   expectActionExecution(action);
   expect(action.safety?.reasons).toEqual(["safe_read_or_status_check"]);
-  expect(action.workflow).toEqual(withPhasesByName({
-    version: 1,
-    start: "next_action",
-    continue_from: [
-      "handoff.inbox_by_record_id.<record_id>.next_action",
-      "handoff.active_sessions_by_record_id.<record_id>.next_action",
-      "handoff.inbox[].next_action",
-      "handoff.active_sessions[].next_action"
-    ],
-    phases: [
-      {
-        phase: action.recommended_action,
-        order: 1,
-        action_source: actionSource,
-        tool: action.tool,
-        required_when: action.required_when,
-        required_fields: action.required_fields
-      }
-    ]
-  }));
+  expect(action.workflow).toEqual(
+    withPhasesByName({
+      version: 1,
+      start: "next_action",
+      continue_from: [
+        "handoff.inbox_by_record_id.<record_id>.next_action",
+        "handoff.active_sessions_by_record_id.<record_id>.next_action",
+        "handoff.inbox[].next_action",
+        "handoff.active_sessions[].next_action"
+      ],
+      phases: [
+        {
+          phase: action.recommended_action,
+          order: 1,
+          action_source: actionSource,
+          tool: action.tool,
+          required_when: action.required_when,
+          required_fields: action.required_fields
+        }
+      ]
+    })
+  );
 }
 
 async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
@@ -1018,21 +1229,21 @@ async function createCliSyncConflict(input: {
   storeB: string;
   conflictFile: string;
 }): Promise<void> {
-  await exec("node", ["--import", tsxLoader, cliPath, "--store", input.storeA, "init"]);
-  await exec("node", ["--import", tsxLoader, cliPath, "--store", input.storeB, "init"]);
-  await exec("node", ["--import", tsxLoader, cliPath, "--store", input.storeA, "sync", "init", input.remote]);
-  await exec("node", ["--import", tsxLoader, cliPath, "--store", input.storeB, "sync", "init", input.remote]);
+  await exec("node", [cliJsPath, "--store", input.storeA, "init"]);
+  await exec("node", [cliJsPath, "--store", input.storeB, "init"]);
+  await exec("node", [cliJsPath, "--store", input.storeA, "sync", "init", input.remote]);
+  await exec("node", [cliJsPath, "--store", input.storeB, "sync", "init", input.remote]);
   await mkdir(join(input.storeA, "events", "shared-device", "2026-05"), { recursive: true });
   await mkdir(join(input.storeB, "events", "shared-device", "2026-05"), { recursive: true });
-  await writeFile(join(input.storeA, input.conflictFile), "{\"from\":\"a\"}\n", "utf8");
-  await writeFile(join(input.storeB, input.conflictFile), "{\"from\":\"b\"}\n", "utf8");
+  await writeFile(join(input.storeA, input.conflictFile), '{"from":"a"}\n', "utf8");
+  await writeFile(join(input.storeB, input.conflictFile), '{"from":"b"}\n', "utf8");
   await exec("git", ["add", input.conflictFile], { cwd: input.storeA });
   await exec("git", ["commit", "-m", "device a conflicting event"], { cwd: input.storeA });
   await exec("git", ["push", "-u", "origin", "main"], { cwd: input.storeA });
   await exec("git", ["add", input.conflictFile], { cwd: input.storeB });
   await exec("git", ["commit", "-m", "device b conflicting event"], { cwd: input.storeB });
   try {
-    await exec("node", ["--import", tsxLoader, cliPath, "--store", input.storeB, "sync", "--pull"]);
+    await exec("node", [cliJsPath, "--store", input.storeB, "sync", "--pull"]);
     throw new Error("Expected CLI sync pull to fail with a conflict");
   } catch (error) {
     const stderr = (error as { stderr: string }).stderr;
@@ -1047,26 +1258,57 @@ describe("moryn CLI", () => {
       const store = join(dir, "store");
       await mkdir(project, { recursive: true });
       await writeFile(join(project, ".moryn.json"), `${JSON.stringify({ project_id: "moryn" })}\n`);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
-      const args = ["--import", "tsx", "src/cli.ts", "--store", store, "learn", "--project", project, "--question", "What survives compact?", "--conclusion", "Learning Inbox survives compact until lifecycle consumption.", "--evidence-type", "source_code", "--agent", "codex", "--session-id", "learn-cli", "--device-id", "device-a", "--occurred-at", "2026-07-13T01:00:00.000Z"];
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      const args = [
+        cliJsPath,
+        "--store",
+        store,
+        "learn",
+        "--project",
+        project,
+        "--question",
+        "What survives compact?",
+        "--conclusion",
+        "Learning Inbox survives compact until lifecycle consumption.",
+        "--evidence-type",
+        "source_code",
+        "--agent",
+        "codex",
+        "--session-id",
+        "learn-cli",
+        "--device-id",
+        "device-a",
+        "--occurred-at",
+        "2026-07-13T01:00:00.000Z"
+      ];
 
       const first = JSON.parse((await exec("node", args)).stdout);
       const second = JSON.parse((await exec("node", args)).stdout);
 
-      expect(first).toMatchObject({ created: true, record: { type: "learning_inbox", content: { learning_delta: { scope: "project", confidence: 0.8, recommended_kind: "memory", recommended_type: "fact" } } } });
+      expect(first).toMatchObject({
+        created: true,
+        record: {
+          type: "learning_inbox",
+          content: {
+            learning_delta: { scope: "project", confidence: 0.8, recommended_kind: "memory", recommended_type: "fact" }
+          }
+        }
+      });
       expect(second).toMatchObject({ created: false, record: { id: first.record.id } });
     });
   });
 
   it("returns selection source contracts from the CLI", async () => {
-    const result = await exec("node", [
-      "--import", tsxLoader, cliPath,
-      "contracts", "selection-sources"
-    ]);
+    const result = await exec("node", [cliJsPath, "contracts", "selection-sources"]);
     const parsed = JSON.parse(result.stdout) as {
       contracts: {
         setup: { store_init: { config_file: string } };
-        core: { boot: { skill: string }; dogfood_report: { finding: string }; memory_lifecycle: { assessment: string }; recall_eval: { case: string } };
+        core: {
+          boot: { skill: string };
+          dogfood_report: { finding: string };
+          memory_lifecycle: { assessment: string };
+          recall_eval: { case: string };
+        };
         sync: { result: { pushed: string } };
         lifecycle: { guide: { guardrail: string } };
         recovery: { next_action: { error_next_action: string } };
@@ -1090,54 +1332,117 @@ describe("moryn CLI", () => {
   it("passes --session-id through CLI boot without changing boot without the option", async () => {
     await withInitializedTempStore(async (store) => {
       const engine = createEngine({ storePath: store });
-      await engine.checkpoint({ project_id: "moryn", source: { client: "codex", session_id: "cli-session", device_id: "device-test" }, occurred_at: "2026-07-11T00:00:00.000Z", delta: { session_id: "cli-session", checkpoint_id: "cli-checkpoint", current_task: "CLI recovery", progress: ["ready"], decisions: [], changed_facts: [], blockers: [], next_steps: [], files: [], candidate_memories: [], candidate_skills: [], learnings: [] } });
+      await engine.checkpoint({
+        project_id: "moryn",
+        source: { client: "codex", session_id: "cli-session", device_id: "device-test" },
+        occurred_at: "2026-07-11T00:00:00.000Z",
+        delta: {
+          session_id: "cli-session",
+          checkpoint_id: "cli-checkpoint",
+          current_task: "CLI recovery",
+          progress: ["ready"],
+          decisions: [],
+          changed_facts: [],
+          blockers: [],
+          next_steps: [],
+          files: [],
+          candidate_memories: [],
+          candidate_skills: [],
+          learnings: []
+        }
+      });
 
-      const without = JSON.parse((await exec(process.execPath, [tsxCliPath, cliPath, "--store", store, "boot", "--project-id", "moryn"])).stdout);
+      const without = JSON.parse(
+        (await exec(process.execPath, [cliJsPath, "--store", store, "boot", "--project-id", "moryn"])).stdout
+      );
       expect(without).not.toHaveProperty("checkpoint_recovery_pack");
-      const withSession = JSON.parse((await exec(process.execPath, [tsxCliPath, cliPath, "--store", store, "boot", "--project-id", "moryn", "--session-id", "cli-session"])).stdout);
-      expect(withSession.checkpoint_recovery_pack).toMatchObject({ available: true, latest_checkpoint_id: "cli-checkpoint" });
+      const withSession = JSON.parse(
+        (
+          await exec(process.execPath, [
+            cliJsPath,
+            "--store",
+            store,
+            "boot",
+            "--project-id",
+            "moryn",
+            "--session-id",
+            "cli-session"
+          ])
+        ).stdout
+      );
+      expect(withSession.checkpoint_recovery_pack).toMatchObject({
+        available: true,
+        latest_checkpoint_id: "cli-checkpoint"
+      });
     });
   });
 
   it("returns operation contracts from the CLI", async () => {
-    const result = await exec("node", [
-      "--import", tsxLoader, cliPath,
-      "contracts", "operations"
-    ]);
+    const result = await exec("node", [cliJsPath, "contracts", "operations"]);
     const parsed = JSON.parse(result.stdout) as {
       recommended_entrypoint: string;
       operations: Array<{ operation: string }>;
-      operations_by_id: Record<string, {
-        operation: string;
-        category: string;
-        safe_to_run: boolean;
-        required_fields: string[];
-        selection_sources?: Record<string, string>;
-        execution: {
-          ready_to_run: boolean;
-          next_step: string;
-          blocked_by: string[];
-          missing_required_fields: string[];
-          requires_user_confirmation: boolean;
-          reason: string;
-        };
-        required_fields_by_name: Record<string, { name: string; argument_path: string; placeholder?: string; value?: unknown; alternatives?: string[]; allowed_values?: string[] }>;
-        arguments_by_name: Record<string, {
-          name: string;
-          type: string;
-          required: boolean;
-          cli?: { flag?: string; flags?: string[]; positional?: string; repeatable?: boolean; default?: unknown; negative_flag?: string };
-          mcp?: { argument: string };
-          default?: unknown;
-          allowed_values?: string[];
-          alternatives?: string[];
-        }>;
-        argument_sources?: Record<string, string>;
-        interfaces: {
-          cli: { command: string; argv: string[]; executable: string; args: string[]; exec_file: { executable: string; args: string[] }; command_line: string };
-          mcp: { tool: string; arguments: Record<string, unknown> };
-        };
-      }>;
+      operations_by_id: Record<
+        string,
+        {
+          operation: string;
+          category: string;
+          safe_to_run: boolean;
+          required_fields: string[];
+          selection_sources?: Record<string, string>;
+          execution: {
+            ready_to_run: boolean;
+            next_step: string;
+            blocked_by: string[];
+            missing_required_fields: string[];
+            requires_user_confirmation: boolean;
+            reason: string;
+          };
+          required_fields_by_name: Record<
+            string,
+            {
+              name: string;
+              argument_path: string;
+              placeholder?: string;
+              value?: unknown;
+              alternatives?: string[];
+              allowed_values?: string[];
+            }
+          >;
+          arguments_by_name: Record<
+            string,
+            {
+              name: string;
+              type: string;
+              required: boolean;
+              cli?: {
+                flag?: string;
+                flags?: string[];
+                positional?: string;
+                repeatable?: boolean;
+                default?: unknown;
+                negative_flag?: string;
+              };
+              mcp?: { argument: string };
+              default?: unknown;
+              allowed_values?: string[];
+              alternatives?: string[];
+            }
+          >;
+          argument_sources?: Record<string, string>;
+          interfaces: {
+            cli: {
+              command: string;
+              argv: string[];
+              executable: string;
+              args: string[];
+              exec_file: { executable: string; args: string[] };
+              command_line: string;
+            };
+            mcp: { tool: string; arguments: Record<string, unknown> };
+          };
+        }
+      >;
       operations_by_category: Record<string, Record<string, { operation: string }>>;
       operations_by_mcp_tool: Record<string, { operation: string; selection_sources?: Record<string, string> }>;
       operations_by_cli_command: Record<string, { operation: string; selection_sources?: Record<string, string> }>;
@@ -1272,8 +1577,10 @@ describe("moryn CLI", () => {
               required_input_choices_by_option: "execution.required_inputs[].collect.choices_by_option",
               required_input_choice_apply_to: "execution.required_inputs[].collect.choices[].apply_to",
               required_input_choice_expected_value: "execution.required_inputs[].collect.choices[].expected_value",
-              required_input_choice_by_option_apply_to: "execution.required_inputs[].collect.choices_by_option.<option>.apply_to",
-              required_input_choice_by_option_expected_value: "execution.required_inputs[].collect.choices_by_option.<option>.expected_value"
+              required_input_choice_by_option_apply_to:
+                "execution.required_inputs[].collect.choices_by_option.<option>.apply_to",
+              required_input_choice_by_option_expected_value:
+                "execution.required_inputs[].collect.choices_by_option.<option>.expected_value"
             }),
             expect.objectContaining({ step: "call_mcp" })
           ]
@@ -1286,18 +1593,22 @@ describe("moryn CLI", () => {
               prompt: "Provide summary.",
               apply_to: {
                 mcp_argument_paths: ["summary"],
-                mcp_targets: [{
-                  argument: "summary",
-                  type: "string",
-                  required: true,
-                  preferred: true
-                }],
-                cli_targets: [{
-                  flag: "--summary",
-                  type: "string",
-                  required: true,
-                  preferred: true
-                }]
+                mcp_targets: [
+                  {
+                    argument: "summary",
+                    type: "string",
+                    required: true,
+                    preferred: true
+                  }
+                ],
+                cli_targets: [
+                  {
+                    flag: "--summary",
+                    type: "string",
+                    required: true,
+                    preferred: true
+                  }
+                ]
               },
               value_path: "user_input.summary",
               placeholder: "<summary>"
@@ -1530,13 +1841,15 @@ describe("moryn CLI", () => {
           },
           apply_to: {
             mcp_argument_paths: ["text"],
-            cli_assignments: [{
-              flag: "--text",
-              value_path: "user_input.text_or_content",
-              argv_template: ["--text", "<user_input.text_or_content>"],
-              value_encoding: "string",
-              preferred: true
-            }]
+            cli_assignments: [
+              {
+                flag: "--text",
+                value_path: "user_input.text_or_content",
+                argv_template: ["--text", "<user_input.text_or_content>"],
+                value_encoding: "string",
+                preferred: true
+              }
+            ]
           }
         },
         {
@@ -1551,13 +1864,15 @@ describe("moryn CLI", () => {
           },
           apply_to: {
             mcp_argument_paths: ["content"],
-            cli_assignments: [{
-              flag: "--content-json",
-              value_path: "user_input.text_or_content",
-              argv_template: ["--content-json", "<json:user_input.text_or_content>"],
-              value_encoding: "json",
-              preferred: false
-            }]
+            cli_assignments: [
+              {
+                flag: "--content-json",
+                value_path: "user_input.text_or_content",
+                argv_template: ["--content-json", "<json:user_input.text_or_content>"],
+                value_encoding: "json",
+                preferred: false
+              }
+            ]
           }
         }
       ],
@@ -1574,13 +1889,15 @@ describe("moryn CLI", () => {
           },
           apply_to: {
             mcp_argument_paths: ["text"],
-            cli_assignments: [{
-              flag: "--text",
-              value_path: "user_input.text_or_content",
-              argv_template: ["--text", "<user_input.text_or_content>"],
-              value_encoding: "string",
-              preferred: true
-            }]
+            cli_assignments: [
+              {
+                flag: "--text",
+                value_path: "user_input.text_or_content",
+                argv_template: ["--text", "<user_input.text_or_content>"],
+                value_encoding: "string",
+                preferred: true
+              }
+            ]
           }
         },
         content: {
@@ -1595,13 +1912,15 @@ describe("moryn CLI", () => {
           },
           apply_to: {
             mcp_argument_paths: ["content"],
-            cli_assignments: [{
-              flag: "--content-json",
-              value_path: "user_input.text_or_content",
-              argv_template: ["--content-json", "<json:user_input.text_or_content>"],
-              value_encoding: "json",
-              preferred: false
-            }]
+            cli_assignments: [
+              {
+                flag: "--content-json",
+                value_path: "user_input.text_or_content",
+                argv_template: ["--content-json", "<json:user_input.text_or_content>"],
+                value_encoding: "json",
+                preferred: false
+              }
+            ]
           }
         }
       },
@@ -1722,9 +2041,16 @@ describe("moryn CLI", () => {
         mcp: { argument: "before" }
       }
     });
-    expect(parsed.operations_by_id.selection_source_contracts.interfaces.cli.command).toBe("moryn contracts selection-sources");
-    expect(parsed.operations_by_id.selection_source_contracts.interfaces.cli.argv).toEqual(["contracts", "selection-sources"]);
-    expect(parsed.operations_by_id.selection_source_contracts.interfaces.cli.command_line).toBe("moryn contracts selection-sources");
+    expect(parsed.operations_by_id.selection_source_contracts.interfaces.cli.command).toBe(
+      "moryn contracts selection-sources"
+    );
+    expect(parsed.operations_by_id.selection_source_contracts.interfaces.cli.argv).toEqual([
+      "contracts",
+      "selection-sources"
+    ]);
+    expect(parsed.operations_by_id.selection_source_contracts.interfaces.cli.command_line).toBe(
+      "moryn contracts selection-sources"
+    );
     expect(parsed.operations_by_id.operation_contracts.interfaces.cli.argv).toEqual(["contracts", "operations"]);
     expect(parsed.operations_by_id.operation_contracts.interfaces.cli.placeholders).toEqual([]);
     expect(parsed.operations_by_id.operation_contracts.interfaces.cli.has_placeholders).toBe(false);
@@ -1786,7 +2112,9 @@ describe("moryn CLI", () => {
       operation: "agent_enter",
       operation_source: "operations_by_id.agent_enter"
     });
-    expect(parsed.operations_by_cli_command["moryn project migrate --from <from_project_id> --to <to_project_id>"]).toEqual({
+    expect(
+      parsed.operations_by_cli_command["moryn project migrate --from <from_project_id> --to <to_project_id>"]
+    ).toEqual({
       operation: "project_migrate",
       operation_source: "operations_by_id.project_migrate"
     });
@@ -1810,7 +2138,10 @@ describe("moryn CLI", () => {
       required_fields: ["from_project_id", "to_project_id"],
       interfaces: {
         cli: { command: "moryn project migrate --from <from_project_id> --to <to_project_id>" },
-        mcp: { tool: "project_migrate", arguments: { from_project_id: "<from_project_id>", to_project_id: "<to_project_id>" } }
+        mcp: {
+          tool: "project_migrate",
+          arguments: { from_project_id: "<from_project_id>", to_project_id: "<to_project_id>" }
+        }
       },
       argument_sources: {
         from_project_id: "user_input.from_project_id",
@@ -1971,11 +2302,7 @@ describe("moryn CLI", () => {
   });
 
   it("returns a compact operation contract index from the CLI", async () => {
-    const result = await exec("node", [
-      "--import", tsxLoader, cliPath,
-      "contracts", "operations",
-      "--index"
-    ]);
+    const result = await exec("node", [cliJsPath, "contracts", "operations", "--index"]);
     const parsed = JSON.parse(result.stdout) as {
       recommended_entrypoint: string;
       index_use: string;
@@ -1989,7 +2316,19 @@ describe("moryn CLI", () => {
         };
       };
       operations: Array<{ operation: string; mcp_tool: string; cli_command: string; next_step: string }>;
-      operations_by_id: Record<string, { operation: string; operation_source: string; mcp_tool: string; cli_command: string; required_fields: string[]; missing_required_fields: string[]; execution_hint: Record<string, unknown>; full_contract_lookup: Record<string, unknown> }>;
+      operations_by_id: Record<
+        string,
+        {
+          operation: string;
+          operation_source: string;
+          mcp_tool: string;
+          cli_command: string;
+          required_fields: string[];
+          missing_required_fields: string[];
+          execution_hint: Record<string, unknown>;
+          full_contract_lookup: Record<string, unknown>;
+        }
+      >;
       operations_by_mcp_tool: Record<string, string>;
       operations_by_cli_command: Record<string, string>;
       operation_source_lookup: Record<string, unknown>;
@@ -1998,7 +2337,9 @@ describe("moryn CLI", () => {
 
     expect(Buffer.byteLength(result.stdout, "utf8")).toBeLessThan(66 * 1024);
     expect(parsed.recommended_entrypoint).toBe("agent_enter");
-    expect(parsed.index_use).toBe("Use an operation id, MCP tool, or CLI command from this compact index to fetch one operation contract.");
+    expect(parsed.index_use).toBe(
+      "Use an operation id, MCP tool, or CLI command from this compact index to fetch one operation contract."
+    );
     expect(parsed.selection_sources).toEqual({
       operation: "operations_by_id.<operation>",
       operation_source: "operations_by_id.<operation>.operation_source",
@@ -2007,7 +2348,8 @@ describe("moryn CLI", () => {
       operation_source_lookup: "operation_source_lookup",
       ordered_operation: "operations[]",
       execution_hint: "operations_by_id.<operation>.execution_hint",
-      execution_hint_required_input_by_value_path: "operations_by_id.<operation>.execution_hint.required_input_sources.by_value_path",
+      execution_hint_required_input_by_value_path:
+        "operations_by_id.<operation>.execution_hint.required_input_sources.by_value_path",
       full_contract_lookup: "operations_by_id.<operation>.full_contract_lookup",
       full_contract_lookup_cli: "operations_by_id.<operation>.full_contract_lookup.cli",
       full_contract_lookup_mcp: "operations_by_id.<operation>.full_contract_lookup.mcp"
@@ -2072,8 +2414,16 @@ describe("moryn CLI", () => {
         operation_source: "operations_by_id.<operation>.operation_source"
       }
     });
-    expect(parsed.operations.find((operation) => operation.operation === "agent_finish")).toEqual({ operation: "agent_finish", mcp_tool: "agent_finish", cli_command: "moryn agent finish --summary <summary>", next_step: "collect_required_fields" });
-    expect(parsed.operations_by_id.agent_finish.full_contract_lookup.mcp).toMatchObject({ tool: "operation_contracts", arguments: { operation: "agent_finish" } });
+    expect(parsed.operations.find((operation) => operation.operation === "agent_finish")).toEqual({
+      operation: "agent_finish",
+      mcp_tool: "agent_finish",
+      cli_command: "moryn agent finish --summary <summary>",
+      next_step: "collect_required_fields"
+    });
+    expect(parsed.operations_by_id.agent_finish.full_contract_lookup.mcp).toMatchObject({
+      tool: "operation_contracts",
+      arguments: { operation: "agent_finish" }
+    });
     expect(parsed.operations_by_id.setup.cli_command).toBe("moryn setup");
     expect(parsed.operations_by_mcp_tool.setup).toBe("setup");
     expect(parsed.operations_by_cli_command["moryn setup"]).toBe("setup");
@@ -2085,9 +2435,11 @@ describe("moryn CLI", () => {
 
   it("returns one operation contract from the CLI", async () => {
     const result = await exec("node", [
-      "--import", tsxLoader, cliPath,
-      "contracts", "operations",
-      "--operation", "agent_finish"
+      cliJsPath,
+      "contracts",
+      "operations",
+      "--operation",
+      "agent_finish"
     ]);
     const parsed = JSON.parse(result.stdout) as {
       operation_source: string;
@@ -2107,25 +2459,32 @@ describe("moryn CLI", () => {
     expect(parsed.matched_source).toBe("operations_by_id.agent_finish");
     expect(parsed.operation.operation).toBe("agent_finish");
     expect(parsed.operation.execution.next_step).toBe("collect_required_fields");
-    expect(parsed.operation.execution.required_input_paths_by_value_path["user_input.summary"]).toBe("execution.required_inputs_by_field.summary");
+    expect(parsed.operation.execution.required_input_paths_by_value_path["user_input.summary"]).toBe(
+      "execution.required_inputs_by_field.summary"
+    );
     expect(parsed.selection_sources).toEqual(OPERATION_CONTRACTS_SELECTION_SOURCES);
   });
 
   it("documents dashboard server arguments in the operation contract", async () => {
     const result = await exec("node", [
-      "--import", tsxLoader, cliPath,
-      "contracts", "operations",
-      "--operation", "dashboard"
+      cliJsPath,
+      "contracts",
+      "operations",
+      "--operation",
+      "dashboard"
     ]);
     const parsed = JSON.parse(result.stdout) as {
       operation: {
         interfaces: { cli: { command: string } };
-        arguments_by_name: Record<string, {
-          type: string;
-          default?: unknown;
-          cli?: { flag?: string };
-          mcp?: { argument?: string };
-        }>;
+        arguments_by_name: Record<
+          string,
+          {
+            type: string;
+            default?: unknown;
+            cli?: { flag?: string };
+            mcp?: { argument?: string };
+          }
+        >;
       };
     };
 
@@ -2174,14 +2533,18 @@ describe("moryn CLI", () => {
 
   it("returns one operation contract from the CLI by MCP tool or CLI command", async () => {
     const byMcpTool = await exec("node", [
-      "--import", tsxLoader, cliPath,
-      "contracts", "operations",
-      "--mcp-tool", "agent_finish"
+      cliJsPath,
+      "contracts",
+      "operations",
+      "--mcp-tool",
+      "agent_finish"
     ]);
     const byCliCommand = await exec("node", [
-      "--import", tsxLoader, cliPath,
-      "contracts", "operations",
-      "--cli-command", "moryn agent finish --summary <summary>"
+      cliJsPath,
+      "contracts",
+      "operations",
+      "--cli-command",
+      "moryn agent finish --summary <summary>"
     ]);
     const parsedByMcpTool = JSON.parse(byMcpTool.stdout) as {
       operation_source: string;
@@ -2211,10 +2574,13 @@ describe("moryn CLI", () => {
   it("rejects ambiguous operation contract CLI lookup flags", async () => {
     try {
       await exec("node", [
-        "--import", tsxLoader, cliPath,
-        "contracts", "operations",
-        "--operation", "agent_finish",
-        "--mcp-tool", "agent_finish"
+        cliJsPath,
+        "contracts",
+        "operations",
+        "--operation",
+        "agent_finish",
+        "--mcp-tool",
+        "agent_finish"
       ]);
       throw new Error("Expected ambiguous operation lookup to fail");
     } catch (error) {
@@ -2231,10 +2597,22 @@ describe("moryn CLI", () => {
               provided: Array<{ mode: string; option: string }>;
             };
             accepted_lookup_modes: {
-              index: { package_helper: string; cli: { command: string; args: string[] }; mcp: { tool: string; arguments: { index: boolean } } };
-              operation: { package_helper: string; cli: string; mcp: { tool: string; arguments: { operation: string } } };
+              index: {
+                package_helper: string;
+                cli: { command: string; args: string[] };
+                mcp: { tool: string; arguments: { index: boolean } };
+              };
+              operation: {
+                package_helper: string;
+                cli: string;
+                mcp: { tool: string; arguments: { operation: string } };
+              };
               mcp_tool: { package_helper: string; cli: string; mcp: { tool: string; arguments: { mcp_tool: string } } };
-              cli_command: { package_helper: string; cli: string; mcp: { tool: string; arguments: { cli_command: string } } };
+              cli_command: {
+                package_helper: string;
+                cli: string;
+                mcp: { tool: string; arguments: { cli_command: string } };
+              };
             };
             selection_sources: Record<string, string>;
           };
@@ -2243,7 +2621,9 @@ describe("moryn CLI", () => {
 
       expect(parsed.ok).toBe(false);
       expect(parsed.error.code).toBe("INVALID_ARGUMENT");
-      expect(parsed.error.message).toBe("Invalid argument: Use only one operation contract lookup option: --index, --operation, --mcp-tool, or --cli-command");
+      expect(parsed.error.message).toBe(
+        "Invalid argument: Use only one operation contract lookup option: --index, --operation, --mcp-tool, or --cli-command"
+      );
       expect(parsed.error.recoverable).toBe(true);
       expect(parsed.error.recommended_action).toBe("choose exactly one operation contract lookup mode and retry");
       expect(parsed.error.recovery_hint.rejected_lookup).toEqual({
@@ -2264,23 +2644,31 @@ describe("moryn CLI", () => {
           arguments: { index: true }
         }
       });
-      expect(parsed.error.recovery_hint.accepted_lookup_modes.operation.package_helper).toBe("getOperationContract('<operation>')");
-      expect(parsed.error.recovery_hint.accepted_lookup_modes.operation.cli).toBe("moryn contracts operations --operation <operation>");
-      expect(parsed.error.recovery_hint.accepted_lookup_modes.mcp_tool.package_helper).toBe("getOperationContractByMcpTool('<tool>')");
-      expect(parsed.error.recovery_hint.accepted_lookup_modes.mcp_tool.mcp.arguments).toEqual({ mcp_tool: "<mcp_tool>" });
-      expect(parsed.error.recovery_hint.accepted_lookup_modes.cli_command.package_helper).toBe("getOperationContractByCliCommand('<command>')");
-      expect(parsed.error.recovery_hint.accepted_lookup_modes.cli_command.mcp.arguments).toEqual({ cli_command: "<cli_command>" });
+      expect(parsed.error.recovery_hint.accepted_lookup_modes.operation.package_helper).toBe(
+        "getOperationContract('<operation>')"
+      );
+      expect(parsed.error.recovery_hint.accepted_lookup_modes.operation.cli).toBe(
+        "moryn contracts operations --operation <operation>"
+      );
+      expect(parsed.error.recovery_hint.accepted_lookup_modes.mcp_tool.package_helper).toBe(
+        "getOperationContractByMcpTool('<tool>')"
+      );
+      expect(parsed.error.recovery_hint.accepted_lookup_modes.mcp_tool.mcp.arguments).toEqual({
+        mcp_tool: "<mcp_tool>"
+      });
+      expect(parsed.error.recovery_hint.accepted_lookup_modes.cli_command.package_helper).toBe(
+        "getOperationContractByCliCommand('<command>')"
+      );
+      expect(parsed.error.recovery_hint.accepted_lookup_modes.cli_command.mcp.arguments).toEqual({
+        cli_command: "<cli_command>"
+      });
       expect(parsed.error.recovery_hint.selection_sources.operation).toBe("operations_by_id.<operation>");
     }
   });
 
   it("returns recovery hints for unknown operation contract CLI lookups", async () => {
     try {
-      await exec("node", [
-        "--import", tsxLoader, cliPath,
-        "contracts", "operations",
-        "--operation", "agent_finsh"
-      ]);
+      await exec("node", [cliJsPath, "contracts", "operations", "--operation", "agent_finsh"]);
       throw new Error("Expected unknown operation lookup to fail");
     } catch (error) {
       const parsed = JSON.parse((error as { stderr: string }).stderr) as {
@@ -2314,9 +2702,17 @@ describe("moryn CLI", () => {
               mcp: { tool: string; arguments: { operation: string } };
             };
             retry_with_lookup_modes: {
-              operation: { package_helper: string; cli: string; mcp: { tool: string; arguments: { operation: string } } };
+              operation: {
+                package_helper: string;
+                cli: string;
+                mcp: { tool: string; arguments: { operation: string } };
+              };
               mcp_tool: { package_helper: string; cli: string; mcp: { tool: string; arguments: { mcp_tool: string } } };
-              cli_command: { package_helper: string; cli: string; mcp: { tool: string; arguments: { cli_command: string } } };
+              cli_command: {
+                package_helper: string;
+                cli: string;
+                mcp: { tool: string; arguments: { cli_command: string } };
+              };
             };
             selection_sources: Record<string, string>;
           };
@@ -2327,7 +2723,9 @@ describe("moryn CLI", () => {
       expect(parsed.error.code).toBe("INVALID_ARGUMENT");
       expect(parsed.error.message).toBe("Invalid argument: Unknown operation: agent_finsh");
       expect(parsed.error.recoverable).toBe(true);
-      expect(parsed.error.recommended_action).toBe("fetch the compact operation index and retry with a known operation id, MCP tool, or CLI command");
+      expect(parsed.error.recommended_action).toBe(
+        "fetch the compact operation index and retry with a known operation id, MCP tool, or CLI command"
+      );
       expect(parsed.error.recovery_hint.rejected_lookup).toEqual({ kind: "operation", value: "agent_finsh" });
       expect(parsed.error.recovery_hint.suggested_matches[0]).toEqual({
         value: "agent_finish",
@@ -2400,11 +2798,7 @@ describe("moryn CLI", () => {
       { option: "--cli-command", argument: "cli_command", placeholder: "<cli_command>" }
     ] as const) {
       try {
-        await exec("node", [
-          "--import", tsxLoader, cliPath,
-          "contracts", "operations",
-          option, ""
-        ]);
+        await exec("node", [cliJsPath, "contracts", "operations", option, ""]);
         throw new Error(`Expected empty ${option} lookup to fail`);
       } catch (error) {
         const parsed = JSON.parse((error as { stderr: string }).stderr) as {
@@ -2444,7 +2838,7 @@ describe("moryn CLI", () => {
 
   it("returns operation contract argument hints for empty mutation CLI reasons", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
 
       for (const { args, operation } of [
         { args: ["revise", "rec_missing", "--set", "type=decision", "--reason", ""], operation: "revise" },
@@ -2453,7 +2847,7 @@ describe("moryn CLI", () => {
         { args: ["quarantine", "rec_missing", "--reason", ""], operation: "quarantine" }
       ] as const) {
         try {
-          await exec("node", ["--import", tsxLoader, cliPath, "--store", dir, ...args]);
+          await exec("node", [cliJsPath, "--store", dir, ...args]);
           throw new Error(`Expected moryn ${args.join(" ")} to reject an empty reason`);
         } catch (error) {
           const parsed = JSON.parse((error as { stderr: string }).stderr) as {
@@ -2494,17 +2888,24 @@ describe("moryn CLI", () => {
 
   it("returns operation contract argument hints for empty write CLI provenance reason", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
 
       try {
         await exec("node", [
-          "--import", tsxLoader, cliPath, "--store", dir,
+          cliJsPath,
+          "--store",
+          dir,
           "write",
-          "--kind", "memory",
-          "--type", "decision",
-          "--scope", "global",
-          "--text", "Prefer explicit recovery sources.",
-          "--reason", ""
+          "--kind",
+          "memory",
+          "--type",
+          "decision",
+          "--scope",
+          "global",
+          "--text",
+          "Prefer explicit recovery sources.",
+          "--reason",
+          ""
         ]);
         throw new Error("Expected moryn write to reject an empty provenance reason");
       } catch (error) {
@@ -2546,13 +2947,21 @@ describe("moryn CLI", () => {
   it("returns machine-readable agent guide from the CLI", async () => {
     await withTempDir(async (dir) => {
       const guide = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", join(dir, "store"),
-        "agent", "guide",
-        "--project", "/workspace/moryn",
-        "--sync-remote", "git@github.com:user/moryn-store.git",
-        "--current-task", "continue handoff",
-        "--agent", "gemini",
-        "--session-id", "gemini-guide"
+        cliJsPath,
+        "--store",
+        join(dir, "store"),
+        "agent",
+        "guide",
+        "--project",
+        "/workspace/moryn",
+        "--sync-remote",
+        "git@github.com:user/moryn-store.git",
+        "--current-task",
+        "continue handoff",
+        "--agent",
+        "gemini",
+        "--session-id",
+        "gemini-guide"
       ]);
       const parsed = JSON.parse(guide.stdout) as {
         ok: boolean;
@@ -2564,12 +2973,15 @@ describe("moryn CLI", () => {
           safe_to_run: boolean;
           required_when: string;
           required_fields: string[];
-          required_fields_by_name?: Record<string, {
-            name: string;
-            argument_path: string;
-            placeholder?: string;
-            value?: unknown;
-          }>;
+          required_fields_by_name?: Record<
+            string,
+            {
+              name: string;
+              argument_path: string;
+              placeholder?: string;
+              value?: unknown;
+            }
+          >;
           arguments: {
             project_path?: string;
             sync_remote?: string;
@@ -2590,12 +3002,15 @@ describe("moryn CLI", () => {
           command: string;
           required_when: string;
           required_fields: string[];
-          required_fields_by_name?: Record<string, {
-            name: string;
-            argument_path: string;
-            placeholder?: string;
-            value?: unknown;
-          }>;
+          required_fields_by_name?: Record<
+            string,
+            {
+              name: string;
+              argument_path: string;
+              placeholder?: string;
+              value?: unknown;
+            }
+          >;
           arguments: Record<string, unknown>;
           selection_sources?: Record<string, string>;
           safety?: {
@@ -2610,27 +3025,36 @@ describe("moryn CLI", () => {
             mcp?: { tool?: string; arguments?: Record<string, unknown> };
           };
         }>;
-        lifecycle_by_step: Record<string, {
-          step: string;
-          tool: string;
-          safe_to_run: boolean;
-          command: string;
-          required_when: string;
-          required_fields: string[];
-          required_fields_by_name?: Record<string, {
-            name: string;
-            argument_path: string;
-            placeholder?: string;
-            value?: unknown;
-          }>;
-          arguments: Record<string, unknown>;
-          selection_sources?: Record<string, string>;
-        }>;
+        lifecycle_by_step: Record<
+          string,
+          {
+            step: string;
+            tool: string;
+            safe_to_run: boolean;
+            command: string;
+            required_when: string;
+            required_fields: string[];
+            required_fields_by_name?: Record<
+              string,
+              {
+                name: string;
+                argument_path: string;
+                placeholder?: string;
+                value?: unknown;
+              }
+            >;
+            arguments: Record<string, unknown>;
+            selection_sources?: Record<string, string>;
+          }
+        >;
         rules: string[];
-        rules_by_id: Record<string, {
-          id: string;
-          text: string;
-        }>;
+        rules_by_id: Record<
+          string,
+          {
+            id: string;
+            text: string;
+          }
+        >;
         guardrails: Array<{
           id: string;
           when: string;
@@ -2652,23 +3076,26 @@ describe("moryn CLI", () => {
           };
           allowed_action_sources?: string[];
         }>;
-        guardrails_by_id: Record<string, {
-          id: string;
-          when: string;
-          risk: string;
-          avoid: string[];
-          required_behavior: string;
-          use_instead?: {
-            recommended_action: string;
-            tool: string;
-            command: string;
-            safe_to_run: boolean;
-            required_when: string;
-            required_fields: string[];
-            arguments: Record<string, unknown>;
-          };
-          allowed_action_sources?: string[];
-        }>;
+        guardrails_by_id: Record<
+          string,
+          {
+            id: string;
+            when: string;
+            risk: string;
+            avoid: string[];
+            required_behavior: string;
+            use_instead?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              safe_to_run: boolean;
+              required_when: string;
+              required_fields: string[];
+              arguments: Record<string, unknown>;
+            };
+            allowed_action_sources?: string[];
+          }
+        >;
         workflow: {
           version: number;
           start: string;
@@ -2681,14 +3108,17 @@ describe("moryn CLI", () => {
             required_when: string;
             required_fields: string[];
           }>;
-          phases_by_name: Record<string, {
-            phase: string;
-            order: number;
-            action_source: string;
-            tool?: string;
-            required_when: string;
-            required_fields: string[];
-          }>;
+          phases_by_name: Record<
+            string,
+            {
+              phase: string;
+              order: number;
+              action_source: string;
+              tool?: string;
+              required_when: string;
+              required_fields: string[];
+            }
+          >;
         };
         next: {
           recommended_action: string;
@@ -2718,25 +3148,38 @@ describe("moryn CLI", () => {
       });
       expect(parsed.startup).toMatchObject({
         tool: "agent_enter",
-        command: "moryn agent enter --project /workspace/moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue handoff' --agent gemini --session-id gemini-guide",
+        command:
+          "moryn agent enter --project /workspace/moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue handoff' --agent gemini --session-id gemini-guide",
         interfaces: expect.objectContaining({
           cli: expect.objectContaining({
             executable: "moryn",
             argv: [
-              "agent", "enter",
-              "--project", "/workspace/moryn",
-              "--sync-remote", "git@github.com:user/moryn-store.git",
-              "--current-task", "continue handoff",
-              "--agent", "gemini",
-              "--session-id", "gemini-guide"
+              "agent",
+              "enter",
+              "--project",
+              "/workspace/moryn",
+              "--sync-remote",
+              "git@github.com:user/moryn-store.git",
+              "--current-task",
+              "continue handoff",
+              "--agent",
+              "gemini",
+              "--session-id",
+              "gemini-guide"
             ],
             args: [
-              "agent", "enter",
-              "--project", "/workspace/moryn",
-              "--sync-remote", "git@github.com:user/moryn-store.git",
-              "--current-task", "continue handoff",
-              "--agent", "gemini",
-              "--session-id", "gemini-guide"
+              "agent",
+              "enter",
+              "--project",
+              "/workspace/moryn",
+              "--sync-remote",
+              "git@github.com:user/moryn-store.git",
+              "--current-task",
+              "continue handoff",
+              "--agent",
+              "gemini",
+              "--session-id",
+              "gemini-guide"
             ]
           })
         }),
@@ -2760,9 +3203,15 @@ describe("moryn CLI", () => {
         "agent_start"
       ]);
       expect(parsed.lifecycle_by_step.start_or_resume).toEqual(parsed.lifecycle[0]);
-      expect(parsed.lifecycle_by_step.publish_status).toEqual(parsed.lifecycle.find((step) => step.step === "publish_status"));
-      expect(parsed.lifecycle_by_step.finish_handoff).toEqual(parsed.lifecycle.find((step) => step.step === "finish_handoff"));
-      expect(parsed.lifecycle_by_step.refresh_context).toEqual(parsed.lifecycle.find((step) => step.step === "refresh_context"));
+      expect(parsed.lifecycle_by_step.publish_status).toEqual(
+        parsed.lifecycle.find((step) => step.step === "publish_status")
+      );
+      expect(parsed.lifecycle_by_step.finish_handoff).toEqual(
+        parsed.lifecycle.find((step) => step.step === "finish_handoff")
+      );
+      expect(parsed.lifecycle_by_step.refresh_context).toEqual(
+        parsed.lifecycle.find((step) => step.step === "refresh_context")
+      );
       expect(parsed.startup.required_fields_by_name).toEqual({});
       expect(parsed.lifecycle_by_step.publish_status.required_fields_by_name?.status).toEqual({
         name: "status",
@@ -2782,80 +3231,101 @@ describe("moryn CLI", () => {
         placeholder: "<refresh_since>",
         value: "<refresh_since>"
       });
-      expect(parsed.lifecycle).toContainEqual(expect.objectContaining({
-        step: "publish_status",
-        tool: "agent_status",
-        safe_to_run: true,
-        required_fields: ["status"],
-        argument_sources: {
-          status: "agent_authored.status"
-        },
-        safety: expect.objectContaining({
-          safe_to_auto_run: true,
-          requires_user_confirmation: false,
-          requires_authored_input: true,
-          writes_local_config: false,
-          reasons: ["required_fields"]
-        }),
-        arguments: expect.objectContaining({ status: "<status>" })
-      }));
-      expect(parsed.lifecycle).toContainEqual(expect.objectContaining({
-        step: "finish_handoff",
-        tool: "agent_finish",
-        safe_to_run: true,
-        required_fields: ["summary"],
-        argument_sources: {
-          summary: "agent_authored.summary"
-        },
-        safety: expect.objectContaining({
-          safe_to_auto_run: true,
-          requires_user_confirmation: false,
-          requires_authored_input: true,
-          writes_local_config: false,
-          reasons: ["required_fields"]
-        }),
-        arguments: expect.objectContaining({ summary: "<summary>" })
-      }));
-      expect(parsed.lifecycle).toContainEqual(expect.objectContaining({
-        step: "refresh_context",
-        tool: "agent_start",
-        safe_to_run: true,
-        command: "moryn agent start --project /workspace/moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue handoff' --agent gemini --session-id gemini-guide --refresh-since <refresh_since>",
-        interfaces: expect.objectContaining({
-          cli: expect.objectContaining({
-            executable: "moryn",
-            argv: [
-              "agent", "start",
-              "--project", "/workspace/moryn",
-              "--sync-remote", "git@github.com:user/moryn-store.git",
-              "--current-task", "continue handoff",
-              "--agent", "gemini",
-              "--session-id", "gemini-guide",
-              "--refresh-since", "<refresh_since>"
-            ],
-            args: [
-              "agent", "start",
-              "--project", "/workspace/moryn",
-              "--sync-remote", "git@github.com:user/moryn-store.git",
-              "--current-task", "continue handoff",
-              "--agent", "gemini",
-              "--session-id", "gemini-guide",
-              "--refresh-since", "<refresh_since>"
-            ]
-          })
-        }),
-        required_fields: ["refresh_since"],
-        argument_sources: {
-          refresh_since: "user_input.refresh_since"
-        },
-        safety: expect.objectContaining({
-          safe_to_auto_run: true,
-          requires_user_confirmation: false,
-          requires_authored_input: true,
-          writes_local_config: false,
-          reasons: expect.arrayContaining(["required_fields"])
+      expect(parsed.lifecycle).toContainEqual(
+        expect.objectContaining({
+          step: "publish_status",
+          tool: "agent_status",
+          safe_to_run: true,
+          required_fields: ["status"],
+          argument_sources: {
+            status: "agent_authored.status"
+          },
+          safety: expect.objectContaining({
+            safe_to_auto_run: true,
+            requires_user_confirmation: false,
+            requires_authored_input: true,
+            writes_local_config: false,
+            reasons: ["required_fields"]
+          }),
+          arguments: expect.objectContaining({ status: "<status>" })
         })
-      }));
+      );
+      expect(parsed.lifecycle).toContainEqual(
+        expect.objectContaining({
+          step: "finish_handoff",
+          tool: "agent_finish",
+          safe_to_run: true,
+          required_fields: ["summary"],
+          argument_sources: {
+            summary: "agent_authored.summary"
+          },
+          safety: expect.objectContaining({
+            safe_to_auto_run: true,
+            requires_user_confirmation: false,
+            requires_authored_input: true,
+            writes_local_config: false,
+            reasons: ["required_fields"]
+          }),
+          arguments: expect.objectContaining({ summary: "<summary>" })
+        })
+      );
+      expect(parsed.lifecycle).toContainEqual(
+        expect.objectContaining({
+          step: "refresh_context",
+          tool: "agent_start",
+          safe_to_run: true,
+          command:
+            "moryn agent start --project /workspace/moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue handoff' --agent gemini --session-id gemini-guide --refresh-since <refresh_since>",
+          interfaces: expect.objectContaining({
+            cli: expect.objectContaining({
+              executable: "moryn",
+              argv: [
+                "agent",
+                "start",
+                "--project",
+                "/workspace/moryn",
+                "--sync-remote",
+                "git@github.com:user/moryn-store.git",
+                "--current-task",
+                "continue handoff",
+                "--agent",
+                "gemini",
+                "--session-id",
+                "gemini-guide",
+                "--refresh-since",
+                "<refresh_since>"
+              ],
+              args: [
+                "agent",
+                "start",
+                "--project",
+                "/workspace/moryn",
+                "--sync-remote",
+                "git@github.com:user/moryn-store.git",
+                "--current-task",
+                "continue handoff",
+                "--agent",
+                "gemini",
+                "--session-id",
+                "gemini-guide",
+                "--refresh-since",
+                "<refresh_since>"
+              ]
+            })
+          }),
+          required_fields: ["refresh_since"],
+          argument_sources: {
+            refresh_since: "user_input.refresh_since"
+          },
+          safety: expect.objectContaining({
+            safe_to_auto_run: true,
+            requires_user_confirmation: false,
+            requires_authored_input: true,
+            writes_local_config: false,
+            reasons: expect.arrayContaining(["required_fields"])
+          })
+        })
+      );
       for (const action of parsed.lifecycle) {
         expectActionInterfaces(action);
         expectActionSafety(action);
@@ -2865,8 +3335,12 @@ describe("moryn CLI", () => {
       expectGuideLifecycleStepSelectionSources(parsed.lifecycle_by_step.publish_status);
       expectGuideLifecycleStepSelectionSources(parsed.lifecycle_by_step.finish_handoff);
       expectGuideLifecycleStepSelectionSources(parsed.lifecycle_by_step.refresh_context);
-      expect(parsed.rules).toContain("Prefer agent_enter for startup; do not manually compose sync_pull, boot, and refresh.");
-      expect(parsed.rules).toContain("When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id.");
+      expect(parsed.rules).toContain(
+        "Prefer agent_enter for startup; do not manually compose sync_pull, boot, and refresh."
+      );
+      expect(parsed.rules).toContain(
+        "When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id."
+      );
       expect(Object.keys(parsed.rules_by_id)).toEqual([
         "prefer_agent_enter_for_startup",
         "discover_project_before_lifecycle_writes",
@@ -2882,7 +3356,9 @@ describe("moryn CLI", () => {
         id: "discover_project_before_lifecycle_writes",
         text: "When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id."
       });
-      expect(parsed.rules_by_id.use_returned_actions_verbatim.text).toBe("Use returned next.actions commands or arguments verbatim when continuing the lifecycle.");
+      expect(parsed.rules_by_id.use_returned_actions_verbatim.text).toBe(
+        "Use returned next.actions commands or arguments verbatim when continuing the lifecycle."
+      );
       expect(parsed.rules).toEqual(Object.values(parsed.rules_by_id).map((rule) => rule.text));
       expect(parsed.guardrails.map((guardrail) => guardrail.id)).toEqual([
         "prefer_agent_enter_for_startup",
@@ -2892,25 +3368,38 @@ describe("moryn CLI", () => {
         "pass_sync_remote_for_cross_device_handoff"
       ]);
       expect(parsed.guardrails_by_id.prefer_agent_enter_for_startup).toEqual(parsed.guardrails[0]);
-      expect(parsed.guardrails_by_id.discover_project_before_lifecycle_writes).toEqual(parsed.guardrails.find((guardrail) => guardrail.id === "discover_project_before_lifecycle_writes"));
-      expect(parsed.guardrails_by_id.use_returned_actions_verbatim).toEqual(parsed.guardrails.find((guardrail) => guardrail.id === "use_returned_actions_verbatim"));
-      expect(parsed.guardrails_by_id.publish_status_and_finish_handoff).toEqual(parsed.guardrails.find((guardrail) => guardrail.id === "publish_status_and_finish_handoff"));
-      expect(parsed.guardrails_by_id.pass_sync_remote_for_cross_device_handoff).toEqual(parsed.guardrails.find((guardrail) => guardrail.id === "pass_sync_remote_for_cross_device_handoff"));
-      expect(parsed.guardrails).toContainEqual(expect.objectContaining({
-        id: "prefer_agent_enter_for_startup",
-        when: parsed.startup.required_when,
-        avoid: ["manual_sync_pull_boot_refresh", "manual_lower_level_startup_sequence"],
-        required_behavior: "Call the returned agent_enter startup action instead of composing lower-level startup tools.",
-        use_instead: {
-          recommended_action: "call_agent_enter",
-          ...parsed.startup
-        }
-      }));
-      expect(parsed.guardrails).toContainEqual(expect.objectContaining({
-        id: "use_returned_actions_verbatim",
-        avoid: ["reconstruct_command_from_memory", "rename_argument_fields", "drop_required_fields"],
-        allowed_action_sources: ["startup", "next", "lifecycle_by_step", "lifecycle", "response.next.actions"]
-      }));
+      expect(parsed.guardrails_by_id.discover_project_before_lifecycle_writes).toEqual(
+        parsed.guardrails.find((guardrail) => guardrail.id === "discover_project_before_lifecycle_writes")
+      );
+      expect(parsed.guardrails_by_id.use_returned_actions_verbatim).toEqual(
+        parsed.guardrails.find((guardrail) => guardrail.id === "use_returned_actions_verbatim")
+      );
+      expect(parsed.guardrails_by_id.publish_status_and_finish_handoff).toEqual(
+        parsed.guardrails.find((guardrail) => guardrail.id === "publish_status_and_finish_handoff")
+      );
+      expect(parsed.guardrails_by_id.pass_sync_remote_for_cross_device_handoff).toEqual(
+        parsed.guardrails.find((guardrail) => guardrail.id === "pass_sync_remote_for_cross_device_handoff")
+      );
+      expect(parsed.guardrails).toContainEqual(
+        expect.objectContaining({
+          id: "prefer_agent_enter_for_startup",
+          when: parsed.startup.required_when,
+          avoid: ["manual_sync_pull_boot_refresh", "manual_lower_level_startup_sequence"],
+          required_behavior:
+            "Call the returned agent_enter startup action instead of composing lower-level startup tools.",
+          use_instead: {
+            recommended_action: "call_agent_enter",
+            ...parsed.startup
+          }
+        })
+      );
+      expect(parsed.guardrails).toContainEqual(
+        expect.objectContaining({
+          id: "use_returned_actions_verbatim",
+          avoid: ["reconstruct_command_from_memory", "rename_argument_fields", "drop_required_fields"],
+          allowed_action_sources: ["startup", "next", "lifecycle_by_step", "lifecycle", "response.next.actions"]
+        })
+      );
       expect(parsed.workflow).toMatchObject({
         version: 1,
         start: "startup",
@@ -2937,7 +3426,8 @@ describe("moryn CLI", () => {
           order: 3,
           action_source: "lifecycle_by_step.publish_status",
           tool: "agent_status",
-          required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
+          required_when:
+            "During meaningful long-running work, before interruption, or when another agent may need coordination.",
           required_fields: ["status"]
         },
         {
@@ -2953,12 +3443,17 @@ describe("moryn CLI", () => {
           order: 5,
           action_source: "lifecycle_by_step.refresh_context",
           tool: "agent_start",
-          required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
+          required_when:
+            "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
           required_fields: ["refresh_since"]
         }
       ]);
-      expect(parsed.workflow.phases_by_name.publish_status).toEqual(parsed.workflow.phases.find((phase) => phase.phase === "publish_status"));
-      expect(parsed.workflow.phases_by_name.finish_handoff).toEqual(parsed.workflow.phases.find((phase) => phase.phase === "finish_handoff"));
+      expect(parsed.workflow.phases_by_name.publish_status).toEqual(
+        parsed.workflow.phases.find((phase) => phase.phase === "publish_status")
+      );
+      expect(parsed.workflow.phases_by_name.finish_handoff).toEqual(
+        parsed.workflow.phases.find((phase) => phase.phase === "finish_handoff")
+      );
       expect(parsed.next).toMatchObject({
         recommended_action: "call_agent_enter",
         tool: "agent_enter",
@@ -2977,29 +3472,48 @@ describe("moryn CLI", () => {
   it("requires explicit project id in agent guide lifecycle templates when project is unknown", async () => {
     await withTempDir(async (dir) => {
       const guide = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", join(dir, "store"),
-        "agent", "guide",
-        "--sync-remote", "git@github.com:user/moryn-store.git",
-        "--current-task", "find project",
-        "--agent", "gemini",
-        "--session-id", "gemini-guide-discovery"
+        cliJsPath,
+        "--store",
+        join(dir, "store"),
+        "agent",
+        "guide",
+        "--sync-remote",
+        "git@github.com:user/moryn-store.git",
+        "--current-task",
+        "find project",
+        "--agent",
+        "gemini",
+        "--session-id",
+        "gemini-guide-discovery"
       ]);
       const parsed = JSON.parse(guide.stdout) as {
-        startup: { command: string; safe_to_run: boolean; required_when: string; required_fields: string[]; arguments: { project_id?: string } };
+        startup: {
+          command: string;
+          safe_to_run: boolean;
+          required_when: string;
+          required_fields: string[];
+          arguments: { project_id?: string };
+        };
         guardrails: Array<{
           id: string;
           required_behavior: string;
           use_instead?: { command: string; arguments: { project_id?: string } };
         }>;
-        guardrails_by_id: Record<string, {
-          id: string;
-          required_behavior: string;
-          use_instead?: { command: string; arguments: { project_id?: string } };
-        }>;
-        rules_by_id: Record<string, {
-          id: string;
-          text: string;
-        }>;
+        guardrails_by_id: Record<
+          string,
+          {
+            id: string;
+            required_behavior: string;
+            use_instead?: { command: string; arguments: { project_id?: string } };
+          }
+        >;
+        rules_by_id: Record<
+          string,
+          {
+            id: string;
+            text: string;
+          }
+        >;
         workflow: {
           start: string;
           phases: Array<{
@@ -3015,73 +3529,106 @@ describe("moryn CLI", () => {
           required_fields: string[];
           arguments: { project_id?: string; status?: string; summary?: string; refresh_since?: string };
         }>;
-        lifecycle_by_step: Record<string, {
-          step: string;
-          tool: string;
-          command: string;
-          required_fields: string[];
-          arguments: { project_id?: string; status?: string; summary?: string; refresh_since?: string };
-        }>;
+        lifecycle_by_step: Record<
+          string,
+          {
+            step: string;
+            tool: string;
+            command: string;
+            required_fields: string[];
+            arguments: { project_id?: string; status?: string; summary?: string; refresh_since?: string };
+          }
+        >;
       };
 
-      expect(parsed.startup.command).toBe("moryn agent enter --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-guide-discovery");
+      expect(parsed.startup.command).toBe(
+        "moryn agent enter --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-guide-discovery"
+      );
       expect(parsed.startup.safe_to_run).toBe(true);
-      expect(parsed.startup.required_when).toBe("At the start of an agent turn, or whenever store/project/sync context is uncertain.");
+      expect(parsed.startup.required_when).toBe(
+        "At the start of an agent turn, or whenever store/project/sync context is uncertain."
+      );
       expect(parsed.startup.required_fields).toEqual([]);
       expect(parsed.startup.arguments.project_id).toBeUndefined();
-      expect(parsed.guardrails).toContainEqual(expect.objectContaining({
-        id: "discover_project_before_lifecycle_writes",
-        required_behavior: "When project context is unclear, call agent_enter discovery and choose a returned project before lifecycle writes.",
-        use_instead: expect.objectContaining({
-          command: parsed.startup.command,
-          arguments: parsed.startup.arguments
+      expect(parsed.guardrails).toContainEqual(
+        expect.objectContaining({
+          id: "discover_project_before_lifecycle_writes",
+          required_behavior:
+            "When project context is unclear, call agent_enter discovery and choose a returned project before lifecycle writes.",
+          use_instead: expect.objectContaining({
+            command: parsed.startup.command,
+            arguments: parsed.startup.arguments
+          })
         })
-      }));
-      expect(parsed.guardrails_by_id.discover_project_before_lifecycle_writes).toEqual(parsed.guardrails.find((guardrail) => guardrail.id === "discover_project_before_lifecycle_writes"));
+      );
+      expect(parsed.guardrails_by_id.discover_project_before_lifecycle_writes).toEqual(
+        parsed.guardrails.find((guardrail) => guardrail.id === "discover_project_before_lifecycle_writes")
+      );
       expect(parsed.rules_by_id.discover_project_before_lifecycle_writes).toEqual({
         id: "discover_project_before_lifecycle_writes",
         text: "When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id."
       });
       expect(parsed.workflow.start).toBe("startup");
-      expect(parsed.workflow.phases).toContainEqual(expect.objectContaining({
-        phase: "publish_status",
-        action_source: "lifecycle_by_step.publish_status",
-        required_fields: ["project_id", "status"]
-      }));
-      expect(parsed.workflow.phases).toContainEqual(expect.objectContaining({
-        phase: "finish_handoff",
-        action_source: "lifecycle_by_step.finish_handoff",
-        required_fields: ["project_id", "summary"]
-      }));
-      expect(parsed.workflow.phases).toContainEqual(expect.objectContaining({
-        phase: "refresh_context",
-        action_source: "lifecycle_by_step.refresh_context",
-        required_fields: ["project_id", "refresh_since"]
-      }));
-      expect(parsed.lifecycle).toContainEqual(expect.objectContaining({
-        step: "publish_status",
-        tool: "agent_status",
-        command: "moryn agent status --project-id <project_id> --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-guide-discovery --status <status>",
-        required_fields: ["project_id", "status"],
-        arguments: expect.objectContaining({ project_id: "<project_id>", status: "<status>" })
-      }));
-      expect(parsed.lifecycle).toContainEqual(expect.objectContaining({
-        step: "finish_handoff",
-        tool: "agent_finish",
-        command: "moryn agent finish --project-id <project_id> --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-guide-discovery --summary <summary>",
-        required_fields: ["project_id", "summary"],
-        arguments: expect.objectContaining({ project_id: "<project_id>", summary: "<summary>" })
-      }));
-      expect(parsed.lifecycle).toContainEqual(expect.objectContaining({
-        step: "refresh_context",
-        tool: "agent_start",
-        command: "moryn agent start --project-id <project_id> --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-guide-discovery --refresh-since <refresh_since>",
-        required_fields: ["project_id", "refresh_since"],
-        arguments: expect.objectContaining({ project_id: "<project_id>", refresh_since: "<refresh_since>" })
-      }));
-      expect(parsed.lifecycle_by_step.publish_status).toEqual(parsed.lifecycle.find((step) => step.step === "publish_status"));
-      expect(parsed.lifecycle_by_step.finish_handoff).toEqual(parsed.lifecycle.find((step) => step.step === "finish_handoff"));
-      expect(parsed.lifecycle_by_step.refresh_context).toEqual(parsed.lifecycle.find((step) => step.step === "refresh_context"));
+      expect(parsed.workflow.phases).toContainEqual(
+        expect.objectContaining({
+          phase: "publish_status",
+          action_source: "lifecycle_by_step.publish_status",
+          required_fields: ["project_id", "status"]
+        })
+      );
+      expect(parsed.workflow.phases).toContainEqual(
+        expect.objectContaining({
+          phase: "finish_handoff",
+          action_source: "lifecycle_by_step.finish_handoff",
+          required_fields: ["project_id", "summary"]
+        })
+      );
+      expect(parsed.workflow.phases).toContainEqual(
+        expect.objectContaining({
+          phase: "refresh_context",
+          action_source: "lifecycle_by_step.refresh_context",
+          required_fields: ["project_id", "refresh_since"]
+        })
+      );
+      expect(parsed.lifecycle).toContainEqual(
+        expect.objectContaining({
+          step: "publish_status",
+          tool: "agent_status",
+          command:
+            "moryn agent status --project-id <project_id> --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-guide-discovery --status <status>",
+          required_fields: ["project_id", "status"],
+          arguments: expect.objectContaining({ project_id: "<project_id>", status: "<status>" })
+        })
+      );
+      expect(parsed.lifecycle).toContainEqual(
+        expect.objectContaining({
+          step: "finish_handoff",
+          tool: "agent_finish",
+          command:
+            "moryn agent finish --project-id <project_id> --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-guide-discovery --summary <summary>",
+          required_fields: ["project_id", "summary"],
+          arguments: expect.objectContaining({ project_id: "<project_id>", summary: "<summary>" })
+        })
+      );
+      expect(parsed.lifecycle).toContainEqual(
+        expect.objectContaining({
+          step: "refresh_context",
+          tool: "agent_start",
+          command:
+            "moryn agent start --project-id <project_id> --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-guide-discovery --refresh-since <refresh_since>",
+          required_fields: ["project_id", "refresh_since"],
+          arguments: expect.objectContaining({ project_id: "<project_id>", refresh_since: "<refresh_since>" })
+        })
+      );
+      expect(parsed.lifecycle_by_step.publish_status).toEqual(
+        parsed.lifecycle.find((step) => step.step === "publish_status")
+      );
+      expect(parsed.lifecycle_by_step.finish_handoff).toEqual(
+        parsed.lifecycle.find((step) => step.step === "finish_handoff")
+      );
+      expect(parsed.lifecycle_by_step.refresh_context).toEqual(
+        parsed.lifecycle.find((step) => step.step === "refresh_context")
+      );
       for (const action of parsed.lifecycle) {
         expectLifecycleWorkflow(action);
       }
@@ -3090,20 +3637,46 @@ describe("moryn CLI", () => {
 
   it("initializes a store and writes a record", async () => {
     await withTempDir(async (dir) => {
-      const init = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      const init = await exec("node", [cliJsPath, "--store", dir, "init"]);
       const parsedInit = JSON.parse(init.stdout) as {
         artifacts: { config: string };
         selection_sources: Record<string, string>;
       };
       expect(parsedInit.artifacts.config).toBe("config.json");
       expect(parsedInit.selection_sources).toEqual(STORE_INIT_SELECTION_SOURCES);
-      const config = JSON.parse(await readFile(join(dir, "config.json"), "utf8")) as { store_version: number; device_id: string };
+      const config = JSON.parse(await readFile(join(dir, "config.json"), "utf8")) as {
+        store_version: number;
+        device_id: string;
+      };
       expect(config.store_version).toBe(1);
       expect(config.device_id).toMatch(/^device_/);
 
-      const write = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "moryn", "--text", "Use events"]);
+      const write = await exec("node", [
+        cliJsPath,
+        "--store",
+        dir,
+        "write",
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--text",
+        "Use events"
+      ]);
       expect(write.stdout).toContain("rec_");
-      const recall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "recall", "events", "--project-id", "moryn"]);
+      const recall = await exec("node", [
+        cliJsPath,
+        "--store",
+        dir,
+        "recall",
+        "events",
+        "--project-id",
+        "moryn"
+      ]);
       expect(recall.stdout).toContain("Use events");
     });
   });
@@ -3115,12 +3688,16 @@ describe("moryn CLI", () => {
       await mkdir(project, { recursive: true });
 
       const result = await exec("node", [
-        "--import", tsxLoader, cliPath,
-        "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "install",
-        "--host", "codex",
-        "--project", project,
-        "--sync-remote", "git@github.com:user/moryn-store.git"
+        "--host",
+        "codex",
+        "--project",
+        project,
+        "--sync-remote",
+        "git@github.com:user/moryn-store.git"
       ]);
       const parsed = JSON.parse(result.stdout) as {
         mode: string;
@@ -3131,18 +3708,20 @@ describe("moryn CLI", () => {
       };
 
       expect(parsed.mode).toBe("dry_run");
-      expect(parsed.adapters).toEqual([
-        expect.objectContaining({ id: "codex", normalized_client: "codex" })
-      ]);
-      expect(parsed.actions).toContainEqual(expect.objectContaining({
-        action: "register_mcp",
-        safe_to_auto_run: false,
-        command: "codex mcp add moryn -- moryn mcp"
-      }));
-      expect(parsed.actions).toContainEqual(expect.objectContaining({
-        action: "capture_session",
-        safe_to_auto_run: true
-      }));
+      expect(parsed.adapters).toEqual([expect.objectContaining({ id: "codex", normalized_client: "codex" })]);
+      expect(parsed.actions).toContainEqual(
+        expect.objectContaining({
+          action: "register_mcp",
+          safe_to_auto_run: false,
+          command: "codex mcp add moryn -- moryn mcp"
+        })
+      );
+      expect(parsed.actions).toContainEqual(
+        expect.objectContaining({
+          action: "capture_session",
+          safe_to_auto_run: true
+        })
+      );
       expect(parsed.next.command).toContain("moryn context pack");
       expect(parsed.next.command).toContain("--agent codex");
       expect(parsed.selection_sources.action).toBe("actions_by_id.<action>");
@@ -3156,20 +3735,41 @@ describe("moryn CLI", () => {
       await mkdir(project, { recursive: true });
 
       const dryRun = await exec("node", [
-        "--import", tsxLoader, cliPath,
-        "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "setup",
-        "--host", "codex",
-        "--project", project,
-        "--sync-remote", "git@github.com:user/moryn-store.git"
+        "--host",
+        "codex",
+        "--project",
+        project,
+        "--sync-remote",
+        "git@github.com:user/moryn-store.git"
       ]);
       const dryPlan = JSON.parse(dryRun.stdout) as {
         ok: boolean;
         mode: string;
         status: string;
         generated_from: { writes: string; host_config_writes: string };
-        planned_writes: Array<{ id: string; path: string; action_id: string; action_source: string; reason: string; requires_apply: boolean }>;
-        planned_writes_by_id: Record<string, { id: string; path: string; action_id: string; action_source: string; reason: string; requires_apply: boolean }>;
+        planned_writes: Array<{
+          id: string;
+          path: string;
+          action_id: string;
+          action_source: string;
+          reason: string;
+          requires_apply: boolean;
+        }>;
+        planned_writes_by_id: Record<
+          string,
+          {
+            id: string;
+            path: string;
+            action_id: string;
+            action_source: string;
+            reason: string;
+            requires_apply: boolean;
+          }
+        >;
         checks_by_id: Record<string, { status: string; message: string }>;
         actions_by_id: Record<string, { action: string; command: string; writes: string; safe_to_auto_run: boolean }>;
         next: { recommended_action: string; command: string; safe_to_run: boolean };
@@ -3229,11 +3829,14 @@ describe("moryn CLI", () => {
       await expect(readFile(join(project, ".moryn.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
 
       const applied = await exec("node", [
-        "--import", tsxLoader, cliPath,
-        "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "setup",
-        "--host", "codex",
-        "--project", project,
+        "--host",
+        "codex",
+        "--project",
+        project,
         "--apply"
       ]);
       const appliedPlan = JSON.parse(applied.stdout) as {
@@ -3254,11 +3857,14 @@ describe("moryn CLI", () => {
       await expect(readFile(join(project, ".moryn.json"), "utf8")).resolves.toContain("project_id");
 
       const ready = await exec("node", [
-        "--import", tsxLoader, cliPath,
-        "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "setup",
-        "--host", "codex",
-        "--project", project
+        "--host",
+        "codex",
+        "--project",
+        project
       ]);
       const readyPlan = JSON.parse(ready.stdout) as {
         mode: string;
@@ -3294,11 +3900,14 @@ describe("moryn CLI", () => {
 
       try {
         await exec("node", [
-          "--import", tsxLoader, cliPath,
-          "--store", store,
+          cliJsPath,
+          "--store",
+          store,
           "setup",
-          "--host", "codex",
-          "--project", projectFile
+          "--host",
+          "codex",
+          "--project",
+          projectFile
         ]);
         throw new Error("Expected setup to reject a file project path");
       } catch (error) {
@@ -3316,10 +3925,25 @@ describe("moryn CLI", () => {
               arguments: { path: string };
               safe_to_run: boolean;
               required_fields: string[];
-              interfaces: { cli: { command: string; executable: string; args: string[] }; mcp: { tool: string; arguments: Record<string, unknown> } };
-              safety: { safe_to_auto_run: boolean; requires_user_confirmation: boolean; requires_authored_input: boolean; writes_local_config: boolean };
-              execution: { ready_to_run: boolean; next_step: string; requires_user_confirmation: boolean; missing_required_fields: string[] };
-              workflow: { phases_by_name: Record<string, { action_source: string; tool: string; required_fields: string[] }> };
+              interfaces: {
+                cli: { command: string; executable: string; args: string[] };
+                mcp: { tool: string; arguments: Record<string, unknown> };
+              };
+              safety: {
+                safe_to_auto_run: boolean;
+                requires_user_confirmation: boolean;
+                requires_authored_input: boolean;
+                writes_local_config: boolean;
+              };
+              execution: {
+                ready_to_run: boolean;
+                next_step: string;
+                requires_user_confirmation: boolean;
+                missing_required_fields: string[];
+              };
+              workflow: {
+                phases_by_name: Record<string, { action_source: string; tool: string; required_fields: string[] }>;
+              };
               selection_sources: Record<string, string>;
             };
           };
@@ -3329,7 +3953,8 @@ describe("moryn CLI", () => {
         expect(parsed.error).toMatchObject({
           code: "PROJECT_PATH_NOT_FOUND",
           recoverable: true,
-          recommended_action: "run moryn project init --path <path> for a new project or retry with the correct --project/--project-id"
+          recommended_action:
+            "run moryn project init --path <path> for a new project or retry with the correct --project/--project-id"
         });
         expect(parsed.error.message).toContain(projectFile);
         expect(parsed.error.next_action).toMatchObject({
@@ -3363,7 +3988,9 @@ describe("moryn CLI", () => {
             missing_required_fields: []
           }
         });
-        expect(parsed.error.next_action.workflow.phases_by_name.initialize_project_or_retry_corrected_context).toMatchObject({
+        expect(
+          parsed.error.next_action.workflow.phases_by_name.initialize_project_or_retry_corrected_context
+        ).toMatchObject({
           action_source: "next_action",
           tool: "project_init",
           required_fields: []
@@ -3382,12 +4009,16 @@ describe("moryn CLI", () => {
 
       try {
         await exec("node", [
-          "--import", tsxLoader, cliPath,
-          "--store", store,
+          cliJsPath,
+          "--store",
+          store,
           "setup",
-          "--host", "codex",
-          "--project", project,
-          "--sync-remote", invalidRemote
+          "--host",
+          "codex",
+          "--project",
+          project,
+          "--sync-remote",
+          invalidRemote
         ]);
         throw new Error("Expected setup to reject an invalid sync remote");
       } catch (error) {
@@ -3412,8 +4043,18 @@ describe("moryn CLI", () => {
               safe_to_run: boolean;
               required_fields: string[];
               required_fields_by_name: Record<string, { argument_path: string }>;
-              execution: { ready_to_run: boolean; next_step: string; missing_required_fields: string[]; required_inputs_by_field: Record<string, { field: string }> };
-              safety: { safe_to_auto_run: boolean; requires_user_confirmation: boolean; requires_authored_input: boolean; writes_local_config: boolean };
+              execution: {
+                ready_to_run: boolean;
+                next_step: string;
+                missing_required_fields: string[];
+                required_inputs_by_field: Record<string, { field: string }>;
+              };
+              safety: {
+                safe_to_auto_run: boolean;
+                requires_user_confirmation: boolean;
+                requires_authored_input: boolean;
+                writes_local_config: boolean;
+              };
             };
           };
         };
@@ -3471,12 +4112,15 @@ describe("moryn CLI", () => {
       const store = join(dir, "store");
       const project = join(dir, "project");
       await mkdir(project, { recursive: true });
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
       await exec("node", [
-        "--import", tsxLoader, cliPath,
-        "project", "init",
-        "--path", project,
-        "--project-id", "moryn"
+        cliJsPath,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--project-id",
+        "moryn"
       ]);
 
       const hostCases = [
@@ -3490,17 +4134,27 @@ describe("moryn CLI", () => {
       for (const hostCase of hostCases) {
         const touchedFiles = [`src/${hostCase.normalized}.ts`, `docs/${hostCase.normalized}.md`];
         const result = await exec("node", [
-          "--import", tsxLoader, cliPath,
-          "--store", store,
-          "capture", "session",
-          "--project", project,
-          "--sync-remote", "git@github.com:user/moryn-store.git",
-          "--agent", hostCase.input,
-          "--session-id", `s-${hostCase.normalized}`,
-          "--current-task", `design host adapter ${hostCase.normalized}`,
-          "--file", touchedFiles[0]!,
-          "--file", touchedFiles[1]!,
-          "--summary", `Finished planner for ${hostCase.normalized}`
+          cliJsPath,
+          "--store",
+          store,
+          "capture",
+          "session",
+          "--project",
+          project,
+          "--sync-remote",
+          "git@github.com:user/moryn-store.git",
+          "--agent",
+          hostCase.input,
+          "--session-id",
+          `s-${hostCase.normalized}`,
+          "--current-task",
+          `design host adapter ${hostCase.normalized}`,
+          "--file",
+          touchedFiles[0]!,
+          "--file",
+          touchedFiles[1]!,
+          "--summary",
+          `Finished planner for ${hostCase.normalized}`
         ]);
         const parsed = JSON.parse(result.stdout) as {
           mode: string;
@@ -3555,7 +4209,10 @@ describe("moryn CLI", () => {
         expect(parsed.record.tags).toContain("auto-captured");
         expect(parsed.record.tags).toContain(`host:${hostCase.normalized}`);
         expect(parsed.record.tags).not.toContain("review");
-        expect(parsed.record.source).toMatchObject({ client: hostCase.normalized, session_id: `s-${hostCase.normalized}` });
+        expect(parsed.record.source).toMatchObject({
+          client: hostCase.normalized,
+          session_id: `s-${hostCase.normalized}`
+        });
         expect(parsed.record.content.text).toBe(`Finished planner for ${hostCase.normalized}`);
         expect(parsed.record.content.capture).toMatchObject({
           host: hostCase.normalized,
@@ -3581,43 +4238,65 @@ describe("moryn CLI", () => {
       const store = join(dir, "store");
       const project = join(dir, "project");
       await mkdir(project, { recursive: true });
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
       await exec("node", [
-        "--import", tsxLoader, cliPath,
-        "project", "init",
-        "--path", project,
-        "--project-id", "moryn"
+        cliJsPath,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--project-id",
+        "moryn"
       ]);
       await exec("node", [
-        "--import", tsxLoader, cliPath,
-        "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--text", "CLI context pack should expose Handoff Pack v0.2.",
-        "--state", "canonical",
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--text",
+        "CLI context pack should expose Handoff Pack v0.2.",
+        "--state",
+        "canonical",
         "--confirm"
       ]);
       await exec("node", [
-        "--import", tsxLoader, cliPath,
-        "--store", store,
-        "capture", "session",
-        "--project", project,
-        "--agent", "claude",
-        "--session-id", "claude-1",
-        "--summary", "Claude finished adapter research."
+        cliJsPath,
+        "--store",
+        store,
+        "capture",
+        "session",
+        "--project",
+        project,
+        "--agent",
+        "claude",
+        "--session-id",
+        "claude-1",
+        "--summary",
+        "Claude finished adapter research."
       ]);
 
       const result = await exec("node", [
-        "--import", tsxLoader, cliPath,
-        "--store", store,
-        "context", "pack",
-        "--project", project,
-        "--agent", "gemini-cli",
-        "--session-id", "gemini-1",
-        "--current-task", "continue work",
+        cliJsPath,
+        "--store",
+        store,
+        "context",
+        "pack",
+        "--project",
+        project,
+        "--agent",
+        "gemini-cli",
+        "--session-id",
+        "gemini-1",
+        "--current-task",
+        "continue work",
         "--no-pull"
       ]);
       const parsed = JSON.parse(result.stdout) as {
@@ -3668,7 +4347,10 @@ describe("moryn CLI", () => {
           failed_check_ids: [],
           checks_by_id: expect.objectContaining({
             current_goal: expect.objectContaining({ status: "pass", source: "handoff_pack.current_goal" }),
-            capture_next_action: expect.objectContaining({ status: "pass", source: "next.actions_by_id.capture_session" })
+            capture_next_action: expect.objectContaining({
+              status: "pass",
+              source: "next.actions_by_id.capture_session"
+            })
           }),
           selection_sources: expect.objectContaining({
             quality_gate: "handoff_pack.quality_gate",
@@ -3694,34 +4376,44 @@ describe("moryn CLI", () => {
   it("handles concurrent CLI rebuilds without derived-view races", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
 
       const texts = Array.from({ length: 8 }, (_, index) => `Concurrent rebuild seed ${index}`);
       for (const text of texts) {
         await exec("node", [
-          "--import", tsxLoader, cliPath, "--store", store,
+          cliJsPath,
+          "--store",
+          store,
           "write",
-          "--kind", "memory",
-          "--type", "decision",
-          "--scope", "project",
-          "--project-id", "moryn",
-          "--tag", "stress",
-          "--state", "canonical",
-          "--text", text
+          "--kind",
+          "memory",
+          "--type",
+          "decision",
+          "--scope",
+          "project",
+          "--project-id",
+          "moryn",
+          "--tag",
+          "stress",
+          "--state",
+          "canonical",
+          "--text",
+          text
         ]);
       }
 
-      const rebuilds = await Promise.allSettled(Array.from({ length: 12 }, () => exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
-        "rebuild"
-      ])));
+      const rebuilds = await Promise.allSettled(
+        Array.from({ length: 12 }, () => exec("node", [cliJsPath, "--store", store, "rebuild"]))
+      );
 
       const failures = rebuilds
         .filter((result): result is PromiseRejectedResult => result.status === "rejected")
-        .map((result) => result.reason instanceof Error ? result.reason.message : String(result.reason));
+        .map((result) => (result.reason instanceof Error ? result.reason.message : String(result.reason)));
       expect(failures).toEqual([]);
 
-      const recall = JSON.parse(await readFile(join(store, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };
+      const recall = JSON.parse(await readFile(join(store, "indexes", "recall.json"), "utf8")) as {
+        records: Array<{ text: string }>;
+      };
       const indexedTexts = new Set(recall.records.map((record) => record.text));
 
       for (const text of texts) {
@@ -3734,8 +4426,22 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
       const project = join(dir, "project");
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
-      const initProject = await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "moryn", "--tag", "typescript", "--tag", "mcp", "--sync-mode", "interval"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      const initProject = await exec("node", [
+        cliJsPath,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--project-id",
+        "moryn",
+        "--tag",
+        "typescript",
+        "--tag",
+        "mcp",
+        "--sync-mode",
+        "interval"
+      ]);
       const parsedProject = JSON.parse(initProject.stdout) as {
         artifacts: { config: string };
         selection_sources: Record<string, string>;
@@ -3743,13 +4449,44 @@ describe("moryn CLI", () => {
       expect(parsedProject.artifacts.config).toBe(".moryn.json");
       expect(parsedProject.selection_sources).toEqual(PROJECT_INIT_SELECTION_SOURCES);
 
-      const projectConfig = JSON.parse(await readFile(join(project, ".moryn.json"), "utf8")) as { project_id: string; tags: string[]; sync: { mode: string } };
-      expect(projectConfig).toMatchObject({ project_id: "moryn", tags: ["typescript", "mcp"], sync: { mode: "interval" } });
+      const projectConfig = JSON.parse(await readFile(join(project, ".moryn.json"), "utf8")) as {
+        project_id: string;
+        tags: string[];
+        sync: { mode: string };
+      };
+      expect(projectConfig).toMatchObject({
+        project_id: "moryn",
+        tags: ["typescript", "mcp"],
+        sync: { mode: "interval" }
+      });
 
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project", project, "--text", "Use project config"]);
-      const recall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "recall", "project config", "--project", project]);
+      await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "write",
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project",
+        project,
+        "--text",
+        "Use project config"
+      ]);
+      const recall = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "recall",
+        "project config",
+        "--project",
+        project
+      ]);
 
-      expect(recall.stdout).toContain("\"project_id\": \"moryn\"");
+      expect(recall.stdout).toContain('"project_id": "moryn"');
       expect(recall.stdout).toContain("Use project config");
     });
   });
@@ -3758,15 +4495,29 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       const project = join(dir, "project");
       await exec("node", [
-        "--import", "tsx", "src/cli.ts",
-        "project", "init",
-        "--path", project,
-        "--project-id", "moryn",
-        "--tag", "typescript",
-        "--default-skill", "release",
-        "--sync-mode", "interval"
+        cliJsPath,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--project-id",
+        "moryn",
+        "--tag",
+        "typescript",
+        "--default-skill",
+        "release",
+        "--sync-mode",
+        "interval"
       ]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "moryn-v2"]);
+      await exec("node", [
+        cliJsPath,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--project-id",
+        "moryn-v2"
+      ]);
 
       const projectConfig = JSON.parse(await readFile(join(project, ".moryn.json"), "utf8")) as {
         project_id: string;
@@ -3784,7 +4535,15 @@ describe("moryn CLI", () => {
   it("accepts legacy project init sync-mode auto and normalizes it to interval", async () => {
     await withTempDir(async (dir) => {
       const project = join(dir, "project");
-      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--sync-mode", "auto"]);
+      await exec("node", [
+        cliJsPath,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--sync-mode",
+        "auto"
+      ]);
 
       const projectConfig = JSON.parse(await readFile(join(project, ".moryn.json"), "utf8")) as {
         sync: { mode: string };
@@ -3797,26 +4556,46 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
       const project = join(dir, "project");
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "moryn"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      await exec("node", [
+        cliJsPath,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--project-id",
+        "moryn"
+      ]);
 
       const other = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "other",
-        "--state", "canonical",
-        "--text", "CLI retrieves this exact record across project context."
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "other",
+        "--state",
+        "canonical",
+        "--text",
+        "CLI retrieves this exact record across project context."
       ]);
       const recordId = (JSON.parse(other.stdout) as { record: { id: string } }).record.id;
 
       const recall = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "recall",
-        "--record-id", recordId,
-        "--project", project
+        "--record-id",
+        recordId,
+        "--project",
+        project
       ]);
 
       expect(recall.stdout).toContain(recordId);
@@ -3826,33 +4605,54 @@ describe("moryn CLI", () => {
 
   it("recalls with filters and refreshes changes from the CLI", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
       const write = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "memory",
-        "--type", "blocker",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--tag", "sync",
-        "--tag", "src/sync/git.ts",
-        "--state", "canonical",
-        "--priority", "high",
-        "--text", "Sync must not overwrite local events."
+        "--kind",
+        "memory",
+        "--type",
+        "blocker",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--tag",
+        "sync",
+        "--tag",
+        "src/sync/git.ts",
+        "--state",
+        "canonical",
+        "--priority",
+        "high",
+        "--text",
+        "Sync must not overwrite local events."
       ]);
       const recordId = (JSON.parse(write.stdout) as { record: { id: string } }).record.id;
 
       const recall = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "recall",
-        "--record-id", recordId,
-        "--project-id", "moryn",
-        "--kind", "memory",
-        "--scope", "project",
-        "--type", "blocker",
-        "--state", "canonical",
-        "--tag", "sync",
-        "--file", "src/sync/git.ts"
+        "--record-id",
+        recordId,
+        "--project-id",
+        "moryn",
+        "--kind",
+        "memory",
+        "--scope",
+        "project",
+        "--type",
+        "blocker",
+        "--state",
+        "canonical",
+        "--tag",
+        "sync",
+        "--file",
+        "src/sync/git.ts"
       ]);
       const parsedRecall = JSON.parse(recall.stdout) as {
         results: Array<{ record: { id: string; content: { text: string } }; reason: string[] }>;
@@ -3870,7 +4670,16 @@ describe("moryn CLI", () => {
       });
       expect(parsedRecall.results_by_id[recordId]).toEqual(parsedRecall.results[0]);
 
-      const refresh = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "refresh", "--project-id", "moryn", "--cursor", "2000-01-01T00:00:00.000Z"]);
+      const refresh = await exec("node", [
+        cliJsPath,
+        "--store",
+        dir,
+        "refresh",
+        "--project-id",
+        "moryn",
+        "--cursor",
+        "2000-01-01T00:00:00.000Z"
+      ]);
       const parsedRefresh = JSON.parse(refresh.stdout) as {
         changes: Array<{
           record_id: string;
@@ -3885,13 +4694,16 @@ describe("moryn CLI", () => {
             required_fields: string[];
           };
         }>;
-        changes_by_record_id: Record<string, {
-          record_id: string;
-          importance: string;
-          next_action: {
-            workflow?: Record<string, unknown>;
-          };
-        }>;
+        changes_by_record_id: Record<
+          string,
+          {
+            record_id: string;
+            importance: string;
+            next_action: {
+              workflow?: Record<string, unknown>;
+            };
+          }
+        >;
         selection_sources: Record<string, string>;
       };
       expect(parsedRefresh.selection_sources).toEqual({
@@ -3899,16 +4711,27 @@ describe("moryn CLI", () => {
         record_id: "changes_by_record_id.<record_id>.record_id",
         next_action: "changes_by_record_id.<record_id>.next_action"
       });
-      expect(parsedRefresh.changes).toContainEqual(expect.objectContaining({
-        record_id: recordId,
-        importance: "interrupt",
-        next_action: expect.any(Object)
-      }));
+      expect(parsedRefresh.changes).toContainEqual(
+        expect.objectContaining({
+          record_id: recordId,
+          importance: "interrupt",
+          next_action: expect.any(Object)
+        })
+      );
       expect(parsedRefresh.changes_by_record_id[recordId]).toEqual(parsedRefresh.changes[0]);
       expectRefreshChangeNextAction(parsedRefresh.changes[0]!.next_action, recordId, "moryn");
-      expect(parsedRefresh.changes_by_record_id[recordId]!.next_action.workflow).toEqual(parsedRefresh.changes[0]!.next_action.workflow);
+      expect(parsedRefresh.changes_by_record_id[recordId]!.next_action.workflow).toEqual(
+        parsedRefresh.changes[0]!.next_action.workflow
+      );
 
-      const recent = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "list-recent", "--limit", "1"]);
+      const recent = await exec("node", [
+        cliJsPath,
+        "--store",
+        dir,
+        "list-recent",
+        "--limit",
+        "1"
+      ]);
       const parsedRecent = JSON.parse(recent.stdout) as {
         records: Array<{ id: string; content: { text: string } }>;
         records_by_id: Record<string, { id: string; content: { text: string } }>;
@@ -3925,56 +4748,103 @@ describe("moryn CLI", () => {
 
   it("runs a read-only memory doctor from the CLI", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", dir, "init"]);
-      const durableRule = JSON.parse((await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
-        "write",
-        "--kind", "memory",
-        "--type", "rule",
-        "--scope", "project",
-        "--project-id", "repo-e6f0166fd942",
-        "--tag", "moryn",
-        "--tag", "repository-policy",
-        "--confidence", "1",
-        "--priority", "high",
-        "--text", "docs/superpowers must remain local-only and never be committed."
-      ])).stdout) as { record: { id: string } };
-      const marker = JSON.parse((await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
-        "write",
-        "--kind", "session_summary",
-        "--project-id", "repo-e6f0166fd942",
-        "--tag", "moryn",
-        "--text", "moryn host e2e codex marker completed."
-      ])).stdout) as { record: { id: string } };
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
+      const durableRule = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            dir,
+            "write",
+            "--kind",
+            "memory",
+            "--type",
+            "rule",
+            "--scope",
+            "project",
+            "--project-id",
+            "repo-e6f0166fd942",
+            "--tag",
+            "moryn",
+            "--tag",
+            "repository-policy",
+            "--confidence",
+            "1",
+            "--priority",
+            "high",
+            "--text",
+            "docs/superpowers must remain local-only and never be committed."
+          ])
+        ).stdout
+      ) as { record: { id: string } };
+      const marker = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            dir,
+            "write",
+            "--kind",
+            "session_summary",
+            "--project-id",
+            "repo-e6f0166fd942",
+            "--tag",
+            "moryn",
+            "--text",
+            "moryn host e2e codex marker completed."
+          ])
+        ).stdout
+      ) as { record: { id: string } };
       await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--tag", "moryn",
-        "--state", "canonical",
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--tag",
+        "moryn",
+        "--state",
+        "canonical",
         "--confirm",
-        "--text", "Older project id still contains Moryn memories."
+        "--text",
+        "Older project id still contains Moryn memories."
       ]);
       await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "memory",
-        "--type", "rule",
-        "--scope", "project",
-        "--project-id", "repo-e6f0166fd942",
-        "--tag", "private",
-        "--text", "Hidden rule should not appear in default doctor output."
+        "--kind",
+        "memory",
+        "--type",
+        "rule",
+        "--scope",
+        "project",
+        "--project-id",
+        "repo-e6f0166fd942",
+        "--tag",
+        "private",
+        "--text",
+        "Hidden rule should not appear in default doctor output."
       ]);
 
       const doctor = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
-        "memory", "doctor",
-        "--project-id", "repo-e6f0166fd942",
-        "--limit", "20"
+        cliJsPath,
+        "--store",
+        dir,
+        "memory",
+        "doctor",
+        "--project-id",
+        "repo-e6f0166fd942",
+        "--limit",
+        "20"
       ]);
       const parsed = JSON.parse(doctor.stdout) as {
         read_only: boolean;
@@ -4003,47 +4873,82 @@ describe("moryn CLI", () => {
 
   it("runs a read-only memory lifecycle report from the CLI", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", dir, "init"]);
-      const staleCandidate = JSON.parse((await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
-        "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--confidence", "0.35",
-        "--text", "Old lifecycle candidate should be archived."
-      ])).stdout) as { record: { id: string } };
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
+      const staleCandidate = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            dir,
+            "write",
+            "--kind",
+            "memory",
+            "--type",
+            "decision",
+            "--scope",
+            "project",
+            "--project-id",
+            "moryn",
+            "--confidence",
+            "0.35",
+            "--text",
+            "Old lifecycle candidate should be archived."
+          ])
+        ).stdout
+      ) as { record: { id: string } };
       await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "memory",
-        "--type", "rule",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--priority", "high",
-        "--state", "canonical",
+        "--kind",
+        "memory",
+        "--type",
+        "rule",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--priority",
+        "high",
+        "--state",
+        "canonical",
         "--confirm",
-        "--text", "Keep Moryn local-first and user-owned."
+        "--text",
+        "Keep Moryn local-first and user-owned."
       ]);
       await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--tag", "private",
-        "--text", "Private lifecycle CLI finding must stay hidden."
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--tag",
+        "private",
+        "--text",
+        "Private lifecycle CLI finding must stay hidden."
       ]);
 
       const beforeEvents = await readEvents(dir);
       const result = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
-        "memory", "lifecycle",
-        "--project-id", "moryn",
-        "--limit", "20",
-        "--now", "2027-06-20T00:00:00.000Z"
+        cliJsPath,
+        "--store",
+        dir,
+        "memory",
+        "lifecycle",
+        "--project-id",
+        "moryn",
+        "--limit",
+        "20",
+        "--now",
+        "2027-06-20T00:00:00.000Z"
       ]);
       const parsed = JSON.parse(result.stdout) as {
         read_only: boolean;
@@ -4078,45 +4983,83 @@ describe("moryn CLI", () => {
 
   it("runs a read-only dogfood report from the CLI", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", dir, "init"]);
-      const capture = JSON.parse((await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
-        "write",
-        "--kind", "session_summary",
-        "--project-id", "moryn",
-        "--tag", "autocapture",
-        "--tag", "review",
-        "--text", "Codex finished Dogfood Report planning."
-      ])).stdout) as { record: { id: string } };
-      const failure = JSON.parse((await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
-        "write",
-        "--kind", "agent_note",
-        "--type", "failure",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--tag", "dogfood",
-        "--tag", "timeout",
-        "--text", "npm test failed: CLI timeout while running release check."
-      ])).stdout) as { record: { id: string } };
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
+      const capture = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            dir,
+            "write",
+            "--kind",
+            "session_summary",
+            "--project-id",
+            "moryn",
+            "--tag",
+            "autocapture",
+            "--tag",
+            "review",
+            "--text",
+            "Codex finished Dogfood Report planning."
+          ])
+        ).stdout
+      ) as { record: { id: string } };
+      const failure = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            dir,
+            "write",
+            "--kind",
+            "agent_note",
+            "--type",
+            "failure",
+            "--scope",
+            "project",
+            "--project-id",
+            "moryn",
+            "--tag",
+            "dogfood",
+            "--tag",
+            "timeout",
+            "--text",
+            "npm test failed: CLI timeout while running release check."
+          ])
+        ).stdout
+      ) as { record: { id: string } };
       await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "agent_note",
-        "--type", "failure",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--tag", "dogfood",
-        "--tag", "private",
-        "--text", "Private dogfood failure must not appear by default."
+        "--kind",
+        "agent_note",
+        "--type",
+        "failure",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--tag",
+        "dogfood",
+        "--tag",
+        "private",
+        "--text",
+        "Private dogfood failure must not appear by default."
       ]);
 
       const beforeEvents = await readEvents(dir);
       const result = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
-        "dogfood", "report",
-        "--project-id", "moryn",
-        "--limit", "20"
+        cliJsPath,
+        "--store",
+        dir,
+        "dogfood",
+        "report",
+        "--project-id",
+        "moryn",
+        "--limit",
+        "20"
       ]);
       const parsed = JSON.parse(result.stdout) as {
         read_only: boolean;
@@ -4148,39 +5091,66 @@ describe("moryn CLI", () => {
 
   it("runs a read-only health check from the CLI", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", dir, "init"]);
-      const capture = JSON.parse((await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
-        "write",
-        "--kind", "session_summary",
-        "--project-id", "moryn",
-        "--tag", "autocapture",
-        "--tag", "review",
-        "--text", "CLI health check should flag capture review backlog."
-      ])).stdout) as { record: { id: string } };
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
+      const capture = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            dir,
+            "write",
+            "--kind",
+            "session_summary",
+            "--project-id",
+            "moryn",
+            "--tag",
+            "autocapture",
+            "--tag",
+            "review",
+            "--text",
+            "CLI health check should flag capture review backlog."
+          ])
+        ).stdout
+      ) as { record: { id: string } };
       await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "memory",
-        "--type", "warning",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--tag", "private",
-        "--text", "Private health check CLI detail must stay hidden."
+        "--kind",
+        "memory",
+        "--type",
+        "warning",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--tag",
+        "private",
+        "--text",
+        "Private health check CLI detail must stay hidden."
       ]);
 
       const beforeEvents = await readEvents(dir);
       const result = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
-        "health", "check",
-        "--project-id", "moryn",
-        "--limit", "20"
+        cliJsPath,
+        "--store",
+        dir,
+        "health",
+        "check",
+        "--project-id",
+        "moryn",
+        "--limit",
+        "20"
       ]);
       const parsed = JSON.parse(result.stdout) as {
         read_only: boolean;
         status: string;
         stats: { visible_records: number; excluded_private_records: number; capture_review_candidates: number };
-        checks_by_id: Record<string, { status: string; category: string; label?: string; summary?: string; reason?: string; record_ids?: string[] }>;
+        checks_by_id: Record<
+          string,
+          { status: string; category: string; label?: string; summary?: string; reason?: string; record_ids?: string[] }
+        >;
         suggested_actions_by_id: Record<string, { tool: string; command: string; safe_to_run: boolean }>;
       };
 
@@ -4215,15 +5185,22 @@ describe("moryn CLI", () => {
 
   it("prints setup readiness checks from health check CLI options", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
 
       const result = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
-        "health", "check",
-        "--project-id", "moryn",
-        "--host", "codex",
-        "--sync-remote", "git@github.com:user/moryn-store.git",
-        "--limit", "20"
+        cliJsPath,
+        "--store",
+        dir,
+        "health",
+        "check",
+        "--project-id",
+        "moryn",
+        "--host",
+        "codex",
+        "--sync-remote",
+        "git@github.com:user/moryn-store.git",
+        "--limit",
+        "20"
       ]);
       const parsed = JSON.parse(result.stdout) as {
         read_only: boolean;
@@ -4237,7 +5214,10 @@ describe("moryn CLI", () => {
           capture_command: string;
         };
         checks_by_id: Record<string, { status: string; category: string; label?: string; summary?: string }>;
-        suggested_actions_by_id: Record<string, { tool: string; command: string; safe_to_run: boolean; required_fields?: string[] }>;
+        suggested_actions_by_id: Record<
+          string,
+          { tool: string; command: string; safe_to_run: boolean; required_fields?: string[] }
+        >;
       };
 
       expect(parsed.read_only).toBe(true);
@@ -4247,8 +5227,10 @@ describe("moryn CLI", () => {
         sync_remote: "git@github.com:user/moryn-store.git",
         dashboard_command: "moryn dashboard --serve --project-id moryn",
         install_command: "moryn install --host codex --sync-remote git@github.com:user/moryn-store.git",
-        context_pack_command: "moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task '<current task>' --agent codex",
-        capture_command: "moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary '<summary>'"
+        context_pack_command:
+          "moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task '<current task>' --agent codex",
+        capture_command:
+          "moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary '<summary>'"
       });
       expect(parsed.checks_by_id.host_adapter).toMatchObject({
         status: "pass",
@@ -4280,36 +5262,81 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
       const project = join(dir, "project");
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "project", "init", "--path", project, "--project-id", "moryn"]);
-      const result = await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "health", "check", "--project", project, "--host", "claude"]);
-      expect(JSON.parse(result.stdout).activation_status).toMatchObject({ host: "claude", status: "not_installed", repairable_automatically: true });
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--project-id",
+        "moryn"
+      ]);
+      const result = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "health",
+        "check",
+        "--project",
+        project,
+        "--host",
+        "claude"
+      ]);
+      expect(JSON.parse(result.stdout).activation_status).toMatchObject({
+        host: "claude",
+        status: "not_installed",
+        repairable_automatically: true
+      });
     });
   });
 
   it("runs a read-only recall eval from the CLI", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", dir, "init"]);
-      const decision = JSON.parse((await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
-        "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--state", "canonical",
-        "--text", "CLI recall eval should find explicit dashboard approvals."
-      ])).stdout) as { record: { id: string } };
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
+      const decision = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            dir,
+            "write",
+            "--kind",
+            "memory",
+            "--type",
+            "decision",
+            "--scope",
+            "project",
+            "--project-id",
+            "moryn",
+            "--state",
+            "canonical",
+            "--text",
+            "CLI recall eval should find explicit dashboard approvals."
+          ])
+        ).stdout
+      ) as { record: { id: string } };
       await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "memory",
-        "--type", "warning",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--state", "canonical",
-        "--tag", "private",
-        "--text", "Private recall eval credential should stay hidden."
+        "--kind",
+        "memory",
+        "--type",
+        "warning",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--state",
+        "canonical",
+        "--tag",
+        "private",
+        "--text",
+        "Private recall eval credential should stay hidden."
       ]);
 
       const cases = JSON.stringify([
@@ -4328,10 +5355,15 @@ describe("moryn CLI", () => {
       ]);
       const beforeEvents = await readEvents(dir);
       const result = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
-        "eval", "recall",
-        "--project-id", "moryn",
-        "--cases", cases
+        cliJsPath,
+        "--store",
+        dir,
+        "eval",
+        "recall",
+        "--project-id",
+        "moryn",
+        "--cases",
+        cases
       ]);
       const parsed = JSON.parse(result.stdout) as {
         summary: { total_cases: number; passed_cases: number; failed_cases: number; privacy_leaks: number };
@@ -4358,7 +5390,7 @@ describe("moryn CLI", () => {
       });
       expect(parsed.suggested_actions_by_id["revise-golden-case:cli-missing"]).toMatchObject({
         tool: "recall",
-        command: "moryn recall \"credential\" --project-id moryn --limit 5"
+        command: 'moryn recall "credential" --project-id moryn --limit 5'
       });
       expect(JSON.stringify(parsed)).not.toContain("Private recall eval credential should stay hidden");
     });
@@ -4366,105 +5398,157 @@ describe("moryn CLI", () => {
 
   it("runs a read-only capture policy audit from the CLI", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", dir, "init"]);
-      const review = JSON.parse((await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
-        "write",
-        "--kind", "session_summary",
-        "--project-id", "moryn",
-        "--tag", "autocapture",
-        "--tag", "review",
-        "--tag", "host:codex",
-        "--content-json", JSON.stringify({
-          text: "CLI capture policy candidate needs manual review.",
-          format: "json",
-          capture: {
-            mode: "autocapture",
-            host: "codex",
-            policy: {
-              id: "default_autocapture_policy",
-              decision: "review",
-              review_required: true,
-              auto_canonical: false,
-              rule_ids: ["default_review_for_agent_handoff"],
-              reasons: ["default_review_for_agent_handoff"]
-            }
-          }
-        })
-      ])).stdout) as { record: { id: string } };
-      const archived = JSON.parse((await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
-        "write",
-        "--kind", "session_summary",
-        "--project-id", "moryn",
-        "--tag", "autocapture",
-        "--tag", "policy-archived",
-        "--tag", "host:codex",
-        "--tag", "noise:smoke_test_marker",
-        "--state", "archived",
-        "--confidence", "0.1",
-        "--content-json", JSON.stringify({
-          text: "CLI smoke test marker only.",
-          format: "json",
-          capture: {
-            mode: "autocapture",
-            host: "codex",
-            policy: {
-              id: "default_autocapture_policy",
-              decision: "archive",
-              review_required: false,
-              auto_canonical: false,
-              rule_ids: ["smoke_test_marker"],
-              reasons: ["smoke_test_marker"]
-            }
-          }
-        })
-      ])).stdout) as { record: { id: string } };
-      const captured = JSON.parse((await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
-        "write",
-        "--kind", "session_summary",
-        "--project-id", "moryn",
-        "--tag", "autocapture",
-        "--tag", "auto-captured",
-        "--tag", "host:codex",
-        "--content-json", JSON.stringify({
-          text: "CLI low-risk handoff retained for context packs.",
-          format: "json",
-          capture: {
-            mode: "autocapture",
-            host: "codex",
-            policy: {
-              id: "default_autocapture_policy",
-              decision: "capture",
-              route: "auto_capture",
-              review_required: false,
-              user_action_required: false,
-              auto_canonical: false,
-              dashboard_surface: "handoff",
-              rule_ids: ["low_risk_handoff_auto_capture"],
-              reasons: ["low_risk_handoff_auto_capture"]
-            }
-          }
-        })
-      ])).stdout) as { record: { id: string } };
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
+      const review = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            dir,
+            "write",
+            "--kind",
+            "session_summary",
+            "--project-id",
+            "moryn",
+            "--tag",
+            "autocapture",
+            "--tag",
+            "review",
+            "--tag",
+            "host:codex",
+            "--content-json",
+            JSON.stringify({
+              text: "CLI capture policy candidate needs manual review.",
+              format: "json",
+              capture: {
+                mode: "autocapture",
+                host: "codex",
+                policy: {
+                  id: "default_autocapture_policy",
+                  decision: "review",
+                  review_required: true,
+                  auto_canonical: false,
+                  rule_ids: ["default_review_for_agent_handoff"],
+                  reasons: ["default_review_for_agent_handoff"]
+                }
+              }
+            })
+          ])
+        ).stdout
+      ) as { record: { id: string } };
+      const archived = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            dir,
+            "write",
+            "--kind",
+            "session_summary",
+            "--project-id",
+            "moryn",
+            "--tag",
+            "autocapture",
+            "--tag",
+            "policy-archived",
+            "--tag",
+            "host:codex",
+            "--tag",
+            "noise:smoke_test_marker",
+            "--state",
+            "archived",
+            "--confidence",
+            "0.1",
+            "--content-json",
+            JSON.stringify({
+              text: "CLI smoke test marker only.",
+              format: "json",
+              capture: {
+                mode: "autocapture",
+                host: "codex",
+                policy: {
+                  id: "default_autocapture_policy",
+                  decision: "archive",
+                  review_required: false,
+                  auto_canonical: false,
+                  rule_ids: ["smoke_test_marker"],
+                  reasons: ["smoke_test_marker"]
+                }
+              }
+            })
+          ])
+        ).stdout
+      ) as { record: { id: string } };
+      const captured = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            dir,
+            "write",
+            "--kind",
+            "session_summary",
+            "--project-id",
+            "moryn",
+            "--tag",
+            "autocapture",
+            "--tag",
+            "auto-captured",
+            "--tag",
+            "host:codex",
+            "--content-json",
+            JSON.stringify({
+              text: "CLI low-risk handoff retained for context packs.",
+              format: "json",
+              capture: {
+                mode: "autocapture",
+                host: "codex",
+                policy: {
+                  id: "default_autocapture_policy",
+                  decision: "capture",
+                  route: "auto_capture",
+                  review_required: false,
+                  user_action_required: false,
+                  auto_canonical: false,
+                  dashboard_surface: "handoff",
+                  rule_ids: ["low_risk_handoff_auto_capture"],
+                  reasons: ["low_risk_handoff_auto_capture"]
+                }
+              }
+            })
+          ])
+        ).stdout
+      ) as { record: { id: string } };
       await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "session_summary",
-        "--project-id", "moryn",
-        "--tag", "autocapture",
-        "--tag", "policy-archived",
-        "--tag", "private",
-        "--text", "Private capture policy audit finding must stay hidden."
+        "--kind",
+        "session_summary",
+        "--project-id",
+        "moryn",
+        "--tag",
+        "autocapture",
+        "--tag",
+        "policy-archived",
+        "--tag",
+        "private",
+        "--text",
+        "Private capture policy audit finding must stay hidden."
       ]);
 
       const beforeEvents = await readEvents(dir);
       const result = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", dir,
-        "capture", "policy",
-        "--project-id", "moryn",
-        "--limit", "20"
+        cliJsPath,
+        "--store",
+        dir,
+        "capture",
+        "policy",
+        "--project-id",
+        "moryn",
+        "--limit",
+        "20"
       ]);
       const parsed = JSON.parse(result.stdout) as {
         read_only: boolean;
@@ -4524,35 +5608,64 @@ describe("moryn CLI", () => {
 
   it("dry-runs and applies project migration from the CLI", async () => {
     await withTempDir(async (store) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
-      const oldRecord = JSON.parse((await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
-        "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "repo-e6f0166fd942",
-        "--tag", "moryn",
-        "--text", "Old project id should migrate."
-      ])).stdout) as { record: { id: string } };
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      const oldRecord = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "write",
+            "--kind",
+            "memory",
+            "--type",
+            "decision",
+            "--scope",
+            "project",
+            "--project-id",
+            "repo-e6f0166fd942",
+            "--tag",
+            "moryn",
+            "--text",
+            "Old project id should migrate."
+          ])
+        ).stdout
+      ) as { record: { id: string } };
       await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--tag", "moryn",
-        "--text", "Target project id exists."
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--tag",
+        "moryn",
+        "--text",
+        "Target project id exists."
       ]);
 
       const beforeEvents = await readEvents(store);
-      const dryRun = JSON.parse((await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
-        "project", "migrate",
-        "--from", "repo-e6f0166fd942",
-        "--to", "moryn"
-      ])).stdout) as {
+      const dryRun = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "project",
+            "migrate",
+            "--from",
+            "repo-e6f0166fd942",
+            "--to",
+            "moryn"
+          ])
+        ).stdout
+      ) as {
         dry_run: boolean;
         matched_records: number;
         migrated_records: number;
@@ -4565,14 +5678,23 @@ describe("moryn CLI", () => {
       expect(dryRun.records_by_id[oldRecord.record.id]?.project_id).toBe("repo-e6f0166fd942");
       expect(await readEvents(store)).toHaveLength(beforeEvents.length);
 
-      const applied = JSON.parse((await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
-        "project", "migrate",
-        "--from", "repo-e6f0166fd942",
-        "--to", "moryn",
-        "--apply",
-        "--confirm"
-      ])).stdout) as {
+      const applied = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "project",
+            "migrate",
+            "--from",
+            "repo-e6f0166fd942",
+            "--to",
+            "moryn",
+            "--apply",
+            "--confirm"
+          ])
+        ).stdout
+      ) as {
         dry_run: boolean;
         migrated_records: number;
         events_by_record_id: Record<string, { patch: { project_id: string } }>;
@@ -4582,103 +5704,189 @@ describe("moryn CLI", () => {
       expect(applied.migrated_records).toBe(1);
       expect(applied.events_by_record_id[oldRecord.record.id]?.patch.project_id).toBe("moryn");
 
-      const recalled = JSON.parse((await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
-        "recall",
-        "--record-id", oldRecord.record.id,
-        "--project-id", "moryn"
-      ])).stdout) as { results: Array<{ record: { id: string; project_id: string } }> };
+      const recalled = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "recall",
+            "--record-id",
+            oldRecord.record.id,
+            "--project-id",
+            "moryn"
+          ])
+        ).stdout
+      ) as { results: Array<{ record: { id: string; project_id: string } }> };
       expect(recalled.results[0]?.record).toMatchObject({ id: oldRecord.record.id, project_id: "moryn" });
     });
   });
 
   it("hides private-tagged records from CLI reads unless explicitly included", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
-      const publicWrite = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
-        "write",
-        "--kind", "memory",
-        "--type", "warning",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--state", "canonical",
-        "--tag", "public-boundary",
-        "--text", "CLI public boundary record.",
-        "--confirm"
-      ])).stdout) as { record: { id: string } };
-      const privateWrite = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
-        "write",
-        "--kind", "memory",
-        "--type", "warning",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--state", "canonical",
-        "--tag", "private",
-        "--text", "CLI private boundary record.",
-        "--confirm"
-      ])).stdout) as { record: { id: string } };
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
+      const publicWrite = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            dir,
+            "write",
+            "--kind",
+            "memory",
+            "--type",
+            "warning",
+            "--scope",
+            "project",
+            "--project-id",
+            "moryn",
+            "--state",
+            "canonical",
+            "--tag",
+            "public-boundary",
+            "--text",
+            "CLI public boundary record.",
+            "--confirm"
+          ])
+        ).stdout
+      ) as { record: { id: string } };
+      const privateWrite = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            dir,
+            "write",
+            "--kind",
+            "memory",
+            "--type",
+            "warning",
+            "--scope",
+            "project",
+            "--project-id",
+            "moryn",
+            "--state",
+            "canonical",
+            "--tag",
+            "private",
+            "--text",
+            "CLI private boundary record.",
+            "--confirm"
+          ])
+        ).stdout
+      ) as { record: { id: string } };
 
-      const defaultRecall = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
-        "recall",
-        "private boundary",
-        "--project-id", "moryn"
-      ])).stdout) as { results: Array<{ record: { id: string } }> };
-      const privateRecall = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
-        "recall",
-        "private boundary",
-        "--project-id", "moryn",
-        "--include-private"
-      ])).stdout) as { results: Array<{ record: { id: string } }> };
+      const defaultRecall = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            dir,
+            "recall",
+            "private boundary",
+            "--project-id",
+            "moryn"
+          ])
+        ).stdout
+      ) as { results: Array<{ record: { id: string } }> };
+      const privateRecall = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            dir,
+            "recall",
+            "private boundary",
+            "--project-id",
+            "moryn",
+            "--include-private"
+          ])
+        ).stdout
+      ) as { results: Array<{ record: { id: string } }> };
 
-      const defaultBoot = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
-        "boot",
-        "--project-id", "moryn"
-      ])).stdout) as { project: { warnings: Array<{ id: string }> } };
-      const privateBoot = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
-        "boot",
-        "--project-id", "moryn",
-        "--include-private"
-      ])).stdout) as { project: { warnings: Array<{ id: string }> } };
+      const defaultBoot = JSON.parse(
+        (await exec("node", [cliJsPath, "--store", dir, "boot", "--project-id", "moryn"])).stdout
+      ) as { project: { warnings: Array<{ id: string }> } };
+      const privateBoot = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            dir,
+            "boot",
+            "--project-id",
+            "moryn",
+            "--include-private"
+          ])
+        ).stdout
+      ) as { project: { warnings: Array<{ id: string }> } };
 
-      const defaultRefresh = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
-        "refresh",
-        "--project-id", "moryn",
-        "--cursor", "2000-01-01T00:00:00.000Z"
-      ])).stdout) as { changes: Array<{ record_id: string }> };
-      const privateRefresh = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
-        "refresh",
-        "--project-id", "moryn",
-        "--cursor", "2000-01-01T00:00:00.000Z",
-        "--include-private"
-      ])).stdout) as { changes: Array<{ record_id: string }> };
-      const defaultRecent = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
-        "list-recent",
-        "--limit", "10"
-      ])).stdout) as { records: Array<{ id: string }> };
-      const privateRecent = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
-        "list-recent",
-        "--limit", "10",
-        "--include-private"
-      ])).stdout) as { records: Array<{ id: string }> };
-      const privateTimeline = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
-        "timeline",
-        "--record-id", privateWrite.record.id,
-        "--project-id", "moryn",
-        "--before", "1",
-        "--after", "0",
-        "--include-private"
-      ])).stdout) as { items: Array<{ record_id: string; next_action?: { command: string; arguments: Record<string, unknown> } }> };
+      const defaultRefresh = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            dir,
+            "refresh",
+            "--project-id",
+            "moryn",
+            "--cursor",
+            "2000-01-01T00:00:00.000Z"
+          ])
+        ).stdout
+      ) as { changes: Array<{ record_id: string }> };
+      const privateRefresh = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            dir,
+            "refresh",
+            "--project-id",
+            "moryn",
+            "--cursor",
+            "2000-01-01T00:00:00.000Z",
+            "--include-private"
+          ])
+        ).stdout
+      ) as { changes: Array<{ record_id: string }> };
+      const defaultRecent = JSON.parse(
+        (await exec("node", [cliJsPath, "--store", dir, "list-recent", "--limit", "10"])).stdout
+      ) as { records: Array<{ id: string }> };
+      const privateRecent = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            dir,
+            "list-recent",
+            "--limit",
+            "10",
+            "--include-private"
+          ])
+        ).stdout
+      ) as { records: Array<{ id: string }> };
+      const privateTimeline = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            dir,
+            "timeline",
+            "--record-id",
+            privateWrite.record.id,
+            "--project-id",
+            "moryn",
+            "--before",
+            "1",
+            "--after",
+            "0",
+            "--include-private"
+          ])
+        ).stdout
+      ) as {
+        items: Array<{ record_id: string; next_action?: { command: string; arguments: Record<string, unknown> } }>;
+      };
 
       expect(defaultRecall.results.map((result) => result.record.id)).not.toContain(privateWrite.record.id);
       expect(privateRecall.results.map((result) => result.record.id)).toContain(privateWrite.record.id);
@@ -4690,8 +5898,13 @@ describe("moryn CLI", () => {
       expect(privateRefresh.changes.map((change) => change.record_id)).toContain(privateWrite.record.id);
       expect(defaultRecent.records.map((record) => record.id)).toEqual([publicWrite.record.id]);
       expect(privateRecent.records.map((record) => record.id)).toContain(privateWrite.record.id);
-      expect(privateTimeline.items.map((item) => item.record_id)).toEqual([publicWrite.record.id, privateWrite.record.id]);
-      expect(privateTimeline.items.find((item) => item.record_id === privateWrite.record.id)?.next_action).toMatchObject({
+      expect(privateTimeline.items.map((item) => item.record_id)).toEqual([
+        publicWrite.record.id,
+        privateWrite.record.id
+      ]);
+      expect(
+        privateTimeline.items.find((item) => item.record_id === privateWrite.record.id)?.next_action
+      ).toMatchObject({
         command: `moryn recall --record-id ${privateWrite.record.id} --project-id moryn --include-private`,
         arguments: {
           record_ids: [privateWrite.record.id],
@@ -4704,37 +5917,59 @@ describe("moryn CLI", () => {
 
   it("returns timeline context from the CLI", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
       const first = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--state", "canonical",
-        "--text", "CLI timeline setup context."
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--state",
+        "canonical",
+        "--text",
+        "CLI timeline setup context."
       ]);
       const second = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "memory",
-        "--type", "warning",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--state", "canonical",
-        "--text", "CLI timeline anchor context."
+        "--kind",
+        "memory",
+        "--type",
+        "warning",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--state",
+        "canonical",
+        "--text",
+        "CLI timeline anchor context."
       ]);
       const firstId = (JSON.parse(first.stdout) as { record: { id: string } }).record.id;
       const secondId = (JSON.parse(second.stdout) as { record: { id: string } }).record.id;
 
       const timeline = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "timeline",
-        "--record-id", secondId,
-        "--project-id", "moryn",
-        "--before", "1",
-        "--after", "0"
+        "--record-id",
+        secondId,
+        "--project-id",
+        "moryn",
+        "--before",
+        "1",
+        "--after",
+        "0"
       ]);
       const parsed = JSON.parse(timeline.stdout) as {
         anchor: { record_id: string; source: string };
@@ -4758,21 +5993,37 @@ describe("moryn CLI", () => {
 
   it("writes confidence from the CLI for high-confidence candidate boot changes", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
       const write = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--state", "candidate",
-        "--confidence", "0.9",
-        "--text", "Candidate release decision is ready for review."
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--state",
+        "candidate",
+        "--confidence",
+        "0.9",
+        "--text",
+        "Candidate release decision is ready for review."
       ]);
       const parsedWrite = JSON.parse(write.stdout) as { record: { id: string; confidence: number } };
 
-      const boot = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "boot", "--project-id", "moryn"]);
+      const boot = await exec("node", [
+        cliJsPath,
+        "--store",
+        dir,
+        "boot",
+        "--project-id",
+        "moryn"
+      ]);
       const parsedBoot = JSON.parse(boot.stdout) as {
         recent_changes: Array<{ id: string }>;
         records_by_id: Record<string, { id: string }>;
@@ -4797,44 +6048,67 @@ describe("moryn CLI", () => {
       const store = join(dir, "store");
       const project = join(dir, "project");
       await mkdir(project, { recursive: true });
-      await writeFile(join(project, ".moryn.json"), JSON.stringify({
-        project_id: "ambient",
-        tags: ["ambient-tag"],
-        default_skills: ["ambient-skill"]
-      }), "utf8");
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      await writeFile(
+        join(project, ".moryn.json"),
+        JSON.stringify({
+          project_id: "ambient",
+          tags: ["ambient-tag"],
+          default_skills: ["ambient-skill"]
+        }),
+        "utf8"
+      );
+      await exec("node", [cliJsPath, "--store", store, "init"]);
 
       await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "skill",
-        "--type", "procedure",
-        "--scope", "global",
-        "--tag", "ambient-skill",
-        "--state", "canonical",
-        "--text", "Ambient default skill must not attach to explicit project id.",
+        "--kind",
+        "skill",
+        "--type",
+        "procedure",
+        "--scope",
+        "global",
+        "--tag",
+        "ambient-skill",
+        "--state",
+        "canonical",
+        "--text",
+        "Ambient default skill must not attach to explicit project id.",
         "--confirm"
       ]);
 
-      const write = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
-        "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "explicit",
-        "--text", "Explicit CLI project id should stand alone."
-      ], { cwd: project });
+      const write = await exec(
+        "node",
+        [
+          cliJsPath,
+          "--store",
+          store,
+          "write",
+          "--kind",
+          "memory",
+          "--type",
+          "decision",
+          "--scope",
+          "project",
+          "--project-id",
+          "explicit",
+          "--text",
+          "Explicit CLI project id should stand alone."
+        ],
+        { cwd: project }
+      );
       const parsed = JSON.parse(write.stdout) as { record: { project_id?: string; tags: string[] } };
 
       expect(parsed.record.project_id).toBe("explicit");
       expect(parsed.record.tags).toEqual([]);
 
-      const boot = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
-        "boot",
-        "--project-id", "explicit"
-      ], { cwd: project });
+      const boot = await exec(
+        "node",
+        [cliJsPath, "--store", store, "boot", "--project-id", "explicit"],
+        { cwd: project }
+      );
       const parsedBoot = JSON.parse(boot.stdout) as { skills: Array<{ id: string }> };
 
       expect(parsedBoot.skills).toEqual([]);
@@ -4844,34 +6118,54 @@ describe("moryn CLI", () => {
   it("does not leak project records into boot without project context", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
       await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "memory",
-        "--type", "preference",
-        "--scope", "global",
-        "--state", "canonical",
-        "--text", "Prefer concise engineering updates.",
+        "--kind",
+        "memory",
+        "--type",
+        "preference",
+        "--scope",
+        "global",
+        "--state",
+        "canonical",
+        "--text",
+        "Prefer concise engineering updates.",
         "--confirm"
       ]);
       await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "memory",
-        "--type", "warning",
-        "--scope", "project",
-        "--project-id", "alpha",
-        "--state", "canonical",
-        "--priority", "high",
-        "--tag", "auth",
-        "--text", "Alpha auth token refresh is blocked by stale credentials."
+        "--kind",
+        "memory",
+        "--type",
+        "warning",
+        "--scope",
+        "project",
+        "--project-id",
+        "alpha",
+        "--state",
+        "canonical",
+        "--priority",
+        "high",
+        "--tag",
+        "auth",
+        "--text",
+        "Alpha auth token refresh is blocked by stale credentials."
       ]);
 
       const boot = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "boot",
-        "--current-task", "fix auth token refresh"
+        "--current-task",
+        "fix auth token refresh"
       ]);
       const parsed = JSON.parse(boot.stdout) as {
         profile: { user_preferences: Array<{ content: { text?: string } }> };
@@ -4880,7 +6174,9 @@ describe("moryn CLI", () => {
         recent_changes: Array<{ scope: string; content: { text?: string } }>;
       };
 
-      expect(parsed.profile.user_preferences.map((record) => record.content.text)).toEqual(["Prefer concise engineering updates."]);
+      expect(parsed.profile.user_preferences.map((record) => record.content.text)).toEqual([
+        "Prefer concise engineering updates."
+      ]);
       expect(parsed.project.warnings).toEqual([]);
       expect(parsed.project.important_decisions).toEqual([]);
       expect(parsed.task_relevant).toEqual([]);
@@ -4891,19 +6187,27 @@ describe("moryn CLI", () => {
 
   it("rejects invalid confidence options", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
 
       for (const confidence of ["abc", "1.1"]) {
         try {
           await exec("node", [
-            "--import", "tsx", "src/cli.ts", "--store", dir,
+            cliJsPath,
+            "--store",
+            dir,
             "write",
-            "--kind", "memory",
-            "--type", "decision",
-            "--scope", "project",
-            "--project-id", "moryn",
-            "--confidence", confidence,
-            "--text", "Invalid confidence should be rejected."
+            "--kind",
+            "memory",
+            "--type",
+            "decision",
+            "--scope",
+            "project",
+            "--project-id",
+            "moryn",
+            "--confidence",
+            confidence,
+            "--text",
+            "Invalid confidence should be rejected."
           ]);
           throw new Error(`Expected moryn write to reject --confidence ${confidence}`);
         } catch (error) {
@@ -4945,16 +6249,22 @@ describe("moryn CLI", () => {
 
   it("rejects project-scoped CLI writes without project context", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
 
       try {
         await exec("node", [
-          "--import", "tsx", "src/cli.ts", "--store", dir,
+          cliJsPath,
+          "--store",
+          dir,
           "write",
-          "--kind", "memory",
-          "--type", "decision",
-          "--scope", "project",
-          "--text", "Project records need an explicit project context."
+          "--kind",
+          "memory",
+          "--type",
+          "decision",
+          "--scope",
+          "project",
+          "--text",
+          "Project records need an explicit project context."
         ]);
         throw new Error("Expected moryn write to reject a project-scoped record without project context");
       } catch (error) {
@@ -5023,7 +6333,7 @@ describe("moryn CLI", () => {
 
   it("rejects empty global store paths at the CLI boundary", async () => {
     try {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", "", "init"]);
+      await exec("node", [cliJsPath, "--store", "", "init"]);
       throw new Error("Expected moryn init to reject an empty --store path");
     } catch (error) {
       if (!("stderr" in (error as object))) throw error;
@@ -5054,18 +6364,28 @@ describe("moryn CLI", () => {
 
   it("writes provenance from the CLI", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
       const write = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--state", "candidate",
-        "--derived-from", "rec_source",
-        "--reason", "Derived from handoff summary.",
-        "--text", "Use provenance metadata."
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--state",
+        "candidate",
+        "--derived-from",
+        "rec_source",
+        "--reason",
+        "Derived from handoff summary.",
+        "--text",
+        "Use provenance metadata."
       ]);
       const parsed = JSON.parse(write.stdout) as {
         record: {
@@ -5087,15 +6407,22 @@ describe("moryn CLI", () => {
 
   it("writes structured JSON content from the CLI", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
       const write = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--content-json", JSON.stringify({
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--content-json",
+        JSON.stringify({
           text: "Use structured CLI content.",
           format: "json",
           evidence: ["cli", "mcp-parity"]
@@ -5121,29 +6448,45 @@ describe("moryn CLI", () => {
 
   it("surfaces structured JSON content without text through CLI boot refresh and recall", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
       const summary = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "memory",
-        "--type", "summary",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--state", "canonical",
-        "--content-json", JSON.stringify({
+        "--kind",
+        "memory",
+        "--type",
+        "summary",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--state",
+        "canonical",
+        "--content-json",
+        JSON.stringify({
           format: "json",
           summary: "CLI structured boot summary."
         })
       ]);
       const warning = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "memory",
-        "--type", "warning",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--state", "canonical",
-        "--content-json", JSON.stringify({
+        "--kind",
+        "memory",
+        "--type",
+        "warning",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--state",
+        "canonical",
+        "--content-json",
+        JSON.stringify({
           format: "json",
           summary: "CLI structured warning.",
           files: ["src/cli.ts"],
@@ -5153,35 +6496,54 @@ describe("moryn CLI", () => {
       const summaryId = (JSON.parse(summary.stdout) as { record: { id: string } }).record.id;
       const warningId = (JSON.parse(warning.stdout) as { record: { id: string } }).record.id;
 
-      const boot = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
-        "boot",
-        "--project-id", "moryn"
-      ])).stdout) as { project: { summary: string; warnings: Array<{ id: string }>; warnings_by_id: Record<string, { id: string }> } };
-      const refresh = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
-        "refresh",
-        "--project-id", "moryn",
-        "--cursor", "2000-01-01T00:00:00.000Z"
-      ])).stdout) as { changes: Array<{ record_id: string; summary: string }> };
-      const recall = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
-        "recall",
-        "cli-structured",
-        "--project-id", "moryn"
-      ])).stdout) as { results: Array<{ record: { id: string }; reason: string[] }> };
+      const boot = JSON.parse(
+        (await exec("node", [cliJsPath, "--store", dir, "boot", "--project-id", "moryn"])).stdout
+      ) as {
+        project: { summary: string; warnings: Array<{ id: string }>; warnings_by_id: Record<string, { id: string }> };
+      };
+      const refresh = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            dir,
+            "refresh",
+            "--project-id",
+            "moryn",
+            "--cursor",
+            "2000-01-01T00:00:00.000Z"
+          ])
+        ).stdout
+      ) as { changes: Array<{ record_id: string; summary: string }> };
+      const recall = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            dir,
+            "recall",
+            "cli-structured",
+            "--project-id",
+            "moryn"
+          ])
+        ).stdout
+      ) as { results: Array<{ record: { id: string }; reason: string[] }> };
 
       expect(boot.project.summary).toBe("CLI structured boot summary.");
       expect(boot.project.warnings.map((record) => record.id)).toContain(warningId);
       expect(boot.project.warnings_by_id[warningId]?.id).toBe(warningId);
-      expect(refresh.changes).toContainEqual(expect.objectContaining({
-        record_id: summaryId,
-        summary: "CLI structured boot summary."
-      }));
-      expect(refresh.changes).toContainEqual(expect.objectContaining({
-        record_id: warningId,
-        summary: "CLI structured warning. src/cli.ts cli-structured"
-      }));
+      expect(refresh.changes).toContainEqual(
+        expect.objectContaining({
+          record_id: summaryId,
+          summary: "CLI structured boot summary."
+        })
+      );
+      expect(refresh.changes).toContainEqual(
+        expect.objectContaining({
+          record_id: warningId,
+          summary: "CLI structured warning. src/cli.ts cli-structured"
+        })
+      );
       expect(recall.results[0]?.record.id).toBe(warningId);
       expect(recall.results[0]?.reason).toContain("text_match:cli-structured");
     });
@@ -5189,7 +6551,7 @@ describe("moryn CLI", () => {
 
   it("rejects invalid CLI structured content options", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
 
       for (const { args, expectedKind } of [
         { args: ["--content-json", "["], expectedKind: "valid_json_object" },
@@ -5197,12 +6559,18 @@ describe("moryn CLI", () => {
       ]) {
         try {
           await exec("node", [
-            "--import", "tsx", "src/cli.ts", "--store", dir,
+            cliJsPath,
+            "--store",
+            dir,
             "write",
-            "--kind", "memory",
-            "--type", "decision",
-            "--scope", "project",
-            "--project-id", "moryn",
+            "--kind",
+            "memory",
+            "--type",
+            "decision",
+            "--scope",
+            "project",
+            "--project-id",
+            "moryn",
             ...args
           ]);
           throw new Error(`Expected moryn write ${args.join(" ")} to reject invalid content options`);
@@ -5239,16 +6607,16 @@ describe("moryn CLI", () => {
 
       for (const { args, recoveryHint } of [
         {
-          args: ["--content-json", "{\"text\":\"\",\"format\":\"json\"}"],
+          args: ["--content-json", '{"text":"","format":"json"}'],
           recoveryHint: undefined
         },
         {
-          args: ["--text", "Plain text", "--content-json", "{\"text\":\"Structured\"}"],
+          args: ["--text", "Plain text", "--content-json", '{"text":"Structured"}'],
           recoveryHint: {
             operation_contract: "operations_by_id.write",
             rejected_arguments: [
               { option: "--text", value: "Plain text" },
-              { option: "--content-json", value: "{\"text\":\"Structured\"}" }
+              { option: "--content-json", value: '{"text":"Structured"}' }
             ],
             expected: { kind: "choose_one", options: ["--text", "--content-json"] },
             argument_sources: {
@@ -5283,12 +6651,18 @@ describe("moryn CLI", () => {
       ]) {
         try {
           await exec("node", [
-            "--import", "tsx", "src/cli.ts", "--store", dir,
+            cliJsPath,
+            "--store",
+            dir,
             "write",
-            "--kind", "memory",
-            "--type", "decision",
-            "--scope", "project",
-            "--project-id", "moryn",
+            "--kind",
+            "memory",
+            "--type",
+            "decision",
+            "--scope",
+            "project",
+            "--project-id",
+            "moryn",
             ...args
           ]);
           throw new Error(`Expected moryn write ${args.join(" ")} to reject invalid content options`);
@@ -5311,25 +6685,65 @@ describe("moryn CLI", () => {
 
   it("rejects empty CLI string options before writing events", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
 
       for (const { args, operation, argument, message, option, recommendedAction, valuePlaceholder } of [
         {
-          args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "moryn", "--text", ""],
+          args: [
+            "write",
+            "--kind",
+            "memory",
+            "--type",
+            "decision",
+            "--scope",
+            "project",
+            "--project-id",
+            "moryn",
+            "--text",
+            ""
+          ],
           operation: "write",
           argument: "text",
           message: "Invalid --text",
           option: "--text"
         },
         {
-          args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "moryn", "--text", "Valid text", "--tag", ""],
+          args: [
+            "write",
+            "--kind",
+            "memory",
+            "--type",
+            "decision",
+            "--scope",
+            "project",
+            "--project-id",
+            "moryn",
+            "--text",
+            "Valid text",
+            "--tag",
+            ""
+          ],
           operation: "write",
           argument: "tags",
           message: "Invalid --tag",
           option: "--tag"
         },
         {
-          args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "moryn", "--text", "Valid text", "--derived-from", ""],
+          args: [
+            "write",
+            "--kind",
+            "memory",
+            "--type",
+            "decision",
+            "--scope",
+            "project",
+            "--project-id",
+            "moryn",
+            "--text",
+            "Valid text",
+            "--derived-from",
+            ""
+          ],
           operation: "write",
           argument: "derived_from",
           message: "Invalid --derived-from",
@@ -5357,7 +6771,19 @@ describe("moryn CLI", () => {
           option: "--file"
         },
         {
-          args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "", "--text", "Valid text"],
+          args: [
+            "write",
+            "--kind",
+            "memory",
+            "--type",
+            "decision",
+            "--scope",
+            "project",
+            "--project-id",
+            "",
+            "--text",
+            "Valid text"
+          ],
           operation: "write",
           argument: "project_id",
           message: "Invalid --project-id",
@@ -5555,7 +6981,7 @@ describe("moryn CLI", () => {
         }
       ]) {
         try {
-          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          await exec("node", [cliJsPath, "--store", dir, ...args]);
           throw new Error(`Expected moryn ${args.join(" ")} to reject an empty string option`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
@@ -5596,7 +7022,7 @@ describe("moryn CLI", () => {
 
   it("rejects empty CLI positionals before side effects", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
 
       for (const { args, operation, argument, positional } of [
         {
@@ -5625,7 +7051,7 @@ describe("moryn CLI", () => {
         }
       ]) {
         try {
-          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          await exec("node", [cliJsPath, "--store", dir, ...args]);
           throw new Error(`Expected moryn ${args.join(" ")} to reject an empty positional argument`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
@@ -5668,21 +7094,30 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
       const project = join(dir, "project");
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
       await exec("node", [
-        "--import", "tsx", "src/cli.ts",
-        "project", "init",
-        "--path", project,
-        "--project-id", "moryn",
-        "--tag", "handoff"
+        cliJsPath,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--project-id",
+        "moryn",
+        "--tag",
+        "handoff"
       ]);
 
       const write = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "session_summary",
-        "--project", project,
-        "--text", "Finished the task summary."
+        "--kind",
+        "session_summary",
+        "--project",
+        project,
+        "--text",
+        "Finished the task summary."
       ]);
       const parsed = JSON.parse(write.stdout) as {
         record: {
@@ -5710,33 +7145,51 @@ describe("moryn CLI", () => {
 
   it("revises records with repeated CLI assignments and JSON scalar values", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
       const write = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--state", "candidate",
-        "--text", "Use old sync wording"
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--state",
+        "candidate",
+        "--text",
+        "Use old sync wording"
       ]);
       const recordId = (JSON.parse(write.stdout) as { record: { id: string } }).record.id;
 
       await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "revise",
         recordId,
-        "--set", "content.text=\"Use private Git sync\"",
-        "--set", "confidence=0.92",
-        "--reason", "Clarified wording"
+        "--set",
+        'content.text="Use private Git sync"',
+        "--set",
+        "confidence=0.92",
+        "--reason",
+        "Clarified wording"
       ]);
       const recall = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "recall",
-        "--record-id", recordId
+        "--record-id",
+        recordId
       ]);
-      const parsed = JSON.parse(recall.stdout) as { results: Array<{ record: { content: { text: string }; confidence: number } }> };
+      const parsed = JSON.parse(recall.stdout) as {
+        results: Array<{ record: { content: { text: string }; confidence: number } }>;
+      };
 
       expect(parsed.results[0]?.record.content.text).toBe("Use private Git sync");
       expect(parsed.results[0]?.record.confidence).toBe(0.92);
@@ -5745,26 +7198,38 @@ describe("moryn CLI", () => {
 
   it("rejects CLI revisions that attempt to change managed fields", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
       const write = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--state", "candidate",
-        "--text", "Use promote for state transitions."
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--state",
+        "candidate",
+        "--text",
+        "Use promote for state transitions."
       ]);
       const recordId = (JSON.parse(write.stdout) as { record: { id: string } }).record.id;
 
       try {
         await exec("node", [
-          "--import", "tsx", "src/cli.ts", "--store", dir,
+          cliJsPath,
+          "--store",
+          dir,
           "revise",
           recordId,
-          "--set", "state=\"canonical\"",
-          "--reason", "Bypass promotion"
+          "--set",
+          'state="canonical"',
+          "--reason",
+          "Bypass promotion"
         ]);
         throw new Error("Expected moryn revise to reject managed state patch");
       } catch (error) {
@@ -5778,7 +7243,11 @@ describe("moryn CLI", () => {
             recovery_hint: {
               rejected_patch: { path: string; value: unknown };
               expected: { kind: string; managed_fields: string[] };
-              retry_with: { remove_patch_path: string; use_operation: string; operation_arguments: Record<string, unknown> };
+              retry_with: {
+                remove_patch_path: string;
+                use_operation: string;
+                operation_arguments: Record<string, unknown>;
+              };
             };
           };
         };
@@ -5790,7 +7259,19 @@ describe("moryn CLI", () => {
           rejected_patch: { path: "state", value: "canonical" },
           expected: {
             kind: "user_editable_patch",
-            managed_fields: ["id", "kind", "scope", "state", "visibility", "created_at", "updated_at", "source", "provenance", "conflict", "links"]
+            managed_fields: [
+              "id",
+              "kind",
+              "scope",
+              "state",
+              "visibility",
+              "created_at",
+              "updated_at",
+              "source",
+              "provenance",
+              "conflict",
+              "links"
+            ]
           },
           retry_with: {
             remove_patch_path: "state",
@@ -5804,26 +7285,38 @@ describe("moryn CLI", () => {
 
   it("rejects CLI revisions that would create invalid records", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
       const write = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--state", "candidate",
-        "--text", "Keep revision patches valid."
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--state",
+        "candidate",
+        "--text",
+        "Keep revision patches valid."
       ]);
       const recordId = (JSON.parse(write.stdout) as { record: { id: string } }).record.id;
 
       try {
         await exec("node", [
-          "--import", "tsx", "src/cli.ts", "--store", dir,
+          cliJsPath,
+          "--store",
+          dir,
           "revise",
           recordId,
-          "--set", "content.text=",
-          "--reason", "Invalid blank revision"
+          "--set",
+          "content.text=",
+          "--reason",
+          "Invalid blank revision"
         ]);
         throw new Error("Expected moryn revise to reject blank content.text patch");
       } catch (error) {
@@ -5847,12 +7340,14 @@ describe("moryn CLI", () => {
 
   it("rejects malformed CLI revision assignments as invalid arguments", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
 
       for (const assignment of ["content.text", ".content.text=value", "content..text=value", "content.text.=value"]) {
         try {
           await exec("node", [
-            "--import", "tsx", "src/cli.ts", "--store", dir,
+            cliJsPath,
+            "--store",
+            dir,
             "revise",
             "rec_missing",
             "--set",
@@ -5903,37 +7398,60 @@ describe("moryn CLI", () => {
 
   it("filters refresh interrupts by current task from the CLI", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
       const authWarning = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "memory",
-        "--type", "warning",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--tag", "auth",
-        "--state", "canonical",
-        "--text", "Auth token refresh has a blocker"
+        "--kind",
+        "memory",
+        "--type",
+        "warning",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--tag",
+        "auth",
+        "--state",
+        "canonical",
+        "--text",
+        "Auth token refresh has a blocker"
       ]);
       await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "memory",
-        "--type", "warning",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--tag", "release",
-        "--state", "canonical",
-        "--text", "Release requires npm credentials"
+        "--kind",
+        "memory",
+        "--type",
+        "warning",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--tag",
+        "release",
+        "--state",
+        "canonical",
+        "--text",
+        "Release requires npm credentials"
       ]);
       const recordId = (JSON.parse(authWarning.stdout) as { record: { id: string } }).record.id;
 
       const refresh = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "refresh",
-        "--project-id", "moryn",
-        "--cursor", "2000-01-01T00:00:00.000Z",
-        "--current-task", "fix auth token refresh"
+        "--project-id",
+        "moryn",
+        "--cursor",
+        "2000-01-01T00:00:00.000Z",
+        "--current-task",
+        "fix auth token refresh"
       ]);
 
       expect(refresh.stdout).toContain(recordId);
@@ -5944,35 +7462,56 @@ describe("moryn CLI", () => {
 
   it("does not leak project refresh changes without project context", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
       await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "memory",
-        "--type", "preference",
-        "--scope", "global",
-        "--state", "canonical",
-        "--text", "Prefer concise engineering updates.",
+        "--kind",
+        "memory",
+        "--type",
+        "preference",
+        "--scope",
+        "global",
+        "--state",
+        "canonical",
+        "--text",
+        "Prefer concise engineering updates.",
         "--confirm"
       ]);
       await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "write",
-        "--kind", "memory",
-        "--type", "blocker",
-        "--scope", "project",
-        "--project-id", "alpha",
-        "--state", "canonical",
-        "--priority", "high",
-        "--tag", "auth",
-        "--text", "Alpha auth token refresh is blocked by stale credentials."
+        "--kind",
+        "memory",
+        "--type",
+        "blocker",
+        "--scope",
+        "project",
+        "--project-id",
+        "alpha",
+        "--state",
+        "canonical",
+        "--priority",
+        "high",
+        "--tag",
+        "auth",
+        "--text",
+        "Alpha auth token refresh is blocked by stale credentials."
       ]);
 
       const refresh = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", dir,
+        cliJsPath,
+        "--store",
+        dir,
         "refresh",
-        "--cursor", "2000-01-01T00:00:00.000Z",
-        "--current-task", "fix auth token refresh"
+        "--cursor",
+        "2000-01-01T00:00:00.000Z",
+        "--current-task",
+        "fix auth token refresh"
       ]);
       const parsed = JSON.parse(refresh.stdout) as {
         should_interrupt: boolean;
@@ -5994,60 +7533,108 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
       const project = join(dir, "project");
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
       await exec("node", [
-        "--import", "tsx", "src/cli.ts",
-        "project", "init",
-        "--path", project,
-        "--project-id", "moryn",
-        "--default-skill", "safe-release"
+        cliJsPath,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--project-id",
+        "moryn",
+        "--default-skill",
+        "safe-release"
       ]);
 
       const skillWrite = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "skill",
-        "--type", "procedure",
-        "--scope", "global",
-        "--tag", "release",
-        "--state", "canonical",
-        "--text", "safe-release: run tests before publishing",
+        "--kind",
+        "skill",
+        "--type",
+        "procedure",
+        "--scope",
+        "global",
+        "--tag",
+        "release",
+        "--state",
+        "canonical",
+        "--text",
+        "safe-release: run tests before publishing",
         "--confirm"
       ]);
       const decisionWrite = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project", project,
-        "--state", "canonical",
-        "--text", "Use linked memories"
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project",
+        project,
+        "--state",
+        "canonical",
+        "--text",
+        "Use linked memories"
       ]);
       const oldWrite = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project", project,
-        "--state", "canonical",
-        "--text", "Old linked memory"
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project",
+        project,
+        "--state",
+        "canonical",
+        "--text",
+        "Old linked memory"
       ]);
       const secretWrite = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "memory",
-        "--type", "warning",
-        "--scope", "project",
-        "--project", project,
-        "--state", "canonical",
-        "--text", "Review this warning"
+        "--kind",
+        "memory",
+        "--type",
+        "warning",
+        "--scope",
+        "project",
+        "--project",
+        project,
+        "--state",
+        "canonical",
+        "--text",
+        "Review this warning"
       ]);
-      const parsedSkillWrite = JSON.parse(skillWrite.stdout) as { record: { id: string }; selection_sources: Record<string, string> };
-      const parsedDecisionWrite = JSON.parse(decisionWrite.stdout) as { record: { id: string }; selection_sources: Record<string, string> };
-      const parsedOldWrite = JSON.parse(oldWrite.stdout) as { record: { id: string }; selection_sources: Record<string, string> };
-      const parsedSecretWrite = JSON.parse(secretWrite.stdout) as { record: { id: string }; selection_sources: Record<string, string> };
+      const parsedSkillWrite = JSON.parse(skillWrite.stdout) as {
+        record: { id: string };
+        selection_sources: Record<string, string>;
+      };
+      const parsedDecisionWrite = JSON.parse(decisionWrite.stdout) as {
+        record: { id: string };
+        selection_sources: Record<string, string>;
+      };
+      const parsedOldWrite = JSON.parse(oldWrite.stdout) as {
+        record: { id: string };
+        selection_sources: Record<string, string>;
+      };
+      const parsedSecretWrite = JSON.parse(secretWrite.stdout) as {
+        record: { id: string };
+        selection_sources: Record<string, string>;
+      };
       const skillId = parsedSkillWrite.record.id;
       const decisionId = parsedDecisionWrite.record.id;
       const oldId = parsedOldWrite.record.id;
@@ -6056,15 +7643,52 @@ describe("moryn CLI", () => {
       expect(parsedSkillWrite.selection_sources).toEqual(WRITE_SELECTION_SOURCES);
       expect(parsedDecisionWrite.selection_sources).toEqual(WRITE_SELECTION_SOURCES);
 
-      const link = JSON.parse((await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "link", decisionId, oldId, "--type", "supersedes"])).stdout) as {
+      const link = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "link",
+            decisionId,
+            oldId,
+            "--type",
+            "supersedes"
+          ])
+        ).stdout
+      ) as {
         event: { record_id: string; linked_record_id: string };
         selection_sources: Record<string, string>;
       };
-      const archive = JSON.parse((await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "archive", oldId, "--reason", "Superseded"])).stdout) as {
+      const archive = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "archive",
+            oldId,
+            "--reason",
+            "Superseded"
+          ])
+        ).stdout
+      ) as {
         event: { record_id: string };
         selection_sources: Record<string, string>;
       };
-      const quarantine = JSON.parse((await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "quarantine", secretId, "--reason", "Needs review"])).stdout) as {
+      const quarantine = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "quarantine",
+            secretId,
+            "--reason",
+            "Needs review"
+          ])
+        ).stdout
+      ) as {
         event: { record_id: string };
         selection_sources: Record<string, string>;
       };
@@ -6075,42 +7699,103 @@ describe("moryn CLI", () => {
       expect(archive.selection_sources).toEqual(MUTATION_EVENT_SELECTION_SOURCES);
       expect(quarantine.selection_sources).toEqual(MUTATION_EVENT_SELECTION_SOURCES);
 
-      const boot = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "boot", "--project", project]);
+      const boot = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "boot",
+        "--project",
+        project
+      ]);
       expect(boot.stdout).toContain(skillId);
       expect(boot.stdout).toContain("safe-release: run tests before publishing");
 
       await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project", project,
-        "--state", "canonical",
-        "--tag", "auth",
-        "--text", "Auth token refresh uses rotating credentials"
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project",
+        project,
+        "--state",
+        "canonical",
+        "--tag",
+        "auth",
+        "--text",
+        "Auth token refresh uses rotating credentials"
       ]);
       const taskBoot = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "boot",
-        "--project", project,
-        "--current-task", "fix auth token refresh"
+        "--project",
+        project,
+        "--current-task",
+        "fix auth token refresh"
       ]);
       const parsedTaskBoot = JSON.parse(taskBoot.stdout) as { task_relevant: Array<{ content: { text: string } }> };
-      expect(parsedTaskBoot.task_relevant.map((record) => record.content.text)).toContain("Auth token refresh uses rotating credentials");
+      expect(parsedTaskBoot.task_relevant.map((record) => record.content.text)).toContain(
+        "Auth token refresh uses rotating credentials"
+      );
       expect(parsedTaskBoot.task_relevant.map((record) => record.content.text)).not.toContain("Review this warning");
 
-      const hiddenRecall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "recall", "Old linked memory", "--project", project]);
+      const hiddenRecall = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "recall",
+        "Old linked memory",
+        "--project",
+        project
+      ]);
       expect(hiddenRecall.stdout).not.toContain("Old linked memory");
 
-      const archivedRecall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "recall", "--record-id", oldId, "--state", "archived", "--project", project]);
-      expect(archivedRecall.stdout).toContain("\"state\": \"archived\"");
+      const archivedRecall = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "recall",
+        "--record-id",
+        oldId,
+        "--state",
+        "archived",
+        "--project",
+        project
+      ]);
+      expect(archivedRecall.stdout).toContain('"state": "archived"');
 
-      const quarantinedRecall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "recall", "--record-id", secretId, "--state", "quarantined", "--project", project]);
-      expect(quarantinedRecall.stdout).toContain("\"state\": \"quarantined\"");
+      const quarantinedRecall = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "recall",
+        "--record-id",
+        secretId,
+        "--state",
+        "quarantined",
+        "--project",
+        project
+      ]);
+      expect(quarantinedRecall.stdout).toContain('"state": "quarantined"');
 
-      const linkedRecall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "recall", "--record-id", decisionId, "--project", project]);
-      expect(linkedRecall.stdout).toContain("\"link_type\": \"supersedes\"");
+      const linkedRecall = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "recall",
+        "--record-id",
+        decisionId,
+        "--project",
+        project
+      ]);
+      expect(linkedRecall.stdout).toContain('"link_type": "supersedes"');
     });
   }, 30000);
 
@@ -6121,16 +7806,45 @@ describe("moryn CLI", () => {
       const storeB = join(dir, "store-b");
       await exec("git", ["init", "--bare", remote]);
 
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "init"]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "init"]);
-      const initA = JSON.parse((await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "sync", "init", remote])).stdout) as { selection_sources: Record<string, string> };
-      const initB = JSON.parse((await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "init", remote])).stdout) as { selection_sources: Record<string, string> };
+      await exec("node", [cliJsPath, "--store", storeA, "init"]);
+      await exec("node", [cliJsPath, "--store", storeB, "init"]);
+      const initA = JSON.parse(
+        (await exec("node", [cliJsPath, "--store", storeA, "sync", "init", remote])).stdout
+      ) as { selection_sources: Record<string, string> };
+      const initB = JSON.parse(
+        (await exec("node", [cliJsPath, "--store", storeB, "sync", "init", remote])).stdout
+      ) as { selection_sources: Record<string, string> };
       expect(initA.selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
       expect(initB.selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "moryn", "--state", "canonical", "--text", "CLI sync uses Git"]);
+      await exec("node", [
+        cliJsPath,
+        "--store",
+        storeA,
+        "write",
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--state",
+        "canonical",
+        "--text",
+        "CLI sync uses Git"
+      ]);
 
-      const push = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "sync", "--push", "--message", "custom cli sync"]);
-      expect(push.stdout).toContain("\"pushed\": true");
+      const push = await exec("node", [
+        cliJsPath,
+        "--store",
+        storeA,
+        "sync",
+        "--push",
+        "--message",
+        "custom cli sync"
+      ]);
+      expect(push.stdout).toContain('"pushed": true');
       const parsedPush = JSON.parse(push.stdout) as {
         selection_sources: Record<string, string>;
         dashboard?: { generated: boolean; opened: boolean; path: string; url: string };
@@ -6145,8 +7859,8 @@ describe("moryn CLI", () => {
       const commitMessage = await exec("git", ["log", "-1", "--pretty=%s"], { cwd: storeA });
       expect(commitMessage.stdout.trim()).toBe("custom cli sync");
 
-      const pull = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "--pull"]);
-      expect(pull.stdout).toContain("\"pulled\": true");
+      const pull = await exec("node", [cliJsPath, "--store", storeB, "sync", "--pull"]);
+      expect(pull.stdout).toContain('"pulled": true');
       const parsedPull = JSON.parse(pull.stdout) as {
         selection_sources: Record<string, string>;
         dashboard?: { generated: boolean; opened: boolean; path: string; url: string };
@@ -6158,39 +7872,65 @@ describe("moryn CLI", () => {
         path: join(storeB, "state", "dashboard", "index.html")
       });
 
-      const recall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "recall", "Git", "--project-id", "moryn"]);
+      const recall = await exec("node", [
+        cliJsPath,
+        "--store",
+        storeB,
+        "recall",
+        "Git",
+        "--project-id",
+        "moryn"
+      ]);
       expect(recall.stdout).toContain("CLI sync uses Git");
 
-      const status = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "--status"]);
-      expect(status.stdout).toContain("\"configured\": true");
-      expect(status.stdout).toContain("\"dirty\": false");
+      const status = await exec("node", [cliJsPath, "--store", storeB, "sync", "--status"]);
+      expect(status.stdout).toContain('"configured": true');
+      expect(status.stdout).toContain('"dirty": false');
     });
   }, 30000);
 
   it("writes and opens dashboard snapshots from the CLI", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
       await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--state", "canonical",
-        "--text", "Dashboard CLI snapshot memory"
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--state",
+        "canonical",
+        "--text",
+        "Dashboard CLI snapshot memory"
       ]);
 
-      const snapshot = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
-        "dashboard",
-        "--no-open",
-        "--project-id", "moryn",
-        "--readiness-host", "codex",
-        "--sync-remote", "git@github.com:user/moryn-store.git",
-        "--limit", "5"
-      ])).stdout) as { generated: boolean; opened: boolean; path: string; url: string };
+      const snapshot = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "dashboard",
+            "--no-open",
+            "--project-id",
+            "moryn",
+            "--readiness-host",
+            "codex",
+            "--sync-remote",
+            "git@github.com:user/moryn-store.git",
+            "--limit",
+            "5"
+          ])
+        ).stdout
+      ) as { generated: boolean; opened: boolean; path: string; url: string };
       expect(snapshot).toMatchObject({
         generated: true,
         opened: false,
@@ -6198,16 +7938,26 @@ describe("moryn CLI", () => {
       });
       expect(snapshot.url).toMatch(/^file:\/\//);
       const snapshotHtml = await readFile(snapshot.path, "utf8");
-      expect(snapshotHtml).not.toContain("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
-      expect(snapshotHtml).not.toContain("moryn install --host codex --sync-remote git@github.com:user/moryn-store.git");
-      expect(snapshotHtml).not.toContain("moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task &#39;&lt;current task&gt;&#39; --agent codex");
-      expect(snapshotHtml).not.toContain("moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary &#39;&lt;summary&gt;&#39;");
+      expect(snapshotHtml).not.toContain(
+        '<details class="panel recent-value-panel" data-dashboard-detail="recent-value">'
+      );
+      expect(snapshotHtml).not.toContain(
+        "moryn install --host codex --sync-remote git@github.com:user/moryn-store.git"
+      );
+      expect(snapshotHtml).not.toContain(
+        "moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task &#39;&lt;current task&gt;&#39; --agent codex"
+      );
+      expect(snapshotHtml).not.toContain(
+        "moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary &#39;&lt;summary&gt;&#39;"
+      );
 
-      const opened = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
-        "dashboard",
-        "--open"
-      ], { env: { ...process.env, MORYN_DASHBOARD_OPEN_COMMAND: "true" } })).stdout) as {
+      const opened = JSON.parse(
+        (
+          await exec("node", [cliJsPath, "--store", store, "dashboard", "--open"], {
+            env: { ...process.env, MORYN_DASHBOARD_OPEN_COMMAND: "true" }
+          })
+        ).stdout
+      ) as {
         generated: boolean;
         opened: boolean;
         path: string;
@@ -6217,10 +7967,13 @@ describe("moryn CLI", () => {
       expect(opened.opened).toBe(true);
       expect(opened.path).toBe(join(store, "state", "dashboard", "index.html"));
 
-      const defaultOpened = JSON.parse((await execInTty("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
-        "dashboard"
-      ], { env: { ...process.env, MORYN_DASHBOARD_OPEN_COMMAND: "true" } })).stdout) as {
+      const defaultOpened = JSON.parse(
+        (
+          await execInTty("node", [cliJsPath, "--store", store, "dashboard"], {
+            env: { ...process.env, MORYN_DASHBOARD_OPEN_COMMAND: "true" }
+          })
+        ).stdout
+      ) as {
         generated: boolean;
         opened: boolean;
         path: string;
@@ -6234,34 +7987,50 @@ describe("moryn CLI", () => {
   it("serves the dashboard from the CLI with live refresh endpoints", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
       await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--state", "canonical",
-        "--text", "Dashboard CLI server memory"
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--state",
+        "canonical",
+        "--text",
+        "Dashboard CLI server memory"
       ]);
 
-      const child = spawn("node", [
-        "--import", "tsx",
-        "src/cli.ts",
-        "--store", store,
-        "dashboard",
-        "--serve",
-        "--host", "127.0.0.1",
-        "--port", "0",
-        "--interval", "250",
-        "--limit", "5",
-        "--no-open"
-      ], {
-        cwd: repoRoot,
-        env: { ...process.env, CI: "true" },
-        stdio: ["ignore", "pipe", "pipe"]
-      });
+      const child = spawn(
+        "node",
+        [
+          cliJsPath,
+          "--store",
+          store,
+          "dashboard",
+          "--serve",
+          "--host",
+          "127.0.0.1",
+          "--port",
+          "0",
+          "--interval",
+          "250",
+          "--limit",
+          "5",
+          "--no-open"
+        ],
+        {
+          cwd: repoRoot,
+          env: { ...process.env, CI: "true" },
+          stdio: ["ignore", "pipe", "pipe"]
+        }
+      );
       try {
         const output = await waitForStdoutLine(child, /"serving":\s*true/);
         const served = JSON.parse(output) as {
@@ -6282,24 +8051,31 @@ describe("moryn CLI", () => {
         expect(served.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/$/);
 
         const page = await (await fetch(served.url)).text();
-        expect(page).not.toContain("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
-        expect(page).toContain("data-dashboard-refresh=\"250\"");
-        const initialApi = await (await fetch(new URL("/api/dashboard", served.url))).json() as {
+        expect(page).not.toContain('<details class="panel recent-value-panel" data-dashboard-detail="recent-value">');
+        expect(page).toContain('data-dashboard-refresh="250"');
+        const initialApi = (await (await fetch(new URL("/api/dashboard", served.url))).json()) as {
           recent_value: Array<{ summary: string }>;
         };
         expect(initialApi.recent_value.map((record) => record.summary)).toContain("Dashboard CLI server memory");
 
         await exec("node", [
-          "--import", "tsx", "src/cli.ts", "--store", store,
+          cliJsPath,
+          "--store",
+          store,
           "write",
-          "--kind", "session_summary",
-          "--project-id", "moryn",
-          "--text", "Dashboard CLI server refreshed"
+          "--kind",
+          "session_summary",
+          "--project-id",
+          "moryn",
+          "--text",
+          "Dashboard CLI server refreshed"
         ]);
 
         const fragment = await (await fetch(new URL("/fragment", served.url))).text();
-        expect(fragment).not.toContain("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
-        const refreshedApi = await (await fetch(new URL("/api/dashboard", served.url))).json() as {
+        expect(fragment).not.toContain(
+          '<details class="panel recent-value-panel" data-dashboard-detail="recent-value">'
+        );
+        const refreshedApi = (await (await fetch(new URL("/api/dashboard", served.url))).json()) as {
           recent_value: Array<{ summary: string }>;
         };
         expect(refreshedApi.recent_value.map((record) => record.summary)).toContain("Dashboard CLI server refreshed");
@@ -6314,25 +8090,34 @@ describe("moryn CLI", () => {
       const remote = join(dir, "remote.git");
       const store = join(dir, "store");
       await exec("git", ["init", "--bare", remote]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "sync", "init", remote, "--no-open"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "sync", "init", remote, "--no-open"]);
       await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--state", "canonical",
-        "--text", "Explicit sync dashboard open"
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--state",
+        "canonical",
+        "--text",
+        "Explicit sync dashboard open"
       ]);
 
-      const pushed = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
-        "sync",
-        "--push",
-        "--open"
-      ], { env: { ...process.env, MORYN_DASHBOARD_OPEN_COMMAND: "true" } })).stdout) as {
+      const pushed = JSON.parse(
+        (
+          await exec("node", [cliJsPath, "--store", store, "sync", "--push", "--open"], {
+            env: { ...process.env, MORYN_DASHBOARD_OPEN_COMMAND: "true" }
+          })
+        ).stdout
+      ) as {
         pushed: boolean;
         dashboard?: { generated: boolean; opened: boolean; path: string };
       };
@@ -6355,106 +8140,174 @@ describe("moryn CLI", () => {
       await mkdir(project, { recursive: true });
       await exec("git", ["init", "--bare", remote]);
 
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "init"]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "init"]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "moryn"]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "sync", "init", remote]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "init", remote]);
+      await exec("node", [cliJsPath, "--store", storeA, "init"]);
+      await exec("node", [cliJsPath, "--store", storeB, "init"]);
+      await exec("node", [
+        cliJsPath,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--project-id",
+        "moryn"
+      ]);
+      await exec("node", [cliJsPath, "--store", storeA, "sync", "init", remote]);
+      await exec("node", [cliJsPath, "--store", storeB, "sync", "init", remote]);
 
-      const initialBoot = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", storeA,
-        "boot",
-        "--project", project,
-        "--current-task", "fix auth token refresh"
-      ])).stdout) as { project: { important_decisions: Array<{ id: string }> }; sync: { cursor: string } };
+      const initialBoot = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            storeA,
+            "boot",
+            "--project",
+            project,
+            "--current-task",
+            "fix auth token refresh"
+          ])
+        ).stdout
+      ) as { project: { important_decisions: Array<{ id: string }> }; sync: { cursor: string } };
       expect(initialBoot.project.important_decisions).toEqual([]);
 
-      const summary = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", storeA,
-        "write",
-        "--kind", "session_summary",
-        "--project", project,
-        "--text", "Agent A finished auth token refresh investigation."
-      ])).stdout) as { record: { id: string; state: string } };
-      const candidate = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", storeA,
-        "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project", project,
-        "--state", "candidate",
-        "--text", "Use rotating credentials for auth token refresh."
-      ])).stdout) as { record: { id: string; state: string } };
+      const summary = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            storeA,
+            "write",
+            "--kind",
+            "session_summary",
+            "--project",
+            project,
+            "--text",
+            "Agent A finished auth token refresh investigation."
+          ])
+        ).stdout
+      ) as { record: { id: string; state: string } };
+      const candidate = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            storeA,
+            "write",
+            "--kind",
+            "memory",
+            "--type",
+            "decision",
+            "--scope",
+            "project",
+            "--project",
+            project,
+            "--state",
+            "candidate",
+            "--text",
+            "Use rotating credentials for auth token refresh."
+          ])
+        ).stdout
+      ) as { record: { id: string; state: string } };
       expect(summary.record.state).toBe("candidate");
       expect(candidate.record.state).toBe("candidate");
 
       await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", storeA,
+        cliJsPath,
+        "--store",
+        storeA,
         "promote",
         candidate.record.id,
-        "--state", "canonical",
-        "--reason", "User confirmed the project decision"
+        "--state",
+        "canonical",
+        "--reason",
+        "User confirmed the project decision"
       ]);
       await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", storeA,
+        cliJsPath,
+        "--store",
+        storeA,
         "write",
-        "--kind", "memory",
-        "--type", "blocker",
-        "--scope", "project",
-        "--project", project,
-        "--state", "canonical",
-        "--priority", "high",
-        "--text", "Auth token refresh is blocked by stale credentials."
+        "--kind",
+        "memory",
+        "--type",
+        "blocker",
+        "--scope",
+        "project",
+        "--project",
+        project,
+        "--state",
+        "canonical",
+        "--priority",
+        "high",
+        "--text",
+        "Auth token refresh is blocked by stale credentials."
       ]);
-      const push = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", storeA,
-        "sync",
-        "--push",
-        "--message", "mvp success flow"
-      ])).stdout) as { pushed?: boolean };
+      const push = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            storeA,
+            "sync",
+            "--push",
+            "--message",
+            "mvp success flow"
+          ])
+        ).stdout
+      ) as { pushed?: boolean };
       expect(push.pushed).toBe(true);
 
-      const pull = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", storeB,
-        "sync",
-        "--pull"
-      ])).stdout) as { pulled?: boolean };
+      const pull = JSON.parse(
+        (await exec("node", [cliJsPath, "--store", storeB, "sync", "--pull"])).stdout
+      ) as { pulled?: boolean };
       expect(pull.pulled).toBe(true);
 
-      const bootB = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", storeB,
-        "boot",
-        "--project", project
-      ])).stdout) as { project: { important_decisions: Array<{ id: string; content: { text: string } }> } };
-      expect(bootB.project.important_decisions).toContainEqual(expect.objectContaining({
-        id: candidate.record.id,
-        content: expect.objectContaining({ text: "Use rotating credentials for auth token refresh." })
-      }));
+      const bootB = JSON.parse(
+        (await exec("node", [cliJsPath, "--store", storeB, "boot", "--project", project])).stdout
+      ) as { project: { important_decisions: Array<{ id: string; content: { text: string } }> } };
+      expect(bootB.project.important_decisions).toContainEqual(
+        expect.objectContaining({
+          id: candidate.record.id,
+          content: expect.objectContaining({ text: "Use rotating credentials for auth token refresh." })
+        })
+      );
 
-      const refreshB = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", storeB,
-        "refresh",
-        "--project", project,
-        "--cursor", initialBoot.sync.cursor,
-        "--current-task", "fix auth token refresh"
-      ])).stdout) as { should_interrupt: boolean; changes: Array<{ importance: string; reason?: string; summary: string }> };
+      const refreshB = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            storeB,
+            "refresh",
+            "--project",
+            project,
+            "--cursor",
+            initialBoot.sync.cursor,
+            "--current-task",
+            "fix auth token refresh"
+          ])
+        ).stdout
+      ) as { should_interrupt: boolean; changes: Array<{ importance: string; reason?: string; summary: string }> };
       expect(refreshB.should_interrupt).toBe(true);
-      expect(refreshB.changes).toContainEqual(expect.objectContaining({
-        importance: "notice",
-        summary: "Agent A finished auth token refresh investigation."
-      }));
-      expect(refreshB.changes).toContainEqual(expect.objectContaining({
-        importance: "interrupt",
-        reason: "current_task_match",
-        summary: "Auth token refresh is blocked by stale credentials."
-      }));
+      expect(refreshB.changes).toContainEqual(
+        expect.objectContaining({
+          importance: "notice",
+          summary: "Agent A finished auth token refresh investigation."
+        })
+      );
+      expect(refreshB.changes).toContainEqual(
+        expect.objectContaining({
+          importance: "interrupt",
+          reason: "current_task_match",
+          summary: "Auth token refresh is blocked by stale credentials."
+        })
+      );
     });
   }, 30000);
 
   it("rejects conflicting CLI sync operation flags", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
 
       for (const { args, rejectedArguments } of [
         {
@@ -6473,7 +8326,7 @@ describe("moryn CLI", () => {
         }
       ]) {
         try {
-          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          await exec("node", [cliJsPath, "--store", dir, ...args]);
           throw new Error("Expected moryn sync to reject conflicting operation flags");
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
@@ -6516,14 +8369,14 @@ describe("moryn CLI", () => {
 
   it("rejects CLI sync messages without push", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
 
       for (const args of [
         ["sync", "--message", "ignored message"],
         ["sync", "--pull", "--message", "ignored message"]
       ]) {
         try {
-          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          await exec("node", [cliJsPath, "--store", dir, ...args]);
           throw new Error(`Expected moryn ${args.join(" ")} to reject message without push`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
@@ -6538,7 +8391,12 @@ describe("moryn CLI", () => {
                 rejected_argument: { option: string; value: string };
                 expected: { kind: string; option: string; requires: string };
                 argument_sources: Record<string, string>;
-                retry_with: { required_option: string; operation_contract: string; option: string; value_placeholder: string };
+                retry_with: {
+                  required_option: string;
+                  operation_contract: string;
+                  option: string;
+                  value_placeholder: string;
+                };
               };
             };
           };
@@ -6574,14 +8432,14 @@ describe("moryn CLI", () => {
       await exec("git", ["init", "--bare", remote]);
 
       for (const store of [storeA, storeB]) {
-        await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
-        await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "sync", "init", remote]);
+        await exec("node", [cliJsPath, "--store", store, "init"]);
+        await exec("node", [cliJsPath, "--store", store, "sync", "init", remote]);
       }
 
       await mkdir(join(storeA, "events", "shared-device", "2026-05"), { recursive: true });
       await mkdir(join(storeB, "events", "shared-device", "2026-05"), { recursive: true });
-      await writeFile(join(storeA, conflictFile), "{\"from\":\"a\"}\n", "utf8");
-      await writeFile(join(storeB, conflictFile), "{\"from\":\"b\"}\n", "utf8");
+      await writeFile(join(storeA, conflictFile), '{"from":"a"}\n', "utf8");
+      await writeFile(join(storeB, conflictFile), '{"from":"b"}\n', "utf8");
       await exec("git", ["add", conflictFile], { cwd: storeA });
       await exec("git", ["commit", "-m", "device a conflicting event"], { cwd: storeA });
       await exec("git", ["push", "-u", "origin", "main"], { cwd: storeA });
@@ -6589,7 +8447,7 @@ describe("moryn CLI", () => {
       await exec("git", ["commit", "-m", "device b conflicting event"], { cwd: storeB });
 
       try {
-        await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "--pull"]);
+        await exec("node", [cliJsPath, "--store", storeB, "sync", "--pull"]);
         throw new Error("Expected sync pull to fail with a conflict");
       } catch (error) {
         const stderr = (error as { stderr: string }).stderr;
@@ -6599,18 +8457,21 @@ describe("moryn CLI", () => {
             code: string;
             recoverable: boolean;
             recommended_action: string;
-              next_action?: {
+            next_action?: {
               recommended_action: string;
               tool: string;
               command: string;
               arguments: Record<string, unknown>;
               required_fields: string[];
-              required_fields_by_name?: Record<string, {
-                name: string;
-                argument_path: string;
-                placeholder?: string;
-                value?: unknown;
-              }>;
+              required_fields_by_name?: Record<
+                string,
+                {
+                  name: string;
+                  argument_path: string;
+                  placeholder?: string;
+                  value?: unknown;
+                }
+              >;
               safe_to_run: boolean;
             };
           };
@@ -6629,23 +8490,26 @@ describe("moryn CLI", () => {
         });
       }
 
-      const status = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "--status"]);
+      const status = await exec("node", [cliJsPath, "--store", storeB, "sync", "--status"]);
       const parsedStatus = JSON.parse(status.stdout) as {
         sync_state?: string;
         selection_sources?: Record<string, string>;
-          conflict?: {
-            operation?: string;
-            files?: string[];
-            files_by_path?: Record<string, {
+        conflict?: {
+          operation?: string;
+          files?: string[];
+          files_by_path?: Record<
+            string,
+            {
               path: string;
               status: string;
               safe_to_auto_resolve: boolean;
               recommended_action: string;
-            }>;
-            safe_to_auto_resolve?: boolean;
-            safe_to_retry_sync?: boolean;
-            recommended_action?: string;
-          };
+            }
+          >;
+          safe_to_auto_resolve?: boolean;
+          safe_to_retry_sync?: boolean;
+          recommended_action?: string;
+        };
       };
       expect(parsedStatus.sync_state).toBe("conflict");
       expect(parsedStatus.selection_sources).toEqual(SYNC_STATUS_SELECTION_SOURCES);
@@ -6669,10 +8533,27 @@ describe("moryn CLI", () => {
 
   it("rebuilds derived snapshots and indexes from the CLI", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "moryn", "--state", "canonical", "--text", "CLI rebuild creates indexes"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
+      await exec("node", [
+        cliJsPath,
+        "--store",
+        dir,
+        "write",
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--state",
+        "canonical",
+        "--text",
+        "CLI rebuild creates indexes"
+      ]);
 
-      const rebuild = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "rebuild"]);
+      const rebuild = await exec("node", [cliJsPath, "--store", dir, "rebuild"]);
       const parsedRebuild = JSON.parse(rebuild.stdout) as {
         artifacts: {
           snapshots: { projects_by_id: Record<string, string>; user: string; skills: string; retrieval: string };
@@ -6680,13 +8561,15 @@ describe("moryn CLI", () => {
         };
         selection_sources: Record<string, string>;
       };
-      expect(rebuild.stdout).toContain("\"records\": 1");
+      expect(rebuild.stdout).toContain('"records": 1');
       expect(parsedRebuild.selection_sources).toEqual(REBUILD_SELECTION_SOURCES);
       expect(parsedRebuild.artifacts.snapshots.projects_by_id.moryn).toBe("snapshots/projects/moryn.json");
       expect(parsedRebuild.artifacts.snapshots.retrieval).toBe("snapshots/retrieval/metadata.json");
       expect(parsedRebuild.artifacts.indexes.recall).toBe("indexes/recall.json");
 
-      const recallIndex = JSON.parse(await readFile(join(dir, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };
+      const recallIndex = JSON.parse(await readFile(join(dir, "indexes", "recall.json"), "utf8")) as {
+        records: Array<{ text: string }>;
+      };
       expect(recallIndex.records[0]?.text).toBe("CLI rebuild creates indexes");
     });
   });
@@ -6694,27 +8577,41 @@ describe("moryn CLI", () => {
   it("lists known projects from the CLI", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
       await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "alpha",
-        "--tag", "typescript",
-        "--state", "canonical",
-        "--text", "Alpha uses TypeScript."
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "alpha",
+        "--tag",
+        "typescript",
+        "--state",
+        "canonical",
+        "--text",
+        "Alpha uses TypeScript."
       ]);
       await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "session_summary",
-        "--project-id", "beta",
-        "--text", "Beta handoff is ready."
+        "--kind",
+        "session_summary",
+        "--project-id",
+        "beta",
+        "--text",
+        "Beta handoff is ready."
       ]);
 
-      const listed = await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "project", "list"]);
+      const listed = await exec("node", [cliJsPath, "--store", store, "project", "list"]);
       const parsed = JSON.parse(listed.stdout) as {
         projects: Array<{
           project_id: string;
@@ -6742,14 +8639,17 @@ describe("moryn CLI", () => {
             workflow?: Record<string, unknown>;
           };
         }>;
-        projects_by_id: Record<string, {
-          project_id: string;
-          latest_activity: { text: string };
-          next: {
-            workflow?: Record<string, unknown>;
-            arguments: { project_id: string };
-          };
-        }>;
+        projects_by_id: Record<
+          string,
+          {
+            project_id: string;
+            latest_activity: { text: string };
+            next: {
+              workflow?: Record<string, unknown>;
+              arguments: { project_id: string };
+            };
+          }
+        >;
         selection_sources: Record<string, string>;
       };
 
@@ -6795,8 +8695,10 @@ describe("moryn CLI", () => {
             ordered_required_field: "project_list.projects[].next.required_fields_by_name.<field>",
             required_input: "project_list.projects_by_id.<project_id>.next.execution.required_inputs_by_field.<field>",
             ordered_required_input: "project_list.projects[].next.execution.required_inputs_by_field.<field>",
-            required_input_argument_path: "project_list.projects_by_id.<project_id>.next.execution.required_inputs_by_argument_path.<argument_path>",
-            ordered_required_input_argument_path: "project_list.projects[].next.execution.required_inputs_by_argument_path.<argument_path>",
+            required_input_argument_path:
+              "project_list.projects_by_id.<project_id>.next.execution.required_inputs_by_argument_path.<argument_path>",
+            ordered_required_input_argument_path:
+              "project_list.projects[].next.execution.required_inputs_by_argument_path.<argument_path>",
             argument_source: "project_list.projects_by_id.<project_id>.next.argument_sources.<field>",
             ordered_argument_source: "project_list.projects[].next.argument_sources.<field>"
           }
@@ -6816,19 +8718,36 @@ describe("moryn CLI", () => {
       const storeB = join(dir, "store-b");
       const project = join(dir, "project");
       await exec("git", ["init", "--bare", remote]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "init"]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "init"]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "moryn", "--tag", "typescript"]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "sync", "init", remote]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "init", remote]);
+      await exec("node", [cliJsPath, "--store", storeA, "init"]);
+      await exec("node", [cliJsPath, "--store", storeB, "init"]);
+      await exec("node", [
+        cliJsPath,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--project-id",
+        "moryn",
+        "--tag",
+        "typescript"
+      ]);
+      await exec("node", [cliJsPath, "--store", storeA, "sync", "init", remote]);
+      await exec("node", [cliJsPath, "--store", storeB, "sync", "init", remote]);
 
       const finish = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", storeA,
-        "agent", "finish",
-        "--project", project,
-        "--agent", "codex",
-        "--session-id", "codex-cli",
-        "--summary", "CLI Codex finished the lifecycle protocol."
+        cliJsPath,
+        "--store",
+        storeA,
+        "agent",
+        "finish",
+        "--project",
+        project,
+        "--agent",
+        "codex",
+        "--session-id",
+        "codex-cli",
+        "--summary",
+        "CLI Codex finished the lifecycle protocol."
       ]);
       const parsedFinish = JSON.parse(finish.stdout) as {
         record: { content: { text: string } };
@@ -6837,7 +8756,14 @@ describe("moryn CLI", () => {
           workflow: {
             start: string;
             continue_from: string[];
-            phases: Array<{ phase: string; order: number; action_source: string; tool?: string; required_when: string; required_fields: string[] }>;
+            phases: Array<{
+              phase: string;
+              order: number;
+              action_source: string;
+              tool?: string;
+              required_when: string;
+              required_fields: string[];
+            }>;
           };
           actions: Array<{
             action: string;
@@ -6845,36 +8771,45 @@ describe("moryn CLI", () => {
             command: string;
             required_when: string;
             required_fields: string[];
-            required_fields_by_name?: Record<string, {
-              name: string;
-              argument_path: string;
-              placeholder?: string;
-              value?: unknown;
-            }>;
+            required_fields_by_name?: Record<
+              string,
+              {
+                name: string;
+                argument_path: string;
+                placeholder?: string;
+                value?: unknown;
+              }
+            >;
             arguments: Record<string, unknown>;
             interfaces?: {
               cli?: { command?: string };
               mcp?: { tool?: string; arguments?: Record<string, unknown> };
             };
           }>;
-          actions_by_id: Record<string, {
-            action: string;
-            tool: string;
-            command: string;
-            required_when: string;
-            required_fields: string[];
-            required_fields_by_name?: Record<string, {
-              name: string;
-              argument_path: string;
-              placeholder?: string;
-              value?: unknown;
-            }>;
-            arguments: Record<string, unknown>;
-            interfaces?: {
-              cli?: { command?: string };
-              mcp?: { tool?: string; arguments?: Record<string, unknown> };
-            };
-          }>;
+          actions_by_id: Record<
+            string,
+            {
+              action: string;
+              tool: string;
+              command: string;
+              required_when: string;
+              required_fields: string[];
+              required_fields_by_name?: Record<
+                string,
+                {
+                  name: string;
+                  argument_path: string;
+                  placeholder?: string;
+                  value?: unknown;
+                }
+              >;
+              arguments: Record<string, unknown>;
+              interfaces?: {
+                cli?: { command?: string };
+                mcp?: { tool?: string; arguments?: Record<string, unknown> };
+              };
+            }
+          >;
           selection_sources: Record<string, string>;
         };
       };
@@ -6894,29 +8829,34 @@ describe("moryn CLI", () => {
         action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
         action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
         action_required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
-        action_required_input_argument_path: "next.actions_by_id.<action>.execution.required_inputs_by_argument_path.<argument_path>",
+        action_required_input_argument_path:
+          "next.actions_by_id.<action>.execution.required_inputs_by_argument_path.<argument_path>",
         action_argument_source: "next.actions_by_id.<action>.argument_sources.<field>"
       });
-      expect(parsedFinish.next.actions).toContainEqual(expect.objectContaining({
-        action: "start_next_session",
-        tool: "agent_start",
-        command: expect.stringContaining("moryn agent start"),
-        required_when: "When another agent or device should start the next session from this handoff.",
-        required_fields: ["current_task"],
-        argument_sources: {
-          current_task: "user_input.current_task"
-        },
-        arguments: expect.objectContaining({
-          project_path: project,
-          current_task: "<current_task>",
-          agent: expect.objectContaining({ client: "codex", session_id: "codex-cli" })
+      expect(parsedFinish.next.actions).toContainEqual(
+        expect.objectContaining({
+          action: "start_next_session",
+          tool: "agent_start",
+          command: expect.stringContaining("moryn agent start"),
+          required_when: "When another agent or device should start the next session from this handoff.",
+          required_fields: ["current_task"],
+          argument_sources: {
+            current_task: "user_input.current_task"
+          },
+          arguments: expect.objectContaining({
+            project_path: project,
+            current_task: "<current_task>",
+            agent: expect.objectContaining({ client: "codex", session_id: "codex-cli" })
+          })
         })
-      }));
+      );
       for (const action of parsedFinish.next.actions) {
         expectActionInterfaces(action);
         expectLifecycleActionSelectionSources(action);
       }
-      expect(parsedFinish.next.actions_by_id.start_next_session).toEqual(parsedFinish.next.actions.find((action) => action.action === "start_next_session"));
+      expect(parsedFinish.next.actions_by_id.start_next_session).toEqual(
+        parsedFinish.next.actions.find((action) => action.action === "start_next_session")
+      );
       expectLifecycleActionSelectionSources(parsedFinish.next.actions_by_id.start_next_session);
       expect(parsedFinish.next.actions_by_id.start_next_session.required_fields_by_name?.current_task).toEqual({
         name: "current_task",
@@ -6927,30 +8867,40 @@ describe("moryn CLI", () => {
       expect(parsedFinish.next.actions_by_id[parsedFinish.next.recommended_start_action_id]).toEqual(
         parsedFinish.next.actions_by_id.start_next_session
       );
-      expect(parsedFinish.next.workflow).toEqual(withPhasesByName({
-        version: 1,
-        start: "next.actions_by_id",
-        continue_from: ["next.actions_by_id", "next.actions"],
-        phases: [
-          {
-            phase: "start_next_session",
-            order: 1,
-            action_source: "next.actions_by_id.start_next_session",
-            tool: "agent_start",
-            required_when: "When another agent or device should start the next session from this handoff.",
-            required_fields: ["current_task"]
-          }
-        ]
-      }));
+      expect(parsedFinish.next.workflow).toEqual(
+        withPhasesByName({
+          version: 1,
+          start: "next.actions_by_id",
+          continue_from: ["next.actions_by_id", "next.actions"],
+          phases: [
+            {
+              phase: "start_next_session",
+              order: 1,
+              action_source: "next.actions_by_id.start_next_session",
+              tool: "agent_start",
+              required_when: "When another agent or device should start the next session from this handoff.",
+              required_fields: ["current_task"]
+            }
+          ]
+        })
+      );
 
       const start = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", storeB,
-        "agent", "start",
-        "--project", project,
-        "--agent", "gemini",
-        "--session-id", "gemini-cli",
-        "--current-task", "continue lifecycle protocol",
-        "--refresh-since", "2000-01-01T00:00:00.000Z"
+        cliJsPath,
+        "--store",
+        storeB,
+        "agent",
+        "start",
+        "--project",
+        project,
+        "--agent",
+        "gemini",
+        "--session-id",
+        "gemini-cli",
+        "--current-task",
+        "continue lifecycle protocol",
+        "--refresh-since",
+        "2000-01-01T00:00:00.000Z"
       ]);
       const parsedStart = JSON.parse(start.stdout) as {
         project: { project_id: string };
@@ -6958,7 +8908,14 @@ describe("moryn CLI", () => {
           status: string;
           project_id: string;
           headline: string;
-          primary_next_step: { action_id: string; action_source: string; safe_to_run: boolean; owner: string; requires_authored_input: boolean; requires_user_input: boolean };
+          primary_next_step: {
+            action_id: string;
+            action_source: string;
+            safe_to_run: boolean;
+            owner: string;
+            requires_authored_input: boolean;
+            requires_user_input: boolean;
+          };
           safety: { read_first: boolean; writes_require_explicit_action: boolean; mutation_surfaces: string[] };
           signals: Array<{ id: string; status: string; summary: string; source: string }>;
           evidence_sources: Record<string, string>;
@@ -6968,7 +8925,14 @@ describe("moryn CLI", () => {
         next: {
           workflow: {
             start: string;
-            phases: Array<{ phase: string; order: number; action_source: string; tool?: string; required_when: string; required_fields: string[] }>;
+            phases: Array<{
+              phase: string;
+              order: number;
+              action_source: string;
+              tool?: string;
+              required_when: string;
+              required_fields: string[];
+            }>;
           };
           actions: Array<{
             action: string;
@@ -6982,18 +8946,21 @@ describe("moryn CLI", () => {
               mcp?: { tool?: string; arguments?: Record<string, unknown> };
             };
           }>;
-          actions_by_id: Record<string, {
-            action: string;
-            tool: string;
-            command: string;
-            required_when: string;
-            required_fields: string[];
-            arguments: Record<string, unknown>;
-            interfaces?: {
-              cli?: { command?: string };
-              mcp?: { tool?: string; arguments?: Record<string, unknown> };
-            };
-          }>;
+          actions_by_id: Record<
+            string,
+            {
+              action: string;
+              tool: string;
+              command: string;
+              required_when: string;
+              required_fields: string[];
+              arguments: Record<string, unknown>;
+              interfaces?: {
+                cli?: { command?: string };
+                mcp?: { tool?: string; arguments?: Record<string, unknown> };
+              };
+            }
+          >;
           selection_sources: Record<string, string>;
         };
       };
@@ -7022,46 +8989,56 @@ describe("moryn CLI", () => {
           next_actions: "next.actions_by_id"
         }
       });
-      expect(parsedStart.startup_overview.signals).toEqual(expect.arrayContaining([
-        expect.objectContaining({ id: "refresh_context", status: "available", source: "start.refresh" }),
-        expect.objectContaining({ id: "handoff_context", status: "available", source: "start.handoff" })
-      ]));
+      expect(parsedStart.startup_overview.signals).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "refresh_context", status: "available", source: "start.refresh" }),
+          expect.objectContaining({ id: "handoff_context", status: "available", source: "start.handoff" })
+        ])
+      );
       expect(parsedStart.sync.pull?.pulled).toBe(true);
-      expect(parsedStart.refresh.changes).toContainEqual(expect.objectContaining({
-        summary: "CLI Codex finished the lifecycle protocol.",
-        importance: "notice"
-      }));
-      expect(parsedStart.next.actions).toContainEqual(expect.objectContaining({
-        action: "publish_status",
-        tool: "agent_status",
-        safe_to_run: true,
-        command: expect.stringContaining("moryn agent status"),
-        required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
-        required_fields: ["status"],
-        argument_sources: {
-          status: "agent_authored.status"
-        },
-        arguments: expect.objectContaining({
-          project_path: project,
-          status: "<status>",
-          current_task: "continue lifecycle protocol"
+      expect(parsedStart.refresh.changes).toContainEqual(
+        expect.objectContaining({
+          summary: "CLI Codex finished the lifecycle protocol.",
+          importance: "notice"
         })
-      }));
-      expect(parsedStart.next.actions).toContainEqual(expect.objectContaining({
-        action: "refresh_context",
-        tool: "agent_start",
-        command: expect.stringContaining("--refresh-since"),
-        required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
-        required_fields: [],
-        argument_sources: {
-          refresh_since: "refresh.cursor"
-        },
-        arguments: expect.objectContaining({
-          project_path: project,
-          refresh_since: parsedStart.refresh.cursor,
-          current_task: "continue lifecycle protocol"
+      );
+      expect(parsedStart.next.actions).toContainEqual(
+        expect.objectContaining({
+          action: "publish_status",
+          tool: "agent_status",
+          safe_to_run: true,
+          command: expect.stringContaining("moryn agent status"),
+          required_when:
+            "During meaningful long-running work, before interruption, or when another agent may need coordination.",
+          required_fields: ["status"],
+          argument_sources: {
+            status: "agent_authored.status"
+          },
+          arguments: expect.objectContaining({
+            project_path: project,
+            status: "<status>",
+            current_task: "continue lifecycle protocol"
+          })
         })
-      }));
+      );
+      expect(parsedStart.next.actions).toContainEqual(
+        expect.objectContaining({
+          action: "refresh_context",
+          tool: "agent_start",
+          command: expect.stringContaining("--refresh-since"),
+          required_when:
+            "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
+          required_fields: [],
+          argument_sources: {
+            refresh_since: "refresh.cursor"
+          },
+          arguments: expect.objectContaining({
+            project_path: project,
+            refresh_since: parsedStart.refresh.cursor,
+            current_task: "continue lifecycle protocol"
+          })
+        })
+      );
       for (const action of parsedStart.next.actions) {
         expectActionInterfaces(action);
         expectLifecycleActionSelectionSources(action);
@@ -7082,55 +9059,71 @@ describe("moryn CLI", () => {
         action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
         action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
         action_required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
-        action_required_input_argument_path: "next.actions_by_id.<action>.execution.required_inputs_by_argument_path.<argument_path>",
+        action_required_input_argument_path:
+          "next.actions_by_id.<action>.execution.required_inputs_by_argument_path.<argument_path>",
         action_argument_source: "next.actions_by_id.<action>.argument_sources.<field>"
       });
-      expect(parsedStart.next.actions_by_id.publish_status).toEqual(parsedStart.next.actions.find((action) => action.action === "publish_status"));
-      expect(parsedStart.next.actions_by_id.finish_session).toEqual(parsedStart.next.actions.find((action) => action.action === "finish_session"));
-      expect(parsedStart.next.actions_by_id.refresh_context).toEqual(parsedStart.next.actions.find((action) => action.action === "refresh_context"));
+      expect(parsedStart.next.actions_by_id.publish_status).toEqual(
+        parsedStart.next.actions.find((action) => action.action === "publish_status")
+      );
+      expect(parsedStart.next.actions_by_id.finish_session).toEqual(
+        parsedStart.next.actions.find((action) => action.action === "finish_session")
+      );
+      expect(parsedStart.next.actions_by_id.refresh_context).toEqual(
+        parsedStart.next.actions.find((action) => action.action === "refresh_context")
+      );
       expectLifecycleActionSelectionSources(parsedStart.next.actions_by_id.publish_status);
       expectLifecycleActionSelectionSources(parsedStart.next.actions_by_id.finish_session);
       expectLifecycleActionSelectionSources(parsedStart.next.actions_by_id.refresh_context);
-      expect(parsedStart.next.actions_by_id[parsedStart.next.required_end_action_id]).toEqual(parsedStart.next.actions_by_id.finish_session);
-      expect(parsedStart.next.actions_by_id[parsedStart.next.recommended_refresh_action_id]).toEqual(parsedStart.next.actions_by_id.refresh_context);
-      expect(parsedStart.next.workflow).toEqual(withPhasesByName({
-        version: 1,
-        start: "context",
-        continue_from: ["boot", "refresh", "handoff", "next.actions_by_id", "next.actions"],
-        phases: [
-          {
-            phase: "review_context",
-            order: 1,
-            action_source: "boot+refresh+handoff",
-            required_when: "Immediately after agent_start returns, review boot, refresh, and handoff context before taking user-task actions.",
-            required_fields: []
-          },
-          {
-            phase: "publish_status",
-            order: 2,
-            action_source: "next.actions_by_id.publish_status",
-            tool: "agent_status",
-            required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
-            required_fields: ["status"]
-          },
-          {
-            phase: "finish_session",
-            order: 3,
-            action_source: "next.actions_by_id.finish_session",
-            tool: "agent_finish",
-            required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
-            required_fields: ["summary"]
-          },
-          {
-            phase: "refresh_context",
-            order: 4,
-            action_source: "next.actions_by_id.refresh_context",
-            tool: "agent_start",
-            required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
-            required_fields: []
-          }
-        ]
-      }));
+      expect(parsedStart.next.actions_by_id[parsedStart.next.required_end_action_id]).toEqual(
+        parsedStart.next.actions_by_id.finish_session
+      );
+      expect(parsedStart.next.actions_by_id[parsedStart.next.recommended_refresh_action_id]).toEqual(
+        parsedStart.next.actions_by_id.refresh_context
+      );
+      expect(parsedStart.next.workflow).toEqual(
+        withPhasesByName({
+          version: 1,
+          start: "context",
+          continue_from: ["boot", "refresh", "handoff", "next.actions_by_id", "next.actions"],
+          phases: [
+            {
+              phase: "review_context",
+              order: 1,
+              action_source: "boot+refresh+handoff",
+              required_when:
+                "Immediately after agent_start returns, review boot, refresh, and handoff context before taking user-task actions.",
+              required_fields: []
+            },
+            {
+              phase: "publish_status",
+              order: 2,
+              action_source: "next.actions_by_id.publish_status",
+              tool: "agent_status",
+              required_when:
+                "During meaningful long-running work, before interruption, or when another agent may need coordination.",
+              required_fields: ["status"]
+            },
+            {
+              phase: "finish_session",
+              order: 3,
+              action_source: "next.actions_by_id.finish_session",
+              tool: "agent_finish",
+              required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
+              required_fields: ["summary"]
+            },
+            {
+              phase: "refresh_context",
+              order: 4,
+              action_source: "next.actions_by_id.refresh_context",
+              tool: "agent_start",
+              required_when:
+                "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
+              required_fields: []
+            }
+          ]
+        })
+      );
     });
   }, 30000);
 
@@ -7141,29 +9134,55 @@ describe("moryn CLI", () => {
       const storeB = join(dir, "fresh-store-b");
       const project = join(dir, "project");
       await exec("git", ["init", "--bare", remote]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "moryn"]);
+      await exec("node", [
+        cliJsPath,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--project-id",
+        "moryn"
+      ]);
 
       const finish = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", storeA,
-        "agent", "finish",
-        "--project", project,
-        "--sync-remote", remote,
-        "--agent", "codex",
-        "--summary", "CLI fresh store wrote the first handoff."
+        cliJsPath,
+        "--store",
+        storeA,
+        "agent",
+        "finish",
+        "--project",
+        project,
+        "--sync-remote",
+        remote,
+        "--agent",
+        "codex",
+        "--summary",
+        "CLI fresh store wrote the first handoff."
       ]);
-      const parsedFinish = JSON.parse(finish.stdout) as { bootstrap: { initialized_store: boolean; sync_init?: { ok?: boolean } }; sync: { push?: { pushed?: boolean } } };
+      const parsedFinish = JSON.parse(finish.stdout) as {
+        bootstrap: { initialized_store: boolean; sync_init?: { ok?: boolean } };
+        sync: { push?: { pushed?: boolean } };
+      };
       expect(parsedFinish.bootstrap.initialized_store).toBe(true);
       expect(parsedFinish.bootstrap.sync_init?.ok).toBe(true);
       expect(parsedFinish.sync.push?.pushed).toBe(true);
 
       const start = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", storeB,
-        "agent", "start",
-        "--project", project,
-        "--sync-remote", remote,
-        "--agent", "gemini",
-        "--current-task", "read fresh handoff",
-        "--refresh-since", "2000-01-01T00:00:00.000Z"
+        cliJsPath,
+        "--store",
+        storeB,
+        "agent",
+        "start",
+        "--project",
+        project,
+        "--sync-remote",
+        remote,
+        "--agent",
+        "gemini",
+        "--current-task",
+        "read fresh handoff",
+        "--refresh-since",
+        "2000-01-01T00:00:00.000Z"
       ]);
       const parsedStart = JSON.parse(start.stdout) as {
         bootstrap: { initialized_store: boolean; sync_init?: { ok?: boolean } };
@@ -7173,9 +9192,11 @@ describe("moryn CLI", () => {
       expect(parsedStart.bootstrap.initialized_store).toBe(true);
       expect(parsedStart.bootstrap.sync_init?.ok).toBe(true);
       expect(parsedStart.sync.pull?.pulled).toBe(true);
-      expect(parsedStart.refresh.changes).toContainEqual(expect.objectContaining({
-        summary: "CLI fresh store wrote the first handoff."
-      }));
+      expect(parsedStart.refresh.changes).toContainEqual(
+        expect.objectContaining({
+          summary: "CLI fresh store wrote the first handoff."
+        })
+      );
     });
   }, 30000);
 
@@ -7183,36 +9204,60 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
       const project = join(dir, "project");
-      await exec("node", ["--import", tsxLoader, cliPath, "project", "init", "--path", project, "--project-id", "moryn"]);
+      await exec("node", [
+        cliJsPath,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--project-id",
+        "moryn"
+      ]);
 
-      const start = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
-        "agent", "start",
-        "--agent", "codex",
-        "--session-id", "codex-cli-portable",
-        "--current-task", "continue from portable actions"
-      ], { cwd: project });
+      const start = await exec(
+        "node",
+        [
+          cliJsPath,
+          "--store",
+          store,
+          "agent",
+          "start",
+          "--agent",
+          "codex",
+          "--session-id",
+          "codex-cli-portable",
+          "--current-task",
+          "continue from portable actions"
+        ],
+        { cwd: project }
+      );
       const parsedStart = JSON.parse(start.stdout) as {
         next: { actions: Array<{ action: string; command: string; arguments: Record<string, unknown> }> };
       };
-      expect(parsedStart.next.actions).toContainEqual(expect.objectContaining({
-        action: "publish_status",
-        safe_to_run: true,
-        command: expect.stringContaining("--project-id moryn"),
-        arguments: expect.objectContaining({ project_id: "moryn", status: "<status>" })
-      }));
-      expect(parsedStart.next.actions).toContainEqual(expect.objectContaining({
-        action: "finish_session",
-        safe_to_run: true,
-        command: expect.stringContaining("--project-id moryn"),
-        arguments: expect.objectContaining({ project_id: "moryn", summary: "<summary>" })
-      }));
-      expect(parsedStart.next.actions).toContainEqual(expect.objectContaining({
-        action: "refresh_context",
-        safe_to_run: true,
-        command: expect.stringContaining("--project-id moryn"),
-        arguments: expect.objectContaining({ project_id: "moryn" })
-      }));
+      expect(parsedStart.next.actions).toContainEqual(
+        expect.objectContaining({
+          action: "publish_status",
+          safe_to_run: true,
+          command: expect.stringContaining("--project-id moryn"),
+          arguments: expect.objectContaining({ project_id: "moryn", status: "<status>" })
+        })
+      );
+      expect(parsedStart.next.actions).toContainEqual(
+        expect.objectContaining({
+          action: "finish_session",
+          safe_to_run: true,
+          command: expect.stringContaining("--project-id moryn"),
+          arguments: expect.objectContaining({ project_id: "moryn", summary: "<summary>" })
+        })
+      );
+      expect(parsedStart.next.actions).toContainEqual(
+        expect.objectContaining({
+          action: "refresh_context",
+          safe_to_run: true,
+          command: expect.stringContaining("--project-id moryn"),
+          arguments: expect.objectContaining({ project_id: "moryn" })
+        })
+      );
     });
   });
 
@@ -7223,17 +9268,34 @@ describe("moryn CLI", () => {
       const storeB = join(dir, "fresh-store-b");
       const project = join(dir, "project");
       await exec("git", ["init", "--bare", remote]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "moryn"]);
+      await exec("node", [
+        cliJsPath,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--project-id",
+        "moryn"
+      ]);
 
       const status = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", storeA,
-        "agent", "status",
-        "--project", project,
-        "--sync-remote", remote,
-        "--agent", "codex",
-        "--session-id", "codex-cli-status",
-        "--current-task", "coordinate status",
-        "--status", "CLI Codex is currently wiring status propagation."
+        cliJsPath,
+        "--store",
+        storeA,
+        "agent",
+        "status",
+        "--project",
+        project,
+        "--sync-remote",
+        remote,
+        "--agent",
+        "codex",
+        "--session-id",
+        "codex-cli-status",
+        "--current-task",
+        "coordinate status",
+        "--status",
+        "CLI Codex is currently wiring status propagation."
       ]);
       const parsedStatus = JSON.parse(status.stdout) as {
         record: { kind: string; type: string; updated_at: string; content: { text: string; current_task?: string } };
@@ -7241,10 +9303,34 @@ describe("moryn CLI", () => {
         next: {
           workflow: {
             start: string;
-            phases: Array<{ phase: string; order: number; action_source: string; tool?: string; required_when: string; required_fields: string[] }>;
+            phases: Array<{
+              phase: string;
+              order: number;
+              action_source: string;
+              tool?: string;
+              required_when: string;
+              required_fields: string[];
+            }>;
           };
-          actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }>;
-          actions_by_id: Record<string, { action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }>;
+          actions: Array<{
+            action: string;
+            tool: string;
+            command: string;
+            required_when: string;
+            required_fields: string[];
+            arguments: Record<string, unknown>;
+          }>;
+          actions_by_id: Record<
+            string,
+            {
+              action: string;
+              tool: string;
+              command: string;
+              required_when: string;
+              required_fields: string[];
+              arguments: Record<string, unknown>;
+            }
+          >;
           selection_sources: Record<string, string>;
         };
       };
@@ -7257,42 +9343,51 @@ describe("moryn CLI", () => {
         }
       });
       expect(parsedStatus.sync.push?.pushed).toBe(true);
-      expect(parsedStatus.next.actions).toContainEqual(expect.objectContaining({
-        action: "finish_session",
-        tool: "agent_finish",
-        safe_to_run: true,
-        command: expect.stringContaining("moryn agent finish"),
-        required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
-        required_fields: ["summary"],
-        argument_sources: {
-          summary: "agent_authored.summary"
-        },
-        arguments: expect.objectContaining({
-          project_path: project,
-          sync_remote: remote,
-          summary: "<summary>",
-          current_task: "coordinate status"
+      expect(parsedStatus.next.actions).toContainEqual(
+        expect.objectContaining({
+          action: "finish_session",
+          tool: "agent_finish",
+          safe_to_run: true,
+          command: expect.stringContaining("moryn agent finish"),
+          required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
+          required_fields: ["summary"],
+          argument_sources: {
+            summary: "agent_authored.summary"
+          },
+          arguments: expect.objectContaining({
+            project_path: project,
+            sync_remote: remote,
+            summary: "<summary>",
+            current_task: "coordinate status"
+          })
         })
-      }));
-      expect(parsedStatus.next.actions).toContainEqual(expect.objectContaining({
-        action: "refresh_context",
-        tool: "agent_start",
-        safe_to_run: true,
-        command: expect.stringContaining("--refresh-since"),
-        required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
-        required_fields: [],
-        argument_sources: {
-          refresh_since: "record.updated_at"
-        },
-        arguments: expect.objectContaining({
-          project_path: project,
-          sync_remote: remote,
-          refresh_since: parsedStatus.record.updated_at,
-          current_task: "coordinate status"
+      );
+      expect(parsedStatus.next.actions).toContainEqual(
+        expect.objectContaining({
+          action: "refresh_context",
+          tool: "agent_start",
+          safe_to_run: true,
+          command: expect.stringContaining("--refresh-since"),
+          required_when:
+            "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
+          required_fields: [],
+          argument_sources: {
+            refresh_since: "record.updated_at"
+          },
+          arguments: expect.objectContaining({
+            project_path: project,
+            sync_remote: remote,
+            refresh_since: parsedStatus.record.updated_at,
+            current_task: "coordinate status"
+          })
         })
-      }));
-      expect(parsedStatus.next.actions_by_id.finish_session).toEqual(parsedStatus.next.actions.find((action) => action.action === "finish_session"));
-      expect(parsedStatus.next.actions_by_id.refresh_context).toEqual(parsedStatus.next.actions.find((action) => action.action === "refresh_context"));
+      );
+      expect(parsedStatus.next.actions_by_id.finish_session).toEqual(
+        parsedStatus.next.actions.find((action) => action.action === "finish_session")
+      );
+      expect(parsedStatus.next.actions_by_id.refresh_context).toEqual(
+        parsedStatus.next.actions.find((action) => action.action === "refresh_context")
+      );
       expect(parsedStatus.next.recommended_finish_action_id).toBe("finish_session");
       expect(parsedStatus.next.recommended_finish_action_source).toBe("next.actions_by_id.finish_session");
       expect(parsedStatus.next.recommended_refresh_action_id).toBe("refresh_context");
@@ -7309,43 +9404,59 @@ describe("moryn CLI", () => {
         action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
         action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
         action_required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
-        action_required_input_argument_path: "next.actions_by_id.<action>.execution.required_inputs_by_argument_path.<argument_path>",
+        action_required_input_argument_path:
+          "next.actions_by_id.<action>.execution.required_inputs_by_argument_path.<argument_path>",
         action_argument_source: "next.actions_by_id.<action>.argument_sources.<field>"
       });
-      expect(parsedStatus.next.actions_by_id[parsedStatus.next.recommended_finish_action_id]).toEqual(parsedStatus.next.actions_by_id.finish_session);
-      expect(parsedStatus.next.actions_by_id[parsedStatus.next.recommended_refresh_action_id]).toEqual(parsedStatus.next.actions_by_id.refresh_context);
-      expect(parsedStatus.next.workflow).toEqual(withPhasesByName({
-        version: 1,
-        start: "next.actions_by_id",
-        continue_from: ["record", "next.actions_by_id", "next.actions"],
-        phases: [
-          {
-            phase: "finish_session",
-            order: 1,
-            action_source: "next.actions_by_id.finish_session",
-            tool: "agent_finish",
-            required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
-            required_fields: ["summary"]
-          },
-          {
-            phase: "refresh_context",
-            order: 2,
-            action_source: "next.actions_by_id.refresh_context",
-            tool: "agent_start",
-            required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
-            required_fields: []
-          }
-        ]
-      }));
+      expect(parsedStatus.next.actions_by_id[parsedStatus.next.recommended_finish_action_id]).toEqual(
+        parsedStatus.next.actions_by_id.finish_session
+      );
+      expect(parsedStatus.next.actions_by_id[parsedStatus.next.recommended_refresh_action_id]).toEqual(
+        parsedStatus.next.actions_by_id.refresh_context
+      );
+      expect(parsedStatus.next.workflow).toEqual(
+        withPhasesByName({
+          version: 1,
+          start: "next.actions_by_id",
+          continue_from: ["record", "next.actions_by_id", "next.actions"],
+          phases: [
+            {
+              phase: "finish_session",
+              order: 1,
+              action_source: "next.actions_by_id.finish_session",
+              tool: "agent_finish",
+              required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
+              required_fields: ["summary"]
+            },
+            {
+              phase: "refresh_context",
+              order: 2,
+              action_source: "next.actions_by_id.refresh_context",
+              tool: "agent_start",
+              required_when:
+                "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
+              required_fields: []
+            }
+          ]
+        })
+      );
 
       const start = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", storeB,
-        "agent", "start",
-        "--project", project,
-        "--sync-remote", remote,
-        "--agent", "gemini",
-        "--current-task", "coordinate status",
-        "--refresh-since", "2000-01-01T00:00:00.000Z"
+        cliJsPath,
+        "--store",
+        storeB,
+        "agent",
+        "start",
+        "--project",
+        project,
+        "--sync-remote",
+        remote,
+        "--agent",
+        "gemini",
+        "--current-task",
+        "coordinate status",
+        "--refresh-since",
+        "2000-01-01T00:00:00.000Z"
       ]);
       const parsedStart = JSON.parse(start.stdout) as {
         refresh: { changes: Array<{ summary: string; importance: string }> };
@@ -7375,21 +9486,26 @@ describe("moryn CLI", () => {
               required_fields: string[];
             };
           }>;
-          active_sessions_by_record_id: Record<string, {
-            record_id: string;
-            next_action: {
-              workflow?: Record<string, unknown>;
-            };
-          }>;
+          active_sessions_by_record_id: Record<
+            string,
+            {
+              record_id: string;
+              next_action: {
+                workflow?: Record<string, unknown>;
+              };
+            }
+          >;
           selection_sources: Record<string, string>;
           inbox: Array<{ text: string }>;
           inbox_by_record_id: Record<string, { record_id: string }>;
         };
       };
-      expect(parsedStart.refresh.changes).toContainEqual(expect.objectContaining({
-        summary: "CLI Codex is currently wiring status propagation.",
-        importance: "notice"
-      }));
+      expect(parsedStart.refresh.changes).toContainEqual(
+        expect.objectContaining({
+          summary: "CLI Codex is currently wiring status propagation.",
+          importance: "notice"
+        })
+      );
       expect(parsedStart.handoff.active_sessions).toEqual([
         expect.objectContaining({
           text: "CLI Codex is currently wiring status propagation.",
@@ -7399,43 +9515,76 @@ describe("moryn CLI", () => {
           next_action: expect.any(Object)
         })
       ]);
-      expect(parsedStart.handoff.active_sessions_by_record_id[parsedStart.handoff.active_sessions[0]!.record_id]).toEqual(parsedStart.handoff.active_sessions[0]);
+      expect(
+        parsedStart.handoff.active_sessions_by_record_id[parsedStart.handoff.active_sessions[0]!.record_id]
+      ).toEqual(parsedStart.handoff.active_sessions[0]);
       expect(parsedStart.handoff.selection_sources).toEqual({
         inbox_entry: "handoff.inbox_by_record_id.<record_id>",
         inbox_record_id: "handoff.inbox_by_record_id.<record_id>.record_id",
         inbox_next_action: "handoff.inbox_by_record_id.<record_id>.next_action",
-        inbox_next_action_cli_executable: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.executable",
+        inbox_next_action_cli_executable:
+          "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.executable",
         inbox_next_action_cli_argv: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
         inbox_next_action_cli_args: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.args[]",
         inbox_next_action_cli_exec_file: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.exec_file",
-        inbox_next_action_cli_placeholder: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.placeholders[]",
-        inbox_next_action_cli_command_line: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.command_line",
+        inbox_next_action_cli_placeholder:
+          "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.placeholders[]",
+        inbox_next_action_cli_command_line:
+          "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.command_line",
         inbox_next_action_argument: "handoff.inbox_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
-        inbox_next_action_required_field: "handoff.inbox_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
-        inbox_next_action_required_input: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
-        inbox_next_action_required_input_argument_path: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
-        inbox_next_action_argument_source: "handoff.inbox_by_record_id.<record_id>.next_action.argument_sources.<field>",
+        inbox_next_action_required_field:
+          "handoff.inbox_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
+        inbox_next_action_required_input:
+          "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
+        inbox_next_action_required_input_argument_path:
+          "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
+        inbox_next_action_argument_source:
+          "handoff.inbox_by_record_id.<record_id>.next_action.argument_sources.<field>",
         recovered_status_entry: "handoff.recovered_statuses_by_record_id.<record_id>",
         recovered_status_record_id: "handoff.recovered_statuses_by_record_id.<record_id>.record_id",
         active_session_entry: "handoff.active_sessions_by_record_id.<record_id>",
         active_session_record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
         active_session_next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action",
-        active_session_next_action_cli_executable: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.executable",
-        active_session_next_action_cli_argv: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
-        active_session_next_action_cli_args: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.args[]",
-        active_session_next_action_cli_exec_file: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.exec_file",
-        active_session_next_action_cli_placeholder: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.placeholders[]",
-        active_session_next_action_cli_command_line: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.command_line",
-        active_session_next_action_argument: "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
-        active_session_next_action_required_field: "handoff.active_sessions_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
-        active_session_next_action_required_input: "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
-        active_session_next_action_required_input_argument_path: "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
-        active_session_next_action_argument_source: "handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>"
+        active_session_next_action_cli_executable:
+          "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.executable",
+        active_session_next_action_cli_argv:
+          "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
+        active_session_next_action_cli_args:
+          "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.args[]",
+        active_session_next_action_cli_exec_file:
+          "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.exec_file",
+        active_session_next_action_cli_placeholder:
+          "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.placeholders[]",
+        active_session_next_action_cli_command_line:
+          "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.command_line",
+        active_session_next_action_argument:
+          "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
+        active_session_next_action_required_field:
+          "handoff.active_sessions_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
+        active_session_next_action_required_input:
+          "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
+        active_session_next_action_required_input_argument_path:
+          "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
+        active_session_next_action_argument_source:
+          "handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>"
       });
-      expectHandoffEntryNextAction(parsedStart.handoff.active_sessions[0]!.next_action, parsedStart.handoff.active_sessions[0]!.record_id, "moryn", "active_sessions");
-      expect(parsedStart.handoff.active_sessions_by_record_id[parsedStart.handoff.active_sessions[0]!.record_id]!.next_action.workflow).toEqual(parsedStart.handoff.active_sessions[0]!.next_action.workflow);
+      expectHandoffEntryNextAction(
+        parsedStart.handoff.active_sessions[0]!.next_action,
+        parsedStart.handoff.active_sessions[0]!.record_id,
+        "moryn",
+        "active_sessions"
+      );
+      expect(
+        parsedStart.handoff.active_sessions_by_record_id[parsedStart.handoff.active_sessions[0]!.record_id]!.next_action
+          .workflow
+      ).toEqual(parsedStart.handoff.active_sessions[0]!.next_action.workflow);
       expect(parsedStart.handoff.next_action).toEqual(parsedStart.handoff.active_sessions[0]!.next_action);
-      expectHandoffEntryNextAction(parsedStart.handoff.next_action, parsedStart.handoff.active_sessions[0]!.record_id, "moryn", "active_sessions");
+      expectHandoffEntryNextAction(
+        parsedStart.handoff.next_action,
+        parsedStart.handoff.active_sessions[0]!.record_id,
+        "moryn",
+        "active_sessions"
+      );
       expect(parsedStart.handoff.inbox).toEqual([]);
       expect(parsedStart.handoff.inbox_by_record_id).toEqual({});
     });
@@ -7447,16 +9596,32 @@ describe("moryn CLI", () => {
       const store = join(dir, "fresh-store");
       const project = join(dir, "project");
       await exec("git", ["init", "--bare", remote]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "moryn"]);
+      await exec("node", [
+        cliJsPath,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--project-id",
+        "moryn"
+      ]);
 
       const doctor = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
-        "agent", "doctor",
-        "--project", project,
-        "--sync-remote", remote,
-        "--agent", "codex",
-        "--session-id", "codex-doctor",
-        "--current-task", "start safely"
+        cliJsPath,
+        "--store",
+        store,
+        "agent",
+        "doctor",
+        "--project",
+        project,
+        "--sync-remote",
+        remote,
+        "--agent",
+        "codex",
+        "--session-id",
+        "codex-doctor",
+        "--current-task",
+        "start safely"
       ]);
       const parsed = JSON.parse(doctor.stdout) as {
         store: { initialized: boolean };
@@ -7475,12 +9640,15 @@ describe("moryn CLI", () => {
           next_safe_to_run: boolean;
           next_required_when: string;
           next_required_fields: string[];
-          next_required_fields_by_name: Record<string, {
-            name: string;
-            argument_path: string;
-            placeholder?: string;
-            value?: unknown;
-          }>;
+          next_required_fields_by_name: Record<
+            string,
+            {
+              name: string;
+              argument_path: string;
+              placeholder?: string;
+              value?: unknown;
+            }
+          >;
           next_argument_sources: Record<string, string>;
           next_selection_sources: Record<string, string>;
           next_safety: {
@@ -7505,15 +9673,33 @@ describe("moryn CLI", () => {
             mcp: { tool: string; arguments: Record<string, unknown> };
           };
           workflow: Record<string, unknown>;
-          required_fields_by_name: Record<string, {
-            name: string;
-            argument_path: string;
-            placeholder?: string;
-            value?: unknown;
-          }>;
+          required_fields_by_name: Record<
+            string,
+            {
+              name: string;
+              argument_path: string;
+              placeholder?: string;
+              value?: unknown;
+            }
+          >;
           arguments: { project_path?: string; sync_remote?: string; agent?: { client?: string } };
-          actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }>;
-          actions_by_id: Record<string, { action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }>;
+          actions: Array<{
+            action: string;
+            tool: string;
+            command: string;
+            required_fields: string[];
+            arguments: Record<string, unknown>;
+          }>;
+          actions_by_id: Record<
+            string,
+            {
+              action: string;
+              tool: string;
+              command: string;
+              required_fields: string[];
+              arguments: Record<string, unknown>;
+            }
+          >;
           selection_sources: Record<string, string>;
         };
       };
@@ -7576,23 +9762,29 @@ describe("moryn CLI", () => {
       expect(parsed.next.command).toContain("moryn agent start");
       expect((parsed.next as { action_source?: string }).action_source).toBe("next");
       expect(parsed.next.command).toContain("--sync-remote");
-      expect(parsed.next.actions).toContainEqual(expect.objectContaining({
-        action: "run_lifecycle_smoke",
-        tool: "moryn-agent-smoke",
-        safe_to_run: true,
-        command: expect.stringContaining("moryn-agent-smoke"),
-        interfaces: expect.objectContaining({
-          cli: expect.objectContaining({
-            argv: ["moryn-agent-smoke", "--remote", remote],
-            executable: "moryn-agent-smoke",
-            args: ["--remote", remote]
-          })
-        }),
-        required_fields: [],
-        arguments: expect.objectContaining({ remote })
-      }));
-      expect(parsed.next.actions_by_id.start_session).toEqual(parsed.next.actions.find((action) => action.action === "start_session"));
-      expect(parsed.next.actions_by_id.run_lifecycle_smoke).toEqual(parsed.next.actions.find((action) => action.action === "run_lifecycle_smoke"));
+      expect(parsed.next.actions).toContainEqual(
+        expect.objectContaining({
+          action: "run_lifecycle_smoke",
+          tool: "moryn-agent-smoke",
+          safe_to_run: true,
+          command: expect.stringContaining("moryn-agent-smoke"),
+          interfaces: expect.objectContaining({
+            cli: expect.objectContaining({
+              argv: ["moryn-agent-smoke", "--remote", remote],
+              executable: "moryn-agent-smoke",
+              args: ["--remote", remote]
+            })
+          }),
+          required_fields: [],
+          arguments: expect.objectContaining({ remote })
+        })
+      );
+      expect(parsed.next.actions_by_id.start_session).toEqual(
+        parsed.next.actions.find((action) => action.action === "start_session")
+      );
+      expect(parsed.next.actions_by_id.run_lifecycle_smoke).toEqual(
+        parsed.next.actions.find((action) => action.action === "run_lifecycle_smoke")
+      );
       expectLifecycleActionSelectionSources(parsed.next.actions_by_id.start_session);
       expectLifecycleActionSelectionSources(parsed.next.actions_by_id.run_lifecycle_smoke);
       expect(parsed.next.selection_sources).toEqual({
@@ -7607,7 +9799,8 @@ describe("moryn CLI", () => {
         action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
         action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
         action_required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
-        action_required_input_argument_path: "next.actions_by_id.<action>.execution.required_inputs_by_argument_path.<argument_path>",
+        action_required_input_argument_path:
+          "next.actions_by_id.<action>.execution.required_inputs_by_argument_path.<argument_path>",
         action_argument_source: "next.actions_by_id.<action>.argument_sources.<field>"
       });
       expect(parsed.next.arguments).toMatchObject({
@@ -7627,28 +9820,46 @@ describe("moryn CLI", () => {
       const project = join(dir, "project");
       const conflictFile = join("events", "shared-device", "2026-05", "evt_conflict.json");
       await exec("git", ["init", "--bare", remote]);
-      await exec("node", ["--import", tsxLoader, cliPath, "project", "init", "--path", project, "--project-id", "moryn"]);
+      await exec("node", [
+        cliJsPath,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--project-id",
+        "moryn"
+      ]);
       await createCliSyncConflict({ remote, storeA, storeB, conflictFile });
 
       const doctor = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", storeB,
-        "agent", "doctor",
-        "--project", project,
-        "--sync-remote", remote,
-        "--agent", "codex",
-        "--current-task", "avoid sync conflict hallucination"
+        cliJsPath,
+        "--store",
+        storeB,
+        "agent",
+        "doctor",
+        "--project",
+        project,
+        "--sync-remote",
+        remote,
+        "--agent",
+        "codex",
+        "--current-task",
+        "avoid sync conflict hallucination"
       ]);
       const parsedDoctor = JSON.parse(doctor.stdout) as {
         sync: {
           sync_state?: string;
           conflict?: {
             files?: string[];
-            files_by_path?: Record<string, {
-              path: string;
-              status: string;
-              safe_to_auto_resolve: boolean;
-              recommended_action: string;
-            }>;
+            files_by_path?: Record<
+              string,
+              {
+                path: string;
+                status: string;
+                safe_to_auto_resolve: boolean;
+                recommended_action: string;
+              }
+            >;
             safe_to_retry_sync?: boolean;
           };
         };
@@ -7755,20 +9966,30 @@ describe("moryn CLI", () => {
         next_workflow: parsedDoctor.next.workflow,
         next_arguments: {}
       });
-      expect(parsedDoctor.checks_by_name.sync).toEqual(expect.objectContaining({
-        name: "sync",
-        ok: false,
-        severity: "warning",
-        message: "Sync has unresolved Git conflicts; inspect sync_status and resolve conflicts before lifecycle writes."
-      }));
+      expect(parsedDoctor.checks_by_name.sync).toEqual(
+        expect.objectContaining({
+          name: "sync",
+          ok: false,
+          severity: "warning",
+          message:
+            "Sync has unresolved Git conflicts; inspect sync_status and resolve conflicts before lifecycle writes."
+        })
+      );
 
       const entered = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", storeB,
-        "agent", "enter",
-        "--project", project,
-        "--sync-remote", remote,
-        "--agent", "codex",
-        "--current-task", "avoid sync conflict hallucination"
+        cliJsPath,
+        "--store",
+        storeB,
+        "agent",
+        "enter",
+        "--project",
+        project,
+        "--sync-remote",
+        remote,
+        "--agent",
+        "codex",
+        "--current-task",
+        "avoid sync conflict hallucination"
       ]);
       const parsedEnter = JSON.parse(entered.stdout) as {
         mode: string;
@@ -7799,12 +10020,19 @@ describe("moryn CLI", () => {
 
       try {
         await exec("node", [
-          "--import", tsxLoader, cliPath, "--store", storeB,
-          "agent", "start",
-          "--project", project,
-          "--sync-remote", remote,
-          "--agent", "codex",
-          "--current-task", "avoid sync conflict hallucination"
+          cliJsPath,
+          "--store",
+          storeB,
+          "agent",
+          "start",
+          "--project",
+          project,
+          "--sync-remote",
+          remote,
+          "--agent",
+          "codex",
+          "--current-task",
+          "avoid sync conflict hallucination"
         ]);
         throw new Error("Expected CLI agent_start to reject unresolved sync conflicts");
       } catch (error) {
@@ -7835,23 +10063,34 @@ describe("moryn CLI", () => {
 
       for (const command of [
         [
-          "agent", "status",
-          "--project", project,
-          "--sync-remote", remote,
-          "--agent", "codex",
-          "--current-task", "avoid sync conflict hallucination",
-          "--status", "Do not write status while sync is conflicted."
+          "agent",
+          "status",
+          "--project",
+          project,
+          "--sync-remote",
+          remote,
+          "--agent",
+          "codex",
+          "--current-task",
+          "avoid sync conflict hallucination",
+          "--status",
+          "Do not write status while sync is conflicted."
         ],
         [
-          "agent", "finish",
-          "--project", project,
-          "--sync-remote", remote,
-          "--agent", "codex",
-          "--summary", "Do not write finish handoff while sync is conflicted."
+          "agent",
+          "finish",
+          "--project",
+          project,
+          "--sync-remote",
+          remote,
+          "--agent",
+          "codex",
+          "--summary",
+          "Do not write finish handoff while sync is conflicted."
         ]
       ]) {
         try {
-          await exec("node", ["--import", tsxLoader, cliPath, "--store", storeB, ...command]);
+          await exec("node", [cliJsPath, "--store", storeB, ...command]);
           throw new Error(`Expected CLI ${command.slice(0, 2).join(" ")} to reject unresolved sync conflicts`);
         } catch (error) {
           const parsed = JSON.parse((error as { stderr: string }).stderr) as {
@@ -7885,22 +10124,37 @@ describe("moryn CLI", () => {
   it("recommends project list from CLI doctor when project input is missing", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
       await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "session_summary",
-        "--project-id", "moryn",
-        "--text", "Moryn project handoff is available."
+        "--kind",
+        "session_summary",
+        "--project-id",
+        "moryn",
+        "--text",
+        "Moryn project handoff is available."
       ]);
 
-      const doctor = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
-        "agent", "doctor",
-        "--agent", "codex",
-        "--session-id", "codex-project-list",
-        "--current-task", "find project"
-      ], { cwd: dir });
+      const doctor = await exec(
+        "node",
+        [
+          cliJsPath,
+          "--store",
+          store,
+          "agent",
+          "doctor",
+          "--agent",
+          "codex",
+          "--session-id",
+          "codex-project-list",
+          "--current-task",
+          "find project"
+        ],
+        { cwd: dir }
+      );
       const parsed = JSON.parse(doctor.stdout) as {
         project: { ok: boolean };
         next: {
@@ -7911,8 +10165,17 @@ describe("moryn CLI", () => {
           required_when: string;
           required_fields: string[];
           workflow: Record<string, unknown>;
-          actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[] }>;
-          actions_by_id: Record<string, { action: string; tool: string; command: string; required_when: string; required_fields: string[] }>;
+          actions: Array<{
+            action: string;
+            tool: string;
+            command: string;
+            required_when: string;
+            required_fields: string[];
+          }>;
+          actions_by_id: Record<
+            string,
+            { action: string; tool: string; command: string; required_when: string; required_fields: string[] }
+          >;
           selection_sources: Record<string, string>;
         };
       };
@@ -7931,13 +10194,15 @@ describe("moryn CLI", () => {
           requiredWhen: LIST_PROJECTS_WHEN
         })
       });
-      expect(parsed.next.actions).toContainEqual(expect.objectContaining({
-        action: "list_projects",
-        tool: "project_list",
-        command: "moryn project list",
-        required_when: LIST_PROJECTS_WHEN,
-        required_fields: []
-      }));
+      expect(parsed.next.actions).toContainEqual(
+        expect.objectContaining({
+          action: "list_projects",
+          tool: "project_list",
+          command: "moryn project list",
+          required_when: LIST_PROJECTS_WHEN,
+          required_fields: []
+        })
+      );
       expect(parsed.next.actions_by_id.list_projects).toEqual(parsed.next.actions[0]);
       expectLifecycleActionSelectionSources(parsed.next.actions_by_id.list_projects);
       expect(parsed.next.selection_sources).toEqual({
@@ -7952,7 +10217,8 @@ describe("moryn CLI", () => {
         action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
         action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
         action_required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
-        action_required_input_argument_path: "next.actions_by_id.<action>.execution.required_inputs_by_argument_path.<argument_path>",
+        action_required_input_argument_path:
+          "next.actions_by_id.<action>.execution.required_inputs_by_argument_path.<argument_path>",
         action_argument_source: "next.actions_by_id.<action>.argument_sources.<field>"
       });
     });
@@ -7961,22 +10227,34 @@ describe("moryn CLI", () => {
   it("prefills project list startup commands from CLI options", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
       await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "session_summary",
-        "--project-id", "moryn",
-        "--text", "Moryn project handoff is available."
+        "--kind",
+        "session_summary",
+        "--project-id",
+        "moryn",
+        "--text",
+        "Moryn project handoff is available."
       ]);
 
       const listed = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
-        "project", "list",
-        "--current-task", "continue handoff",
-        "--sync-remote", "git@github.com:user/moryn-store.git",
-        "--agent", "gemini",
-        "--session-id", "gemini-project-list"
+        cliJsPath,
+        "--store",
+        store,
+        "project",
+        "list",
+        "--current-task",
+        "continue handoff",
+        "--sync-remote",
+        "git@github.com:user/moryn-store.git",
+        "--agent",
+        "gemini",
+        "--session-id",
+        "gemini-project-list"
       ]);
       const parsed = JSON.parse(listed.stdout) as {
         projects: Array<{
@@ -7992,7 +10270,9 @@ describe("moryn CLI", () => {
         }>;
       };
 
-      expect(parsed.projects[0]?.next.command).toBe("moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue handoff' --agent gemini --session-id gemini-project-list");
+      expect(parsed.projects[0]?.next.command).toBe(
+        "moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue handoff' --agent gemini --session-id gemini-project-list"
+      );
       expect(parsed.projects[0]?.next.arguments).toMatchObject({
         project_id: "moryn",
         sync_remote: "git@github.com:user/moryn-store.git",
@@ -8005,23 +10285,39 @@ describe("moryn CLI", () => {
   it("enters project discovery from CLI when project input is missing", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
       await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "session_summary",
-        "--project-id", "moryn",
-        "--text", "Moryn project handoff is available."
+        "--kind",
+        "session_summary",
+        "--project-id",
+        "moryn",
+        "--text",
+        "Moryn project handoff is available."
       ]);
 
-      const entered = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
-        "agent", "enter",
-        "--agent", "gemini",
-        "--session-id", "gemini-cli-enter",
-        "--current-task", "find project",
-        "--sync-remote", "git@github.com:user/moryn-store.git"
-      ], { cwd: dir });
+      const entered = await exec(
+        "node",
+        [
+          cliJsPath,
+          "--store",
+          store,
+          "agent",
+          "enter",
+          "--agent",
+          "gemini",
+          "--session-id",
+          "gemini-cli-enter",
+          "--current-task",
+          "find project",
+          "--sync-remote",
+          "git@github.com:user/moryn-store.git"
+        ],
+        { cwd: dir }
+      );
       const parsed = JSON.parse(entered.stdout) as {
         mode: string;
         projects: { projects: Array<{ project_id: string; next: { command: string } }> };
@@ -8031,12 +10327,15 @@ describe("moryn CLI", () => {
           safe_to_run: boolean;
           required_when: string;
           required_fields: string[];
-          required_fields_by_name: Record<string, {
-            name: string;
-            argument_path: string;
-            placeholder?: string;
-            value?: unknown;
-          }>;
+          required_fields_by_name: Record<
+            string,
+            {
+              name: string;
+              argument_path: string;
+              placeholder?: string;
+              value?: unknown;
+            }
+          >;
           arguments: Record<string, unknown>;
           safety: {
             safe_to_auto_run: boolean;
@@ -8049,7 +10348,14 @@ describe("moryn CLI", () => {
             version: number;
             start: string;
             continue_from: string[];
-            phases: Array<{ phase: string; order: number; action_source: string; tool?: string; required_when: string; required_fields: string[] }>;
+            phases: Array<{
+              phase: string;
+              order: number;
+              action_source: string;
+              tool?: string;
+              required_when: string;
+              required_fields: string[];
+            }>;
           };
           actions: Array<{
             project_id: string;
@@ -8065,23 +10371,46 @@ describe("moryn CLI", () => {
               required_fields: string[];
               workflow?: Record<string, unknown>;
             }>;
-            lifecycle_by_step?: Record<string, {
-              step: string;
-              tool: string;
-              safe_to_run: boolean;
+            lifecycle_by_step?: Record<
+              string,
+              {
+                step: string;
+                tool: string;
+                safe_to_run: boolean;
+                command: string;
+                required_when: string;
+                required_fields: string[];
+                workflow?: Record<string, unknown>;
+              }
+            >;
+          }>;
+          actions_by_project_id: Record<
+            string,
+            {
+              project_id: string;
               command: string;
-              required_when: string;
-              required_fields: string[];
-              workflow?: Record<string, unknown>;
-            }>;
-          }>;
-          actions_by_project_id: Record<string, {
-            project_id: string;
-            command: string;
-            arguments: Record<string, unknown>;
-            lifecycle?: Array<{ step: string; tool: string; command: string; required_when: string; required_fields: string[]; workflow?: Record<string, unknown> }>;
-            lifecycle_by_step?: Record<string, { step: string; tool: string; command: string; required_when: string; required_fields: string[]; workflow?: Record<string, unknown> }>;
-          }>;
+              arguments: Record<string, unknown>;
+              lifecycle?: Array<{
+                step: string;
+                tool: string;
+                command: string;
+                required_when: string;
+                required_fields: string[];
+                workflow?: Record<string, unknown>;
+              }>;
+              lifecycle_by_step?: Record<
+                string,
+                {
+                  step: string;
+                  tool: string;
+                  command: string;
+                  required_when: string;
+                  required_fields: string[];
+                  workflow?: Record<string, unknown>;
+                }
+              >;
+            }
+          >;
         };
       };
 
@@ -8091,7 +10420,8 @@ describe("moryn CLI", () => {
         action_source: "next",
         tool: "agent_start",
         safe_to_run: true,
-        required_when: "When agent_enter returns discover_projects mode, choose one returned project_id before calling agent_start.",
+        required_when:
+          "When agent_enter returns discover_projects mode, choose one returned project_id before calling agent_start.",
         required_fields: ["project_id"],
         required_fields_by_name: {
           project_id: {
@@ -8122,8 +10452,10 @@ describe("moryn CLI", () => {
           start_action_cli_command_line: "next.actions_by_project_id.<project_id>.interfaces.cli.command_line",
           start_action_argument: "next.actions_by_project_id.<project_id>.arguments_by_name.<argument>",
           start_action_required_field: "next.actions_by_project_id.<project_id>.required_fields_by_name.<field>",
-          start_action_required_input: "next.actions_by_project_id.<project_id>.execution.required_inputs_by_field.<field>",
-          start_action_required_input_argument_path: "next.actions_by_project_id.<project_id>.execution.required_inputs_by_argument_path.<argument_path>",
+          start_action_required_input:
+            "next.actions_by_project_id.<project_id>.execution.required_inputs_by_field.<field>",
+          start_action_required_input_argument_path:
+            "next.actions_by_project_id.<project_id>.execution.required_inputs_by_argument_path.<argument_path>",
           start_action_argument_source: "next.actions_by_project_id.<project_id>.argument_sources.<field>",
           lifecycle_actions: "next.actions_by_project_id.<project_id>.lifecycle_by_step"
         },
@@ -8141,47 +10473,55 @@ describe("moryn CLI", () => {
           reasons: ["required_fields"]
         }
       });
-      expect(parsed.next.command).toBe("moryn agent start --project-id <project_id> --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-cli-enter");
+      expect(parsed.next.command).toBe(
+        "moryn agent start --project-id <project_id> --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-cli-enter"
+      );
       expectActionInterfaces(parsed.next);
-      expect(parsed.next.workflow).toEqual(withPhasesByName({
-        version: 1,
-        start: "projects",
-        continue_from: [
-          "next.actions_by_project_id",
-          "next.actions",
-          "next.actions_by_project_id.<project_id>.lifecycle_by_step",
-          "next.actions_by_project_id.<project_id>.lifecycle",
-          "agent_start.next.actions_by_id",
-          "agent_start.next.actions"
-        ],
-        phases: [
-          {
-            phase: "choose_project",
-            order: 1,
-            action_source: "projects.projects",
-            required_when: "When agent_enter returns discover_projects mode, choose one returned project instead of guessing a project id.",
-            required_fields: []
-          },
-          {
-            phase: "start_session",
-            order: 2,
-            action_source: "next.actions_by_project_id.<project_id>",
-            tool: "agent_start",
-            required_when: "After choosing this project from discovery results.",
-            required_fields: []
-          },
-          {
-            phase: "continue_selected_project_lifecycle",
-            order: 3,
-            action_source: "next.actions_by_project_id.<project_id>.lifecycle_by_step",
-            required_when: "After the selected project starts, use that action's lifecycle templates for status, finish, and refresh.",
-            required_fields: []
-          }
-        ]
-      }));
+      expect(parsed.next.workflow).toEqual(
+        withPhasesByName({
+          version: 1,
+          start: "projects",
+          continue_from: [
+            "next.actions_by_project_id",
+            "next.actions",
+            "next.actions_by_project_id.<project_id>.lifecycle_by_step",
+            "next.actions_by_project_id.<project_id>.lifecycle",
+            "agent_start.next.actions_by_id",
+            "agent_start.next.actions"
+          ],
+          phases: [
+            {
+              phase: "choose_project",
+              order: 1,
+              action_source: "projects.projects",
+              required_when:
+                "When agent_enter returns discover_projects mode, choose one returned project instead of guessing a project id.",
+              required_fields: []
+            },
+            {
+              phase: "start_session",
+              order: 2,
+              action_source: "next.actions_by_project_id.<project_id>",
+              tool: "agent_start",
+              required_when: "After choosing this project from discovery results.",
+              required_fields: []
+            },
+            {
+              phase: "continue_selected_project_lifecycle",
+              order: 3,
+              action_source: "next.actions_by_project_id.<project_id>.lifecycle_by_step",
+              required_when:
+                "After the selected project starts, use that action's lifecycle templates for status, finish, and refresh.",
+              required_fields: []
+            }
+          ]
+        })
+      );
       expect(parsed.next.actions_by_project_id.moryn).toEqual(parsed.next.actions[0]);
       expect(parsed.projects.projects[0]?.project_id).toBe("moryn");
-      expect(parsed.projects.projects[0]?.next.command).toBe("moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-cli-enter");
+      expect(parsed.projects.projects[0]?.next.command).toBe(
+        "moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-cli-enter"
+      );
       expect(parsed.next.actions[0]?.required_when).toBe("After choosing this project from discovery results.");
       const discoveredFinish = parsed.next.actions[0]?.lifecycle?.find((action) => action.step === "finish_handoff");
       expect(parsed.next.actions[0]?.lifecycle_by_step?.finish_handoff).toEqual(discoveredFinish);
@@ -8190,7 +10530,8 @@ describe("moryn CLI", () => {
         step: "finish_handoff",
         tool: "agent_finish",
         safe_to_run: true,
-        command: "moryn agent finish --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-cli-enter --summary <summary>",
+        command:
+          "moryn agent finish --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-cli-enter --summary <summary>",
         required_fields: ["summary"],
         argument_sources: {
           summary: "agent_authored.summary"
@@ -8206,98 +10547,151 @@ describe("moryn CLI", () => {
       const project = join(dir, "project");
       await mkdir(project, { recursive: true });
       await exec("node", [
-        "--import", tsxLoader, cliPath,
-        "project", "init",
-        "--path", project,
-        "--project-id", "moryn"
+        cliJsPath,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--project-id",
+        "moryn"
       ]);
 
       const entered = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
-        "agent", "enter",
-        "--project", project,
-        "--agent", "codex",
-        "--session-id", "codex-cli-enter-known",
-        "--current-task", "continue known project"
+        cliJsPath,
+        "--store",
+        store,
+        "agent",
+        "enter",
+        "--project",
+        project,
+        "--agent",
+        "codex",
+        "--session-id",
+        "codex-cli-enter-known",
+        "--current-task",
+        "continue known project"
       ]);
       const parsed = JSON.parse(entered.stdout) as {
         mode: string;
         next: {
           recommended_action: string;
-          actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }>;
-          actions_by_id: Record<string, { action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }>;
+          actions: Array<{
+            action: string;
+            tool: string;
+            command: string;
+            required_when: string;
+            required_fields: string[];
+            arguments: Record<string, unknown>;
+          }>;
+          actions_by_id: Record<
+            string,
+            {
+              action: string;
+              tool: string;
+              command: string;
+              required_when: string;
+              required_fields: string[];
+              arguments: Record<string, unknown>;
+            }
+          >;
           workflow: {
             version: number;
             start: string;
             continue_from: string[];
-            phases: Array<{ phase: string; order: number; action_source: string; tool?: string; required_when: string; required_fields: string[] }>;
+            phases: Array<{
+              phase: string;
+              order: number;
+              action_source: string;
+              tool?: string;
+              required_when: string;
+              required_fields: string[];
+            }>;
           };
         };
       };
 
       expect(parsed.mode).toBe("start_session");
       expect(parsed.next.recommended_action).toBe("work_with_handoff_context");
-      expect(parsed.next.actions_by_id.publish_status).toEqual(parsed.next.actions.find((action) => action.action === "publish_status"));
-      expect(parsed.next.actions_by_id.finish_session).toEqual(parsed.next.actions.find((action) => action.action === "finish_session"));
-      expect(parsed.next.actions_by_id.refresh_context).toEqual(parsed.next.actions.find((action) => action.action === "refresh_context"));
+      expect(parsed.next.actions_by_id.publish_status).toEqual(
+        parsed.next.actions.find((action) => action.action === "publish_status")
+      );
+      expect(parsed.next.actions_by_id.finish_session).toEqual(
+        parsed.next.actions.find((action) => action.action === "finish_session")
+      );
+      expect(parsed.next.actions_by_id.refresh_context).toEqual(
+        parsed.next.actions.find((action) => action.action === "refresh_context")
+      );
       expect(parsed.next.required_end_action_id).toBe("finish_session");
       expect(parsed.next.required_end_action_source).toBe("next.actions_by_id.finish_session");
       expect(parsed.next.recommended_refresh_action_id).toBe("refresh_context");
       expect(parsed.next.recommended_refresh_action_source).toBe("next.actions_by_id.refresh_context");
-      expect(parsed.next.workflow).toEqual(withPhasesByName({
-        version: 1,
-        start: "start",
-        continue_from: ["start.boot", "start.refresh", "start.handoff", "next.actions_by_id", "next.actions"],
-        phases: [
-          {
-            phase: "work_with_handoff_context",
-            order: 1,
-            action_source: "start",
-            required_when: "Immediately after agent_enter returns start_session mode, review boot, refresh, and handoff context before taking user-task actions.",
-            required_fields: []
-          },
-          {
-            phase: "publish_status",
-            order: 2,
-            action_source: "next.actions_by_id.publish_status",
-            tool: "agent_status",
-            required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
-            required_fields: ["status"]
-          },
-          {
-            phase: "finish_session",
-            order: 3,
-            action_source: "next.actions_by_id.finish_session",
-            tool: "agent_finish",
-            required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
-            required_fields: ["summary"]
-          },
-          {
-            phase: "refresh_context",
-            order: 4,
-            action_source: "next.actions_by_id.refresh_context",
-            tool: "agent_start",
-            required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
-            required_fields: []
-          }
-        ]
-      }));
+      expect(parsed.next.workflow).toEqual(
+        withPhasesByName({
+          version: 1,
+          start: "start",
+          continue_from: ["start.boot", "start.refresh", "start.handoff", "next.actions_by_id", "next.actions"],
+          phases: [
+            {
+              phase: "work_with_handoff_context",
+              order: 1,
+              action_source: "start",
+              required_when:
+                "Immediately after agent_enter returns start_session mode, review boot, refresh, and handoff context before taking user-task actions.",
+              required_fields: []
+            },
+            {
+              phase: "publish_status",
+              order: 2,
+              action_source: "next.actions_by_id.publish_status",
+              tool: "agent_status",
+              required_when:
+                "During meaningful long-running work, before interruption, or when another agent may need coordination.",
+              required_fields: ["status"]
+            },
+            {
+              phase: "finish_session",
+              order: 3,
+              action_source: "next.actions_by_id.finish_session",
+              tool: "agent_finish",
+              required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
+              required_fields: ["summary"]
+            },
+            {
+              phase: "refresh_context",
+              order: 4,
+              action_source: "next.actions_by_id.refresh_context",
+              tool: "agent_start",
+              required_when:
+                "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
+              required_fields: []
+            }
+          ]
+        })
+      );
     });
   });
 
   it("returns structured JSON errors from runtime failures", async () => {
     await withTempDir(async (dir) => {
       const project = join(dir, "project");
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", join(dir, "store"), "init"]);
+      await exec("node", [cliJsPath, "--store", join(dir, "store"), "init"]);
       await mkdir(project, { recursive: true });
-      await writeFile(join(project, ".moryn.json"), "{\"project_id\":\"\"}\n", "utf8");
+      await writeFile(join(project, ".moryn.json"), '{"project_id":""}\n', "utf8");
 
-      await expect(exec("node", ["--import", "tsx", "src/cli.ts", "--store", join(dir, "store"), "boot", "--project", project]))
-        .rejects.toMatchObject({
-          stderr: expect.stringContaining("\"ok\": false")
-        });
+      await expect(
+        exec("node", [cliJsPath, "--store", join(dir, "store"), "boot", "--project", project])
+      ).rejects.toMatchObject({
+        stderr: expect.stringContaining('"ok": false')
+      });
       try {
-        await exec("node", ["--import", "tsx", "src/cli.ts", "--store", join(dir, "store"), "boot", "--project", project]);
+        await exec("node", [
+          cliJsPath,
+          "--store",
+          join(dir, "store"),
+          "boot",
+          "--project",
+          project
+        ]);
       } catch (error) {
         const stderr = (error as { stderr: string }).stderr;
         const parsed = JSON.parse(stderr) as {
@@ -8336,18 +10730,26 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       const project = join(dir, "project");
       await mkdir(project, { recursive: true });
-      await writeFile(join(project, ".moryn.json"), "{\"project_id\":", "utf8");
+      await writeFile(join(project, ".moryn.json"), '{"project_id":', "utf8");
 
       const repaired = await exec("node", [
-        "--import", "tsx", "src/cli.ts",
-        "project", "init",
-        "--path", project,
-        "--project-id", "moryn",
-        "--tag", "typescript",
-        "--sync-mode", "manual",
+        cliJsPath,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--project-id",
+        "moryn",
+        "--tag",
+        "typescript",
+        "--sync-mode",
+        "manual",
         "--repair"
       ]);
-      const parsed = JSON.parse(repaired.stdout) as { ok: boolean; config: { project_id: string; tags: string[]; sync: { mode: string } } };
+      const parsed = JSON.parse(repaired.stdout) as {
+        ok: boolean;
+        config: { project_id: string; tags: string[]; sync: { mode: string } };
+      };
 
       expect(parsed.ok).toBe(true);
       expect(parsed.config).toMatchObject({
@@ -8362,14 +10764,20 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
       const missingProject = join(dir, "missing-project");
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
 
       const doctor = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
-        "agent", "doctor",
-        "--project", missingProject,
-        "--agent", "codex",
-        "--current-task", "avoid typo path"
+        cliJsPath,
+        "--store",
+        store,
+        "agent",
+        "doctor",
+        "--project",
+        missingProject,
+        "--agent",
+        "codex",
+        "--current-task",
+        "avoid typo path"
       ]);
       const parsedDoctor = JSON.parse(doctor.stdout) as {
         project: { ok: boolean; error?: string };
@@ -8402,11 +10810,17 @@ describe("moryn CLI", () => {
       });
 
       const entered = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
-        "agent", "enter",
-        "--project", missingProject,
-        "--agent", "codex",
-        "--current-task", "avoid typo path"
+        cliJsPath,
+        "--store",
+        store,
+        "agent",
+        "enter",
+        "--project",
+        missingProject,
+        "--agent",
+        "codex",
+        "--current-task",
+        "avoid typo path"
       ]);
       const parsedEnter = JSON.parse(entered.stdout) as {
         mode: string;
@@ -8437,11 +10851,17 @@ describe("moryn CLI", () => {
 
       try {
         await exec("node", [
-          "--import", tsxLoader, cliPath, "--store", store,
-          "agent", "start",
-          "--project", missingProject,
-          "--agent", "codex",
-          "--current-task", "avoid typo path"
+          cliJsPath,
+          "--store",
+          store,
+          "agent",
+          "start",
+          "--project",
+          missingProject,
+          "--agent",
+          "codex",
+          "--current-task",
+          "avoid typo path"
         ]);
         throw new Error("Expected direct lifecycle project path typo to reject");
       } catch (error) {
@@ -8469,7 +10889,9 @@ describe("moryn CLI", () => {
         expect(parsed.error.code).toBe("PROJECT_PATH_NOT_FOUND");
         expect(parsed.error.message).toContain("Project path does not exist");
         expect(parsed.error.recoverable).toBe(true);
-        expect(parsed.error.recommended_action).toBe("run moryn project init --path <path> for a new project or retry with the correct --project/--project-id");
+        expect(parsed.error.recommended_action).toBe(
+          "run moryn project init --path <path> for a new project or retry with the correct --project/--project-id"
+        );
         expect(parsed.error.recovery_hint).toEqual({
           rejected_argument: { option: "--project", value: missingProject },
           initialize_with: {
@@ -8508,21 +10930,32 @@ describe("moryn CLI", () => {
   it("does not start from the CLI when an explicit project id is unknown in a populated store", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
       await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "session_summary",
-        "--project-id", "moryn",
-        "--text", "Known project handoff."
+        "--kind",
+        "session_summary",
+        "--project-id",
+        "moryn",
+        "--text",
+        "Known project handoff."
       ]);
 
       const doctor = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
-        "agent", "doctor",
-        "--project-id", "morym",
-        "--agent", "codex",
-        "--current-task", "avoid typo id"
+        cliJsPath,
+        "--store",
+        store,
+        "agent",
+        "doctor",
+        "--project-id",
+        "morym",
+        "--agent",
+        "codex",
+        "--current-task",
+        "avoid typo id"
       ]);
       const parsedDoctor = JSON.parse(doctor.stdout) as {
         project: { ok: boolean; error?: string };
@@ -8554,11 +10987,17 @@ describe("moryn CLI", () => {
       });
 
       const entered = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
-        "agent", "enter",
-        "--project-id", "morym",
-        "--agent", "codex",
-        "--current-task", "avoid typo id"
+        cliJsPath,
+        "--store",
+        store,
+        "agent",
+        "enter",
+        "--project-id",
+        "morym",
+        "--agent",
+        "codex",
+        "--current-task",
+        "avoid typo id"
       ]);
       const parsedEnter = JSON.parse(entered.stdout) as {
         mode: string;
@@ -8577,11 +11016,17 @@ describe("moryn CLI", () => {
 
       try {
         await exec("node", [
-          "--import", tsxLoader, cliPath, "--store", store,
-          "agent", "start",
-          "--project-id", "morym",
-          "--agent", "codex",
-          "--current-task", "avoid typo id"
+          cliJsPath,
+          "--store",
+          store,
+          "agent",
+          "start",
+          "--project-id",
+          "morym",
+          "--agent",
+          "codex",
+          "--current-task",
+          "avoid typo id"
         ]);
         throw new Error("Expected direct lifecycle project id typo to reject");
       } catch (error) {
@@ -8609,7 +11054,9 @@ describe("moryn CLI", () => {
         expect(parsed.error.code).toBe("PROJECT_ID_NOT_FOUND");
         expect(parsed.error.message).toContain("Project id is not known in this store");
         expect(parsed.error.recoverable).toBe(true);
-        expect(parsed.error.recommended_action).toBe("run moryn project list or moryn agent enter, then retry with a known --project-id");
+        expect(parsed.error.recommended_action).toBe(
+          "run moryn project list or moryn agent enter, then retry with a known --project-id"
+        );
         expect(parsed.error.next_action).toMatchObject({
           recommended_action: "list_projects_and_retry_with_known_project_id",
           tool: "project_list",
@@ -8626,10 +11073,16 @@ describe("moryn CLI", () => {
           order: 2,
           action_source: "project_list.projects_by_id.<project_id>.project_id",
           tool: "agent_start",
-          command: "moryn agent start --project-id <project_id_from_project_list> --current-task 'avoid typo id' --agent codex",
-          arguments: { project_id: "<project_id_from_project_list>", current_task: "avoid typo id", agent: { client: "codex" } },
+          command:
+            "moryn agent start --project-id <project_id_from_project_list> --current-task 'avoid typo id' --agent codex",
+          arguments: {
+            project_id: "<project_id_from_project_list>",
+            current_task: "avoid typo id",
+            agent: { client: "codex" }
+          },
           replace_arguments: { project_id: "project_list.projects_by_id.<project_id>.project_id" },
-          required_when: "After choosing the correct project id from project_list results, retry the original tool with that selected project id.",
+          required_when:
+            "After choosing the correct project id from project_list results, retry the original tool with that selected project id.",
           required_fields: ["project_id"]
         });
       }
@@ -8640,19 +11093,39 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
       const project = join(dir, "project");
-      await exec("node", ["--import", tsxLoader, cliPath, "project", "init", "--path", project, "--project-id", "moryn"]);
+      await exec("node", [
+        cliJsPath,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--project-id",
+        "moryn"
+      ]);
 
       const doctor = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
-        "agent", "doctor",
-        "--project", project,
-        "--project-id", "other",
-        "--agent", "codex",
-        "--current-task", "avoid conflicting project id"
+        cliJsPath,
+        "--store",
+        store,
+        "agent",
+        "doctor",
+        "--project",
+        project,
+        "--project-id",
+        "other",
+        "--agent",
+        "codex",
+        "--current-task",
+        "avoid conflicting project id"
       ]);
       const parsedDoctor = JSON.parse(doctor.stdout) as {
         project: { ok: boolean; error?: string };
-        next: { tool: string; safe_to_run: boolean; command: string; arguments: { path?: string; project_id?: string } };
+        next: {
+          tool: string;
+          safe_to_run: boolean;
+          command: string;
+          arguments: { path?: string; project_id?: string };
+        };
       };
       expect(parsedDoctor.project.ok).toBe(false);
       expect(parsedDoctor.project.error).toContain("Project id conflict");
@@ -8669,12 +11142,19 @@ describe("moryn CLI", () => {
 
       try {
         await exec("node", [
-          "--import", tsxLoader, cliPath, "--store", store,
-          "agent", "start",
-          "--project", project,
-          "--project-id", "other",
-          "--agent", "codex",
-          "--current-task", "avoid conflicting project id"
+          cliJsPath,
+          "--store",
+          store,
+          "agent",
+          "start",
+          "--project",
+          project,
+          "--project-id",
+          "other",
+          "--agent",
+          "codex",
+          "--current-task",
+          "avoid conflicting project id"
         ]);
         throw new Error("Expected conflicting lifecycle project identity to reject");
       } catch (error) {
@@ -8701,7 +11181,9 @@ describe("moryn CLI", () => {
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("PROJECT_ID_CONFLICT");
         expect(parsed.error.message).toContain("Project id conflict");
-        expect(parsed.error.recommended_action).toBe("pass the project id from .moryn.json or update the project config");
+        expect(parsed.error.recommended_action).toBe(
+          "pass the project id from .moryn.json or update the project config"
+        );
         expect(parsed.error.recovery_hint).toEqual({
           rejected_argument: { option: "--project-id", value: "other" },
           config_project_id: "moryn",
@@ -8739,13 +11221,18 @@ describe("moryn CLI", () => {
       const store = join(dir, "store");
       const unknownCwd = join(dir, "unknown-cwd");
       await mkdir(unknownCwd, { recursive: true });
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
       await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "session_summary",
-        "--project-id", "moryn",
-        "--text", "Known direct CLI project."
+        "--kind",
+        "session_summary",
+        "--project-id",
+        "moryn",
+        "--text",
+        "Known direct CLI project."
       ]);
 
       for (const { args, retry } of [
@@ -8753,15 +11240,30 @@ describe("moryn CLI", () => {
           args: ["agent", "start", "--agent", "codex", "--current-task", "avoid ambient project"],
           retry: {
             tool: "agent_start",
-            command: "moryn agent start --current-task 'avoid ambient project' --agent codex --project-id <project_id_from_project_list>",
-            arguments: { current_task: "avoid ambient project", agent: { client: "codex" }, project_id: "<project_id_from_project_list>" }
+            command:
+              "moryn agent start --current-task 'avoid ambient project' --agent codex --project-id <project_id_from_project_list>",
+            arguments: {
+              current_task: "avoid ambient project",
+              agent: { client: "codex" },
+              project_id: "<project_id_from_project_list>"
+            }
           }
         },
         {
-          args: ["agent", "status", "--agent", "codex", "--current-task", "avoid ambient project", "--status", "Do not write inferred status."],
+          args: [
+            "agent",
+            "status",
+            "--agent",
+            "codex",
+            "--current-task",
+            "avoid ambient project",
+            "--status",
+            "Do not write inferred status."
+          ],
           retry: {
             tool: "agent_status",
-            command: "moryn agent status --current-task 'avoid ambient project' --agent codex --status 'Do not write inferred status.' --project-id <project_id_from_project_list>",
+            command:
+              "moryn agent status --current-task 'avoid ambient project' --agent codex --status 'Do not write inferred status.' --project-id <project_id_from_project_list>",
             arguments: {
               current_task: "avoid ambient project",
               status: "Do not write inferred status.",
@@ -8771,10 +11273,20 @@ describe("moryn CLI", () => {
           }
         },
         {
-          args: ["agent", "finish", "--agent", "codex", "--current-task", "avoid ambient project", "--summary", "Do not write inferred summary."],
+          args: [
+            "agent",
+            "finish",
+            "--agent",
+            "codex",
+            "--current-task",
+            "avoid ambient project",
+            "--summary",
+            "Do not write inferred summary."
+          ],
           retry: {
             tool: "agent_finish",
-            command: "moryn agent finish --current-task 'avoid ambient project' --agent codex --summary 'Do not write inferred summary.' --project-id <project_id_from_project_list>",
+            command:
+              "moryn agent finish --current-task 'avoid ambient project' --agent codex --summary 'Do not write inferred summary.' --project-id <project_id_from_project_list>",
             arguments: {
               current_task: "avoid ambient project",
               summary: "Do not write inferred summary.",
@@ -8785,7 +11297,7 @@ describe("moryn CLI", () => {
         }
       ]) {
         try {
-          await exec("node", ["--import", tsxLoader, cliPath, "--store", store, ...args], { cwd: unknownCwd });
+          await exec("node", [cliJsPath, "--store", store, ...args], { cwd: unknownCwd });
           throw new Error(`Expected moryn ${args.join(" ")} to reject missing project context`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
@@ -8811,7 +11323,9 @@ describe("moryn CLI", () => {
           expect(parsed.ok).toBe(false);
           expect(parsed.error.code).toBe("PROJECT_CONTEXT_REQUIRED");
           expect(parsed.error.message).toContain("Project context required");
-          expect(parsed.error.recommended_action).toBe("run moryn project list or moryn agent enter, then retry with --project-id or --project");
+          expect(parsed.error.recommended_action).toBe(
+            "run moryn project list or moryn agent enter, then retry with --project-id or --project"
+          );
           expect(parsed.error.next_action).toMatchObject({
             recommended_action: "discover_projects_before_lifecycle_write",
             tool: "project_list",
@@ -8829,7 +11343,8 @@ describe("moryn CLI", () => {
             command: retry.command,
             arguments: retry.arguments,
             replace_arguments: { project_id: "project_list.projects_by_id.<project_id>.project_id" },
-            required_when: "After choosing the correct project id from project_list results, retry the original tool with that selected project id.",
+            required_when:
+              "After choosing the correct project id from project_list results, retry the original tool with that selected project id.",
             required_fields: ["project_id"]
           });
         }
@@ -8839,7 +11354,7 @@ describe("moryn CLI", () => {
 
   it("rejects invalid numeric limit options", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
 
       for (const { args, operation } of [
         { args: ["recall", "anything", "--limit", "abc"], operation: "recall" },
@@ -8850,7 +11365,7 @@ describe("moryn CLI", () => {
         { args: ["agent", "start", "--limit", "101"], operation: "agent_start" }
       ]) {
         try {
-          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          await exec("node", [cliJsPath, "--store", dir, ...args]);
           throw new Error(`Expected moryn ${args.join(" ")} to reject an invalid limit`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
@@ -8893,14 +11408,10 @@ describe("moryn CLI", () => {
 
   it("rejects invalid refresh cursors at the CLI boundary", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
 
       try {
-        await exec("node", [
-          "--import", "tsx", "src/cli.ts", "--store", dir,
-          "refresh",
-          "--cursor", "not-a-date"
-        ]);
+        await exec("node", [cliJsPath, "--store", dir, "refresh", "--cursor", "not-a-date"]);
         throw new Error("Expected moryn refresh to reject an invalid cursor");
       } catch (error) {
         if (!("stderr" in (error as object))) throw error;
@@ -8950,17 +11461,31 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       const project = join(dir, "project");
       await mkdir(project, { recursive: true });
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "moryn"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
+      await exec("node", [
+        cliJsPath,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--project-id",
+        "moryn"
+      ]);
 
       for (const command of ["start", "enter"]) {
         try {
           await exec("node", [
-            "--import", "tsx", "src/cli.ts", "--store", dir,
-            "agent", command,
-            "--project", project,
-            "--current-task", "continue handoff",
-            "--refresh-since", "not-a-date"
+            cliJsPath,
+            "--store",
+            dir,
+            "agent",
+            command,
+            "--project",
+            project,
+            "--current-task",
+            "continue handoff",
+            "--refresh-since",
+            "not-a-date"
           ]);
           throw new Error(`Expected moryn agent ${command} to reject an invalid refresh cursor`);
         } catch (error) {
@@ -8988,7 +11513,8 @@ describe("moryn CLI", () => {
             expected: {
               kind: "iso_datetime",
               format: "RFC3339 timestamp with timezone",
-              source: "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor"
+              source:
+                "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor"
             },
             argument_sources: {
               cursor: "operations_by_id.refresh.arguments_by_name.cursor"
@@ -9006,7 +11532,7 @@ describe("moryn CLI", () => {
 
   it("rejects invalid enum options at the CLI boundary", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
 
       for (const { args, operation, argument, option, value, allowedValues } of [
         {
@@ -9018,7 +11544,19 @@ describe("moryn CLI", () => {
           allowedValues: ["memory", "skill", "soul", "session_summary", "agent_note"]
         },
         {
-          args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--priority", "urgent", "--text", "Invalid priority."],
+          args: [
+            "write",
+            "--kind",
+            "memory",
+            "--type",
+            "decision",
+            "--scope",
+            "project",
+            "--priority",
+            "urgent",
+            "--text",
+            "Invalid priority."
+          ],
           operation: "write",
           argument: "priority",
           option: "--priority",
@@ -9051,7 +11589,7 @@ describe("moryn CLI", () => {
         }
       ]) {
         try {
-          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          await exec("node", [cliJsPath, "--store", dir, ...args]);
           throw new Error(`Expected moryn ${args.join(" ")} to reject an invalid enum option`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
@@ -9081,8 +11619,12 @@ describe("moryn CLI", () => {
           expect(parsed.error.recovery_hint.argument_sources).toEqual({
             [argument]: `operations_by_id.${operation}.arguments_by_name.${argument}`
           });
-          expect(parsed.error.recovery_hint.retry_with.option).toBe(parsed.error.recovery_hint.rejected_argument.option);
-          expect(parsed.error.recovery_hint.retry_with.value_placeholder).toBe(`<${parsed.error.recovery_hint.rejected_argument.option.slice(2)} from allowed_values>`);
+          expect(parsed.error.recovery_hint.retry_with.option).toBe(
+            parsed.error.recovery_hint.rejected_argument.option
+          );
+          expect(parsed.error.recovery_hint.retry_with.value_placeholder).toBe(
+            `<${parsed.error.recovery_hint.rejected_argument.option.slice(2)} from allowed_values>`
+          );
         }
       }
     });
@@ -9090,11 +11632,19 @@ describe("moryn CLI", () => {
 
   it("returns structured JSON errors for CLI parser failures", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
 
       for (const { args, operation, message, argument, option, placeholder } of [
         {
-          args: ["write", "--scope", "project", "--type", "decision", "--text", "Parser errors should still be structured."],
+          args: [
+            "write",
+            "--scope",
+            "project",
+            "--type",
+            "decision",
+            "--text",
+            "Parser errors should still be structured."
+          ],
           operation: "write",
           message: "required option '--kind <kind>'",
           argument: "kind",
@@ -9102,7 +11652,15 @@ describe("moryn CLI", () => {
           placeholder: "<kind>"
         },
         {
-          args: ["write", "--kind", "memory", "--scope", "project", "--text", "Parser errors should still be structured."],
+          args: [
+            "write",
+            "--kind",
+            "memory",
+            "--scope",
+            "project",
+            "--text",
+            "Parser errors should still be structured."
+          ],
           operation: "write",
           message: "required option '--type <type>'",
           argument: "type",
@@ -9110,7 +11668,15 @@ describe("moryn CLI", () => {
           placeholder: "<type>"
         },
         {
-          args: ["write", "--kind", "memory", "--type", "decision", "--text", "Parser errors should still be structured."],
+          args: [
+            "write",
+            "--kind",
+            "memory",
+            "--type",
+            "decision",
+            "--text",
+            "Parser errors should still be structured."
+          ],
           operation: "write",
           message: "required option '--scope <scope>'",
           argument: "scope",
@@ -9159,7 +11725,7 @@ describe("moryn CLI", () => {
         }
       ]) {
         try {
-          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          await exec("node", [cliJsPath, "--store", dir, ...args]);
           throw new Error(`Expected moryn ${args.join(" ")} to reject missing input`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
@@ -9201,7 +11767,16 @@ describe("moryn CLI", () => {
   it("maps natural positional write input to required CLI options", async () => {
     await withTempDir(async (dir) => {
       try {
-        await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "write", "memory", "decision", "project", "hello world"]);
+        await exec("node", [
+          cliJsPath,
+          "--store",
+          dir,
+          "write",
+          "memory",
+          "decision",
+          "project",
+          "hello world"
+        ]);
         throw new Error("Expected positional write input to reject with option mapping guidance");
       } catch (error) {
         if (!("stderr" in (error as object))) throw error;
@@ -9219,7 +11794,9 @@ describe("moryn CLI", () => {
         expect(parsed.error.code).toBe("INVALID_ARGUMENT");
         expect(parsed.error.message).toContain("required option '--kind <kind>'");
         expect(parsed.error.recoverable).toBe(true);
-        expect(parsed.error.recommended_action).toBe("retry write with required CLI options instead of positional values");
+        expect(parsed.error.recommended_action).toBe(
+          "retry write with required CLI options instead of positional values"
+        );
         expect(parsed.error.recovery_hint).toEqual({
           operation_contract: "operations_by_id.write",
           rejected_arguments: {
@@ -9260,7 +11837,10 @@ describe("moryn CLI", () => {
           retry_with: {
             args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--text", "hello world"],
             cli: "moryn write --kind memory --type decision --scope project --text 'hello world'",
-            mcp: { tool: "write", arguments: { kind: "memory", type: "decision", scope: "project", text: "hello world" } }
+            mcp: {
+              tool: "write",
+              arguments: { kind: "memory", type: "decision", scope: "project", text: "hello world" }
+            }
           },
           do_not: ["retry_write_positional_values", "invent_positional_arguments"]
         });
@@ -9270,7 +11850,7 @@ describe("moryn CLI", () => {
 
   it("returns structured JSON errors for missing CLI positional arguments", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
 
       for (const { args, operation, message, argument, positional, placeholder } of [
         {
@@ -9323,7 +11903,7 @@ describe("moryn CLI", () => {
         }
       ]) {
         try {
-          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          await exec("node", [cliJsPath, "--store", dir, ...args]);
           throw new Error(`Expected moryn ${args.join(" ")} to reject missing positional input`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
@@ -9374,7 +11954,15 @@ describe("moryn CLI", () => {
             expected: {
               kind: "no_extra_positionals",
               accepted_cli_arguments: ["project", "list"],
-              accepted_options: ["--limit", "--current-task", "--sync-remote", "--agent", "--session-id", "--model", "--device-id"]
+              accepted_options: [
+                "--limit",
+                "--current-task",
+                "--sync-remote",
+                "--agent",
+                "--session-id",
+                "--model",
+                "--device-id"
+              ]
             },
             command: "moryn project list",
             retry_with: { remove_positionals: ["extra"], args: ["project", "list"] },
@@ -9449,7 +12037,7 @@ describe("moryn CLI", () => {
         }
       ]) {
         try {
-          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          await exec("node", [cliJsPath, "--store", dir, ...args]);
           throw new Error(`Expected moryn ${args.join(" ")} to reject extra positional input`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
@@ -9467,9 +12055,11 @@ describe("moryn CLI", () => {
           expect(parsed.error.code).toBe("INVALID_ARGUMENT");
           expect(parsed.error.message).toContain(message);
           expect(parsed.error.recoverable).toBe(true);
-          expect(parsed.error.recommended_action).toBe(args[0] === "recall"
-            ? "retry recall with explicit filter options instead of positional values"
-            : "retry without extra positional arguments");
+          expect(parsed.error.recommended_action).toBe(
+            args[0] === "recall"
+              ? "retry recall with explicit filter options instead of positional values"
+              : "retry without extra positional arguments"
+          );
           expect(parsed.error.recovery_hint).toEqual(hint);
         }
       }
@@ -9529,7 +12119,7 @@ describe("moryn CLI", () => {
         }
       ]) {
         try {
-          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          await exec("node", [cliJsPath, "--store", dir, ...args]);
           throw new Error(`Expected moryn ${args.join(" ")} to reject positional lifecycle text`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
@@ -9633,14 +12223,17 @@ describe("moryn CLI", () => {
             retry_with: {
               args: ["link", "rec_a", "rec_b", "--type", "supersedes"],
               cli: "moryn link rec_a rec_b --type supersedes",
-              mcp: { tool: "link", arguments: { record_id: "rec_a", linked_record_id: "rec_b", link_type: "supersedes" } }
+              mcp: {
+                tool: "link",
+                arguments: { record_id: "rec_a", linked_record_id: "rec_b", link_type: "supersedes" }
+              }
             },
             do_not: ["retry_mutation_positional_values", "invent_positional_arguments"]
           }
         }
       ]) {
         try {
-          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          await exec("node", [cliJsPath, "--store", dir, ...args]);
           throw new Error(`Expected moryn ${args.join(" ")} to reject positional mutation values`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
@@ -9673,16 +12266,21 @@ describe("moryn CLI", () => {
           message: "unknown command 'writ'",
           hint: {
             rejected_command: { command: "writ", command_path: ["writ"] },
-            suggested_commands: [{
-              command: "write",
-              operation: "write",
-              operation_source: "operations_by_id.write",
-              retry_with: {
-                cli: "moryn write --kind <kind> --type <type> --scope <scope> --text <text>",
-                args: ["write", "--kind", "<kind>", "--type", "<type>", "--scope", "<scope>", "--text", "<text>"],
-                mcp: { tool: "write", arguments: { kind: "<kind>", type: "<type>", scope: "<scope>", text: "<text>" } }
+            suggested_commands: [
+              {
+                command: "write",
+                operation: "write",
+                operation_source: "operations_by_id.write",
+                retry_with: {
+                  cli: "moryn write --kind <kind> --type <type> --scope <scope> --text <text>",
+                  args: ["write", "--kind", "<kind>", "--type", "<type>", "--scope", "<scope>", "--text", "<text>"],
+                  mcp: {
+                    tool: "write",
+                    arguments: { kind: "<kind>", type: "<type>", scope: "<scope>", text: "<text>" }
+                  }
+                }
               }
-            }],
+            ],
             index_lookup: {
               command: "moryn contracts operations --index",
               args: ["contracts", "operations", "--index"],
@@ -9696,16 +12294,18 @@ describe("moryn CLI", () => {
           message: "unknown command 'agnt'",
           hint: {
             rejected_command: { command: "agnt status", command_path: ["agnt", "status"] },
-            suggested_commands: [{
-              command: "agent status",
-              operation: "agent_status",
-              operation_source: "operations_by_id.agent_status",
-              retry_with: {
-                cli: "moryn agent status --status <status>",
-                args: ["agent", "status", "--status", "<status>"],
-                mcp: { tool: "agent_status", arguments: { status: "<status>" } }
+            suggested_commands: [
+              {
+                command: "agent status",
+                operation: "agent_status",
+                operation_source: "operations_by_id.agent_status",
+                retry_with: {
+                  cli: "moryn agent status --status <status>",
+                  args: ["agent", "status", "--status", "<status>"],
+                  mcp: { tool: "agent_status", arguments: { status: "<status>" } }
+                }
               }
-            }],
+            ],
             index_lookup: {
               command: "moryn contracts operations --index",
               args: ["contracts", "operations", "--index"],
@@ -9719,16 +12319,18 @@ describe("moryn CLI", () => {
           message: "too many arguments for 'sync'",
           hint: {
             rejected_command: { command: "sync int", command_path: ["sync", "int"] },
-            suggested_commands: [{
-              command: "sync init",
-              operation: "sync_init",
-              operation_source: "operations_by_id.sync_init",
-              retry_with: {
-                cli: "moryn sync init <remote>",
-                args: ["sync", "init", "<remote>"],
-                mcp: { tool: "sync_init", arguments: { remote: "<remote>" } }
+            suggested_commands: [
+              {
+                command: "sync init",
+                operation: "sync_init",
+                operation_source: "operations_by_id.sync_init",
+                retry_with: {
+                  cli: "moryn sync init <remote>",
+                  args: ["sync", "init", "<remote>"],
+                  mcp: { tool: "sync_init", arguments: { remote: "<remote>" } }
+                }
               }
-            }],
+            ],
             index_lookup: {
               command: "moryn contracts operations --index",
               args: ["contracts", "operations", "--index"],
@@ -9742,11 +12344,13 @@ describe("moryn CLI", () => {
           message: "unknown option '--stor'",
           hint: {
             rejected_option: { option: "--stor", command_path: ["recall"] },
-            suggested_options: [{
-              option: "--store",
-              scope: "global",
-              retry_with: { option: "--store", value_placeholder: "<path>", position: "before_command" }
-            }],
+            suggested_options: [
+              {
+                option: "--store",
+                scope: "global",
+                retry_with: { option: "--store", value_placeholder: "<path>", position: "before_command" }
+              }
+            ],
             do_not: ["retry_unknown_option", "invent_cli_flags"]
           }
         },
@@ -9755,11 +12359,13 @@ describe("moryn CLI", () => {
           message: "unknown option '--hep'",
           hint: {
             rejected_option: { option: "--hep", command_path: ["recall"] },
-            suggested_options: [{
-              option: "--help",
-              scope: "global",
-              retry_with: { option: "--help", position: "before_command" }
-            }],
+            suggested_options: [
+              {
+                option: "--help",
+                scope: "global",
+                retry_with: { option: "--help", position: "before_command" }
+              }
+            ],
             do_not: ["retry_unknown_option", "invent_cli_flags"]
           }
         },
@@ -9769,19 +12375,21 @@ describe("moryn CLI", () => {
           hint: {
             operation_contract: "operations_by_id.write",
             rejected_option: { option: "--txt", command_path: ["write"] },
-            suggested_options: [{
-              option: "--text",
-              argument: "text",
-              argument_source: "operations_by_id.write.arguments_by_name.text",
-              retry_with: { option: "--text", value_placeholder: "<text>" }
-            }],
+            suggested_options: [
+              {
+                option: "--text",
+                argument: "text",
+                argument_source: "operations_by_id.write.arguments_by_name.text",
+                retry_with: { option: "--text", value_placeholder: "<text>" }
+              }
+            ],
             command: "moryn write --kind <kind> --type <type> --scope <scope> --text <text>",
             do_not: ["retry_unknown_option", "invent_cli_flags"]
           }
         }
       ]) {
         try {
-          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          await exec("node", [cliJsPath, "--store", dir, ...args]);
           throw new Error(`Expected moryn ${args.join(" ")} to reject unknown CLI input`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
@@ -9799,7 +12407,9 @@ describe("moryn CLI", () => {
           expect(parsed.error.code).toBe("INVALID_ARGUMENT");
           expect(parsed.error.message).toContain(message);
           expect(parsed.error.recoverable).toBe(true);
-          expect(parsed.error.recommended_action).toBe("retry with a known CLI command or option from operation contracts");
+          expect(parsed.error.recommended_action).toBe(
+            "retry with a known CLI command or option from operation contracts"
+          );
           expect(parsed.error.recovery_hint).toEqual(hint);
         }
       }
@@ -9810,10 +12420,10 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
       await mkdir(store, { recursive: true });
-      await writeFile(join(store, "config.json"), "{\"store_version\":", "utf8");
+      await writeFile(join(store, "config.json"), '{"store_version":', "utf8");
 
       try {
-        await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+        await exec("node", [cliJsPath, "--store", store, "init"]);
         throw new Error("Expected moryn init to fail for malformed store config");
       } catch (error) {
         const stderr = (error as { stderr: string }).stderr;
@@ -9852,10 +12462,13 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
       await mkdir(store, { recursive: true });
-      await writeFile(join(store, "config.json"), "{\"store_version\":", "utf8");
+      await writeFile(join(store, "config.json"), '{"store_version":', "utf8");
 
-      const repaired = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init", "--repair"]);
-      const parsed = JSON.parse(repaired.stdout) as { ok: boolean; config: { store_version: number; device_id: string } };
+      const repaired = await exec("node", [cliJsPath, "--store", store, "init", "--repair"]);
+      const parsed = JSON.parse(repaired.stdout) as {
+        ok: boolean;
+        config: { store_version: number; device_id: string };
+      };
 
       expect(parsed.ok).toBe(true);
       expect(parsed.config.store_version).toBe(1);
@@ -9866,11 +12479,13 @@ describe("moryn CLI", () => {
   it("returns structured JSON errors for missing record mutations", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
 
       try {
         await exec("node", [
-          "--import", "tsx", "src/cli.ts", "--store", store,
+          cliJsPath,
+          "--store",
+          store,
           "promote",
           "rec_missing",
           "--state",
@@ -9920,7 +12535,8 @@ describe("moryn CLI", () => {
           command: "moryn promote <record_id_from_list_recent> --state canonical",
           arguments: { record_id: "<record_id_from_list_recent>", target_state: "canonical" },
           replace_arguments: { record_id: "list_recent.records_by_id.<record_id>.id" },
-          required_when: "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
+          required_when:
+            "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
           required_fields: ["record_id"]
         });
       }
@@ -9930,15 +12546,10 @@ describe("moryn CLI", () => {
   it("returns retry workflow context for missing recall record ids", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
 
       try {
-        await exec("node", [
-          "--import", "tsx", "src/cli.ts", "--store", store,
-          "recall",
-          "--record-id",
-          "rec_missing"
-        ]);
+        await exec("node", [cliJsPath, "--store", store, "recall", "--record-id", "rec_missing"]);
         throw new Error("Expected moryn recall to fail for a missing record");
       } catch (error) {
         const parsed = JSON.parse((error as { stderr: string }).stderr) as {
@@ -9962,7 +12573,8 @@ describe("moryn CLI", () => {
           command: "moryn recall --record-id <record_id_from_list_recent>",
           arguments: { record_ids: ["<record_id_from_list_recent>"] },
           replace_arguments: { record_ids: "list_recent.records_by_id.<record_id>.id" },
-          required_when: "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
+          required_when:
+            "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
           required_fields: ["record_ids"]
         });
       }
@@ -9972,16 +12584,23 @@ describe("moryn CLI", () => {
   it("requires explicit CLI confirmation for high-risk canonical changes", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
 
       const write = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "soul",
-        "--type", "preference",
-        "--scope", "global",
-        "--state", "canonical",
-        "--text", "Prefer terse answers."
+        "--kind",
+        "soul",
+        "--type",
+        "preference",
+        "--scope",
+        "global",
+        "--state",
+        "canonical",
+        "--text",
+        "Prefer terse answers."
       ]);
       const parsedWrite = JSON.parse(write.stdout) as {
         record: { id: string; state: string };
@@ -10025,21 +12644,33 @@ describe("moryn CLI", () => {
       expectNextActionSelectionSources(parsedWrite.warning!.next_action!);
 
       const memoryPreference = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "memory",
-        "--type", "preference",
-        "--scope", "global",
-        "--state", "canonical",
-        "--text", "Prefer concise engineering updates."
+        "--kind",
+        "memory",
+        "--type",
+        "preference",
+        "--scope",
+        "global",
+        "--state",
+        "canonical",
+        "--text",
+        "Prefer concise engineering updates."
       ]);
-      const parsedMemoryPreference = JSON.parse(memoryPreference.stdout) as { record: { state: string }; warning?: { code: string } };
+      const parsedMemoryPreference = JSON.parse(memoryPreference.stdout) as {
+        record: { state: string };
+        warning?: { code: string };
+      };
       expect(parsedMemoryPreference.record.state).toBe("candidate");
       expect(parsedMemoryPreference.warning?.code).toBe("CONFIRMATION_REQUIRED");
 
       try {
         await exec("node", [
-          "--import", "tsx", "src/cli.ts", "--store", store,
+          cliJsPath,
+          "--store",
+          store,
           "promote",
           parsedWrite.record.id,
           "--state",
@@ -10068,7 +12699,9 @@ describe("moryn CLI", () => {
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("CONFIRMATION_REQUIRED");
         expect(parsed.error.recoverable).toBe(true);
-        expect(parsed.error.recommended_action).toBe("ask the user to confirm before retrying with confirmed=true or --confirm");
+        expect(parsed.error.recommended_action).toBe(
+          "ask the user to confirm before retrying with confirmed=true or --confirm"
+        );
         expect(parsed.error.next_action).toMatchObject({
           recommended_action: "ask_user_then_retry_with_confirmation",
           tool: "promote",
@@ -10077,15 +12710,17 @@ describe("moryn CLI", () => {
             record_id: parsedWrite.record.id,
             target_state: "canonical",
             reason: "User confirmed",
-          confirmed: true
-        },
-        required_fields: [],
-        safe_to_run: false
-      });
+            confirmed: true
+          },
+          required_fields: [],
+          safe_to_run: false
+        });
       }
 
       await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "promote",
         parsedWrite.record.id,
         "--state",
@@ -10094,25 +12729,41 @@ describe("moryn CLI", () => {
         "User confirmed",
         "--confirm"
       ]);
-      const recall = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
-        "recall",
-        "--record-id",
-        parsedWrite.record.id
-      ])).stdout) as { results: Array<{ record: { state: string } }> };
+      const recall = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "recall",
+            "--record-id",
+            parsedWrite.record.id
+          ])
+        ).stdout
+      ) as { results: Array<{ record: { state: string } }> };
       expect(recall.results[0]?.record.state).toBe("canonical");
 
       const confirmedWrite = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "skill",
-        "--type", "procedure",
-        "--scope", "global",
-        "--state", "canonical",
-        "--text", "Global release checklist.",
+        "--kind",
+        "skill",
+        "--type",
+        "procedure",
+        "--scope",
+        "global",
+        "--state",
+        "canonical",
+        "--text",
+        "Global release checklist.",
         "--confirm"
       ]);
-      const parsedConfirmedWrite = JSON.parse(confirmedWrite.stdout) as { record: { state: string }; warning?: unknown };
+      const parsedConfirmedWrite = JSON.parse(confirmedWrite.stdout) as {
+        record: { state: string };
+        warning?: unknown;
+      };
       expect(parsedConfirmedWrite.record.state).toBe("canonical");
       expect(parsedConfirmedWrite.warning).toBeUndefined();
     });
@@ -10121,31 +12772,49 @@ describe("moryn CLI", () => {
   it("marks conflicting CLI canonical writes as candidates", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
       const existing = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--tag", "sync",
-        "--state", "canonical",
-        "--text", "Use append-only JSON events.",
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--tag",
+        "sync",
+        "--state",
+        "canonical",
+        "--text",
+        "Use append-only JSON events.",
         "--confirm"
       ]);
       const existingId = (JSON.parse(existing.stdout) as { record: { id: string } }).record.id;
 
       const conflicting = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--tag", "sync",
-        "--state", "canonical",
-        "--text", "Use SQLite as the source of truth."
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--tag",
+        "sync",
+        "--state",
+        "canonical",
+        "--text",
+        "Use SQLite as the source of truth."
       ]);
       const parsed = JSON.parse(conflicting.stdout) as {
         record: { state: string; conflict?: { with: string[]; resolution: string } };
@@ -10166,7 +12835,9 @@ describe("moryn CLI", () => {
       expect(parsed.warning?.next_action).toMatchObject({
         recommended_action: "ask_user_then_promote_candidate",
         tool: "promote",
-        command: expect.stringMatching(/^moryn promote rec_[a-f0-9]+ --state canonical --reason 'User confirmed' --confirm$/),
+        command: expect.stringMatching(
+          /^moryn promote rec_[a-f0-9]+ --state canonical --reason 'User confirmed' --confirm$/
+        ),
         candidate_record_id: expect.stringMatching(/^rec_[a-f0-9]+$/),
         arguments: expect.objectContaining({
           target_state: "canonical",
@@ -10189,36 +12860,56 @@ describe("moryn CLI", () => {
   it("requires explicit CLI confirmation for conflicting canonical promotion", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
       const candidate = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--tag", "sync",
-        "--state", "candidate",
-        "--text", "Use SQLite as the source of truth."
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--tag",
+        "sync",
+        "--state",
+        "candidate",
+        "--text",
+        "Use SQLite as the source of truth."
       ]);
       const candidateId = (JSON.parse(candidate.stdout) as { record: { id: string } }).record.id;
       const existing = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--tag", "sync",
-        "--state", "canonical",
-        "--text", "Use append-only JSON events.",
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--tag",
+        "sync",
+        "--state",
+        "canonical",
+        "--text",
+        "Use append-only JSON events.",
         "--confirm"
       ]);
       const existingId = (JSON.parse(existing.stdout) as { record: { id: string } }).record.id;
 
       try {
         await exec("node", [
-          "--import", "tsx", "src/cli.ts", "--store", store,
+          cliJsPath,
+          "--store",
+          store,
           "promote",
           candidateId,
           "--state",
@@ -10245,7 +12936,9 @@ describe("moryn CLI", () => {
         };
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("CONFIRMATION_REQUIRED");
-        expect(parsed.error.recommended_action).toBe("ask the user to confirm before retrying with confirmed=true or --confirm");
+        expect(parsed.error.recommended_action).toBe(
+          "ask the user to confirm before retrying with confirmed=true or --confirm"
+        );
         expect(parsed.error.next_action).toMatchObject({
           recommended_action: "ask_user_then_retry_with_confirmation",
           tool: "promote",
@@ -10262,7 +12955,9 @@ describe("moryn CLI", () => {
       }
 
       await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "promote",
         candidateId,
         "--state",
@@ -10271,12 +12966,10 @@ describe("moryn CLI", () => {
         "User confirmed",
         "--confirm"
       ]);
-      const recall = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
-        "recall",
-        "--record-id",
-        candidateId
-      ])).stdout) as { results: Array<{ record: { state: string; conflict?: { with: string[]; resolution: string } } }> };
+      const recall = JSON.parse(
+        (await exec("node", [cliJsPath, "--store", store, "recall", "--record-id", candidateId]))
+          .stdout
+      ) as { results: Array<{ record: { state: string; conflict?: { with: string[]; resolution: string } } }> };
       expect(recall.results[0]?.record.state).toBe("canonical");
       expect(recall.results[0]?.record.conflict?.with).toEqual([existingId]);
       expect(recall.results[0]?.record.conflict?.resolution).toBe("needs_review");
@@ -10286,42 +12979,65 @@ describe("moryn CLI", () => {
   it("requires explicit CLI confirmation for conflicting canonical revisions", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
       const existing = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--tag", "sync",
-        "--state", "canonical",
-        "--text", "Use append-only JSON events.",
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--tag",
+        "sync",
+        "--state",
+        "canonical",
+        "--text",
+        "Use append-only JSON events.",
         "--confirm"
       ]);
       const existingId = (JSON.parse(existing.stdout) as { record: { id: string } }).record.id;
       const target = await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "memory",
-        "--type", "warning",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--tag", "sync",
-        "--state", "canonical",
-        "--text", "Use private Git remotes.",
+        "--kind",
+        "memory",
+        "--type",
+        "warning",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--tag",
+        "sync",
+        "--state",
+        "canonical",
+        "--text",
+        "Use private Git remotes.",
         "--confirm"
       ]);
       const targetId = (JSON.parse(target.stdout) as { record: { id: string } }).record.id;
 
       try {
         await exec("node", [
-          "--import", "tsx", "src/cli.ts", "--store", store,
+          cliJsPath,
+          "--store",
+          store,
           "revise",
           targetId,
-          "--set", "type=decision",
-          "--set", "content.text=Use SQLite as the source of truth.",
-          "--reason", "Agent inferred this replacement"
+          "--set",
+          "type=decision",
+          "--set",
+          "content.text=Use SQLite as the source of truth.",
+          "--reason",
+          "Agent inferred this replacement"
         ]);
         throw new Error("Expected moryn revise to require conflict confirmation");
       } catch (error) {
@@ -10342,7 +13058,9 @@ describe("moryn CLI", () => {
         };
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("CONFIRMATION_REQUIRED");
-        expect(parsed.error.recommended_action).toBe("ask the user to confirm before retrying with confirmed=true or --confirm");
+        expect(parsed.error.recommended_action).toBe(
+          "ask the user to confirm before retrying with confirmed=true or --confirm"
+        );
         expect(parsed.error.next_action).toMatchObject({
           recommended_action: "ask_user_then_retry_with_confirmation",
           tool: "revise",
@@ -10359,20 +13077,27 @@ describe("moryn CLI", () => {
       }
 
       await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "revise",
         targetId,
-        "--set", "type=decision",
-        "--set", "content.text=Use SQLite as the source of truth.",
-        "--reason", "User confirmed",
+        "--set",
+        "type=decision",
+        "--set",
+        "content.text=Use SQLite as the source of truth.",
+        "--reason",
+        "User confirmed",
         "--confirm"
       ]);
-      const recall = JSON.parse((await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
-        "recall",
-        "--record-id",
-        targetId
-      ])).stdout) as { results: Array<{ record: { type: string; content: { text: string }; conflict?: { with: string[]; resolution: string } } }> };
+      const recall = JSON.parse(
+        (await exec("node", [cliJsPath, "--store", store, "recall", "--record-id", targetId]))
+          .stdout
+      ) as {
+        results: Array<{
+          record: { type: string; content: { text: string }; conflict?: { with: string[]; resolution: string } };
+        }>;
+      };
       expect(recall.results[0]?.record.type).toBe("decision");
       expect(recall.results[0]?.record.content.text).toBe("Use SQLite as the source of truth.");
       expect(recall.results[0]?.record.conflict?.with).toEqual([existingId]);
@@ -10385,7 +13110,7 @@ describe("moryn CLI", () => {
       const store = join(dir, "missing-store");
       async function expectStoreNotInitialized(args: string[]): Promise<void> {
         try {
-          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, ...args]);
+          await exec("node", [cliJsPath, "--store", store, ...args]);
           throw new Error(`Expected moryn ${args.join(" ")} to fail before moryn init`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
@@ -10420,19 +13145,20 @@ describe("moryn CLI", () => {
         }
       }
 
-      await expectStoreNotInitialized([
-        "boot",
-        "--project-id",
-        "moryn"
-      ]);
+      await expectStoreNotInitialized(["boot", "--project-id", "moryn"]);
 
       await expectStoreNotInitialized([
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--text", "This should not create a store implicitly."
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--text",
+        "This should not create a store implicitly."
       ]);
     });
   });
@@ -10441,15 +13167,10 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
       const missingRemote = join(dir, "missing-remote.git");
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
 
       try {
-        await exec("node", [
-          "--import", "tsx", "src/cli.ts", "--store", store,
-          "sync",
-          "init",
-          missingRemote
-        ]);
+        await exec("node", [cliJsPath, "--store", store, "sync", "init", missingRemote]);
         throw new Error("Expected moryn sync init to fail for an unavailable remote");
       } catch (error) {
         const stderr = (error as { stderr: string }).stderr;
@@ -10483,16 +13204,31 @@ describe("moryn CLI", () => {
       }
 
       await exec("node", [
-        "--import", "tsx", "src/cli.ts", "--store", store,
+        cliJsPath,
+        "--store",
+        store,
         "write",
-        "--kind", "memory",
-        "--type", "decision",
-        "--scope", "project",
-        "--project-id", "moryn",
-        "--state", "canonical",
-        "--text", "Local memory survives remote sync failure."
+        "--kind",
+        "memory",
+        "--type",
+        "decision",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--state",
+        "canonical",
+        "--text",
+        "Local memory survives remote sync failure."
       ]);
-      const boot = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "boot", "--project-id", "moryn"]);
+      const boot = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "boot",
+        "--project-id",
+        "moryn"
+      ]);
 
       expect(boot.stdout).toContain("Local memory survives remote sync failure.");
     });
@@ -10502,14 +13238,28 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
       const project = join(dir, "project");
-      await exec("node", ["--import", tsxLoader, cliPath, "project", "init", "--path", project, "--project-id", "moryn"]);
+      await exec("node", [
+        cliJsPath,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--project-id",
+        "moryn"
+      ]);
 
       const start = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
-        "agent", "start",
-        "--project", project,
-        "--agent", "codex",
-        "--current-task", "work locally with recovery details"
+        cliJsPath,
+        "--store",
+        store,
+        "agent",
+        "start",
+        "--project",
+        project,
+        "--agent",
+        "codex",
+        "--current-task",
+        "work locally with recovery details"
       ]);
       const parsedStart = JSON.parse(start.stdout) as {
         sync: {
@@ -10544,7 +13294,11 @@ describe("moryn CLI", () => {
             safe_to_run: false
           },
           requires_user_confirmation: true,
-          do_not: ["invent_git_remote", "write_sync_config_without_user_confirmation", "retry_sync_until_remote_is_configured"]
+          do_not: [
+            "invent_git_remote",
+            "write_sync_config_without_user_confirmation",
+            "retry_sync_until_remote_is_configured"
+          ]
         },
         next_action: {
           recommended_action: "configure_sync_remote",
@@ -10568,11 +13322,17 @@ describe("moryn CLI", () => {
       });
 
       const finish = await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store,
-        "agent", "finish",
-        "--project", project,
-        "--agent", "codex",
-        "--summary", "Local handoff with sync recovery details."
+        cliJsPath,
+        "--store",
+        store,
+        "agent",
+        "finish",
+        "--project",
+        project,
+        "--agent",
+        "codex",
+        "--summary",
+        "Local handoff with sync recovery details."
       ]);
       const parsedFinish = JSON.parse(finish.stdout) as {
         sync: {
@@ -10609,7 +13369,11 @@ describe("moryn CLI", () => {
             safe_to_run: false
           },
           requires_user_confirmation: true,
-          do_not: ["invent_git_remote", "write_sync_config_without_user_confirmation", "retry_sync_until_remote_is_configured"]
+          do_not: [
+            "invent_git_remote",
+            "write_sync_config_without_user_confirmation",
+            "retry_sync_until_remote_is_configured"
+          ]
         },
         next_action: {
           recommended_action: "configure_sync_remote",
@@ -10630,10 +13394,69 @@ describe("moryn CLI", () => {
 describe("agent checkpoint CLI", () => {
   it("surfaces the bounded candidate review workflow", async () => {
     await withTempDir(async (store) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
-      const target = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "write", "--kind", "memory", "--type", "fact", "--scope", "project", "--project-id", "project-a", "--text", "Moryn pulls project context on agent enter before work begins.", "--state", "canonical", "--confirm"])).stdout);
-      const learning = { question: "When is project context loaded?", conclusion: "Moryn loads project context during agent enter before work begins.", evidence_type: "source_code", scope: "project", confidence: 0.9, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] };
-      const parsed = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "agent", "checkpoint", "--project-id", "project-a", "--agent", "codex", "--session-id", "session-candidate", "--device-id", "device-a", "--occurred-at", "2026-07-13T00:00:00.000Z", "--checkpoint-id", "checkpoint-candidate", "--current-task", "Review learned context", "--progress", "Captured reusable context loading behavior.", "--learning", JSON.stringify(learning)])).stdout);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      const target = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "write",
+            "--kind",
+            "memory",
+            "--type",
+            "fact",
+            "--scope",
+            "project",
+            "--project-id",
+            "project-a",
+            "--text",
+            "Moryn pulls project context on agent enter before work begins.",
+            "--state",
+            "canonical",
+            "--confirm"
+          ])
+        ).stdout
+      );
+      const learning = {
+        question: "When is project context loaded?",
+        conclusion: "Moryn loads project context during agent enter before work begins.",
+        evidence_type: "source_code",
+        scope: "project",
+        confidence: 0.9,
+        recommended_kind: "memory",
+        recommended_type: "fact",
+        related_record_ids: []
+      };
+      const parsed = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "agent",
+            "checkpoint",
+            "--project-id",
+            "project-a",
+            "--agent",
+            "codex",
+            "--session-id",
+            "session-candidate",
+            "--device-id",
+            "device-a",
+            "--occurred-at",
+            "2026-07-13T00:00:00.000Z",
+            "--checkpoint-id",
+            "checkpoint-candidate",
+            "--current-task",
+            "Review learned context",
+            "--progress",
+            "Captured reusable context loading behavior.",
+            "--learning",
+            JSON.stringify(learning)
+          ])
+        ).stdout
+      );
 
       expect(parsed.learning_ingestion.candidate_review).toMatchObject({
         action: "review_learning_candidates",
@@ -10645,78 +13468,341 @@ describe("agent checkpoint CLI", () => {
 
   it("writes semantic flags and replays the identical checkpoint", async () => {
     await withTempDir(async (store) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
       const args = [
-        "--import", tsxLoader, cliPath, "--store", store, "agent", "checkpoint",
-        "--project-id", "project-a", "--agent", "codex", "--session-id", "session-1",
-        "--device-id", "device-a", "--model", "gpt-5", "--occurred-at", "2026-07-11T00:00:00.000Z",
-        "--checkpoint-id", "checkpoint-1", "--current-task", "Expose checkpoint", "--progress", "CLI RED",
-        "--decision", "Reject ambiguous input", "--file", "src/cli.ts", "--tag", "private", "--include-private",
-        "--learning", JSON.stringify({ question: "How?", conclusion: "TDD", evidence_type: "source_code", scope: "project", confidence: 0.9, recommended_kind: "skill", recommended_type: "workflow" })
+        cliJsPath,
+        "--store",
+        store,
+        "agent",
+        "checkpoint",
+        "--project-id",
+        "project-a",
+        "--agent",
+        "codex",
+        "--session-id",
+        "session-1",
+        "--device-id",
+        "device-a",
+        "--model",
+        "gpt-5",
+        "--occurred-at",
+        "2026-07-11T00:00:00.000Z",
+        "--checkpoint-id",
+        "checkpoint-1",
+        "--current-task",
+        "Expose checkpoint",
+        "--progress",
+        "CLI RED",
+        "--decision",
+        "Reject ambiguous input",
+        "--file",
+        "src/cli.ts",
+        "--tag",
+        "private",
+        "--include-private",
+        "--learning",
+        JSON.stringify({
+          question: "How?",
+          conclusion: "TDD",
+          evidence_type: "source_code",
+          scope: "project",
+          confidence: 0.9,
+          recommended_kind: "skill",
+          recommended_type: "workflow"
+        })
       ];
       const first = JSON.parse((await exec("node", args)).stdout);
       const replay = JSON.parse((await exec("node", args)).stdout);
-      expect(first).toMatchObject({ idempotent_replay: false, committed: true, durability: "confirmed", derived_views_refreshed: true, selection_sources: CHECKPOINT_SELECTION_SOURCES });
-      expect(first.record.source).toEqual({ client: "codex", session_id: "session-1", model: "gpt-5", device_id: "device-a" });
-      expect(first.recovery_pack).toMatchObject({ session_id: "session-1", latest_checkpoint_id: "checkpoint-1", progress: ["CLI RED"] });
-      expect(replay).toMatchObject({ idempotent_replay: true, record: { id: first.record.id }, selection_sources: CHECKPOINT_SELECTION_SOURCES });
+      expect(first).toMatchObject({
+        idempotent_replay: false,
+        committed: true,
+        durability: "confirmed",
+        derived_views_refreshed: true,
+        selection_sources: CHECKPOINT_SELECTION_SOURCES
+      });
+      expect(first.record.source).toEqual({
+        client: "codex",
+        session_id: "session-1",
+        model: "gpt-5",
+        device_id: "device-a"
+      });
+      expect(first.recovery_pack).toMatchObject({
+        session_id: "session-1",
+        latest_checkpoint_id: "checkpoint-1",
+        progress: ["CLI RED"]
+      });
+      expect(replay).toMatchObject({
+        idempotent_replay: true,
+        record: { id: first.record.id },
+        selection_sources: CHECKPOINT_SELECTION_SOURCES
+      });
     });
   });
 
   it("rejects ambiguous delta and semantic flags plus invalid learning JSON", async () => {
     await withTempDir(async (store) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
-      const base = ["--import", tsxLoader, cliPath, "--store", store, "agent", "checkpoint", "--project-id", "project-a", "--agent", "codex", "--session-id", "session-1", "--device-id", "device-a", "--occurred-at", "2026-07-11T00:00:00.000Z"];
-      await expect(exec("node", [...base, "--delta", JSON.stringify({ session_id: "session-1", checkpoint_id: "checkpoint-1", progress: ["one"] }), "--progress", "two"])).rejects.toMatchObject({ stderr: expect.stringContaining("Invalid argument") });
-      await expect(exec("node", [...base, "--checkpoint-id", "checkpoint-1", "--progress", "one", "--learning", "{"])).rejects.toMatchObject({ stderr: expect.stringContaining("Invalid argument: Invalid --learning JSON") });
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      const base = [
+        cliJsPath,
+        "--store",
+        store,
+        "agent",
+        "checkpoint",
+        "--project-id",
+        "project-a",
+        "--agent",
+        "codex",
+        "--session-id",
+        "session-1",
+        "--device-id",
+        "device-a",
+        "--occurred-at",
+        "2026-07-11T00:00:00.000Z"
+      ];
+      await expect(
+        exec("node", [
+          ...base,
+          "--delta",
+          JSON.stringify({ session_id: "session-1", checkpoint_id: "checkpoint-1", progress: ["one"] }),
+          "--progress",
+          "two"
+        ])
+      ).rejects.toMatchObject({ stderr: expect.stringContaining("Invalid argument") });
+      await expect(
+        exec("node", [...base, "--checkpoint-id", "checkpoint-1", "--progress", "one", "--learning", "{"])
+      ).rejects.toMatchObject({ stderr: expect.stringContaining("Invalid argument: Invalid --learning JSON") });
     });
   });
 
   it("preserves unresolved knowledge investigations through checkpoint flags", async () => {
     await withTempDir(async (store) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
-      const investigation = { resolution_id: "rollback", question: "What is rollback policy?", recall_status: "knowledge_gap", recalled_record_ids: [], evidence: [{ type: "source_code", reference: "src/release.ts", summary: "Signed tags are validated" }], status: "unresolved", next_step: "Run rollback integration test" };
-      const parsed = JSON.parse((await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store, "agent", "checkpoint",
-        "--project-id", "project-a", "--agent", "codex", "--session-id", "session-knowledge",
-        "--device-id", "device-a", "--occurred-at", "2026-07-12T00:00:00.000Z",
-        "--checkpoint-id", "checkpoint-knowledge", "--knowledge-investigation", JSON.stringify(investigation)
-      ])).stdout);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      const investigation = {
+        resolution_id: "rollback",
+        question: "What is rollback policy?",
+        recall_status: "knowledge_gap",
+        recalled_record_ids: [],
+        evidence: [{ type: "source_code", reference: "src/release.ts", summary: "Signed tags are validated" }],
+        status: "unresolved",
+        next_step: "Run rollback integration test"
+      };
+      const parsed = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "agent",
+            "checkpoint",
+            "--project-id",
+            "project-a",
+            "--agent",
+            "codex",
+            "--session-id",
+            "session-knowledge",
+            "--device-id",
+            "device-a",
+            "--occurred-at",
+            "2026-07-12T00:00:00.000Z",
+            "--checkpoint-id",
+            "checkpoint-knowledge",
+            "--knowledge-investigation",
+            JSON.stringify(investigation)
+          ])
+        ).stdout
+      );
 
-      expect(parsed.recovery_pack.knowledge_investigations).toEqual([expect.objectContaining({ resolution_id: "rollback", status: "unresolved", next_step: "Run rollback integration test" })]);
+      expect(parsed.recovery_pack.knowledge_investigations).toEqual([
+        expect.objectContaining({
+          resolution_id: "rollback",
+          status: "unresolved",
+          next_step: "Run rollback integration test"
+        })
+      ]);
       expect(parsed.learning_ingestion.records_created).toBe(0);
     });
   });
 
   it("accepts Learning Deltas in agent finish", async () => {
     await withTempDir(async (store) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
-      const learning = JSON.stringify({ question: "When does Moryn pull?", conclusion: "Moryn pulls on agent enter.", evidence_type: "source_code", scope: "project", confidence: 0.9, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] });
-      const parsed = JSON.parse((await exec("node", [
-        "--import", tsxLoader, cliPath, "--store", store, "agent", "finish",
-        "--project-id", "project-a", "--summary", "Finished after learning.", "--no-push",
-        "--agent", "codex", "--session-id", "session-1", "--device-id", "device-a",
-        "--learning", learning
-      ])).stdout);
-      expect(parsed).toMatchObject({ ok: true, learning_ingestion: { records_created: 1, dispositions: [{ state: "canonical" }] } });
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      const learning = JSON.stringify({
+        question: "When does Moryn pull?",
+        conclusion: "Moryn pulls on agent enter.",
+        evidence_type: "source_code",
+        scope: "project",
+        confidence: 0.9,
+        recommended_kind: "memory",
+        recommended_type: "fact",
+        related_record_ids: []
+      });
+      const parsed = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "agent",
+            "finish",
+            "--project-id",
+            "project-a",
+            "--summary",
+            "Finished after learning.",
+            "--no-push",
+            "--agent",
+            "codex",
+            "--session-id",
+            "session-1",
+            "--device-id",
+            "device-a",
+            "--learning",
+            learning
+          ])
+        ).stdout
+      );
+      expect(parsed).toMatchObject({
+        ok: true,
+        learning_ingestion: { records_created: 1, dispositions: [{ state: "canonical" }] }
+      });
     });
   });
 
   it("accepts semantic consolidation proposals in checkpoint and finish", async () => {
     await withTempDir(async (store) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
-      const target = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "write", "--kind", "memory", "--type", "fact", "--scope", "project", "--project-id", "project-a", "--text", "Moryn pulls on agent enter.", "--state", "canonical", "--confirm"])).stdout);
-      const learning = { question: "When does Moryn pull?", conclusion: "Moryn pulls when an agent enters.", evidence_type: "source_code", scope: "project", confidence: 0.9, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] };
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      const target = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "write",
+            "--kind",
+            "memory",
+            "--type",
+            "fact",
+            "--scope",
+            "project",
+            "--project-id",
+            "project-a",
+            "--text",
+            "Moryn pulls on agent enter.",
+            "--state",
+            "canonical",
+            "--confirm"
+          ])
+        ).stdout
+      );
+      const learning = {
+        question: "When does Moryn pull?",
+        conclusion: "Moryn pulls when an agent enters.",
+        evidence_type: "source_code",
+        scope: "project",
+        confidence: 0.9,
+        recommended_kind: "memory",
+        recommended_type: "fact",
+        related_record_ids: []
+      };
       const sourceRecordId = learningRecordIdentity({ project_id: "project-a", learning }).record_id;
-      const proposal = { proposal_id: "cli-proposal", source_record_id: sourceRecordId, target_record_id: target.record.id, relationship: "duplicate_of", confidence: 0.99, rationale: "Equivalent lifecycle fact.", semantic_equivalence: "equivalent", material_differences: [], evidence_record_ids: [] };
-      const checkpoint = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "agent", "checkpoint", "--project-id", "project-a", "--agent", "codex", "--session-id", "session-checkpoint", "--device-id", "device-a", "--occurred-at", "2026-07-12T00:00:00.000Z", "--checkpoint-id", "checkpoint-semantic", "--learning", JSON.stringify(learning), "--semantic-consolidation-proposal", JSON.stringify(proposal)])).stdout);
+      const proposal = {
+        proposal_id: "cli-proposal",
+        source_record_id: sourceRecordId,
+        target_record_id: target.record.id,
+        relationship: "duplicate_of",
+        confidence: 0.99,
+        rationale: "Equivalent lifecycle fact.",
+        semantic_equivalence: "equivalent",
+        material_differences: [],
+        evidence_record_ids: []
+      };
+      const checkpoint = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "agent",
+            "checkpoint",
+            "--project-id",
+            "project-a",
+            "--agent",
+            "codex",
+            "--session-id",
+            "session-checkpoint",
+            "--device-id",
+            "device-a",
+            "--occurred-at",
+            "2026-07-12T00:00:00.000Z",
+            "--checkpoint-id",
+            "checkpoint-semantic",
+            "--learning",
+            JSON.stringify(learning),
+            "--semantic-consolidation-proposal",
+            JSON.stringify(proposal)
+          ])
+        ).stdout
+      );
       expect(checkpoint).toMatchObject({ semantic_consolidation: { proposals_received: 1, proposals_accepted: 1 } });
 
-      const finishTarget = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "write", "--kind", "memory", "--type", "fact", "--scope", "project", "--project-id", "project-a", "--text", "Moryn pushes when an agent finishes."])).stdout);
-      const finishLearning = { ...learning, question: "When does Moryn push?", conclusion: "Moryn pushes at agent finish." };
+      const finishTarget = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "write",
+            "--kind",
+            "memory",
+            "--type",
+            "fact",
+            "--scope",
+            "project",
+            "--project-id",
+            "project-a",
+            "--text",
+            "Moryn pushes when an agent finishes."
+          ])
+        ).stdout
+      );
+      const finishLearning = {
+        ...learning,
+        question: "When does Moryn push?",
+        conclusion: "Moryn pushes at agent finish."
+      };
       const finishSourceId = learningRecordIdentity({ project_id: "project-a", learning: finishLearning }).record_id;
-      const finishProposal = { ...proposal, proposal_id: "cli-finish-proposal", source_record_id: finishSourceId, target_record_id: finishTarget.record.id, rationale: "Equivalent finish sync fact." };
-      const finish = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "agent", "finish", "--project-id", "project-a", "--summary", "Finished semantic lifecycle.", "--no-push", "--agent", "codex", "--session-id", "session-finish", "--device-id", "device-a", "--learning", JSON.stringify(finishLearning), "--semantic-consolidation-proposal", JSON.stringify(finishProposal)])).stdout);
+      const finishProposal = {
+        ...proposal,
+        proposal_id: "cli-finish-proposal",
+        source_record_id: finishSourceId,
+        target_record_id: finishTarget.record.id,
+        rationale: "Equivalent finish sync fact."
+      };
+      const finish = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "agent",
+            "finish",
+            "--project-id",
+            "project-a",
+            "--summary",
+            "Finished semantic lifecycle.",
+            "--no-push",
+            "--agent",
+            "codex",
+            "--session-id",
+            "session-finish",
+            "--device-id",
+            "device-a",
+            "--learning",
+            JSON.stringify(finishLearning),
+            "--semantic-consolidation-proposal",
+            JSON.stringify(finishProposal)
+          ])
+        ).stdout
+      );
       expect(finish).toMatchObject({ semantic_consolidation: { proposals_received: 1, proposals_accepted: 1 } });
     });
   });
@@ -10725,16 +13811,81 @@ describe("agent checkpoint CLI", () => {
 describe("semantic consolidation CLI", () => {
   it("persists an explicit proposal idempotently with strict JSON input", async () => {
     await withTempDir(async (store) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
-      const source = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "write", "--kind", "memory", "--type", "fact", "--scope", "project", "--project-id", "moryn", "--text", "Moryn syncs when an agent finishes."])).stdout);
-      const target = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "write", "--kind", "memory", "--type", "fact", "--scope", "project", "--project-id", "moryn", "--text", "Moryn syncs at agent finish."])).stdout);
-      const proposal = { proposal_id: "explicit-cli", source_record_id: source.record.id, target_record_id: target.record.id, relationship: "duplicate_of", confidence: 0.99, rationale: "Equivalent finish behavior.", semantic_equivalence: "equivalent", material_differences: [], evidence_record_ids: [] };
-      const args = ["--import", tsxLoader, cliPath, "--store", store, "consolidate", "semantic", "--project-id", "moryn", "--proposal-json", JSON.stringify(proposal)];
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      const source = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "write",
+            "--kind",
+            "memory",
+            "--type",
+            "fact",
+            "--scope",
+            "project",
+            "--project-id",
+            "moryn",
+            "--text",
+            "Moryn syncs when an agent finishes."
+          ])
+        ).stdout
+      );
+      const target = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "write",
+            "--kind",
+            "memory",
+            "--type",
+            "fact",
+            "--scope",
+            "project",
+            "--project-id",
+            "moryn",
+            "--text",
+            "Moryn syncs at agent finish."
+          ])
+        ).stdout
+      );
+      const proposal = {
+        proposal_id: "explicit-cli",
+        source_record_id: source.record.id,
+        target_record_id: target.record.id,
+        relationship: "duplicate_of",
+        confidence: 0.99,
+        rationale: "Equivalent finish behavior.",
+        semantic_equivalence: "equivalent",
+        material_differences: [],
+        evidence_record_ids: []
+      };
+      const args = [
+        cliJsPath,
+        "--store",
+        store,
+        "consolidate",
+        "semantic",
+        "--project-id",
+        "moryn",
+        "--proposal-json",
+        JSON.stringify(proposal)
+      ];
       const first = JSON.parse((await exec("node", args)).stdout);
       const replay = JSON.parse((await exec("node", args)).stdout);
-      expect(first).toMatchObject({ proposals_received: 1, proposals_accepted: 1, links_created: 1, selection_sources: SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES });
+      expect(first).toMatchObject({
+        proposals_received: 1,
+        proposals_accepted: 1,
+        links_created: 1,
+        selection_sources: SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES
+      });
       expect(replay).toMatchObject({ proposals_received: 1, idempotent_replays: 1, links_created: 0 });
-      await expect(exec("node", [...args, "--unknown"])).rejects.toMatchObject({ stderr: expect.stringContaining("unknown option") });
+      await expect(exec("node", [...args, "--unknown"])).rejects.toMatchObject({
+        stderr: expect.stringContaining("unknown option")
+      });
     });
   });
 });
@@ -10742,10 +13893,56 @@ describe("semantic consolidation CLI", () => {
 describe("host hook CLI", () => {
   it("emits trusted prompt recall through the UserPromptSubmit wire shape", async () => {
     await withTempDir(async (store) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
-      const memory = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "write", "--kind", "memory", "--type", "release_policy", "--scope", "project", "--project-id", "moryn", "--text", "Production rollback requires a tagged release and the rollback runbook.", "--state", "canonical", "--confidence", "0.98", "--confirm"])).stdout);
-      const payload = JSON.stringify({ hook_event_name: "UserPromptSubmit", session_id: "prompt-wire", cwd: repoRoot, prompt: "Does production rollback require a tagged release and the rollback runbook?" });
-      const result = await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "host", "hook", "--host", "codex", "--project-id", "moryn", "--device-id", "device-a", "--input-json", payload, "--host-output", "--no-pull", "--no-push"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      const memory = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "write",
+            "--kind",
+            "memory",
+            "--type",
+            "release_policy",
+            "--scope",
+            "project",
+            "--project-id",
+            "moryn",
+            "--text",
+            "Production rollback requires a tagged release and the rollback runbook.",
+            "--state",
+            "canonical",
+            "--confidence",
+            "0.98",
+            "--confirm"
+          ])
+        ).stdout
+      );
+      const payload = JSON.stringify({
+        hook_event_name: "UserPromptSubmit",
+        session_id: "prompt-wire",
+        cwd: repoRoot,
+        prompt: "Does production rollback require a tagged release and the rollback runbook?"
+      });
+      const result = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "host",
+        "hook",
+        "--host",
+        "codex",
+        "--project-id",
+        "moryn",
+        "--device-id",
+        "device-a",
+        "--input-json",
+        payload,
+        "--host-output",
+        "--no-pull",
+        "--no-push"
+      ]);
       const output = JSON.parse(result.stdout);
       expect(output).toEqual({
         hookSpecificOutput: {
@@ -10761,9 +13958,31 @@ describe("host hook CLI", () => {
 
   it("emits compact learning guidance for prompt recall misses", async () => {
     await withTempDir(async (store) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
-      const payload = JSON.stringify({ hook_event_name: "UserPromptSubmit", session_id: "prompt-miss", cwd: repoRoot, prompt: "What is the unknown lunar deployment protocol?" });
-      const result = await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "host", "hook", "--host", "claude", "--project-id", "moryn", "--device-id", "device-a", "--input-json", payload, "--host-output", "--no-pull", "--no-push"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      const payload = JSON.stringify({
+        hook_event_name: "UserPromptSubmit",
+        session_id: "prompt-miss",
+        cwd: repoRoot,
+        prompt: "What is the unknown lunar deployment protocol?"
+      });
+      const result = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "host",
+        "hook",
+        "--host",
+        "claude",
+        "--project-id",
+        "moryn",
+        "--device-id",
+        "device-a",
+        "--input-json",
+        payload,
+        "--host-output",
+        "--no-pull",
+        "--no-push"
+      ]);
       const output = JSON.parse(result.stdout);
       expect(output).toMatchObject({ hookSpecificOutput: { hookEventName: "UserPromptSubmit" } });
       expect(output.hookSpecificOutput.additionalContext).toContain("knowledge_gap");
@@ -10802,9 +14021,31 @@ describe("host hook CLI", () => {
 
   it("emits only host-compatible SessionStart context in host-output mode", async () => {
     await withTempDir(async (store) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
-      const payload = JSON.stringify({ hook_event_name: "SessionStart", session_id: "session-wire", cwd: repoRoot, source: "startup" });
-      const result = await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "host", "hook", "--host", "codex", "--project-id", "moryn", "--device-id", "device-a", "--input-json", payload, "--host-output", "--no-pull", "--no-push"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      const payload = JSON.stringify({
+        hook_event_name: "SessionStart",
+        session_id: "session-wire",
+        cwd: repoRoot,
+        source: "startup"
+      });
+      const result = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "host",
+        "hook",
+        "--host",
+        "codex",
+        "--project-id",
+        "moryn",
+        "--device-id",
+        "device-a",
+        "--input-json",
+        payload,
+        "--host-output",
+        "--no-pull",
+        "--no-push"
+      ]);
       const output = JSON.parse(result.stdout);
       expect(output).toEqual({
         hookSpecificOutput: {
@@ -10820,9 +14061,32 @@ describe("host hook CLI", () => {
 
   it("keeps side-effect-only lifecycle hooks silent in host-output mode", async () => {
     await withTempDir(async (store) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
-      const payload = JSON.stringify({ hook_event_name: "PreCompact", session_id: "session-silent", cwd: repoRoot, trigger: "auto", compact_summary: "Preserve progress." });
-      const result = await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "host", "hook", "--host", "claude", "--project-id", "moryn", "--device-id", "device-a", "--input-json", payload, "--host-output", "--no-pull", "--no-push"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      const payload = JSON.stringify({
+        hook_event_name: "PreCompact",
+        session_id: "session-silent",
+        cwd: repoRoot,
+        trigger: "auto",
+        compact_summary: "Preserve progress."
+      });
+      const result = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "host",
+        "hook",
+        "--host",
+        "claude",
+        "--project-id",
+        "moryn",
+        "--device-id",
+        "device-a",
+        "--input-json",
+        payload,
+        "--host-output",
+        "--no-pull",
+        "--no-push"
+      ]);
       expect(result.stdout).toBe("");
       const records = JSON.parse(await readFile(join(store, "snapshots", "records.json"), "utf8")).records;
       expect(records.some((record: any) => record.type === "checkpoint")).toBe(true);
@@ -10831,13 +14095,71 @@ describe("host hook CLI", () => {
 
   it("emits bounded PreCompact follow-up context only when candidate review exists", async () => {
     await withTempDir(async (store) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
-      const target = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "write", "--kind", "memory", "--type", "fact", "--scope", "project", "--project-id", "moryn", "--text", "Moryn restores project context after host compaction.", "--state", "canonical", "--confirm"])).stdout);
-      const learning = JSON.stringify({ question: "What happens after compact?", conclusion: "Moryn restores project context when compaction completes.", evidence_type: "source_code", scope: "project", confidence: 0.9, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] });
-      const payload = JSON.stringify({ hook_event_name: "PreCompact", session_id: "session-candidate-output", cwd: repoRoot, trigger: "auto", compact_summary: "Preserve candidate review." });
-      const result = await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "host", "hook", "--host", "claude", "--project-id", "moryn", "--device-id", "device-a", "--input-json", payload, "--host-output", "--learning", learning, "--no-pull", "--no-push"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      const target = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "write",
+            "--kind",
+            "memory",
+            "--type",
+            "fact",
+            "--scope",
+            "project",
+            "--project-id",
+            "moryn",
+            "--text",
+            "Moryn restores project context after host compaction.",
+            "--state",
+            "canonical",
+            "--confirm"
+          ])
+        ).stdout
+      );
+      const learning = JSON.stringify({
+        question: "What happens after compact?",
+        conclusion: "Moryn restores project context when compaction completes.",
+        evidence_type: "source_code",
+        scope: "project",
+        confidence: 0.9,
+        recommended_kind: "memory",
+        recommended_type: "fact",
+        related_record_ids: []
+      });
+      const payload = JSON.stringify({
+        hook_event_name: "PreCompact",
+        session_id: "session-candidate-output",
+        cwd: repoRoot,
+        trigger: "auto",
+        compact_summary: "Preserve candidate review."
+      });
+      const result = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "host",
+        "hook",
+        "--host",
+        "claude",
+        "--project-id",
+        "moryn",
+        "--device-id",
+        "device-a",
+        "--input-json",
+        payload,
+        "--host-output",
+        "--learning",
+        learning,
+        "--no-pull",
+        "--no-push"
+      ]);
       const output = JSON.parse(result.stdout);
-      expect(output).toMatchObject({ hookSpecificOutput: { hookEventName: "PreCompact", additionalContext: expect.any(String) } });
+      expect(output).toMatchObject({
+        hookSpecificOutput: { hookEventName: "PreCompact", additionalContext: expect.any(String) }
+      });
       expect(JSON.parse(output.hookSpecificOutput.additionalContext)).toMatchObject({
         moryn_follow_up: {
           reason: "learning_candidates_require_agent_review",
@@ -10854,18 +14176,77 @@ describe("host hook CLI", () => {
 
   it("emits the same bounded follow-up context at Claude SessionEnd", async () => {
     await withTempDir(async (store) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
-      const target = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "write", "--kind", "memory", "--type", "fact", "--scope", "project", "--project-id", "moryn", "--text", "Moryn loads shared project context before agent work begins.", "--state", "canonical", "--confirm"])).stdout);
-      const learning = JSON.stringify({ question: "When is shared context loaded?", conclusion: "Moryn loads shared project context during agent enter before work.", evidence_type: "source_code", scope: "project", confidence: 0.9, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] });
-      const payload = JSON.stringify({ hook_event_name: "SessionEnd", session_id: "session-end-candidate", cwd: repoRoot, summary: "Finished context loading verification." });
-      const result = await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "host", "hook", "--host", "claude", "--project-id", "moryn", "--device-id", "device-a", "--input-json", payload, "--host-output", "--learning", learning, "--no-pull", "--no-push"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      const target = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "write",
+            "--kind",
+            "memory",
+            "--type",
+            "fact",
+            "--scope",
+            "project",
+            "--project-id",
+            "moryn",
+            "--text",
+            "Moryn loads shared project context before agent work begins.",
+            "--state",
+            "canonical",
+            "--confirm"
+          ])
+        ).stdout
+      );
+      const learning = JSON.stringify({
+        question: "When is shared context loaded?",
+        conclusion: "Moryn loads shared project context during agent enter before work.",
+        evidence_type: "source_code",
+        scope: "project",
+        confidence: 0.9,
+        recommended_kind: "memory",
+        recommended_type: "fact",
+        related_record_ids: []
+      });
+      const payload = JSON.stringify({
+        hook_event_name: "SessionEnd",
+        session_id: "session-end-candidate",
+        cwd: repoRoot,
+        summary: "Finished context loading verification."
+      });
+      const result = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "host",
+        "hook",
+        "--host",
+        "claude",
+        "--project-id",
+        "moryn",
+        "--device-id",
+        "device-a",
+        "--input-json",
+        payload,
+        "--host-output",
+        "--learning",
+        learning,
+        "--no-pull",
+        "--no-push"
+      ]);
       const output = JSON.parse(result.stdout);
       const context = JSON.parse(output.hookSpecificOutput.additionalContext);
       expect(output.hookSpecificOutput.hookEventName).toBe("SessionEnd");
       expect(context).toMatchObject({
         moryn_follow_up: {
           reason: "learning_candidates_require_agent_review",
-          action: { action: "review_learning_candidates", owner: "agent", candidate_pairs: [{ candidate_record_id: target.record.id }] }
+          action: {
+            action: "review_learning_candidates",
+            owner: "agent",
+            candidate_pairs: [{ candidate_record_id: target.record.id }]
+          }
         }
       });
       expect(result.stdout).not.toContain(target.record.content.text);
@@ -10874,44 +14255,173 @@ describe("host hook CLI", () => {
 
   it("keeps healthy Claude SessionEnd silent in host-output mode", async () => {
     await withTempDir(async (store) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
-      const payload = JSON.stringify({ hook_event_name: "SessionEnd", session_id: "session-end-quiet", cwd: repoRoot, summary: "Finished without unresolved candidate review." });
-      const result = await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "host", "hook", "--host", "claude", "--project-id", "moryn", "--device-id", "device-a", "--input-json", payload, "--host-output", "--no-pull", "--no-push"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      const payload = JSON.stringify({
+        hook_event_name: "SessionEnd",
+        session_id: "session-end-quiet",
+        cwd: repoRoot,
+        summary: "Finished without unresolved candidate review."
+      });
+      const result = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "host",
+        "hook",
+        "--host",
+        "claude",
+        "--project-id",
+        "moryn",
+        "--device-id",
+        "device-a",
+        "--input-json",
+        payload,
+        "--host-output",
+        "--no-pull",
+        "--no-push"
+      ]);
       expect(result.stdout).toBe("");
     });
   });
 
   it("reads official hook JSON from stdin and checkpoints idempotently", async () => {
     await withTempDir(async (store) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
-      const payload = JSON.stringify({ hook_event_name: "PreCompact", session_id: "session-a", cwd: repoRoot, trigger: "auto", compact_summary: "Keep hook progress." });
-      const args = ["--import", tsxLoader, cliPath, "--store", store, "host", "hook", "--host", "codex", "--project-id", "moryn", "--device-id", "device-a", "--occurred-at", "2026-07-11T00:00:00.000Z", "--input-json", payload, "--no-pull", "--no-push"];
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      const payload = JSON.stringify({
+        hook_event_name: "PreCompact",
+        session_id: "session-a",
+        cwd: repoRoot,
+        trigger: "auto",
+        compact_summary: "Keep hook progress."
+      });
+      const args = [
+        cliJsPath,
+        "--store",
+        store,
+        "host",
+        "hook",
+        "--host",
+        "codex",
+        "--project-id",
+        "moryn",
+        "--device-id",
+        "device-a",
+        "--occurred-at",
+        "2026-07-11T00:00:00.000Z",
+        "--input-json",
+        payload,
+        "--no-pull",
+        "--no-push"
+      ];
       const first = JSON.parse((await exec("node", args)).stdout);
       const replay = JSON.parse((await exec("node", args)).stdout);
-      expect(first).toMatchObject({ ok: true, event: "pre_compact", action: "checkpoint_before_compaction", checkpoint: { idempotent_replay: false } });
+      expect(first).toMatchObject({
+        ok: true,
+        event: "pre_compact",
+        action: "checkpoint_before_compaction",
+        checkpoint: { idempotent_replay: false }
+      });
       expect(replay).toMatchObject({ checkpoint: { idempotent_replay: true } });
     });
   });
 
   it("uses the stable store device identity when hooks omit device-id", async () => {
     await withTempDir(async (store) => {
-      const initialized = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"])).stdout);
-      const payload = JSON.stringify({ hook_event_name: "PreCompact", session_id: "session-store-device", cwd: repoRoot, compact_summary: "Persist without environment setup." });
-      const parsed = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "host", "hook", "--host", "codex", "--project-id", "moryn", "--occurred-at", "2026-07-11T00:00:00.000Z", "--input-json", payload, "--no-pull", "--no-push"], { env: { ...process.env, MORYN_DEVICE_ID: "" } })).stdout);
-      const record = JSON.parse((await readFile(join(store, "snapshots", "records.json"), "utf8")).toString()).records.find((candidate: any) => candidate.id === parsed.checkpoint.record.id);
+      const initialized = JSON.parse(
+        (await exec("node", [cliJsPath, "--store", store, "init"])).stdout
+      );
+      const payload = JSON.stringify({
+        hook_event_name: "PreCompact",
+        session_id: "session-store-device",
+        cwd: repoRoot,
+        compact_summary: "Persist without environment setup."
+      });
+      const parsed = JSON.parse(
+        (
+          await exec(
+            "node",
+            [
+              cliJsPath,
+              "--store",
+              store,
+              "host",
+              "hook",
+              "--host",
+              "codex",
+              "--project-id",
+              "moryn",
+              "--occurred-at",
+              "2026-07-11T00:00:00.000Z",
+              "--input-json",
+              payload,
+              "--no-pull",
+              "--no-push"
+            ],
+            { env: { ...process.env, MORYN_DEVICE_ID: "" } }
+          )
+        ).stdout
+      );
+      const record = JSON.parse(
+        (await readFile(join(store, "snapshots", "records.json"), "utf8")).toString()
+      ).records.find((candidate: any) => candidate.id === parsed.checkpoint.record.id);
       expect(record.source.device_id).toBe(initialized.config.device_id);
     });
   });
 
   it("skips empty turn-scoped Stop writes while preserving activation evidence", async () => {
     await withTempDir(async (store) => {
-      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      await exec("node", [cliJsPath, "--store", store, "init"]);
       const project = join(store, "project");
-      await exec("node", ["--import", tsxLoader, cliPath, "project", "init", "--path", project, "--project-id", "moryn"]);
-      const installed = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "install", "--host", "codex", "--project", project, "--apply"])).stdout);
+      await exec("node", [
+        cliJsPath,
+        "project",
+        "init",
+        "--path",
+        project,
+        "--project-id",
+        "moryn"
+      ]);
+      const installed = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "install",
+            "--host",
+            "codex",
+            "--project",
+            project,
+            "--apply"
+          ])
+        ).stdout
+      );
       const payload = JSON.stringify({ hook_event_name: "Stop", session_id: "codex-empty-stop", cwd: project });
-      const parsed = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "host", "hook", "--host", "codex", "--project", project, "--activation-id", installed.integration_artifact.artifact.activation_id, "--input-json", payload, "--no-push"])).stdout);
-      expect(parsed).toMatchObject({ action: "skip_empty_status", skipped: { reason: "no_durable_session_evidence" }, activation_receipt: { created: true } });
+      const parsed = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "host",
+            "hook",
+            "--host",
+            "codex",
+            "--project",
+            project,
+            "--activation-id",
+            installed.integration_artifact.artifact.activation_id,
+            "--input-json",
+            payload,
+            "--no-push"
+          ])
+        ).stdout
+      );
+      expect(parsed).toMatchObject({
+        action: "skip_empty_status",
+        skipped: { reason: "no_durable_session_evidence" },
+        activation_receipt: { created: true }
+      });
     });
   });
 });
@@ -10920,16 +14430,34 @@ describe("official host integration install", () => {
   it("writes and activates Claude Code hooks idempotently on apply", async () => {
     await withTempDir(async (store) => {
       await withTempDir(async (project) => {
-        const args = ["--import", tsxLoader, cliPath, "--store", store, "install", "--host", "claude", "--project", project, "--apply"];
+        const args = [
+          cliJsPath,
+          "--store",
+          store,
+          "install",
+          "--host",
+          "claude",
+          "--project",
+          project,
+          "--apply"
+        ];
         const first = JSON.parse((await exec("node", args)).stdout);
         const second = JSON.parse((await exec("node", args)).stdout);
-        expect(first.integration_artifact).toMatchObject({ created: true, artifact: { path: ".claude/moryn-settings.json", merge_target: ".claude/settings.local.json" } });
+        expect(first.integration_artifact).toMatchObject({
+          created: true,
+          artifact: { path: ".claude/moryn-settings.json", merge_target: ".claude/settings.local.json" }
+        });
         expect(second.integration_artifact).toMatchObject({ created: false, updated: false });
         expect(first.activation).toMatchObject({ changed: true, created: true, backup_created: false });
         expect(second.activation).toMatchObject({ changed: false, backup_created: false });
         expect(first.activation_status).toMatchObject({ status: "configured_unverified" });
-        expect(JSON.parse(await readFile(join(project, ".claude", "moryn-settings.json"), "utf8")).hooks.PreCompact).toBeDefined();
-        expect(JSON.parse(await readFile(join(project, ".claude", "settings.local.json"), "utf8")).hooks.PreCompact[0].hooks[0].command).toContain("--activation-id");
+        expect(
+          JSON.parse(await readFile(join(project, ".claude", "moryn-settings.json"), "utf8")).hooks.PreCompact
+        ).toBeDefined();
+        expect(
+          JSON.parse(await readFile(join(project, ".claude", "settings.local.json"), "utf8")).hooks.PreCompact[0]
+            .hooks[0].command
+        ).toContain("--activation-id");
       });
     });
   });
@@ -10938,12 +14466,31 @@ describe("official host integration install", () => {
     await withTempDir(async (store) => {
       await withTempDir(async (project) => {
         await mkdir(join(project, ".codex"), { recursive: true });
-        await writeFile(join(project, ".codex", "config.toml"), "model = \"gpt-5\"\n", "utf8");
-        const parsed = JSON.parse((await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "install", "--host", "codex", "--project", project, "--apply"])).stdout);
+        await writeFile(join(project, ".codex", "config.toml"), 'model = "gpt-5"\n', "utf8");
+        const parsed = JSON.parse(
+          (
+            await exec("node", [
+              cliJsPath,
+              "--store",
+              store,
+              "install",
+              "--host",
+              "codex",
+              "--project",
+              project,
+              "--apply"
+            ])
+          ).stdout
+        );
         expect(parsed.activation).toMatchObject({ changed: true, created: true });
-        expect(parsed.activation_status).toMatchObject({ status: "configured_unverified", repairable_automatically: false });
-        expect(JSON.parse(await readFile(join(project, ".codex", "hooks.json"), "utf8")).hooks.PreCompact[0].hooks[0].command).toContain("--activation-id");
-        expect(await readFile(join(project, ".codex", "config.toml"), "utf8")).toBe("model = \"gpt-5\"\n");
+        expect(parsed.activation_status).toMatchObject({
+          status: "configured_unverified",
+          repairable_automatically: false
+        });
+        expect(
+          JSON.parse(await readFile(join(project, ".codex", "hooks.json"), "utf8")).hooks.PreCompact[0].hooks[0].command
+        ).toContain("--activation-id");
+        expect(await readFile(join(project, ".codex", "config.toml"), "utf8")).toBe('model = "gpt-5"\n');
       });
     });
   });
@@ -10953,18 +14500,43 @@ describe("host activation CLI", () => {
   it("reports and applies Claude activation idempotently", async () => {
     await withTempDir(async (store) => {
       await withTempDir(async (project) => {
-        await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
-        await exec("node", ["--import", tsxLoader, cliPath, "project", "init", "--path", project, "--project-id", "moryn"]);
-        const base = ["--import", tsxLoader, cliPath, "--store", store, "activation"];
-        const before = JSON.parse((await exec("node", [...base, "status", "--host", "claude", "--project", project])).stdout);
-        const first = JSON.parse((await exec("node", [...base, "apply", "--host", "claude", "--project", project])).stdout);
-        const second = JSON.parse((await exec("node", [...base, "apply", "--host", "claude", "--project", project])).stdout);
-        const after = JSON.parse((await exec("node", [...base, "status", "--host", "claude", "--project", project])).stdout);
+        await exec("node", [cliJsPath, "--store", store, "init"]);
+        await exec("node", [
+          cliJsPath,
+          "project",
+          "init",
+          "--path",
+          project,
+          "--project-id",
+          "moryn"
+        ]);
+        const base = [cliJsPath, "--store", store, "activation"];
+        const before = JSON.parse(
+          (await exec("node", [...base, "status", "--host", "claude", "--project", project])).stdout
+        );
+        const first = JSON.parse(
+          (await exec("node", [...base, "apply", "--host", "claude", "--project", project])).stdout
+        );
+        const second = JSON.parse(
+          (await exec("node", [...base, "apply", "--host", "claude", "--project", project])).stdout
+        );
+        const after = JSON.parse(
+          (await exec("node", [...base, "status", "--host", "claude", "--project", project])).stdout
+        );
 
         expect(before).toMatchObject({ status: "not_installed", repairable_automatically: true });
-        expect(first).toMatchObject({ activation: { changed: true, created: true }, status: { status: "configured_unverified" } });
-        expect(second).toMatchObject({ activation: { changed: false, backup_created: false }, status: { status: "configured_unverified" } });
-        expect(after).toMatchObject({ status: "configured_unverified", configured_events: ["SessionStart", "UserPromptSubmit", "PreCompact", "PostCompact", "Stop", "SessionEnd"] });
+        expect(first).toMatchObject({
+          activation: { changed: true, created: true },
+          status: { status: "configured_unverified" }
+        });
+        expect(second).toMatchObject({
+          activation: { changed: false, backup_created: false },
+          status: { status: "configured_unverified" }
+        });
+        expect(after).toMatchObject({
+          status: "configured_unverified",
+          configured_events: ["SessionStart", "UserPromptSubmit", "PreCompact", "PostCompact", "Stop", "SessionEnd"]
+        });
       });
     });
   });
@@ -10972,17 +14544,38 @@ describe("host activation CLI", () => {
   it("applies Codex activation idempotently without modifying config.toml", async () => {
     await withTempDir(async (store) => {
       await withTempDir(async (project) => {
-        await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
-        await exec("node", ["--import", tsxLoader, cliPath, "project", "init", "--path", project, "--project-id", "moryn"]);
+        await exec("node", [cliJsPath, "--store", store, "init"]);
+        await exec("node", [
+          cliJsPath,
+          "project",
+          "init",
+          "--path",
+          project,
+          "--project-id",
+          "moryn"
+        ]);
         await mkdir(join(project, ".codex"), { recursive: true });
-        await writeFile(join(project, ".codex", "config.toml"), "model = \"gpt-5\"\n", "utf8");
+        await writeFile(join(project, ".codex", "config.toml"), 'model = "gpt-5"\n', "utf8");
 
-        const args = ["--import", tsxLoader, cliPath, "--store", store, "activation", "apply", "--host", "codex", "--project", project];
+        const args = [
+          cliJsPath,
+          "--store",
+          store,
+          "activation",
+          "apply",
+          "--host",
+          "codex",
+          "--project",
+          project
+        ];
         const first = JSON.parse((await exec("node", args)).stdout);
         const second = JSON.parse((await exec("node", args)).stdout);
-        expect(first).toMatchObject({ activation: { changed: true, created: true }, status: { status: "configured_unverified" } });
+        expect(first).toMatchObject({
+          activation: { changed: true, created: true },
+          status: { status: "configured_unverified" }
+        });
         expect(second).toMatchObject({ activation: { changed: false, backup_created: false } });
-        expect(await readFile(join(project, ".codex", "config.toml"), "utf8")).toBe("model = \"gpt-5\"\n");
+        expect(await readFile(join(project, ".codex", "config.toml"), "utf8")).toBe('model = "gpt-5"\n');
       });
     });
   });
