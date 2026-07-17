@@ -164,6 +164,68 @@ export function dashboardWorkspaceScript(): string {
           else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
         });
 
+        const responseJson = async (response) => {
+          const text = await response.text();
+          if (!text) return {};
+          try { return JSON.parse(text); } catch { return { ok: false, message: text }; }
+        };
+        const setDecisionStatus = (status, en, zh = en) => {
+          if (!(status instanceof HTMLElement)) return;
+          status.dataset.i18nEn = en;
+          status.dataset.i18nZh = zh;
+          status.textContent = window.currentDashboardLanguage?.() === "zh" ? zh : en;
+        };
+        const refreshDecisionFragment = async () => {
+          const main = document.querySelector("main");
+          if (!(main instanceof HTMLElement)) return;
+          const workspaceState = window.dashboardWorkspaceState?.capture();
+          const response = await fetch("fragment", { cache: "no-store" });
+          if (!response.ok) return;
+          main.innerHTML = await response.text();
+          window.restoreDashboardWorkspaceAfterFragment?.(workspaceState);
+          window.applyDashboardLanguage?.();
+          window.restoreActionReceipt?.();
+        };
+        const setupDecisionCards = () => {
+          root.addEventListener('click', async (event) => {
+            const target = event.target;
+            if (!(target instanceof Element)) return;
+            const button = target.closest('[data-decision-action]');
+            if (!(button instanceof HTMLButtonElement)) return;
+            const endpoint = button.dataset.decisionEndpoint;
+            if (!endpoint) return;
+            markInteraction();
+            const card = button.closest('[data-decision-card]');
+            const status = card instanceof HTMLElement ? card.querySelector('[data-decision-status]') : null;
+            const isReject = button.dataset.decisionAction === 'reject';
+            const buttons = card instanceof HTMLElement ? card.querySelectorAll('[data-decision-action]') : [button];
+            buttons.forEach((el) => { if (el instanceof HTMLButtonElement) el.disabled = true; });
+            setDecisionStatus(status, isReject ? "Discarding..." : "Saving to memory...", isReject ? "正在丢弃..." : "正在记住...");
+            let body = {};
+            try { body = JSON.parse(button.dataset.decisionBody || "{}"); } catch { body = {}; }
+            try {
+              const response = await fetch(endpoint, {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify(body)
+              });
+              const result = await responseJson(response);
+              if (!response.ok || result.ok === false) {
+                setDecisionStatus(status, result.message || "Action failed.", result.message || "操作失败。");
+                buttons.forEach((el) => { if (el instanceof HTMLButtonElement) el.disabled = false; });
+                return;
+              }
+              setDecisionStatus(status, isReject ? "Discarded. Refreshing..." : "Saved. Refreshing...", isReject ? "已丢弃，正在刷新..." : "已记住，正在刷新...");
+              window.renderActionReceipt?.(result);
+              await refreshDecisionFragment();
+            } catch (error) {
+              setDecisionStatus(status, error instanceof Error ? error.message : "Action failed.", error instanceof Error ? error.message : "操作失败。");
+              buttons.forEach((el) => { if (el instanceof HTMLButtonElement) el.disabled = false; });
+            }
+          });
+        };
+        setupDecisionCards();
+
         const setupMemorySearch = () => {
           const container = root.querySelector('[data-memory-search]');
           if (!(container instanceof HTMLElement)) return;

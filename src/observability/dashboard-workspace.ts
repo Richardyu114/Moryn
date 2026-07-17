@@ -1,8 +1,10 @@
 import type {
+  DashboardAction,
   DashboardActivityTrendChart,
   DashboardAgentChartItem,
   DashboardAttentionItem,
   DashboardData,
+  DashboardDecisionSummaryItem,
   DashboardEventSummary,
   DashboardMemoryStateChartItem,
   DashboardRecordSummary,
@@ -384,11 +386,90 @@ export function buildDashboardWorkspaceModel(data: DashboardData): DashboardWork
   };
 }
 
-function renderAttention(items: DashboardAttentionItem[]): string {
-  if (items.length === 0) return "";
+interface DecisionCardCopy {
+  title_en: string;
+  title_zh: string;
+  approve_en: string;
+  approve_zh: string;
+  reject_en?: string;
+  reject_zh?: string;
+}
+
+function decisionCardCopy(item: DashboardDecisionSummaryItem): DecisionCardCopy {
+  switch (item.surface) {
+    case "maintenance_review":
+      return {
+        title_en: "Tidy up this memory?",
+        title_zh: "要整理一下吗？",
+        approve_en: "Tidy up",
+        approve_zh: "整理"
+      };
+    default:
+      return {
+        title_en: "Remember this?",
+        title_zh: "记住这条？",
+        approve_en: "Remember",
+        approve_zh: "记住",
+        reject_en: "Don't",
+        reject_zh: "不用"
+      };
+  }
+}
+
+function decisionActionAttributes(action: DashboardAction | undefined): string {
+  if (!action?.endpoint || action.method !== "POST") return "";
+  const body = JSON.stringify(action.request_body ?? {});
+  return `data-decision-endpoint="${escapeHtml(action.endpoint.replace(/^\//, ""))}" data-decision-body="${escapeHtml(body)}"`;
+}
+
+function renderDecisionCard(item: DashboardDecisionSummaryItem, actionsById: Record<string, DashboardAction>): string {
+  const copy = decisionCardCopy(item);
+  const approveAction = item.primary_action_id ? actionsById[item.primary_action_id] : undefined;
+  const rejectAction = item.secondary_action_id ? actionsById[item.secondary_action_id] : undefined;
+  const approveAttrs = decisionActionAttributes(approveAction);
+  if (!approveAttrs) return "";
+  const rejectAttrs = copy.reject_en ? decisionActionAttributes(rejectAction) : "";
+  const rejectButton = rejectAttrs
+    ? `<button type="button" class="editorial-decision-button ghost" data-decision-action="reject" ${rejectAttrs}><span data-i18n-en="${escapeHtml(copy.reject_en ?? "")}" data-i18n-zh="${escapeHtml(copy.reject_zh ?? "")}">${escapeHtml(copy.reject_en ?? "")}</span></button>`
+    : "";
+  return `<article class="editorial-decision-card" data-decision-card>
+      <div class="editorial-decision-head">
+        <strong data-i18n-en="${escapeHtml(copy.title_en)}" data-i18n-zh="${escapeHtml(copy.title_zh)}">${escapeHtml(copy.title_en)}</strong>
+        <span class="editorial-decision-source">${escapeHtml(item.title)}</span>
+      </div>
+      <p class="editorial-decision-summary">${escapeHtml(item.summary)}</p>
+      <p class="editorial-decision-note">${escapeHtml(item.safety_note)}</p>
+      <div class="editorial-decision-actions">
+        <button type="button" class="editorial-decision-button primary" data-decision-action="approve" ${approveAttrs}><span data-i18n-en="${escapeHtml(copy.approve_en)}" data-i18n-zh="${escapeHtml(copy.approve_zh)}">${escapeHtml(copy.approve_en)}</span></button>
+        ${rejectButton}
+        <span class="editorial-decision-status" data-decision-status aria-live="polite"></span>
+      </div>
+    </article>`;
+}
+
+function isDecisionAttentionItem(item: DashboardAttentionItem, decisionTitles: Set<string>): boolean {
+  return decisionTitles.has(item.title);
+}
+
+function renderAttention(
+  items: DashboardAttentionItem[],
+  decisionItems: DashboardDecisionSummaryItem[],
+  actionsById: Record<string, DashboardAction>
+): string {
+  const cards = decisionItems.map((item) => renderDecisionCard(item, actionsById)).filter((html) => html !== "");
+  const decisionTitles = new Set(decisionItems.map((item) => item.title));
+  const notices = items.filter((item) => !isDecisionAttentionItem(item, decisionTitles));
+  if (cards.length === 0 && notices.length === 0) return "";
+  const noticesHtml = notices
+    .map(
+      (item) =>
+        `<article class="editorial-decision-notice"><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.description)}</p></article>`
+    )
+    .join("");
   return `<section class="editorial-section editorial-attention" data-editorial-section="attention">
-    <div class="editorial-section-title">${i18n("Attention", "需要关注")}</div>
-    ${items.map((item) => `<article><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.description)}</p></article>`).join("")}
+    <div class="editorial-section-title">${i18n("Needs your input", "需要你确认")}</div>
+    ${cards.join("")}
+    ${noticesHtml}
   </section>`;
 }
 
@@ -632,7 +713,7 @@ export function renderDashboardWorkspace(data: DashboardData, fragments: Dashboa
               <div class="editorial-context-meta"><span>${escapeHtml(model.project)}</span><span>${escapeHtml(model.agent)}</span><span>${escapeHtml(model.device)}</span><time datetime="${escapeHtml(model.generated_at)}">${escapeHtml(model.generated_at)}</time></div>
               ${model.no_action_required ? `<div class="editorial-conclusion" data-editorial-conclusion="no-action-required"><div class="editorial-conclusion-mark">✓</div><div><strong>${i18n("No action required", "无需操作")}</strong><span>${i18n("Moryn is handling continuity in the background.", "Moryn 正在后台处理上下文连续性。")}</span></div></div>` : ""}
             </section>
-            ${renderAttention(data.quiet_dashboard.attention_needed)}
+            ${renderAttention(data.quiet_dashboard.attention_needed, data.decision_summary.items, data.actions_by_id)}
             <section class="editorial-section" data-editorial-section="memory-state"><div class="editorial-section-heading"><div class="editorial-section-title">${i18n("Memory State", "记忆状态")}</div><p>${i18n("A bounded view of what agents can use now", "Agent 当前可用的有界记忆视图")}</p></div><div class="editorial-memory-grid">
               ${renderMetric("memory-active", "Active", "活跃记忆", model.memory.active)}
               ${renderMetric("memory-learned", "Learned", "已学习", model.memory.learned)}

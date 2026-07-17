@@ -192,6 +192,10 @@ describe("observability dashboard", () => {
         '<section id="needs-attention" class="panel" data-dashboard-section="needs-attention">'
       );
       expect(html).not.toContain('data-dashboard-detail="decision-summary"');
+      // Quiet by default: with no decisions and no exceptional attention, the
+      // "Needs your input" region is hidden entirely.
+      expect(html).not.toContain('data-editorial-section="attention"');
+      expect(html).not.toContain('class="editorial-decision-card"');
     });
   });
 
@@ -1978,6 +1982,21 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("Approve Triage");
       expect(html).not.toContain("Archive Group");
       expect(html).not.toContain("Promote Selected");
+
+      // Decision surface: the two pending decisions render as plain-language cards
+      // in the "Needs your input" region with wired POST endpoints.
+      expect(html).toContain('data-editorial-section="attention"');
+      expect(html).toContain('data-i18n-zh="需要你确认"');
+      expect(html).toContain('class="editorial-decision-card"');
+      // candidate_triage promotion -> "Remember this?" card with approve endpoint
+      expect(html).toContain('data-i18n-zh="记住这条？"');
+      expect(html).toContain('data-decision-endpoint="api/candidate-triage/promotions/rec_candidate_triage_3/approve"');
+      expect(html).toContain('data-decision-action="approve"');
+      // maintenance/review-queue plan -> "Tidy up this memory?" card
+      expect(html).toContain('data-i18n-zh="要整理一下吗？"');
+      expect(html).toContain('data-decision-endpoint="api/maintenance/plans/');
+      // request body carried on the button (candidate triage uses empty object)
+      expect(html).toContain('data-decision-body="{}"');
     });
   });
 
