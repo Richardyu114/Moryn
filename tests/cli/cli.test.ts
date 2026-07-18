@@ -7751,7 +7751,7 @@ describe("moryn CLI", () => {
       const defaultOpened = JSON.parse(
         (
           await execInTty("node", [cliJsPath, "--store", store, "dashboard"], {
-            env: { ...process.env, MORYN_DASHBOARD_OPEN_COMMAND: "true" }
+            env: { ...process.env, CI: "false", MORYN_DASHBOARD_OPEN_COMMAND: "true" }
           })
         ).stdout
       ) as {
