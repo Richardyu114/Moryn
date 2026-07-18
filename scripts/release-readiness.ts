@@ -10,6 +10,7 @@ const REQUIRED_SMOKES = [
   "finalization_assurance_smoke",
   "official_host_handoff_smoke"
 ] as const;
+const TARGET_RELEASE = "0.3.0" as const;
 
 type Check = { status: "passed" } | { status: "failed"; reason: string; missing?: string[]; offending?: string[] };
 type PackageJsonInput = { name?: unknown; version?: unknown; files?: unknown };
@@ -26,19 +27,15 @@ export interface ReleaseReadinessResult {
   version: 1;
   status: "passed" | "failed";
   package_version: string;
-  target_release: "0.3.0";
-  release_authorized: false;
+  target_release: typeof TARGET_RELEASE;
+  release_candidate: boolean;
   checks: {
+    target_version_matches: Check;
     published_version_matches: Check;
-    changelog_current_version_present: Check;
-    unreleased_v03_present: Check;
+    changelog_release_notes_present: Check;
     required_smokes_present: Check;
     private_paths_absent: Check;
   };
-  manual_actions: Record<
-    "version_bump" | "tag" | "push" | "publish",
-    { status: "not_authorized"; requires: "explicit_user_approval" }
-  >;
 }
 
 function passed(): Check {
@@ -50,15 +47,16 @@ function failed(reason: string, details: { missing?: string[]; offending?: strin
 
 export function evaluateReleaseReadiness(input: ReleaseReadinessInput): ReleaseReadinessResult {
   const packageVersion = typeof input.package_json.version === "string" ? input.package_json.version : "unknown";
+  const targetVersionMatches =
+    packageVersion === TARGET_RELEASE
+      ? passed()
+      : failed(`package.json version must match the v${TARGET_RELEASE} release candidate`);
   const publishedVersionMatches = input.readme.includes(`Published package: v${packageVersion}`)
     ? passed()
     : failed("README published-version statement does not match package.json");
-  const changelogCurrentVersion = input.changelog.includes(`## ${packageVersion}`)
+  const changelogReleaseNotes = /^##\s+0\.3\.0(?:\s|$)/m.test(input.changelog)
     ? passed()
-    : failed("CHANGELOG does not contain the current package version");
-  const unreleasedV03 = /##\s+Unreleased\s*\(v0\.3 development\)/i.test(input.changelog)
-    ? passed()
-    : failed("CHANGELOG does not contain an unreleased v0.3 development section");
+    : failed("CHANGELOG does not contain the v0.3.0 release notes");
   const packageFiles = Array.isArray(input.package_json.files)
     ? input.package_json.files.filter((value): value is string => typeof value === "string")
     : [];
@@ -73,30 +71,45 @@ export function evaluateReleaseReadiness(input: ReleaseReadinessInput): ReleaseR
   const requiredSmokes = missingSmokes.length
     ? failed("Required v0.3 smoke evidence is missing", { missing: missingSmokes })
     : passed();
-  const offending = input.packed_files.filter((file) => file.replace(/^package\//, "").startsWith("docs/releases/"));
+  const offending = input.packed_files.filter((file) => {
+    const normalized = file.replace(/^package\//, "");
+    return (
+      normalized === "config.json" ||
+      normalized === ".moryn.json" ||
+      normalized.startsWith(".moryn/") ||
+      normalized.startsWith(".gemini/") ||
+      normalized.startsWith(".codex/") ||
+      normalized.startsWith(".superpowers/") ||
+      normalized.startsWith(".worktrees/") ||
+      normalized.startsWith("docs/releases/") ||
+      normalized.startsWith("docs/superpowers/") ||
+      normalized.startsWith("events/") ||
+      normalized.startsWith("snapshots/") ||
+      normalized.startsWith("indexes/") ||
+      normalized.startsWith("state/") ||
+      normalized.startsWith("temp/") ||
+      normalized.startsWith("tmp/") ||
+      normalized.endsWith(".tgz")
+    );
+  });
   const privatePathsAbsent = offending.length
     ? failed("Private release planning paths are present in package contents", { offending })
     : passed();
   const checks = {
+    target_version_matches: targetVersionMatches,
     published_version_matches: publishedVersionMatches,
-    changelog_current_version_present: changelogCurrentVersion,
-    unreleased_v03_present: unreleasedV03,
+    changelog_release_notes_present: changelogReleaseNotes,
     required_smokes_present: requiredSmokes,
     private_paths_absent: privatePathsAbsent
   };
+  const status = Object.values(checks).every((check) => check.status === "passed") ? "passed" : "failed";
   return {
     version: 1,
-    status: Object.values(checks).every((check) => check.status === "passed") ? "passed" : "failed",
+    status,
     package_version: packageVersion,
-    target_release: "0.3.0",
-    release_authorized: false,
-    checks,
-    manual_actions: {
-      version_bump: { status: "not_authorized", requires: "explicit_user_approval" },
-      tag: { status: "not_authorized", requires: "explicit_user_approval" },
-      push: { status: "not_authorized", requires: "explicit_user_approval" },
-      publish: { status: "not_authorized", requires: "explicit_user_approval" }
-    }
+    target_release: TARGET_RELEASE,
+    release_candidate: status === "passed",
+    checks
   };
 }
 

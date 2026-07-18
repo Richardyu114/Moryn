@@ -4682,7 +4682,7 @@ describe("agent lifecycle", () => {
           source: { client: "codex", session_id: "codex-replay" }
         })
       ]);
-      expect(repeated).toEqual(repeated.map((receipt) => expect.objectContaining({ idempotent_replays: 3 })));
+      expect(repeated).toEqual(repeated.map((_receipt) => expect.objectContaining({ idempotent_replays: 3 })));
       const finish = await agentFinish({
         storePath: claudeStore,
         projectPath: project,

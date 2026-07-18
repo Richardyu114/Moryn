@@ -2434,13 +2434,7 @@ describe("moryn CLI", () => {
   });
 
   it("returns one operation contract from the CLI", async () => {
-    const result = await exec("node", [
-      cliJsPath,
-      "contracts",
-      "operations",
-      "--operation",
-      "agent_finish"
-    ]);
+    const result = await exec("node", [cliJsPath, "contracts", "operations", "--operation", "agent_finish"]);
     const parsed = JSON.parse(result.stdout) as {
       operation_source: string;
       matched_source: string;
@@ -2466,13 +2460,7 @@ describe("moryn CLI", () => {
   });
 
   it("documents dashboard server arguments in the operation contract", async () => {
-    const result = await exec("node", [
-      cliJsPath,
-      "contracts",
-      "operations",
-      "--operation",
-      "dashboard"
-    ]);
+    const result = await exec("node", [cliJsPath, "contracts", "operations", "--operation", "dashboard"]);
     const parsed = JSON.parse(result.stdout) as {
       operation: {
         interfaces: { cli: { command: string } };
@@ -2532,13 +2520,7 @@ describe("moryn CLI", () => {
   });
 
   it("returns one operation contract from the CLI by MCP tool or CLI command", async () => {
-    const byMcpTool = await exec("node", [
-      cliJsPath,
-      "contracts",
-      "operations",
-      "--mcp-tool",
-      "agent_finish"
-    ]);
+    const byMcpTool = await exec("node", [cliJsPath, "contracts", "operations", "--mcp-tool", "agent_finish"]);
     const byCliCommand = await exec("node", [
       cliJsPath,
       "contracts",
@@ -3668,15 +3650,7 @@ describe("moryn CLI", () => {
         "Use events"
       ]);
       expect(write.stdout).toContain("rec_");
-      const recall = await exec("node", [
-        cliJsPath,
-        "--store",
-        dir,
-        "recall",
-        "events",
-        "--project-id",
-        "moryn"
-      ]);
+      const recall = await exec("node", [cliJsPath, "--store", dir, "recall", "events", "--project-id", "moryn"]);
       expect(recall.stdout).toContain("Use events");
     });
   });
@@ -3856,16 +3830,7 @@ describe("moryn CLI", () => {
       await expect(readFile(join(store, "config.json"), "utf8")).resolves.toContain("store_version");
       await expect(readFile(join(project, ".moryn.json"), "utf8")).resolves.toContain("project_id");
 
-      const ready = await exec("node", [
-        cliJsPath,
-        "--store",
-        store,
-        "setup",
-        "--host",
-        "codex",
-        "--project",
-        project
-      ]);
+      const ready = await exec("node", [cliJsPath, "--store", store, "setup", "--host", "codex", "--project", project]);
       const readyPlan = JSON.parse(ready.stdout) as {
         mode: string;
         status: string;
@@ -3899,16 +3864,7 @@ describe("moryn CLI", () => {
       await writeFile(projectFile, "not a directory", "utf8");
 
       try {
-        await exec("node", [
-          cliJsPath,
-          "--store",
-          store,
-          "setup",
-          "--host",
-          "codex",
-          "--project",
-          projectFile
-        ]);
+        await exec("node", [cliJsPath, "--store", store, "setup", "--host", "codex", "--project", projectFile]);
         throw new Error("Expected setup to reject a file project path");
       } catch (error) {
         const parsed = JSON.parse((error as { stderr: string }).stderr) as {
@@ -4113,15 +4069,7 @@ describe("moryn CLI", () => {
       const project = join(dir, "project");
       await mkdir(project, { recursive: true });
       await exec("node", [cliJsPath, "--store", store, "init"]);
-      await exec("node", [
-        cliJsPath,
-        "project",
-        "init",
-        "--path",
-        project,
-        "--project-id",
-        "moryn"
-      ]);
+      await exec("node", [cliJsPath, "project", "init", "--path", project, "--project-id", "moryn"]);
 
       const hostCases = [
         { input: "claude-code", normalized: "claude" },
@@ -4239,15 +4187,7 @@ describe("moryn CLI", () => {
       const project = join(dir, "project");
       await mkdir(project, { recursive: true });
       await exec("node", [cliJsPath, "--store", store, "init"]);
-      await exec("node", [
-        cliJsPath,
-        "project",
-        "init",
-        "--path",
-        project,
-        "--project-id",
-        "moryn"
-      ]);
+      await exec("node", [cliJsPath, "project", "init", "--path", project, "--project-id", "moryn"]);
       await exec("node", [
         cliJsPath,
         "--store",
@@ -4509,15 +4449,7 @@ describe("moryn CLI", () => {
         "--sync-mode",
         "interval"
       ]);
-      await exec("node", [
-        cliJsPath,
-        "project",
-        "init",
-        "--path",
-        project,
-        "--project-id",
-        "moryn-v2"
-      ]);
+      await exec("node", [cliJsPath, "project", "init", "--path", project, "--project-id", "moryn-v2"]);
 
       const projectConfig = JSON.parse(await readFile(join(project, ".moryn.json"), "utf8")) as {
         project_id: string;
@@ -4535,15 +4467,7 @@ describe("moryn CLI", () => {
   it("accepts legacy project init sync-mode auto and normalizes it to interval", async () => {
     await withTempDir(async (dir) => {
       const project = join(dir, "project");
-      await exec("node", [
-        cliJsPath,
-        "project",
-        "init",
-        "--path",
-        project,
-        "--sync-mode",
-        "auto"
-      ]);
+      await exec("node", [cliJsPath, "project", "init", "--path", project, "--sync-mode", "auto"]);
 
       const projectConfig = JSON.parse(await readFile(join(project, ".moryn.json"), "utf8")) as {
         sync: { mode: string };
@@ -4557,15 +4481,7 @@ describe("moryn CLI", () => {
       const store = join(dir, "store");
       const project = join(dir, "project");
       await exec("node", [cliJsPath, "--store", store, "init"]);
-      await exec("node", [
-        cliJsPath,
-        "project",
-        "init",
-        "--path",
-        project,
-        "--project-id",
-        "moryn"
-      ]);
+      await exec("node", [cliJsPath, "project", "init", "--path", project, "--project-id", "moryn"]);
 
       const other = await exec("node", [
         cliJsPath,
@@ -4724,14 +4640,7 @@ describe("moryn CLI", () => {
         parsedRefresh.changes[0]!.next_action.workflow
       );
 
-      const recent = await exec("node", [
-        cliJsPath,
-        "--store",
-        dir,
-        "list-recent",
-        "--limit",
-        "1"
-      ]);
+      const recent = await exec("node", [cliJsPath, "--store", dir, "list-recent", "--limit", "1"]);
       const parsedRecent = JSON.parse(recent.stdout) as {
         records: Array<{ id: string; content: { text: string } }>;
         records_by_id: Record<string, { id: string; content: { text: string } }>;
@@ -5263,17 +5172,7 @@ describe("moryn CLI", () => {
       const store = join(dir, "store");
       const project = join(dir, "project");
       await exec("node", [cliJsPath, "--store", store, "init"]);
-      await exec("node", [
-        cliJsPath,
-        "--store",
-        store,
-        "project",
-        "init",
-        "--path",
-        project,
-        "--project-id",
-        "moryn"
-      ]);
+      await exec("node", [cliJsPath, "--store", store, "project", "init", "--path", project, "--project-id", "moryn"]);
       const result = await exec("node", [
         cliJsPath,
         "--store",
@@ -5777,17 +5676,7 @@ describe("moryn CLI", () => {
       ) as { record: { id: string } };
 
       const defaultRecall = JSON.parse(
-        (
-          await exec("node", [
-            cliJsPath,
-            "--store",
-            dir,
-            "recall",
-            "private boundary",
-            "--project-id",
-            "moryn"
-          ])
-        ).stdout
+        (await exec("node", [cliJsPath, "--store", dir, "recall", "private boundary", "--project-id", "moryn"])).stdout
       ) as { results: Array<{ record: { id: string } }> };
       const privateRecall = JSON.parse(
         (
@@ -5808,17 +5697,7 @@ describe("moryn CLI", () => {
         (await exec("node", [cliJsPath, "--store", dir, "boot", "--project-id", "moryn"])).stdout
       ) as { project: { warnings: Array<{ id: string }> } };
       const privateBoot = JSON.parse(
-        (
-          await exec("node", [
-            cliJsPath,
-            "--store",
-            dir,
-            "boot",
-            "--project-id",
-            "moryn",
-            "--include-private"
-          ])
-        ).stdout
+        (await exec("node", [cliJsPath, "--store", dir, "boot", "--project-id", "moryn", "--include-private"])).stdout
       ) as { project: { warnings: Array<{ id: string }> } };
 
       const defaultRefresh = JSON.parse(
@@ -5854,17 +5733,7 @@ describe("moryn CLI", () => {
         (await exec("node", [cliJsPath, "--store", dir, "list-recent", "--limit", "10"])).stdout
       ) as { records: Array<{ id: string }> };
       const privateRecent = JSON.parse(
-        (
-          await exec("node", [
-            cliJsPath,
-            "--store",
-            dir,
-            "list-recent",
-            "--limit",
-            "10",
-            "--include-private"
-          ])
-        ).stdout
+        (await exec("node", [cliJsPath, "--store", dir, "list-recent", "--limit", "10", "--include-private"])).stdout
       ) as { records: Array<{ id: string }> };
       const privateTimeline = JSON.parse(
         (
@@ -6016,14 +5885,7 @@ describe("moryn CLI", () => {
       ]);
       const parsedWrite = JSON.parse(write.stdout) as { record: { id: string; confidence: number } };
 
-      const boot = await exec("node", [
-        cliJsPath,
-        "--store",
-        dir,
-        "boot",
-        "--project-id",
-        "moryn"
-      ]);
+      const boot = await exec("node", [cliJsPath, "--store", dir, "boot", "--project-id", "moryn"]);
       const parsedBoot = JSON.parse(boot.stdout) as {
         recent_changes: Array<{ id: string }>;
         records_by_id: Record<string, { id: string }>;
@@ -6104,11 +5966,9 @@ describe("moryn CLI", () => {
       expect(parsed.record.project_id).toBe("explicit");
       expect(parsed.record.tags).toEqual([]);
 
-      const boot = await exec(
-        "node",
-        [cliJsPath, "--store", store, "boot", "--project-id", "explicit"],
-        { cwd: project }
-      );
+      const boot = await exec("node", [cliJsPath, "--store", store, "boot", "--project-id", "explicit"], {
+        cwd: project
+      });
       const parsedBoot = JSON.parse(boot.stdout) as { skills: Array<{ id: string }> };
 
       expect(parsedBoot.skills).toEqual([]);
@@ -6516,17 +6376,7 @@ describe("moryn CLI", () => {
         ).stdout
       ) as { changes: Array<{ record_id: string; summary: string }> };
       const recall = JSON.parse(
-        (
-          await exec("node", [
-            cliJsPath,
-            "--store",
-            dir,
-            "recall",
-            "cli-structured",
-            "--project-id",
-            "moryn"
-          ])
-        ).stdout
+        (await exec("node", [cliJsPath, "--store", dir, "recall", "cli-structured", "--project-id", "moryn"])).stdout
       ) as { results: Array<{ record: { id: string }; reason: string[] }> };
 
       expect(boot.project.summary).toBe("CLI structured boot summary.");
@@ -7179,14 +7029,7 @@ describe("moryn CLI", () => {
         "--reason",
         "Clarified wording"
       ]);
-      const recall = await exec("node", [
-        cliJsPath,
-        "--store",
-        dir,
-        "recall",
-        "--record-id",
-        recordId
-      ]);
+      const recall = await exec("node", [cliJsPath, "--store", dir, "recall", "--record-id", recordId]);
       const parsed = JSON.parse(recall.stdout) as {
         results: Array<{ record: { content: { text: string }; confidence: number } }>;
       };
@@ -7344,15 +7187,7 @@ describe("moryn CLI", () => {
 
       for (const assignment of ["content.text", ".content.text=value", "content..text=value", "content.text.=value"]) {
         try {
-          await exec("node", [
-            cliJsPath,
-            "--store",
-            dir,
-            "revise",
-            "rec_missing",
-            "--set",
-            assignment
-          ]);
+          await exec("node", [cliJsPath, "--store", dir, "revise", "rec_missing", "--set", assignment]);
           throw new Error("Expected moryn revise to reject malformed --set assignment");
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
@@ -7644,50 +7479,19 @@ describe("moryn CLI", () => {
       expect(parsedDecisionWrite.selection_sources).toEqual(WRITE_SELECTION_SOURCES);
 
       const link = JSON.parse(
-        (
-          await exec("node", [
-            cliJsPath,
-            "--store",
-            store,
-            "link",
-            decisionId,
-            oldId,
-            "--type",
-            "supersedes"
-          ])
-        ).stdout
+        (await exec("node", [cliJsPath, "--store", store, "link", decisionId, oldId, "--type", "supersedes"])).stdout
       ) as {
         event: { record_id: string; linked_record_id: string };
         selection_sources: Record<string, string>;
       };
       const archive = JSON.parse(
-        (
-          await exec("node", [
-            cliJsPath,
-            "--store",
-            store,
-            "archive",
-            oldId,
-            "--reason",
-            "Superseded"
-          ])
-        ).stdout
+        (await exec("node", [cliJsPath, "--store", store, "archive", oldId, "--reason", "Superseded"])).stdout
       ) as {
         event: { record_id: string };
         selection_sources: Record<string, string>;
       };
       const quarantine = JSON.parse(
-        (
-          await exec("node", [
-            cliJsPath,
-            "--store",
-            store,
-            "quarantine",
-            secretId,
-            "--reason",
-            "Needs review"
-          ])
-        ).stdout
+        (await exec("node", [cliJsPath, "--store", store, "quarantine", secretId, "--reason", "Needs review"])).stdout
       ) as {
         event: { record_id: string };
         selection_sources: Record<string, string>;
@@ -7699,14 +7503,7 @@ describe("moryn CLI", () => {
       expect(archive.selection_sources).toEqual(MUTATION_EVENT_SELECTION_SOURCES);
       expect(quarantine.selection_sources).toEqual(MUTATION_EVENT_SELECTION_SOURCES);
 
-      const boot = await exec("node", [
-        cliJsPath,
-        "--store",
-        store,
-        "boot",
-        "--project",
-        project
-      ]);
+      const boot = await exec("node", [cliJsPath, "--store", store, "boot", "--project", project]);
       expect(boot.stdout).toContain(skillId);
       expect(boot.stdout).toContain("safe-release: run tests before publishing");
 
@@ -7808,12 +7605,12 @@ describe("moryn CLI", () => {
 
       await exec("node", [cliJsPath, "--store", storeA, "init"]);
       await exec("node", [cliJsPath, "--store", storeB, "init"]);
-      const initA = JSON.parse(
-        (await exec("node", [cliJsPath, "--store", storeA, "sync", "init", remote])).stdout
-      ) as { selection_sources: Record<string, string> };
-      const initB = JSON.parse(
-        (await exec("node", [cliJsPath, "--store", storeB, "sync", "init", remote])).stdout
-      ) as { selection_sources: Record<string, string> };
+      const initA = JSON.parse((await exec("node", [cliJsPath, "--store", storeA, "sync", "init", remote])).stdout) as {
+        selection_sources: Record<string, string>;
+      };
+      const initB = JSON.parse((await exec("node", [cliJsPath, "--store", storeB, "sync", "init", remote])).stdout) as {
+        selection_sources: Record<string, string>;
+      };
       expect(initA.selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
       expect(initB.selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
       await exec("node", [
@@ -7835,15 +7632,7 @@ describe("moryn CLI", () => {
         "CLI sync uses Git"
       ]);
 
-      const push = await exec("node", [
-        cliJsPath,
-        "--store",
-        storeA,
-        "sync",
-        "--push",
-        "--message",
-        "custom cli sync"
-      ]);
+      const push = await exec("node", [cliJsPath, "--store", storeA, "sync", "--push", "--message", "custom cli sync"]);
       expect(push.stdout).toContain('"pushed": true');
       const parsedPush = JSON.parse(push.stdout) as {
         selection_sources: Record<string, string>;
@@ -7872,15 +7661,7 @@ describe("moryn CLI", () => {
         path: join(storeB, "state", "dashboard", "index.html")
       });
 
-      const recall = await exec("node", [
-        cliJsPath,
-        "--store",
-        storeB,
-        "recall",
-        "Git",
-        "--project-id",
-        "moryn"
-      ]);
+      const recall = await exec("node", [cliJsPath, "--store", storeB, "recall", "Git", "--project-id", "moryn"]);
       expect(recall.stdout).toContain("CLI sync uses Git");
 
       const status = await exec("node", [cliJsPath, "--store", storeB, "sync", "--status"]);
@@ -8142,15 +7923,7 @@ describe("moryn CLI", () => {
 
       await exec("node", [cliJsPath, "--store", storeA, "init"]);
       await exec("node", [cliJsPath, "--store", storeB, "init"]);
-      await exec("node", [
-        cliJsPath,
-        "project",
-        "init",
-        "--path",
-        project,
-        "--project-id",
-        "moryn"
-      ]);
+      await exec("node", [cliJsPath, "project", "init", "--path", project, "--project-id", "moryn"]);
       await exec("node", [cliJsPath, "--store", storeA, "sync", "init", remote]);
       await exec("node", [cliJsPath, "--store", storeB, "sync", "init", remote]);
 
@@ -8243,23 +8016,13 @@ describe("moryn CLI", () => {
         "Auth token refresh is blocked by stale credentials."
       ]);
       const push = JSON.parse(
-        (
-          await exec("node", [
-            cliJsPath,
-            "--store",
-            storeA,
-            "sync",
-            "--push",
-            "--message",
-            "mvp success flow"
-          ])
-        ).stdout
+        (await exec("node", [cliJsPath, "--store", storeA, "sync", "--push", "--message", "mvp success flow"])).stdout
       ) as { pushed?: boolean };
       expect(push.pushed).toBe(true);
 
-      const pull = JSON.parse(
-        (await exec("node", [cliJsPath, "--store", storeB, "sync", "--pull"])).stdout
-      ) as { pulled?: boolean };
+      const pull = JSON.parse((await exec("node", [cliJsPath, "--store", storeB, "sync", "--pull"])).stdout) as {
+        pulled?: boolean;
+      };
       expect(pull.pulled).toBe(true);
 
       const bootB = JSON.parse(
@@ -9134,15 +8897,7 @@ describe("moryn CLI", () => {
       const storeB = join(dir, "fresh-store-b");
       const project = join(dir, "project");
       await exec("git", ["init", "--bare", remote]);
-      await exec("node", [
-        cliJsPath,
-        "project",
-        "init",
-        "--path",
-        project,
-        "--project-id",
-        "moryn"
-      ]);
+      await exec("node", [cliJsPath, "project", "init", "--path", project, "--project-id", "moryn"]);
 
       const finish = await exec("node", [
         cliJsPath,
@@ -9204,15 +8959,7 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
       const project = join(dir, "project");
-      await exec("node", [
-        cliJsPath,
-        "project",
-        "init",
-        "--path",
-        project,
-        "--project-id",
-        "moryn"
-      ]);
+      await exec("node", [cliJsPath, "project", "init", "--path", project, "--project-id", "moryn"]);
 
       const start = await exec(
         "node",
@@ -9268,15 +9015,7 @@ describe("moryn CLI", () => {
       const storeB = join(dir, "fresh-store-b");
       const project = join(dir, "project");
       await exec("git", ["init", "--bare", remote]);
-      await exec("node", [
-        cliJsPath,
-        "project",
-        "init",
-        "--path",
-        project,
-        "--project-id",
-        "moryn"
-      ]);
+      await exec("node", [cliJsPath, "project", "init", "--path", project, "--project-id", "moryn"]);
 
       const status = await exec("node", [
         cliJsPath,
@@ -9596,15 +9335,7 @@ describe("moryn CLI", () => {
       const store = join(dir, "fresh-store");
       const project = join(dir, "project");
       await exec("git", ["init", "--bare", remote]);
-      await exec("node", [
-        cliJsPath,
-        "project",
-        "init",
-        "--path",
-        project,
-        "--project-id",
-        "moryn"
-      ]);
+      await exec("node", [cliJsPath, "project", "init", "--path", project, "--project-id", "moryn"]);
 
       const doctor = await exec("node", [
         cliJsPath,
@@ -9820,15 +9551,7 @@ describe("moryn CLI", () => {
       const project = join(dir, "project");
       const conflictFile = join("events", "shared-device", "2026-05", "evt_conflict.json");
       await exec("git", ["init", "--bare", remote]);
-      await exec("node", [
-        cliJsPath,
-        "project",
-        "init",
-        "--path",
-        project,
-        "--project-id",
-        "moryn"
-      ]);
+      await exec("node", [cliJsPath, "project", "init", "--path", project, "--project-id", "moryn"]);
       await createCliSyncConflict({ remote, storeA, storeB, conflictFile });
 
       const doctor = await exec("node", [
@@ -10546,15 +10269,7 @@ describe("moryn CLI", () => {
       const store = join(dir, "store");
       const project = join(dir, "project");
       await mkdir(project, { recursive: true });
-      await exec("node", [
-        cliJsPath,
-        "project",
-        "init",
-        "--path",
-        project,
-        "--project-id",
-        "moryn"
-      ]);
+      await exec("node", [cliJsPath, "project", "init", "--path", project, "--project-id", "moryn"]);
 
       const entered = await exec("node", [
         cliJsPath,
@@ -10684,14 +10399,7 @@ describe("moryn CLI", () => {
         stderr: expect.stringContaining('"ok": false')
       });
       try {
-        await exec("node", [
-          cliJsPath,
-          "--store",
-          join(dir, "store"),
-          "boot",
-          "--project",
-          project
-        ]);
+        await exec("node", [cliJsPath, "--store", join(dir, "store"), "boot", "--project", project]);
       } catch (error) {
         const stderr = (error as { stderr: string }).stderr;
         const parsed = JSON.parse(stderr) as {
@@ -11093,15 +10801,7 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
       const project = join(dir, "project");
-      await exec("node", [
-        cliJsPath,
-        "project",
-        "init",
-        "--path",
-        project,
-        "--project-id",
-        "moryn"
-      ]);
+      await exec("node", [cliJsPath, "project", "init", "--path", project, "--project-id", "moryn"]);
 
       const doctor = await exec("node", [
         cliJsPath,
@@ -11462,15 +11162,7 @@ describe("moryn CLI", () => {
       const project = join(dir, "project");
       await mkdir(project, { recursive: true });
       await exec("node", [cliJsPath, "--store", dir, "init"]);
-      await exec("node", [
-        cliJsPath,
-        "project",
-        "init",
-        "--path",
-        project,
-        "--project-id",
-        "moryn"
-      ]);
+      await exec("node", [cliJsPath, "project", "init", "--path", project, "--project-id", "moryn"]);
 
       for (const command of ["start", "enter"]) {
         try {
@@ -11767,16 +11459,7 @@ describe("moryn CLI", () => {
   it("maps natural positional write input to required CLI options", async () => {
     await withTempDir(async (dir) => {
       try {
-        await exec("node", [
-          cliJsPath,
-          "--store",
-          dir,
-          "write",
-          "memory",
-          "decision",
-          "project",
-          "hello world"
-        ]);
+        await exec("node", [cliJsPath, "--store", dir, "write", "memory", "decision", "project", "hello world"]);
         throw new Error("Expected positional write input to reject with option mapping guidance");
       } catch (error) {
         if (!("stderr" in (error as object))) throw error;
@@ -12482,15 +12165,7 @@ describe("moryn CLI", () => {
       await exec("node", [cliJsPath, "--store", store, "init"]);
 
       try {
-        await exec("node", [
-          cliJsPath,
-          "--store",
-          store,
-          "promote",
-          "rec_missing",
-          "--state",
-          "canonical"
-        ]);
+        await exec("node", [cliJsPath, "--store", store, "promote", "rec_missing", "--state", "canonical"]);
         throw new Error("Expected moryn promote to fail for a missing record");
       } catch (error) {
         const stderr = (error as { stderr: string }).stderr;
@@ -12730,16 +12405,7 @@ describe("moryn CLI", () => {
         "--confirm"
       ]);
       const recall = JSON.parse(
-        (
-          await exec("node", [
-            cliJsPath,
-            "--store",
-            store,
-            "recall",
-            "--record-id",
-            parsedWrite.record.id
-          ])
-        ).stdout
+        (await exec("node", [cliJsPath, "--store", store, "recall", "--record-id", parsedWrite.record.id])).stdout
       ) as { results: Array<{ record: { state: string } }> };
       expect(recall.results[0]?.record.state).toBe("canonical");
 
@@ -12967,8 +12633,7 @@ describe("moryn CLI", () => {
         "--confirm"
       ]);
       const recall = JSON.parse(
-        (await exec("node", [cliJsPath, "--store", store, "recall", "--record-id", candidateId]))
-          .stdout
+        (await exec("node", [cliJsPath, "--store", store, "recall", "--record-id", candidateId])).stdout
       ) as { results: Array<{ record: { state: string; conflict?: { with: string[]; resolution: string } } }> };
       expect(recall.results[0]?.record.state).toBe("canonical");
       expect(recall.results[0]?.record.conflict?.with).toEqual([existingId]);
@@ -13091,8 +12756,7 @@ describe("moryn CLI", () => {
         "--confirm"
       ]);
       const recall = JSON.parse(
-        (await exec("node", [cliJsPath, "--store", store, "recall", "--record-id", targetId]))
-          .stdout
+        (await exec("node", [cliJsPath, "--store", store, "recall", "--record-id", targetId])).stdout
       ) as {
         results: Array<{
           record: { type: string; content: { text: string }; conflict?: { with: string[]; resolution: string } };
@@ -13221,14 +12885,7 @@ describe("moryn CLI", () => {
         "--text",
         "Local memory survives remote sync failure."
       ]);
-      const boot = await exec("node", [
-        cliJsPath,
-        "--store",
-        store,
-        "boot",
-        "--project-id",
-        "moryn"
-      ]);
+      const boot = await exec("node", [cliJsPath, "--store", store, "boot", "--project-id", "moryn"]);
 
       expect(boot.stdout).toContain("Local memory survives remote sync failure.");
     });
@@ -13238,15 +12895,7 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
       const project = join(dir, "project");
-      await exec("node", [
-        cliJsPath,
-        "project",
-        "init",
-        "--path",
-        project,
-        "--project-id",
-        "moryn"
-      ]);
+      await exec("node", [cliJsPath, "project", "init", "--path", project, "--project-id", "moryn"]);
 
       const start = await exec("node", [
         cliJsPath,
@@ -14327,9 +13976,7 @@ describe("host hook CLI", () => {
 
   it("uses the stable store device identity when hooks omit device-id", async () => {
     await withTempDir(async (store) => {
-      const initialized = JSON.parse(
-        (await exec("node", [cliJsPath, "--store", store, "init"])).stdout
-      );
+      const initialized = JSON.parse((await exec("node", [cliJsPath, "--store", store, "init"])).stdout);
       const payload = JSON.stringify({
         hook_event_name: "PreCompact",
         session_id: "session-store-device",
@@ -14372,15 +14019,7 @@ describe("host hook CLI", () => {
     await withTempDir(async (store) => {
       await exec("node", [cliJsPath, "--store", store, "init"]);
       const project = join(store, "project");
-      await exec("node", [
-        cliJsPath,
-        "project",
-        "init",
-        "--path",
-        project,
-        "--project-id",
-        "moryn"
-      ]);
+      await exec("node", [cliJsPath, "project", "init", "--path", project, "--project-id", "moryn"]);
       const installed = JSON.parse(
         (
           await exec("node", [
@@ -14430,17 +14069,7 @@ describe("official host integration install", () => {
   it("writes and activates Claude Code hooks idempotently on apply", async () => {
     await withTempDir(async (store) => {
       await withTempDir(async (project) => {
-        const args = [
-          cliJsPath,
-          "--store",
-          store,
-          "install",
-          "--host",
-          "claude",
-          "--project",
-          project,
-          "--apply"
-        ];
+        const args = [cliJsPath, "--store", store, "install", "--host", "claude", "--project", project, "--apply"];
         const first = JSON.parse((await exec("node", args)).stdout);
         const second = JSON.parse((await exec("node", args)).stdout);
         expect(first.integration_artifact).toMatchObject({
@@ -14501,15 +14130,7 @@ describe("host activation CLI", () => {
     await withTempDir(async (store) => {
       await withTempDir(async (project) => {
         await exec("node", [cliJsPath, "--store", store, "init"]);
-        await exec("node", [
-          cliJsPath,
-          "project",
-          "init",
-          "--path",
-          project,
-          "--project-id",
-          "moryn"
-        ]);
+        await exec("node", [cliJsPath, "project", "init", "--path", project, "--project-id", "moryn"]);
         const base = [cliJsPath, "--store", store, "activation"];
         const before = JSON.parse(
           (await exec("node", [...base, "status", "--host", "claude", "--project", project])).stdout
@@ -14545,29 +14166,11 @@ describe("host activation CLI", () => {
     await withTempDir(async (store) => {
       await withTempDir(async (project) => {
         await exec("node", [cliJsPath, "--store", store, "init"]);
-        await exec("node", [
-          cliJsPath,
-          "project",
-          "init",
-          "--path",
-          project,
-          "--project-id",
-          "moryn"
-        ]);
+        await exec("node", [cliJsPath, "project", "init", "--path", project, "--project-id", "moryn"]);
         await mkdir(join(project, ".codex"), { recursive: true });
         await writeFile(join(project, ".codex", "config.toml"), 'model = "gpt-5"\n', "utf8");
 
-        const args = [
-          cliJsPath,
-          "--store",
-          store,
-          "activation",
-          "apply",
-          "--host",
-          "codex",
-          "--project",
-          project
-        ];
+        const args = [cliJsPath, "--store", store, "activation", "apply", "--host", "codex", "--project", project];
         const first = JSON.parse((await exec("node", args)).stdout);
         const second = JSON.parse((await exec("node", args)).stdout);
         expect(first).toMatchObject({

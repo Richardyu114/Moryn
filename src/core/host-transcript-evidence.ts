@@ -1,4 +1,4 @@
-import { constants } from "node:fs";
+import { constants, type Stats } from "node:fs";
 import { lstat, open, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, relative, resolve } from "node:path";
@@ -100,7 +100,7 @@ export async function readHostTranscriptEvidence(
   if (!input.transcript_path)
     return { status: "unavailable", reason: "missing_path", lines_considered: 0, malformed_lines: 0, truncated: false };
   const requestedPath = resolve(input.transcript_path);
-  let fileStat;
+  let fileStat: Stats;
   try {
     fileStat = await lstat(requestedPath);
   } catch (error) {

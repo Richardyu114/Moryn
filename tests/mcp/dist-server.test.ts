@@ -23,7 +23,7 @@ async function withDistMcpClient<T>(storePath: string, fn: (client: Client) => P
 
 function parseTextContent(result: Awaited<ReturnType<Client["callTool"]>>): unknown {
   const first = "content" in result ? result.content[0] : undefined;
-  if (!first || first.type !== "text") {
+  if (first?.type !== "text") {
     throw new Error("Expected a text MCP tool response");
   }
   return JSON.parse(first.text);

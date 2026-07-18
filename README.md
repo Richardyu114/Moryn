@@ -2,7 +2,7 @@
 
 ![Moryn hero](assets/moryn-hero.png)
 
-**Moryn is a local-first, user-owned context store and handoff layer for
+**Moryn is a local-first, user-owned, auditable context store and handoff layer for
 multi-agent, multi-device AI work.**
 
 Codex, Claude, Cursor, Gemini, shell agents, and scripts share one durable
@@ -11,40 +11,61 @@ store. Agents recall context, hand work to the next agent, sync through a
 user-owned private Git repo, and every saved item shows exactly where it came
 from.
 
-Moryn is **not** an agent platform, a vector-memory SDK, or a hosted cloud
-service. It is the *memory bus between agents*: simple on the default path, and
+Moryn is not an agent platform, not a vector-memory SDK, and not a hosted cloud service.
+It is the *memory bus between agents*: simple on the default path, and
 fully traceable when someone needs review, provenance, sync, or handoff history.
 
-> **Status:** npm package `v0.2.0`. The development branch is building the
-> **v0.3 Context Autopilot** lifecycle for Codex and Claude Code — not released
-> until the version, changelog, and release process are updated explicitly.
+> Published package: v0.3.0. Context Autopilot is the default lifecycle for
+> Codex and Claude Code; v0.2 stores and explicit handoff commands remain
+> compatible.
 
----
+When a prompt exposes a reusable knowledge gap, the agent can queue it without
+interrupting the user:
 
-## How it works
+```bash
+moryn learn --project . \
+  --question "What did we learn?" \
+  --conclusion "The supported reusable conclusion." \
+  --evidence-type source_code
+```
+
+Finalization Assurance recovers an unfinalized prior Codex session at the next
+startup when durable checkpoint or status evidence exists.
+
+## Default path
 
 The default path is **agent-operated**. An agent enters a project, recalls
 bounded context, checkpoints before its context window compacts, restores the
 task afterward, captures reliable learnings, and finishes with a synchronized
 handoff.
 
-```mermaid
-flowchart LR
-  A["install"] --> B["enter / recover"]
-  B --> C["work / checkpoint"]
-  C --> D["compact / resume"]
-  D --> C
-  C --> E["finish / sync"]
-  E -. next session .-> B
+```text
+install -> enter/recover -> work/checkpoint -> compact/resume -> finish/sync
 ```
 
-You mostly don't touch the commands — you ask an agent to operate Moryn. The
-dashboard stays a **quiet, read-only monitor** (health, current context, memory
-flow, sync state, audit evidence). You step in only for exceptions: credentials
-or private config, unresolved sync conflicts, sensitive content, ambiguous
-project identity, or materially conflicting long-term memory.
+The dashboard is a quiet, read-only monitoring surface on the normal path. It
+shows health, current context, memory flow, sync state, and audit evidence.
+Users intervene only for exceptional cases: credentials or private
+configuration, unresolved sync conflicts, sensitive content, ambiguous project
+identity, or materially conflicting long-term memory.
 
-## Quick start
+Most users should ask an agent to operate Moryn. Deeper reference material is
+available in [Agent Workflow](docs/agent-workflow.md),
+[Dashboard](docs/dashboard.md), and [Contracts](docs/contracts.md).
+
+## Try the demo
+
+From a source checkout:
+
+```bash
+npm run smoke:dogfood-demo
+```
+
+The demo exercises storage, context, capture policy, and dashboard evidence on
+a temporary store. The required Autopilot lifecycle is covered by
+`npm run smoke:agent-lifecycle`. Neither smoke touches your real store.
+
+## Use With An Agent
 
 **Use it with an agent (recommended).** Paste this into any agent with shell
 access:
@@ -71,25 +92,21 @@ long term. Never store secrets.
 A longer prompt and setup expectations live in
 [Agent Install Prompt](docs/agent-install-prompt.md).
 
-**Try the demo** from a source checkout — neither smoke touches your real store:
-
-```bash
-npm run smoke:dogfood-demo     # storage, context, capture policy, dashboard
-npm run smoke:agent-lifecycle  # the full v0.3 Autopilot lifecycle
-```
-
 **Install manually:**
 
 ```bash
-npm install -g @richardyu114/moryn        # from npm
+npm install -g @richardyu114/moryn@0.3.0  # from npm
 # or from source:
 git clone https://github.com/Richardyu114/Moryn.git
 cd Moryn && npm install && npm run build && npm link
 ```
 
-The executable is `moryn`.
+The executable is `moryn`. Existing v0.2 stores open in place: no migration
+command or event-history rewrite is required. After upgrading, run
+`moryn health check --project . --host <host>` to verify the local store and
+host integration.
 
-## What it stores
+## What It Stores
 
 | Kind | What it holds |
 | --- | --- |
@@ -101,6 +118,34 @@ The executable is `moryn`.
 
 Local-first: `~/.moryn` is the runtime store; a user-owned private Git repo is
 the first sync backend.
+
+## Host Adapter And Setup
+
+Codex and Claude Code use the native v0.3 Autopilot lifecycle. Compatibility
+hosts can use the lower-level handoff commands.
+
+```bash
+moryn setup --host codex --project .
+moryn setup --host codex --project . --apply
+moryn install --host codex --project . --apply
+moryn install --host claude --project . --apply
+moryn agent enter --project . --agent codex --session-id "<session-id>" --device-id "<device-id>" --current-task "<current task>"
+moryn agent finish --project . --agent codex --session-id "<session-id>" --device-id "<device-id>" --summary "<concise handoff>"
+```
+
+`moryn setup` is a local, auditable setup wizard. Run setup once without
+`--apply` first; it prints checks and planned local writes without changing
+files. Apply only after the dry-run looks right. The dry-run lists planned local
+writes with exact paths; apply initializes only the Moryn store and project
+config and does not edit host configuration files.
+
+The lower-level `moryn context pack` remains available and returns Handoff Pack v0.2
+with the current goal, recent decisions, open threads, risks, preferences,
+important files, and next actions. `moryn capture session` evaluates
+`default_autocapture_policy`; repeated `--file <path>` flags preserve touched-file evidence.
+Low-risk handoffs are auto-captured as local evidence, while risky or
+durable handoffs enter Capture Inbox. Reliable low-risk project learnings may
+become canonical automatically under the documented state policy.
 
 ## Architecture
 
@@ -130,7 +175,13 @@ flowchart TB
     Views["rebuildable snapshots & indexes"]
   end
 
-  Dashboard["Read-only dashboard<br/>(monitor · find · approve exceptions)"]
+  subgraph ReviewLayer["Quiet monitoring and exceptions"]
+    Dashboard["Read-only dashboard"]
+    DashboardReview["Exceptional attention only"]
+    MemorySearch["Find what Moryn saved"]
+    Approve["Confirm high-impact changes"]
+    SharedCopy["Shared copy"]
+  end
 
   subgraph Sync["Sync (optional)"]
     Git["Git adapter"]
@@ -143,7 +194,10 @@ flowchart TB
   Engine --> Events
   Events --> Views
   Views -. monitor .-> Dashboard
-  Dashboard -. approve exceptions .-> Events
+  Dashboard --> DashboardReview
+  Dashboard --> MemorySearch
+  DashboardReview --> Approve
+  Approve --> Events
   Events --> Git
   Git <--> Remote
 ```
@@ -176,8 +230,8 @@ with explicit user intent. High-risk canonical writes require confirmation.
 **Capture Inbox** is the exceptional human-review path. Low-risk handoffs are
 auto-captured as local evidence without a click; risky or durable decisions go
 to the inbox for approve/reject; obvious smoke/test or duplicate captures are
-archived with policy evidence. Nothing rewrites history or silently promotes
-agent output.
+archived with policy evidence. The inbox never rewrites history or silently
+approves the high-impact items it receives.
 
 ## Connecting agents (MCP)
 
@@ -216,6 +270,7 @@ activity:
 
 ```bash
 moryn dashboard --serve --host 127.0.0.1 --port 8765 --project-id moryn
+moryn dashboard --serve --host 127.0.0.1 --port 8765 --project-id moryn --readiness-host codex --no-open
 ```
 
 It rebuilds from event history on each refresh and also exposes `/api/dashboard`
@@ -225,6 +280,14 @@ adds read-only handoff-readiness (Context Pack Review) and, for exceptional
 cases, a local Review Queue and Capture Inbox for approving append-only repair,
 migration, or promotion events. Full details:
 [Dashboard](docs/dashboard.md).
+
+The `context_pack_review` report provides read-only handoff readiness. It also
+distinguishes auto-captured local evidence from items that require a decision.
+
+In a shared environment, report the deployment-specific dashboard URL, for
+example `<dashboard-url>`. `127.0.0.1:8765` is the internal server bind target,
+not necessarily the human-facing address. Static output remains at
+`state/dashboard/index.html`; see `docs/dashboard.md` for access modes.
 
 ## Command surface
 
@@ -249,6 +312,20 @@ The read-only inspection commands (all safe, none mutate memory):
 | `moryn health check` | store readiness, replay, project context, MCP freshness |
 | `moryn eval recall` | recall quality against golden queries |
 | `moryn project migrate` | preview + apply auditable project-id migration |
+
+For installation trust, the read-only `health_check` operation reports store
+replay, project context, privacy boundaries, MCP freshness, and setup readiness:
+
+```bash
+moryn health check --project . --host codex --sync-remote <remote> --limit 20
+```
+
+It checks the installation without changing host configuration files. For
+recall quality, the read-only `recall_eval` operation reports matched, missing,
+and hidden expected record ids. Hidden ids mean the record exists but normal
+recall filters kept it out. Its `inspect_hidden_expected_records` action remains
+read-only; Recall Eval uses normal recall with no embedding index and does not
+mutate memory.
 
 Suggested mutating actions stay `safe_to_run: false` until you confirm. Each has
 a matching MCP tool. See [Contracts](docs/contracts.md) for operation contracts,

@@ -170,7 +170,9 @@ function pushFlagValues(argv: string[], argument: OperationArgumentMetadata, val
   if (typeof value === "object" && value !== null && !Array.isArray(value)) {
     const values = value as Record<string, unknown>;
     const keys = FLAG_OBJECT_KEYS[argument.name] ?? flags.map((flag) => flag.replace(/^--/, "").replace(/-/g, "_"));
-    flags.forEach((flag, index) => pushFlagValue(argv, flag, values[keys[index] ?? ""]));
+    flags.forEach((flag, index) => {
+      pushFlagValue(argv, flag, values[keys[index] ?? ""]);
+    });
     return;
   }
   pushFlagValue(argv, flags[0]!, value);

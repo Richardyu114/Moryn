@@ -18,6 +18,14 @@ describe("release check", () => {
 
     expect(() => assertSafePackageFiles(["package/.gemini/settings.json"])).toThrow(/private Moryn store data/);
 
+    expect(() => assertSafePackageFiles(["package/.codex/session.json"])).toThrow(/private Moryn store data/);
+
+    expect(() => assertSafePackageFiles(["package/.superpowers/notes.md"])).toThrow(/private Moryn store data/);
+
+    expect(() => assertSafePackageFiles(["package/state/dashboard/index.html"])).toThrow(/private Moryn store data/);
+
+    expect(() => assertSafePackageFiles(["package/temp/release-notes.md"])).toThrow(/private Moryn store data/);
+
     expect(() => assertSafePackageFiles(["package/docs/superpowers/plans/internal-plan.md"])).toThrow(
       /private Moryn store data/
     );

@@ -86,22 +86,22 @@ describe("documentation contracts", () => {
     }
   });
 
-  it("keeps v0.3 release preparation explicit without claiming publication", async () => {
+  it("documents the v0.3.0 public release and upgrade path", async () => {
     const [readme, changelog, development] = await Promise.all([
       readFile("README.md", "utf8"),
       readFile("CHANGELOG.md", "utf8"),
       readFile("docs/development.md", "utf8")
     ]);
 
-    expect(readme).toContain("Published package: v0.2.0");
+    expect(readme).toContain("Published package: v0.3.0");
     expect(readme).toContain("moryn learn --project .");
     expect(readme).toContain('--question "What did we learn?"');
     expectText(readme, "Finalization Assurance recovers an unfinalized prior Codex session at the next startup");
-    expect(changelog).toContain("## Unreleased (v0.3 development)");
+    expect(changelog).toContain("## 0.3.0 - 2026-07-18");
     expectText(changelog, "Learning Inbox and the one-call `learn` operation");
     expectText(changelog, "Finalization Assurance");
     expect(development).toContain("npm run release:readiness");
-    expectText(development, "does not bump the version, create a tag, push, or publish");
+    expectText(development, "It does not mutate files, create a tag, push, or publish");
   });
 
   it("keeps deployment-private addresses out of public docs", async () => {
@@ -1345,12 +1345,10 @@ describe("documentation contracts", () => {
     expect(roadmap).toContain("Phase 4: Recall Eval");
     expect(roadmap).toContain("Phase 5: Public Polish");
     expect(roadmap).toContain("Phase 6: Release Gate");
-    expect(roadmap).toContain("Unreleased v0.3 Context Autopilot");
+    expect(roadmap).toContain("v0.3.0 Context Autopilot");
     expect(roadmap).toContain("enter -> recall/recover -> work -> checkpoint -> compact/resume -> finish");
     expect(roadmap).toContain("v0.2.0 Compatibility Baseline");
-    expect(roadmap.indexOf("Unreleased v0.3 Context Autopilot")).toBeLessThan(
-      roadmap.indexOf("v0.2.0 Compatibility Baseline")
-    );
+    expect(roadmap.indexOf("v0.3.0 Context Autopilot")).toBeLessThan(roadmap.indexOf("v0.2.0 Compatibility Baseline"));
     expect(roadmap).not.toContain(
       "The release narrative is:\n\n```text\nsetup -> context pack -> capture -> dashboard review -> approve -> sync"
     );
@@ -1390,7 +1388,7 @@ describe("documentation contracts", () => {
     expectText(roadmap, "Official host hooks bind to the Moryn runtime that activated them");
     expectText(development, "Host runtime binding smoke places an incompatible `moryn` earlier on `PATH`");
     expect(roadmap).toContain("npm pack --dry-run --json");
-    expectText(roadmap, "The final release JSON includes all nine v0.3 acceptance areas");
+    expectText(roadmap, "The v0.3 release-gate JSON includes all nine acceptance areas");
     expectText(roadmap, "`acceptance_complete: true` means every area's required evidence completed in that run");
     expectText(roadmap, "Fast or skipped-check runs report `not_verified` instead of implying full acceptance");
     expectText(development, "The final JSON includes `acceptance`, a stable nine-area v0.3 evidence matrix");
@@ -1413,8 +1411,9 @@ describe("documentation contracts", () => {
     expect(changelog).not.toContain("docs/superpowers");
     expect(changelog).not.toContain("v0.2-phase-plan.md");
 
-    expect(readme).toContain("Published package: v0.2.0");
-    expect(readme).toContain("v0.3 Context Autopilot lifecycle");
+    expect(readme).toContain("Published package: v0.3.0");
+    expect(readme).toContain("v0.3 Autopilot lifecycle");
+    expect(readme).toContain("v0.2 stores and explicit handoff commands remain");
     expect(readme).toContain('DashboardReview["Exceptional attention only');
     expect(readme).toContain('MemorySearch["Find what Moryn saved');
     expect(readme).toContain('SharedCopy["Shared copy');

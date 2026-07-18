@@ -3933,7 +3933,6 @@ function healthClass(status: DashboardHealthStatus | "local_ready"): string {
   return "info";
 }
 
-
 function maintenancePlanEndpoint(plan: DashboardMaintenancePlan): string {
   return `api/maintenance/plans/${encodeURIComponent(plan.plan_id)}/approve`;
 }
@@ -3982,7 +3981,6 @@ export function memoryStateLabelFromRecordState(state: MorynRecord["state"]): { 
   if (state === "quarantined") return { en: "Set aside", zh: "已隔离" };
   return { en: "Set aside", zh: "已放一边" };
 }
-
 
 function quietSystemPulse(data: DashboardData): string {
   const pulse = data.quiet_dashboard.system_pulse;
@@ -5176,7 +5174,13 @@ function dashboardMaintenanceScript(): string {
         main.querySelectorAll("[data-maintenance-plan]").forEach((plan) => {
           if (hidden.has(plan.dataset.maintenancePlan)) plan.hidden = true;
         });
+        main.querySelectorAll(".editorial-attention").forEach((section) => {
+          const visibleCards = [...section.querySelectorAll("[data-decision-card]")].some((card) => !card.hidden);
+          const notices = section.querySelectorAll(".editorial-decision-notice").length > 0;
+          section.hidden = !visibleCards && !notices;
+        });
       };
+      window.restoreDashboardMaintenanceDismissals = hideRejectedPlans;
       const refreshFragment = async () => {
         const workspaceState = window.dashboardWorkspaceState?.capture();
         const hadStoredContentSearchFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.matches("[data-memory-search-input]");
@@ -5211,6 +5215,7 @@ function dashboardMaintenanceScript(): string {
           hidden.add(plan.dataset.maintenancePlan || "");
           persistHidden();
           plan.hidden = true;
+          hideRejectedPlans();
           return;
         }
         const copy = target.closest("[data-maintenance-copy]");

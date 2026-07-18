@@ -1,8 +1,8 @@
 # Moryn Implementation Roadmap
 
-This roadmap tracks the published compatibility baseline and the current
-unreleased development direction. The npm package version remains `0.2.0`;
-the v0.3 work described here is not released yet.
+This roadmap tracks the published v0.3.0 Context Autopilot release, the v0.2
+compatibility baseline, and the current product boundaries. The npm package
+version is `0.3.0`.
 Detailed protocol design lives in [moryn-design.md](moryn-design.md). Agent
 usage details live in [agent-workflow.md](agent-workflow.md). Machine-readable
 contracts are summarized in [contracts.md](contracts.md). Dashboard usage lives
@@ -11,9 +11,9 @@ README.md, docs/moryn-design.md, docs/agent-workflow.md, docs/dashboard.md, and
 docs/contracts.md. Temporary development plans are not part of the public
 package.
 
-## Unreleased v0.3 Context Autopilot
+## v0.3.0 Context Autopilot
 
-The current development goal is simple, stable, low-intervention context
+The v0.3.0 lifecycle provides simple, stable, low-intervention context
 continuity for Codex and Claude Code:
 
 ```text
@@ -28,7 +28,7 @@ in only for credentials, irreconcilable sync conflicts, privacy boundaries,
 materially conflicting memory, ambiguous project identity, or high-impact
 cross-project changes.
 
-| Area | Current v0.3 acceptance | Required evidence |
+| Area | v0.3.0 acceptance | Required evidence |
 | --- | --- | --- |
 | Autopilot | Start, repeated checkpoint/compaction, resume, finish, and abnormal-exit recovery preserve the latest task state without duplicate logical records. Compact safety reads only a bounded tail of host-authored public transcript messages when the host does not supply a PreCompact summary; reasoning, developer/system instructions, tools, raw paths, and sensitive text remain excluded. | `npm run smoke:agent-lifecycle`, `npm run smoke:transcript-compact-safety`, `npm run smoke:official-host-handoff`, lifecycle tests. |
 | Recall and learning | User prompts consult trusted local knowledge first; gaps remain explicit and reliable project learnings become reusable across agents and devices under deterministic policy. | Prompt-recall tests and lifecycle smoke `recall_explore_learn` receipt. |
@@ -39,13 +39,14 @@ cross-project changes.
 | Dashboard | The first screen is quiet and read-only; routine sync and maintenance stay subordinate while genuine user decisions remain visible. | Dashboard tests, real-store rendering, large-store dashboard smoke. |
 | Release | Build, typecheck, full tests, package smoke, lifecycle, resilience, conflict, permission, upgrade, and large-store checks pass. | `npm run release:check`. |
 
-The final release JSON includes all nine v0.3 acceptance areas and the exact
+The v0.3 release-gate JSON includes all nine acceptance areas and the exact
 evidence completed or missing for each one. `acceptance_complete: true` means
 every area's required evidence completed in that run. Fast or skipped-check
 runs report `not_verified` instead of implying full acceptance.
 
-The package version, changelog release heading, and public release metadata stay
-at v0.2 until an explicit v0.3 release decision is made.
+The v0.3.0 release keeps the v0.2 disk and explicit-handoff contracts as
+compatibility paths. Existing stores open in place without rewriting event
+history; verified derived read artifacts repair lazily when needed.
 
 ## Current Implementation Status
 

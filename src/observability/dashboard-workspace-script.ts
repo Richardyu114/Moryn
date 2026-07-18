@@ -182,6 +182,7 @@ export function dashboardWorkspaceScript(): string {
           const response = await fetch("fragment", { cache: "no-store" });
           if (!response.ok) return;
           main.innerHTML = await response.text();
+          window.restoreDashboardMaintenanceDismissals?.();
           window.restoreDashboardWorkspaceAfterFragment?.(workspaceState);
           window.applyDashboardLanguage?.();
           window.restoreActionReceipt?.();
@@ -200,7 +201,11 @@ export function dashboardWorkspaceScript(): string {
             const isReject = button.dataset.decisionAction === 'reject';
             const buttons = card instanceof HTMLElement ? card.querySelectorAll('[data-decision-action]') : [button];
             buttons.forEach((el) => { if (el instanceof HTMLButtonElement) el.disabled = true; });
-            setDecisionStatus(status, isReject ? "Discarding..." : "Saving to memory...", isReject ? "正在丢弃..." : "正在记住...");
+            setDecisionStatus(
+              status,
+              isReject ? "Discarding..." : button.dataset.decisionLoadingEn || "Applying...",
+              isReject ? "正在丢弃..." : button.dataset.decisionLoadingZh || "正在执行..."
+            );
             let body = {};
             try { body = JSON.parse(button.dataset.decisionBody || "{}"); } catch { body = {}; }
             try {

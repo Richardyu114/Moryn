@@ -1,10 +1,9 @@
 # Changelog
 
-## Unreleased (v0.3 development)
+## 0.3.0 - 2026-07-18
 
-Moryn v0.3 is under release preparation and is not yet the published npm
-version. The development branch changes the default Codex and Claude Code path
-from a user-operated capture queue to a local-first Context Autopilot lifecycle:
+Moryn v0.3 changes the default Codex and Claude Code path from a user-operated
+capture queue to a local-first Context Autopilot lifecycle:
 
 ```text
 install -> enter/recover -> work/checkpoint -> compact/resume -> finish/sync
@@ -31,6 +30,9 @@ install -> enter/recover -> work/checkpoint -> compact/resume -> finish/sync
 - The dashboard is a quiet read-only monitoring surface. Healthy operation does
   not create a routine approval queue; exceptional attention remains visible
   with technical evidence behind progressive disclosure.
+- Maintenance decisions name the exact operation and record count, explain why
+  review is needed, show representative affected content and privacy scope, and
+  provide a browser-session-only `Not now` action that does not write the store.
 - Startup pull, finish push, abnormal-exit compensation, and offline recovery
   are local-first and preserve replayable provenance.
 - Codex `Stop` remains an in-progress status signal. Claude `SessionEnd` creates
@@ -41,8 +43,8 @@ install -> enter/recover -> work/checkpoint -> compact/resume -> finish/sync
 
 - Existing v0.2 stores open in place without a migration wizard or rewritten
   event history. New verified read artifacts are repaired lazily.
-- The public package remains `0.2.0` until version bump, tag, push, and publish
-  receive explicit release approval.
+- The v0.2 Handoff Pack and explicit lifecycle commands remain available for
+  compatibility hosts and manual recovery workflows.
 
 ## 0.2.0
 

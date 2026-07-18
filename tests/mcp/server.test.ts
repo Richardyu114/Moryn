@@ -1201,13 +1201,13 @@ async function createMcpSyncConflict(input: {
 
 function parseTextContent(result: Awaited<ReturnType<Client["callTool"]>>): unknown {
   const first = "content" in result ? result.content[0] : undefined;
-  if (!first || first.type !== "text") {
+  if (first?.type !== "text") {
     throw new Error("Expected a text MCP tool response");
   }
   return JSON.parse(first.text);
 }
 
-async function expectInvalidMcpArguments(
+async function _expectInvalidMcpArguments(
   action: () => Promise<Awaited<ReturnType<Client["callTool"]>>>,
   expectedMessage: RegExp
 ): Promise<void> {
@@ -1215,7 +1215,7 @@ async function expectInvalidMcpArguments(
   expect("isError" in result ? result.isError : false).toBe(true);
   const first = "content" in result ? result.content[0] : undefined;
   expect(first?.type).toBe("text");
-  if (!first || first.type !== "text") {
+  if (first?.type !== "text") {
     throw new Error("Expected a text MCP validation error");
   }
   expect(first.text).toMatch(expectedMessage);
@@ -1788,7 +1788,7 @@ describe("MCP stdio server", () => {
           arguments: {}
         });
         const first = "content" in result ? result.content[0] : undefined;
-        if (!first || first.type !== "text") {
+        if (first?.type !== "text") {
           throw new Error("Expected text content from operation_contracts");
         }
         expect(Buffer.byteLength(first.text, "utf8")).toBeLessThan(1024 * 1024);
@@ -2595,7 +2595,7 @@ describe("MCP stdio server", () => {
           arguments: { index: true }
         });
         const first = "content" in result ? result.content[0] : undefined;
-        if (!first || first.type !== "text") {
+        if (first?.type !== "text") {
           throw new Error("Expected text content from operation_contracts");
         }
         const parsed = JSON.parse(first.text) as {
@@ -2781,7 +2781,7 @@ describe("MCP stdio server", () => {
           arguments: { operation: "agent_finish" }
         });
         const first = "content" in result ? result.content[0] : undefined;
-        if (!first || first.type !== "text") {
+        if (first?.type !== "text") {
           throw new Error("Expected text content from operation_contracts");
         }
         const parsed = JSON.parse(first.text) as {
@@ -2826,12 +2826,7 @@ describe("MCP stdio server", () => {
         });
         const firstByMcpTool = "content" in byMcpTool ? byMcpTool.content[0] : undefined;
         const firstByCliCommand = "content" in byCliCommand ? byCliCommand.content[0] : undefined;
-        if (
-          !firstByMcpTool ||
-          firstByMcpTool.type !== "text" ||
-          !firstByCliCommand ||
-          firstByCliCommand.type !== "text"
-        ) {
+        if (firstByMcpTool?.type !== "text" || !firstByCliCommand || firstByCliCommand.type !== "text") {
           throw new Error("Expected text content from operation_contracts");
         }
         const parsedByMcpTool = JSON.parse(firstByMcpTool.text) as {
@@ -2874,7 +2869,7 @@ describe("MCP stdio server", () => {
           arguments: { index: true, operation: "agent_finish" }
         });
         const first = "content" in result ? result.content[0] : undefined;
-        if (!first || first.type !== "text") {
+        if (first?.type !== "text") {
           throw new Error("Expected text content from operation_contracts");
         }
         const parsed = JSON.parse(first.text) as {
@@ -2976,7 +2971,7 @@ describe("MCP stdio server", () => {
           arguments: { mcp_tool: "agent_statuz" }
         });
         const first = "content" in result ? result.content[0] : undefined;
-        if (!first || first.type !== "text") {
+        if (first?.type !== "text") {
           throw new Error("Expected text content from operation_contracts");
         }
         const parsed = JSON.parse(first.text) as {
@@ -3166,7 +3161,7 @@ describe("MCP stdio server", () => {
           arguments: { operation: "" }
         });
         const first = "content" in result ? result.content[0] : undefined;
-        if (!first || first.type !== "text") {
+        if (first?.type !== "text") {
           throw new Error("Expected text content from operation_contracts");
         }
         const parsed = JSON.parse(first.text) as {
@@ -9333,7 +9328,7 @@ describe("MCP stdio server", () => {
         });
         expect(started.runtime).toMatchObject({
           transport: "mcp_stdio",
-          package_version: "0.2.0",
+          package_version: "0.3.0",
           exec_file: process.execPath,
           restart_hint: "Restart the host MCP connection after changing the Moryn installation or build."
         });

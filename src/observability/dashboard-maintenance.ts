@@ -29,12 +29,22 @@ export interface DashboardMaintenanceDecisionCard {
   recommended_action: string;
   rollback_path: string;
   evidence: string[];
+  examples: DashboardMaintenanceRecordExample[];
   raw_evidence: {
     plan_hash: string;
     command: string;
     record_ids: string[];
     safety_checks: DashboardMaintenanceSafetyCheck[];
   };
+}
+
+export interface DashboardMaintenanceRecordExample {
+  record_id: string;
+  kind: MorynRecord["kind"];
+  type: string;
+  state: RecordState;
+  updated_at: string;
+  preview: string;
 }
 
 export interface DashboardMaintenancePlan {
@@ -176,6 +186,20 @@ function privateRecordsSummary(skipped: number, included: number): string {
   return "No private records included.";
 }
 
+function recordExamples(records: MorynRecord[]): DashboardMaintenanceRecordExample[] {
+  return records.slice(0, 5).map((record) => {
+    const text = displayRecordText(record).replace(/\s+/g, " ").trim();
+    return {
+      record_id: record.id,
+      kind: record.kind,
+      type: record.type,
+      state: record.state,
+      updated_at: record.updated_at,
+      preview: text.length > 180 ? `${text.slice(0, 177).trimEnd()}...` : text || `${record.kind} / ${record.type}`
+    };
+  });
+}
+
 function shellQuote(value: string): string {
   if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(value)) return value;
   return `'${value.replace(/'/g, "'\\''")}'`;
@@ -306,6 +330,7 @@ function buildCandidateNoiseArchivePlan(
         `Private records: ${privateRecordsSummary(skippedPrivateRecords, includedPrivateRecords)}`,
         "Write behavior: append-only archive_record events; no deletion."
       ],
+      examples: recordExamples(records),
       raw_evidence: {
         plan_hash: hash,
         command,
@@ -378,6 +403,7 @@ function buildProjectIdentityPlan(
         `Private records: ${privateRecordsSummary(skippedPrivateRecords, includedPrivateRecords)}`,
         "Write behavior: append-only revise_record events; no history rewrite."
       ],
+      examples: recordExamples(records),
       raw_evidence: {
         plan_hash: hash,
         command,

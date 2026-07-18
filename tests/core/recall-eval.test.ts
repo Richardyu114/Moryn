@@ -157,21 +157,21 @@ describe("recall eval", () => {
         tags: ["dashboard"],
         text: "Dashboard confirmations require explicit approval before canonical memory changes."
       });
-      const skill = await writeFixtureRecord(engine, {
+      const _skill = await writeFixtureRecord(engine, {
         kind: "skill",
         type: "procedure",
         scope: "global",
         tags: ["release"],
         text: "Release verification runs typecheck, tests, smoke, package inspection, and dashboard health."
       });
-      const preference = await writeFixtureRecord(engine, {
+      const _preference = await writeFixtureRecord(engine, {
         kind: "soul",
         type: "preference",
         scope: "global",
         tags: ["principle"],
         text: "Prefer dry-run evidence before local setup writes."
       });
-      const handoff = await writeFixtureRecord(engine, {
+      const _handoff = await writeFixtureRecord(engine, {
         kind: "session_summary",
         type: "summary",
         scope: "project",
@@ -179,7 +179,7 @@ describe("recall eval", () => {
         tags: ["handoff"],
         text: "Phase 4 recall eval should explain missing, hidden, and ranked records."
       });
-      const agentNote = await writeFixtureRecord(engine, {
+      const _agentNote = await writeFixtureRecord(engine, {
         kind: "agent_note",
         type: "observation",
         scope: "project",

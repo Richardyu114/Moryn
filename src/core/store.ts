@@ -1,5 +1,19 @@
 import { createHash } from "node:crypto";
-import { access, link, mkdir, open, readdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
+import type { Dirent } from "node:fs";
+import {
+  access,
+  type FileHandle,
+  link,
+  mkdir,
+  open,
+  readdir,
+  readFile,
+  rename,
+  rm,
+  stat,
+  unlink,
+  writeFile
+} from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { readStoreConfig, validateStorePath } from "./config.js";
 import { parseEvent } from "./schema.js";
@@ -178,7 +192,7 @@ export async function appendEventIfAbsent(
       await fsLink(tempPath, path);
       let durability: EventDurability = "confirmed";
       const warnings: AppendEventIfAbsentWarning[] = [];
-      let directoryHandle;
+      let directoryHandle: FileHandle | undefined;
       try {
         directoryHandle = await fsOpen(dirname(path), "r");
         await directoryHandle.sync();
@@ -248,7 +262,7 @@ export async function appendEventIfAbsent(
 }
 
 async function walkJsonFiles(dir: string): Promise<string[]> {
-  let entries;
+  let entries: Dirent[];
   try {
     entries = await readdir(dir, { withFileTypes: true });
   } catch {

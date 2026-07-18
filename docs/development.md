@@ -36,12 +36,11 @@ npm run smoke:sync-conflict
 npm run smoke:permission-recovery
 ```
 
-`npm run release:readiness` is a read-only v0.3 preparation check. It verifies
-the package version against the README, requires an unreleased v0.3 CHANGELOG
-section, checks required smoke/package coverage, and rejects private release
-planning paths from npm contents. It does not bump the version, create a tag,
-push, or publish. Those four actions remain unauthorized until explicit release
-approval.
+`npm run release:readiness` is a read-only v0.3 release-candidate check. It
+requires version `0.3.0` across package metadata, README, and CHANGELOG, checks
+required smoke/package coverage, and rejects private release-planning paths
+from npm contents. It does not mutate files, create a tag, push, or publish;
+those remain explicit release actions outside the check.
 
 `npm run release:check` is the authoritative local release gate. It runs build,
 typecheck, the full test suite, dogfood, cross-host lifecycle, v0.2 in-place
@@ -147,6 +146,8 @@ Do not commit local runtime or host configuration:
 - `.moryn.json`
 - `.moryn/`
 - `.gemini/`
+- `.codex/`
+- `.superpowers/`
 - `.worktrees/`
 - `dist/`
 - `coverage/`
@@ -156,17 +157,17 @@ Project config examples belong in docs, not in the repository root.
 
 ## Package Contents
 
-The npm package includes:
+The npm package includes only the public runtime and support material:
 
 - `dist`
-- `README.md`
-- `docs`
+- `README.md`, `CHANGELOG.md`, and `LICENSE`
+- public `docs`
 - `assets`
-- `scripts/agent-lifecycle-smoke.js`
-- `scripts/dogfood-demo-smoke.js`
+- v0.3 release smoke scripts
 
 The release check rejects private Moryn store data such as `.moryn/`,
-`events/`, `snapshots/`, `indexes/`, `config.json`, or packed tarballs.
+`events/`, `snapshots/`, `indexes/`, `config.json`, local agent configuration,
+temporary output, or packed tarballs.
 
 Inspect package contents with:
 

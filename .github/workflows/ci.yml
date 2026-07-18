@@ -13,8 +13,6 @@ concurrency:
 jobs:
   lint:
     runs-on: ubuntu-latest
-    # Non-blocking until dead code is cleared (plan stage A3), then drop this line.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

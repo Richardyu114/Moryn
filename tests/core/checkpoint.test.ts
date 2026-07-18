@@ -921,7 +921,7 @@ describe("engine.checkpoint", () => {
         tags: ["private"]
       };
 
-      const first = await engine.checkpoint(input);
+      const _first = await engine.checkpoint(input);
       const replay = await engine.checkpoint(input);
       const included = await engine.checkpoint({ ...input, include_private: true });
 

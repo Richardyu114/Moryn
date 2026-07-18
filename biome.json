@@ -6,8 +6,13 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["src/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts", "*.json"],
-    "experimentalScannerIgnores": ["src/observability/dashboard-fonts.ts"]
+    "includes": [
+      "src/**/*.ts",
+      "scripts/**/*.ts",
+      "tests/**/*.ts",
+      "*.json",
+      "!!**/src/observability/dashboard-fonts.ts"
+    ]
   },
   "formatter": {
     "enabled": true,
@@ -18,7 +23,7 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "style": {
         "noNonNullAssertion": "off"
       },

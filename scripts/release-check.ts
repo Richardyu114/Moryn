@@ -181,12 +181,18 @@ export function assertSafePackageFiles(files: string[]): void {
       normalized === ".moryn.json" ||
       normalized.startsWith(".moryn/") ||
       normalized.startsWith(".gemini/") ||
+      normalized.startsWith(".codex/") ||
+      normalized.startsWith(".superpowers/") ||
+      normalized.startsWith(".worktrees/") ||
       normalized.startsWith("docs/superpowers/") ||
       normalized.startsWith("docs/releases/") ||
       normalized === "docs/v0.2-phase-plan.md" ||
       normalized.startsWith("events/") ||
       normalized.startsWith("snapshots/") ||
       normalized.startsWith("indexes/") ||
+      normalized.startsWith("state/") ||
+      normalized.startsWith("temp/") ||
+      normalized.startsWith("tmp/") ||
       normalized.endsWith(".tgz")
     );
   });

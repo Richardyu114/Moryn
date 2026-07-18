@@ -1760,6 +1760,7 @@ function checkpointAction(
       workflow: {
         version: 1,
         collect: ["occurred_at", "delta.checkpoint_id", "delta.semantic_content"],
+        // biome-ignore lint/suspicious/noThenProperty: Serialized workflow contracts intentionally use the "then" key.
         then: "call checkpoint locally",
         remote_push: false
       }
@@ -1789,7 +1790,12 @@ function checkpointLifecycleActions(
           required_fields: [],
           arguments: lifecycleActionArguments(input),
           argument_sources: { recovery_pack: "boot.checkpoint_recovery_pack" },
-          workflow: { version: 1, consume: "boot.checkpoint_recovery_pack", then: "continue current task" }
+          workflow: {
+            version: 1,
+            consume: "boot.checkpoint_recovery_pack",
+            // biome-ignore lint/suspicious/noThenProperty: Serialized workflow contracts intentionally use the "then" key.
+            then: "continue current task"
+          }
         })
       )
     );

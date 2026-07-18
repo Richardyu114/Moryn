@@ -123,7 +123,7 @@ function expectNextActionInterfaces(action: {
   });
 }
 
-function expectNextActionWorkflow(action: {
+function _expectNextActionWorkflow(action: {
   recommended_action: string;
   tool: string;
   required_when?: string;

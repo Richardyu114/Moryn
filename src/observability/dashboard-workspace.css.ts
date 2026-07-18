@@ -224,6 +224,28 @@ export function dashboardWorkspaceCss(): string {
     .editorial-decision-source { color: var(--brand-ink); font-size: 13px; }
     .editorial-decision-summary { margin: 10px 0 0; color: var(--ink-2); font-size: 15px; line-height: 1.55; max-width: 760px; }
     .editorial-decision-note { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+    .editorial-decision-context { margin-top: 18px; border-top: 1px solid rgba(199, 103, 42, 0.22); padding-top: 18px; }
+    .editorial-decision-label { display: block; color: var(--brand-ink); font-size: 12px; font-weight: 700; text-transform: uppercase; }
+    .editorial-decision-reason p { margin: 7px 0 0; max-width: 920px; color: var(--ink-2); font-size: 15px; line-height: 1.55; }
+    .editorial-decision-scope { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 18px 0; border-block: 1px solid rgba(199, 103, 42, 0.18); }
+    .editorial-decision-scope div { padding: 14px 18px 14px 0; }
+    .editorial-decision-scope div + div { border-left: 1px solid rgba(199, 103, 42, 0.18); padding-left: 18px; }
+    .editorial-decision-scope dt { color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; }
+    .editorial-decision-scope dd { margin: 6px 0 0; color: var(--ink); font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+    .editorial-decision-examples > ul { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 0; border-top: 1px solid rgba(199, 103, 42, 0.18); }
+    .editorial-decision-example { padding: 12px 0; border-bottom: 1px solid rgba(199, 103, 42, 0.18); }
+    .editorial-decision-example > div { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 12px; }
+    .editorial-decision-example p { margin: 5px 0; color: var(--ink-2); font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+    .editorial-decision-example code { color: var(--subtle); font-size: 11px; overflow-wrap: anywhere; }
+    .editorial-decision-evidence { margin-top: 14px; }
+    .editorial-decision-evidence summary { cursor: pointer; color: var(--brand-ink); font-size: 13px; font-weight: 600; }
+    .editorial-decision-evidence > p { margin: 10px 0; color: var(--ink-2); font-size: 13px; line-height: 1.5; }
+    .editorial-decision-checks { list-style: none; margin: 10px 0; padding: 0; display: grid; gap: 6px; color: var(--ink-2); font-size: 13px; }
+    .editorial-decision-checks li { display: flex; align-items: baseline; gap: 8px; }
+    .editorial-decision-checks li span:first-child { color: var(--green); font-weight: 700; }
+    .editorial-decision-record-ids { display: flex; flex-wrap: wrap; gap: 6px; }
+    .editorial-decision-record-ids code, .editorial-decision-record-ids span { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+    .editorial-decision-guard { color: var(--muted) !important; }
     .editorial-decision-actions { display: flex; align-items: center; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
     .editorial-decision-button {
       appearance: none; cursor: pointer; font-family: var(--font); font-size: 14px; font-weight: 600;
@@ -377,6 +399,9 @@ export function dashboardWorkspaceCss(): string {
       .editorial-reading-column, .editorial-view-page { padding: 44px 34px; }
       .editorial-memory-grid { grid-template-columns: repeat(2, 1fr); }
       .editorial-metric:nth-child(2) { border-right: 0; }
+      .editorial-decision-scope { grid-template-columns: 1fr; }
+      .editorial-decision-scope div { padding: 12px 0; }
+      .editorial-decision-scope div + div { border-left: 0; border-top: 1px solid rgba(199, 103, 42, 0.18); padding-left: 0; }
     }
     @media (max-width: 600px) {
       [data-dashboard-editorial-shell] { width: 100%; min-height: 100vh; margin: 0; border: 0; }

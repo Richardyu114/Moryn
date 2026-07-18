@@ -41,7 +41,7 @@ function entryCommand(entry: Record<string, any>): string | undefined {
 
 function isOwned(entry: Record<string, any>, activationId: string): boolean {
   const command = entryCommand(entry);
-  return command !== undefined && command.split(/\s+/).includes(activationId);
+  return command?.split(/\s+/).includes(activationId) === true;
 }
 
 function semanticJson(value: unknown): string {

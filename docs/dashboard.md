@@ -401,6 +401,14 @@ event type in user-facing terms, and points to the decision details that carry
 the plan hash, command, record ids, and later timeline inspection. Private-record
 scope remains a short sentence below the rows.
 
+The workspace decision card surfaces the proposal before the controls: why it
+was generated, the exact state or project-id change, private-record scope, the
+current state distribution, and up to five real content examples from the
+affected records. The primary button names the operation and record count
+instead of using a generic confirmation label. `Not now` hides that exact plan
+for the current browser session without changing any record; a changed plan
+hash can surface again for review.
+
 The individual plan card does not repeat the full issue sentence or render a
 second decision-summary fold. The first expanded queue view stays focused on
 the title, the short approval brief, and explicit controls. It does not add
@@ -448,8 +456,8 @@ server reconstructs the current plan from the local store, re-runs the dry run,
 compares the submitted `plan_hash`, and applies only when the hash still
 matches. Project repair approvals append `revise_record` events. Candidate
 noise approvals append `archive_record` events and never delete records. Stale
-approvals return `409` with `status: "stale_plan"`. `Reject` is browser-session-only
-and does not write store events.
+approvals return `409` with `status: "stale_plan"`. `Not now` is
+browser-session-only and does not write store events.
 
 If the dashboard is served with `--include-private`, matching private-tagged
 records are included in the dry run and the copied command includes

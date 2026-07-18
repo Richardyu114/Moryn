@@ -7,4 +7,6 @@ docs/superpowers/
 /.moryn/
 /.moryn.json
 /.gemini/
+/.codex/
+/.superpowers/
 *.tgz

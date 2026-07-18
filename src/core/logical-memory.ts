@@ -168,7 +168,9 @@ export function buildActiveLogicalMemoryView(records: MorynRecord[]): ActiveLogi
         const key = cycle.join("\u0000");
         if (!reportedCycles.has(key)) {
           reportedCycles.add(key);
-          cycle.forEach((id) => cyclicIds.add(id));
+          cycle.forEach((id) => {
+            cyclicIds.add(id);
+          });
           findings.push({ code: "LOGICAL_RELATIONSHIP_CYCLE", record_ids: cycle });
         }
         break;

@@ -117,7 +117,11 @@ function isNotFoundError(error: unknown): boolean {
 
 function validateSetupSyncRemote(value: string | undefined): void {
   if (value === undefined) return;
-  if (value.length === 0 || /[\u0000-\u001F\u007F]/u.test(value)) {
+  const hasControlCharacter = [...value].some((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return codePoint <= 0x1f || codePoint === 0x7f;
+  });
+  if (value.length === 0 || hasControlCharacter) {
     throw new SetupWizardArgumentError("sync_remote", value);
   }
 }

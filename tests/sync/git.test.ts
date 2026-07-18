@@ -43,7 +43,7 @@ const SYNC_RESULT_SELECTION_SOURCES = {
   message: "message"
 };
 
-async function expectInvalidArgument(action: () => Promise<unknown>, expectedMessage: RegExp): Promise<void> {
+async function _expectInvalidArgument(action: () => Promise<unknown>, expectedMessage: RegExp): Promise<void> {
   let caught: unknown;
   try {
     await action();

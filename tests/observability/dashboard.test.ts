@@ -1983,17 +1983,23 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("Archive Group");
       expect(html).not.toContain("Promote Selected");
 
-      // Decision surface: the two pending decisions render as plain-language cards
-      // in the "Needs your input" region with wired POST endpoints.
+      // Decision surface: pending decisions render as plain-language cards with
+      // inspectable maintenance scope and wired POST endpoints.
       expect(html).toContain('data-editorial-section="attention"');
-      expect(html).toContain('data-i18n-zh="需要你确认"');
+      expect(html).toContain('data-i18n-zh="需要你决定"');
       expect(html).toContain('class="editorial-decision-card"');
       // candidate_triage promotion -> "Remember this?" card with approve endpoint
       expect(html).toContain('data-i18n-zh="记住这条？"');
       expect(html).toContain('data-decision-endpoint="api/candidate-triage/promotions/rec_candidate_triage_3/approve"');
       expect(html).toContain('data-decision-action="approve"');
-      // maintenance/review-queue plan -> "Tidy up this memory?" card
-      expect(html).toContain('data-i18n-zh="要整理一下吗？"');
+      // maintenance/review-queue plan explains the exact scope and supports a
+      // browser-session "not now" decision without writing another record.
+      expect(html).toContain('data-i18n-zh="审查候选记录清理"');
+      expect(html).toContain('data-i18n-zh="为什么需要你审查"');
+      expect(html).toContain('data-i18n-zh="暂不处理"');
+      expect(html).toContain("data-maintenance-reject");
+      expect(html).toContain("data-maintenance-plan=");
+      expect(html).toContain('class="editorial-decision-example"');
       expect(html).toContain('data-decision-endpoint="api/maintenance/plans/');
       // request body carried on the button (candidate triage uses empty object)
       expect(html).toContain('data-decision-body="{}"');
@@ -3028,7 +3034,7 @@ describe("observability dashboard", () => {
           source: { client: "codex", session_id: "debug-budget" }
         });
       }
-      const noisySummaryRecord = await engine.write({
+      const _noisySummaryRecord = await engine.write({
         kind: "memory",
         type: "artifact",
         scope: "project",
@@ -3860,6 +3866,18 @@ describe("observability dashboard", () => {
             "Apply the repair only after confirming repo-e6f0166fd942 is an old or generated id for moryn.",
           rollback_path:
             "If this was wrong, review the refreshed plan and run moryn project migrate --from moryn --to repo-e6f0166fd942 --apply --confirm.",
+          examples: expect.arrayContaining([
+            expect.objectContaining({
+              record_id: candidateOld.record.id,
+              state: "candidate",
+              preview: "Moryn session under old project id."
+            }),
+            expect.objectContaining({
+              record_id: canonicalOld.record.id,
+              state: "canonical",
+              preview: "Moryn rule under old project id."
+            })
+          ]),
           evidence: expect.arrayContaining([
             "Matched records: 2 records; 1 canonical, 1 candidate.",
             "Private records: 1 private record skipped.",
@@ -4113,6 +4131,16 @@ describe("observability dashboard", () => {
           recommended_action: "Archive these candidates only after confirming they are test noise or obsolete markers.",
           rollback_path:
             "If this was wrong, use the record ids and timeline events below to inspect the append-only archive before restoring manually.",
+          examples: expect.arrayContaining([
+            expect.objectContaining({
+              record_id: e2e.record.id,
+              preview: "E2E marker note should be reviewed before archive."
+            }),
+            expect.objectContaining({
+              record_id: smoke.record.id,
+              preview: "Smoke candidate left by package e2e."
+            })
+          ]),
           evidence: expect.arrayContaining([
             "Matched records: 3 records; 3 candidate.",
             "Private records: 1 private record skipped.",

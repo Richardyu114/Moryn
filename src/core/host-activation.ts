@@ -228,7 +228,7 @@ export async function inspectHostActivation(input: {
       let current = false;
       for (const entry of entries) {
         const command = commandFromEntry(entry);
-        if (!command || !command.split(/\s+/).includes(artifact.activation_id)) continue;
+        if (!command?.split(/\s+/).includes(artifact.activation_id)) continue;
         ownedEntries += 1;
         if (command === artifact.command) current = true;
         else staleEntries += 1;

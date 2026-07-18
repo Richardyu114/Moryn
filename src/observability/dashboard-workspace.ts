@@ -11,6 +11,7 @@ import type {
   DashboardRecordTypeChartItem
 } from "./dashboard.js";
 import { dashboardRecordTitleLabel, memoryKindLabel, memoryStateLabelFromRecordState } from "./dashboard.js";
+import type { DashboardMaintenanceData, DashboardMaintenancePlan } from "./dashboard-maintenance.js";
 
 export interface DashboardWorkspaceFragments {
   memory_html: string;
@@ -395,14 +396,30 @@ interface DecisionCardCopy {
   reject_zh?: string;
 }
 
-function decisionCardCopy(item: DashboardDecisionSummaryItem): DecisionCardCopy {
+function decisionCardCopy(
+  item: DashboardDecisionSummaryItem,
+  maintenancePlan: DashboardMaintenancePlan | undefined
+): DecisionCardCopy {
   switch (item.surface) {
     case "maintenance_review":
+      if (maintenancePlan?.type === "candidate_noise_archive") {
+        const count = maintenancePlan.dry_run.matched_records;
+        return {
+          title_en: "Review candidate cleanup",
+          title_zh: "审查候选记录清理",
+          approve_en: `Archive ${count} ${count === 1 ? "record" : "records"}`,
+          approve_zh: `归档 ${count} 条记录`,
+          reject_en: "Not now",
+          reject_zh: "暂不处理"
+        };
+      }
       return {
-        title_en: "Tidy up this memory?",
-        title_zh: "要整理一下吗？",
-        approve_en: "Tidy up",
-        approve_zh: "整理"
+        title_en: "Review project identity change",
+        title_zh: "审查项目归属变更",
+        approve_en: `Move ${maintenancePlan?.dry_run.matched_records ?? 0} records`,
+        approve_zh: `迁移 ${maintenancePlan?.dry_run.matched_records ?? 0} 条记录`,
+        reject_en: "Not now",
+        reject_zh: "暂不处理"
       };
     default:
       return {
@@ -416,31 +433,127 @@ function decisionCardCopy(item: DashboardDecisionSummaryItem): DecisionCardCopy 
   }
 }
 
+function maintenancePlanForItem(
+  item: DashboardDecisionSummaryItem,
+  actionsById: Record<string, DashboardAction>,
+  maintenance: DashboardMaintenanceData
+): DashboardMaintenancePlan | undefined {
+  if (item.surface !== "maintenance_review" || !item.primary_action_id) return undefined;
+  const action = actionsById[item.primary_action_id];
+  return action?.target.type === "maintenance_plan" ? maintenance.plans_by_id[action.target.id] : undefined;
+}
+
+function maintenanceChange(plan: DashboardMaintenancePlan): { en: string; zh: string } {
+  const count = plan.dry_run.matched_records;
+  if (plan.type === "candidate_noise_archive") {
+    return {
+      en: `${count} candidate ${count === 1 ? "record moves" : "records move"} to Archived. Nothing is deleted, and the event history remains available.`,
+      zh: `${count} 条候选记录将变为“已归档”。不会删除内容，事件历史仍可追溯。`
+    };
+  }
+  return {
+    en: `${count} ${count === 1 ? "record changes" : "records change"} project id from ${plan.from_project_id ?? "unknown"} to ${plan.to_project_id ?? "unknown"}. Content, state, and history stay unchanged.`,
+    zh: `${count} 条记录的项目 ID 将从 ${plan.from_project_id ?? "unknown"} 改为 ${plan.to_project_id ?? "unknown"}。内容、状态和历史保持不变。`
+  };
+}
+
+function maintenancePrivacy(plan: DashboardMaintenancePlan): { en: string; zh: string } {
+  const skipped = plan.dry_run.skipped_private_records;
+  const included = plan.dry_run.included_private_records;
+  if (included > 0) return { en: `${included} private records are included.`, zh: `包含 ${included} 条私密记录。` };
+  if (skipped > 0) return { en: `${skipped} private records are excluded.`, zh: `已排除 ${skipped} 条私密记录。` };
+  return { en: "No private records are included.", zh: "不包含私密记录。" };
+}
+
+function maintenanceStateSummary(plan: DashboardMaintenancePlan): string {
+  return Object.entries(plan.dry_run.states)
+    .filter((entry): entry is [string, number] => typeof entry[1] === "number" && entry[1] > 0)
+    .map(([state, count]) => `${count} ${state}`)
+    .join(" · ");
+}
+
+function renderMaintenanceDetails(plan: DashboardMaintenancePlan): string {
+  const change = maintenanceChange(plan);
+  const privacy = maintenancePrivacy(plan);
+  const examples = plan.decision_card.examples
+    .map(
+      (example) => `<li class="editorial-decision-example">
+        <div><span>${escapeHtml(example.kind)} / ${escapeHtml(example.type)}</span><span>${escapeHtml(example.state)}</span></div>
+        <p>${escapeHtml(example.preview)}</p>
+        <code>${escapeHtml(example.record_id)}</code>
+      </li>`
+    )
+    .join("");
+  const safetyChecks = plan.safety_checks
+    .map(
+      (check) =>
+        `<li><span aria-hidden="true">${check.ok ? "✓" : "!"}</span><span>${escapeHtml(check.label)}</span></li>`
+    )
+    .join("");
+  const shownIds = plan.record_ids.slice(0, 12);
+  const overflow = plan.record_ids.length - shownIds.length;
+  return `<div class="editorial-decision-context">
+      <div class="editorial-decision-reason">
+        <span class="editorial-decision-label">${i18n("Why this needs review", "为什么需要你审查")}</span>
+        <p>${escapeHtml(plan.decision_card.issue)} ${escapeHtml(plan.decision_card.impact)}</p>
+      </div>
+      <dl class="editorial-decision-scope">
+        <div><dt>${i18n("Exact change", "具体变更")}</dt><dd data-i18n-en="${escapeHtml(change.en)}" data-i18n-zh="${escapeHtml(change.zh)}">${escapeHtml(change.en)}</dd></div>
+        <div><dt>${i18n("Current states", "当前状态")}</dt><dd>${escapeHtml(maintenanceStateSummary(plan))}</dd></div>
+        <div><dt>${i18n("Privacy", "隐私范围")}</dt><dd data-i18n-en="${escapeHtml(privacy.en)}" data-i18n-zh="${escapeHtml(privacy.zh)}">${escapeHtml(privacy.en)}</dd></div>
+      </dl>
+      <div class="editorial-decision-examples">
+        <div class="editorial-decision-label">${i18n(`Examples (${plan.decision_card.examples.length} of ${plan.record_ids.length})`, `内容样例（${plan.decision_card.examples.length}/${plan.record_ids.length}）`)}</div>
+        <ul>${examples}</ul>
+      </div>
+      <details class="editorial-decision-evidence">
+        <summary>${i18n("Affected records and safeguards", "受影响记录与安全校验")}</summary>
+        <p>${escapeHtml(plan.decision_card.recommended_action)}</p>
+        <ul class="editorial-decision-checks">${safetyChecks}</ul>
+        <div class="editorial-decision-record-ids">${shownIds.map((id) => `<code>${escapeHtml(id)}</code>`).join("")}${overflow > 0 ? `<span>+${overflow} more</span>` : ""}</div>
+        <p class="editorial-decision-guard">${i18n("The server recalculates the plan and verifies its hash immediately before writing.", "服务器会在写入前重新计算计划并校验哈希。")}</p>
+      </details>
+    </div>`;
+}
+
 function decisionActionAttributes(action: DashboardAction | undefined): string {
   if (!action?.endpoint || action.method !== "POST") return "";
   const body = JSON.stringify(action.request_body ?? {});
   return `data-decision-endpoint="${escapeHtml(action.endpoint.replace(/^\//, ""))}" data-decision-body="${escapeHtml(body)}"`;
 }
 
-function renderDecisionCard(item: DashboardDecisionSummaryItem, actionsById: Record<string, DashboardAction>): string {
-  const copy = decisionCardCopy(item);
+function renderDecisionCard(
+  item: DashboardDecisionSummaryItem,
+  actionsById: Record<string, DashboardAction>,
+  maintenancePlan: DashboardMaintenancePlan | undefined
+): string {
+  const copy = decisionCardCopy(item, maintenancePlan);
   const approveAction = item.primary_action_id ? actionsById[item.primary_action_id] : undefined;
   const rejectAction = item.secondary_action_id ? actionsById[item.secondary_action_id] : undefined;
   const approveAttrs = decisionActionAttributes(approveAction);
   if (!approveAttrs) return "";
   const rejectAttrs = copy.reject_en ? decisionActionAttributes(rejectAction) : "";
-  const rejectButton = rejectAttrs
-    ? `<button type="button" class="editorial-decision-button ghost" data-decision-action="reject" ${rejectAttrs}><span data-i18n-en="${escapeHtml(copy.reject_en ?? "")}" data-i18n-zh="${escapeHtml(copy.reject_zh ?? "")}">${escapeHtml(copy.reject_en ?? "")}</span></button>`
+  const rejectButton = maintenancePlan
+    ? `<button type="button" class="editorial-decision-button ghost" data-maintenance-reject><span data-i18n-en="Not now" data-i18n-zh="暂不处理">Not now</span></button>`
+    : rejectAttrs
+      ? `<button type="button" class="editorial-decision-button ghost" data-decision-action="reject" ${rejectAttrs}><span data-i18n-en="${escapeHtml(copy.reject_en ?? "")}" data-i18n-zh="${escapeHtml(copy.reject_zh ?? "")}">${escapeHtml(copy.reject_en ?? "")}</span></button>`
+      : "";
+  const maintenanceAttributes = maintenancePlan
+    ? ` data-maintenance-plan="${escapeHtml(maintenancePlan.plan_hash)}"`
     : "";
-  return `<article class="editorial-decision-card" data-decision-card>
+  const details = maintenancePlan ? renderMaintenanceDetails(maintenancePlan) : "";
+  const loading =
+    maintenancePlan?.type === "candidate_noise_archive" ? "Archiving records..." : "Changing project ids...";
+  const loadingZh = maintenancePlan?.type === "candidate_noise_archive" ? "正在归档记录..." : "正在变更项目归属...";
+  return `<article class="editorial-decision-card" data-decision-card${maintenanceAttributes}>
       <div class="editorial-decision-head">
         <strong data-i18n-en="${escapeHtml(copy.title_en)}" data-i18n-zh="${escapeHtml(copy.title_zh)}">${escapeHtml(copy.title_en)}</strong>
         <span class="editorial-decision-source">${escapeHtml(item.title)}</span>
       </div>
       <p class="editorial-decision-summary">${escapeHtml(item.summary)}</p>
-      <p class="editorial-decision-note">${escapeHtml(item.safety_note)}</p>
+      ${details || `<p class="editorial-decision-note">${escapeHtml(item.safety_note)}</p>`}
       <div class="editorial-decision-actions">
-        <button type="button" class="editorial-decision-button primary" data-decision-action="approve" ${approveAttrs}><span data-i18n-en="${escapeHtml(copy.approve_en)}" data-i18n-zh="${escapeHtml(copy.approve_zh)}">${escapeHtml(copy.approve_en)}</span></button>
+        <button type="button" class="editorial-decision-button primary" data-decision-action="approve" data-decision-loading-en="${escapeHtml(loading)}" data-decision-loading-zh="${escapeHtml(loadingZh)}" ${approveAttrs}><span data-i18n-en="${escapeHtml(copy.approve_en)}" data-i18n-zh="${escapeHtml(copy.approve_zh)}">${escapeHtml(copy.approve_en)}</span></button>
         ${rejectButton}
         <span class="editorial-decision-status" data-decision-status aria-live="polite"></span>
       </div>
@@ -454,9 +567,12 @@ function isDecisionAttentionItem(item: DashboardAttentionItem, decisionTitles: S
 function renderAttention(
   items: DashboardAttentionItem[],
   decisionItems: DashboardDecisionSummaryItem[],
-  actionsById: Record<string, DashboardAction>
+  actionsById: Record<string, DashboardAction>,
+  maintenance: DashboardMaintenanceData
 ): string {
-  const cards = decisionItems.map((item) => renderDecisionCard(item, actionsById)).filter((html) => html !== "");
+  const cards = decisionItems
+    .map((item) => renderDecisionCard(item, actionsById, maintenancePlanForItem(item, actionsById, maintenance)))
+    .filter((html) => html !== "");
   const decisionTitles = new Set(decisionItems.map((item) => item.title));
   const notices = items.filter((item) => !isDecisionAttentionItem(item, decisionTitles));
   if (cards.length === 0 && notices.length === 0) return "";
@@ -467,7 +583,7 @@ function renderAttention(
     )
     .join("");
   return `<section class="editorial-section editorial-attention" data-editorial-section="attention">
-    <div class="editorial-section-title">${i18n("Needs your input", "需要你确认")}</div>
+    <div class="editorial-section-heading"><div class="editorial-section-title">${i18n("Decision required", "需要你决定")}</div><p>${i18n("Review the proposed records and exact outcome before choosing.", "请先查看涉及的记录和具体结果，再做决定。")}</p></div>
     ${cards.join("")}
     ${noticesHtml}
   </section>`;
@@ -713,7 +829,7 @@ export function renderDashboardWorkspace(data: DashboardData, fragments: Dashboa
               <div class="editorial-context-meta"><span>${escapeHtml(model.project)}</span><span>${escapeHtml(model.agent)}</span><span>${escapeHtml(model.device)}</span><time datetime="${escapeHtml(model.generated_at)}">${escapeHtml(model.generated_at)}</time></div>
               ${model.no_action_required ? `<div class="editorial-conclusion" data-editorial-conclusion="no-action-required"><div class="editorial-conclusion-mark">✓</div><div><strong>${i18n("No action required", "无需操作")}</strong><span>${i18n("Moryn is handling continuity in the background.", "Moryn 正在后台处理上下文连续性。")}</span></div></div>` : ""}
             </section>
-            ${renderAttention(data.quiet_dashboard.attention_needed, data.decision_summary.items, data.actions_by_id)}
+            ${renderAttention(data.quiet_dashboard.attention_needed, data.decision_summary.items, data.actions_by_id, data.maintenance)}
             <section class="editorial-section" data-editorial-section="memory-state"><div class="editorial-section-heading"><div class="editorial-section-title">${i18n("Memory State", "记忆状态")}</div><p>${i18n("A bounded view of what agents can use now", "Agent 当前可用的有界记忆视图")}</p></div><div class="editorial-memory-grid">
               ${renderMetric("memory-active", "Active", "活跃记忆", model.memory.active)}
               ${renderMetric("memory-learned", "Learned", "已学习", model.memory.learned)}

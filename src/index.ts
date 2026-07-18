@@ -228,7 +228,7 @@ export {
 } from "./core/learning-inbox.js";
 export type { MorynRecord } from "./core/types.js";
 
-export const version = "0.2.0";
+export const version = "0.3.0";
 
 export {
   BOOT_SELECTION_SOURCES,

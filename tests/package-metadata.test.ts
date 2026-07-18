@@ -30,7 +30,7 @@ describe("package metadata", () => {
 
     expect(packageJson.name).toBe("@richardyu114/moryn");
     expect(packageJson.version).toBe(version);
-    expect(packageJson.version).toBe("0.2.0");
+    expect(packageJson.version).toBe("0.3.0");
     expect(packageJson.main).toBe("./dist/index.js");
     expect(packageJson.types).toBe("./dist/index.d.ts");
     expect(packageJson.exports?.["."]).toEqual({
