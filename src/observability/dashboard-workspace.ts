@@ -601,9 +601,9 @@ function renderEvents(events: DashboardEventSummary[]): string {
     .map((event) => {
       const label = eventLabel(event);
       return `<button type="button" class="editorial-event" data-drawer-target="event-${escapeHtml(safeDomId(event.event_id))}" aria-haspopup="dialog">
-    <time datetime="${escapeHtml(event.created_at)}">${escapeHtml(event.created_at.slice(11, 16))}</time>
-    <strong data-i18n-en="${escapeHtml(label.en)}" data-i18n-zh="${escapeHtml(label.zh)}">${escapeHtml(label.en)}</strong>
-    <small>${escapeHtml(sourceLabel(event.source))}</small>
+    <time class="editorial-event-time" datetime="${escapeHtml(event.created_at)}">${escapeHtml(event.created_at.slice(11, 16))}</time>
+    <strong class="editorial-event-operation" data-i18n-en="${escapeHtml(label.en)}" data-i18n-zh="${escapeHtml(label.zh)}">${escapeHtml(label.en)}</strong>
+    <small class="editorial-event-source">${escapeHtml(sourceLabel(event.source))}</small>
   </button>`;
     })
     .join("")}</div>`;

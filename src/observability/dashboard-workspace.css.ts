@@ -170,15 +170,30 @@ export function dashboardWorkspaceCss(): string {
     /* ---- What changed (event list) ---- */
     .editorial-event-list { border-top: 1px solid var(--border); }
     .editorial-event {
-      appearance: none; width: 100%; display: grid; grid-template-columns: 88px minmax(0, 1fr) auto; gap: 18px;
+      appearance: none; width: 100%; display: grid;
+      grid-template-columns: 88px minmax(8rem, 1fr) minmax(8rem, 28%); align-items: baseline; gap: 18px;
       padding: 16px 0; border: 0; border-bottom: 1px solid var(--hairline); background: transparent;
       color: var(--ink); text-align: left; cursor: pointer; transition: background 200ms ease, transform 200ms ease; position: relative;
     }
     .editorial-event::before { content: ""; position: absolute; left: -16px; top: 0; bottom: 0; width: 2px; background: var(--brand); transform: scaleY(0); transform-origin: top; transition: transform 240ms cubic-bezier(.2,.7,.2,1); }
     .editorial-event:hover { background: #fffdf8; transform: translateX(6px); }
     .editorial-event:hover::before { transform: scaleY(1); }
-    .editorial-event time, .editorial-event small { color: var(--muted); font-size: 14px; }
-    .editorial-event strong { font-size: 16px; font-weight: 500; overflow-wrap: anywhere; }
+    .editorial-event-time, .editorial-event-source { color: var(--muted); font-size: 14px; line-height: 1.4; }
+    .editorial-event-time { font-variant-numeric: tabular-nums; }
+    .editorial-event-operation { font-size: 16px; font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; }
+    .editorial-event-source {
+      width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right;
+    }
+
+    @media (max-width: 1080px) {
+      .editorial-event {
+        grid-template-columns: 70px minmax(0, 1fr); grid-template-areas: "time operation" ". source";
+        column-gap: 18px; row-gap: 5px;
+      }
+      .editorial-event-time { grid-area: time; }
+      .editorial-event-operation { grid-area: operation; }
+      .editorial-event-source { grid-area: source; text-align: left; }
+    }
 
     /* ---- Glance charts ---- */
     .glance-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); }
@@ -412,8 +427,6 @@ export function dashboardWorkspaceCss(): string {
       .editorial-task { font-size: 34px; }
       .editorial-memory-grid { grid-template-columns: 1fr 1fr; }
       .glance-grid { grid-template-columns: 1fr; }
-      .editorial-event { grid-template-columns: 70px minmax(0, 1fr); }
-      .editorial-event small { grid-column: 2; }
       .history-timeline .history-row { grid-template-columns: 1fr; gap: 4px; }
       [data-dashboard-drawer] { align-items: flex-end; }
       .editorial-drawer-panel {

@@ -17,6 +17,7 @@ import {
   startDashboardServer,
   writeDashboardSnapshot
 } from "../../src/observability/dashboard.js";
+import { dashboardWorkspaceCss } from "../../src/observability/dashboard-workspace.css.js";
 import { initializeGitSync } from "../../src/sync/git.js";
 import { withTempStore } from "../helpers/temp-store.js";
 
@@ -7077,6 +7078,54 @@ describe("quiet dashboard first screen", () => {
       expect(html).toContain('data-editorial-sidebar="important-now"');
       expect(html).toContain("Redesign the Moryn dashboard");
       expect(html).not.toContain("color-scheme: dark");
+    });
+  });
+
+  it("keeps long archive event sources in an aligned bounded column", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = ["2026-07-13T12:00:00.000Z", "2026-07-13T12:01:00.000Z"];
+          return () => timestamps.shift() ?? "2026-07-13T12:02:00.000Z";
+        })(),
+        id: (() => {
+          let event = 0;
+          return (prefix: string) => (prefix === "rec" ? "rec_archive_alignment" : `evt_archive_alignment_${++event}`);
+        })()
+      });
+      const record = await engine.write({
+        kind: "memory",
+        type: "note",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Archive event alignment fixture", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "cli", device_id: "device-test" }
+      });
+      await engine.archive({
+        record_id: record.record.id,
+        reason: "Verify archive event alignment.",
+        source: {
+          client: "dashboard",
+          device_id: "device_0127d8372c6740deba9a38c59f524fa1",
+          session_id: "dashboard-maintenance-approval"
+        }
+      });
+
+      const html = renderDashboardHtml(await buildDashboardData(storePath, { project_id: "moryn" }));
+      expect(html).toContain('class="editorial-event-time"');
+      expect(html).toContain('class="editorial-event-operation"');
+      expect(html).toContain('class="editorial-event-source"');
+      expect(html).toContain("Archive Record");
+      expect(html).toContain("dashboard-maintenance-approval");
+
+      const css = dashboardWorkspaceCss();
+      expect(css).toContain("grid-template-columns: 88px minmax(8rem, 1fr) minmax(8rem, 28%)");
+      expect(css).toContain("text-overflow: ellipsis");
+      expect(css).toContain('grid-template-areas: "time operation" ". source"');
     });
   });
 
