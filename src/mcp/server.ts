@@ -131,6 +131,14 @@ const sourceAliasInputSchema = {
   source_device_id: z.unknown().optional(),
   "source.device_id": z.unknown().optional()
 } as const;
+const soulSubjectAliasInputSchema = {
+  subject_kind: z.unknown().optional(),
+  "subject.kind": z.unknown().optional(),
+  subject_id: z.unknown().optional(),
+  "subject.subject_id": z.unknown().optional(),
+  display_name: z.unknown().optional(),
+  "subject.display_name": z.unknown().optional()
+} as const;
 const writeAliasInputSchema = {
   content_text: z.unknown().optional(),
   content_format: z.unknown().optional(),
@@ -260,6 +268,7 @@ function snakeToCamel(value: string): string {
 }
 
 function mcpCamelCaseAliasName(argument: OperationArgumentMetadata): string | undefined {
+  if (!argument.mcp) return undefined;
   const alias = snakeToCamel(argument.name);
   return alias === argument.name ? undefined : alias;
 }
@@ -1533,6 +1542,230 @@ export async function runMcpServer(
         };
       }
     }
+  );
+
+  server.registerTool(
+    "soul_status",
+    {
+      title: "Inspect Moryn Soul Status",
+      description:
+        "Return metadata-only Soul revision, conflict, approval, compilation, synchronization, and delivery status.",
+      inputSchema: mcpInputSchema({
+        user_profile_id: coreValidatedStringSchema.optional(),
+        agent_profile_id: coreValidatedStringSchema.optional(),
+        project_id: coreValidatedStringSchema.optional(),
+        allowed_distributions: z.unknown().optional(),
+        char_budget: coreValidatedNumberSchema.optional(),
+        token_budget: coreValidatedNumberSchema.optional(),
+        ...camelCaseAliasInputSchema("soul_status")
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("soul_status", input, async (normalizedInput) =>
+        engine.readSoulProfileStatus({
+          user_profile_id: normalizedInput.user_profile_id,
+          agent_profile_id: normalizedInput.agent_profile_id,
+          project_id: normalizedInput.project_id,
+          allowed_distributions: normalizedInput.allowed_distributions,
+          char_budget: normalizedInput.char_budget,
+          token_budget: normalizedInput.token_budget
+        })
+      )
+  );
+
+  server.registerTool(
+    "soul_draft",
+    {
+      title: "Create Moryn Soul Draft",
+      description: "Persist an authored, unapproved Soul profile draft without leaking local-only clauses to Git.",
+      inputSchema: mcpInputSchema({
+        subject: z.unknown().optional(),
+        ...soulSubjectAliasInputSchema,
+        profile_id: coreValidatedStringSchema.optional(),
+        from_revision_id: coreValidatedStringSchema.optional(),
+        clauses: z.unknown().optional(),
+        occurred_at: coreValidatedStringSchema.optional(),
+        source: z.unknown().optional(),
+        ...sourceAliasInputSchema,
+        ...camelCaseAliasInputSchema("soul_draft")
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("soul_draft", input, async (normalizedInput) =>
+        engine.createSoulProfileDraft({
+          subject: normalizedInput.subject,
+          profile_id: normalizedInput.profile_id,
+          from_revision_id: normalizedInput.from_revision_id,
+          clauses: normalizedInput.clauses,
+          occurred_at: normalizedInput.occurred_at,
+          source: withDefaultSource(normalizedInput.source)
+        })
+      )
+  );
+
+  server.registerTool(
+    "soul_approve",
+    {
+      title: "Approve Moryn Soul Draft",
+      description: "Activate one reviewed Soul draft; explicit confirm=true is required.",
+      inputSchema: mcpInputSchema({
+        revision_id: coreValidatedStringSchema.optional(),
+        confirm: coreValidatedBooleanSchema.optional(),
+        occurred_at: coreValidatedStringSchema.optional(),
+        source: z.unknown().optional(),
+        ...sourceAliasInputSchema,
+        ...camelCaseAliasInputSchema("soul_approve")
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("soul_approve", input, async (normalizedInput) =>
+        engine.approveSoulProfileDraft({
+          revision_id: normalizedInput.revision_id,
+          confirmed: normalizedInput.confirm,
+          occurred_at: normalizedInput.occurred_at,
+          source: withDefaultSource(normalizedInput.source)
+        })
+      )
+  );
+
+  server.registerTool(
+    "soul_rollback",
+    {
+      title: "Roll Back Moryn Soul Profile",
+      description:
+        "Append a rollback revision copied from a prior approved revision; explicit confirm=true is required.",
+      inputSchema: mcpInputSchema({
+        profile_id: coreValidatedStringSchema.optional(),
+        to_revision: coreValidatedStringSchema.optional(),
+        confirm: coreValidatedBooleanSchema.optional(),
+        occurred_at: coreValidatedStringSchema.optional(),
+        source: z.unknown().optional(),
+        ...sourceAliasInputSchema,
+        ...camelCaseAliasInputSchema("soul_rollback")
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("soul_rollback", input, async (normalizedInput) =>
+        engine.rollbackSoulProfile({
+          profile_id: normalizedInput.profile_id,
+          target_revision_id: normalizedInput.to_revision,
+          confirmed: normalizedInput.confirm,
+          occurred_at: normalizedInput.occurred_at,
+          source: withDefaultSource(normalizedInput.source)
+        })
+      )
+  );
+
+  server.registerTool(
+    "memory_expand",
+    {
+      title: "Expand Moryn Memory Sources",
+      description:
+        "Expand one compressed memory into bounded source evidence with privacy omissions and digest verification.",
+      inputSchema: mcpInputSchema({
+        record_id: coreValidatedStringSchema.optional(),
+        max_depth: coreValidatedNumberSchema.optional(),
+        max_records: coreValidatedNumberSchema.optional(),
+        include_private: coreValidatedBooleanSchema.optional(),
+        ...camelCaseAliasInputSchema("memory_expand")
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("memory_expand", input, async (normalizedInput) =>
+        engine.expandMemorySources({
+          record_id: normalizedInput.record_id,
+          max_depth: normalizedInput.max_depth,
+          max_records: normalizedInput.max_records,
+          include_private: normalizedInput.include_private
+        })
+      )
+  );
+
+  server.registerTool(
+    "memory_compaction_preview",
+    {
+      title: "Preview Moryn Memory Compaction",
+      description:
+        "Read current records and preview deterministic compaction coverage, blockers, token reduction, sync impact, and undo semantics.",
+      inputSchema: mcpInputSchema({
+        project_id: coreValidatedStringSchema.optional(),
+        session_id: coreValidatedStringSchema.optional(),
+        bucket_kind: coreValidatedStringSchema.optional(),
+        bucket_key: coreValidatedStringSchema.optional(),
+        now: coreValidatedStringSchema.optional(),
+        recent_window_days: coreValidatedNumberSchema.optional(),
+        include_private: coreValidatedBooleanSchema.optional(),
+        ...camelCaseAliasInputSchema("memory_compaction_preview")
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("memory_compaction_preview", input, async (normalizedInput) =>
+        engine.previewMemoryCompaction({
+          project_id: normalizedInput.project_id,
+          session_id: normalizedInput.session_id,
+          bucket_kind: normalizedInput.bucket_kind,
+          bucket_key: normalizedInput.bucket_key,
+          now: normalizedInput.now,
+          recent_window_days: normalizedInput.recent_window_days,
+          include_private: normalizedInput.include_private
+        })
+      )
+  );
+
+  server.registerTool(
+    "memory_compaction_plan",
+    {
+      title: "Seal Moryn Memory Compaction Plan",
+      description:
+        "Validate an exact read-only compaction preview and seal it into the only artifact accepted by apply.",
+      inputSchema: mcpInputSchema({
+        preview: z.unknown().optional(),
+        ...camelCaseAliasInputSchema("memory_compaction_plan")
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("memory_compaction_plan", input, async (normalizedInput) =>
+        engine.planMemoryCompaction({ preview: normalizedInput.preview })
+      )
+  );
+
+  server.registerTool(
+    "memory_compaction_apply",
+    {
+      title: "Apply Moryn Memory Compaction",
+      description:
+        "Apply one reviewed sealed compaction plan through append-only transactions; explicit confirm=true is required.",
+      inputSchema: mcpInputSchema({
+        plan: z.unknown().optional(),
+        confirm: coreValidatedBooleanSchema.optional(),
+        ...camelCaseAliasInputSchema("memory_compaction_apply")
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("memory_compaction_apply", input, async (normalizedInput) =>
+        engine.applyMemoryCompaction({ plan: normalizedInput.plan, confirmed: normalizedInput.confirm })
+      )
+  );
+
+  server.registerTool(
+    "memory_compaction_restore",
+    {
+      title: "Restore Moryn Memory Compaction",
+      description:
+        "Append a logical restore for one committed compaction and archive its derived rollups; explicit confirm=true is required.",
+      inputSchema: mcpInputSchema({
+        plan_id: coreValidatedStringSchema.optional(),
+        confirm: coreValidatedBooleanSchema.optional(),
+        ...camelCaseAliasInputSchema("memory_compaction_restore")
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("memory_compaction_restore", input, async (normalizedInput) =>
+        engine.restoreMemoryCompaction({
+          plan_id: normalizedInput.plan_id,
+          confirmed: normalizedInput.confirm
+        })
+      )
   );
 
   server.registerTool(

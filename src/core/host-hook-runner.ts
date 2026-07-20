@@ -24,6 +24,7 @@ import { resolveProjectContext } from "./project.js";
 import { readCurrentRecords } from "./record-read-model.js";
 import { detectSensitiveContent } from "./sensitive.js";
 import { type SessionSynthesis, synthesizeSession } from "./session-synthesis.js";
+import { deliverEffectiveSoul } from "./soul-host-delivery.js";
 import { evaluateTurnSyncCadence, recordTurnSyncSuccess, type TurnSyncCadenceDecision } from "./turn-sync-cadence.js";
 
 export interface RunHostHookInput {
@@ -108,6 +109,7 @@ export interface HostHookRunResult {
   checkpoint_sync?: HostHookCheckpointSync;
   activation_receipt?: Awaited<ReturnType<typeof recordActivationReceipt>>;
   activation_warning?: { code: "ACTIVATION_RECEIPT_FAILED"; reason: string };
+  soul_delivery?: Awaited<ReturnType<typeof deliverEffectiveSoul>>;
   skipped?: { reason: "no_durable_session_evidence" };
   duplicate_status?: { prior_record_id: string };
   duplicate_handoff?: { prior_record_id: string };
@@ -387,6 +389,16 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
           ? false
           : await hasConfiguredSync();
     const result = await agentStart({ ...common, pull });
+    const soulDelivery = await deliverEffectiveSoul({
+      store_path: input.storePath,
+      effective_soul: result.effective_soul,
+      host: input.hook.host,
+      project_id: project.project_id,
+      session_id: input.hook.session_id,
+      device_id: input.hook.device_id,
+      event: input.hook.event,
+      occurred_at: input.hook.occurred_at
+    });
     const safeCompactSummary =
       input.hook.event === "post_compact" &&
       input.hook.compact_summary &&
@@ -407,7 +419,8 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
             }
           : { status: result.finalization_assurance.status },
       checkpoint_recovery_pack: result.boot.checkpoint_recovery_pack,
-      active_checkpoint: result.boot.active_checkpoint
+      active_checkpoint: result.boot.active_checkpoint,
+      effective_soul: soulDelivery.context
     });
     return {
       ok: true as const,
@@ -415,6 +428,7 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       action: input.hook.event === "session_start" ? ("agent_start" as const) : ("resume_from_checkpoint" as const),
       degradation,
       details: result,
+      soul_delivery: soulDelivery,
       hook_output: { additional_context: restoreContext },
       ...activationEvidence
     };

@@ -1,5 +1,54 @@
 # Changelog
 
+## 0.4.0-dev.0 - Unreleased
+
+Moryn v0.4 remains in active development. The current development line makes
+accumulated memory bounded and auditable, and makes agent/user
+identity portable without treating private persona text as ordinary synced
+memory.
+
+### Added
+
+- A three-axis memory model: L0–L3 abstraction layers, independent trust state,
+  and hot/warm/cold/purged retention, including pinned and `never_forget`
+  safety floors.
+- Deterministic record/token working-set budgets with explicit mandatory
+  overflow reporting; cold and purged records stay outside normal retrieval.
+- Session Fold and Episode Rollup preview/plan/apply transactions with coverage
+  attestations, source digests, rollup-first publication/readback, per-event
+  durability attestations, private receipts,
+  stale/partial-resume guards, and append-only logical restore.
+- Bounded source expansion from a rollup to immediate sources and leaf evidence,
+  including cycle, digest, privacy, conflict, and quarantine reporting.
+- Versioned User Soul and Agent Persona profiles with global/project clauses,
+  `local_only` and `personal_sync` distribution, explicit approval, conflict
+  fallback, rollback, deterministic Effective Soul budgets, and metadata-only
+  status.
+- Codex and Claude Code Soul context preparation at session start and after
+  compaction. `host_context_prepared` and proof scope
+  `hook_output_prepared_not_host_acknowledged_or_obedience` mean only that
+  bounded hook output was prepared; they do not prove stdout transport, Host
+  acknowledgment, or model obedience.
+- Read-only Dashboard Memory Maintenance and Soul Studio projections, plus CLI,
+  MCP, operation-contract, and public TypeScript surfaces for v0.4 workflows.
+
+### Safety and compatibility
+
+- Archive/cold is reversible. Physical purge is not part of automatic
+  compaction, and Moryn does not claim that an event can be removed from Git
+  history once synchronized.
+- Identity, rules, safety boundaries, conflicts, quarantined records, unique
+  evidence, private boundaries, and unverified coverage are never silently
+  compressed or discarded.
+- Local full Soul payloads and local transaction/approval/hook-preparation
+  receipt copies remain under ignored `state/` paths with restrictive
+  permissions. A synchronized `personal_sync` event contains only portable
+  clauses plus a metadata-only, integrity-checked approval attestation; it never
+  contains `local_only` clause text.
+- Existing v0.2/v0.3 event history opens in place. Retention metadata is
+  additive, legacy memory receives conservative defaults, and derived indexes
+  rebuild lazily.
+
 ## 0.3.0 - 2026-07-18
 
 Moryn v0.3 changes the default Codex and Claude Code path from a user-operated

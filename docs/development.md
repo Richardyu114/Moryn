@@ -20,6 +20,7 @@ npm install
 ```bash
 npm run build
 npm run typecheck
+npm run lint
 npm test
 npm run release:readiness
 npm run release:check
@@ -36,17 +37,23 @@ npm run smoke:sync-conflict
 npm run smoke:permission-recovery
 ```
 
-`npm run release:readiness` is a read-only v0.3 release-candidate check. It
-requires version `0.3.0` across package metadata, README, and CHANGELOG, checks
+`npm run release:readiness` is a read-only v0.4 release-candidate check. It
+requires version `0.4.0` across package metadata, README, and CHANGELOG, checks
 required smoke/package coverage, and rejects private release-planning paths
 from npm contents. It does not mutate files, create a tag, push, or publish;
 those remain explicit release actions outside the check.
+
+The active source line is `0.4.0-dev.0`, so final release readiness is expected
+to remain blocked until the remaining v0.4 scope is complete and the version is
+explicitly promoted. Development verification uses build, typecheck, lint, the
+full test suite, focused smokes, and dry-run package inspection without creating
+a tag or publishing.
 
 `npm run release:check` is the authoritative local release gate. It runs build,
 typecheck, the full test suite, dogfood, cross-host lifecycle, v0.2 in-place
 upgrade, sync-resilience, real-conflict guard, and permission-recovery smokes, package-content checks, and optional private Git remote
 validation. Its final line is machine-readable JSON listing completed and
-skipped checks. The final JSON includes `acceptance`, a stable nine-area v0.3
+skipped checks. The final JSON includes `acceptance`, a stable eleven-area v0.4
 evidence matrix. Each area lists its required, completed, and missing evidence;
 `acceptance_complete` is `true` only when every required evidence step ran
 successfully. Fast or skipped-check runs report affected areas as
@@ -163,7 +170,7 @@ The npm package includes only the public runtime and support material:
 - `README.md`, `CHANGELOG.md`, and `LICENSE`
 - public `docs`
 - `assets`
-- v0.3 release smoke scripts
+- v0.4 release smoke scripts and the v0.4 migration guide
 
 The release check rejects private Moryn store data such as `.moryn/`,
 `events/`, `snapshots/`, `indexes/`, `config.json`, local agent configuration,

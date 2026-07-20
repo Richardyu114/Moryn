@@ -26,6 +26,7 @@ import {
 } from "./context-delta.js";
 import { rebuildDerivedViews } from "./derived.js";
 import { type DogfoodReportInput, diagnoseDogfood } from "./dogfood-report.js";
+import { EPISODE_BUCKET_KINDS } from "./episode-rollup.js";
 import {
   commandForPromoteContext,
   InvalidRefreshCursorError,
@@ -48,12 +49,31 @@ import {
   logicalMemoryFingerprint,
   validateLogicalRelationship
 } from "./logical-memory.js";
+import {
+  assertMemoryCompactionPlanEnvelope,
+  previewMemoryCompaction as buildMemoryCompactionPreview,
+  type MemoryCompactionPreview,
+  type MemoryCompactionPreviewOptions,
+  planMemoryCompaction as sealMemoryCompactionPlan
+} from "./memory-compaction.js";
+import {
+  applyMemoryCompactionPlan as commitMemoryCompactionPlan,
+  readMemoryCompactionReceipt
+} from "./memory-compaction-receipts.js";
+import { restoreMemoryCompactionPlan as restoreCommittedMemoryCompactionPlan } from "./memory-compaction-restore.js";
 import { diagnoseMemory, MEMORY_DOCTOR_SELECTION_SOURCES } from "./memory-doctor.js";
+import { expandMemorySources as buildMemorySourceExpansion } from "./memory-expansion.js";
+import { normalizeMemoryExpansionCommand } from "./memory-expansion-command.js";
 import { diagnoseMemoryLifecycle, type MemoryLifecycleInput } from "./memory-lifecycle.js";
 import { buildRecallNextActions, RECALL_ACTION_SELECTION_SOURCES } from "./recall-actions.js";
 import { evaluateRecall, RECALL_EVAL_SELECTION_SOURCES, type RecallEvalInput } from "./recall-eval.js";
 import { assessRecallOutcome } from "./recall-outcome.js";
-import { type CurrentRecordReadResult, readCurrentRecords } from "./record-read-model.js";
+import {
+  type CurrentRecordReadResult,
+  DEFAULT_MEMORY_WORKING_SET_OPTIONS,
+  readCurrentRecords,
+  selectMemoryWorkingSet
+} from "./record-read-model.js";
 import { applyRecordPatch, replayEvents } from "./replay.js";
 import {
   type ReadRetrievalCandidatesInput,
@@ -82,7 +102,34 @@ import {
   validateSemanticConsolidationProposal
 } from "./semantic-consolidation.js";
 import { retrieveSemanticConsolidationCandidates } from "./semantic-consolidation-candidates.js";
-import { detectSensitiveContent, isPrivateTags, redactSensitiveContent, sensitiveScanText } from "./sensitive.js";
+import {
+  detectSensitiveContent,
+  isPrivateMemoryBoundary,
+  isPrivateTags,
+  redactSensitiveContent,
+  sensitiveScanText
+} from "./sensitive.js";
+import {
+  buildSessionFoldCoverageAttestation,
+  planSessionFold as buildSessionFoldPlan,
+  type SessionFoldIdentity,
+  type SessionFoldPlan
+} from "./session-fold.js";
+import { applySessionFoldPlan } from "./session-fold-transaction.js";
+import { compileEffectiveSoul } from "./soul-profile.js";
+import {
+  normalizeSoulApprovalCommand,
+  normalizeSoulDraftCommand,
+  normalizeSoulRollbackCommand,
+  normalizeSoulStatusCommand
+} from "./soul-profile-commands.js";
+import {
+  readSoulProfileStatus as buildSoulProfileStatus,
+  approveSoulProfileDraft as persistApprovedSoulProfileDraft,
+  createSoulProfileDraft as persistSoulProfileDraft,
+  rollbackSoulProfile as persistSoulProfileRollback
+} from "./soul-profile-management.js";
+import { readSoulProfileRevisions, SOUL_PROFILE_RECORD_TYPE } from "./soul-profile-store.js";
 import { type AppendEventIfAbsentResult, appendEvent, appendEventIfAbsent, readEvents } from "./store.js";
 import { readSyncCompensationReceipt } from "./sync-compensation.js";
 import type {
@@ -189,6 +236,10 @@ type ValidatedTimelineInput = TimelineInput & {
 interface BootInput {
   project_id?: string;
   agent_session_id?: unknown;
+  user_profile_id?: unknown;
+  agent_profile_id?: unknown;
+  soul_char_budget?: unknown;
+  soul_token_budget?: unknown;
   default_skills?: unknown;
   current_task?: unknown;
   sync_remote?: unknown;
@@ -197,6 +248,10 @@ interface BootInput {
 
 type ValidatedBootInput = BootInput & {
   agent_session_id?: string;
+  user_profile_id?: string;
+  agent_profile_id?: string;
+  soul_char_budget?: number;
+  soul_token_budget?: number;
   default_skills?: string[];
   current_task?: string;
   sync_remote?: string;
@@ -236,6 +291,18 @@ interface IngestLearningsInput {
   source: RecordSource;
   origin_record_id?: string;
 }
+
+interface SessionFoldPreviewInput extends SessionFoldIdentity {
+  proposed_final_text?: unknown;
+  include_private?: unknown;
+}
+
+interface ApplySessionFoldInput {
+  plan: SessionFoldPlan;
+  include_private?: unknown;
+}
+
+type SessionFoldPlanInput = SessionFoldIdentity & { include_private?: unknown };
 
 interface ConsolidateSemanticProposalsInput {
   proposals: unknown;
@@ -484,6 +551,7 @@ export const RECALL_SELECTION_SOURCES = {
   result: "results_by_id.<record_id>",
   record: "results_by_id.<record_id>.record",
   record_id: "results_by_id.<record_id>.record.id",
+  memory_working_set: "memory_working_set",
   next_action: RECALL_ACTION_SELECTION_SOURCES.action,
   ordered_next_action: RECALL_ACTION_SELECTION_SOURCES.ordered_action
 };
@@ -495,6 +563,10 @@ export const BOOT_SELECTION_SOURCES = {
   record_id: "records_by_id.<record_id>.id",
   user_preference: "profile.user_preferences_by_id.<record_id>",
   soul: "profile.soul_by_id.<record_id>",
+  effective_soul: "profile.effective_soul",
+  effective_soul_clause: "profile.effective_soul.clauses_by_id.<clause_id>",
+  soul_profile_status: "profile.soul_profile_status",
+  memory_working_set: "memory_working_set",
   global_rule: "profile.global_rules_by_id.<record_id>",
   important_decision: "project.important_decisions_by_id.<record_id>",
   warning: "project.warnings_by_id.<record_id>",
@@ -1026,6 +1098,65 @@ function assertPlainObject(value: unknown, name: string): asserts value is Recor
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`Invalid argument: Invalid ${name}`);
   }
+}
+
+function assertOnlyInputKeys(input: Record<string, unknown>, allowed: readonly string[], name: string): void {
+  const allowedKeys = new Set(allowed);
+  const unknown = Object.keys(input).find((key) => !allowedKeys.has(key));
+  if (unknown) throw new Error(`Invalid argument: Unknown ${name}.${unknown}`);
+}
+
+function normalizeMemoryCompactionPreviewInput(input: unknown): MemoryCompactionPreviewOptions {
+  assertPlainObject(input, "memory compaction preview input");
+  assertOnlyInputKeys(
+    input,
+    ["project_id", "session_id", "bucket_kind", "bucket_key", "now", "recent_window_days", "include_private"],
+    "memory compaction preview input"
+  );
+  for (const key of ["project_id", "session_id", "bucket_key"] as const) {
+    const value = input[key];
+    if (value !== undefined && (typeof value !== "string" || !value.trim())) {
+      throw new Error(`Invalid argument: ${key} must be a non-empty string`);
+    }
+  }
+  if (
+    input.bucket_kind !== undefined &&
+    (typeof input.bucket_kind !== "string" ||
+      !EPISODE_BUCKET_KINDS.includes(input.bucket_kind as (typeof EPISODE_BUCKET_KINDS)[number]))
+  ) {
+    throw new Error(`Invalid argument: bucket_kind must be one of ${EPISODE_BUCKET_KINDS.join(", ")}`);
+  }
+  if (
+    input.now !== undefined &&
+    (typeof input.now !== "string" ||
+      !Number.isFinite(Date.parse(input.now)) ||
+      new Date(input.now).toISOString() !== input.now)
+  ) {
+    throw new Error("Invalid argument: now must be a canonical ISO timestamp");
+  }
+  if (
+    input.recent_window_days !== undefined &&
+    (typeof input.recent_window_days !== "number" ||
+      !Number.isInteger(input.recent_window_days) ||
+      input.recent_window_days < 0 ||
+      input.recent_window_days > 3650)
+  ) {
+    throw new Error("Invalid argument: recent_window_days must be an integer from 0 through 3650");
+  }
+  if (input.include_private !== undefined && typeof input.include_private !== "boolean") {
+    throw new Error("Invalid argument: include_private must be a boolean");
+  }
+  return {
+    ...(typeof input.project_id === "string" ? { project_id: input.project_id.trim() } : {}),
+    ...(typeof input.session_id === "string" ? { session_id: input.session_id.trim() } : {}),
+    ...(typeof input.bucket_kind === "string"
+      ? { bucket_kind: input.bucket_kind as (typeof EPISODE_BUCKET_KINDS)[number] }
+      : {}),
+    ...(typeof input.bucket_key === "string" ? { bucket_key: input.bucket_key.trim() } : {}),
+    ...(typeof input.now === "string" ? { now: input.now } : {}),
+    ...(typeof input.recent_window_days === "number" ? { recent_window_days: input.recent_window_days } : {}),
+    include_private: input.include_private === true
+  };
 }
 
 type MutationArgumentRecoveryHint =
@@ -2281,6 +2412,16 @@ function validateBootInput(input: BootInput): void {
   assertPlainObject(input, "boot input");
   validateOptionalString("boot", input.project_id, "project_id");
   validateOptionalString("boot", input.agent_session_id, "agent_session_id");
+  validateOptionalString("boot", input.user_profile_id, "user_profile_id");
+  validateOptionalString("boot", input.agent_profile_id, "agent_profile_id");
+  for (const [argument, value] of [
+    ["soul_char_budget", input.soul_char_budget],
+    ["soul_token_budget", input.soul_token_budget]
+  ] as const) {
+    if (value !== undefined && (typeof value !== "number" || !Number.isInteger(value) || value < 1)) {
+      throw new Error(`Invalid argument: ${argument} must be a positive integer`);
+    }
+  }
   validateOptionalStringArray("boot", input.default_skills, "default_skills");
   validateOptionalString("boot", input.current_task, "current_task");
   validateOptionalString("boot", input.sync_remote, "sync_remote");
@@ -2338,6 +2479,73 @@ function validateMemoryLifecycleInput(input: MemoryLifecycleInput): void {
     throw invalidReadStringError("memory_lifecycle", "now", input.now);
   }
   validateOptionalBoolean("memory_lifecycle", input.include_private, "include_private");
+}
+
+function normalizeSessionFoldIdentity(
+  input: SessionFoldIdentity,
+  operation: "plan_session_fold" | "preview_session_fold"
+): SessionFoldIdentity {
+  assertPlainObject(input, `${operation} input`);
+  if (typeof input.project_id !== "string" || !input.project_id.trim()) {
+    throw new Error("Invalid argument: project_id must be a non-empty string");
+  }
+  if (typeof input.session_id !== "string" || !input.session_id.trim()) {
+    throw new Error("Invalid argument: session_id must be a non-empty string");
+  }
+  return { project_id: input.project_id.trim(), session_id: input.session_id.trim() };
+}
+
+function validateSessionFoldPreviewInput(
+  input: SessionFoldPreviewInput
+): SessionFoldIdentity & { include_private: boolean } {
+  const identity = normalizeSessionFoldIdentity(input, "preview_session_fold");
+  if (
+    input.proposed_final_text !== undefined &&
+    (typeof input.proposed_final_text !== "string" || !input.proposed_final_text.trim())
+  ) {
+    throw new Error("Invalid argument: proposed_final_text must be a non-empty string");
+  }
+  if (input.include_private !== undefined && typeof input.include_private !== "boolean") {
+    throw new Error("Invalid argument: include_private must be a boolean");
+  }
+  return { ...identity, include_private: input.include_private === true };
+}
+
+function normalizeSessionFoldPlanInput(
+  input: SessionFoldPlanInput
+): SessionFoldIdentity & { include_private: boolean } {
+  const identity = normalizeSessionFoldIdentity(input, "plan_session_fold");
+  if (input.include_private !== undefined && typeof input.include_private !== "boolean") {
+    throw new Error("Invalid argument: include_private must be a boolean");
+  }
+  return { ...identity, include_private: input.include_private === true };
+}
+
+function sessionFoldBoundaryRecords(records: readonly MorynRecord[], identity: SessionFoldIdentity): MorynRecord[] {
+  return records.filter(
+    (record) =>
+      record.project_id === identity.project_id &&
+      record.source.session_id === identity.session_id &&
+      record.kind === "session_summary" &&
+      ["status", "checkpoint", "summary"].includes(record.type) &&
+      record.visibility !== "archived" &&
+      record.state !== "archived"
+  );
+}
+
+function recordsForSessionFoldRead(
+  records: readonly MorynRecord[],
+  identity: SessionFoldIdentity,
+  includePrivate: boolean
+): MorynRecord[] {
+  const scoped = sessionFoldBoundaryRecords(records, identity);
+  const omittedPrivateCount = scoped.filter(isPrivateMemoryBoundary).length;
+  if (!includePrivate && omittedPrivateCount > 0) {
+    throw new Error(
+      `Private Session Fold sources require explicit include_private: true (${omittedPrivateCount} source${omittedPrivateCount === 1 ? "" : "s"} omitted)`
+    );
+  }
+  return includePrivate ? [...records] : records.filter((record) => !isPrivateMemoryBoundary(record));
 }
 
 function validateCapturePolicyInput(input: CapturePolicyInput): void {
@@ -2501,6 +2709,37 @@ function isPrivateRecord(record: MorynRecord): boolean {
 
 function isAllowedByPrivateBoundary(record: MorynRecord, includePrivate: boolean | undefined): boolean {
   return includePrivate === true || !isPrivateRecord(record);
+}
+
+function isManagedSoulProfileRecord(record: MorynRecord): boolean {
+  return record.kind === "soul" && record.type === SOUL_PROFILE_RECORD_TYPE;
+}
+
+function defaultMemoryWorkingSet(records: readonly MorynRecord[]) {
+  const selection = selectMemoryWorkingSet(records, DEFAULT_MEMORY_WORKING_SET_OPTIONS);
+  return {
+    records: selection.selected.map((entry) => entry.record),
+    report: {
+      version: 1 as const,
+      policy_id: "default_active_memory_v04" as const,
+      counts: selection.counts,
+      tokens: selection.tokens
+    }
+  };
+}
+
+function boundedRetrievalEvidence(
+  retrieval: RetrievalCandidateReadResult,
+  records: readonly MorynRecord[],
+  workingSet: ReturnType<typeof defaultMemoryWorkingSet>["report"]
+) {
+  return {
+    ...retrieval,
+    records: [...records],
+    unbounded_candidate_count: retrieval.candidate_count,
+    candidate_count: records.length,
+    working_set: workingSet
+  };
 }
 
 function isTrustedForBoot(record: MorynRecord): boolean {
@@ -3204,6 +3443,121 @@ export function createEngine(deps: EngineDeps) {
   }
 
   const engine = {
+    async createSoulProfileDraft(input: unknown) {
+      return persistSoulProfileDraft(
+        deps.storePath,
+        normalizeSoulDraftCommand(input, { source: { client: "moryn" }, occurred_at: now() })
+      );
+    },
+
+    async approveSoulProfileDraft(input: unknown) {
+      return persistApprovedSoulProfileDraft(
+        deps.storePath,
+        normalizeSoulApprovalCommand(input, { source: { client: "moryn" }, occurred_at: now() })
+      );
+    },
+
+    async rollbackSoulProfile(input: unknown) {
+      return persistSoulProfileRollback(
+        deps.storePath,
+        normalizeSoulRollbackCommand(input, { source: { client: "moryn" }, occurred_at: now() })
+      );
+    },
+
+    async readSoulProfileStatus(input: unknown = {}) {
+      return buildSoulProfileStatus(deps.storePath, normalizeSoulStatusCommand(input));
+    },
+
+    async expandMemorySources(input: unknown) {
+      const normalized = normalizeMemoryExpansionCommand(input);
+      return buildMemorySourceExpansion({ records: await currentRecords(), ...normalized });
+    },
+
+    async previewMemoryCompaction(input: unknown = {}) {
+      return buildMemoryCompactionPreview(await currentRecords(), normalizeMemoryCompactionPreviewInput(input));
+    },
+
+    async planMemoryCompaction(input: unknown) {
+      assertPlainObject(input, "memory compaction plan input");
+      assertOnlyInputKeys(input, ["preview"], "memory compaction plan input");
+      return sealMemoryCompactionPlan(input.preview as MemoryCompactionPreview);
+    },
+
+    async applyMemoryCompaction(input: unknown) {
+      assertPlainObject(input, "memory compaction apply input");
+      assertOnlyInputKeys(input, ["plan", "confirmed"], "memory compaction apply input");
+      assertMemoryCompactionPlanEnvelope(input.plan);
+      const submittedPlan = input.plan;
+      const existingReceipt = await readMemoryCompactionReceipt(deps.storePath, submittedPlan.plan_id);
+      if (!existingReceipt) {
+        const currentPreview = buildMemoryCompactionPreview(await currentRecords(), {
+          ...submittedPlan.filters,
+          now: submittedPlan.planning_time
+        });
+        const currentPlan = sealMemoryCompactionPlan(currentPreview);
+        if (
+          currentPlan.plan_id !== submittedPlan.plan_id ||
+          currentPlan.envelope_digest !== submittedPlan.envelope_digest
+        ) {
+          throw new Error(
+            "Memory Compaction plan no longer matches the current authorized privacy scope; generate and review a new preview"
+          );
+        }
+      }
+      return commitMemoryCompactionPlan(deps.storePath, {
+        plan: submittedPlan,
+        confirmed: input.confirmed as boolean
+      });
+    },
+
+    async restoreMemoryCompaction(input: unknown) {
+      assertPlainObject(input, "memory compaction restore input");
+      assertOnlyInputKeys(input, ["plan_id", "confirmed"], "memory compaction restore input");
+      return restoreCommittedMemoryCompactionPlan(deps.storePath, {
+        plan_id: input.plan_id as string,
+        confirmed: input.confirmed as boolean
+      });
+    },
+
+    async previewSessionFold(input: SessionFoldPreviewInput) {
+      const { include_private: includePrivate, ...identity } = validateSessionFoldPreviewInput(input);
+      const records = recordsForSessionFoldRead(await currentRecords(), identity, includePrivate);
+      const plan = buildSessionFoldPlan(records, identity);
+      const proposedFinalText =
+        typeof input.proposed_final_text === "string" ? input.proposed_final_text.trim() : undefined;
+      return {
+        plan,
+        ...(proposedFinalText
+          ? { coverage: buildSessionFoldCoverageAttestation(records, identity, proposedFinalText) }
+          : {})
+      };
+    },
+
+    async planSessionFold(input: SessionFoldPlanInput) {
+      const { include_private: includePrivate, ...identity } = normalizeSessionFoldPlanInput(input);
+      const records = recordsForSessionFoldRead(await currentRecords(), identity, includePrivate);
+      return buildSessionFoldPlan(records, identity);
+    },
+
+    async applySessionFold(input: ApplySessionFoldInput) {
+      assertPlainObject(input, "apply_session_fold input");
+      if (!input.plan || typeof input.plan !== "object" || Array.isArray(input.plan)) {
+        throw new Error("Invalid argument: plan must be a Session Fold plan");
+      }
+      if (input.include_private !== undefined && typeof input.include_private !== "boolean") {
+        throw new Error("Invalid argument: include_private must be a boolean");
+      }
+      if (input.plan.privacy_boundary !== "public" && input.include_private !== true) {
+        throw new Error("Private Session Fold apply requires explicit include_private: true");
+      }
+      return applySessionFoldPlan(deps.storePath, input.plan, {
+        append_event: appendIdempotentEvent,
+        rebuild: async (storePath) => {
+          await checkpointRebuild(storePath);
+        }
+      });
+    },
+
     async ingestLearnings(input: IngestLearningsInput) {
       if (!Array.isArray(input.learnings)) throw new Error("Invalid argument: learnings must be an array");
       if (
@@ -4039,18 +4393,37 @@ export function createEngine(deps: EngineDeps) {
           })
         : undefined;
       const current = retrieval ? undefined : await readRecords(deps.storePath);
-      const logicalRecords =
+      const availableRecords =
         retrieval?.records ??
         (recallInput.record_ids?.length || includesHiddenState(recallInput)
           ? current!.records
           : buildActiveLogicalMemoryView(current!.records).active_records);
-      const rankedRecords = logicalRecords
+      const eligibleRecords = availableRecords
         .filter(
           (record) =>
             includesHiddenState(recallInput) || includesRawState(recallInput) || isVisibleInDefaultRecall(record)
         )
         .filter((record) => isAllowedByPrivateBoundary(record, recallInput.include_private))
         .filter((record) => recordProjectMatchesRecall(record, recallInput))
+        .filter(
+          (record) =>
+            !isManagedSoulProfileRecord(record) ||
+            recallInput.record_ids?.includes(record.id) ||
+            recallInput.types?.includes(SOUL_PROFILE_RECORD_TYPE)
+        );
+      const bounded =
+        !recallInput.record_ids?.length && !includesHiddenState(recallInput)
+          ? defaultMemoryWorkingSet(eligibleRecords)
+          : undefined;
+      const logicalRecords = bounded?.records ?? eligibleRecords;
+      const retrievalEvidence = retrieval
+        ? boundedRetrievalEvidence(
+            retrieval,
+            logicalRecords,
+            bounded?.report ?? defaultMemoryWorkingSet(logicalRecords).report
+          )
+        : undefined;
+      const rankedRecords = logicalRecords
         .filter((record) => !recallInput.record_ids?.length || recallInput.record_ids.includes(record.id))
         .filter((record) => !recallInput.kinds?.length || recallInput.kinds.includes(record.kind))
         .filter((record) => !recallInput.scopes?.length || recallInput.scopes.includes(record.scope))
@@ -4087,7 +4460,8 @@ export function createEngine(deps: EngineDeps) {
         : undefined;
       return {
         results: records,
-        ...(retrieval ? { retrieval } : {}),
+        ...(retrievalEvidence ? { retrieval: retrievalEvidence } : {}),
+        ...(bounded ? { memory_working_set: bounded.report } : {}),
         ...(outcome ? { outcome } : {}),
         ...(actionContract ? actionContract : {}),
         selection_sources: RECALL_SELECTION_SOURCES,
@@ -4153,16 +4527,33 @@ export function createEngine(deps: EngineDeps) {
         default_skills: Array.isArray(input.default_skills) ? input.default_skills : undefined,
         include_private: input.include_private === true
       } as ValidatedBootInput;
+      const soulProfiles = await readSoulProfileRevisions(deps.storePath, {
+        include_legacy_private: bootInput.include_private
+      });
+      const effectiveSoul = compileEffectiveSoul({
+        revisions: soulProfiles.revisions,
+        user_profile_id: bootInput.user_profile_id,
+        agent_profile_id: bootInput.agent_profile_id,
+        project_id: bootInput.project_id,
+        char_budget: bootInput.soul_char_budget,
+        token_budget: bootInput.soul_token_budget
+      });
       const retrieval = bootInput.project_id
         ? await readCandidates(deps.storePath, { project_id: bootInput.project_id, read_current_records: readRecords })
         : undefined;
       const current = retrieval ? undefined : await readRecords(deps.storePath);
       const allCurrentRecords = retrieval?.records ?? current!.records;
       const activeCurrentRecords = retrieval?.records ?? buildActiveLogicalMemoryView(allCurrentRecords).active_records;
-      const visibleRecords = activeCurrentRecords
+      const workingSetEligibleRecords = activeCurrentRecords
         .filter(isVisibleByDefault)
         .filter((record) => isAllowedByPrivateBoundary(record, bootInput.include_private))
-        .filter((record) => recordBootContextMatches(record, bootInput.project_id));
+        .filter((record) => recordBootContextMatches(record, bootInput.project_id))
+        .filter((record) => !isManagedSoulProfileRecord(record));
+      const memoryWorkingSet = defaultMemoryWorkingSet(workingSetEligibleRecords);
+      const visibleRecords = memoryWorkingSet.records;
+      const retrievalEvidence = retrieval
+        ? boundedRetrievalEvidence(retrieval, visibleRecords, memoryWorkingSet.report)
+        : undefined;
       const records = visibleRecords.filter(isTrustedForBoot);
       const recent = [...visibleRecords]
         .filter(isImportantBootRecent)
@@ -4184,7 +4575,11 @@ export function createEngine(deps: EngineDeps) {
           )
         )
       );
-      const soul = compactRecords(boundedBootRecords(records.filter((record) => record.kind === "soul")));
+      const soul = compactRecords(
+        boundedBootRecords(
+          records.filter((record) => record.kind === "soul" && record.type !== SOUL_PROFILE_RECORD_TYPE)
+        )
+      );
       const globalRules = compactRecords(
         boundedBootRecords(
           records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "rule")
@@ -4220,12 +4615,20 @@ export function createEngine(deps: EngineDeps) {
         .filter((record) => Boolean(parseCheckpointContent(record.content)))
         .at(-1);
       return {
-        ...(retrieval ? { retrieval } : {}),
+        ...(retrievalEvidence ? { retrieval: retrievalEvidence } : {}),
+        memory_working_set: memoryWorkingSet.report,
         profile: {
           user_preferences: userPreferences,
           user_preferences_by_id: recordsById(userPreferences),
           soul,
           soul_by_id: recordsById(soul),
+          effective_soul: effectiveSoul,
+          soul_profile_status: {
+            local_saved_revision_ids: soulProfiles.local_revision_ids,
+            personal_sync_revision_ids: soulProfiles.personal_sync_revision_ids,
+            legacy_record_ids: soulProfiles.legacy_record_ids,
+            warnings: soulProfiles.warnings
+          },
           global_rules_by_id: recordsById(globalRules),
           global_rules: globalRules
         },

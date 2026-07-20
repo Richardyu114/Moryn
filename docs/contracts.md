@@ -873,3 +873,171 @@ Unknown arguments are rejected. Private records require `include_private: true`,
 and public receipts expose IDs, status, reason, relationship, event ID, digest,
 and aggregate counts without record text. Repeating an accepted proposal is
 idempotent.
+
+## v0.4 Memory Distillation Contract
+
+Memory classification uses three independent axes. A value on one axis must not
+be inferred from a value on another:
+
+| Axis | Values | Meaning |
+| --- | --- | --- |
+| abstraction | `L0`, `L1`, `L2`, `L3` | evidence, episodic, semantic/procedural, identity |
+| trust | `raw`, `candidate`, `canonical`, `quarantined`, `legacy_unknown` | confidence and review state |
+| retention | `hot`, `warm`, `cold`, `purged` | working-set availability, with independent `pinned` and `never_forget` protection |
+
+For example, a canonical record can be cold, an L0 record can remain hot, and
+an L3 record can be quarantined. `archived` v0.3 records map conservatively to
+the cold tier; this compatibility mapping does not recover their former trust
+state.
+
+Consolidation, archive/cold transition, and purge are separate operations:
+
+- consolidation creates a derived rollup with source ids, source digests, and
+  verified coverage;
+- archive/cold removes a source from the normal working set but preserves the
+  source record and append-only event history;
+- purge is not part of compaction apply and is never implied by archive.
+
+Cold does not mean deleted. Cold records remain available for timeline audit and
+explicit source expansion. The v0.4 compaction plan always reports
+`purge.included: false`, `sync_impact.physical_purge: false`, and
+`sync_impact.git_history_retained: true`. Structural
+`automatic_purge_safe` classification is not destructive authorization. Normal
+Moryn operations do not rewrite Git history, so no purge result may claim that a
+payload which once entered synchronized Git history has been erased. Only data
+proven never to have entered synchronized history could be considered for a
+future local physical-purge workflow; v0.4 exposes no automatic or standalone
+CLI/MCP physical-purge command.
+
+### Preview, Plan, Apply, Receipt, Restore
+
+Session Fold and Episode Rollup follow one transaction contract:
+
+1. Preview is read-only and reports before/after record and estimated-token
+   counts, coverage, privacy boundary, blockers, sync impact, and undo semantics.
+2. A deterministic plan binds source ids and digests. A stale plan, incomplete
+   coverage, mixed privacy boundary, conflict, protected content, or changed
+   source must not silently apply.
+3. Apply writes the derived rollup before appending source archive/cold events.
+   It does not delete the source event files.
+4. A committed, integrity-checked receipt is written only after the complete
+   append-only event set was atomically published and every exact event payload
+   was read back. Partial transactions are idempotently resumable and must not
+   be represented as committed.
+5. Restore is append-only: it restores source trust/visibility with new events
+   and archives the derived rollup. It never edits an earlier event or erases Git
+   history, and it requires the committed receipt plus retained event history.
+
+Receipts live under ignored local `state/` storage with restrictive permissions
+and contain identifiers, digests, counts, and status rather than record text.
+Each Session Fold, Episode Rollup, unified apply, and restore receipt includes a
+metadata-only durability attestation that partitions every `event_id` into
+`confirmed_event_ids`, `best_effort_event_ids`, or
+`existing_readback_event_ids`, with `all_events_read_back: true`. `committed`
+therefore proves atomic publication plus exact readback; only
+`confirmed_event_ids` prove that the containing directory entry was synced in
+that transaction. `best_effort_event_ids` and previously existing events must
+not be described as confirmed crash durability.
+Episode claims retain leaf-evidence lineage so regeneration does not summarize a
+summary without recoverable evidence.
+
+The unified public interfaces are:
+
+| Phase | CLI | MCP | Engine |
+| --- | --- | --- | --- |
+| preview | `moryn memory compact preview` | `memory_compaction_preview` | `previewMemoryCompaction` |
+| plan | `moryn memory compact plan --preview-json <json>` | `memory_compaction_plan` | `planMemoryCompaction` |
+| apply | `moryn memory compact apply --plan-json <json> --confirm` | `memory_compaction_apply` with `confirm: true` | `applyMemoryCompaction` with `confirmed: true` |
+| restore | `moryn memory compact restore <plan_id> --confirm` | `memory_compaction_restore` with `confirm: true` | `restoreMemoryCompaction` with `confirmed: true` |
+
+Preview and plan are non-mutating. Unified apply and restore always require
+explicit confirmation and reject an omitted or false confirmation. Compaction
+preview defaults to `include_private: false`. If private-classified sources
+exist in the requested project/session/bucket scope, it returns only an
+omission count and reason (never private ids or content), marks
+`private_access.scope_complete` false, and cannot produce an apply-ready plan.
+Classification covers private/secret/sensitive tags plus Episode sources marked
+`content.privacy: "private"` or `content.distribution: "local_only"`. CLI
+`--include-private`, MCP
+`include_private: true` (or `includePrivate: true`), or Engine
+`include_private: true` is an explicit authorization boundary embedded in the
+preview and plan digest; apply rechecks that same boundary against current
+records. The exported pure `previewMemoryCompaction(records, options)` planner
+also defaults to `include_private: false`; callers that intentionally supplied
+private records must still pass `{ include_private: true }`. Separately,
+the embedded Engine exposes `previewSessionFold`, `planSessionFold`, and
+`applySessionFold`. Its standalone preview/plan reads likewise require explicit
+`include_private: true` before returning a private payload. `agent_finish` may
+still apply a safe, fully covered public Session Fold automatically as part of
+finalization. v0.4 exposes no physical-purge CLI/MCP operation.
+
+### Source Expansion
+
+The stable read-only source-expansion interfaces are:
+
+```bash
+moryn memory expand <record_id> --max-depth 2 --max-records 100
+```
+
+```json
+{
+  "tool": "memory_expand",
+  "arguments": {
+    "record_id": "<record_id>",
+    "max_depth": 2,
+    "max_records": 100
+  }
+}
+```
+
+The equivalent Engine method is `expandMemorySources`. Expansion is bounded,
+cycle-safe, and digest-aware. It reports verified, mismatched, and unavailable
+edges plus explicit omissions such as `private_boundary`, `missing_source`,
+`depth_limit`, and `record_limit`. Private roots and sources require the
+existing explicit `include_private` boundary; expansion does not weaken it.
+
+## v0.4 Portable Soul Contract
+
+User Soul and Agent Persona are versioned profiles with stable profile,
+revision, and clause identities. User and agent subjects remain separate. Each
+clause has global or project scope and an independent distribution:
+
+- `personal_sync` is projected into an append-only record that can travel
+  through normal Git sync;
+- `local_only` payload stays in ignored local `state/soul-profiles/` storage and
+  must not enter a synchronized event, Dashboard JSON/HTML, or `soul_status`
+  payload.
+
+A mixed revision's synchronized projection contains only its `personal_sync`
+clauses. `personal_sync_saved` proves that the projection was persisted locally;
+it does not by itself prove a remote push or a verified pull on another device.
+An approved portable projection may also carry a metadata-only,
+integrity-checked approval attestation that binds revision IDs and digests. The
+local receipt copy stays under ignored `state/`; neither the projection nor its
+attestation contains `local_only` clause text.
+
+Draft, approval, conflict, and rollback are explicit revision transitions.
+Approval and rollback require user confirmation and append a new active revision
+plus an approval receipt. Competing heads remain visible as conflicts; Effective
+Soul may use the last known good approved revision instead of silently selecting
+an ambiguous head. Protected identity and boundary clauses cannot be casually
+overridden. Character and token budgets are deterministic, and a mandatory
+clause that cannot fit blocks hook-context preparation instead of being
+truncated.
+
+The stable public interfaces are:
+
+| Behavior | CLI | MCP | Engine |
+| --- | --- | --- | --- |
+| metadata status | `moryn soul status` | `soul_status` | `readSoulProfileStatus` |
+| create draft | `moryn soul draft ...` | `soul_draft` | `createSoulProfileDraft` |
+| approve | `moryn soul approve <revision_id> --confirm` | `soul_approve` | `approveSoulProfileDraft` |
+| rollback | `moryn soul rollback --profile-id <profile_id> --to-revision <revision_id> --confirm` | `soul_rollback` | `rollbackSoulProfile` |
+
+`soul_status` is metadata-only: it reports heads, lifecycle state,
+`local_saved`/`personal_sync_saved` persistence, approval verification,
+Effective Soul compilation, conflicts, and hook-preparation receipts without
+clause text. `host_context_prepared` means that Moryn prepared a bounded Soul
+pack for a supported SessionStart or PostCompact hook output. The receipt proof
+scope is `hook_output_prepared_not_host_acknowledged_or_obedience`: it does not
+prove stdout transport, Host acknowledgment, or model obedience.

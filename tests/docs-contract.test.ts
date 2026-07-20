@@ -86,22 +86,117 @@ describe("documentation contracts", () => {
     }
   });
 
-  it("documents the v0.3.0 public release and upgrade path", async () => {
-    const [readme, changelog, development] = await Promise.all([
+  it("documents the active v0.4 development line and in-place upgrade path", async () => {
+    const [readme, changelog, development, migration] = await Promise.all([
       readFile("README.md", "utf8"),
       readFile("CHANGELOG.md", "utf8"),
-      readFile("docs/development.md", "utf8")
+      readFile("docs/development.md", "utf8"),
+      readFile("docs/v0.4-migration.md", "utf8")
     ]);
 
-    expect(readme).toContain("Published package: v0.3.0");
+    expect(readme).toContain("Current source/package version: v0.4.0-dev.0");
+    expectText(readme, "v0.4 is still in active development and has not been tagged or published");
+    expect(readme).toContain("Distilled Memory");
+    expect(readme).toContain("Portable Soul");
     expect(readme).toContain("moryn learn --project .");
     expect(readme).toContain('--question "What did we learn?"');
     expectText(readme, "Finalization Assurance recovers an unfinalized prior Codex session at the next startup");
+    expect(changelog).toContain("## 0.4.0-dev.0 - Unreleased");
+    expectText(changelog, "Session Fold and Episode Rollup");
     expect(changelog).toContain("## 0.3.0 - 2026-07-18");
     expectText(changelog, "Learning Inbox and the one-call `learn` operation");
     expectText(changelog, "Finalization Assurance");
     expect(development).toContain("npm run release:readiness");
     expectText(development, "It does not mutate files, create a tag, push, or publish");
+    expectText(migration, "Moryn v0.4 opens v0.2 and v0.3 stores in place");
+    expectText(migration, "Archive/cold is a reversible logical state");
+    expectText(migration, "Unified apply and restore require explicit `--confirm` or `confirm: true`");
+    expectText(migration, "`agent_finish` may still apply a safe, fully covered Session Fold automatically");
+    expectText(migration, "they do not prove stdout transport, Host acknowledgment, or model obedience");
+    expectText(migration, "an unsalted content fingerprint of the full revision");
+    expectText(migration, "offline guessing against the ID");
+    expectText(migration, "provides a content-integrity chain, not a device-key signature");
+    expectText(migration, "can verify only the portable projection digest");
+    expectText(migration, "That overlay selection is not ancestry-aware");
+  });
+
+  it("documents v0.4 Memory Distillation and Portable Soul safety boundaries", async () => {
+    const [contracts, design, dashboard, workflow] = await Promise.all([
+      readFile("docs/contracts.md", "utf8"),
+      readFile("docs/moryn-design.md", "utf8"),
+      readFile("docs/dashboard.md", "utf8"),
+      readFile("docs/agent-workflow.md", "utf8")
+    ]);
+
+    expectText(contracts, "Memory classification uses three independent axes");
+    expectText(contracts, "Cold does not mean deleted");
+    expectText(contracts, "purge is not part of compaction apply and is never implied by archive");
+    expectText(contracts, "Restore is append-only");
+    expectText(contracts, "Normal Moryn operations do not rewrite Git history");
+    expect(contracts).toContain("previewSessionFold");
+    expect(contracts).toContain("planSessionFold");
+    expect(contracts).toContain("applySessionFold");
+    expect(contracts).toContain("moryn memory compact preview");
+    expect(contracts).toContain("moryn memory compact plan --preview-json <json>");
+    expect(contracts).toContain("moryn memory compact apply --plan-json <json> --confirm");
+    expect(contracts).toContain("moryn memory compact restore <plan_id> --confirm");
+    expect(contracts).toContain("memory_compaction_preview");
+    expect(contracts).toContain("memory_compaction_plan");
+    expect(contracts).toContain("memory_compaction_apply");
+    expect(contracts).toContain("memory_compaction_restore");
+    expectText(contracts, "Unified apply and restore always require explicit confirmation");
+    expect(contracts).toContain("moryn memory expand <record_id>");
+    expect(contracts).toContain('"tool": "memory_expand"');
+    expect(contracts).toContain("moryn soul status");
+    expect(contracts).toContain("soul_draft");
+    expect(contracts).toContain("soul_approve");
+    expect(contracts).toContain("soul_rollback");
+
+    expectText(design, "three orthogonal axes rather than one overloaded state field");
+    expectText(
+      design,
+      "Compaction follows preview -> deterministic plan -> append-only apply -> integrity-checked receipt"
+    );
+    expect(contracts).toContain("confirmed_event_ids");
+    expect(contracts).toContain("best_effort_event_ids");
+    expect(contracts).toContain("existing_readback_event_ids");
+    expect(contracts).toContain("all_events_read_back: true");
+    expectText(design, "Archive/cold is logical and reversible; cold does not mean deleted");
+    expectText(design, "Moryn does not claim that archive, cold, logical purge classification, or restore erases");
+    expect(design).toContain("expandMemorySources");
+    expect(design).toContain("state/soul-profiles/");
+    expectText(design, "portable projection exposes `full_revision_id`");
+    expectText(design, "device-local overlay or randomized local identity");
+
+    expect(dashboard).toContain("/api/dashboard.memory_maintenance");
+    expect(dashboard).toContain("/api/dashboard.soul_studio");
+    expectText(dashboard, "abstraction layer, trust state, and retention tier orthogonal");
+    expectText(dashboard, "Memory Maintenance is preview-only");
+    expectText(dashboard, "tokens.physical_storage_deleted` is always zero");
+    expectText(dashboard, "it does not authorize rendering `local_only` Soul clauses");
+
+    expectText(workflow, "Treat abstraction, trust, and retention as separate decisions");
+    expectText(
+      workflow,
+      "Compaction means “append a rollup, then append source archive/cold events, then commit a receipt.”"
+    );
+    expectText(workflow, "A logical restore appends new source state and derived-rollup archive events");
+    expect(workflow).toContain("moryn memory compact preview");
+    expect(workflow).toContain("moryn memory compact apply --plan-json '<plan-json>' --confirm");
+    expectText(workflow, "finalization may still apply a safe, fully covered Session Fold automatically");
+    expect(workflow).toContain("moryn memory expand <record_id>");
+    expect(workflow).toContain("moryn soul approve <revision_id> --confirm");
+    expect(workflow).toContain("moryn soul rollback");
+
+    for (const document of [contracts, design, dashboard, workflow]) {
+      expect(document).toContain("local_only");
+      expect(document).toContain("host_context_prepared");
+      expect(document).toContain("hook_output_prepared_not_host_acknowledged_or_obedience");
+      expectText(document, "stdout transport");
+      expectText(document, "Host acknowledgment");
+      expectText(document, "model obedience");
+      expect(document).not.toContain("moryn memory purge");
+    }
   });
 
   it("keeps deployment-private addresses out of public docs", async () => {
@@ -1345,7 +1440,11 @@ describe("documentation contracts", () => {
     expect(roadmap).toContain("Phase 4: Recall Eval");
     expect(roadmap).toContain("Phase 5: Public Polish");
     expect(roadmap).toContain("Phase 6: Release Gate");
+    expect(roadmap).toContain("v0.4 development: Distilled Memory and Portable Soul");
     expect(roadmap).toContain("v0.3.0 Context Autopilot");
+    expect(roadmap.indexOf("v0.4 development: Distilled Memory and Portable Soul")).toBeLessThan(
+      roadmap.indexOf("v0.3.0 Context Autopilot")
+    );
     expect(roadmap).toContain("enter -> recall/recover -> work -> checkpoint -> compact/resume -> finish");
     expect(roadmap).toContain("v0.2.0 Compatibility Baseline");
     expect(roadmap.indexOf("v0.3.0 Context Autopilot")).toBeLessThan(roadmap.indexOf("v0.2.0 Compatibility Baseline"));
@@ -1389,9 +1488,10 @@ describe("documentation contracts", () => {
     expectText(development, "Host runtime binding smoke places an incompatible `moryn` earlier on `PATH`");
     expect(roadmap).toContain("npm pack --dry-run --json");
     expectText(roadmap, "The v0.3 release-gate JSON includes all nine acceptance areas");
+    expectText(roadmap, "The v0.4 release-gate JSON extends the existing evidence matrix");
     expectText(roadmap, "`acceptance_complete: true` means every area's required evidence completed in that run");
     expectText(roadmap, "Fast or skipped-check runs report `not_verified` instead of implying full acceptance");
-    expectText(development, "The final JSON includes `acceptance`, a stable nine-area v0.3 evidence matrix");
+    expectText(development, "The final JSON includes `acceptance`, a stable eleven-area v0.4 evidence matrix");
     expectText(development, "`acceptance_complete` is `true` only when every required evidence step ran successfully");
     expect(roadmap).toContain("Final v0.2.0 Definition of Done");
   });
@@ -1411,9 +1511,9 @@ describe("documentation contracts", () => {
     expect(changelog).not.toContain("docs/superpowers");
     expect(changelog).not.toContain("v0.2-phase-plan.md");
 
-    expect(readme).toContain("Published package: v0.3.0");
+    expect(readme).toContain("Current source/package version: v0.4.0-dev.0");
     expect(readme).toContain("v0.3 Autopilot lifecycle");
-    expect(readme).toContain("v0.2 stores and explicit handoff commands remain");
+    expectText(readme, "v0.2/v0.3 stores and explicit handoff commands remain compatible");
     expect(readme).toContain('DashboardReview["Exceptional attention only');
     expect(readme).toContain('MemorySearch["Find what Moryn saved');
     expect(readme).toContain('SharedCopy["Shared copy');

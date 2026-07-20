@@ -2,6 +2,15 @@ import { operationArgumentsByTool } from "../operation-contracts.js";
 import { type ActionInterfaces, actionInterfaces } from "./action-interfaces.js";
 import { actionExecution, actionSafety } from "./action-safety.js";
 import { commandForArchiveContext, commandForRecallContext, commandForTimelineContext } from "./errors.js";
+import {
+  type AutomaticRetentionBlocker,
+  buildMemoryRetentionReadModel,
+  type MemoryLayer,
+  type MemoryRetentionTier,
+  type MemoryRetentionViewV2,
+  type MemoryValidityStatus,
+  type ProtectedMemorySignal
+} from "./memory-retention.js";
 import type { MorynRecord, RecordKind, RecordState } from "./types.js";
 import { type RequiredFieldMetadata, withPhasesByName, withRequiredFieldsByName } from "./workflow.js";
 
@@ -40,6 +49,23 @@ export interface MemoryLifecycleAssessment {
   age_days: number;
   updated_at: string;
   reasons: string[];
+  memory_layer: MemoryLayer;
+  retention_tier: MemoryRetentionTier;
+  validity_status: MemoryValidityStatus;
+  retention_policy_id: string;
+  retention_reason_codes: string[];
+  retention_safety: {
+    pinned: boolean;
+    never_forget: boolean;
+    private: boolean;
+    conflicted: boolean;
+    protected_type: boolean;
+    protected_signals: ProtectedMemorySignal[];
+    automatic_archive_safe: boolean;
+    automatic_purge_safe: boolean;
+    archive_blockers: AutomaticRetentionBlocker[];
+    purge_blockers: AutomaticRetentionBlocker[];
+  };
 }
 
 export interface MemoryLifecycleFinding {
@@ -87,6 +113,9 @@ export interface MemoryLifecycleStats {
   excluded_private_records: number;
   states: Partial<Record<RecordState, number>>;
   kinds: Partial<Record<RecordKind, number>>;
+  layers: Partial<Record<MemoryLayer, number>>;
+  tiers: Partial<Record<MemoryRetentionTier, number>>;
+  validity_statuses: Partial<Record<MemoryValidityStatus, number>>;
   retained_records: number;
   stale_records: number;
   archive_candidate_records: number;
@@ -158,37 +187,77 @@ function isRetainedByPolicy(record: MorynRecord): boolean {
   return record.state === "canonical" && record.type === "rule";
 }
 
+function retentionAssessmentDetails(view: MemoryRetentionViewV2) {
+  return {
+    memory_layer: view.layer.level,
+    retention_tier: view.retention.tier,
+    validity_status: view.validity.status,
+    retention_policy_id: view.retention.policy.id,
+    retention_reason_codes: view.reasons.map((reason) => reason.code),
+    retention_safety: {
+      pinned: view.retention.pinned,
+      never_forget: view.retention.never_forget,
+      private: view.safety.private,
+      conflicted: view.safety.conflicted,
+      protected_type: view.safety.protected_type,
+      protected_signals: [...view.safety.protected_signals],
+      automatic_archive_safe: view.safety.automatic_archive_safe,
+      automatic_purge_safe: view.safety.automatic_purge_safe,
+      archive_blockers: [...view.safety.archive_blockers],
+      purge_blockers: [...view.safety.purge_blockers]
+    }
+  };
+}
+
 function lifecycleAssessment(
   record: MorynRecord,
   now: string,
   policy: MemoryLifecyclePolicy,
-  privateRecordIds: Set<string>
+  privateRecordIds: Set<string>,
+  retention: MemoryRetentionViewV2
 ): MemoryLifecycleAssessment {
   const age = ageDays(record, now);
   const reasons: string[] = [];
+  const details = retentionAssessmentDetails(retention);
+  const result = (
+    lifecycleState: MemoryLifecycleState,
+    recommendedAction: MemoryLifecycleRecommendedAction,
+    assessmentReasons: string[]
+  ): MemoryLifecycleAssessment => ({
+    record_id: record.id,
+    lifecycle_state: lifecycleState,
+    recommended_action: recommendedAction,
+    age_days: age,
+    updated_at: record.updated_at,
+    reasons: assessmentReasons,
+    ...details
+  });
 
-  if (privateRecordIds.has(record.id)) {
-    return {
-      record_id: record.id,
-      lifecycle_state: "private_retained",
-      recommended_action: "keep",
-      age_days: age,
-      updated_at: record.updated_at,
-      reasons: ["private_record_retained_by_boundary"]
-    };
+  if (retention.validity.status === "expired") reasons.push("validity_expired");
+  else if (retention.validity.status === "stale") reasons.push("validity_stale");
+  if (retention.retention.policy.window_status === "elapsed") reasons.push("retention_window_elapsed");
+
+  if (privateRecordIds.has(record.id) || retention.safety.private) {
+    reasons.push("private_record_retained_by_boundary");
+    return result("private_retained", "keep", reasons);
+  }
+
+  if (retention.retention.tier === "cold" || retention.retention.tier === "purged") {
+    reasons.push(`retention_tier_${retention.retention.tier}_outside_working_set`);
+    return result("retained", "keep", reasons);
+  }
+
+  if (retention.retention.pinned || retention.retention.never_forget || retention.layer.level === "L3") {
+    if (retention.retention.pinned) reasons.push("pinned_memory_retained");
+    if (retention.retention.never_forget) reasons.push("never_forget_memory_retained");
+    if (retention.layer.level === "L3") reasons.push("identity_layer_retained");
+    return result("retained", "keep", reasons);
   }
 
   if (isRetainedByPolicy(record)) {
     if (record.priority === "high") reasons.push("high_priority_retained");
     if (record.state === "canonical" && record.type === "rule") reasons.push("canonical_rule_retained");
-    return {
-      record_id: record.id,
-      lifecycle_state: "retained",
-      recommended_action: "keep",
-      age_days: age,
-      updated_at: record.updated_at,
-      reasons
-    };
+    return result("retained", "keep", reasons);
   }
 
   if (age >= policy.archive_after_days) reasons.push("older_than_archive_after_days");
@@ -196,37 +265,27 @@ function lifecycleAssessment(
   if (record.state === "candidate" && record.confidence < policy.low_confidence_threshold)
     reasons.push("low_confidence_candidate");
 
-  if (reasons.includes("older_than_archive_after_days") && reasons.includes("low_confidence_candidate")) {
-    return {
-      record_id: record.id,
-      lifecycle_state: "archive_candidate",
-      recommended_action: "archive_after_review",
-      age_days: age,
-      updated_at: record.updated_at,
-      reasons
-    };
+  if (
+    reasons.includes("older_than_archive_after_days") &&
+    reasons.includes("low_confidence_candidate") &&
+    retention.safety.automatic_archive_safe
+  ) {
+    return result("archive_candidate", "archive_after_review", reasons);
+  }
+  if (
+    reasons.includes("older_than_archive_after_days") &&
+    reasons.includes("low_confidence_candidate") &&
+    !retention.safety.automatic_archive_safe
+  ) {
+    reasons.push("automatic_archive_blocked_by_retention_safety");
   }
 
   if (reasons.includes("older_than_stale_after_days")) {
-    return {
-      record_id: record.id,
-      lifecycle_state: "stale",
-      recommended_action: "inspect_timeline",
-      age_days: age,
-      updated_at: record.updated_at,
-      reasons
-    };
+    return result("stale", "inspect_timeline", reasons);
   }
 
   reasons.push("recent_or_retained_by_default");
-  return {
-    record_id: record.id,
-    lifecycle_state: "retained",
-    recommended_action: "keep",
-    age_days: age,
-    updated_at: record.updated_at,
-    reasons
-  };
+  return result("retained", "keep", reasons);
 }
 
 function stats(
@@ -239,6 +298,9 @@ function stats(
     excluded_private_records: excludedPrivateRecords,
     states: countBy(records.map((record) => record.state)),
     kinds: countBy(records.map((record) => record.kind)),
+    layers: countBy(assessments.map((assessment) => assessment.memory_layer)),
+    tiers: countBy(assessments.map((assessment) => assessment.retention_tier)),
+    validity_statuses: countBy(assessments.map((assessment) => assessment.validity_status)),
     retained_records: assessments.filter((assessment) => assessment.lifecycle_state === "retained").length,
     stale_records: assessments.filter((assessment) => assessment.lifecycle_state === "stale").length,
     archive_candidate_records: assessments.filter((assessment) => assessment.lifecycle_state === "archive_candidate")
@@ -415,8 +477,11 @@ export function diagnoseMemoryLifecycle(input: MemoryLifecycleDiagnoseInput): Me
   const policy = DEFAULT_POLICY;
   const records = [...input.records].sort(stableRecordSort);
   const privateRecordIds = new Set(input.private_record_ids ?? []);
+  const retention = buildMemoryRetentionReadModel(records, { now: generatedAt });
   const assessments = records
-    .map((record) => lifecycleAssessment(record, generatedAt, policy, privateRecordIds))
+    .map((record) =>
+      lifecycleAssessment(record, generatedAt, policy, privateRecordIds, retention.records_by_id[record.id]!)
+    )
     .sort(stableAssessmentSort);
   const findings = [archiveFinding(assessments), staleFinding(assessments)].filter(
     (finding): finding is MemoryLifecycleFinding => finding !== undefined
@@ -431,7 +496,12 @@ export function diagnoseMemoryLifecycle(input: MemoryLifecycleDiagnoseInput): Me
         .filter((assessment) => assessment.lifecycle_state === "stale")
         .map((assessment) => inspectAction(assessment.record_id, input.project_id, input.include_private)),
       ...assessments
-        .filter((assessment) => assessment.lifecycle_state !== "retained")
+        .filter(
+          (assessment) =>
+            assessment.lifecycle_state !== "retained" &&
+            assessment.retention_tier !== "cold" &&
+            assessment.retention_tier !== "purged"
+        )
         .map((assessment) => recallAction(assessment.record_id, input.project_id, input.include_private))
     ],
     limit

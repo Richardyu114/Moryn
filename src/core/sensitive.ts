@@ -1,3 +1,5 @@
+import type { MorynRecord } from "./types.js";
+
 export const REDACTED_SECRET = "[REDACTED_SECRET]";
 
 const SECRET_PATTERNS = [
@@ -21,6 +23,12 @@ const PRIVATE_TAGS = new Set(["private", "secret", "sensitive"]);
 
 export function isPrivateTags(tags: readonly string[]): boolean {
   return tags.some((tag) => PRIVATE_TAGS.has(tag.trim().toLowerCase()));
+}
+
+/** Shared read boundary for tagged records and legacy content-level privacy markers. */
+export function isPrivateMemoryBoundary(record: Pick<MorynRecord, "tags" | "content">): boolean {
+  const content = record.content as Record<string, unknown>;
+  return isPrivateTags(record.tags) || content.privacy === "private" || content.distribution === "local_only";
 }
 
 function hasLargeEnvBlock(text: string): boolean {

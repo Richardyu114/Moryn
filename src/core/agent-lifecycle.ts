@@ -35,6 +35,8 @@ import { consumeLearningInbox, learningInboxForLifecycle } from "./learning-inbo
 import { learningRecordIdentity } from "./learning-ingestion.js";
 import { type ProjectContext, resolveProjectContext, type SyncMode } from "./project.js";
 import { readCurrentRecords } from "./record-read-model.js";
+import type { SessionFoldPlan } from "./session-fold.js";
+import type { SessionFoldApplyResult } from "./session-fold-transaction.js";
 import { type SessionSynthesis, synthesizeSession } from "./session-synthesis.js";
 import {
   assessSyncCompensation,
@@ -71,6 +73,10 @@ export interface AgentStartInput extends AgentLifecycleInput {
   refreshSince?: unknown;
   limit?: unknown;
   includePrivate?: boolean;
+  userSoulProfileId?: string;
+  agentSoulProfileId?: string;
+  soulCharBudget?: number;
+  soulTokenBudget?: number;
 }
 
 export interface AgentFinishInput extends AgentLifecycleInput {
@@ -94,6 +100,18 @@ export interface AgentLifecycleDeps {
   handoffPayloadFingerprint?: string;
   finalizationRecovery?: { recovery_key: string; evidence_record_ids: string[] };
 }
+
+export interface AgentSessionFoldWarning {
+  code: "SESSION_FOLD_APPLY_FAILED" | "SESSION_FOLD_PLAN_FAILED" | "SESSION_FOLD_PREVIEW_FAILED";
+  stage: "apply" | "plan" | "preview";
+  reason: string;
+}
+
+export type AgentSessionFoldResult =
+  | { status: "committed"; plan: SessionFoldPlan; result: SessionFoldApplyResult }
+  | { status: "failed"; plan?: SessionFoldPlan; warning: AgentSessionFoldWarning }
+  | { status: "review_required"; plan: SessionFoldPlan }
+  | { status: "skipped"; reason: "missing_session_id" | "no_plan" };
 
 export type AgentSyncCompensation = Omit<SyncCompensationAssessment, "decision"> & {
   decision: "not_needed" | "blocked" | "pushed" | "failed";
@@ -1265,6 +1283,19 @@ async function trySync<T>(
 
 function syncErrorDetails(error: unknown): MorynErrorEnvelope["error"] {
   return toErrorEnvelope(error).error;
+}
+
+function sessionFoldWarning(stage: AgentSessionFoldWarning["stage"], error: unknown): AgentSessionFoldWarning {
+  const code = {
+    apply: "SESSION_FOLD_APPLY_FAILED",
+    plan: "SESSION_FOLD_PLAN_FAILED",
+    preview: "SESSION_FOLD_PREVIEW_FAILED"
+  } as const;
+  return {
+    code: code[stage],
+    stage,
+    reason: error instanceof Error ? error.message : String(error)
+  };
 }
 
 function isMissingStore(error: unknown): boolean {
@@ -3074,6 +3105,7 @@ export async function agentEnter(input: AgentEnterInput, deps: AgentLifecycleDep
       project: start.project,
       ...(activation ? { activation } : {}),
       startup_overview: start.startup_overview,
+      effective_soul: start.effective_soul,
       start,
       next: {
         recommended_action: "work_with_handoff_context",
@@ -3288,6 +3320,10 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
     default_skills: projectInfo.default_skills,
     current_task: input.currentTask,
     agent_session_id: agentIdentityFromInput(input)?.session_id,
+    user_profile_id: input.userSoulProfileId,
+    agent_profile_id: input.agentSoulProfileId,
+    soul_char_budget: input.soulCharBudget,
+    soul_token_budget: input.soulTokenBudget,
     include_private: input.includePrivate
   });
   const refresh = await engine.refresh({
@@ -3322,6 +3358,7 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
     sync,
     finalization_assurance: finalizationAssurance,
     startup_overview: startupOverview,
+    effective_soul: boot.profile.effective_soul,
     boot,
     refresh,
     handoff,
@@ -3355,6 +3392,23 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
   await assertSyncNotConflicted(input.storePath);
   const lifecycleNow = deps.now?.() ?? new Date().toISOString();
   const engine = (deps.createEngine ?? createEngine)({ storePath: input.storePath, now: () => lifecycleNow });
+  const agentSource = sourceFromAgent(input.agent);
+  const sessionId = agentSource.session_id?.trim();
+  let foldCoverage: Awaited<ReturnType<typeof engine.previewSessionFold>>["coverage"];
+  let foldPreviewWarning: AgentSessionFoldWarning | undefined;
+  if (sessionId) {
+    try {
+      foldCoverage = (
+        await engine.previewSessionFold({
+          project_id: project.project_id,
+          session_id: sessionId,
+          proposed_final_text: input.summary
+        })
+      ).coverage;
+    } catch (error) {
+      foldPreviewWarning = sessionFoldWarning("preview", error);
+    }
+  }
   const record = await engine.write({
     kind: "session_summary",
     type: "summary",
@@ -3385,13 +3439,14 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
             finalization_recovery_key: deps.finalizationRecovery.recovery_key,
             finalization_evidence_record_ids: deps.finalizationRecovery.evidence_record_ids
           }
-        : {})
+        : {}),
+      ...(foldCoverage ? { session_fold_coverage: foldCoverage } : {})
     },
-    source: sourceFromAgent(input.agent)
+    source: agentSource
   });
   const pendingInbox = await learningInboxForLifecycle(input.storePath, {
     project_id: project.project_id,
-    session_id: sourceFromAgent(input.agent).session_id,
+    session_id: agentSource.session_id,
     consumed_by_record_id: record.record.id
   });
   const combinedLearnings = [
@@ -3409,14 +3464,14 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     project_id: project.project_id,
     learnings: combinedLearnings,
     occurred_at: lifecycleNow,
-    source: sourceFromAgent(input.agent),
+    source: agentSource,
     origin_record_id: record.record.id
   });
   const semanticConsolidation = await engine.consolidateLearningProposals({
     proposals: input.semanticConsolidationProposals ?? [],
     source_record_ids: learningIngestion.dispositions.map((disposition) => disposition.record_id),
     project_id: project.project_id,
-    source: sourceFromAgent(input.agent),
+    source: agentSource,
     occurred_at: lifecycleNow
   });
   const inboxConsumption = await consumeLearningInbox(input.storePath, {
@@ -3424,9 +3479,26 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     consumed_at: new Date(Date.parse(lifecycleNow) + 1).toISOString(),
     consumed_by_record_id: record.record.id,
     produced_record_ids: learningIngestion.dispositions.map((disposition) => disposition.record_id),
-    source: sourceFromAgent(input.agent)
+    source: agentSource
   });
   const learningInbox = { selected: pendingInbox.length, ...inboxConsumption };
+  const sessionFold: AgentSessionFoldResult = await (async () => {
+    if (!sessionId) return { status: "skipped", reason: "missing_session_id" };
+    if (foldPreviewWarning) return { status: "failed", warning: foldPreviewWarning };
+    let plan: SessionFoldPlan | undefined;
+    try {
+      plan = await engine.planSessionFold({ project_id: project.project_id, session_id: sessionId });
+    } catch (error) {
+      return { status: "failed", warning: sessionFoldWarning("plan", error) };
+    }
+    if (!plan) return { status: "skipped", reason: "no_plan" };
+    if (plan.status !== "ready" || !plan.auto_fold) return { status: "review_required", plan };
+    try {
+      return { status: "committed", plan, result: await engine.applySessionFold({ plan }) };
+    } catch (error) {
+      return { status: "failed", plan, warning: sessionFoldWarning("apply", error) };
+    }
+  })();
   const shouldPush = input.push ?? projectInfo.sync_mode !== "manual";
   const sync: {
     push?: GitSyncResult;
@@ -3455,7 +3527,7 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
 
   return {
     ok: true,
-    agent: sourceFromAgent(input.agent),
+    agent: agentSource,
     project: projectInfo,
     bootstrap,
     record: record.record,
@@ -3463,6 +3535,7 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     learning_ingestion: learningIngestion,
     learning_inbox: learningInbox,
     semantic_consolidation: semanticConsolidation,
+    session_fold: sessionFold,
     sync,
     next: {
       recommended_start_command: "moryn agent start --project <path> --current-task <task>",

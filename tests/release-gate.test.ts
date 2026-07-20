@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { releaseGateSteps, runReleaseGate, v03AcceptanceMatrix } from "../scripts/release-check.js";
+import { releaseGateSteps, runReleaseGate, v04AcceptanceMatrix } from "../scripts/release-check.js";
 
-describe("v0.3 release gate", () => {
+describe("v0.4 release gate", () => {
   it("defines one ordered gate containing tests, both smokes, package validation, and optional remote validation", () => {
     expect(releaseGateSteps(false, true).map((step) => step.id)).toEqual([
       "build",
       "typecheck",
+      "lint",
       "tests",
       "release_readiness",
       "dogfood_smoke",
@@ -26,6 +27,7 @@ describe("v0.3 release gate", () => {
     expect(releaseGateSteps(true, false).map((step) => [step.id, step.mode])).toEqual([
       ["build", "skipped"],
       ["typecheck", "skipped"],
+      ["lint", "skipped"],
       ["tests", "skipped"],
       ["release_readiness", "required"],
       ["dogfood_smoke", "required"],
@@ -64,9 +66,11 @@ describe("v0.3 release gate", () => {
                   { path: "docs/agent-install-prompt.md" },
                   { path: "docs/agent-workflow.md" },
                   { path: "docs/contracts.md" },
+                  { path: "docs/dashboard.md" },
                   { path: "docs/development.md" },
                   { path: "docs/implementation-roadmap.md" },
                   { path: "docs/moryn-design.md" },
+                  { path: "docs/v0.4-migration.md" },
                   { path: "dist/cli.js" },
                   { path: "dist/index.js" },
                   { path: "dist/mcp/server.js" },
@@ -124,23 +128,25 @@ describe("v0.3 release gate", () => {
         "large_store_smoke",
         "package"
       ],
-      skipped: ["build", "typecheck", "tests", "private_remote"],
+      skipped: ["build", "typecheck", "lint", "tests", "private_remote"],
       acceptance_complete: false
     });
     expect(Object.values(result.acceptance).every((area) => area.status === "not_verified")).toBe(true);
     expect(JSON.parse(logs.at(-1)!)).toEqual(result);
   });
 
-  it("maps a full release run to all nine v0.3 acceptance areas", () => {
+  it("maps a full release run to all eleven v0.4 acceptance areas", () => {
     const completed = releaseGateSteps(false, false)
       .filter((step) => step.mode === "required")
       .map((step) => step.id);
-    const acceptance = v03AcceptanceMatrix(completed);
+    const acceptance = v04AcceptanceMatrix(completed);
     expect(Object.keys(acceptance)).toEqual([
       "autopilot",
       "sync",
       "working_set",
       "consolidation",
+      "memory_distillation",
+      "portable_soul",
       "learning",
       "hosts",
       "dashboard",
@@ -154,6 +160,12 @@ describe("v0.3 release gate", () => {
       expect.arrayContaining(["learning_inbox_smoke", "finalization_assurance_smoke"])
     );
     expect(acceptance.dashboard.required_evidence).toEqual(expect.arrayContaining(["tests", "large_store_smoke"]));
+    expect(acceptance.memory_distillation.required_evidence).toEqual(
+      expect.arrayContaining(["tests", "lifecycle_smoke", "large_store_smoke"])
+    );
+    expect(acceptance.portable_soul.required_evidence).toEqual(
+      expect.arrayContaining(["tests", "host_runtime_binding_smoke", "official_host_handoff_smoke"])
+    );
     expect(acceptance.autopilot.required_evidence).toContain("official_host_handoff_smoke");
     expect(acceptance.sync.required_evidence).toContain("official_host_handoff_smoke");
     expect(acceptance.hosts.required_evidence).toEqual(

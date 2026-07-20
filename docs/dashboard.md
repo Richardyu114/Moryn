@@ -1593,6 +1593,79 @@ safe replacement index explicitly declares `content.supersedes_quarantined_recor
 for the quarantined record id, the dashboard reports that condition as an info
 attention item instead of forcing `Needs Review`.
 
+## v0.4 Memory Maintenance And Soul Studio
+
+The dedicated Memory view includes two quiet, read-only sections. They remain
+outside the first-screen decision lane and do not turn routine maintenance into
+a warning.
+
+### Memory Maintenance
+
+`/api/dashboard.memory_maintenance` is a metadata projection of the v0.4 memory
+read model. It reports:
+
+- independent L0-L3 abstraction counts and hot/warm/cold/purged retention
+  counts;
+- pinned, never-forget, and malformed-metadata totals;
+- deterministic canonical-JSON token estimates for the whole selected scope,
+  active hot/warm working set, each layer, and each tier;
+- estimated working-set tokens reducible by currently ready plans;
+- Session Fold `ready` and `review_required` totals;
+- Episode Rollup `ready`, `deferred`, and `review_required` totals;
+- bounded plan metadata for coverage, privacy boundary, before/after tokens,
+  archive/cold candidates, sync impact, and undo window.
+
+The projection keeps abstraction layer, trust state, and retention tier
+orthogonal. A chart or count on one axis never re-labels another axis; for
+example, cold canonical memory remains canonical.
+
+The token figures are planning estimates, not model-specific billing tokens or
+physical file sizes. `tokens.physical_storage_deleted` is always zero on this
+surface. A cold count means that content is outside the normal working set and
+can be expanded or audited; cold does not mean deleted.
+
+Memory Maintenance is preview-only. It does not call a transaction, expose an
+Apply button, or add a Dashboard write endpoint. The displayed safety contract
+states `writes: none`, no sync impact until an apply occurs elsewhere, normal
+append-only sync afterward, and no physical purge. The plan projection omits
+rollup/source text even though the internal planner needs content to verify
+coverage. Preview and logical restore do not rewrite or erase Git history. To
+inspect the available evidence behind a rollup, use the separate read-only
+`moryn memory expand <record_id>` or MCP `memory_expand` surface.
+
+### Soul Studio
+
+`/api/dashboard.soul_studio` reports metadata for User Soul and Agent Persona:
+
+- profile subject, revision count, head ids, selected active revision, and
+  conflict/fallback status;
+- draft, active, superseded, and conflicted revision counts;
+- per-revision head/effective/approval status;
+- `local_saved` and `personal_sync_saved` persistence metadata;
+- Effective Soul deliverability, selected revision ids, omission/conflict
+  counts, and current compilation receipt state;
+- current Codex/Claude hook-preparation receipt count and latest host/event
+  metadata, including `host_context_prepared`;
+- confirmed rollback availability and eligible prior revision ids.
+
+Soul Studio deliberately has no clause-body field. A `local_only` clause stays
+in ignored local state and never enters Dashboard JSON, Dashboard HTML, Memory
+Search, or a synchronized Soul projection. `--include-private` authorizes the
+ordinary tagged-record read boundary; it does not authorize rendering
+`local_only` Soul clauses. Mixed revisions expose only metadata here, even when
+their local full projection is used to compute status.
+
+Compilation, approval, and hook-preparation receipts are shown as metadata only.
+`host_context_prepared` means that Moryn prepared the selected, bounded
+Effective Soul for supported hook output. The UI and receipt proof scope
+`hook_output_prepared_not_host_acknowledged_or_obedience` explicitly do not
+claim stdout transport, Host acknowledgment, or model obedience.
+
+Both sections provide English and Chinese labels, keep empty/healthy states
+neutral, and cap rendered plan/profile tables. Complete machine-readable
+metadata remains in `/api/dashboard.memory_maintenance` and
+`/api/dashboard.soul_studio`; neither route returns local-only clause text.
+
 ## Privacy And Safety
 
 The dashboard reads local data only. It does not add a hosted backend or remote

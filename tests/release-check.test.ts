@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { copyFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -7,6 +8,9 @@ import { describe, expect, it } from "vitest";
 import { assertPackageFilesComplete, assertSafePackageFiles } from "../scripts/release-check.js";
 
 const exec = promisify(execFile);
+const sourceVersion = (JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")) as { version: string })
+  .version;
+const isPrerelease = sourceVersion.includes("-");
 
 describe("release check", () => {
   it("rejects private Moryn store files from package contents", () => {
@@ -40,35 +44,42 @@ describe("release check", () => {
   });
 
   it("requires essential package files for the published CLI and API", () => {
+    const completePackageFiles = [
+      "package/package.json",
+      "package/LICENSE",
+      "package/README.md",
+      "package/CHANGELOG.md",
+      "package/docs/agent-install-prompt.md",
+      "package/docs/agent-workflow.md",
+      "package/docs/contracts.md",
+      "package/docs/dashboard.md",
+      "package/docs/development.md",
+      "package/docs/implementation-roadmap.md",
+      "package/docs/moryn-design.md",
+      "package/docs/v0.4-migration.md",
+      "package/dist/cli.js",
+      "package/dist/index.js",
+      "package/dist/mcp/server.js",
+      "package/scripts/agent-lifecycle-smoke.js",
+      "package/scripts/host-runtime-binding-smoke.js",
+      "package/scripts/transcript-compact-safety-smoke.js",
+      "package/scripts/official-host-handoff-smoke.js",
+      "package/scripts/learning-inbox-smoke.js",
+      "package/scripts/finalization-assurance-smoke.js",
+      "package/scripts/dogfood-demo-smoke.js",
+      "package/scripts/upgrade-compat-smoke.js",
+      "package/scripts/sync-resilience-smoke.js",
+      "package/scripts/sync-conflict-smoke.js",
+      "package/scripts/permission-recovery-smoke.js",
+      "package/scripts/large-store-smoke.js"
+    ];
+    expect(() => assertPackageFilesComplete(completePackageFiles)).not.toThrow();
     expect(() =>
-      assertPackageFilesComplete([
-        "package/package.json",
-        "package/LICENSE",
-        "package/README.md",
-        "package/CHANGELOG.md",
-        "package/docs/agent-install-prompt.md",
-        "package/docs/agent-workflow.md",
-        "package/docs/contracts.md",
-        "package/docs/development.md",
-        "package/docs/implementation-roadmap.md",
-        "package/docs/moryn-design.md",
-        "package/dist/cli.js",
-        "package/dist/index.js",
-        "package/dist/mcp/server.js",
-        "package/scripts/agent-lifecycle-smoke.js",
-        "package/scripts/host-runtime-binding-smoke.js",
-        "package/scripts/transcript-compact-safety-smoke.js",
-        "package/scripts/official-host-handoff-smoke.js",
-        "package/scripts/learning-inbox-smoke.js",
-        "package/scripts/finalization-assurance-smoke.js",
-        "package/scripts/dogfood-demo-smoke.js",
-        "package/scripts/upgrade-compat-smoke.js",
-        "package/scripts/sync-resilience-smoke.js",
-        "package/scripts/sync-conflict-smoke.js",
-        "package/scripts/permission-recovery-smoke.js",
-        "package/scripts/large-store-smoke.js"
-      ])
-    ).not.toThrow();
+      assertPackageFilesComplete(completePackageFiles.filter((file) => file !== "package/docs/dashboard.md"))
+    ).toThrow(/missing required package files: .*docs\/dashboard\.md/);
+    expect(() =>
+      assertPackageFilesComplete(completePackageFiles.filter((file) => file !== "package/docs/v0.4-migration.md"))
+    ).toThrow(/missing required package files: .*docs\/v0\.4-migration\.md/);
 
     expect(() =>
       assertPackageFilesComplete([
@@ -79,9 +90,11 @@ describe("release check", () => {
         "package/docs/agent-install-prompt.md",
         "package/docs/agent-workflow.md",
         "package/docs/contracts.md",
+        "package/docs/dashboard.md",
         "package/docs/development.md",
         "package/docs/implementation-roadmap.md",
         "package/docs/moryn-design.md",
+        "package/docs/v0.4-migration.md",
         "package/dist/cli.js",
         "package/dist/index.js",
         "package/dist/mcp/server.js",
@@ -108,9 +121,11 @@ describe("release check", () => {
         "package/docs/agent-install-prompt.md",
         "package/docs/agent-workflow.md",
         "package/docs/contracts.md",
+        "package/docs/dashboard.md",
         "package/docs/development.md",
         "package/docs/implementation-roadmap.md",
         "package/docs/moryn-design.md",
+        "package/docs/v0.4-migration.md",
         "package/dist/cli.js",
         "package/dist/index.js",
         "package/dist/mcp/server.js",
@@ -137,6 +152,7 @@ describe("release check", () => {
         "package/docs/agent-install-prompt.md",
         "package/docs/agent-workflow.md",
         "package/docs/contracts.md",
+        "package/docs/dashboard.md",
         "package/docs/development.md",
         "package/docs/implementation-roadmap.md",
         "package/docs/moryn-design.md",
@@ -152,7 +168,7 @@ describe("release check", () => {
         "package/scripts/sync-conflict-smoke.js",
         "package/scripts/permission-recovery-smoke.js"
       ])
-    ).toThrow(/missing required package files: dist\/cli\.js/);
+    ).toThrow(/missing required package files: .*dist\/cli\.js/);
 
     expect(() =>
       assertPackageFilesComplete([
@@ -163,6 +179,7 @@ describe("release check", () => {
         "package/docs/agent-install-prompt.md",
         "package/docs/agent-workflow.md",
         "package/docs/contracts.md",
+        "package/docs/dashboard.md",
         "package/docs/development.md",
         "package/docs/implementation-roadmap.md",
         "package/docs/moryn-design.md",
@@ -186,6 +203,7 @@ describe("release check", () => {
         "package/docs/agent-install-prompt.md",
         "package/docs/agent-workflow.md",
         "package/docs/contracts.md",
+        "package/docs/dashboard.md",
         "package/docs/development.md",
         "package/docs/implementation-roadmap.md",
         "package/dist/cli.js",
@@ -211,6 +229,7 @@ describe("release check", () => {
         "package/CHANGELOG.md",
         "package/docs/agent-workflow.md",
         "package/docs/contracts.md",
+        "package/docs/dashboard.md",
         "package/docs/development.md",
         "package/docs/implementation-roadmap.md",
         "package/docs/moryn-design.md",
@@ -238,6 +257,7 @@ describe("release check", () => {
         "package/docs/agent-install-prompt.md",
         "package/docs/agent-workflow.md",
         "package/docs/contracts.md",
+        "package/docs/dashboard.md",
         "package/docs/development.md",
         "package/docs/implementation-roadmap.md",
         "package/docs/moryn-design.md",
@@ -261,6 +281,7 @@ describe("release check", () => {
         "package/docs/agent-install-prompt.md",
         "package/docs/agent-workflow.md",
         "package/docs/contracts.md",
+        "package/docs/dashboard.md",
         "package/docs/development.md",
         "package/docs/implementation-roadmap.md",
         "package/docs/moryn-design.md",
@@ -284,6 +305,7 @@ describe("release check", () => {
         "package/docs/agent-install-prompt.md",
         "package/docs/agent-workflow.md",
         "package/docs/contracts.md",
+        "package/docs/dashboard.md",
         "package/docs/development.md",
         "package/docs/implementation-roadmap.md",
         "package/docs/moryn-design.md",
@@ -305,6 +327,7 @@ describe("release check", () => {
         "package/docs/agent-install-prompt.md",
         "package/docs/agent-workflow.md",
         "package/docs/contracts.md",
+        "package/docs/dashboard.md",
         "package/docs/development.md",
         "package/docs/implementation-roadmap.md",
         "package/docs/moryn-design.md",
@@ -327,6 +350,7 @@ describe("release check", () => {
         "package/docs/agent-install-prompt.md",
         "package/docs/agent-workflow.md",
         "package/docs/contracts.md",
+        "package/docs/dashboard.md",
         "package/docs/development.md",
         "package/docs/implementation-roadmap.md",
         "package/docs/moryn-design.md",
@@ -350,6 +374,7 @@ describe("release check", () => {
         "package/docs/agent-install-prompt.md",
         "package/docs/agent-workflow.md",
         "package/docs/contracts.md",
+        "package/docs/dashboard.md",
         "package/docs/development.md",
         "package/docs/implementation-roadmap.md",
         "package/docs/moryn-design.md",
@@ -366,35 +391,10 @@ describe("release check", () => {
     ).toThrow(/missing required package files: .*scripts\/large-store-smoke\.js/);
   });
 
-  it("runs the local release gate and skips external Git validation without a remote", async () => {
-    const result = await exec("node", ["--import", "tsx", "scripts/release-check.ts"], {
-      env: {
-        ...process.env,
-        MORYN_SKIP_SLOW_CHECKS: "1",
-        MORYN_PRIVATE_GIT_REMOTE: ""
-      }
-    });
-
-    expect(result.stdout).toContain("private Git remote validation skipped");
-    expect(result.stdout).toContain("$ npm run smoke:dogfood-demo");
-    expect(result.stdout).toContain("$ npm run smoke:agent-lifecycle");
-    expect(result.stdout).toContain("$ npm run smoke:host-runtime-binding");
-    expect(result.stdout).toContain("$ npm run smoke:transcript-compact-safety");
-    expect(result.stdout).toContain("$ npm run smoke:official-host-handoff");
-    expect(result.stdout).toContain("$ npm run smoke:upgrade-compat");
-    expect(result.stdout).toContain("$ npm run smoke:sync-resilience");
-    expect(result.stdout).toContain("$ npm run smoke:sync-conflict");
-    expect(result.stdout).toContain("$ npm run smoke:permission-recovery");
-    expect(result.stdout).toContain("$ npm run smoke:large-store");
-    expect(result.stdout).toContain('"status":"passed"');
-  }, 180_000);
-
-  it("runs from a checkout path containing spaces", async () => {
-    const root = await mkdtemp(join(tmpdir(), "moryn release check "));
-    const script = join(root, "release check with spaces.ts");
-    try {
-      await copyFile(join(process.cwd(), "scripts", "release-check.ts"), script);
-      const result = await exec("node", ["--import", "tsx", script], {
+  it.skipIf(isPrerelease)(
+    "runs the local release gate and skips external Git validation without a remote",
+    async () => {
+      const result = await exec("node", ["--import", "tsx", "scripts/release-check.ts"], {
         env: {
           ...process.env,
           MORYN_SKIP_SLOW_CHECKS: "1",
@@ -402,11 +402,44 @@ describe("release check", () => {
         }
       });
 
-      expect(result.stdout).toContain(
-        '"completed":["release_readiness","dogfood_smoke","lifecycle_smoke","learning_inbox_smoke","finalization_assurance_smoke","host_runtime_binding_smoke","transcript_compact_safety_smoke","official_host_handoff_smoke","upgrade_compat_smoke","sync_resilience_smoke","sync_conflict_smoke","permission_recovery_smoke","large_store_smoke","package"]'
-      );
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
-  }, 180_000);
+      expect(result.stdout).toContain("private Git remote validation skipped");
+      expect(result.stdout).toContain("$ npm run smoke:dogfood-demo");
+      expect(result.stdout).toContain("$ npm run smoke:agent-lifecycle");
+      expect(result.stdout).toContain("$ npm run smoke:host-runtime-binding");
+      expect(result.stdout).toContain("$ npm run smoke:transcript-compact-safety");
+      expect(result.stdout).toContain("$ npm run smoke:official-host-handoff");
+      expect(result.stdout).toContain("$ npm run smoke:upgrade-compat");
+      expect(result.stdout).toContain("$ npm run smoke:sync-resilience");
+      expect(result.stdout).toContain("$ npm run smoke:sync-conflict");
+      expect(result.stdout).toContain("$ npm run smoke:permission-recovery");
+      expect(result.stdout).toContain("$ npm run smoke:large-store");
+      expect(result.stdout).toContain('"status":"passed"');
+    },
+    180_000
+  );
+
+  it.skipIf(isPrerelease)(
+    "runs from a checkout path containing spaces",
+    async () => {
+      const root = await mkdtemp(join(tmpdir(), "moryn release check "));
+      const script = join(root, "release check with spaces.ts");
+      try {
+        await copyFile(join(process.cwd(), "scripts", "release-check.ts"), script);
+        const result = await exec("node", ["--import", "tsx", script], {
+          env: {
+            ...process.env,
+            MORYN_SKIP_SLOW_CHECKS: "1",
+            MORYN_PRIVATE_GIT_REMOTE: ""
+          }
+        });
+
+        expect(result.stdout).toContain(
+          '"completed":["release_readiness","dogfood_smoke","lifecycle_smoke","learning_inbox_smoke","finalization_assurance_smoke","host_runtime_binding_smoke","transcript_compact_safety_smoke","official_host_handoff_smoke","upgrade_compat_smoke","sync_resilience_smoke","sync_conflict_smoke","permission_recovery_smoke","large_store_smoke","package"]'
+        );
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    },
+    180_000
+  );
 });

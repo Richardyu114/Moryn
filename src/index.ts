@@ -62,6 +62,32 @@ export { activateClaudeSettings, mergeClaudeSettings } from "./core/claude-activ
 export { activateCodexHooks, mergeCodexHooks } from "./core/codex-activation.js";
 export type { KnowledgeInvestigation, KnowledgeInvestigationInput } from "./core/context-delta.js";
 export { knowledgeInvestigationEvidenceSchema, knowledgeInvestigationSchema } from "./core/context-delta.js";
+export type {
+  EpisodeBucketKind,
+  EpisodeClaim,
+  EpisodeClaimKind,
+  EpisodeColdCandidate,
+  EpisodeLeafEvidence,
+  EpisodePrivacyBoundary,
+  EpisodeRollupContent,
+  EpisodeRollupCoverage,
+  EpisodeRollupDeferredCode,
+  EpisodeRollupDeferredReason,
+  EpisodeRollupIdentity,
+  EpisodeRollupPlan,
+  EpisodeRollupPlanningPolicy,
+  EpisodeRollupRecord,
+  EpisodeRollupReviewCode,
+  EpisodeRollupReviewReason,
+  EpisodeRollupStatus,
+  EpisodeSourceDigest,
+  EpisodeWarmCandidate,
+  PlanEpisodeRollupsOptions
+} from "./core/episode-rollup.js";
+export { EPISODE_BUCKET_KINDS, planEpisodeRollup, planEpisodeRollups } from "./core/episode-rollup.js";
+export type { EpisodeRollupApplyResult, EpisodeRollupReceipt } from "./core/episode-rollup-transaction.js";
+export { applyEpisodeRollupPlan, readEpisodeRollupReceipt } from "./core/episode-rollup-transaction.js";
+export type { EventDurabilityAttestation } from "./core/event-durability-attestation.js";
 export type { ActivationStatus, ActivationSuggestedAction, HostActivationStatus } from "./core/host-activation.js";
 export { inspectHostActivation } from "./core/host-activation.js";
 export {
@@ -107,6 +133,107 @@ export {
   logicalMemoryFingerprint,
   validateLogicalRelationship
 } from "./core/logical-memory.js";
+export type {
+  EpisodeRollupCompactionEntry,
+  MemoryCompactionArtifactBody,
+  MemoryCompactionBlocker,
+  MemoryCompactionCoverageSummary,
+  MemoryCompactionEntryMetrics,
+  MemoryCompactionEntryStatus,
+  MemoryCompactionEnvelopeMetrics,
+  MemoryCompactionFilters,
+  MemoryCompactionKind,
+  MemoryCompactionPlanEntry,
+  MemoryCompactionPlanEnvelope,
+  MemoryCompactionPlanStatus,
+  MemoryCompactionPreview,
+  MemoryCompactionPreviewOptions,
+  MemoryCompactionPrivacySummary,
+  MemoryCompactionPrivateAccessSummary,
+  MemoryCompactionSourceBeforeState,
+  MemoryCompactionSyncImpact,
+  MemoryCompactionTokenMetrics,
+  MemoryCompactionUndoSemantics,
+  SessionFoldCompactionEntry
+} from "./core/memory-compaction.js";
+export {
+  assertMemoryCompactionPlanEnvelope,
+  assertMemoryCompactionPreview,
+  planMemoryCompaction,
+  previewMemoryCompaction
+} from "./core/memory-compaction.js";
+export type {
+  ApplyMemoryCompactionInput,
+  MemoryCompactionApplyResult,
+  MemoryCompactionChildApplySummary,
+  MemoryCompactionChildReceiptReference,
+  MemoryCompactionDerivedRecordReceipt,
+  MemoryCompactionReceipt,
+  MemoryCompactionSourceTransitionReceipt
+} from "./core/memory-compaction-receipts.js";
+export {
+  applyMemoryCompactionPlan,
+  readMemoryCompactionReceipt
+} from "./core/memory-compaction-receipts.js";
+export type {
+  MemoryCompactionRestoreReceipt,
+  MemoryCompactionRestoreResult,
+  RestoreMemoryCompactionInput
+} from "./core/memory-compaction-restore.js";
+export {
+  readMemoryCompactionRestoreReceipt,
+  restoreMemoryCompactionPlan
+} from "./core/memory-compaction-restore.js";
+export type {
+  MemoryExpansionEdge,
+  MemoryExpansionInput,
+  MemoryExpansionOmission,
+  MemoryExpansionOmissionReason,
+  MemoryExpansionRecord,
+  MemoryExpansionRelation,
+  MemoryExpansionResult,
+  MemoryExpansionVerification
+} from "./core/memory-expansion.js";
+export { expandMemorySources, MEMORY_EXPANSION_SELECTION_SOURCES } from "./core/memory-expansion.js";
+export type {
+  AutomaticRetentionBlocker,
+  MemoryLayer,
+  MemoryLayerAxisV2,
+  MemoryLayerName,
+  MemoryLineageViewV2,
+  MemoryRetentionAxisV2,
+  MemoryRetentionMetadataV2,
+  MemoryRetentionPolicyViewV2,
+  MemoryRetentionReadModelV2,
+  MemoryRetentionReason,
+  MemoryRetentionSafetyV2,
+  MemoryRetentionTier,
+  MemoryRetentionViewOptions,
+  MemoryRetentionViewV2,
+  MemoryRetentionWarning,
+  MemoryRetentionWarningCode,
+  MemoryTrustAxisV2,
+  MemoryTrustState,
+  MemoryUsageViewV2,
+  MemoryValidityStatus,
+  MemoryValidityViewV2,
+  NormalizedMemoryRetentionMetadataV2,
+  ParsedMemoryRetentionMetadataV2,
+  ProtectedMemorySignal,
+  RetentionWindowStatus
+} from "./core/memory-retention.js";
+export {
+  buildMemoryRetentionReadModel,
+  buildMemoryRetentionView,
+  DEFAULT_MEMORY_RETENTION_POLICY_IDS,
+  inferMemoryLayer,
+  MEMORY_LAYERS,
+  MEMORY_RETENTION_METADATA_KEY,
+  MEMORY_RETENTION_TIERS,
+  MEMORY_TRUST_STATES,
+  parseMemoryRetentionMetadata,
+  protectedMemorySignals
+} from "./core/memory-retention.js";
 export type { RecallActionContract, RecallNextAction, RecallNextActionId } from "./core/recall-actions.js";
 export { buildRecallNextActions, RECALL_ACTION_SELECTION_SOURCES } from "./core/recall-actions.js";
 export type { RecallOutcome, RecallOutcomeStatus, RecallTrust } from "./core/recall-outcome.js";
@@ -114,10 +241,27 @@ export { assessRecallOutcome, queryTokenCoverage } from "./core/recall-outcome.j
 export type {
   CurrentRecordReadResult,
   EventManifest,
+  ExcludedMemoryWorkingSetEntry,
+  MemoryWorkingSetEntry,
+  MemoryWorkingSetExclusionReason,
+  MemoryWorkingSetSelection,
+  MemoryWorkingSetSelectionCounts,
+  MemoryWorkingSetSelectionOptions,
+  MemoryWorkingSetTokenReport,
+  ReadCurrentRecordsOptions,
   RecordReadFallbackReason,
   RecordReadModelV1
 } from "./core/record-read-model.js";
-export { buildRecordReadModel, eventManifest, readCurrentRecords } from "./core/record-read-model.js";
+export {
+  buildRecordReadModel,
+  DEFAULT_MEMORY_WORKING_SET_LAYER_TOKEN_BUDGETS,
+  DEFAULT_MEMORY_WORKING_SET_OPTIONS,
+  DEFAULT_MEMORY_WORKING_SET_TOTAL_TOKEN_BUDGET,
+  estimateMemoryRecordTokens,
+  eventManifest,
+  readCurrentRecords,
+  selectMemoryWorkingSet
+} from "./core/record-read-model.js";
 export type {
   BuiltRetrievalIndex,
   RetrievalCandidateReadResult,
@@ -150,8 +294,137 @@ export {
   retrieveSemanticConsolidationCandidates,
   SEMANTIC_CONSOLIDATION_CANDIDATE_SELECTION_SOURCES
 } from "./core/semantic-consolidation-candidates.js";
+export type {
+  PlanSessionFoldsOptions,
+  SessionFoldCandidate,
+  SessionFoldCoverage,
+  SessionFoldCoverageAttestation,
+  SessionFoldCoverageBlocker,
+  SessionFoldCoverageMethod,
+  SessionFoldCoveredSource,
+  SessionFoldHotFinalHandoff,
+  SessionFoldIdentity,
+  SessionFoldPlan,
+  SessionFoldPrivacyBoundary,
+  SessionFoldReviewReason,
+  SessionFoldReviewReasonCode,
+  SessionFoldRollupContent,
+  SessionFoldRollupRecord,
+  SessionFoldSourceDigest,
+  SessionFoldUncoveredSource
+} from "./core/session-fold.js";
+export {
+  buildSessionFoldCoverageAttestation,
+  planSessionFold,
+  planSessionFolds
+} from "./core/session-fold.js";
+export type { SessionFoldApplyResult, SessionFoldReceipt } from "./core/session-fold-transaction.js";
+export { applySessionFoldPlan, readSessionFoldReceipt } from "./core/session-fold-transaction.js";
 export type { SessionSynthesis } from "./core/session-synthesis.js";
 export { synthesizeSession } from "./core/session-synthesis.js";
+export type {
+  SoulApprovalAction,
+  SoulApprovalReceipt,
+  SoulApprovalReceiptInput
+} from "./core/soul-approval-receipts.js";
+export {
+  listSoulApprovalReceipts,
+  parseSoulApprovalReceipt,
+  readSoulApprovalReceipt,
+  soulApprovalReceiptIdentity
+} from "./core/soul-approval-receipts.js";
+export type { SoulCompilationReceipt } from "./core/soul-compilation-receipts.js";
+export { readSoulCompilationReceipt } from "./core/soul-compilation-receipts.js";
+export type {
+  SoulDeliveryEvent,
+  SoulDeliveryHost,
+  SoulDeliveryReceipt,
+  SoulDeliveryReceiptInput
+} from "./core/soul-delivery-receipts.js";
+export {
+  listSoulDeliveryReceipts,
+  readSoulDeliveryReceipt,
+  SOUL_DELIVERY_PROOF_SCOPE,
+  soulDeliveryReceiptIdentity
+} from "./core/soul-delivery-receipts.js";
+export type {
+  DeliverEffectiveSoulInput,
+  DeliverEffectiveSoulResult,
+  SoulHostContext
+} from "./core/soul-host-delivery.js";
+export { buildSoulHostContext, deliverEffectiveSoul } from "./core/soul-host-delivery.js";
+export type {
+  CompileEffectiveSoulInput,
+  CreateSoulProfileRevisionInput,
+  EffectiveSoul,
+  EffectiveSoulClause,
+  EffectiveSoulRevisionSelection,
+  LegacySoulRecordOptions,
+  SelectedSoulRevision,
+  SoulClause,
+  SoulClauseCategory,
+  SoulClauseInput,
+  SoulCompileConflict,
+  SoulDistribution,
+  SoulOmission,
+  SoulOmissionReason,
+  SoulProfileRevision,
+  SoulRevisionSelection,
+  SoulRevisionSelectionStatus,
+  SoulRevisionState,
+  SoulScope,
+  SoulSubject
+} from "./core/soul-profile.js";
+export {
+  compileEffectiveSoul,
+  createSoulClause,
+  createSoulProfileRevision,
+  estimateSoulTokens,
+  parseLegacySoulRecord,
+  parseLegacySoulRecords,
+  SOUL_CLAUSE_CATEGORIES,
+  SOUL_DISTRIBUTIONS,
+  SOUL_PROFILE_SCHEMA_VERSION,
+  selectLastKnownGoodSoulRevision,
+  soulProfilePersonalSyncDigest,
+  soulProfileRevisionDigest,
+  stableSoulClauseId,
+  stableSoulProfileId,
+  stableSoulRevisionId
+} from "./core/soul-profile.js";
+export type {
+  ApproveSoulProfileDraftInput,
+  CreateSoulProfileDraftInput,
+  CreateSoulProfileDraftResult,
+  ReadSoulProfileStatusOptions,
+  RollbackSoulProfileInput,
+  SoulApprovalReceiptMetadata,
+  SoulCompilationStatus,
+  SoulDeliveryReceiptMetadata,
+  SoulProfileActivationResult,
+  SoulProfileRevisionStatus,
+  SoulProfileStatus,
+  SoulProfileStatusEntry
+} from "./core/soul-profile-management.js";
+export {
+  approveSoulProfileDraft,
+  createSoulProfileDraft,
+  readSoulProfileStatus,
+  rollbackSoulProfile
+} from "./core/soul-profile-management.js";
+export type {
+  ReadSoulProfileRevisionsOptions,
+  ReadSoulProfileRevisionsResult,
+  SoulProfileLoadWarning,
+  SoulProfileProjectionEnvelope,
+  WriteSoulProfileRevisionInput,
+  WriteSoulProfileRevisionResult
+} from "./core/soul-profile-store.js";
+export {
+  parseSoulProfileProjection,
+  readSoulProfileRevisions,
+  SOUL_PROFILE_RECORD_TYPE
+} from "./core/soul-profile-store.js";
 export type { SyncCompensationAssessment, SyncCompensationReceipt } from "./core/sync-compensation.js";
 export {
   assessSyncCompensation,
@@ -228,7 +501,7 @@ export {
 } from "./core/learning-inbox.js";
 export type { MorynRecord } from "./core/types.js";
 
-export const version = "0.3.0";
+export const version = "0.4.0-dev.0";
 
 export {
   BOOT_SELECTION_SOURCES,

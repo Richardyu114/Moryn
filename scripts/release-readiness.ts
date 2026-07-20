@@ -10,7 +10,7 @@ const REQUIRED_SMOKES = [
   "finalization_assurance_smoke",
   "official_host_handoff_smoke"
 ] as const;
-const TARGET_RELEASE = "0.3.0" as const;
+const TARGET_RELEASE = "0.4.0" as const;
 
 type Check = { status: "passed" } | { status: "failed"; reason: string; missing?: string[]; offending?: string[] };
 type PackageJsonInput = { name?: unknown; version?: unknown; files?: unknown };
@@ -31,7 +31,7 @@ export interface ReleaseReadinessResult {
   release_candidate: boolean;
   checks: {
     target_version_matches: Check;
-    published_version_matches: Check;
+    documented_source_version_matches: Check;
     changelog_release_notes_present: Check;
     required_smokes_present: Check;
     private_paths_absent: Check;
@@ -51,12 +51,12 @@ export function evaluateReleaseReadiness(input: ReleaseReadinessInput): ReleaseR
     packageVersion === TARGET_RELEASE
       ? passed()
       : failed(`package.json version must match the v${TARGET_RELEASE} release candidate`);
-  const publishedVersionMatches = input.readme.includes(`Published package: v${packageVersion}`)
+  const documentedSourceVersionMatches = input.readme.includes(`Current source/package version: v${packageVersion}`)
     ? passed()
-    : failed("README published-version statement does not match package.json");
-  const changelogReleaseNotes = /^##\s+0\.3\.0(?:\s|$)/m.test(input.changelog)
+    : failed("README source/package version statement does not match package.json");
+  const changelogReleaseNotes = /^##\s+0\.4\.0(?:\s|$)/m.test(input.changelog)
     ? passed()
-    : failed("CHANGELOG does not contain the v0.3.0 release notes");
+    : failed("CHANGELOG does not contain the v0.4.0 release notes");
   const packageFiles = Array.isArray(input.package_json.files)
     ? input.package_json.files.filter((value): value is string => typeof value === "string")
     : [];
@@ -69,7 +69,7 @@ export function evaluateReleaseReadiness(input: ReleaseReadinessInput): ReleaseR
     );
   });
   const requiredSmokes = missingSmokes.length
-    ? failed("Required v0.3 smoke evidence is missing", { missing: missingSmokes })
+    ? failed("Required v0.4 smoke evidence is missing", { missing: missingSmokes })
     : passed();
   const offending = input.packed_files.filter((file) => {
     const normalized = file.replace(/^package\//, "");
@@ -97,7 +97,7 @@ export function evaluateReleaseReadiness(input: ReleaseReadinessInput): ReleaseR
     : passed();
   const checks = {
     target_version_matches: targetVersionMatches,
-    published_version_matches: publishedVersionMatches,
+    documented_source_version_matches: documentedSourceVersionMatches,
     changelog_release_notes_present: changelogReleaseNotes,
     required_smokes_present: requiredSmokes,
     private_paths_absent: privatePathsAbsent

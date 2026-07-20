@@ -10,6 +10,7 @@ import {
   normalizeHostId
 } from "./host-adapter-registry.js";
 import { resolveProjectContext } from "./project.js";
+import type { EffectiveSoul } from "./soul-profile.js";
 import type { MorynRecord, RecordSource } from "./types.js";
 
 export { getHostAdapter, getHostAdapters, type HostAdapter, type HostAdapterId, normalizeHostId };
@@ -88,6 +89,10 @@ export type ContextPackInput = {
   limit?: number;
   includePrivate?: boolean;
   pull?: boolean;
+  userSoulProfileId?: string;
+  agentSoulProfileId?: string;
+  soulCharBudget?: number;
+  soulTokenBudget?: number;
 };
 
 export type ContextPackResult = {
@@ -97,6 +102,7 @@ export type ContextPackResult = {
   agent: RecordSource;
   project: Record<string, unknown>;
   activation_status?: HostActivationStatus;
+  effective_soul: EffectiveSoul;
   handoff_pack: HandoffPackV2;
   sections: {
     boot: unknown;
@@ -178,6 +184,15 @@ export type HandoffPackV2 = {
   important_files: HandoffPackItem[];
   risks: HandoffPackItem[];
   user_preferences: HandoffPackItem[];
+  soul: {
+    status: EffectiveSoul["status"];
+    deliverable: boolean;
+    source_revision_ids: string[];
+    source_digest: string;
+    rendered_digest: string;
+    tokens: number;
+    evidence: { source: "effective_soul" };
+  };
   next_actions: HandoffPackNextAction[];
   evidence: {
     boot: "sections.boot";
@@ -212,6 +227,7 @@ export const CONTEXT_PACK_SELECTION_SOURCES = {
   handoff_pack: "handoff_pack",
   project: "project",
   activation_status: "activation_status",
+  effective_soul: "effective_soul",
   boot: "sections.boot",
   refresh: "sections.refresh",
   handoff: "sections.handoff",
@@ -232,6 +248,7 @@ export const HANDOFF_PACK_SELECTION_SOURCES = {
   important_file: "handoff_pack.important_files[]",
   risk: "handoff_pack.risks[]",
   user_preference: "handoff_pack.user_preferences[]",
+  soul: "handoff_pack.soul",
   next_action: "handoff_pack.next_actions[]",
   evidence: "handoff_pack.evidence",
   quality_gate: "handoff_pack.quality_gate"
@@ -462,6 +479,10 @@ export async function contextPack(input: ContextPackInput): Promise<ContextPackR
     limit: input.limit,
     includePrivate: input.includePrivate,
     pull: input.pull,
+    userSoulProfileId: input.userSoulProfileId,
+    agentSoulProfileId: input.agentSoulProfileId,
+    soulCharBudget: input.soulCharBudget,
+    soulTokenBudget: input.soulTokenBudget,
     agent
   });
   const projectArg = input.projectId
@@ -513,10 +534,12 @@ export async function contextPack(input: ContextPackInput): Promise<ContextPackR
     agent,
     project: started.project as unknown as Record<string, unknown>,
     ...(started.activation_status ? { activation_status: started.activation_status } : {}),
+    effective_soul: started.effective_soul,
     handoff_pack: buildHandoffPackV2({
       currentTask: input.currentTask,
       sections,
-      next
+      next,
+      effectiveSoul: started.effective_soul
     }),
     sections,
     lifecycle: started.next.workflow,
@@ -529,6 +552,7 @@ function buildHandoffPackV2(input: {
   currentTask?: string;
   sections: ContextPackResult["sections"];
   next: ContextPackResult["next"];
+  effectiveSoul: EffectiveSoul;
 }): HandoffPackV2 {
   const packWithoutQualityGate: HandoffPackWithoutQualityGate = {
     version: 2,
@@ -556,6 +580,15 @@ function buildHandoffPackV2(input: {
       recordsAtPath(input.sections.boot, ["profile", "user_preferences"]),
       "sections.boot.profile.user_preferences[]"
     ),
+    soul: {
+      status: input.effectiveSoul.status,
+      deliverable: input.effectiveSoul.deliverable,
+      source_revision_ids: input.effectiveSoul.selected_revisions.map((revision) => revision.revision_id),
+      source_digest: input.effectiveSoul.source_digest,
+      rendered_digest: input.effectiveSoul.rendered_digest,
+      tokens: input.effectiveSoul.budget.tokens_used,
+      evidence: { source: "effective_soul" }
+    },
     next_actions: Object.entries(input.next.actions_by_id)
       .map(([id, action]) => handoffNextAction(id, action))
       .filter((action): action is HandoffPackNextAction => action !== undefined),

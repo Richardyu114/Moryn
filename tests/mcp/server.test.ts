@@ -3882,7 +3882,12 @@ describe("MCP stdio server", () => {
           "link",
           "list_recent",
           "logical_link",
+          "memory_compaction_apply",
+          "memory_compaction_plan",
+          "memory_compaction_preview",
+          "memory_compaction_restore",
           "memory_doctor",
+          "memory_expand",
           "memory_lifecycle",
           "operation_contracts",
           "project_init",
@@ -3897,6 +3902,10 @@ describe("MCP stdio server", () => {
           "revise",
           "selection_source_contracts",
           "setup",
+          "soul_approve",
+          "soul_draft",
+          "soul_rollback",
+          "soul_status",
           "sync_init",
           "sync_pull",
           "sync_push",
@@ -4396,6 +4405,7 @@ describe("MCP stdio server", () => {
           result: "results_by_id.<record_id>",
           record: "results_by_id.<record_id>.record",
           record_id: "results_by_id.<record_id>.record.id",
+          memory_working_set: "memory_working_set",
           next_action: "next_actions_by_id.<action_id>",
           ordered_next_action: "next_actions[]"
         });
@@ -9328,7 +9338,7 @@ describe("MCP stdio server", () => {
         });
         expect(started.runtime).toMatchObject({
           transport: "mcp_stdio",
-          package_version: "0.3.0",
+          package_version: "0.4.0-dev.0",
           exec_file: process.execPath,
           restart_hint: "Restart the host MCP connection after changing the Moryn installation or build."
         });

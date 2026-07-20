@@ -74,6 +74,55 @@ describe("retrieval index", () => {
     expect(retrievalProjectShardName("a/b c")).toBe("YS9iIGM.json");
   });
 
+  it("indexes only hot and warm memory by default while allowing explicit history builds", () => {
+    const hot = record("hot", "project", "alpha");
+    const cold = {
+      ...record("cold", "project", "alpha", "candidate"),
+      content: { text: "cold", memory_retention: { version: 2, retention: { tier: "cold" } } }
+    };
+    const purged = {
+      ...record("purged", "project", "alpha", "raw"),
+      kind: "agent_note" as const,
+      type: "observation",
+      content: { text: "trace", memory_retention: { version: 2, retention: { tier: "purged" } } }
+    };
+    const archived = record("archived", "project", "alpha", "archived");
+
+    const defaultIndex = buildRetrievalIndex([archived, purged, cold, hot], manifest);
+    const historyIndex = buildRetrievalIndex([hot, cold, purged, archived], manifest, {
+      include_archived: true,
+      include_purged: true
+    });
+
+    expect(defaultIndex.metadata.working_set).toEqual({
+      include_cold: false,
+      include_purged: false,
+      layer_limits: {},
+      layer_token_budgets: {}
+    });
+    expect(defaultIndex.metadata.active_records).toBe(1);
+    expect(defaultIndex.projects.alpha?.records.map((item) => item.id)).toEqual(["hot"]);
+    expect(historyIndex.metadata.working_set).toEqual({
+      include_cold: true,
+      include_purged: true,
+      layer_limits: {},
+      layer_token_budgets: {}
+    });
+    expect(historyIndex.projects.alpha?.records.map((item) => item.id)).toEqual(["archived", "cold", "hot", "purged"]);
+
+    const budgetedIndex = buildRetrievalIndex([hot], manifest, {
+      total_token_budget: 321,
+      layer_token_budgets: { L2: 123 }
+    });
+    expect(budgetedIndex.metadata.working_set).toEqual({
+      include_cold: false,
+      include_purged: false,
+      layer_limits: {},
+      total_token_budget: 321,
+      layer_token_budgets: { L2: 123 }
+    });
+  });
+
   it("reads only global plus the selected project shard when the manifest is fresh", async () => {
     await withTempStore(async (storePath) => {
       const built = buildRetrievalIndex(
@@ -136,6 +185,51 @@ describe("retrieval index", () => {
         event_manifest: manifest
       });
       expect(await readdir(join(root, "projects"))).not.toContain("orphan.json");
+    });
+  });
+
+  it("rebuilds when the requested retention selection differs from the persisted index", async () => {
+    await withTempStore(async (storePath) => {
+      const hot = record("hot", "project", "alpha");
+      const cold = {
+        ...record("cold", "project", "alpha", "candidate"),
+        content: { text: "cold", memory_retention: { version: 2, retention: { tier: "cold" } } }
+      };
+      const records = [hot, cold];
+      const built = buildRetrievalIndex(records, manifest);
+      const root = join(storePath, "snapshots", "retrieval");
+      await mkdir(join(root, "projects"), { recursive: true });
+      await writeFile(join(root, "metadata.json"), JSON.stringify(built.metadata));
+      await writeFile(join(root, "global.json"), JSON.stringify(built.global));
+      await writeFile(join(root, "projects", retrievalProjectShardName("alpha")), JSON.stringify(built.projects.alpha));
+
+      const result = await readRetrievalCandidates(storePath, {
+        project_id: "alpha",
+        include_cold: true,
+        read_event_manifest: async () => manifest,
+        read_current_records: async () => ({ records, source: "read_model", repaired: false, event_manifest: manifest })
+      });
+
+      expect(result).toMatchObject({
+        source: "record_read_model",
+        repaired: true,
+        fallback_reason: "selection_mismatch",
+        candidate_count: 2
+      });
+      expect(result.records.map((item) => item.id)).toEqual(["cold", "hot"]);
+
+      const tokenBudgetResult = await readRetrievalCandidates(storePath, {
+        project_id: "alpha",
+        include_cold: true,
+        total_token_budget: 10_000,
+        read_event_manifest: async () => manifest,
+        read_current_records: async () => ({ records, source: "read_model", repaired: false, event_manifest: manifest })
+      });
+      expect(tokenBudgetResult).toMatchObject({
+        source: "record_read_model",
+        fallback_reason: "selection_mismatch",
+        candidate_count: 2
+      });
     });
   });
 

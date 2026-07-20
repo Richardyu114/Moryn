@@ -15,9 +15,38 @@ Moryn is not an agent platform, not a vector-memory SDK, and not a hosted cloud 
 It is the *memory bus between agents*: simple on the default path, and
 fully traceable when someone needs review, provenance, sync, or handoff history.
 
-> Published package: v0.3.0. Context Autopilot is the default lifecycle for
-> Codex and Claude Code; v0.2 stores and explicit handoff commands remain
-> compatible.
+> Current source/package version: v0.4.0-dev.0. v0.4 is still in active development and has not been tagged or published.
+>
+> Memory Distillation bounds the active working set,
+> and Portable Soul versions user/agent identity and prepares it for Codex and
+> Claude Code hook output.
+> v0.2/v0.3 stores and explicit handoff commands remain compatible.
+
+## What is being built for v0.4
+
+Moryn now treats long-lived context as a lifecycle rather than an ever-growing
+flat list:
+
+- **Distilled Memory:** L0 evidence, L1 episodes, L2 semantic/procedural
+  knowledge, and L3 identity are selected independently from trust and
+  hot/warm/cold retention. Session Fold and Episode Rollup compact covered
+  history without erasing its provenance.
+- **Bounded recall:** deterministic token budgets keep normal boot and retrieval
+  bounded. L3, pinned, and `never_forget` memory remain mandatory, with explicit
+  overflow evidence instead of silent truncation.
+- **Traceable depth:** a rollup can be expanded to its immediate sources and
+  leaf evidence with digest, privacy, conflict, and quarantine checks.
+- **Portable Soul:** User Soul and Agent Persona are versioned separately,
+  support global/project clauses and `local_only`/`personal_sync` distribution,
+  require approval for activation, and can be rolled back append-only.
+- **Truthful hook preparation:** Effective Soul compilation records what was
+  selected, and `host_context_prepared` records that bounded context was prepared
+  for hook output. Its receipt does not prove stdout transport, Host
+  acknowledgment, or model obedience.
+
+The dashboard adds read-only Memory Maintenance and Soul Studio views. See the
+[v0.4 migration guide](docs/v0.4-migration.md) for compatibility and safety
+details.
 
 When a prompt exposes a reusable knowledge gap, the agent can queue it without
 interrupting the user:
@@ -75,8 +104,10 @@ Install and use Moryn for this project.
 
 Work autonomously: install Moryn if needed, initialize the local store, attach
 this repo as a Moryn project, and register `moryn mcp` if this host supports
-MCP. Prefer `npm install -g @richardyu114/moryn`; use the source repo at
-https://github.com/Richardyu114/Moryn only when source development is needed.
+MCP. Until v0.4 is published to npm, use the source repo at
+https://github.com/Richardyu114/Moryn (`npm install`, `npm run build`, then
+`npm link`) and verify `moryn --version` reports `0.4.0-dev.0`. Do not assume an
+unpinned npm install contains v0.4.
 
 Do not ask me to choose Moryn commands. Learn the command surface from
 `moryn agent guide` and `moryn contracts operations --index`, then decide when
@@ -95,14 +126,14 @@ A longer prompt and setup expectations live in
 **Install manually:**
 
 ```bash
-npm install -g @richardyu114/moryn@0.3.0  # from npm
+npm install -g @richardyu114/moryn@0.4.0  # npm target after publication
 # or from source:
 git clone https://github.com/Richardyu114/Moryn.git
 cd Moryn && npm install && npm run build && npm link
 ```
 
-The executable is `moryn`. Existing v0.2 stores open in place: no migration
-command or event-history rewrite is required. After upgrading, run
+The executable is `moryn`. Existing v0.2 and v0.3 stores open in place: no
+migration command or event-history rewrite is required. After upgrading, run
 `moryn health check --project . --host <host>` to verify the local store and
 host integration.
 
@@ -224,7 +255,11 @@ raw ──> candidate ──> canonical
 
 Records tagged `private`, `secret`, or `sensitive` are excluded from normal
 reads (`boot`, `recall`, `refresh`, `timeline`, doctor/lifecycle reports, and
-the dashboard). Pass `--include-private` (or MCP `include_private: true`) only
+the dashboard). Unified compaction preview also excludes private-classified
+sources by default, including legacy Episode inputs marked by
+`content.privacy: "private"` or `content.distribution: "local_only"`, and returns
+a count-only, non-applicable omission blocker when they are present in the
+requested scope. Pass `--include-private` (or MCP `include_private: true`) only
 with explicit user intent. High-risk canonical writes require confirmation.
 
 **Capture Inbox** is the exceptional human-review path. Low-risk handoffs are
@@ -307,11 +342,20 @@ The read-only inspection commands (all safe, none mutate memory):
 | `moryn timeline --record-id <id>` | chronological neighbors + recall next actions |
 | `moryn memory doctor` | candidate backlog, promotable records, marker noise, split project ids |
 | `moryn memory lifecycle` | classify records: retained / stale / archive candidate |
+| `moryn memory expand <record_id>` | bounded, digest-aware source and leaf-evidence expansion |
+| `moryn soul status` | metadata-only profile, revision, compilation, and hook-preparation status |
 | `moryn capture policy` | audit what autocapture already decided |
 | `moryn dogfood report` | capture backlog, duplicate handoffs, failure/timeout signals |
 | `moryn health check` | store readiness, replay, project context, MCP freshness |
 | `moryn eval recall` | recall quality against golden queries |
 | `moryn project migrate` | preview + apply auditable project-id migration |
+
+Soul authoring is deliberately separate from read-only status. `moryn soul
+draft` persists an unapproved revision; `moryn soul approve <revision_id>
+--confirm` and `moryn soul rollback --profile-id <id> --to-revision <revision_id>
+--confirm` require explicit confirmation and append receipts. The draft response
+is the content-review boundary; later status and dashboard reads do not echo
+clause text.
 
 For installation trust, the read-only `health_check` operation reports store
 replay, project context, privacy boundaries, MCP freshness, and setup readiness:

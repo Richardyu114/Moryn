@@ -4582,7 +4582,8 @@ describe("moryn CLI", () => {
         record: "results_by_id.<record_id>.record",
         record_id: "results_by_id.<record_id>.record.id",
         next_action: "next_actions_by_id.<action_id>",
-        ordered_next_action: "next_actions[]"
+        ordered_next_action: "next_actions[]",
+        memory_working_set: "memory_working_set"
       });
       expect(parsedRecall.results_by_id[recordId]).toEqual(parsedRecall.results[0]);
 
@@ -4801,7 +4802,7 @@ describe("moryn CLI", () => {
             "--confidence",
             "0.35",
             "--text",
-            "Old lifecycle candidate should be archived."
+            "Stale lifecycle observation from a discarded experiment."
           ])
         ).stdout
       ) as { record: { id: string } };

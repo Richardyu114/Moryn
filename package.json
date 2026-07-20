@@ -1,6 +1,6 @@
 {
   "name": "@richardyu114/moryn",
-  "version": "0.3.0",
+  "version": "0.4.0-dev.0",
   "description": "Local-first memory, skill, and handoff layer for AI agents.",
   "type": "module",
   "main": "./dist/index.js",
@@ -40,6 +40,7 @@
     "docs/development.md",
     "docs/implementation-roadmap.md",
     "docs/moryn-design.md",
+    "docs/v0.4-migration.md",
     "assets",
     "scripts/agent-lifecycle-smoke.js",
     "scripts/host-runtime-binding-smoke.js",

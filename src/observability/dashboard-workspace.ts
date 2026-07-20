@@ -12,6 +12,7 @@ import type {
 } from "./dashboard.js";
 import { dashboardRecordTitleLabel, memoryKindLabel, memoryStateLabelFromRecordState } from "./dashboard.js";
 import type { DashboardMaintenanceData, DashboardMaintenancePlan } from "./dashboard-maintenance.js";
+import { renderDashboardV04MemoryPage } from "./dashboard-v04-workspace.js";
 
 export interface DashboardWorkspaceFragments {
   memory_html: string;
@@ -842,7 +843,7 @@ export function renderDashboardWorkspace(data: DashboardData, fragments: Dashboa
           ${renderImportant(model.important_records, model)}
         </div>
       </section>
-      <section class="editorial-view-page" data-dashboard-view="memory" hidden><header><div class="editorial-eyebrow">${i18n("Knowledge library", "知识库")}</div><h1>${i18n("Memory", "记忆")}</h1><p>${i18n("Search what Moryn has saved, then open any item to read it in full. Nothing is written here.", "搜索 Moryn 保存的内容，点开任意一条即可查看全文。此处不会写入。")}</p></header>${fragments.memory_html}</section>
+      <section class="editorial-view-page" data-dashboard-view="memory" hidden><header><div class="editorial-eyebrow">${i18n("Knowledge library", "知识库")}</div><h1>${i18n("Memory", "记忆")}</h1><p>${i18n("Search what Moryn has saved, then open any item to read it in full. Nothing is written here.", "搜索 Moryn 保存的内容，点开任意一条即可查看全文。此处不会写入。")}</p></header>${renderDashboardV04MemoryPage(data.memory_maintenance, data.soul_studio)}${fragments.memory_html}</section>
       <section class="editorial-view-page" data-dashboard-view="history" hidden><header><div class="editorial-eyebrow">${i18n("Recent activity", "近期动态")}</div><h1>${i18n("History", "历史")}</h1><p>${i18n("A plain-language record of what has happened, newest first.", "用日常语言记录发生过的事，最新在前。")}</p></header>${fragments.history_html}</section>
     </div>
     ${renderDrawer(model.drawers)}

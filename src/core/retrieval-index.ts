@@ -1,8 +1,14 @@
 import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { buildActiveLogicalMemoryView } from "./logical-memory.js";
-import type { EventManifest } from "./record-read-model.js";
-import { type CurrentRecordReadResult, readCurrentRecords } from "./record-read-model.js";
+import { MEMORY_LAYERS, type MemoryLayer } from "./memory-retention.js";
+import {
+  type CurrentRecordReadResult,
+  type EventManifest,
+  type MemoryWorkingSetSelectionOptions,
+  readCurrentRecords,
+  selectMemoryWorkingSet
+} from "./record-read-model.js";
 import { parseRecord } from "./schema.js";
 import { readEventFileManifest } from "./store.js";
 import type { MorynRecord } from "./types.js";
@@ -10,10 +16,19 @@ import type { MorynRecord } from "./types.js";
 export interface RetrievalIndexMetadataV1 {
   version: 1;
   event_manifest: EventManifest;
+  working_set: RetrievalIndexWorkingSetV1;
   active_records: number;
   global_records: number;
   project_buckets: number;
   projects: Record<string, { shard: string; records: number }>;
+}
+
+export interface RetrievalIndexWorkingSetV1 {
+  include_cold: boolean;
+  include_purged: boolean;
+  layer_limits: Partial<Record<MemoryLayer, number>>;
+  total_token_budget?: number;
+  layer_token_budgets: Partial<Record<MemoryLayer, number>>;
 }
 
 export interface RetrievalIndexShardV1 {
@@ -30,7 +45,7 @@ export interface BuiltRetrievalIndex {
   projects: Record<string, RetrievalIndexShardV1>;
 }
 
-export type RetrievalIndexFallbackReason = "missing" | "invalid" | "version_mismatch" | "stale";
+export type RetrievalIndexFallbackReason = "missing" | "invalid" | "version_mismatch" | "selection_mismatch" | "stale";
 
 export interface RetrievalCandidateReadResult {
   records: MorynRecord[];
@@ -44,7 +59,7 @@ export interface RetrievalCandidateReadResult {
   candidate_count: number;
 }
 
-export interface ReadRetrievalCandidatesInput {
+export interface ReadRetrievalCandidatesInput extends MemoryWorkingSetSelectionOptions {
   project_id: string;
   read_event_manifest?: (storePath: string) => Promise<EventManifest>;
   read_current_records?: (storePath: string) => Promise<CurrentRecordReadResult>;
@@ -59,10 +74,53 @@ export function retrievalProjectShardName(projectId: string): string {
   return `${Buffer.from(projectId, "utf8").toString("base64url")}.json`;
 }
 
-export function buildRetrievalIndex(records: MorynRecord[], eventManifest: EventManifest): BuiltRetrievalIndex {
-  const active = buildActiveLogicalMemoryView(records)
-    .active_records.filter((record) => record.state !== "archived" && record.state !== "quarantined")
-    .sort((left, right) => left.id.localeCompare(right.id));
+function normalizedLayerLimits(
+  limits: MemoryWorkingSetSelectionOptions["layer_limits"]
+): Partial<Record<MemoryLayer, number>> {
+  const normalized: Partial<Record<MemoryLayer, number>> = {};
+  for (const layer of MEMORY_LAYERS) {
+    const value = limits?.[layer];
+    if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) normalized[layer] = value;
+  }
+  return normalized;
+}
+
+function workingSetDefinition(options: MemoryWorkingSetSelectionOptions): RetrievalIndexWorkingSetV1 {
+  const totalTokenBudget = options.total_token_budget;
+  return {
+    include_cold: options.include_cold === true || options.include_archived === true,
+    include_purged: options.include_purged === true,
+    layer_limits: normalizedLayerLimits(options.layer_limits),
+    ...(typeof totalTokenBudget === "number" && Number.isSafeInteger(totalTokenBudget) && totalTokenBudget >= 0
+      ? { total_token_budget: totalTokenBudget }
+      : {}),
+    layer_token_budgets: normalizedLayerLimits(options.layer_token_budgets)
+  };
+}
+
+function sameWorkingSet(left: RetrievalIndexWorkingSetV1, right: RetrievalIndexWorkingSetV1): boolean {
+  return (
+    left.include_cold === right.include_cold &&
+    left.include_purged === right.include_purged &&
+    left.total_token_budget === right.total_token_budget &&
+    MEMORY_LAYERS.every(
+      (layer) =>
+        left.layer_limits[layer] === right.layer_limits[layer] &&
+        left.layer_token_budgets[layer] === right.layer_token_budgets[layer]
+    )
+  );
+}
+
+export function buildRetrievalIndex(
+  records: MorynRecord[],
+  eventManifest: EventManifest,
+  options: MemoryWorkingSetSelectionOptions = {}
+): BuiltRetrievalIndex {
+  const logicalRecords = buildActiveLogicalMemoryView(records).active_records.filter(
+    (record) => record.state !== "quarantined" && record.visibility !== "quarantined"
+  );
+  const selection = selectMemoryWorkingSet(logicalRecords, options);
+  const active = selection.selected.map((entry) => entry.record).sort((left, right) => left.id.localeCompare(right.id));
   const globalRecords = active.filter((record) => record.scope === "global");
   const projects: Record<string, RetrievalIndexShardV1> = {};
   for (const record of active) {
@@ -92,6 +150,7 @@ export function buildRetrievalIndex(records: MorynRecord[], eventManifest: Event
     metadata: {
       version: 1,
       event_manifest: eventManifest,
+      working_set: workingSetDefinition(options),
       active_records: active.length,
       global_records: globalRecords.length,
       project_buckets: Object.keys(projects).length,
@@ -107,6 +166,46 @@ function parseManifest(value: unknown): EventManifest {
   const manifest = value as Record<string, unknown>;
   if (typeof manifest.count !== "number" || typeof manifest.digest !== "string") throw new Error("invalid");
   return { count: manifest.count, digest: manifest.digest };
+}
+
+function parseLayerBudgets(value: unknown): Partial<Record<MemoryLayer, number>> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("invalid");
+  }
+  const rawBudgets = value as Record<string, unknown>;
+  if (Object.keys(rawBudgets).some((layer) => !MEMORY_LAYERS.includes(layer as MemoryLayer))) {
+    throw new Error("invalid");
+  }
+  const budgets: Partial<Record<MemoryLayer, number>> = {};
+  for (const layer of MEMORY_LAYERS) {
+    const budget = rawBudgets[layer];
+    if (budget === undefined) continue;
+    if (typeof budget !== "number" || !Number.isSafeInteger(budget) || budget < 0) throw new Error("invalid");
+    budgets[layer] = budget;
+  }
+  return budgets;
+}
+
+function parseWorkingSet(value: unknown): RetrievalIndexWorkingSetV1 {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid");
+  const workingSet = value as Record<string, unknown>;
+  if (typeof workingSet.include_cold !== "boolean" || typeof workingSet.include_purged !== "boolean") {
+    throw new Error("invalid");
+  }
+  const totalTokenBudget = workingSet.total_token_budget;
+  if (
+    totalTokenBudget !== undefined &&
+    (typeof totalTokenBudget !== "number" || !Number.isSafeInteger(totalTokenBudget) || totalTokenBudget < 0)
+  ) {
+    throw new Error("invalid");
+  }
+  return {
+    include_cold: workingSet.include_cold,
+    include_purged: workingSet.include_purged,
+    layer_limits: parseLayerBudgets(workingSet.layer_limits),
+    ...(totalTokenBudget !== undefined ? { total_token_budget: totalTokenBudget } : {}),
+    layer_token_budgets: parseLayerBudgets(workingSet.layer_token_budgets)
+  };
 }
 
 function parseMetadata(value: unknown): RetrievalIndexMetadataV1 {
@@ -133,6 +232,7 @@ function parseMetadata(value: unknown): RetrievalIndexMetadataV1 {
   return {
     version: 1,
     event_manifest: parseManifest(metadata.event_manifest),
+    working_set: parseWorkingSet(metadata.working_set),
     active_records: metadata.active_records,
     global_records: metadata.global_records,
     project_buckets: metadata.project_buckets,
@@ -212,6 +312,7 @@ export async function readRetrievalCandidates(
   try {
     const metadata = parseMetadata(JSON.parse(await readFile(join(root, "metadata.json"), "utf8")));
     if (!sameManifest(metadata.event_manifest, before)) throw new Error("stale");
+    if (!sameWorkingSet(metadata.working_set, workingSetDefinition(input))) throw new Error("selection_mismatch");
     const global = parseShard(JSON.parse(await readFile(join(root, "global.json"), "utf8")), "global");
     if (!sameManifest(global.event_manifest, before)) throw new Error("stale");
     const projectEntry = metadata.projects[input.project_id];
@@ -240,12 +341,13 @@ export async function readRetrievalCandidates(
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") fallbackReason = "missing";
     else if (error instanceof Error && error.message === "version_mismatch") fallbackReason = "version_mismatch";
+    else if (error instanceof Error && error.message === "selection_mismatch") fallbackReason = "selection_mismatch";
     else if (error instanceof Error && error.message === "stale") fallbackReason = "stale";
     else fallbackReason = "invalid";
   }
 
   const current = await readRecords(storePath);
-  const index = buildRetrievalIndex(current.records, current.event_manifest);
+  const index = buildRetrievalIndex(current.records, current.event_manifest, input);
   let repaired = false;
   try {
     await (input.write_index ?? writeRetrievalIndex)(storePath, index);

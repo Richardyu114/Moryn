@@ -2019,14 +2019,26 @@ describe("core engine", () => {
       expect(recall.retrieval).toMatchObject({
         source: "retrieval_index",
         total_active_records: 1000,
-        candidate_count: 1
+        candidate_count: 1,
+        unbounded_candidate_count: 1,
+        working_set: {
+          policy_id: "default_active_memory_v04",
+          tokens: { budgets: { total_token_budget: 16_000 } }
+        }
       });
+      expect(recall.memory_working_set).toEqual(recall.retrieval?.working_set);
       expect(boot.task_relevant.map((record) => record.id)).toEqual(["rec-alpha"]);
       expect(boot.retrieval).toMatchObject({
         source: "retrieval_index",
         total_active_records: 1000,
-        candidate_count: 1
+        candidate_count: 1,
+        unbounded_candidate_count: 1,
+        working_set: {
+          policy_id: "default_active_memory_v04",
+          tokens: { budgets: { total_token_budget: 16_000 } }
+        }
       });
+      expect(boot.memory_working_set).toEqual(boot.retrieval?.working_set);
       expect(calls).toEqual(["alpha", "alpha"]);
     });
   });
@@ -4451,6 +4463,7 @@ describe("core engine", () => {
         result: "results_by_id.<record_id>",
         record: "results_by_id.<record_id>.record",
         record_id: "results_by_id.<record_id>.record.id",
+        memory_working_set: "memory_working_set",
         next_action: "next_actions_by_id.<action_id>",
         ordered_next_action: "next_actions[]"
       });
@@ -5131,6 +5144,10 @@ describe("core engine", () => {
         record_id: "records_by_id.<record_id>.id",
         user_preference: "profile.user_preferences_by_id.<record_id>",
         soul: "profile.soul_by_id.<record_id>",
+        effective_soul: "profile.effective_soul",
+        effective_soul_clause: "profile.effective_soul.clauses_by_id.<clause_id>",
+        soul_profile_status: "profile.soul_profile_status",
+        memory_working_set: "memory_working_set",
         global_rule: "profile.global_rules_by_id.<record_id>",
         important_decision: "project.important_decisions_by_id.<record_id>",
         warning: "project.warnings_by_id.<record_id>",

@@ -175,6 +175,15 @@ describe("published package smoke", () => {
           ],
           { cwd: dir }
         );
+        const v04PublicImportCheck = await exec(
+          "node",
+          [
+            "--input-type=module",
+            "-e",
+            "import { DEFAULT_MEMORY_WORKING_SET_TOTAL_TOKEN_BUDGET, MEMORY_LAYERS, MEMORY_RETENTION_TIERS, SOUL_DELIVERY_PROOF_SCOPE, SOUL_DISTRIBUTIONS, SOUL_PROFILE_SCHEMA_VERSION, applyMemoryCompactionPlan, approveSoulProfileDraft, buildSoulHostContext, compileEffectiveSoul, createSoulProfileDraft, expandMemorySources, planEpisodeRollup, planSessionFold, previewMemoryCompaction, readSoulProfileStatus, restoreMemoryCompactionPlan, rollbackSoulProfile, version } from '@richardyu114/moryn'; console.log(JSON.stringify({ version, layers: MEMORY_LAYERS, tiers: MEMORY_RETENTION_TIERS, budget: DEFAULT_MEMORY_WORKING_SET_TOTAL_TOKEN_BUDGET, soul_schema: SOUL_PROFILE_SCHEMA_VERSION, distributions: SOUL_DISTRIBUTIONS, proof_scope: SOUL_DELIVERY_PROOF_SCOPE, functions: [planSessionFold, planEpisodeRollup, previewMemoryCompaction, applyMemoryCompactionPlan, restoreMemoryCompactionPlan, expandMemorySources, compileEffectiveSoul, createSoulProfileDraft, approveSoulProfileDraft, rollbackSoulProfile, readSoulProfileStatus, buildSoulHostContext].map((value) => typeof value) }));"
+          ],
+          { cwd: dir }
+        );
         const operationRequiredInputSources = {
           required_input: "operations_by_id.<operation>.execution.required_inputs_by_field.<field>",
           required_input_argument_path:
@@ -1374,6 +1383,16 @@ describe("published package smoke", () => {
         expect(operationLookupErrorImportCheck.stdout.trim()).toBe(
           "true|agent_status|agent_status|operations_by_id.agent_status|agent_status"
         );
+        expect(JSON.parse(v04PublicImportCheck.stdout)).toEqual({
+          version: "0.4.0-dev.0",
+          layers: ["L0", "L1", "L2", "L3"],
+          tiers: ["hot", "warm", "cold", "purged"],
+          budget: 16_000,
+          soul_schema: 1,
+          distributions: ["local_only", "personal_sync"],
+          proof_scope: "hook_output_prepared_not_host_acknowledged_or_obedience",
+          functions: Array.from({ length: 12 }, () => "function")
+        });
         expect(JSON.parse(await readFile(join(store, "config.json"), "utf8"))).toMatchObject({ store_version: 1 });
       } finally {
         if (tarball) {

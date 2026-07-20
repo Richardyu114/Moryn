@@ -1402,6 +1402,225 @@ export const OPERATION_CONTRACTS = [
     }
   }),
   operationContract({
+    operation: "soul_status",
+    category: "core",
+    summary: "Return metadata-only Soul profile, revision, conflict, compilation, approval, and host-delivery status.",
+    safe_to_run: true,
+    required_when:
+      "When a user or agent needs to inspect Soul synchronization or delivery without reading clause text.",
+    required_fields: [],
+    arguments_by_name: {
+      user_profile_id: {
+        type: "string",
+        required: false,
+        cli: { flag: "--user-profile-id" },
+        mcp: { argument: "user_profile_id" }
+      },
+      agent_profile_id: {
+        type: "string",
+        required: false,
+        cli: { flag: "--agent-profile-id" },
+        mcp: { argument: "agent_profile_id" }
+      },
+      project_id: {
+        type: "string",
+        required: false,
+        cli: { flag: "--project-id" },
+        mcp: { argument: "project_id" }
+      },
+      allowed_distributions: {
+        type: "string[]",
+        required: false,
+        cli: { flag: "--distribution", repeatable: true },
+        mcp: { argument: "allowed_distributions" },
+        allowed_values: ["local_only", "personal_sync"]
+      },
+      char_budget: {
+        type: "number",
+        required: false,
+        cli: { flag: "--char-budget" },
+        mcp: { argument: "char_budget" }
+      },
+      token_budget: {
+        type: "number",
+        required: false,
+        cli: { flag: "--token-budget" },
+        mcp: { argument: "token_budget" }
+      }
+    },
+    interfaces: {
+      cli: { command: "moryn soul status", argv: ["soul", "status"] },
+      mcp: { tool: "soul_status", arguments: {} }
+    }
+  }),
+  operationContract({
+    operation: "soul_draft",
+    category: "maintenance",
+    summary:
+      "Persist an authored, unapproved Soul profile draft; local-only clauses remain outside synchronized events.",
+    safe_to_run: false,
+    required_when:
+      "When the user has authored a complete Soul draft or wants to derive a new draft from a known revision.",
+    required_fields: ["draft_input"],
+    argument_sources: userInputSources(["draft_input"]),
+    arguments_by_name: {
+      input_json: {
+        type: "object",
+        required: false,
+        cli: { flag: "--input-json" }
+      },
+      subject: {
+        type: "object",
+        required: false,
+        mcp: { argument: "subject" }
+      },
+      subject_kind: {
+        type: "string",
+        required: false,
+        cli: { flag: "--subject" },
+        mcp: { argument: "subject", path: "subject.kind" },
+        parent_argument: "subject",
+        allowed_values: ["user", "agent"]
+      },
+      subject_id: {
+        type: "string",
+        required: false,
+        cli: { flag: "--subject-id" },
+        mcp: { argument: "subject", path: "subject.subject_id" },
+        parent_argument: "subject"
+      },
+      display_name: {
+        type: "string",
+        required: false,
+        cli: { flag: "--display-name" },
+        mcp: { argument: "subject", path: "subject.display_name" },
+        parent_argument: "subject"
+      },
+      profile_id: {
+        type: "string",
+        required: false,
+        cli: { flag: "--profile-id" },
+        mcp: { argument: "profile_id" }
+      },
+      from_revision_id: {
+        type: "string",
+        required: false,
+        cli: { flag: "--from-revision" },
+        mcp: { argument: "from_revision_id" }
+      },
+      clauses: {
+        type: "object",
+        required: false,
+        cli: { flag: "--clause-json", repeatable: true },
+        mcp: { argument: "clauses" }
+      },
+      occurred_at: {
+        type: "string",
+        required: false,
+        mcp: { argument: "occurred_at" }
+      },
+      source: { type: "object", required: false, mcp: { argument: "source" } },
+      ...sourceIdentityArguments
+    },
+    required_fields_by_name: {
+      draft_input: {
+        name: "draft_input",
+        argument_path: "input_json|clauses|from_revision_id",
+        placeholder: "<draft_input>",
+        alternatives: ["input_json", "clauses", "from_revision_id"]
+      }
+    },
+    interfaces: {
+      cli: {
+        command: "moryn soul draft --subject <user|agent> --subject-id <id> --clause-json <json>",
+        argv: ["soul", "draft", "--subject", "<user|agent>", "--subject-id", "<id>", "--clause-json", "<json>"]
+      },
+      mcp: {
+        tool: "soul_draft",
+        arguments: {
+          subject: { kind: "<user|agent>", subject_id: "<id>" },
+          clauses: ["<clause>"]
+        }
+      }
+    }
+  }),
+  operationContract({
+    operation: "soul_approve",
+    category: "maintenance",
+    summary: "Approve a known Soul draft by appending an active revision and an auditable approval receipt.",
+    safe_to_run: false,
+    required_when: "Only after the user has reviewed the exact draft revision and explicitly confirms activation.",
+    required_fields: ["revision_id", "confirm"],
+    argument_sources: userInputSources(["revision_id", "confirm"]),
+    arguments_by_name: {
+      revision_id: {
+        type: "string",
+        required: true,
+        cli: { positional: "revision-id" },
+        mcp: { argument: "revision_id" }
+      },
+      confirm: {
+        type: "boolean",
+        required: true,
+        cli: { flag: "--confirm" },
+        mcp: { argument: "confirm" }
+      },
+      occurred_at: { type: "string", required: false, mcp: { argument: "occurred_at" } },
+      source: { type: "object", required: false, mcp: { argument: "source" } },
+      ...sourceIdentityArguments
+    },
+    interfaces: {
+      cli: {
+        command: "moryn soul approve <revision_id> --confirm",
+        argv: ["soul", "approve", "<revision_id>", "--confirm"]
+      },
+      mcp: { tool: "soul_approve", arguments: { revision_id: "<revision_id>", confirm: true } }
+    }
+  }),
+  operationContract({
+    operation: "soul_rollback",
+    category: "maintenance",
+    summary: "Roll a Soul profile back by appending a new active revision copied from a prior approved revision.",
+    safe_to_run: false,
+    required_when:
+      "Only after the user chooses the profile and prior approved revision and explicitly confirms rollback.",
+    required_fields: ["profile_id", "to_revision", "confirm"],
+    argument_sources: userInputSources(["profile_id", "to_revision", "confirm"]),
+    arguments_by_name: {
+      profile_id: {
+        type: "string",
+        required: true,
+        cli: { flag: "--profile-id" },
+        mcp: { argument: "profile_id" }
+      },
+      to_revision: {
+        type: "string",
+        required: true,
+        cli: { flag: "--to-revision" },
+        mcp: { argument: "to_revision" }
+      },
+      confirm: {
+        type: "boolean",
+        required: true,
+        cli: { flag: "--confirm" },
+        mcp: { argument: "confirm" }
+      },
+      occurred_at: { type: "string", required: false, mcp: { argument: "occurred_at" } },
+      source: { type: "object", required: false, mcp: { argument: "source" } },
+      ...sourceIdentityArguments
+    },
+    interfaces: {
+      cli: {
+        command: "moryn soul rollback --profile-id <profile_id> --to-revision <revision_id> --confirm",
+        argv: ["soul", "rollback", "--profile-id", "<profile_id>", "--to-revision", "<revision_id>", "--confirm"]
+      },
+      mcp: {
+        tool: "soul_rollback",
+        arguments: { profile_id: "<profile_id>", to_revision: "<revision_id>", confirm: true }
+      }
+    }
+  }),
+  operationContract({
     operation: "capture_session",
     category: "lifecycle",
     summary:
@@ -2270,6 +2489,185 @@ export const OPERATION_CONTRACTS = [
     interfaces: {
       cli: { command: "moryn memory doctor", argv: ["memory", "doctor"] },
       mcp: { tool: "memory_doctor", arguments: {} }
+    }
+  }),
+  operationContract({
+    operation: "memory_compaction_preview",
+    category: "maintenance",
+    summary:
+      "Preview deterministic Session Fold and Episode Rollup compaction against current records without mutating memory.",
+    safe_to_run: true,
+    required_when:
+      "Before planning memory compaction, to review coverage, blockers, token reduction, sync impact, and undo semantics.",
+    required_fields: [],
+    arguments_by_name: {
+      project_id: {
+        type: "string",
+        required: false,
+        cli: { flag: "--project-id" },
+        mcp: { argument: "project_id" }
+      },
+      session_id: {
+        type: "string",
+        required: false,
+        cli: { flag: "--session-id" },
+        mcp: { argument: "session_id" }
+      },
+      bucket_kind: {
+        type: "string",
+        required: false,
+        cli: { flag: "--bucket-kind" },
+        mcp: { argument: "bucket_kind" },
+        allowed_values: ["day", "task", "project_epoch"]
+      },
+      bucket_key: {
+        type: "string",
+        required: false,
+        cli: { flag: "--bucket-key" },
+        mcp: { argument: "bucket_key" }
+      },
+      now: {
+        type: "string",
+        required: false,
+        cli: { flag: "--now" },
+        mcp: { argument: "now" }
+      },
+      recent_window_days: {
+        type: "number",
+        required: false,
+        default: 7,
+        cli: { flag: "--recent-window-days", default: 7 },
+        mcp: { argument: "recent_window_days" }
+      },
+      ...privateReadArgument
+    },
+    interfaces: {
+      cli: { command: "moryn memory compact preview", argv: ["memory", "compact", "preview"] },
+      mcp: { tool: "memory_compaction_preview", arguments: {} }
+    }
+  }),
+  operationContract({
+    operation: "memory_compaction_plan",
+    category: "maintenance",
+    summary: "Validate and seal an exact Memory Compaction preview into the only plan artifact accepted by apply.",
+    safe_to_run: true,
+    required_when: "After reviewing a current Memory Compaction preview and before requesting compaction apply.",
+    required_fields: ["preview"],
+    argument_sources: userInputSources(["preview"]),
+    arguments_by_name: {
+      preview: {
+        type: "object",
+        required: true,
+        cli: { flag: "--preview-json" },
+        mcp: { argument: "preview" }
+      }
+    },
+    interfaces: {
+      cli: {
+        command: "moryn memory compact plan --preview-json <json>",
+        argv: ["memory", "compact", "plan", "--preview-json", "<json>"]
+      },
+      mcp: { tool: "memory_compaction_plan", arguments: { preview: "<memory_compaction_preview>" } }
+    }
+  }),
+  operationContract({
+    operation: "memory_compaction_apply",
+    category: "maintenance",
+    summary:
+      "Apply one reviewed, sealed Memory Compaction plan through append-only child transactions and publish a metadata-only receipt.",
+    safe_to_run: false,
+    required_when: "Only after reviewing the exact sealed plan and explicitly confirming its archive transitions.",
+    required_fields: ["plan", "confirm"],
+    argument_sources: userInputSources(["plan", "confirm"]),
+    arguments_by_name: {
+      plan: {
+        type: "object",
+        required: true,
+        cli: { flag: "--plan-json" },
+        mcp: { argument: "plan" }
+      },
+      confirm: {
+        type: "boolean",
+        required: true,
+        cli: { flag: "--confirm" },
+        mcp: { argument: "confirm" }
+      }
+    },
+    interfaces: {
+      cli: {
+        command: "moryn memory compact apply --plan-json <json> --confirm",
+        argv: ["memory", "compact", "apply", "--plan-json", "<json>", "--confirm"]
+      },
+      mcp: { tool: "memory_compaction_apply", arguments: { plan: "<memory_compaction_plan>", confirm: true } }
+    }
+  }),
+  operationContract({
+    operation: "memory_compaction_restore",
+    category: "maintenance",
+    summary:
+      "Logically restore one committed Memory Compaction by appending source-state restores and archiving derived rollups.",
+    safe_to_run: false,
+    required_when:
+      "Only after choosing a committed compaction receipt and explicitly confirming append-only logical restoration.",
+    required_fields: ["plan_id", "confirm"],
+    argument_sources: userInputSources(["plan_id", "confirm"]),
+    arguments_by_name: {
+      plan_id: {
+        type: "string",
+        required: true,
+        cli: { positional: "plan-id" },
+        mcp: { argument: "plan_id" }
+      },
+      confirm: {
+        type: "boolean",
+        required: true,
+        cli: { flag: "--confirm" },
+        mcp: { argument: "confirm" }
+      }
+    },
+    interfaces: {
+      cli: {
+        command: "moryn memory compact restore <plan_id> --confirm",
+        argv: ["memory", "compact", "restore", "<plan_id>", "--confirm"]
+      },
+      mcp: { tool: "memory_compaction_restore", arguments: { plan_id: "<plan_id>", confirm: true } }
+    }
+  }),
+  operationContract({
+    operation: "memory_expand",
+    category: "core",
+    summary:
+      "Expand one compressed memory into bounded available source evidence with privacy and digest-verification metadata.",
+    safe_to_run: true,
+    required_when: "When a user or agent needs the source evidence behind a rollup or derived memory.",
+    required_fields: ["record_id"],
+    argument_sources: userInputSources(["record_id"]),
+    arguments_by_name: {
+      record_id: {
+        type: "string",
+        required: true,
+        cli: { positional: "record-id" },
+        mcp: { argument: "record_id" }
+      },
+      max_depth: {
+        type: "number",
+        required: false,
+        default: 2,
+        cli: { flag: "--max-depth", default: 2 },
+        mcp: { argument: "max_depth" }
+      },
+      max_records: {
+        type: "number",
+        required: false,
+        default: 100,
+        cli: { flag: "--max-records", default: 100 },
+        mcp: { argument: "max_records" }
+      },
+      ...privateReadArgument
+    },
+    interfaces: {
+      cli: { command: "moryn memory expand <record_id>", argv: ["memory", "expand", "<record_id>"] },
+      mcp: { tool: "memory_expand", arguments: { record_id: "<record_id>" } }
     }
   }),
   operationContract({

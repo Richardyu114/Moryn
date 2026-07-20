@@ -40,6 +40,7 @@ import {
   type DashboardMaintenanceData,
   type DashboardMaintenancePlan
 } from "./dashboard-maintenance.js";
+import { buildDashboardV04Data, type DashboardMemoryMaintenance, type DashboardSoulStudio } from "./dashboard-v04.js";
 import { dashboardWorkspaceCss } from "./dashboard-workspace.css.js";
 import { renderDashboardWorkspace, renderMemorySearch } from "./dashboard-workspace.js";
 import { dashboardWorkspaceScript } from "./dashboard-workspace-script.js";
@@ -158,6 +159,8 @@ export const DASHBOARD_SELECTION_SOURCES = {
   governance: "governance",
   recall_eval: "recall_eval",
   memory_lifecycle: "memory_lifecycle",
+  memory_maintenance: "memory_maintenance",
+  soul_studio: "soul_studio",
   dogfood_report: "dogfood_report",
   recent_value: "recent_value[]",
   record: "recent_records[]",
@@ -945,6 +948,8 @@ export interface DashboardData {
   candidate_triage: DashboardCandidateTriage;
   health_check: HealthCheckReport;
   memory_lifecycle: MemoryLifecycleResult;
+  memory_maintenance: DashboardMemoryMaintenance;
+  soul_studio: DashboardSoulStudio;
   dogfood_report: DogfoodReportResult;
   stored_content_preview: DashboardValueRecord[];
   recent_value: DashboardValueRecord[];
@@ -3553,6 +3558,10 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     ...(syncCompensation ? { sync_compensation: syncCompensation } : {})
   });
   const recallEvalData = await buildDashboardRecallEval(storePath, records, options);
+  const dashboardV04Data = await buildDashboardV04Data(storePath, allRecords, {
+    project_id: options.project_id,
+    now: generatedAt
+  });
   const workingSetReport = summarizeWorkingSet(records, visibleEvents);
   const actions = dashboardActions({
     captureInbox: captureInboxData,
@@ -3785,6 +3794,8 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     candidate_triage: candidateTriageData,
     health_check: healthCheckData,
     memory_lifecycle: memoryLifecycleData,
+    memory_maintenance: dashboardV04Data.memory_maintenance,
+    soul_studio: dashboardV04Data.soul_studio,
     dogfood_report: dogfoodReportData,
     stored_content_preview: buildStoredContentPreview(records, generatedAt, 4, eventsByRecord),
     recent_value: buildRecentValue(records, generatedAt, Math.min(limit, RECENT_VALUE_LIMIT), eventsByRecord),

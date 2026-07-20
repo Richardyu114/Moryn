@@ -15,6 +15,7 @@ import type {
 } from "./core/context-delta.js";
 import { rebuildDerivedViews } from "./core/derived.js";
 import { createEngine } from "./core/engine.js";
+import { EPISODE_BUCKET_KINDS } from "./core/episode-rollup.js";
 import {
   commandForAgentEnterContext,
   commandForAgentFinishContext,
@@ -45,6 +46,7 @@ import {
 } from "./core/project.js";
 import type { RecallEvalCaseInput } from "./core/recall-eval.js";
 import { isValidPatchPath, RECORD_KINDS, RECORD_PRIORITIES, RECORD_SCOPES, RECORD_STATES } from "./core/schema.js";
+import { SOUL_DISTRIBUTIONS } from "./core/soul-profile.js";
 import {
   activateClaudeSettings,
   activateCodexHooks,
@@ -156,7 +158,13 @@ type CliRequiredOperation =
   | "consolidate_semantic"
   | "checkpoint"
   | "project_migrate"
-  | "sync_init";
+  | "sync_init"
+  | "soul_approve"
+  | "soul_rollback"
+  | "memory_expand"
+  | "memory_compaction_plan"
+  | "memory_compaction_apply"
+  | "memory_compaction_restore";
 type CliRequiredArgumentSource = `operations_by_id.${CliRequiredOperation}.arguments_by_name.${string}`;
 type CliRequiredSource = {
   operation: CliRequiredOperation;
@@ -178,6 +186,15 @@ type CliParserOperation =
   | "refresh"
   | "memory_doctor"
   | "memory_lifecycle"
+  | "memory_expand"
+  | "memory_compaction_preview"
+  | "memory_compaction_plan"
+  | "memory_compaction_apply"
+  | "memory_compaction_restore"
+  | "soul_status"
+  | "soul_draft"
+  | "soul_approve"
+  | "soul_rollback"
   | "capture_policy"
   | "dogfood_report"
   | "health_check"
@@ -1109,6 +1126,18 @@ function requiredCliOptionSource(option: string, args = process.argv.slice(2)): 
   if (commandPath[0] === "capture" && commandPath[1] === "session" && option === "--summary") {
     return { operation: "capture_session", argument: "summary" };
   }
+  if (commandPath[0] === "soul" && commandPath[1] === "rollback") {
+    if (option === "--profile-id") return { operation: "soul_rollback", argument: "profile_id" };
+    if (option === "--to-revision") return { operation: "soul_rollback", argument: "to_revision" };
+  }
+  if (commandPath[0] === "memory" && commandPath[1] === "compact") {
+    if (commandPath[2] === "plan" && option === "--preview-json") {
+      return { operation: "memory_compaction_plan", argument: "preview" };
+    }
+    if (commandPath[2] === "apply" && option === "--plan-json") {
+      return { operation: "memory_compaction_apply", argument: "plan" };
+    }
+  }
   return undefined;
 }
 
@@ -1135,6 +1164,20 @@ function requiredCliPositionalArgumentSource(
   }
   if (commandPath[0] === "sync" && commandPath[1] === "init" && positional === "remote") {
     return { operation: "sync_init", argument: "remote", positional };
+  }
+  if (commandPath[0] === "soul" && commandPath[1] === "approve" && positional === "revision-id") {
+    return { operation: "soul_approve", argument: "revision_id", positional };
+  }
+  if (commandPath[0] === "memory" && commandPath[1] === "expand" && positional === "record-id") {
+    return { operation: "memory_expand", argument: "record_id", positional };
+  }
+  if (
+    commandPath[0] === "memory" &&
+    commandPath[1] === "compact" &&
+    commandPath[2] === "restore" &&
+    positional === "plan-id"
+  ) {
+    return { operation: "memory_compaction_restore", argument: "plan_id", positional };
   }
   return undefined;
 }
@@ -2149,6 +2192,32 @@ function parseCheckpointJson(
   }
 }
 
+function parseJsonOption(
+  value: string,
+  option: "--input-json" | "--clause-json" | "--preview-json" | "--plan-json"
+): unknown {
+  try {
+    return JSON.parse(value) as unknown;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Invalid argument: Invalid ${option} JSON: ${message}`);
+  }
+}
+
+function parseBoundedIntegerOption(
+  value: string | undefined,
+  option: string,
+  minimum: number,
+  maximum = Number.MAX_SAFE_INTEGER
+): number | undefined {
+  if (value === undefined) return undefined;
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < minimum || parsed > maximum) {
+    throw new Error(`Invalid argument: Invalid ${option}; must be an integer between ${minimum} and ${maximum}`);
+  }
+  return parsed;
+}
+
 type DashboardCliOptions = {
   open?: boolean;
   limit?: string;
@@ -3101,7 +3170,253 @@ program
     );
   });
 
+const soul = program.command("soul");
+
+soul
+  .command("status")
+  .option("--user-profile-id <id>")
+  .option("--agent-profile-id <id>")
+  .option("--project-id <id>")
+  .option(
+    "--distribution <distribution>",
+    "Allowed Soul clause distribution",
+    collectNonEmptyOption("--distribution", { operation: "soul_status", argument: "allowed_distributions" }),
+    []
+  )
+  .option("--char-budget <n>")
+  .option("--token-budget <n>")
+  .action(async (options) => {
+    const distributions = (options.distribution as string[]).map((distribution) => {
+      if (!SOUL_DISTRIBUTIONS.includes(distribution as (typeof SOUL_DISTRIBUTIONS)[number])) {
+        throw new Error(`Invalid argument: Invalid --distribution; expected one of ${SOUL_DISTRIBUTIONS.join(", ")}`);
+      }
+      return distribution as (typeof SOUL_DISTRIBUTIONS)[number];
+    });
+    printJson(
+      await createCliEngine().readSoulProfileStatus({
+        user_profile_id: parseNonEmptyCliString(options.userProfileId, "--user-profile-id", {
+          operation: "soul_status",
+          argument: "user_profile_id"
+        }),
+        agent_profile_id: parseNonEmptyCliString(options.agentProfileId, "--agent-profile-id", {
+          operation: "soul_status",
+          argument: "agent_profile_id"
+        }),
+        project_id: parseNonEmptyCliString(options.projectId, "--project-id", {
+          operation: "soul_status",
+          argument: "project_id"
+        }),
+        allowed_distributions: distributions.length ? distributions : undefined,
+        char_budget: parseBoundedIntegerOption(options.charBudget, "--char-budget", 1),
+        token_budget: parseBoundedIntegerOption(options.tokenBudget, "--token-budget", 1)
+      })
+    );
+  });
+
+soul
+  .command("draft")
+  .option("--input-json <json>", "Complete Soul draft input JSON")
+  .option("--subject <user|agent>")
+  .option("--subject-id <id>")
+  .option("--display-name <name>")
+  .option("--profile-id <id>")
+  .option("--from-revision <id>")
+  .option(
+    "--clause-json <json>",
+    "Soul clause JSON; repeat for each clause",
+    collectNonEmptyOption("--clause-json", { operation: "soul_draft", argument: "clauses" }),
+    []
+  )
+  .action(async (options) => {
+    const clauseJson = options.clauseJson as string[];
+    const structuredOptionsUsed =
+      options.subject !== undefined ||
+      options.subjectId !== undefined ||
+      options.displayName !== undefined ||
+      options.profileId !== undefined ||
+      options.fromRevision !== undefined ||
+      clauseJson.length > 0;
+    if (options.inputJson !== undefined && structuredOptionsUsed) {
+      throw new Error("Invalid argument: --input-json cannot be combined with Soul draft field options");
+    }
+    const request =
+      options.inputJson !== undefined
+        ? parseJsonOption(options.inputJson, "--input-json")
+        : {
+            ...(options.subject === undefined && options.subjectId === undefined && options.displayName === undefined
+              ? {}
+              : {
+                  subject: {
+                    kind: options.subject,
+                    subject_id: options.subjectId,
+                    ...(options.displayName === undefined ? {} : { display_name: options.displayName })
+                  }
+                }),
+            ...(options.profileId === undefined ? {} : { profile_id: options.profileId }),
+            ...(options.fromRevision === undefined ? {} : { from_revision_id: options.fromRevision }),
+            ...(clauseJson.length === 0
+              ? {}
+              : { clauses: clauseJson.map((value) => parseJsonOption(value, "--clause-json")) })
+          };
+    const engine = createCliEngine();
+    if (typeof request !== "object" || request === null || Array.isArray(request)) {
+      throw new Error("Invalid argument: --input-json must contain a JSON object");
+    }
+    printJson(
+      await engine.createSoulProfileDraft({
+        ...(request as Record<string, unknown>),
+        source: { client: "cli" }
+      })
+    );
+  });
+
+soul
+  .command("approve")
+  .argument("<revision-id>")
+  .option("--confirm", "Confirm activation of the reviewed Soul revision")
+  .action(async (revisionId, options) => {
+    printJson(
+      await createCliEngine().approveSoulProfileDraft({
+        revision_id: parseNonEmptyCliPositional(revisionId, "revision-id", {
+          operation: "soul_approve",
+          argument: "revision_id"
+        }),
+        confirmed: options.confirm,
+        source: { client: "cli" }
+      })
+    );
+  });
+
+soul
+  .command("rollback")
+  .requiredOption("--profile-id <id>")
+  .requiredOption("--to-revision <revision-id>")
+  .option("--confirm", "Confirm rollback to the reviewed Soul revision")
+  .action(async (options) => {
+    printJson(
+      await createCliEngine().rollbackSoulProfile({
+        profile_id: parseNonEmptyCliString(options.profileId, "--profile-id", {
+          operation: "soul_rollback",
+          argument: "profile_id"
+        }),
+        target_revision_id: parseNonEmptyCliString(options.toRevision, "--to-revision", {
+          operation: "soul_rollback",
+          argument: "to_revision"
+        }),
+        confirmed: options.confirm,
+        source: { client: "cli" }
+      })
+    );
+  });
+
 const memory = program.command("memory");
+
+memory
+  .command("expand")
+  .argument("<record-id>")
+  .option("--max-depth <n>", "Maximum source expansion depth", "2")
+  .option("--max-records <n>", "Maximum returned records", "100")
+  .option("--include-private", "Include private-tagged source evidence")
+  .action(async (recordId, options) => {
+    printJson(
+      await createCliEngine().expandMemorySources({
+        record_id: parseNonEmptyCliPositional(recordId, "record-id", {
+          operation: "memory_expand",
+          argument: "record_id"
+        }),
+        max_depth: parseBoundedIntegerOption(options.maxDepth, "--max-depth", 0, 16),
+        max_records: parseBoundedIntegerOption(options.maxRecords, "--max-records", 1, 10_000),
+        include_private: options.includePrivate
+      })
+    );
+  });
+
+const memoryCompact = memory.command("compact");
+
+memoryCompact
+  .command("preview")
+  .option("--project-id <id>")
+  .option("--session-id <id>")
+  .option("--bucket-kind <day|task|project_epoch>")
+  .option("--bucket-key <key>")
+  .option("--now <iso>", "Use an explicit canonical planning timestamp")
+  .option("--recent-window-days <n>", "Keep recent episode sources warm", "7")
+  .option("--include-private", "Include private-tagged sources after explicit authorization")
+  .action(async (options) => {
+    const bucketKind = parseNonEmptyCliString(options.bucketKind, "--bucket-kind", {
+      operation: "memory_compaction_preview",
+      argument: "bucket_kind"
+    });
+    if (
+      bucketKind !== undefined &&
+      !EPISODE_BUCKET_KINDS.includes(bucketKind as (typeof EPISODE_BUCKET_KINDS)[number])
+    ) {
+      throw new Error(`Invalid argument: Invalid --bucket-kind; expected one of ${EPISODE_BUCKET_KINDS.join(", ")}`);
+    }
+    printJson(
+      await createCliEngine().previewMemoryCompaction({
+        project_id: parseNonEmptyCliString(options.projectId, "--project-id", {
+          operation: "memory_compaction_preview",
+          argument: "project_id"
+        }),
+        session_id: parseNonEmptyCliString(options.sessionId, "--session-id", {
+          operation: "memory_compaction_preview",
+          argument: "session_id"
+        }),
+        bucket_kind: bucketKind,
+        bucket_key: parseNonEmptyCliString(options.bucketKey, "--bucket-key", {
+          operation: "memory_compaction_preview",
+          argument: "bucket_key"
+        }),
+        now: parseNonEmptyCliString(options.now, "--now", {
+          operation: "memory_compaction_preview",
+          argument: "now"
+        }),
+        recent_window_days: parseBoundedIntegerOption(options.recentWindowDays, "--recent-window-days", 0, 3650),
+        include_private: options.includePrivate
+      })
+    );
+  });
+
+memoryCompact
+  .command("plan")
+  .requiredOption("--preview-json <json>", "Exact Memory Compaction preview JSON")
+  .action(async (options) => {
+    printJson(
+      await createCliEngine().planMemoryCompaction({
+        preview: parseJsonOption(options.previewJson, "--preview-json")
+      })
+    );
+  });
+
+memoryCompact
+  .command("apply")
+  .requiredOption("--plan-json <json>", "Exact sealed Memory Compaction plan JSON")
+  .option("--confirm", "Confirm the reviewed append-only compaction plan")
+  .action(async (options) => {
+    printJson(
+      await createCliEngine().applyMemoryCompaction({
+        plan: parseJsonOption(options.planJson, "--plan-json"),
+        confirmed: options.confirm
+      })
+    );
+  });
+
+memoryCompact
+  .command("restore")
+  .argument("<plan-id>")
+  .option("--confirm", "Confirm append-only logical restoration of this compaction")
+  .action(async (planId, options) => {
+    printJson(
+      await createCliEngine().restoreMemoryCompaction({
+        plan_id: parseNonEmptyCliPositional(planId, "plan-id", {
+          operation: "memory_compaction_restore",
+          argument: "plan_id"
+        }),
+        confirmed: options.confirm
+      })
+    );
+  });
 
 memory
   .command("doctor")

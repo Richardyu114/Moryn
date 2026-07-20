@@ -3779,6 +3779,139 @@ Principles:
 - Sensitive content does not become canonical by default.
 - Git conflicts never overwrite event history automatically.
 
+## v0.4 Memory Distillation And Portable Soul
+
+### Orthogonal Memory Model
+
+Memory growth is controlled with three orthogonal axes rather than one overloaded
+state field:
+
+- abstraction layer: L0 evidence, L1 episodic, L2 semantic/procedural, and L3
+  identity;
+- trust state: raw, candidate, canonical, quarantined, or legacy-unknown;
+- retention tier: hot, warm, cold, or purged, plus independent pin and
+  never-forget protection.
+
+No axis implies another. Trust answers whether a claim is accepted; layer
+answers how distilled it is; retention answers whether it belongs in the active
+working set. A canonical L2 decision can become cold without losing canonical
+trust, while quarantined L3 identity remains L3 and protected even though it is
+not injected.
+
+Legacy records without v2 metadata receive conservative inferred values. A
+legacy archived record maps to cold, not purged, and retains
+`legacy_unknown` trust when its prior trust state cannot be proven. Malformed
+metadata fails closed and cannot enable automatic archive or purge.
+
+The normal working set is rollup-first and bounded by estimated tokens. Cold and
+purged records stay outside normal boot/recall; mandatory L3, pinned, and
+never-forget records can overflow a budget only with explicit overflow evidence.
+Record-count limits remain secondary safeguards rather than a substitute for a
+token budget.
+
+### Distillation And Lineage
+
+Session Fold converts closed-session L0 status/checkpoint/final-handoff evidence
+into one L1 session rollup. Episode Rollup combines closed L1 session rollups by
+day, task, or project epoch. Episode claims point to leaf evidence, not merely to
+an earlier summary, so regeneration avoids a summary-of-summary telephone game.
+
+Every safe reduction binds:
+
+- source record ids and deterministic source digests;
+- verified coverage and any uncovered source blockers;
+- privacy boundary, conflict state, and protected-content checks;
+- before/after active-record and estimated-token counts;
+- proposed archive/cold events, sync impact, and undo semantics.
+
+Mixed privacy, stale source digests, incomplete coverage, unresolved conflict,
+quarantined sources, high-priority unique evidence, Soul, skills, identity, and
+protected security or preference content stop automatic reduction. Review state
+is preserved rather than guessed.
+
+Compaction follows preview -> deterministic plan -> append-only apply ->
+integrity-checked receipt. The derived record is atomically published and read
+back before source archive events, and the receipt is committed only after every
+exact event payload is read back. Receipt durability metadata partitions events
+into directory-sync-confirmed, best-effort, and previously existing/read-back
+sets; `committed` does not upgrade best-effort events into confirmed crash
+durability. Retries are idempotent and partial transactions resume from verified
+event history.
+
+Archive/cold is logical and reversible; cold does not mean deleted. A logical
+restore appends source-state events and archives the derived rollup. It does not
+edit old events. Purge is a separate destructive concern and is never part of
+compaction apply. Normal Moryn sync preserves Git history, so Moryn does not
+claim that archive, cold, logical purge classification, or restore erases a
+payload that previously entered Git. v0.4 exposes no automatic physical purge.
+
+Compressed memory remains inspectable through bounded source expansion. The
+public CLI `moryn memory expand <record_id>`, MCP `memory_expand`, and Engine
+`expandMemorySources` traverse lineage with depth/record limits, cycle
+protection, digest verification, and private-boundary omissions. Missing or
+physically unavailable evidence is reported instead of fabricated.
+
+### Portable Soul Architecture
+
+Portable Soul separates User Soul from Agent Persona. Profiles use stable
+profile/clause/revision identities, global or project clause scope, and immutable
+revision lineage. Lifecycle state is draft, active, superseded, or conflicted.
+Approval and rollback append revisions and receipts; they do not rewrite a
+profile in place. Competing synchronized heads stay visible, with a last-known-
+good approved fallback when safe.
+
+Distribution is clause-level and independent of scope:
+
+- `local_only` full projections live under ignored, permission-restricted
+  `state/soul-profiles/` storage;
+- `personal_sync` projections become ordinary append-only events and contain
+  only portable clauses plus, for approved revisions, a metadata-only,
+  integrity-checked approval attestation. The attestation binds revision IDs and
+  digests and never contains `local_only` clause text; its local receipt copy
+  remains under ignored `state/`.
+
+The local full projection can reconstruct a mixed revision, but its local-only
+clause payload must never be copied into the synchronized projection,
+`soul_status`, Dashboard JSON, Dashboard HTML, compilation receipts, or
+hook-preparation receipts. The authoring/approval operation that directly handles a clause is a
+trusted content boundary; monitoring and status surfaces are not.
+
+v0.4 retains one low-severity privacy limitation: the portable projection
+exposes `full_revision_id`, while the revision ID is an unsalted content
+fingerprint of the complete revision, including `local_only` clause text. The
+payload remains local, but low-entropy private clauses can be tested by offline
+guessing against this identifier. v0.4 does not claim to solve that linkability
+risk. A later schema should use a device-local overlay or randomized local
+identity so portable revision identity does not fingerprint private text.
+
+Effective Soul compilation selects approved User and Agent heads, applies
+project scope and allowed distribution, resolves protected identity/boundary
+precedence, and enforces deterministic character/token budgets. Optional clauses
+may be omitted with reasons. Mandatory clauses are never silently truncated; an
+overflow makes the result non-deliverable.
+
+The hook-preparation chain keeps distinct evidence states:
+
+1. local projection saved;
+2. personal-sync event saved locally;
+3. remote push/pull handled by ordinary Git sync;
+4. Effective Soul compiled with source and rendered digests;
+5. bounded context prepared for Codex or Claude hook output;
+6. metadata-only compilation and hook-preparation receipts persisted locally.
+
+These states are not interchangeable. A local personal-sync event is not proof
+of remote propagation. `host_context_prepared` and receipt proof scope
+`hook_output_prepared_not_host_acknowledged_or_obedience` prove only that hook
+output was prepared; they do not prove stdout transport, Host acknowledgment,
+or model obedience. Moryn does not overwrite user-managed `AGENTS.md`,
+`CLAUDE.md`, or host configuration to simulate Soul synchronization.
+
+The stable CLI/MCP surfaces are `soul status`/`soul_status`,
+`soul draft`/`soul_draft`, `soul approve`/`soul_approve`, and
+`soul rollback`/`soul_rollback`. The matching Engine methods are
+`readSoulProfileStatus`, `createSoulProfileDraft`,
+`approveSoulProfileDraft`, and `rollbackSoulProfile`.
+
 ## Testing Strategy
 
 The first version should test the core engine more heavily than the MCP wrapper.

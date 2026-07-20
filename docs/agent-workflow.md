@@ -818,3 +818,144 @@ the agent and does not create a user review task; `health check` exposes bounded
 This optimization does not delete events, compact Git history, weaken private
 record filtering, or change logical duplicate and semantic consolidation rules.
 Timeline and raw audit operations continue to read append-only events directly.
+
+## v0.4 Distilled Memory Workflow
+
+Treat abstraction, trust, and retention as separate decisions:
+
+- L0-L3 says whether a record is evidence, episodic, semantic/procedural, or
+  identity memory;
+- raw/candidate/canonical/quarantined says how much the record is trusted;
+- hot/warm/cold/purged says whether it belongs in the active working set.
+
+Do not promote a record merely because it is hot, lower trust merely because it
+is cold, or describe an archived/cold record as deleted. Pinned,
+never-forget, Soul, identity, conflict, security, permission, and unique evidence
+remain protected across these axes.
+
+The normal Session Fold workflow is automatic:
+
+1. Write structured checkpoints during the session and an authored final
+   handoff through `agent_finish`.
+2. Moryn previews exact coverage and source digests.
+3. If the session is closed and fully covered with no privacy or safety blocker,
+   `agent_finish` may apply the fold and return a committed receipt.
+4. If coverage is missing, a source changed, or protected/conflicting content is
+   present, the result stays `review_required` or `failed`; preserve the sources
+   and inspect the reason instead of archiving them manually.
+
+Episode Rollup uses the same lineage rule at L1 and preserves leaf-evidence
+digests. The Dashboard may show ready/deferred/review previews, but it never
+applies them. Manual unified maintenance uses the exact reviewed artifacts:
+
+```bash
+moryn memory compact preview --project-id <project_id>
+moryn memory compact plan --preview-json '<preview-json>'
+moryn memory compact apply --plan-json '<plan-json>' --confirm
+moryn memory compact restore <plan_id> --confirm
+```
+
+Preview defaults to the public boundary. If the selected project, session, or
+episode bucket contains private-classified compaction sources (including legacy
+Episode `content.privacy: "private"` and `content.distribution: "local_only"`
+markers), the result exposes only their count and a generic omission reason, sets
+`private_access.scope_complete: false`, and remains non-applicable. Use
+`--include-private` (MCP/Engine `include_private: true`) only after explicit
+authorization; that choice is sealed into the preview and plan digest.
+
+The corresponding MCP tools are `memory_compaction_preview`,
+`memory_compaction_plan`, `memory_compaction_apply`, and
+`memory_compaction_restore`. Preview and plan are non-mutating; unified apply and
+restore reject requests without explicit `confirm: true`. This confirmation rule
+does not disable the separate `agent_finish` path above: finalization may still
+apply a safe, fully covered Session Fold automatically. No v0.4 command performs
+physical purge.
+
+Compaction means “append a rollup, then append source archive/cold events, then
+commit a receipt.” It never includes purge. A logical restore appends new source
+state and derived-rollup archive events while the receipt and history remain
+available. It does not rewrite Git history. If content once entered synchronized
+Git history, do not claim that cold, archive, or logical purge classification
+erased it.
+
+When a concise rollup is insufficient, expand its sources explicitly:
+
+```bash
+moryn memory expand <record_id> --max-depth 2 --max-records 100
+```
+
+MCP hosts use `memory_expand`; embedded hosts use `expandMemorySources`.
+Expansion is read-only and reports digest mismatch, missing sources, cycles, and
+limit omissions. Use `--include-private` or MCP `include_private: true` only when
+the user explicitly authorizes private evidence. A private omission is not a
+reason to guess the missing content.
+
+## v0.4 Portable Soul Workflow
+
+Use versioned profiles for User Soul and Agent Persona rather than writing a new
+legacy `kind=soul` blob. Start with metadata-only inspection:
+
+```bash
+moryn soul status --project-id <project_id>
+```
+
+The corresponding MCP tool is `soul_status`. Status returns profile/revision
+heads, conflicts, approval verification, persistence, compilation, and
+hook-preparation metadata without clause text.
+
+Create a draft only from authored clauses or a known parent revision:
+
+```bash
+moryn soul draft --subject user --subject-id default --clause-json '<clause-json>'
+```
+
+The MCP equivalent is `soul_draft`. Set each clause distribution deliberately:
+
+- `local_only` keeps the full clause under ignored local state; it does not enter
+  normal Git sync, Dashboard JSON/HTML, or `soul_status`;
+- `personal_sync` writes a filtered append-only projection that can travel with
+  normal sync.
+
+Do not interpret `personal_sync_saved` as proof that another device has pulled
+and verified the revision. Local save, remote push, remote pull, Effective Soul
+compilation, and hook-output preparation are distinct states.
+
+After the user reviews the exact draft, activation requires explicit
+confirmation:
+
+```bash
+moryn soul approve <revision_id> --confirm
+```
+
+Use MCP `soul_approve` with `confirm: true`. Agents must not auto-approve identity,
+boundary, values, or collaboration clauses. Competing active heads stay in
+conflict; use the reported last-known-good revision while the user resolves the
+heads.
+
+Rollback is also an append-only, confirmation-gated activation:
+
+```bash
+moryn soul rollback \
+  --profile-id <profile_id> \
+  --to-revision <revision_id> \
+  --confirm
+```
+
+The MCP equivalent is `soul_rollback`. Rollback creates a new active revision
+and receipt; it does not mutate or delete the intervening revisions.
+
+Effective Soul compilation applies subject binding, project scope,
+distribution, protected-clause precedence, and character/token budgets. If a
+mandatory clause does not fit, hook-context preparation is blocked rather than
+truncated. Official Codex and Claude hooks prepare deliverable Soul context at
+session start and after compaction.
+
+Compilation and hook-preparation receipts contain revision ids, digests,
+omissions, conflicts, host, and event metadata rather than clause bodies.
+`host_context_prepared` uses proof scope
+`hook_output_prepared_not_host_acknowledged_or_obedience`: it proves only that
+Moryn prepared bounded context for hook output. It does not prove stdout
+transport, Host acknowledgment, or model obedience. Continue to enforce
+explicit user instructions and safety boundaries. Moryn does not overwrite
+`AGENTS.md`, `CLAUDE.md`, or other user-managed host configuration to
+synchronize Soul.

@@ -1,8 +1,11 @@
 # Moryn Implementation Roadmap
 
-This roadmap tracks the published v0.3.0 Context Autopilot release, the v0.2
-compatibility baseline, and the current product boundaries. The npm package
-version is `0.3.0`.
+This roadmap tracks the active v0.4 development line, currently focused on
+Distilled Memory and Portable Soul, alongside the published v0.3 Context
+Autopilot foundation, the v0.2 compatibility baseline, and the current product
+boundaries. The source package version is
+`0.4.0-dev.0`; v0.4 has not been tagged or published and remains open to
+additional scope.
 Detailed protocol design lives in [moryn-design.md](moryn-design.md). Agent
 usage details live in [agent-workflow.md](agent-workflow.md). Machine-readable
 contracts are summarized in [contracts.md](contracts.md). Dashboard usage lives
@@ -10,6 +13,127 @@ in [dashboard.md](dashboard.md). Public docs keep the product truth in
 README.md, docs/moryn-design.md, docs/agent-workflow.md, docs/dashboard.md, and
 docs/contracts.md. Temporary development plans are not part of the public
 package.
+
+## v0.4 development: Distilled Memory and Portable Soul
+
+The v0.4 goal is not to retain more text. It is to keep the smallest useful,
+truthful working context while accumulated evidence remains inspectable, and to
+make user/agent identity portable without leaking local-only persona data.
+
+```text
+raw evidence (L0, hot/warm)
+        | Session Fold: verified session coverage
+        v
+session rollup (L1, warm) + archived/cold source evidence
+        | Episode Rollup: day/task/project epoch
+        v
+episode rollup (L1/L2, warm) + cold covered session rollups
+        | semantic consolidation remains approval/conflict aware
+        v
+durable knowledge (L2)        identity and boundaries (L3)
+        |                              |
+        +------ token-bounded working set ------> boot / recall / host
+
+Every rollup retains source IDs + source digests + coverage evidence.
+Explicit expansion walks back toward immediate sources and leaf evidence.
+```
+
+Memory uses three independent axes. Conflating them would make compression
+unsafe:
+
+| Axis | Values | Question answered |
+| --- | --- | --- |
+| Abstraction | L0 evidence, L1 episodic, L2 semantic/procedural, L3 identity | What role does this memory play? |
+| Trust | raw, candidate, canonical, quarantined, legacy unknown | How much should a caller rely on it? |
+| Retention | hot, warm, cold, purged, plus pinned/`never_forget` | Should it enter the active working set? |
+
+Cold means reversible archive, not deletion. Purged is a logical retention
+state only: Moryn must never claim that content already committed to Git has
+been physically erased from repository history.
+
+### Memory Distillation delivery plan
+
+1. **Bounded read model.** Infer conservative L0–L3/trust/retention views for
+   legacy records, exclude cold/purged records from default retrieval, and
+   enforce total and per-layer token budgets. L3, pinned, and `never_forget`
+   records are mandatory; their overflow is reported rather than hidden.
+2. **Session Fold.** Fold a completed session only when the final/learning
+   evidence covers every eligible source. Write and read back the rollup before
+   appending archive events. Mixed privacy, protected content, conflicts,
+   quarantine, unique evidence, stale plans, or incomplete coverage require
+   review.
+3. **Episode Rollup.** Combine verified session rollups by day, task, or project
+   epoch. Derive from leaf evidence to avoid summary-of-summary drift. Recent or
+   unfinished sources stay warm; only old, fully covered sources become cold.
+4. **Unified maintenance transaction.** Expose deterministic
+   `preview -> plan -> apply -> receipt` phases with before/after record and
+   token counts, coverage/privacy/sync impact, partial-resume guards, and
+   append-only logical restore. Automatic physical purge is out of scope.
+5. **Source expansion.** Let a caller explicitly expand any rollup under depth,
+   record-count, privacy, cycle, and digest bounds. Expansion reports missing,
+   changed, conflicted, or quarantined evidence instead of presenting a false
+   complete history.
+
+The compression safety floor is non-negotiable: identity, preferences, rules,
+security constraints, unresolved conflicts, quarantined memory, unique
+evidence, private boundaries, and unverified coverage are never silently
+merged, archived, or dropped.
+
+### Portable Soul hook-preparation plan
+
+Moryn distinguishes **User Soul** (stable user identity, values, boundaries,
+and collaboration preferences) from **Agent Persona** (the selected agent's
+mission, style, and operating behavior). Profiles and clauses have stable IDs;
+every draft, approval, supersession, conflict, and rollback creates a new
+revision.
+
+```text
+local_saved
+   -> personal_sync_saved (portable projection persisted locally)
+   -> remote_pushed (personal_sync clauses only)
+   -> remote_pulled_and_verified
+   -> effective_compiled (user + agent + project scope + budget)
+   -> host_context_prepared (SessionStart / PostCompact hook output)
+
+host_context_prepared proves only that hook output was prepared. It does not
+prove stdout transport, Host acknowledgment, or model obedience.
+```
+
+- Clauses are global or project-scoped and independently marked `local_only`
+  or `personal_sync`. Local-only payloads live only under ignored `state/`
+  files. A `personal_sync` event may carry only portable clauses and a
+  metadata-only, integrity-checked approval attestation; status, receipts, and
+  the dashboard never expose `local_only` clause text.
+- Activation requires explicit approval. Rollback is append-only and creates a
+  new active revision. Concurrent active heads become a visible conflict, while
+  compilation may use the last known good approved head.
+- Effective Soul uses deterministic precedence and character/token budgets.
+  Boundary and identity clauses are protected; mandatory overflow blocks
+  hook-context preparation instead of silently omitting them.
+- Codex and Claude Code hooks prepare the compiled Soul context at session start
+  and after compaction without overwriting user-owned `AGENTS.md`, `CLAUDE.md`,
+  or host configuration. Compilation and hook-preparation receipts use
+  restrictive local file permissions.
+
+### v0.4 release acceptance
+
+| Area | Acceptance | Required evidence |
+| --- | --- | --- |
+| Memory model | Legacy and v2 metadata produce deterministic layer/trust/retention views; malformed metadata fails conservatively. | Retention, lifecycle, record-read-model tests. |
+| Working set | Total/per-layer token budgets are hard for normal records; mandatory overflow and omitted records are explicit. | Read-model, retrieval-index, boot/recall, large-store tests. |
+| Session/Episode compaction | Coverage and digest checks gate rollups; exact rollup publication/readback precedes source archival; per-event receipts distinguish confirmed, best-effort, and existing-readback durability; replay and retry are idempotent. | Fold/rollup unit, transaction, engine, and lifecycle tests. |
+| Restore/expansion | Restore appends state changes and expansion remains bounded, cycle-safe, privacy-safe, and digest-aware. | Coordinator and expansion tests. |
+| Portable Soul | Draft, approve, conflict fallback, distribution filtering, rollback, compilation, and metadata-only status preserve revision truth. | Soul profile/store/management tests. |
+| Hook preparation | Codex/Claude SessionStart and PostCompact prepare the selected revision for hook output, without claiming stdout transport, Host acknowledgment, or model obedience. | Host context, receipt, adapter, hook, and lifecycle tests. |
+| Interfaces | Engine, CLI, MCP, operation contracts, public exports, and dashboard expose consistent fields and safety language. | CLI/MCP/contracts/package/dashboard tests. |
+| Compatibility | v0.2/v0.3 stores open without event rewrites; derived artifacts rebuild lazily. | Upgrade smoke and package smoke. |
+| Release | Build, typecheck, lint, full tests, pack audit, smokes, diff check, and privacy audit pass. | `npm run release:check` plus final repository audit. |
+
+The v0.4 release-gate JSON extends the existing evidence matrix with
+`memory_distillation` and `portable_soul`. `acceptance_complete: true` is only
+reported when all eleven areas have their required evidence in the same run.
+The external product roadmap is durably recorded in moryn-store as
+`rec_3eba4797c53f4dff9e7897a0cf76a199`.
 
 ## v0.3.0 Context Autopilot
 

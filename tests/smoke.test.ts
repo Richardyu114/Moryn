@@ -51,8 +51,10 @@ import {
 } from "../src/index.js";
 
 describe("package smoke test", () => {
-  it("exports a version string", () => {
-    expect(version).toMatch(/^\d+\.\d+\.\d+$/);
+  it("exports a SemVer version string, including prerelease identifiers", () => {
+    expect(version).toMatch(
+      /^\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/
+    );
   });
 
   it("exports sync selection source contracts from the package entrypoint", () => {
