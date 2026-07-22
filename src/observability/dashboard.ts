@@ -29,12 +29,13 @@ import type { RecallEvalReport } from "../core/recall-eval.js";
 import { readCurrentRecords } from "../core/record-read-model.js";
 import { replayEvents } from "../core/replay.js";
 import { readRetrievalCandidates } from "../core/retrieval-index.js";
-import { isPrivateMemoryBoundary } from "../core/sensitive.js";
+import { isPrivateMemoryBoundary, redactSensitiveContent } from "../core/sensitive.js";
 import { readEvents } from "../core/store.js";
 import { readSyncCompensationReceipt } from "../core/sync-compensation.js";
 import type { MorynEvent, MorynRecord, RecordKind, RecordSource } from "../core/types.js";
 import { summarizeWorkingSet } from "../core/working-set-report.js";
 import { type GitSyncStatus, getGitSyncStatus } from "../sync/git.js";
+import { dashboardDrawerId } from "./dashboard-drawer-id.js";
 import {
   approveMaintenancePlan,
   buildDashboardMaintenance,
@@ -211,6 +212,19 @@ export interface DashboardEventSummary {
   event_id: string;
   op: MorynEvent["op"];
   record_id?: string;
+  linked_record_id?: string;
+  link_type?: string;
+  reason?: {
+    value: string;
+    truncated: boolean;
+  };
+  target_state?: MorynRecord["state"];
+  changes: Array<{
+    field: "content" | "category" | "labels" | "confidence" | "priority" | "project" | "other";
+    value?: string;
+    truncated: boolean;
+  }>;
+  changes_truncated: boolean;
   source: RecordSource;
   created_at: string;
   citation: DashboardEventCitation;
@@ -1008,6 +1022,10 @@ function recordText(record: MorynRecord): string {
 }
 
 function isVisibleForDashboard(record: MorynRecord, includePrivate: boolean | undefined): boolean {
+  // Soul/profile bodies are never part of the generic Dashboard content lane,
+  // even when private records were explicitly requested. Soul Studio exposes
+  // status metadata without rendering collaboration-clause text.
+  if (record.kind === "soul") return false;
   return includePrivate === true || !isPrivateMemoryBoundary(record);
 }
 
@@ -1198,11 +1216,84 @@ function summarizeRecord(record: MorynRecord, eventsByRecord: Map<string, MorynE
   };
 }
 
+const DASHBOARD_EVENT_CHANGE_LIMIT = 12;
+const DASHBOARD_EVENT_CHANGE_VALUE_LIMIT = 2_000;
+
+function eventChangeValue(value: unknown): { value: string; truncated: boolean } {
+  const raw =
+    typeof value === "string" ? value : value === undefined ? "—" : (JSON.stringify(value, null, 2) ?? String(value));
+  const serialized = redactSensitiveContent(raw);
+  if (serialized.length <= DASHBOARD_EVENT_CHANGE_VALUE_LIMIT) return { value: serialized, truncated: false };
+  return {
+    value: `${serialized.slice(0, DASHBOARD_EVENT_CHANGE_VALUE_LIMIT).trimEnd()}…`,
+    truncated: true
+  };
+}
+
+function flattenedEventChanges(
+  value: Record<string, unknown>,
+  prefix = "",
+  depth = 0
+): Array<{ path: string; value: unknown }> {
+  const changes: Array<{ path: string; value: unknown }> = [];
+  for (const [key, nested] of Object.entries(value)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (nested && typeof nested === "object" && !Array.isArray(nested) && depth < 3) {
+      const nestedChanges = flattenedEventChanges(nested as Record<string, unknown>, path, depth + 1);
+      if (nestedChanges.length > 0) changes.push(...nestedChanges);
+      else changes.push({ path, value: nested });
+    } else {
+      changes.push({ path, value: nested });
+    }
+  }
+  return changes;
+}
+
+function dashboardEventChange(path: string, value: unknown): DashboardEventSummary["changes"][number] {
+  if (path === "content.text") return { field: "content", ...eventChangeValue(value) };
+  if (path === "type") return { field: "category", ...eventChangeValue(value) };
+  if (path === "tags") return { field: "labels", ...eventChangeValue(value) };
+  if (path === "confidence") return { field: "confidence", ...eventChangeValue(value) };
+  if (path === "priority") return { field: "priority", ...eventChangeValue(value) };
+  if (path === "project_id") return { field: "project", ...eventChangeValue(value) };
+  // Do not copy arbitrary historical patch values into the Dashboard. The
+  // event remains concrete through its affected content, outcome, reason, and
+  // a bounded indication that another setting changed.
+  return { field: "other", truncated: false };
+}
+
 function summarizeEvent(event: MorynEvent, recordsById: Map<string, MorynRecord>): DashboardEventSummary {
+  const rawChanges =
+    event.op === "upsert_record"
+      ? [{ path: "content.text", value: recordText(event.record) }]
+      : event.op === "revise_record"
+        ? flattenedEventChanges(event.patch)
+        : [];
+  const mappedChanges = rawChanges
+    .slice(0, DASHBOARD_EVENT_CHANGE_LIMIT)
+    .map((change) => dashboardEventChange(change.path, change.value));
+  const shownChanges = mappedChanges.filter(
+    (change, index) => mappedChanges.findIndex((candidate) => candidate.field === change.field) === index
+  );
+  const targetState =
+    event.op === "upsert_record"
+      ? event.record.state
+      : event.op === "promote_record"
+        ? (event.target_state ?? "canonical")
+        : event.op === "archive_record"
+          ? (event.target_state ?? "archived")
+          : event.op === "quarantine_record"
+            ? (event.target_state ?? "quarantined")
+            : undefined;
   return {
     event_id: event.event_id,
     op: event.op,
     record_id: targetRecordId(event),
+    ...(event.op === "link_records" ? { linked_record_id: event.linked_record_id, link_type: event.link_type } : {}),
+    ...(event.op !== "upsert_record" && event.reason ? { reason: eventChangeValue(event.reason) } : {}),
+    ...(targetState ? { target_state: targetState } : {}),
+    changes: shownChanges,
+    changes_truncated: rawChanges.length > shownChanges.length,
     source: event.source,
     created_at: event.created_at,
     citation: eventCitation(event, recordsById)
@@ -3435,19 +3526,32 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
   const currentRecordRead = await readCurrentRecords(storePath);
   const allRecordsById = new Map(currentRecordRead.records.map((record) => [record.id, record]));
   const allRecords = [...allRecordsById.values()];
+  const dashboardContentRecords = allRecords.filter((record) => record.kind !== "soul");
+  const privateHistoryRecordIds = recordIdsWithPrivateEventHistory(events, dashboardContentRecords);
   const visibleRecordIds = new Set(
-    allRecords.filter((record) => isVisibleForDashboard(record, options.include_private)).map((record) => record.id)
+    dashboardContentRecords
+      .filter((record) => isVisibleForDashboard(record, options.include_private))
+      .map((record) => record.id)
   );
-  const records = allRecords
+  const records = dashboardContentRecords
     .filter((record) => visibleRecordIds.has(record.id))
-    .map((record) => projectVisibleRecordReferences(record, visibleRecordIds));
+    .map((record) => {
+      const projected = projectVisibleRecordReferences(record, visibleRecordIds);
+      if (options.include_private === true || !privateHistoryRecordIds.has(record.id)) return projected;
+      return { ...projected, source: { client: "protected-history" } };
+    });
   const logicalView = buildActiveLogicalMemoryView(records);
   const recordsById = new Map(records.map((record) => [record.id, record]));
-  const privateHistoryRecordIds = recordIdsWithPrivateEventHistory(events, allRecords);
   const eventVisibleRecordIds =
     options.include_private === true
       ? visibleRecordIds
       : new Set([...visibleRecordIds].filter((recordId) => !privateHistoryRecordIds.has(recordId)));
+  const memoryMaintenanceVisibleRecordIds = new Set(
+    [...eventVisibleRecordIds].filter((recordId) => {
+      const record = allRecordsById.get(recordId);
+      return record !== undefined && recordProjectMatchesDashboard(record, options.project_id);
+    })
+  );
   const visibleEvents = events.filter((event) => eventEndpointsAreVisible(event, eventVisibleRecordIds));
   const eventsByRecord = latestEventsByRecord(visibleEvents);
   const allRecordsSorted = [...records].sort(
@@ -3527,9 +3631,11 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
   const learnedRecords = records.filter((record) => record.tags.includes("learning"));
   const sync = await getGitSyncStatus(storePath);
   const agentActivity = summarizeAgentActivity(visibleEvents, records, recordsById, eventsByRecord);
-  const lifecycleAllRecords = allRecords.filter((record) => recordProjectMatchesDashboard(record, options.project_id));
+  const lifecycleAllRecords = dashboardContentRecords.filter((record) =>
+    recordProjectMatchesDashboard(record, options.project_id)
+  );
   const lifecycleRecords = records.filter((record) => recordProjectMatchesDashboard(record, options.project_id));
-  const capturePolicyAllRecords = allRecords.filter((record) => {
+  const capturePolicyAllRecords = dashboardContentRecords.filter((record) => {
     return !options.project_id || record.project_id === options.project_id;
   });
   const capturePolicyRecords = records.filter(
@@ -3545,7 +3651,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     include_private: options.include_private === true,
     excluded_private_records: capturePolicyAllRecords.length - capturePolicyRecords.length
   });
-  const maintenanceData = buildDashboardMaintenance(allRecords, {
+  const maintenanceData = buildDashboardMaintenance(dashboardContentRecords, {
     project_id: options.project_id,
     include_private: options.include_private
   });
@@ -3558,7 +3664,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     private_record_ids: lifecycleAllRecords.filter(isPrivateMemoryBoundary).map((record) => record.id),
     excluded_private_records: lifecycleAllRecords.length - lifecycleRecords.length
   });
-  const memoryDoctorAllRecords = allRecords.filter((record) =>
+  const memoryDoctorAllRecords = dashboardContentRecords.filter((record) =>
     recordProjectMatchesDashboard(record, options.project_id)
   );
   const memoryDoctorRecords = records.filter((record) => recordProjectMatchesDashboard(record, options.project_id));
@@ -3570,7 +3676,9 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     excluded_private_records: memoryDoctorAllRecords.length - memoryDoctorRecords.length
   });
   const candidateTriageData = buildCandidateTriage(memoryDoctorRecords, eventsByRecord, generatedAt, limit);
-  const dogfoodAllRecords = allRecords.filter((record) => recordProjectMatchesDogfood(record, options.project_id));
+  const dogfoodAllRecords = dashboardContentRecords.filter((record) =>
+    recordProjectMatchesDogfood(record, options.project_id)
+  );
   const dogfoodRecords = records.filter((record) => recordProjectMatchesDogfood(record, options.project_id));
   const dogfoodRecordIds = new Set(dogfoodRecords.map((record) => record.id));
   const dogfoodEvents = visibleEvents.filter((event) => eventEndpointsAreVisible(event, dogfoodRecordIds));
@@ -3582,7 +3690,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     include_private: options.include_private === true,
     excluded_private_records: dogfoodAllRecords.length - dogfoodRecords.length
   });
-  const healthCheckAllRecords = allRecords.filter((record) =>
+  const healthCheckAllRecords = dashboardContentRecords.filter((record) =>
     recordProjectMatchesDashboard(record, options.project_id)
   );
   const healthCheckRecords = records.filter((record) => recordProjectMatchesDashboard(record, options.project_id));
@@ -3616,7 +3724,8 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
   const recallEvalData = await buildDashboardRecallEval(storePath, records, options);
   const dashboardV04Data = await buildDashboardV04Data(storePath, allRecords, {
     project_id: options.project_id,
-    now: generatedAt
+    now: generatedAt,
+    visible_record_ids: memoryMaintenanceVisibleRecordIds
   });
   const workingSetReport = summarizeWorkingSet(records, visibleEvents);
   const actions = dashboardActions({
@@ -4170,16 +4279,23 @@ function plainHistoryTimeline(data: DashboardData): string {
       const relative = relativeTime(event.created_at, data.generated_at);
       const relativeZh = relativeTimeZh(relative);
       return `
-        <li class="history-row">
+        <li><button type="button" class="history-row" data-drawer-target="${escapeHtml(dashboardDrawerId("event", event.event_id))}" aria-haspopup="dialog">
           <time class="history-when" datetime="${escapeHtml(event.created_at)}" ${i18nAttribute(relative, relativeZh)}>${escapeHtml(relative)}</time>
           <span class="history-what" ${i18nAttribute(sentence.en, sentence.zh)}>${escapeHtml(sentence.en)}</span>
-        </li>`;
+          <small class="history-open" data-i18n-en="Open what changed" data-i18n-zh="查看具体内容">Open what changed</small>
+        </button></li>`;
     })
     .join("");
   return `
     <section class="history-timeline" data-history-timeline aria-label="Recent activity">
       <ol class="history-list">${rows}</ol>
     </section>`;
+}
+
+function memoryViewRecords(data: DashboardData): DashboardRecordSummary[] {
+  const projectId = data.memory_maintenance.scope.project_id;
+  if (data.memory_maintenance.scope.mode === "store" || !projectId) return data.all_records;
+  return data.all_records.filter((record) => record.scope === "global" || record.project_id === projectId);
 }
 
 function renderDashboardBody(
@@ -4191,11 +4307,13 @@ function renderDashboardBody(
     displayHealth.status === "local_ready" ? "local_only" : displayHealth.status,
     displayHealth.label
   );
-  const memoryHtml = renderMemorySearch(data);
+  const memoryRecords = memoryViewRecords(data);
+  const memoryHtml = renderMemorySearch(data, memoryRecords);
   const historyHtml = plainHistoryTimeline(data);
   return `<div hidden aria-hidden="true"><header><span class="health-badge ${healthClass(displayHealth.status)}" ${i18nAttribute(displayHealth.label, healthLabelZh)}>${escapeHtml(displayHealth.label)}</span></header>${quietDashboardFirstScreen(data)}<span data-quiet-dashboard-end></span></div>
     ${renderDashboardWorkspace(data, {
       memory_html: memoryHtml,
+      memory_records: memoryRecords,
       history_html: historyHtml,
       language_toggle_html: dashboardLanguageToggle()
     })}

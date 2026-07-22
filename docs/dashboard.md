@@ -1593,16 +1593,34 @@ safe replacement index explicitly declares `content.supersedes_quarantined_recor
 for the quarantined record id, the dashboard reports that condition as an info
 attention item instead of forcing `Needs Review`.
 
-## v0.4 Memory Maintenance And Soul Studio
+## v0.4 Memory And Collaboration Preferences
 
-The dedicated Memory view includes two quiet, read-only sections. They remain
-outside the first-screen decision lane and do not turn routine maintenance into
-a warning.
+The dedicated Memory view is content-first. It renders the privacy-filtered
+searchable library before maintenance or identity diagnostics, and every
+visible result opens a read-only drawer with current content, recent changes,
+source metadata, and recall/timeline evidence. With an explicit project, the
+library contains that project's records plus global records. Without an
+explicit project it is store-wide. The projection publishes this contract as
+`memory_maintenance.scope.mode` (`project` or `store`), optional `project_id`,
+and `includes_global: true`.
+
+The History view uses the same drawer. An event row shows the bounded content
+saved by that event or the fields it changed, its outcome and reason when
+available, both visible endpoints of a link event, and separately labelled
+current content. Arbitrary nested patch values are not copied. Event detail is
+constructed only after every affected record has passed the Dashboard privacy
+boundary; records with private event history do not expose those events or
+their original source metadata in the default projection.
+
+Routine maintenance remains outside the first-screen decision lane and does not
+turn a healthy store into a warning. User-facing copy describes outcomes such as
+"nothing needs organizing" or "these session notes will remain unchanged";
+internal vocabulary is kept in closed advanced-details disclosures.
 
 ### Memory Maintenance
 
-`/api/dashboard.memory_maintenance` is a metadata projection of the v0.4 memory
-read model. It reports:
+`/api/dashboard.memory_maintenance` remains a metadata projection of the v0.4
+memory read model. It reports:
 
 - independent L0-L3 abstraction counts and hot/warm/cold/purged retention
   counts;
@@ -1613,27 +1631,63 @@ read model. It reports:
 - Session Fold `ready` and `review_required` totals;
 - Episode Rollup `ready`, `deferred`, and `review_required` totals;
 - bounded plan metadata for coverage, privacy boundary, before/after tokens,
-  archive/cold candidates, sync impact, and undo window.
+  archive/cold candidates, sync impact, and undo window;
+- bounded IDs for related records that have already passed the enclosing
+  Dashboard privacy boundary, plus visible/hidden totals. It never copies source
+  bodies into the maintenance projection;
+- `hidden_plans` totals for fully protected groups. A plan with no visible
+  source is omitted from `plans[]`; its scope key, plan ID, record IDs, and
+  detail are not emitted.
+
+The HTML view joins those authorized IDs to the already privacy-filtered
+`all_records` projection. The page renders at most eight suggestions and at
+most three short, escaped source previews for each; every preview opens the
+existing content drawer. Only those actually rendered sources are added beyond
+the normal newest-600 search drawer registry, so unreachable payloads cannot
+silently grow the single-file page.
+Hidden IDs are not emitted. Planner statistics still use the complete selected
+scope, so hiding a private source cannot make the planner claim a plan is safer
+than it is.
 
 The projection keeps abstraction layer, trust state, and retention tier
 orthogonal. A chart or count on one axis never re-labels another axis; for
 example, cold canonical memory remains canonical.
 
-The token figures are planning estimates, not model-specific billing tokens or
-physical file sizes. `tokens.physical_storage_deleted` is always zero on this
-surface. A cold count means that content is outside the normal working set and
-can be expanded or audited; cold does not mean deleted.
+The default view translates the internal axes as follows:
+
+- L0: original notes;
+- L1: session summaries;
+- L2: facts and processes;
+- L3: long-term rules and identity;
+- hot: usually kept close at hand;
+- warm: normally available;
+- cold: available through search;
+- purged: removed from the working view.
+
+The raw labels remain visible only in advanced diagnostics. Token figures are
+planning estimates for stored working-set content, not the size of one model
+request, model-specific billing tokens, or physical file sizes.
+`tokens.physical_storage_deleted` is always zero on this surface. A cold count
+means that content is outside the normal working set and can be expanded or
+audited; cold does not mean deleted.
 
 Memory Maintenance is preview-only. It does not call a transaction, expose an
 Apply button, or add a Dashboard write endpoint. The displayed safety contract
 states `writes: none`, no sync impact until an apply occurs elsewhere, normal
 append-only sync afterward, and no physical purge. The plan projection omits
 rollup/source text even though the internal planner needs content to verify
-coverage. Preview and logical restore do not rewrite or erase Git history. To
-inspect the available evidence behind a rollup, use the separate read-only
+coverage. The renderer obtains preview text only from authorized
+`DashboardData.all_records`. Preview and logical restore do not rewrite or erase
+Git history. To inspect deeper rollup lineage, use the separate read-only
 `moryn memory expand <record_id>` or MCP `memory_expand` surface.
 
-### Soul Studio
+### Collaboration Preferences (Soul Studio Internals)
+
+The default Memory view calls this section **Collaboration preferences**. Its
+closed summary answers whether an approved version is in use, whether versions
+conflict, and whether optional preferences were omitted from the current
+context. Raw compilation status, revision IDs, receipt state, Host vocabulary,
+and rollback metadata stay in a second closed advanced-details disclosure.
 
 `/api/dashboard.soul_studio` reports metadata for User Soul and Agent Persona:
 
@@ -1652,10 +1706,13 @@ inspect the available evidence behind a rollup, use the separate read-only
 
 Soul Studio deliberately has no clause-body field. A `local_only` clause stays
 in ignored local state and never enters Dashboard JSON, Dashboard HTML, Memory
-Search, or a synchronized Soul projection. `--include-private` authorizes the
+Search, or a synchronized Soul projection. Legacy `kind: soul` records are also
+excluded from the generic Dashboard content and event lanes, so an untagged
+legacy clause cannot bypass this rule. `--include-private` authorizes the
 ordinary tagged-record read boundary; it does not authorize rendering
-`local_only` Soul clauses. Mixed revisions expose only metadata here, even when
-their local full projection is used to compute status.
+`local_only` Soul clauses or any other Soul clause body. Mixed revisions expose
+only metadata here, even when their local full projection is used to compute
+status.
 
 Compilation, approval, and hook-preparation receipts are shown as metadata only.
 Remote-stage receipt IDs refer to ignored `state/soul-sync/` integrity receipts;

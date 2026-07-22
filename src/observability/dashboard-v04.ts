@@ -18,6 +18,8 @@ export const DASHBOARD_V04_SELECTION_SOURCES = {
   memory_tier: "memory_maintenance.inventory.tiers.<tier>",
   session_fold: "memory_maintenance.session_fold.plans[]",
   episode_rollup: "memory_maintenance.episode_rollup.plans[]",
+  session_fold_related_record: "memory_maintenance.session_fold.plans[].related_records.record_ids[]",
+  episode_rollup_related_record: "memory_maintenance.episode_rollup.plans[].related_records.record_ids[]",
   soul_studio: "soul_studio",
   soul_profile: "soul_studio.profiles[]",
   soul_revision: "soul_studio.profiles[].revisions[]",
@@ -52,6 +54,13 @@ export interface DashboardCompactionPlanPreview {
   };
   review_codes: string[];
   deferred_codes: string[];
+  related_records: {
+    total: number;
+    visible: number;
+    hidden: number;
+    record_ids: string[];
+    truncated: boolean;
+  };
   preview_only: true;
   sync_impact: "none_until_apply";
   undo: {
@@ -65,6 +74,11 @@ export interface DashboardMemoryMaintenance {
   version: 1;
   read_only: true;
   generated_at: string;
+  scope: {
+    mode: "store" | "project";
+    project_id?: string;
+    includes_global: true;
+  };
   inventory: {
     records: number;
     layers: Record<MemoryLayer, number>;
@@ -86,6 +100,7 @@ export interface DashboardMemoryMaintenance {
     total: number;
     ready: number;
     review_required: number;
+    hidden_plans: number;
     plans: DashboardCompactionPlanPreview[];
   };
   episode_rollup: {
@@ -93,6 +108,7 @@ export interface DashboardMemoryMaintenance {
     ready: number;
     deferred: number;
     review_required: number;
+    hidden_plans: number;
     plans: DashboardCompactionPlanPreview[];
   };
   safety: {
@@ -209,9 +225,12 @@ export interface DashboardV04Data {
 export interface BuildDashboardV04Options {
   project_id?: string;
   now: string;
+  /** IDs already authorized by the enclosing Dashboard privacy boundary. */
+  visible_record_ids: ReadonlySet<string>;
 }
 
 const COMPILATION_RECEIPT_PATTERN = /^[a-f0-9]{64}\.json$/u;
+const RELATED_RECORD_REFERENCE_LIMIT = 12;
 
 function compareCodeUnits(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -232,7 +251,31 @@ function tokenSum(recordIds: readonly string[], recordsById: Map<string, MorynRe
   }, 0);
 }
 
-function foldPreview(plan: SessionFoldPlan, recordsById: Map<string, MorynRecord>): DashboardCompactionPlanPreview {
+function uniqueRecordIds(recordIds: readonly string[]): string[] {
+  return [...new Set(recordIds)].sort(compareCodeUnits);
+}
+
+function relatedRecordReferences(
+  recordIds: readonly string[],
+  visibleRecordIds: ReadonlySet<string>
+): DashboardCompactionPlanPreview["related_records"] {
+  const uniqueIds = uniqueRecordIds(recordIds);
+  const visibleIds = uniqueIds.filter((recordId) => visibleRecordIds.has(recordId));
+  const shownIds = visibleIds.slice(0, RELATED_RECORD_REFERENCE_LIMIT);
+  return {
+    total: uniqueIds.length,
+    visible: visibleIds.length,
+    hidden: uniqueIds.length - visibleIds.length,
+    record_ids: shownIds,
+    truncated: shownIds.length < visibleIds.length
+  };
+}
+
+function foldPreview(
+  plan: SessionFoldPlan,
+  recordsById: Map<string, MorynRecord>,
+  visibleRecordIds: ReadonlySet<string>
+): DashboardCompactionPlanPreview {
   const before = tokenSum(plan.source_record_ids, recordsById);
   const after = plan.status === "ready" && plan.rollup_record ? estimateMemoryRecordTokens(plan.rollup_record) : before;
   return {
@@ -262,6 +305,7 @@ function foldPreview(plan: SessionFoldPlan, recordsById: Map<string, MorynRecord
     },
     review_codes: [...new Set(plan.review_reasons.map((reason) => reason.code))].sort(compareCodeUnits),
     deferred_codes: [],
+    related_records: relatedRecordReferences(plan.source_record_ids, visibleRecordIds),
     preview_only: true,
     sync_impact: "none_until_apply",
     undo: {
@@ -274,7 +318,8 @@ function foldPreview(plan: SessionFoldPlan, recordsById: Map<string, MorynRecord
 
 function episodePreview(
   plan: EpisodeRollupPlan,
-  recordsById: Map<string, MorynRecord>
+  recordsById: Map<string, MorynRecord>,
+  visibleRecordIds: ReadonlySet<string>
 ): DashboardCompactionPlanPreview {
   const before = tokenSum(plan.source_record_ids, recordsById);
   const warmTokens = tokenSum(
@@ -313,6 +358,15 @@ function episodePreview(
     },
     review_codes: [...new Set(plan.review_reasons.map((reason) => reason.code))].sort(compareCodeUnits),
     deferred_codes: [...new Set(plan.deferred_reasons.map((reason) => reason.code))].sort(compareCodeUnits),
+    related_records: relatedRecordReferences(
+      [
+        ...plan.source_record_ids,
+        ...plan.warm_candidates.map((candidate) => candidate.record_id),
+        ...plan.review_reasons.flatMap((reason) => reason.record_ids),
+        ...plan.deferred_reasons.flatMap((reason) => reason.record_ids)
+      ],
+      visibleRecordIds
+    ),
     preview_only: true,
     sync_impact: "none_until_apply",
     undo: {
@@ -329,6 +383,7 @@ export function buildDashboardMemoryMaintenance(
 ): DashboardMemoryMaintenance {
   const selected = scopedRecords(records, options.project_id);
   const recordsById = new Map(selected.map((record) => [record.id, record]));
+  const visibleRecordIds = options.visible_record_ids;
   const retention = buildMemoryRetentionReadModel(selected, { now: options.now });
   const tokensByLayer = emptyCounts(["L0", "L1", "L2", "L3"] as const);
   const tokensByTier = emptyCounts(["hot", "warm", "cold", "purged"] as const);
@@ -343,21 +398,28 @@ export function buildDashboardMemoryMaintenance(
   }
 
   const foldPlans = planSessionFolds(selected, { project_id: options.project_id }).map((plan) =>
-    foldPreview(plan, recordsById)
+    foldPreview(plan, recordsById, visibleRecordIds)
   );
   const episodePlans = planEpisodeRollups(selected, {
     now: options.now,
     project_id: options.project_id,
     bucket_kind: "day"
-  }).map((plan) => episodePreview(plan, recordsById));
+  }).map((plan) => episodePreview(plan, recordsById, visibleRecordIds));
   const reducible = [...foldPlans, ...episodePlans]
     .filter((plan) => plan.status === "ready")
     .reduce((total, plan) => total + plan.token_estimate.reducible, 0);
+  const visibleFoldPlans = foldPlans.filter((plan) => plan.related_records.visible > 0);
+  const visibleEpisodePlans = episodePlans.filter((plan) => plan.related_records.visible > 0);
 
   return {
     version: 1,
     read_only: true,
     generated_at: options.now,
+    scope: {
+      mode: options.project_id ? "project" : "store",
+      ...(options.project_id ? { project_id: options.project_id } : {}),
+      includes_global: true
+    },
     inventory: {
       records: retention.stats.total_records,
       layers: retention.stats.layers,
@@ -379,14 +441,16 @@ export function buildDashboardMemoryMaintenance(
       total: foldPlans.length,
       ready: foldPlans.filter((plan) => plan.status === "ready").length,
       review_required: foldPlans.filter((plan) => plan.status === "review_required").length,
-      plans: foldPlans
+      hidden_plans: foldPlans.length - visibleFoldPlans.length,
+      plans: visibleFoldPlans
     },
     episode_rollup: {
       total: episodePlans.length,
       ready: episodePlans.filter((plan) => plan.status === "ready").length,
       deferred: episodePlans.filter((plan) => plan.status === "deferred").length,
       review_required: episodePlans.filter((plan) => plan.status === "review_required").length,
-      plans: episodePlans
+      hidden_plans: episodePlans.length - visibleEpisodePlans.length,
+      plans: visibleEpisodePlans
     },
     safety: {
       mode: "preview_only",

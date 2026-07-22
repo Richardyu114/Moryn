@@ -17,6 +17,7 @@ import {
   startDashboardServer,
   writeDashboardSnapshot
 } from "../../src/observability/dashboard.js";
+import { dashboardDrawerId } from "../../src/observability/dashboard-drawer-id.js";
 import { dashboardWorkspaceCss } from "../../src/observability/dashboard-workspace.css.js";
 import { initializeGitSync } from "../../src/sync/git.js";
 import { withTempStore } from "../helpers/temp-store.js";
@@ -27,6 +28,17 @@ function quietFirstScreenHtml(html: string): string {
   const start = html.indexOf('data-quiet-dashboard="first-screen"');
   const end = html.indexOf("data-quiet-dashboard-end");
   expect(start).toBeGreaterThan(-1);
+  expect(end).toBeGreaterThan(start);
+  return html.slice(start, end);
+}
+
+function dashboardDrawerPayloadHtml(html: string, drawerId: string): string {
+  const marker = `<section data-drawer-payload="${drawerId}"`;
+  const start = html.indexOf(marker);
+  expect(start).toBeGreaterThan(-1);
+  const nextPayload = html.indexOf("<section data-drawer-payload=", start + marker.length);
+  const drawerEnd = html.indexOf("</aside>", start);
+  const end = nextPayload >= 0 ? nextPayload : drawerEnd;
   expect(end).toBeGreaterThan(start);
   return html.slice(start, end);
 }
@@ -928,6 +940,25 @@ describe("observability dashboard", () => {
         confirmed: true,
         source: { client: "codex" }
       });
+      await engine.write({
+        kind: "memory",
+        type: "working_principle",
+        scope: "global",
+        content: { text: "Global memory must appear in every Memory library scope", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "another-project",
+        content: { text: "Another project must not appear in this Memory library", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex" }
+      });
 
       const data = await buildDashboardData(storePath, {
         limit: 10,
@@ -935,15 +966,238 @@ describe("observability dashboard", () => {
         now: "2026-06-21T00:00:00.000Z"
       });
       const html = renderDashboardHtml(data, { showStoredContent: true });
+      const recordDrawerId = dashboardDrawerId("record", "rec_memory_search_1");
+      const eventDrawerId = dashboardDrawerId("event", "evt_memory_search_1");
 
+      expect(data.memory_maintenance.scope).toEqual({
+        mode: "project",
+        project_id: "moryn",
+        includes_global: true
+      });
       expect(data.recent_records.map((record) => record.id)).toContain("rec_memory_search_1");
       expect(data.recent_events.map((event) => event.event_id)).toContain("evt_memory_search_1");
       expect(html).toContain("data-memory-search");
       expect(html).toContain("data-memory-search-input");
       expect(html).toContain("data-memory-result");
-      expect(html).toContain('data-drawer-target="record-rec_memory_search_1"');
+      expect(html.indexOf('id="saved-memory-library" data-memory-search')).toBeLessThan(
+        html.indexOf("data-v04-summary")
+      );
+      expect(html).toContain("What Moryn remembers");
+      expect(html).toContain("Ready to use");
+      expect(html).toContain(`data-drawer-target="${recordDrawerId}"`);
       expect(html).toContain("Searchable dashboard keyword alpha");
-      expect(html).toContain('data-drawer-payload="record-rec_memory_search_1"');
+      expect(html).toContain(`data-drawer-payload="${recordDrawerId}"`);
+      expect(html).toContain(`data-drawer-target="${eventDrawerId}"`);
+      expect(html).toContain(`data-drawer-payload="${eventDrawerId}"`);
+      expect(html).toContain("Content saved in this change");
+      const memoryLibrary = html.slice(
+        html.indexOf('id="saved-memory-library" data-memory-search'),
+        html.indexOf("data-v04-summary")
+      );
+      expect(memoryLibrary).toContain("Global memory must appear in every Memory library scope");
+      expect(memoryLibrary).not.toContain("Another project must not appear in this Memory library");
+
+      const storeData = await buildDashboardData(storePath, {
+        limit: 10,
+        now: "2026-06-21T00:00:00.000Z"
+      });
+      expect(storeData.memory_maintenance.scope).toEqual({ mode: "store", includes_global: true });
+      const storeHtml = renderDashboardHtml(storeData, { showStoredContent: true });
+      const storeMemoryLibrary = storeHtml.slice(
+        storeHtml.indexOf('id="saved-memory-library" data-memory-search'),
+        storeHtml.indexOf("data-v04-summary")
+      );
+      expect(storeMemoryLibrary).toContain("Searchable dashboard keyword alpha");
+      expect(storeMemoryLibrary).toContain("Global memory must appear in every Memory library scope");
+      expect(storeMemoryLibrary).toContain("Another project must not appear in this Memory library");
+    });
+  });
+
+  it("renders concrete revision and relationship details in event drawers", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-07-22T00:00:00.000Z",
+            "2026-07-22T00:01:00.000Z",
+            "2026-07-22T00:02:00.000Z",
+            "2026-07-22T00:03:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-07-22T00:04:00.000Z";
+        })()
+      });
+      const first = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Original event drawer content", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex" }
+      });
+      const revisedText = "Concrete revised content shown for this exact event";
+      const reviseReason = "The user corrected the saved conclusion.";
+      const revision = await engine.revise({
+        record_id: first.record.id,
+        patch: { "content.text": revisedText },
+        reason: reviseReason,
+        source: { client: "user" }
+      });
+      const second = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Independent evidence supporting the revised conclusion", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex" }
+      });
+      const relationshipReason = "The second memory provides direct supporting evidence.";
+      const relationship = await engine.logicalLink({
+        record_id: first.record.id,
+        linked_record_id: second.record.id,
+        relationship: "supports",
+        reason: relationshipReason,
+        source: { client: "user" }
+      });
+
+      const data = await buildDashboardData(storePath, {
+        project_id: "moryn",
+        limit: 10,
+        now: "2026-07-22T00:05:00.000Z"
+      });
+      const revisionEvent = data.recent_events.find((event) => event.event_id === revision.event.event_id);
+      const relationshipEvent = data.recent_events.find((event) => event.event_id === relationship.event.event_id);
+      expect(revisionEvent).toMatchObject({
+        op: "revise_record",
+        record_id: first.record.id,
+        reason: { value: reviseReason, truncated: false },
+        changes: [{ field: "content", value: revisedText, truncated: false }]
+      });
+      expect(data.all_records.find((record) => record.id === first.record.id)?.text).toBe(revisedText);
+      expect(relationshipEvent).toMatchObject({
+        op: "link_records",
+        record_id: first.record.id,
+        linked_record_id: second.record.id,
+        link_type: "supports",
+        reason: { value: relationshipReason, truncated: false }
+      });
+
+      const html = renderDashboardHtml(data);
+      const revisionDrawer = dashboardDrawerPayloadHtml(html, dashboardDrawerId("event", revision.event.event_id));
+      expect(revisionDrawer).toContain("Content saved in this change");
+      expect(revisionDrawer).toContain(revisedText);
+      expect(revisionDrawer).toContain("Why it changed");
+      expect(revisionDrawer).toContain(reviseReason);
+
+      const relationshipDrawer = dashboardDrawerPayloadHtml(
+        html,
+        dashboardDrawerId("event", relationship.event.event_id)
+      );
+      expect(relationshipDrawer).toContain("First memory");
+      expect(relationshipDrawer).toContain(revisedText);
+      expect(relationshipDrawer).toContain("Related memory");
+      expect(relationshipDrawer).toContain("Independent evidence supporting the revised conclusion");
+      expect(relationshipDrawer).toContain("How the memories are related");
+      expect(relationshipDrawer).toContain("The first memory provides support for the related memory.");
+      expect(relationshipDrawer).toContain(relationshipReason);
+    });
+  });
+
+  it("keeps untagged legacy Soul clause text out of every Dashboard surface", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath });
+      const clauseText = "LEGACY_SOUL_CLAUSE_MUST_REMAIN_METADATA_ONLY";
+      const legacySoul = await engine.write({
+        kind: "soul",
+        type: "working_principle",
+        scope: "global",
+        tags: [],
+        content: { text: clauseText, format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const legacySoulEvent = (await readEvents(storePath)).find(
+        (event) => event.op === "upsert_record" && event.record.id === legacySoul.record.id
+      );
+      expect(legacySoulEvent).toBeDefined();
+
+      const data = await buildDashboardData(storePath, {
+        include_private: true,
+        limit: 10,
+        now: "2026-07-22T00:05:00.000Z"
+      });
+      const serialized = JSON.stringify(data);
+      const html = renderDashboardHtml(data);
+
+      expect(data.all_records.map((record) => record.id)).not.toContain(legacySoul.record.id);
+      expect(data.recent_events.map((event) => event.event_id)).not.toContain(legacySoulEvent!.event_id);
+      expect(serialized).not.toContain(clauseText);
+      expect(html).not.toContain(clauseText);
+      expect(html).not.toContain(dashboardDrawerId("record", legacySoul.record.id));
+      expect(html).not.toContain(dashboardDrawerId("event", legacySoulEvent!.event_id));
+    });
+  });
+
+  it("keeps colliding legacy sanitizer IDs distinct and resolves every drawer target once", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const recordIds = ["rec:drawer-collision", "rec.drawer-collision"] as const;
+      const eventIds = ["evt:drawer-collision", "evt.drawer-collision"] as const;
+      const recordIdQueue = [...recordIds];
+      const eventIdQueue = [...eventIds];
+      const engine = createEngine({
+        storePath,
+        id: (prefix) => {
+          const next = prefix === "rec" ? recordIdQueue.shift() : eventIdQueue.shift();
+          if (!next) throw new Error(`Unexpected ${prefix} id request`);
+          return next;
+        }
+      });
+      const first = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Colon collision record", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex" }
+      });
+      const second = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Dot collision record", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex" }
+      });
+      const expectedDrawerIds = [
+        dashboardDrawerId("record", first.record.id),
+        dashboardDrawerId("record", second.record.id),
+        dashboardDrawerId("event", eventIds[0]),
+        dashboardDrawerId("event", eventIds[1])
+      ];
+      expect(new Set(expectedDrawerIds).size).toBe(expectedDrawerIds.length);
+
+      const html = renderDashboardHtml(await buildDashboardData(storePath, { project_id: "moryn", limit: 10 }));
+      const targets = [...html.matchAll(/data-drawer-target="([^"]+)"/g)].map((match) => match[1]);
+      const payloads = [...html.matchAll(/data-drawer-payload="([^"]+)"/g)].map((match) => match[1]);
+      for (const drawerId of expectedDrawerIds) {
+        expect(targets).toContain(drawerId);
+        expect(payloads.filter((payload) => payload === drawerId)).toHaveLength(1);
+      }
+      for (const target of new Set(targets)) {
+        expect(payloads.filter((payload) => payload === target)).toHaveLength(1);
+      }
     });
   });
 
@@ -985,12 +1239,13 @@ describe("observability dashboard", () => {
         now: "2026-06-21T00:00:00.000Z"
       });
       const html = renderDashboardHtml(data, { showStoredContent: true });
+      const recordDrawerId = dashboardDrawerId("record", "rec_memory_perf_1");
 
       // The redesigned Memory view surfaces a searchable result per record; the
       // long body is exposed through the searchable result and its drawer.
       expect(html).toContain("data-memory-result");
-      expect(html).toContain('data-drawer-target="record-rec_memory_perf_1"');
-      expect(html).toContain('data-drawer-payload="record-rec_memory_perf_1"');
+      expect(html).toContain(`data-drawer-target="${recordDrawerId}"`);
+      expect(html).toContain(`data-drawer-payload="${recordDrawerId}"`);
     });
   });
 
@@ -3531,7 +3786,7 @@ describe("observability dashboard", () => {
         tags: ["private"],
         content: { text: "Private dashboard memory.", format: "text" },
         state: "canonical",
-        source: { client: "codex" }
+        source: { client: "codex", session_id: "private-session" }
       });
       const privateContentRecord = await engine.write({
         kind: "memory",
@@ -3559,6 +3814,7 @@ describe("observability dashboard", () => {
       });
 
       const data = await buildDashboardData(storePath, { limit: 10 });
+      const html = renderDashboardHtml(data);
       expect(data.recent_records.map((record) => record.id)).toEqual([publicRecord.record.id]);
       expect(data.recent_value.map((record) => record.id)).toEqual([publicRecord.record.id]);
       expect(data.recent_events.map((event) => event.record_id)).toEqual([publicRecord.record.id]);
@@ -3567,6 +3823,10 @@ describe("observability dashboard", () => {
       expect(JSON.stringify(data)).not.toContain("Local-only dashboard memory.");
       expect(JSON.stringify(data)).not.toContain(privateContentRecord.record.id);
       expect(JSON.stringify(data)).not.toContain(crossBoundaryLink.event.event_id);
+      expect(html).not.toContain(privateRecord.record.id);
+      expect(html).not.toContain(privateContentRecord.record.id);
+      expect(html).not.toContain(localOnlyRecord.record.id);
+      expect(html).not.toContain("private-session");
 
       const withPrivate = await buildDashboardData(storePath, { limit: 10, include_private: true });
       expect(withPrivate.recent_records.map((record) => record.id)).toEqual([
@@ -3663,13 +3923,26 @@ describe("observability dashboard", () => {
       const safe = await buildDashboardData(storePath, { project_id: "moryn", limit: 10 });
       const serializedSafe = JSON.stringify(safe);
       expect(safe.recent_records).toEqual([
-        expect.objectContaining({ id: initial.record.id, text: "Explicitly public current content." })
+        expect.objectContaining({
+          id: initial.record.id,
+          text: "Explicitly public current content.",
+          source: { client: "protected-history" }
+        })
+      ]);
+      expect(safe.all_records).toEqual([
+        expect.objectContaining({ id: initial.record.id, source: { client: "protected-history" } })
       ]);
       expect(serializedSafe).not.toContain(initialEvent!.event_id);
       expect(serializedSafe).not.toContain(revision.event.event_id);
+      expect(serializedSafe).not.toContain("private-agent");
+      expect(serializedSafe).not.toContain("private-session");
       expect(safe.recent_events).toEqual([]);
       expect(safe.totals.events).toBe(0);
       expect(safe.agent_activity).toEqual([expect.objectContaining({ events: 0, records: 1 })]);
+      const safeHtml = renderDashboardHtml(safe);
+      expect(safeHtml).toContain("a protected source");
+      expect(safeHtml).not.toContain("private-agent");
+      expect(safeHtml).not.toContain("private-session");
 
       const included = await buildDashboardData(storePath, {
         project_id: "moryn",
@@ -3679,6 +3952,8 @@ describe("observability dashboard", () => {
       const serializedIncluded = JSON.stringify(included);
       expect(serializedIncluded).toContain(initialEvent!.event_id);
       expect(serializedIncluded).toContain(revision.event.event_id);
+      expect(serializedIncluded).toContain("private-agent");
+      expect(serializedIncluded).toContain("private-session");
       expect(included.recent_events).toHaveLength(2);
       expect(included.totals.events).toBe(2);
     });
@@ -7466,7 +7741,7 @@ describe("quiet dashboard first screen", () => {
       expect(html).toContain('class="editorial-event-time"');
       expect(html).toContain('class="editorial-event-operation"');
       expect(html).toContain('class="editorial-event-source"');
-      expect(html).toContain("Archive Record");
+      expect(html).toContain("Archived a memory");
       expect(html).toContain("dashboard-maintenance-approval");
 
       const css = dashboardWorkspaceCss();

@@ -11,11 +11,13 @@ import type {
   DashboardRecordTypeChartItem
 } from "./dashboard.js";
 import { dashboardRecordTitleLabel, memoryKindLabel, memoryStateLabelFromRecordState } from "./dashboard.js";
+import { dashboardDrawerId } from "./dashboard-drawer-id.js";
 import type { DashboardMaintenanceData, DashboardMaintenancePlan } from "./dashboard-maintenance.js";
-import { renderDashboardV04MemoryPage } from "./dashboard-v04-workspace.js";
+import { renderDashboardV04MemoryPage, renderedPlanSourceRecords } from "./dashboard-v04-workspace.js";
 
 export interface DashboardWorkspaceFragments {
   memory_html: string;
+  memory_records: readonly DashboardRecordSummary[];
   history_html: string;
   language_toggle_html: string;
 }
@@ -27,9 +29,18 @@ export interface DashboardDrawerItem {
   title_zh: string;
   summary_en: string;
   summary_zh: string;
+  body_label_en?: string;
+  body_label_zh?: string;
   body_en?: string;
   body_zh?: string;
   truncated?: boolean;
+  sections?: Array<{
+    label_en: string;
+    label_zh: string;
+    body_en: string;
+    body_zh?: string;
+    truncated?: boolean;
+  }>;
   github_url?: string;
   recall_command?: string;
   store_path?: string;
@@ -74,32 +85,110 @@ function githubBaseFromRemote(remote: string | undefined, branch: string | undef
   return `https://github.com/${owner}/${repo}/blob/${branch || "main"}`;
 }
 
-function safeDomId(value: string): string {
-  return value.replace(/[^a-zA-Z0-9_-]/g, "-");
-}
-
 function i18n(en: string, zh: string, tag = "span"): string {
   return `<${tag} data-i18n-en="${escapeHtml(en)}" data-i18n-zh="${escapeHtml(zh)}">${escapeHtml(en)}</${tag}>`;
 }
 
 function sourceLabel(source: DashboardEventSummary["source"] | DashboardRecordSummary["source"]): string {
+  if (source.client === "protected-history") return "protected source";
   const parts = [source.client, source.device_id, source.session_id].filter(
     (value): value is string => typeof value === "string" && value.length > 0
   );
   return parts.join(" · ") || "unknown";
 }
 
+function readableSource(source: DashboardRecordSummary["source"]): { en: string; zh: string } {
+  const client = source.client.trim();
+  const normalized = client.toLowerCase();
+  if (normalized === "codex") return { en: "Codex", zh: "Codex" };
+  if (normalized === "claude") return { en: "Claude", zh: "Claude" };
+  if (normalized === "user") return { en: "you", zh: "用户" };
+  if (normalized === "moryn" || normalized === "moryn-local") return { en: "Moryn", zh: "Moryn" };
+  if (normalized === "protected-history") return { en: "a protected source", zh: "受保护来源" };
+  return { en: client || "unknown source", zh: client || "未知来源" };
+}
+
 function eventLabel(event: DashboardEventSummary): { en: string; zh: string } {
-  const en = event.op.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-  const zhByOp: Partial<Record<DashboardEventSummary["op"], string>> = {
-    upsert_record: "写入记录",
-    promote_record: "提升记录",
-    revise_record: "修订记录",
-    archive_record: "归档记录",
-    quarantine_record: "隔离记录",
-    link_records: "关联记录"
+  const copyByOp: Partial<Record<DashboardEventSummary["op"], { en: string; zh: string }>> = {
+    upsert_record: { en: "Saved a memory", zh: "保存了一条记忆" },
+    promote_record: { en: "Confirmed a memory", zh: "确认了一条记忆" },
+    revise_record: { en: "Updated a memory", zh: "更新了一条记忆" },
+    archive_record: { en: "Archived a memory", zh: "归档了一条记忆" },
+    quarantine_record: { en: "Set a memory aside", zh: "将一条记忆搁置待查" },
+    link_records: { en: "Linked related memories", zh: "关联了相关记忆" }
   };
-  return { en, zh: zhByOp[event.op] ?? en };
+  return (
+    copyByOp[event.op] ?? {
+      en: event.op.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
+      zh: event.op
+    }
+  );
+}
+
+function eventChangeLabel(field: DashboardEventSummary["changes"][number]["field"]): {
+  en: string;
+  zh: string;
+} {
+  const labels: Record<DashboardEventSummary["changes"][number]["field"], { en: string; zh: string }> = {
+    content: { en: "Content saved in this change", zh: "这次变更保存的内容" },
+    category: { en: "Memory category", zh: "记忆类别" },
+    labels: { en: "Labels", zh: "标签" },
+    confidence: { en: "Confidence", zh: "可信度" },
+    priority: { en: "Priority", zh: "优先级" },
+    project: { en: "Project", zh: "项目" },
+    other: { en: "Other memory settings changed", zh: "其他记忆设置发生了变化" }
+  };
+  return labels[field];
+}
+
+function eventStateCopy(state: DashboardEventSummary["target_state"]): { en: string; zh: string } | undefined {
+  if (!state) return undefined;
+  return memoryStateLabelFromRecordState(state);
+}
+
+function linkTypeCopy(linkType: string | undefined): { en: string; zh: string } {
+  const relations: Record<string, { en: string; zh: string }> = {
+    duplicate_of: { en: "These memories describe the same thing.", zh: "这两条记忆描述的是同一件事。" },
+    revises: { en: "The first memory updates the related memory.", zh: "第一条记忆是对另一条记忆的更新。" },
+    supersedes: { en: "The first memory replaces the related memory.", zh: "第一条记忆替代了另一条记忆。" },
+    supports: {
+      en: "The first memory provides support for the related memory.",
+      zh: "第一条记忆为另一条记忆提供依据。"
+    },
+    conflicts_with: { en: "These memories may disagree and need review.", zh: "这两条记忆可能存在分歧，需要检查。" }
+  };
+  return (
+    (linkType ? relations[linkType] : undefined) ?? {
+      en: `Moryn marked these memories as related${linkType ? ` (${linkType.replace(/_/g, " ")})` : ""}.`,
+      zh: `Moryn 将这两条记忆标记为相关${linkType ? `（${linkType.replace(/_/g, " ")}）` : ""}。`
+    }
+  );
+}
+
+function recentEventLine(event: DashboardEventSummary): { en: string; zh: string } {
+  const label = eventLabel(event);
+  const detailsEn: string[] = [];
+  const detailsZh: string[] = [];
+  for (const change of event.changes.slice(0, 3)) {
+    const field = eventChangeLabel(change.field);
+    const value = change.value ? clip(change.value, 320) : undefined;
+    detailsEn.push(value ? `${field.en}: ${value}` : field.en);
+    detailsZh.push(value ? `${field.zh}：${value}` : field.zh);
+  }
+  const state = eventStateCopy(event.target_state);
+  if (state) {
+    detailsEn.push(`Result: ${state.en}`);
+    detailsZh.push(`结果：${state.zh}`);
+  }
+  if (event.reason) {
+    detailsEn.push(`Why: ${clip(event.reason.value, 240)}`);
+    detailsZh.push(`原因：${clip(event.reason.value, 240)}`);
+  }
+  const date = event.created_at.replace("T", " ").slice(0, 19);
+  return {
+    en: `${date} — ${label.en}${detailsEn.length ? `\n${detailsEn.join("\n")}` : ""}`,
+    zh: `${date} — ${label.zh}${detailsZh.length ? `\n${detailsZh.join("\n")}` : ""}`
+  };
 }
 
 function syncLabel(data: DashboardData): { en: string; zh: string } {
@@ -163,7 +252,8 @@ function buildDrawerItems(
   project: string,
   agent: string,
   device: string,
-  importantRecords: DashboardRecordSummary[]
+  importantRecords: DashboardRecordSummary[],
+  memoryRecords: readonly DashboardRecordSummary[]
 ): DashboardDrawerItem[] {
   const context = data.quiet_dashboard.current_context;
   const flow = data.quiet_dashboard.memory_flow;
@@ -244,24 +334,114 @@ function buildDrawerItems(
     )
   );
 
-  for (const event of data.recent_events.slice(0, 5)) {
+  for (const event of data.recent_events.slice(0, 12)) {
     const label = eventLabel(event);
+    const eventSource = readableSource(event.source);
+    const eventSourceDetail = sourceLabel(event.source);
+    const relatedRecord = event.record_id
+      ? data.all_records.find((record) => record.id === event.record_id)
+      : undefined;
+    const linkedRecord = event.linked_record_id
+      ? data.all_records.find((record) => record.id === event.linked_record_id)
+      : undefined;
+    const state = eventStateCopy(event.target_state);
+    const changeSections: NonNullable<DashboardDrawerItem["sections"]> = event.changes.map((change) => {
+      const changeLabel = eventChangeLabel(change.field);
+      return {
+        label_en: changeLabel.en,
+        label_zh: changeLabel.zh,
+        body_en: change.value || "This setting was updated.",
+        body_zh: change.value || "这项设置已更新。",
+        truncated: change.truncated
+      };
+    });
+    if (event.changes_truncated) {
+      changeSections.push({
+        label_en: "Additional changes",
+        label_zh: "其他变更",
+        body_en: "More changed fields are available in the event timeline command below.",
+        body_zh: "还有其他变更字段，可通过下方事件追溯命令查看。"
+      });
+    }
+    if (state) {
+      changeSections.push({
+        label_en: "Result of this change",
+        label_zh: "这次变更的结果",
+        body_en: `The memory became: ${state.en}.`,
+        body_zh: `这条记忆变为：${state.zh}。`
+      });
+    }
+    if (event.reason) {
+      changeSections.push({
+        label_en: "Why it changed",
+        label_zh: "为什么发生这次变更",
+        body_en: event.reason.value,
+        body_zh: event.reason.value,
+        truncated: event.reason.truncated
+      });
+    }
+    if (event.op === "link_records") {
+      const relation = linkTypeCopy(event.link_type);
+      changeSections.push({
+        label_en: "How the memories are related",
+        label_zh: "两条记忆的关系",
+        body_en: relation.en,
+        body_zh: relation.zh
+      });
+    }
+    const changedContent = event.changes.find((change) => change.field === "content");
+    const currentContentAlreadyShown =
+      relatedRecord && changedContent && !changedContent.truncated && changedContent.value === relatedRecord.text;
+    if (relatedRecord && !currentContentAlreadyShown) {
+      changeSections.push({
+        label_en: event.op === "link_records" ? "First memory" : "Current content of the affected memory",
+        label_zh: event.op === "link_records" ? "第一条记忆" : "受影响记忆的当前内容",
+        body_en: clip(relatedRecord.text, BODY_LIMIT),
+        body_zh: clip(relatedRecord.text, BODY_LIMIT),
+        truncated: relatedRecord.text.length > BODY_LIMIT
+      });
+    }
+    if (linkedRecord) {
+      changeSections.push({
+        label_en: "Related memory",
+        label_zh: "另一条相关记忆",
+        body_en: clip(linkedRecord.text, BODY_LIMIT),
+        body_zh: clip(linkedRecord.text, BODY_LIMIT),
+        truncated: linkedRecord.text.length > BODY_LIMIT
+      });
+    }
+    const eventSummaryEn = relatedRecord
+      ? `${label.en}. The exact change and affected content are shown below.`
+      : "This change is part of the recent local history.";
+    const eventSummaryZh = relatedRecord
+      ? `${label.zh}。下方展示了具体变更及受影响内容。`
+      : "这项变化属于近期本地历史。";
     items.push({
-      id: `event-${safeDomId(event.event_id)}`,
+      id: dashboardDrawerId("event", event.event_id),
       kind: "event",
       title_en: label.en,
       title_zh: label.zh,
-      summary_en: event.record_id
-        ? `This event affected record ${event.record_id}.`
-        : "This event is part of the recent local audit history.",
-      summary_zh: event.record_id ? `此事件影响了记录 ${event.record_id}。` : "此事件属于近期本地审计历史。",
+      summary_en: eventSummaryEn,
+      summary_zh: eventSummaryZh,
+      sections: changeSections,
+      ...(relatedRecord ? { recall_command: relatedRecord.citation.recall_command, store_path: storePath } : {}),
       metadata: [
-        { label_en: "Operation", label_zh: "操作", value_en: event.op },
-        { label_en: "Source", label_zh: "来源", value_en: sourceLabel(event.source) },
-        { label_en: "Created", label_zh: "创建时间", value_en: event.created_at },
-        { label_en: "Event id", label_zh: "事件 ID", value_en: event.event_id }
+        { label_en: "What happened", label_zh: "发生了什么", value_en: label.en, value_zh: label.zh },
+        { label_en: "Changed by", label_zh: "变更来源", value_en: eventSource.en, value_zh: eventSource.zh },
+        { label_en: "When", label_zh: "发生时间", value_en: event.created_at },
+        { label_en: "Technical event type", label_zh: "技术事件类型", value_en: event.op },
+        ...(eventSourceDetail !== eventSource.en
+          ? [{ label_en: "Technical source", label_zh: "技术来源", value_en: eventSourceDetail }]
+          : []),
+        { label_en: "Event ID", label_zh: "事件 ID", value_en: event.event_id },
+        ...(event.record_id
+          ? [{ label_en: "Affected memory ID", label_zh: "受影响记忆 ID", value_en: event.record_id }]
+          : []),
+        ...(event.linked_record_id
+          ? [{ label_en: "Related memory ID", label_zh: "相关记忆 ID", value_en: event.linked_record_id }]
+          : [])
       ],
-      evidence_html: `<code>${escapeHtml(event.citation.timeline_command)}</code>${event.citation.recall_command ? ` <code>${escapeHtml(event.citation.recall_command)}</code>` : ""}`
+      evidence_html: `<code>${escapeHtml(event.citation.timeline_command)}</code>${event.citation.recall_command ? ` <code>${escapeHtml(event.citation.recall_command)}</code>` : ""}${linkedRecord ? ` <code>${escapeHtml(linkedRecord.citation.recall_command)}</code>` : ""}`
     });
   }
 
@@ -271,16 +451,37 @@ function buildDrawerItems(
     const truncated = fullText.length > BODY_LIMIT;
     const eventPath = record.citation.event_path;
     const githubUrl = githubBase && eventPath ? `${githubBase}/${eventPath}` : undefined;
+    const kindLabel = dashboardRecordTitleLabel(record.kind, record.type);
+    const stateLabel = memoryStateLabelFromRecordState(record.state);
+    const source = readableSource(record.source);
+    const recentChanges = data.recent_events
+      .filter((event) => event.record_id === record.id || event.linked_record_id === record.id)
+      .slice(0, 5)
+      .map(recentEventLine);
     return {
-      id: `record-${safeDomId(record.id)}`,
+      id: dashboardDrawerId("record", record.id),
       kind,
       title_en: titleLabel.en,
       title_zh: titleLabel.zh,
-      summary_en: `A ${record.state} ${record.kind} from ${sourceLabel(record.source)}.`,
-      summary_zh: `来自 ${sourceLabel(record.source)} 的 ${record.state} ${record.kind}。`,
+      summary_en: `${kindLabel.en} · ${stateLabel.en} · saved by ${source.en}.`,
+      summary_zh: `${kindLabel.zh} · ${stateLabel.zh} · 保存来源：${source.zh}。`,
+      body_label_en: "Current saved content",
+      body_label_zh: "当前保存的正文",
       body_en: clip(fullText, BODY_LIMIT),
       body_zh: clip(fullText, BODY_LIMIT),
       truncated,
+      ...(recentChanges.length > 0
+        ? {
+            sections: [
+              {
+                label_en: "Recent changes",
+                label_zh: "近期变更",
+                body_en: recentChanges.map((change) => change.en).join("\n\n"),
+                body_zh: recentChanges.map((change) => change.zh).join("\n\n")
+              }
+            ]
+          }
+        : {}),
       github_url: githubUrl,
       recall_command: record.citation.recall_command,
       store_path: storePath,
@@ -300,11 +501,16 @@ function buildDrawerItems(
     items.push(recordDrawer(record, "important"));
     seenRecordIds.add(record.id);
   }
+  for (const record of renderedPlanSourceRecords(data.memory_maintenance, memoryRecords)) {
+    if (seenRecordIds.has(record.id)) continue;
+    items.push(recordDrawer(record, "memory"));
+    seenRecordIds.add(record.id);
+  }
   // Only build drawer payloads for the records the Memory view can actually open
   // (the capped, newest-first search set). Without this bound the single-file
   // dashboard embeds a full-text payload per record and grows without limit on
   // large stores. Older records stay reachable via CLI recall.
-  for (const record of data.all_records.slice(0, MEMORY_SEARCH_RENDER_LIMIT)) {
+  for (const record of memoryRecords.slice(0, MEMORY_SEARCH_RENDER_LIMIT)) {
     if (seenRecordIds.has(record.id)) continue;
     items.push(recordDrawer(record, "memory"));
     seenRecordIds.add(record.id);
@@ -332,28 +538,34 @@ function clip(text: string, limit: number): string {
     .trim()}…`;
 }
 
-function buildMemorySearchEntries(data: DashboardData): DashboardMemorySearchEntry[] {
-  return data.all_records.map((record) => {
-    const source = sourceLabel(record.source);
+function buildMemorySearchEntries(records: readonly DashboardRecordSummary[]): DashboardMemorySearchEntry[] {
+  return records.map((record) => {
+    const source = readableSource(record.source);
+    const sourceDetail = sourceLabel(record.source);
+    const kind = dashboardRecordTitleLabel(record.kind);
+    const state = memoryStateLabelFromRecordState(record.state);
     const rawTitle = record.text || `${record.kind} · ${record.type}`;
     const title = clip(rawTitle.replace(/\s+/g, " "), 120);
-    const metaEn = `${record.kind} · ${record.state} · ${source}`;
-    const metaZh = `${record.kind} · ${record.state} · ${source}`;
+    const metaEn = `${kind.en} · ${state.en} · from ${source.en}`;
+    const metaZh = `${kind.zh} · ${state.zh} · 来源：${source.zh}`;
     return {
       id: record.id,
-      drawer_id: `record-${safeDomId(record.id)}`,
+      drawer_id: dashboardDrawerId("record", record.id),
       kind: record.kind,
       title_en: title,
       title_zh: title,
       meta_en: metaEn,
       meta_zh: metaZh,
       search_text:
-        `${clip(rawTitle.replace(/\s+/g, " "), 400)} ${record.kind} ${record.type} ${record.state} ${source}`.toLowerCase()
+        `${clip(rawTitle.replace(/\s+/g, " "), 400)} ${record.kind} ${record.type} ${record.state} ${sourceDetail}`.toLowerCase()
     };
   });
 }
 
-export function buildDashboardWorkspaceModel(data: DashboardData): DashboardWorkspaceModel {
+export function buildDashboardWorkspaceModel(
+  data: DashboardData,
+  memoryRecords: readonly DashboardRecordSummary[] = data.all_records
+): DashboardWorkspaceModel {
   const context = data.quiet_dashboard.current_context;
   const flow = data.quiet_dashboard.memory_flow;
   const task = context.task ?? "No active task";
@@ -384,7 +596,7 @@ export function buildDashboardWorkspaceModel(data: DashboardData): DashboardWork
     },
     recent_events: data.recent_events.slice(0, 5),
     important_records: importantRecords,
-    drawers: buildDrawerItems(data, task, project, agent, device, importantRecords)
+    drawers: buildDrawerItems(data, task, project, agent, device, importantRecords, memoryRecords)
   };
 }
 
@@ -601,10 +813,11 @@ function renderEvents(events: DashboardEventSummary[]): string {
   return `<div class="editorial-event-list">${events
     .map((event) => {
       const label = eventLabel(event);
-      return `<button type="button" class="editorial-event" data-drawer-target="event-${escapeHtml(safeDomId(event.event_id))}" aria-haspopup="dialog">
+      const source = readableSource(event.source);
+      return `<button type="button" class="editorial-event" data-drawer-target="${escapeHtml(dashboardDrawerId("event", event.event_id))}" aria-haspopup="dialog">
     <time class="editorial-event-time" datetime="${escapeHtml(event.created_at)}">${escapeHtml(event.created_at.slice(11, 16))}</time>
     <strong class="editorial-event-operation" data-i18n-en="${escapeHtml(label.en)}" data-i18n-zh="${escapeHtml(label.zh)}">${escapeHtml(label.en)}</strong>
-    <small class="editorial-event-source">${escapeHtml(sourceLabel(event.source))}</small>
+    <small class="editorial-event-source" data-i18n-en="${escapeHtml(source.en)}" data-i18n-zh="${escapeHtml(source.zh)}">${escapeHtml(source.en)}</small>
   </button>`;
     })
     .join("")}</div>`;
@@ -612,10 +825,13 @@ function renderEvents(events: DashboardEventSummary[]): string {
 
 function renderImportant(records: DashboardRecordSummary[], model: DashboardWorkspaceModel): string {
   const recordItems = records
-    .map(
-      (record) =>
-        `<button type="button" class="editorial-important" data-drawer-target="record-${escapeHtml(safeDomId(record.id))}" aria-haspopup="dialog"><strong>${escapeHtml(record.text || `${record.kind} · ${record.type}`)}</strong><p>${escapeHtml(record.state)} · ${escapeHtml(sourceLabel(record.source))}</p></button>`
-    )
+    .map((record) => {
+      const state = memoryStateLabelFromRecordState(record.state);
+      const source = readableSource(record.source);
+      const metaEn = `${state.en} · from ${source.en}`;
+      const metaZh = `${state.zh} · 来源：${source.zh}`;
+      return `<button type="button" class="editorial-important" data-drawer-target="${escapeHtml(dashboardDrawerId("record", record.id))}" aria-haspopup="dialog"><strong>${escapeHtml(record.text || `${record.kind} · ${record.type}`)}</strong><p data-i18n-en="${escapeHtml(metaEn)}" data-i18n-zh="${escapeHtml(metaZh)}">${escapeHtml(metaEn)}</p></button>`;
+    })
     .join("");
   return `<aside class="editorial-sidebar" data-editorial-sidebar="important-now">
     <div class="editorial-sidebar-heading"><div class="editorial-section-title">${i18n("Important Now", "当前重要内容")}</div></div>
@@ -722,10 +938,13 @@ function renderGlance(data: DashboardData): string {
 
 const MEMORY_SEARCH_RENDER_LIMIT = 600;
 
-export function renderMemorySearch(data: DashboardData): string {
-  const allEntries = buildMemorySearchEntries(data);
+export function renderMemorySearch(
+  data: DashboardData,
+  records: readonly DashboardRecordSummary[] = data.all_records
+): string {
+  const allEntries = buildMemorySearchEntries(records);
   if (allEntries.length === 0) {
-    return `<div class="memory-search"><p class="memory-search-empty" data-i18n-en="Nothing has been saved yet. Saved memories will be searchable here." data-i18n-zh="还没有保存任何内容。保存的记忆会在这里可搜索。">Nothing has been saved yet. Saved memories will be searchable here.</p></div>`;
+    return `<div class="memory-search" id="saved-memory-library"><div class="memory-search-heading"><div class="editorial-eyebrow">${i18n("Saved content", "已保存内容")}</div><h2>${i18n("What Moryn remembers", "Moryn 记住了什么")}</h2><p>${i18n("These are the actual saved items. Open any one to read its content and recent changes.", "下面都是实际保存的内容。点开任意一条，即可查看正文和近期变更。")}</p></div><p class="memory-search-empty" data-i18n-en="Nothing has been saved yet. Saved memories will be searchable here." data-i18n-zh="还没有保存任何内容。保存的记忆会在这里可搜索。">Nothing has been saved yet. Saved memories will be searchable here.</p></div>`;
   }
   // Bound the embedded result set so the single-file dashboard stays small even
   // for very large stores. all_records is newest-first, so this keeps the most
@@ -763,7 +982,8 @@ export function renderMemorySearch(data: DashboardData): string {
     })
     .join("");
   return `
-    <div class="memory-search" data-memory-search>
+    <div class="memory-search" id="saved-memory-library" data-memory-search>
+      <div class="memory-search-heading"><div class="editorial-eyebrow">${i18n("Saved content", "已保存内容")}</div><h2>${i18n("What Moryn remembers", "Moryn 记住了什么")}</h2><p>${i18n("These are the actual saved items. Open any one to read its content and recent changes.", "下面都是实际保存的内容。点开任意一条，即可查看正文和近期变更。")}</p></div>
       <div class="memory-search-field">
         <input type="search" data-memory-search-input placeholder="Search saved memories" aria-label="Search saved memories" data-i18n-placeholder-en="Search saved memories" data-i18n-placeholder-zh="搜索已保存的记忆" data-i18n-aria-label-en="Search saved memories" data-i18n-aria-label-zh="搜索已保存的记忆">
       </div>
@@ -785,8 +1005,17 @@ function renderDrawer(drawers: DashboardDrawerItem[]): string {
         <div class="editorial-eyebrow">${i18n(drawer.kind, drawer.kind === "context" ? "上下文" : drawer.kind === "memory" ? "记忆" : drawer.kind === "event" ? "事件" : "重要内容")}</div>
         <h2 class="editorial-drawer-title" data-i18n-en="${escapeHtml(drawer.title_en)}" data-i18n-zh="${escapeHtml(drawer.title_zh)}">${escapeHtml(drawer.title_en)}</h2>
         <p class="editorial-drawer-summary" data-i18n-en="${escapeHtml(drawer.summary_en)}" data-i18n-zh="${escapeHtml(drawer.summary_zh)}">${escapeHtml(drawer.summary_en)}</p>
-        ${drawer.body_en ? `<div class="editorial-drawer-body" data-i18n-en="${escapeHtml(drawer.body_en)}" data-i18n-zh="${escapeHtml(drawer.body_zh ?? drawer.body_en)}">${escapeHtml(drawer.body_en)}</div>` : ""}
+        ${drawer.body_en ? `${drawer.body_label_en ? `<div class="editorial-drawer-body-label">${i18n(drawer.body_label_en, drawer.body_label_zh ?? drawer.body_label_en)}</div>` : ""}<div class="editorial-drawer-body" data-i18n-en="${escapeHtml(drawer.body_en)}" data-i18n-zh="${escapeHtml(drawer.body_zh ?? drawer.body_en)}">${escapeHtml(drawer.body_en)}</div>` : ""}
         ${drawer.truncated ? `<p class="editorial-drawer-truncated" data-i18n-en="Content truncated — open the full memory below." data-i18n-zh="内容已截断 —— 可在下方查看完整记忆。">Content truncated — open the full memory below.</p>` : ""}
+        ${(drawer.sections ?? [])
+          .map(
+            (section) => `<section class="editorial-drawer-content-section">
+          <div class="editorial-drawer-body-label">${i18n(section.label_en, section.label_zh)}</div>
+          <div class="editorial-drawer-body" data-i18n-en="${escapeHtml(section.body_en)}" data-i18n-zh="${escapeHtml(section.body_zh ?? section.body_en)}">${escapeHtml(section.body_en)}</div>
+          ${section.truncated ? `<p class="editorial-drawer-truncated" data-i18n-en="This value is shortened here. Use the trace command below for the stored event." data-i18n-zh="此处内容已缩短，可使用下方追溯命令查看已保存事件。">This value is shortened here. Use the trace command below for the stored event.</p>` : ""}
+        </section>`
+          )
+          .join("")}
         ${
           drawer.github_url || drawer.recall_command || drawer.store_path
             ? `<div class="editorial-drawer-source">
@@ -807,8 +1036,18 @@ function renderDrawer(drawers: DashboardDrawerItem[]): string {
 }
 
 export function renderDashboardWorkspace(data: DashboardData, fragments: DashboardWorkspaceFragments): string {
-  const model = buildDashboardWorkspaceModel(data);
+  const model = buildDashboardWorkspaceModel(data, fragments.memory_records);
   const compaction = `${Math.round(model.memory.compaction_ratio * 100)}%`;
+  const memoryScope =
+    data.memory_maintenance.scope.mode === "project"
+      ? {
+          en: "Search memories saved for this project together with shared memories. Open any item to read its content and recent changes. Nothing is written here.",
+          zh: "搜索为当前项目保存的记忆以及共享记忆。点开任意一条即可查看正文和近期变更；此处不会写入。"
+        }
+      : {
+          en: "Search all visible memories in this store. Open any item to read its content and recent changes. Nothing is written here.",
+          zh: "搜索当前存储中的全部可见记忆。点开任意一条即可查看正文和近期变更；此处不会写入。"
+        };
   return `<div data-dashboard-editorial-shell>
     <header class="editorial-header">
       <div class="editorial-brand">Moryn</div>
@@ -843,7 +1082,7 @@ export function renderDashboardWorkspace(data: DashboardData, fragments: Dashboa
           ${renderImportant(model.important_records, model)}
         </div>
       </section>
-      <section class="editorial-view-page" data-dashboard-view="memory" hidden><header><div class="editorial-eyebrow">${i18n("Knowledge library", "知识库")}</div><h1>${i18n("Memory", "记忆")}</h1><p>${i18n("Search what Moryn has saved, then open any item to read it in full. Nothing is written here.", "搜索 Moryn 保存的内容，点开任意一条即可查看全文。此处不会写入。")}</p></header>${renderDashboardV04MemoryPage(data.memory_maintenance, data.soul_studio)}${fragments.memory_html}</section>
+      <section class="editorial-view-page" data-dashboard-view="memory" hidden><header><div class="editorial-eyebrow">${i18n("Knowledge library", "知识库")}</div><h1>${i18n("Memory", "记忆")}</h1><p>${i18n(memoryScope.en, memoryScope.zh)}</p></header>${fragments.memory_html}${renderDashboardV04MemoryPage(data.memory_maintenance, data.soul_studio, fragments.memory_records)}</section>
       <section class="editorial-view-page" data-dashboard-view="history" hidden><header><div class="editorial-eyebrow">${i18n("Recent activity", "近期动态")}</div><h1>${i18n("History", "历史")}</h1><p>${i18n("A plain-language record of what has happened, newest first.", "用日常语言记录发生过的事，最新在前。")}</p></header>${fragments.history_html}</section>
     </div>
     ${renderDrawer(model.drawers)}
