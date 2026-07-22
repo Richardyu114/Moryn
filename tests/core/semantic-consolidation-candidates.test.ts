@@ -23,6 +23,20 @@ function record(overrides: Partial<MorynRecord> = {}): MorynRecord {
 }
 
 describe("retrieveSemanticConsolidationCandidates", () => {
+  it("preserves prototype-shaped source record ids as own serializable keys", () => {
+    const sourceRecordIds = ["__proto__", "constructor", "prototype"];
+    const records = sourceRecordIds.map((id) => record({ id }));
+    const result = retrieveSemanticConsolidationCandidates(records, { source_record_ids: sourceRecordIds });
+    const serialized = JSON.parse(JSON.stringify(result.candidates_by_source_record_id)) as Record<string, unknown>;
+
+    expect(Object.getPrototypeOf(result.candidates_by_source_record_id)).toBeNull();
+    for (const sourceRecordId of sourceRecordIds) {
+      expect(Object.hasOwn(result.candidates_by_source_record_id, sourceRecordId)).toBe(true);
+      expect(result.candidates_by_source_record_id[sourceRecordId]).toHaveLength(2);
+      expect(Object.hasOwn(serialized, sourceRecordId)).toBe(true);
+    }
+  });
+
   it("returns only compatible active logical records", () => {
     const source = record();
     const compatible = record({
@@ -74,8 +88,18 @@ describe("retrieveSemanticConsolidationCandidates", () => {
   it("keeps candidates inside the same authorized privacy boundary", () => {
     const publicSource = record({ id: "public-source" });
     const publicTarget = record({ id: "public-target" });
-    const privateSource = record({ id: "private-source", tags: ["private", "sync"] });
-    const privateTarget = record({ id: "private-target", tags: ["private", "sync"] });
+    const privateSource = record({
+      id: "private-source",
+      content: { text: "Pull memory on agent enter", files: ["src/core/agent-lifecycle.ts"], privacy: "private" }
+    });
+    const privateTarget = record({
+      id: "private-target",
+      content: {
+        text: "Pull memory on agent enter",
+        files: ["src/core/agent-lifecycle.ts"],
+        distribution: "local_only"
+      }
+    });
     const records = [publicSource, publicTarget, privateSource, privateTarget];
 
     expect(

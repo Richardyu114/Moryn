@@ -2218,6 +2218,35 @@ function parseBoundedIntegerOption(
   return parsed;
 }
 
+type AgentSoulBindingCliOptions = {
+  userProfileId?: string;
+  agentProfileId?: string;
+  soulCharBudget?: string;
+  soulTokenBudget?: string;
+};
+
+function parseAgentSoulBindingOptions(options: AgentSoulBindingCliOptions, operation: "agent_enter" | "agent_start") {
+  const userSoulProfileId = parseNonEmptyCliString(options.userProfileId, "--user-profile-id", {
+    operation,
+    argument: "user_profile_id"
+  });
+  const agentSoulProfileId = parseNonEmptyCliString(options.agentProfileId, "--agent-profile-id", {
+    operation,
+    argument: "agent_profile_id"
+  });
+  const soulCharBudget = parseBoundedIntegerOption(options.soulCharBudget, "--soul-char-budget", 1);
+  const soulTokenBudget = parseBoundedIntegerOption(options.soulTokenBudget, "--soul-token-budget", 1);
+  return {
+    lifecycle: { userSoulProfileId, agentSoulProfileId, soulCharBudget, soulTokenBudget },
+    context: compactUndefined({
+      user_profile_id: userSoulProfileId,
+      agent_profile_id: agentSoulProfileId,
+      soul_char_budget: soulCharBudget,
+      soul_token_budget: soulTokenBudget
+    })
+  };
+}
+
 type DashboardCliOptions = {
   open?: boolean;
   limit?: string;
@@ -2652,7 +2681,7 @@ capture
   .option("--project-id <id>")
   .option("--project <path>")
   .option("--limit <n>", "Decision/action limit", "20")
-  .option("--include-private", "Include private-tagged records")
+  .option("--include-private", "Include private records")
   .action(async (options) => {
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options, "capture_policy");
@@ -2806,7 +2835,7 @@ program
     []
   )
   .option("--limit <n>", "Result limit", "10")
-  .option("--include-private", "Include private-tagged records")
+  .option("--include-private", "Include private records")
   .action(async (query, options) => {
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options, "recall");
@@ -2862,7 +2891,7 @@ program
   .option("--project <path>")
   .option("--before <n>", "Events before the anchor", "5")
   .option("--after <n>", "Events after the anchor", "5")
-  .option("--include-private", "Include private-tagged records")
+  .option("--include-private", "Include private records")
   .action(async (options) => {
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options, "timeline");
@@ -2916,7 +2945,7 @@ program
   .option("--project <path>")
   .option("--current-task <task>")
   .option("--session-id <id>")
-  .option("--include-private", "Include private-tagged records")
+  .option("--include-private", "Include private records")
   .action(async (options) => {
     const engine = createCliEngine();
     const project = await resolveProjectOptions(options, "boot");
@@ -3159,7 +3188,7 @@ program
 program
   .command("list-recent")
   .option("--limit <n>", "Result limit", "20")
-  .option("--include-private", "Include private-tagged records")
+  .option("--include-private", "Include private records")
   .action(async (options) => {
     const engine = createCliEngine();
     printJson(
@@ -3316,7 +3345,7 @@ memory
   .argument("<record-id>")
   .option("--max-depth <n>", "Maximum source expansion depth", "2")
   .option("--max-records <n>", "Maximum returned records", "100")
-  .option("--include-private", "Include private-tagged source evidence")
+  .option("--include-private", "Include private source evidence")
   .action(async (recordId, options) => {
     printJson(
       await createCliEngine().expandMemorySources({
@@ -3341,7 +3370,7 @@ memoryCompact
   .option("--bucket-key <key>")
   .option("--now <iso>", "Use an explicit canonical planning timestamp")
   .option("--recent-window-days <n>", "Keep recent episode sources warm", "7")
-  .option("--include-private", "Include private-tagged sources after explicit authorization")
+  .option("--include-private", "Include private sources after explicit authorization")
   .action(async (options) => {
     const bucketKind = parseNonEmptyCliString(options.bucketKind, "--bucket-kind", {
       operation: "memory_compaction_preview",
@@ -3423,7 +3452,7 @@ memory
   .option("--project-id <id>")
   .option("--project <path>")
   .option("--limit <n>", "Finding/action limit", "20")
-  .option("--include-private", "Include private-tagged records")
+  .option("--include-private", "Include private records")
   .action(async (options) => {
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options, "memory_doctor");
@@ -3442,7 +3471,7 @@ memory
   .option("--project <path>")
   .option("--limit <n>", "Assessment/action limit", "20")
   .option("--now <iso>", "Use an explicit report timestamp")
-  .option("--include-private", "Include private-tagged records")
+  .option("--include-private", "Include private records")
   .action(async (options) => {
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options, "memory_lifecycle");
@@ -3463,7 +3492,7 @@ dogfood
   .option("--project-id <id>")
   .option("--project <path>")
   .option("--limit <n>", "Finding/action limit", "20")
-  .option("--include-private", "Include private-tagged records")
+  .option("--include-private", "Include private records")
   .action(async (options) => {
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options, "dogfood_report");
@@ -3485,7 +3514,7 @@ health
   .option("--host <host>", "Host adapter to include in setup readiness commands")
   .option("--sync-remote <remote>", "Shared Git remote to include in readiness commands")
   .option("--limit <n>", "Check/action limit", "20")
-  .option("--include-private", "Include private-tagged records")
+  .option("--include-private", "Include private records")
   .action(async (options) => {
     const engine = createCliEngine();
     const projectPath = parseNonEmptyCliString(options.project, "--project", {
@@ -3519,7 +3548,7 @@ evalCommand
   .requiredOption("--cases <json>", "JSON array of golden recall cases")
   .option("--project-id <id>")
   .option("--project <path>")
-  .option("--include-private", "Include private-tagged records")
+  .option("--include-private", "Include private records")
   .action(async (options) => {
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options, "recall_eval");
@@ -3539,7 +3568,7 @@ program
   .option("--cursor <cursor>")
   .option("--current-task <task>")
   .option("--limit <n>", "Change limit", "20")
-  .option("--include-private", "Include private-tagged records")
+  .option("--include-private", "Include private records")
   .action(async (options) => {
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options, "refresh");
@@ -3594,7 +3623,7 @@ program
   .option("--port <port>", "Dashboard server port; use 0 to choose a free port", "8765")
   .option("--interval <ms>", "Dashboard browser refresh interval in milliseconds", "2000")
   .option("--limit <n>", "Recent record and event limit", "20")
-  .option("--include-private", "Include private-tagged records in dashboard data")
+  .option("--include-private", "Include private records in dashboard data")
   .action(async (options) => {
     const limit = parseLimit(options.limit, "dashboard");
     const dashboard = await dashboardMetadata({
@@ -3903,6 +3932,10 @@ agent
   .option("--project <path>")
   .option("--sync-remote <remote>", "Initialize or connect Git sync before startup")
   .option("--current-task <task>")
+  .option("--user-profile-id <id>", "Explicit user Soul profile binding")
+  .option("--agent-profile-id <id>", "Explicit Agent Soul profile binding")
+  .option("--soul-char-budget <n>", "Effective Soul character budget")
+  .option("--soul-token-budget <n>", "Effective Soul token budget")
   .option("--refresh-since <cursor>")
   .option("--limit <n>", "Refresh change or project discovery limit", "20")
   .option("--no-pull", "Do not pull sync before boot when starting a known project")
@@ -3916,6 +3949,7 @@ agent
     const operation = "agent_enter";
     const pull = parseBooleanDefault(options.pull, true);
     const agentOptions = parseAgentOptions(options, operation);
+    const soulBinding = parseAgentSoulBindingOptions(options, operation);
     const contextArguments = compactUndefined({
       project_id: parseNonEmptyCliString(
         options.projectId,
@@ -3937,6 +3971,7 @@ agent
         "--current-task",
         lifecycleStringSource(operation, "current_task")
       ),
+      ...soulBinding.context,
       refresh_since: parseNonEmptyCliString(
         options.refreshSince,
         "--refresh-since",
@@ -3974,6 +4009,7 @@ agent
         limit: parseLimit(options.limit, "agent_enter"),
         pull,
         agent: agentOptions,
+        ...soulBinding.lifecycle,
         hostRuntime
       });
       printJson(await withDashboard(result, { open: options.open }));
@@ -4029,6 +4065,10 @@ agent
   .option("--project <path>")
   .option("--sync-remote <remote>", "Initialize or connect Git sync before startup")
   .option("--current-task <task>")
+  .option("--user-profile-id <id>", "Explicit user Soul profile binding")
+  .option("--agent-profile-id <id>", "Explicit Agent Soul profile binding")
+  .option("--soul-char-budget <n>", "Effective Soul character budget")
+  .option("--soul-token-budget <n>", "Effective Soul token budget")
   .option("--refresh-since <cursor>")
   .option("--limit <n>", "Refresh change limit", "20")
   .option("--no-pull", "Do not pull sync before boot")
@@ -4042,6 +4082,7 @@ agent
     const operation = "agent_start";
     const pull = parseBooleanDefault(options.pull, true);
     const agentOptions = parseAgentOptions(options, operation);
+    const soulBinding = parseAgentSoulBindingOptions(options, operation);
     const contextArguments = compactUndefined({
       project_id: parseNonEmptyCliString(
         options.projectId,
@@ -4063,6 +4104,7 @@ agent
         "--current-task",
         lifecycleStringSource(operation, "current_task")
       ),
+      ...soulBinding.context,
       refresh_since: parseNonEmptyCliString(
         options.refreshSince,
         "--refresh-since",
@@ -4099,7 +4141,8 @@ agent
         ),
         limit: parseLimit(options.limit, "agent_start"),
         pull,
-        agent: agentOptions
+        agent: agentOptions,
+        ...soulBinding.lifecycle
       });
       printJson(await withDashboard(result, { open: options.open }));
     } catch (error) {
@@ -4377,7 +4420,7 @@ project
   .option("--dry-run", "Preview matching records without writing events", true)
   .option("--apply", "Append migration events")
   .option("--confirm", "Confirm project id migration")
-  .option("--include-private", "Include private-tagged records in migration")
+  .option("--include-private", "Include private records in migration")
   .action(async (options) => {
     const engine = createCliEngine();
     const fromProjectId = parseNonEmptyCliString(options.from, "--from", {

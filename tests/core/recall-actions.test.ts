@@ -46,6 +46,36 @@ describe("recall next actions", () => {
     });
   });
 
+  it("reuses the memory expand contract for an executable rollup evidence action", () => {
+    const result = buildRecallNextActions({
+      query: "release rollback policy",
+      outcome: outcome("trusted_match", "rec-rollup"),
+      include_private: true,
+      expandable_record_id: "rec-rollup"
+    });
+
+    expect(result.next_actions.map((action) => action.id)).toEqual([
+      "use_recalled_knowledge",
+      "expand_memory_sources",
+      "inspect_record_timeline"
+    ]);
+    expect(result.next_actions_by_id.expand_memory_sources).toMatchObject({
+      operation: "memory_expand",
+      executor: "moryn",
+      safe_to_run: true,
+      arguments_by_name: { record_id: "rec-rollup", include_private: true },
+      interfaces: {
+        cli: {
+          executable: "moryn",
+          argv: ["memory", "expand", "rec-rollup", "--include-private"],
+          command_line: "moryn memory expand rec-rollup --include-private"
+        },
+        mcp: { tool: "memory_expand", arguments: { record_id: "rec-rollup", include_private: true } }
+      }
+    });
+    expect(result.selection_sources.operation).toBe("next_actions_by_id.<action_id>.operation");
+  });
+
   it("requires external verification before capturing a weak or stale match", () => {
     const result = buildRecallNextActions({
       query: "release rollback policy",

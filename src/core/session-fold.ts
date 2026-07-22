@@ -7,6 +7,7 @@ import {
 } from "./checkpoint.js";
 import { buildMemoryRetentionView } from "./memory-retention.js";
 import { isPrivateMemoryBoundary } from "./sensitive.js";
+import { annotateSessionFoldConflicts } from "./session-fold-conflicts.js";
 import type { MorynRecord, RecordSource } from "./types.js";
 
 const FOLDABLE_TYPES = new Set(["status", "checkpoint", "summary"]);
@@ -88,13 +89,16 @@ export interface SessionFoldReviewReason {
 
 export interface SessionFoldSourceDigest {
   record_id: string;
-  type: "status" | "checkpoint" | "summary";
+  type: "status" | "checkpoint" | "summary" | "session_rollup";
   updated_at: string;
   privacy: "public" | "private";
   digest: string;
 }
 
-export type SessionFoldCoverageMethod = "deterministic_checkpoint_projection" | "verbatim_final_projection";
+export type SessionFoldCoverageMethod =
+  | "deterministic_checkpoint_projection"
+  | "newer_status_supersession"
+  | "verbatim_final_projection";
 
 export type SessionFoldCoverageBlocker =
   | "canonical_source"
@@ -287,9 +291,13 @@ function isPrivate(record: MorynRecord): boolean {
 }
 
 function activeFoldSource(record: MorynRecord): boolean {
+  const competingRollup =
+    record.type === "session_rollup" &&
+    record.content.session_fold_version === 1 &&
+    record.conflict?.resolution === "needs_review";
   return (
     record.kind === "session_summary" &&
-    FOLDABLE_TYPES.has(record.type) &&
+    (FOLDABLE_TYPES.has(record.type) || competingRollup) &&
     record.visibility !== "archived" &&
     record.state !== "archived" &&
     Boolean(record.project_id?.trim()) &&
@@ -500,7 +508,11 @@ function retentionCoverageBlockers(record: MorynRecord): SessionFoldCoverageBloc
   return blockers;
 }
 
-function statusCoverageBlockers(record: MorynRecord, finalText: string): SessionFoldCoverageBlocker[] {
+function statusCoverageBlockers(
+  record: MorynRecord,
+  finalText: string,
+  requireVerbatimFinalProjection: boolean
+): SessionFoldCoverageBlocker[] {
   const content = record.content as Record<string, unknown>;
   const blockers: SessionFoldCoverageBlocker[] = [];
   if (Object.keys(content).some((key) => !STATUS_PROJECTED_CONTENT_KEYS.has(key))) {
@@ -529,7 +541,11 @@ function statusCoverageBlockers(record: MorynRecord, finalText: string): Session
   }
   const text = typeof content.text === "string" ? content.text.trim() : "";
   const status = typeof content.status === "string" ? content.status.trim() : undefined;
-  if (!text || !finalText.includes(text) || (status !== undefined && status !== text)) {
+  if (
+    !text ||
+    (requireVerbatimFinalProjection && !finalText.includes(text)) ||
+    (status !== undefined && status !== text)
+  ) {
     blockers.push("non_verbatim_status");
   }
   return blockers;
@@ -582,7 +598,8 @@ function checkpointCoverageBlockers(record: MorynRecord): SessionFoldCoverageBlo
 
 function sourceCoverage(
   record: MorynRecord,
-  finalText: string
+  finalText: string,
+  supersededStatusIds: ReadonlySet<string>
 ): { method?: SessionFoldCoverageMethod; blockers: SessionFoldCoverageBlocker[] } {
   const blockers = retentionCoverageBlockers(record);
   if (record.type === "summary") {
@@ -590,7 +607,7 @@ function sourceCoverage(
   } else if (record.type === "checkpoint") {
     blockers.push(...checkpointCoverageBlockers(record));
   } else if (record.type === "status") {
-    blockers.push(...statusCoverageBlockers(record, finalText));
+    blockers.push(...statusCoverageBlockers(record, finalText, !supersededStatusIds.has(record.id)));
   } else {
     blockers.push("unsupported_structured_fields");
   }
@@ -602,7 +619,9 @@ function sourceCoverage(
           method:
             record.type === "checkpoint"
               ? ("deterministic_checkpoint_projection" as const)
-              : ("verbatim_final_projection" as const)
+              : supersededStatusIds.has(record.id)
+                ? ("newer_status_supersession" as const)
+                : ("verbatim_final_projection" as const)
         }),
     blockers: normalizedBlockers
   };
@@ -634,10 +653,15 @@ export function buildSessionFoldCoverageAttestation(
   const sources = identityRecords(records, { project_id: projectId, session_id: sessionId });
   const sourceDigests = sourceDigestList(sources);
   const digestsById = new Map(sourceDigests.map((source) => [source.record_id, source.digest]));
+  const statuses = sources.filter((source) => source.type === "status");
+  const latestStatusId = statuses.at(-1)?.id;
+  const supersededStatusIds = new Set(
+    statuses.filter((status) => status.id !== latestStatusId).map((status) => status.id)
+  );
   const coveredSources: SessionFoldCoveredSource[] = [];
   const uncoveredSources: SessionFoldUncoveredSource[] = [];
   for (const source of sources) {
-    const coverage = sourceCoverage(source, finalText);
+    const coverage = sourceCoverage(source, finalText, supersededStatusIds);
     const sourceHash = digestsById.get(source.id)!;
     if (coverage.method) {
       coveredSources.push({ record_id: source.id, digest: sourceHash, method: coverage.method });
@@ -963,7 +987,7 @@ export function planSessionFolds(
 ): SessionFoldPlan[] {
   const requestedProjectId = options.project_id?.trim();
   const groups = new Map<string, { identity: SessionFoldIdentity; records: MorynRecord[] }>();
-  for (const record of records) {
+  for (const record of annotateSessionFoldConflicts(records)) {
     if (!activeFoldSource(record)) continue;
     const projectId = record.project_id!.trim();
     const sessionId = record.source.session_id!.trim();

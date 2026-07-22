@@ -321,7 +321,7 @@ describe("Soul Profile persistence", () => {
   it("loads legacy canonical Soul records as one active head beside v1 projections", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createEngine({ storePath, now: () => occurredAt });
-      await engine.write({
+      const publicLegacy = await engine.write({
         kind: "soul",
         type: "preference",
         scope: "global",
@@ -330,10 +330,42 @@ describe("Soul Profile persistence", () => {
         confirmed: true,
         source
       });
+      const contentPrivate = await engine.write({
+        kind: "soul",
+        type: "preference",
+        scope: "global",
+        tags: ["privacy-marker"],
+        content: { text: "Device-local concise updates.", privacy: "private" },
+        state: "canonical",
+        confirmed: true,
+        source
+      });
+      const localOnly = await engine.write({
+        kind: "soul",
+        type: "preference",
+        scope: "global",
+        tags: ["distribution-marker"],
+        content: { text: "Host-local concise updates.", distribution: "local_only" },
+        state: "canonical",
+        confirmed: true,
+        source
+      });
       const loaded = await readSoulProfileRevisions(storePath);
       expect(loaded.revisions).toHaveLength(1);
       expect(loaded.revisions[0]).toMatchObject({ state: "active", approved: true });
-      expect(loaded.legacy_record_ids).toHaveLength(1);
+      expect(loaded.legacy_record_ids).toEqual([publicLegacy.record.id]);
+
+      const withPrivate = await readSoulProfileRevisions(storePath, { include_legacy_private: true });
+      expect(withPrivate.legacy_record_ids).toEqual(
+        expect.arrayContaining([publicLegacy.record.id, contentPrivate.record.id, localOnly.record.id])
+      );
+      expect(withPrivate.legacy_record_ids).toHaveLength(3);
+      expect(withPrivate.revisions.flatMap((revision) => revision.clauses)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ provenance_record_ids: [contentPrivate.record.id], distribution: "local_only" }),
+          expect.objectContaining({ provenance_record_ids: [localOnly.record.id], distribution: "local_only" })
+        ])
+      );
     });
   });
 

@@ -299,6 +299,70 @@ describe("record read model", () => {
     });
   });
 
+  it("keeps the cold mandatory floor before tier filtering and reports its token overflow", () => {
+    const coldIdentity: MorynRecord = {
+      ...record("cold-identity"),
+      kind: "soul",
+      type: "principle",
+      scope: "global",
+      project_id: undefined,
+      content: {
+        text: "archived identity contract",
+        memory_retention: { version: 2, layer: "L3", retention: { tier: "cold" } }
+      }
+    };
+    const coldPinned: MorynRecord = {
+      ...record("cold-pinned"),
+      type: "decision",
+      state: "archived",
+      visibility: "archived",
+      content: {
+        text: "archived pinned decision",
+        memory_retention: { version: 2, retention: { tier: "cold", pinned: true } }
+      }
+    };
+    const coldNeverForget: MorynRecord = {
+      ...record("cold-never-forget"),
+      type: "fact",
+      content: {
+        text: "cold durable fact",
+        memory_retention: { version: 2, retention: { tier: "cold", never_forget: true } }
+      }
+    };
+    const ordinaryCold: MorynRecord = {
+      ...record("ordinary-cold"),
+      content: { text: "ordinary cold fact", memory_retention: { version: 2, retention: { tier: "cold" } } }
+    };
+
+    const selected = selectMemoryWorkingSet([ordinaryCold, coldPinned, coldNeverForget, coldIdentity], {
+      total_token_budget: 1,
+      layer_token_budgets: { L2: 1, L3: 1 }
+    });
+    const mandatoryTokens =
+      estimateMemoryRecordTokens(coldIdentity) +
+      estimateMemoryRecordTokens(coldNeverForget) +
+      estimateMemoryRecordTokens(coldPinned);
+
+    expect(selected.selected.map((entry) => entry.record.id)).toEqual([
+      "cold-identity",
+      "cold-never-forget",
+      "cold-pinned"
+    ]);
+    expect(selected.selected.every((entry) => entry.mandatory && entry.retention.retention.tier === "cold")).toBe(true);
+    expect(selected.excluded.map((entry) => [entry.record.id, entry.reason])).toEqual([["ordinary-cold", "cold_tier"]]);
+    expect(selected.tokens.overflow).toEqual({
+      total_tokens: mandatoryTokens - 1,
+      by_layer: {
+        L0: 0,
+        L1: 0,
+        L2: estimateMemoryRecordTokens(coldNeverForget) + estimateMemoryRecordTokens(coldPinned) - 1,
+        L3: estimateMemoryRecordTokens(coldIdentity) - 1
+      },
+      mandatory_record_ids: ["cold-identity", "cold-never-forget", "cold-pinned"],
+      pinned_record_ids: ["cold-pinned"]
+    });
+  });
+
   it("estimates canonical records independently of object key order", () => {
     const left = record("stable");
     const right = { ...left, content: { format: "text", text: "stable" } };

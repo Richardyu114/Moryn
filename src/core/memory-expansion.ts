@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto";
 import { buildMemoryRetentionView, type MemoryLayer, type MemoryRetentionTier } from "./memory-retention.js";
 import { estimateMemoryRecordTokens } from "./record-read-model.js";
-import { isPrivateTags } from "./sensitive.js";
+import { isPrivateMemoryBoundary } from "./sensitive.js";
+import {
+  STRUCTURED_SEMANTIC_MERGE_CONTENT_KEY,
+  structuredSemanticMergeSourceDigest
+} from "./structured-semantic-merge.js";
 import type { MorynRecord } from "./types.js";
 
 export type MemoryExpansionRelation = "covered_record" | "derived_from" | "episode_leaf" | "provenance";
@@ -36,7 +40,7 @@ export interface MemoryExpansionEdge {
   actual_digest: string;
   current_record_digest: string;
   verification: MemoryExpansionVerification;
-  verification_basis: "current_record" | "pre_archive_projection" | "none";
+  verification_basis: "current_record" | "pre_archive_projection" | "structured_semantic_merge_v1" | "none";
 }
 
 export type MemoryExpansionOmissionReason =
@@ -88,6 +92,7 @@ interface SourceReference {
   relation: MemoryExpansionRelation;
   expected_digest?: string;
   source_updated_at?: string;
+  digest_method?: "structured_semantic_merge_v1";
 }
 
 interface DigestReference {
@@ -203,6 +208,7 @@ function sourceReferences(record: MorynRecord): SourceReference[] {
   const content = record.content as Record<string, unknown>;
   const retention = objectValue(content.memory_retention);
   const lineage = objectValue(retention?.lineage);
+  const structuredMerge = objectValue(content[STRUCTURED_SEMANTIC_MERGE_CONTENT_KEY]);
   const expectedDigestReferences = [
     ...digestEntries(lineage?.source_digests),
     ...digestEntries(content.source_digests)
@@ -211,8 +217,16 @@ function sourceReferences(record: MorynRecord): SourceReference[] {
   const sourceUpdatedAt = new Map(
     expectedDigestReferences.flatMap((entry) => (entry.updated_at ? [[entry.record_id, entry.updated_at]] : []))
   );
+  const structuredDigests = new Map(
+    digestEntries(structuredMerge?.source_digests).map((entry) => [entry.record_id, entry.digest])
+  );
   const references: SourceReference[] = [];
-  const add = (recordId: string, relation: MemoryExpansionRelation, expectedDigest?: string) => {
+  const add = (
+    recordId: string,
+    relation: MemoryExpansionRelation,
+    expectedDigest?: string,
+    digestMethod?: SourceReference["digest_method"]
+  ) => {
     const normalized = recordId.trim();
     if (!normalized || normalized === record.id) return;
     references.push({
@@ -221,12 +235,16 @@ function sourceReferences(record: MorynRecord): SourceReference[] {
       ...((expectedDigest ?? expectedDigests.get(normalized))
         ? { expected_digest: expectedDigest ?? expectedDigests.get(normalized) }
         : {}),
-      ...(sourceUpdatedAt.get(normalized) ? { source_updated_at: sourceUpdatedAt.get(normalized) } : {})
+      ...(sourceUpdatedAt.get(normalized) ? { source_updated_at: sourceUpdatedAt.get(normalized) } : {}),
+      ...(digestMethod ? { digest_method: digestMethod } : {})
     });
   };
 
   for (const recordId of stringArray(lineage?.covered_record_ids)) add(recordId, "covered_record");
   for (const recordId of stringArray(content.source_record_ids)) add(recordId, "covered_record");
+  for (const recordId of stringArray(structuredMerge?.source_record_ids)) {
+    add(recordId, "covered_record", structuredDigests.get(recordId), "structured_semantic_merge_v1");
+  }
   for (const recordId of stringArray(lineage?.derived_from)) add(recordId, "derived_from");
   for (const recordId of record.provenance?.derived_from ?? []) add(recordId, "provenance");
   for (const leaf of leafReferences(content.leaf_evidence)) add(leaf.record_id, leaf.relation, leaf.expected_digest);
@@ -250,7 +268,13 @@ function sourceReferences(record: MorynRecord): SourceReference[] {
     if (!prior || relationPriority[reference.relation] > relationPriority[prior.relation]) {
       byId.set(reference.record_id, reference);
     } else if (!prior.expected_digest && reference.expected_digest) {
-      byId.set(reference.record_id, { ...prior, expected_digest: reference.expected_digest });
+      byId.set(reference.record_id, {
+        ...prior,
+        expected_digest: reference.expected_digest,
+        ...(reference.digest_method ? { digest_method: reference.digest_method } : {})
+      });
+    } else if (!prior.digest_method && reference.digest_method) {
+      byId.set(reference.record_id, { ...prior, digest_method: reference.digest_method });
     }
   }
   return [...byId.values()].sort((left, right) => compareCodeUnits(left.record_id, right.record_id));
@@ -267,6 +291,15 @@ function verifySourceReference(
   reference: SourceReference
 ): Pick<MemoryExpansionEdge, "actual_digest" | "current_record_digest" | "verification" | "verification_basis"> {
   const currentDigest = memoryRecordDigest(source);
+  if (reference.digest_method === "structured_semantic_merge_v1") {
+    const actualDigest = structuredSemanticMergeSourceDigest(source);
+    return {
+      actual_digest: actualDigest,
+      current_record_digest: currentDigest,
+      verification: reference.expected_digest === actualDigest ? "verified" : "mismatch",
+      verification_basis: "structured_semantic_merge_v1"
+    };
+  }
   if (!reference.expected_digest) {
     return {
       actual_digest: currentDigest,
@@ -350,7 +383,7 @@ export function expandMemorySources(input: MemoryExpansionInput): MemoryExpansio
   const recordsById = new Map(input.records.map((record) => [record.id, record]));
   const root = recordsById.get(rootId);
   if (!root) throw new Error(`Record not found: ${rootId}`);
-  if (isPrivateTags(root.tags) && input.include_private !== true) {
+  if (isPrivateMemoryBoundary(root) && input.include_private !== true) {
     throw new Error("Private memory expansion requires include_private");
   }
 
@@ -404,7 +437,7 @@ export function expandMemorySources(input: MemoryExpansionInput): MemoryExpansio
         omissions.push({ from_record_id: current.record.id, record_id: source.id, reason: "cycle" });
         continue;
       }
-      if (isPrivateTags(source.tags) && input.include_private !== true) {
+      if (isPrivateMemoryBoundary(source) && input.include_private !== true) {
         omissions.push({
           from_record_id: current.record.id,
           record_id: source.id,

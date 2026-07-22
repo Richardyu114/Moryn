@@ -1,14 +1,25 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import type { StoreConfig } from "../core/config.js";
 import { readStoreConfig } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
 import { parseEvent } from "../core/schema.js";
+import { withStoreStateLease } from "../core/state-lease.js";
 import type { MorynEvent } from "../core/types.js";
+import {
+  captureSoulGitFetchRemoteIdentityDigest,
+  captureSoulGitPushRemoteIdentityDigest,
+  recordPulledAndVerifiedSoulSyncReceipts,
+  recordPushedSoulSyncReceipts
+} from "./soul-git-receipts.js";
 
 const exec = promisify(execFile);
+const LOCAL_ONLY_GIT_PATHS = ["config.json", "snapshots", "indexes", "state", ".moryn"] as const;
+const LOCAL_ONLY_GIT_HISTORY_PATHS = LOCAL_ONLY_GIT_PATHS.map((path) => `:(top,icase,literal)${path}`);
+const LOCAL_ONLY_GIT_PATHS_DESCRIPTION = LOCAL_ONLY_GIT_PATHS.join(", ");
+const MORYN_SYNC_REMOTE_REF = "refs/moryn/sync/main";
+const GIT_ERROR_BUFFER_LIMIT = 64 * 1024;
 
 export const SYNC_STATUS_SELECTION_SOURCES = {
   configured: "configured",
@@ -278,15 +289,105 @@ async function ensureGitIdentity(storePath: string): Promise<void> {
 }
 
 async function ensureGitIgnore(storePath: string): Promise<void> {
-  await writeFile(join(storePath, ".gitignore"), "config.json\nsnapshots/\nindexes/\nstate/\n", "utf8");
-}
-
-async function writeStoreConfig(storePath: string, config: StoreConfig): Promise<void> {
-  await writeFile(join(storePath, "config.json"), `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  await writeFile(join(storePath, ".gitignore"), "config.json\nsnapshots/\nindexes/\nstate/\n.moryn/\n", "utf8");
 }
 
 async function untrackLocalOnlyPaths(storePath: string): Promise<void> {
-  await git(storePath, ["rm", "--cached", "-r", "--ignore-unmatch", "config.json", "snapshots", "indexes", "state"]);
+  await git(storePath, ["rm", "--cached", "-r", "--ignore-unmatch", ...LOCAL_ONLY_GIT_PATHS]);
+}
+
+async function assertHistoryExcludesLocalOnlyPaths(
+  storePath: string,
+  revisions: string[],
+  historyLabel: string
+): Promise<void> {
+  const offendingCommit = await git(storePath, [
+    "rev-list",
+    "--max-count=1",
+    ...revisions,
+    "--",
+    ...LOCAL_ONLY_GIT_HISTORY_PATHS
+  ]);
+  if (!offendingCommit) return;
+  throw new Error(
+    `Git sync refused: ${historyLabel} contains commit ${offendingCommit.slice(0, 12)} that touched local-only Moryn paths (${LOCAL_ONLY_GIT_PATHS_DESCRIPTION}). Rewrite that Git history and verify the paths are untracked before retrying sync.`
+  );
+}
+
+interface UnsafeGitTreeEntry {
+  mode: "120000" | "160000";
+  path: string;
+}
+
+function parseUnsafeGitTreeEntry(entry: Buffer): UnsafeGitTreeEntry | undefined {
+  const mode = entry.subarray(0, 6).toString("ascii");
+  if (mode !== "120000" && mode !== "160000") return undefined;
+  const pathSeparator = entry.indexOf(0x09);
+  return {
+    mode,
+    path: pathSeparator >= 0 ? entry.subarray(pathSeparator + 1).toString("utf8") : "<unknown>"
+  };
+}
+
+async function findUnsafeGitTreeEntry(storePath: string, commit: string): Promise<UnsafeGitTreeEntry | undefined> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("git", ["ls-tree", "-r", "-z", commit], {
+      cwd: storePath,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    let pending = Buffer.alloc(0);
+    let unsafeEntry: UnsafeGitTreeEntry | undefined;
+    let errorOutput = Buffer.alloc(0);
+
+    child.stdout.on("data", (chunk: Buffer) => {
+      const output = pending.length === 0 ? chunk : Buffer.concat([pending, chunk]);
+      let start = 0;
+      for (let separator = output.indexOf(0, start); separator >= 0; separator = output.indexOf(0, start)) {
+        unsafeEntry ??= parseUnsafeGitTreeEntry(output.subarray(start, separator));
+        start = separator + 1;
+      }
+      pending = Buffer.from(output.subarray(start));
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      if (errorOutput.length >= GIT_ERROR_BUFFER_LIMIT) return;
+      errorOutput = Buffer.concat([errorOutput, chunk.subarray(0, GIT_ERROR_BUFFER_LIMIT - errorOutput.length)]);
+    });
+    child.once("error", reject);
+    child.once("close", (code) => {
+      if (code !== 0) {
+        reject(
+          new Error(`git ls-tree failed with exit code ${code ?? "unknown"}: ${errorOutput.toString("utf8").trim()}`)
+        );
+        return;
+      }
+      if (pending.length !== 0) {
+        reject(new Error("git ls-tree returned an unterminated entry"));
+        return;
+      }
+      resolve(unsafeEntry);
+    });
+  });
+}
+
+async function assertCommitTreeExcludesUnsafeEntryModes(
+  storePath: string,
+  commit: string,
+  treeLabel: string
+): Promise<void> {
+  const unsafeEntry = await findUnsafeGitTreeEntry(storePath, commit);
+  if (!unsafeEntry) return;
+  const entryType = unsafeEntry.mode === "120000" ? "symlink" : "gitlink";
+  throw new Error(
+    `Git sync refused: ${treeLabel} contains ${entryType} ${unsafeEntry.path} (mode ${unsafeEntry.mode}). Synchronized Git trees must not contain symlinks or gitlinks.`
+  );
+}
+
+async function fetchVerifiedRemoteMainCommit(storePath: string): Promise<string> {
+  await git(storePath, ["fetch", "--no-tags", "origin", `+refs/heads/main:${MORYN_SYNC_REMOTE_REF}`]);
+  const commit = await git(storePath, ["rev-parse", "--verify", `${MORYN_SYNC_REMOTE_REF}^{commit}`]);
+  await assertHistoryExcludesLocalOnlyPaths(storePath, [commit], "remote main history");
+  await assertCommitTreeExcludesUnsafeEntryModes(storePath, commit, "remote main commit");
+  return commit;
 }
 
 async function readLastSync(storePath: string): Promise<GitLastSync | undefined> {
@@ -335,15 +436,14 @@ async function hasStagedChanges(storePath: string): Promise<boolean> {
   return !(await gitOk(storePath, ["diff", "--cached", "--quiet"]));
 }
 
-async function restoreLocalOnlyStateAfterGitUpdate(storePath: string, localConfig: StoreConfig): Promise<void> {
-  await writeStoreConfig(storePath, localConfig);
+async function rebuildLocalStateAfterGitUpdate(storePath: string): Promise<void> {
   await rebuildDerivedViews(storePath);
   await ensureGitIgnore(storePath);
   await untrackLocalOnlyPaths(storePath);
   await git(storePath, ["add", ".gitignore"]);
   await ensureGitIdentity(storePath);
   if (await hasStagedChanges(storePath)) {
-    await git(storePath, ["commit", "-m", "Migrate Moryn local-only files"]);
+    await git(storePath, ["commit", "-m", "Enforce Moryn local-only ignores"]);
   }
 }
 
@@ -413,34 +513,67 @@ async function gitConflictStatus(storePath: string): Promise<GitSyncConflictStat
 export async function initializeGitSync(storePath: string, remoteUrl: string): Promise<GitSyncResult> {
   validateRequiredString(storePath, "storePath");
   validateRequiredString(remoteUrl, "remoteUrl");
-  const localConfig = await readStoreConfig(storePath);
-  if (!(await gitOk(storePath, ["rev-parse", "--git-dir"]))) {
-    await git(storePath, ["init"]);
-  }
-  await ensureGitIdentity(storePath);
-  await ensureMainBranch(storePath);
-  await ensureGitIgnore(storePath);
-  await ensureRemote(storePath, remoteUrl);
-
-  if (!(await hasCommits(storePath)) && (await hasRemoteHead(storePath))) {
-    await git(storePath, ["fetch", "origin", "main"]);
-    await git(storePath, ["reset", "--hard", "origin/main"]);
-    await writeStoreConfig(storePath, localConfig);
-    await rebuildDerivedViews(storePath);
-  }
-
-  await ensureGitIgnore(storePath);
-  await untrackLocalOnlyPaths(storePath);
-  await git(storePath, ["add", "events", ".gitignore"]);
-  const shouldPushInitialCommit = !(await hasRemoteHead(storePath));
-  if (await hasStagedChanges(storePath)) {
-    await git(storePath, ["commit", "-m", "Initialize Moryn store"]);
-    if (shouldPushInitialCommit) {
-      await git(storePath, ["push", "-u", "origin", "main"]);
+  // Validate the Moryn store before lease acquisition creates its state directory.
+  await readStoreConfig(storePath);
+  return withStoreStateLease(storePath, async () => {
+    await readStoreConfig(storePath);
+    if (!(await gitOk(storePath, ["rev-parse", "--git-dir"]))) {
+      await git(storePath, ["init"]);
     }
-  }
-  await writeLastSync(storePath, "init");
-  return withSyncResultSelectionSources({ ok: true, message: "Git sync initialized" });
+    await ensureGitIdentity(storePath);
+    const hasLocalCommits = await hasCommits(storePath);
+    if (hasLocalCommits) {
+      await assertHistoryExcludesLocalOnlyPaths(storePath, ["HEAD"], "local history");
+      const localCommit = await git(storePath, ["rev-parse", "HEAD"]);
+      await assertCommitTreeExcludesUnsafeEntryModes(storePath, localCommit, "local commit");
+    }
+    await ensureMainBranch(storePath);
+    await ensureGitIgnore(storePath);
+    await ensureRemote(storePath, remoteUrl);
+
+    const remoteMainExists = await hasRemoteHead(storePath);
+    let importedRemoteIdentityDigest: string | undefined;
+    let importedRemoteCommit: string | undefined;
+    if (remoteMainExists) {
+      if (!hasLocalCommits) {
+        importedRemoteIdentityDigest = await captureSoulGitFetchRemoteIdentityDigest(storePath);
+      }
+      const remoteCommit = await fetchVerifiedRemoteMainCommit(storePath);
+      if (!hasLocalCommits) {
+        importedRemoteCommit = remoteCommit;
+        await git(storePath, ["reset", "--hard", remoteCommit]);
+      }
+    }
+    if (remoteMainExists && !hasLocalCommits) {
+      await rebuildDerivedViews(storePath);
+    }
+
+    await ensureGitIgnore(storePath);
+    await untrackLocalOnlyPaths(storePath);
+    await git(storePath, ["add", "events", ".gitignore"]);
+    const shouldPushInitialCommit = !remoteMainExists;
+    if (await hasStagedChanges(storePath)) {
+      await git(storePath, ["commit", "-m", "Initialize Moryn store"]);
+    }
+    if (shouldPushInitialCommit && (await hasCommits(storePath))) {
+      await assertHistoryExcludesLocalOnlyPaths(storePath, ["HEAD"], "history selected for initial push");
+      const pushedCommit = await git(storePath, ["rev-parse", "HEAD"]);
+      await assertCommitTreeExcludesUnsafeEntryModes(storePath, pushedCommit, "commit selected for initial push");
+      const remoteIdentityDigest = await captureSoulGitPushRemoteIdentityDigest(storePath);
+      await git(storePath, ["push", "-u", "origin", "main"]);
+      await recordPushedSoulSyncReceipts(storePath, remoteIdentityDigest, pushedCommit);
+    }
+    if (importedRemoteIdentityDigest && importedRemoteCommit) {
+      await recordPulledAndVerifiedSoulSyncReceipts(
+        storePath,
+        "init",
+        importedRemoteIdentityDigest,
+        importedRemoteCommit
+      );
+    }
+    await writeLastSync(storePath, "init");
+    return withSyncResultSelectionSources({ ok: true, message: "Git sync initialized" });
+  });
 }
 
 export async function getGitSyncStatus(storePath: string): Promise<GitSyncStatus> {
@@ -451,8 +584,10 @@ export async function getGitSyncStatus(storePath: string): Promise<GitSyncStatus
 
     const branch = await git(storePath, ["branch", "--show-current"]);
     const remote = await git(storePath, ["remote", "get-url", "origin"]).catch(() => undefined);
+    let remoteCommit: string | undefined;
     if (remote) {
       await git(storePath, ["fetch", "origin", "main"]).catch(() => undefined);
+      remoteCommit = await git(storePath, ["rev-parse", "--verify", "origin/main^{commit}"]).catch(() => undefined);
     }
     const porcelain = await git(storePath, ["status", "--porcelain"]);
     const conflict = await gitConflictStatus(storePath);
@@ -460,8 +595,8 @@ export async function getGitSyncStatus(storePath: string): Promise<GitSyncStatus
     const lastSync = await readLastSync(storePath);
     let ahead = 0;
     let behind = 0;
-    if (remote && (await gitOk(storePath, ["rev-parse", "--verify", "origin/main"]))) {
-      const counts = await git(storePath, ["rev-list", "--left-right", "--count", "HEAD...origin/main"]);
+    if (remoteCommit) {
+      const counts = await git(storePath, ["rev-list", "--left-right", "--count", `HEAD...${remoteCommit}`]);
       const [left, right] = counts.split(/\s+/).map((value) => Number(value));
       ahead = left ?? 0;
       behind = right ?? 0;
@@ -486,51 +621,82 @@ export async function getGitSyncStatus(storePath: string): Promise<GitSyncStatus
 
 export async function pullGitSync(storePath: string): Promise<GitSyncResult> {
   validateRequiredString(storePath, "storePath");
-  await ensureGitSyncConfigured(storePath);
-  const localConfig = await readStoreConfig(storePath);
-  if (!(await hasRemoteHead(storePath))) {
-    return withSyncResultSelectionSources({
-      ok: true,
-      pulled: false,
-      message: "Remote branch main does not exist yet"
-    });
-  }
-  await git(storePath, ["fetch", "origin", "main"]);
-  const hasLocal = await hasCommits(storePath);
-  if (!hasLocal) {
-    await git(storePath, ["checkout", "-B", "main", "origin/main"]);
-    await restoreLocalOnlyStateAfterGitUpdate(storePath, localConfig);
+  return withStoreStateLease(storePath, async () => {
+    await ensureGitSyncConfigured(storePath);
+    await readStoreConfig(storePath);
+    if (!(await hasRemoteHead(storePath))) {
+      return withSyncResultSelectionSources({
+        ok: true,
+        pulled: false,
+        message: "Remote branch main does not exist yet"
+      });
+    }
+    const remoteIdentityDigest = await captureSoulGitFetchRemoteIdentityDigest(storePath);
+    const remoteCommit = await fetchVerifiedRemoteMainCommit(storePath);
+    const hasLocal = await hasCommits(storePath);
+    if (hasLocal) {
+      await assertHistoryExcludesLocalOnlyPaths(storePath, ["HEAD"], "local history selected for rebase");
+      const localCommit = await git(storePath, ["rev-parse", "HEAD"]);
+      await assertCommitTreeExcludesUnsafeEntryModes(storePath, localCommit, "local commit selected for rebase");
+    }
+    if (!hasLocal) {
+      await git(storePath, ["checkout", "-B", "main", remoteCommit]);
+      await rebuildLocalStateAfterGitUpdate(storePath);
+      await recordPulledAndVerifiedSoulSyncReceipts(storePath, "pull", remoteIdentityDigest, remoteCommit);
+      await writeLastSync(storePath, "pull");
+      return withSyncResultSelectionSources({ ok: true, pulled: true });
+    }
+    await git(storePath, ["rebase", remoteCommit]);
+    await rebuildLocalStateAfterGitUpdate(storePath);
+    await recordPulledAndVerifiedSoulSyncReceipts(storePath, "pull", remoteIdentityDigest, remoteCommit);
     await writeLastSync(storePath, "pull");
     return withSyncResultSelectionSources({ ok: true, pulled: true });
-  }
-  await git(storePath, ["pull", "--rebase", "origin", "main"]);
-  await restoreLocalOnlyStateAfterGitUpdate(storePath, localConfig);
-  await writeLastSync(storePath, "pull");
-  return withSyncResultSelectionSources({ ok: true, pulled: true });
+  });
 }
 
 export async function pushGitSync(storePath: string, options: { message?: string } = {}): Promise<GitSyncResult> {
   validateRequiredString(storePath, "storePath");
   validateSyncOptions(options);
-  await ensureGitSyncConfigured(storePath);
-  const localConfig = await readStoreConfig(storePath);
-  await ensureGitIgnore(storePath);
-  await ensureGitIdentity(storePath);
-  await ensureMainBranch(storePath);
-  await untrackLocalOnlyPaths(storePath);
-  await git(storePath, ["add", "events", ".gitignore"]);
+  return withStoreStateLease(storePath, async () => {
+    await ensureGitSyncConfigured(storePath);
+    await readStoreConfig(storePath);
+    await ensureGitIdentity(storePath);
+    const hasLocalCommits = await hasCommits(storePath);
+    if (hasLocalCommits) {
+      await assertHistoryExcludesLocalOnlyPaths(storePath, ["HEAD"], "local history selected for push");
+      const localCommit = await git(storePath, ["rev-parse", "HEAD"]);
+      await assertCommitTreeExcludesUnsafeEntryModes(storePath, localCommit, "local commit selected for push");
+    }
+    await ensureMainBranch(storePath);
+    await ensureGitIgnore(storePath);
+    await untrackLocalOnlyPaths(storePath);
+    await git(storePath, ["add", "events", ".gitignore"]);
 
-  let committed = false;
-  if (await hasStagedChanges(storePath)) {
-    await git(storePath, ["commit", "-m", options.message ?? "Sync Moryn events"]);
-    committed = true;
-  }
+    let pulledRemoteIdentityDigest: string | undefined;
+    let remoteCommit: string | undefined;
+    if (await hasRemoteHead(storePath)) {
+      pulledRemoteIdentityDigest = await captureSoulGitFetchRemoteIdentityDigest(storePath);
+      remoteCommit = await fetchVerifiedRemoteMainCommit(storePath);
+    }
 
-  if (await hasRemoteHead(storePath)) {
-    await git(storePath, ["pull", "--rebase", "origin", "main"]);
-    await restoreLocalOnlyStateAfterGitUpdate(storePath, localConfig);
-  }
-  await git(storePath, ["push", "-u", "origin", "main"]);
-  await writeLastSync(storePath, "push");
-  return withSyncResultSelectionSources({ ok: true, committed, pushed: true });
+    let committed = false;
+    if (await hasStagedChanges(storePath)) {
+      await git(storePath, ["commit", "-m", options.message ?? "Sync Moryn events"]);
+      committed = true;
+    }
+
+    if (remoteCommit && pulledRemoteIdentityDigest) {
+      await git(storePath, ["rebase", remoteCommit]);
+      await rebuildLocalStateAfterGitUpdate(storePath);
+      await recordPulledAndVerifiedSoulSyncReceipts(storePath, "pull", pulledRemoteIdentityDigest, remoteCommit);
+    }
+    await assertHistoryExcludesLocalOnlyPaths(storePath, ["HEAD"], "history selected for push");
+    const pushedCommit = await git(storePath, ["rev-parse", "HEAD"]);
+    await assertCommitTreeExcludesUnsafeEntryModes(storePath, pushedCommit, "commit selected for push");
+    const remoteIdentityDigest = await captureSoulGitPushRemoteIdentityDigest(storePath);
+    await git(storePath, ["push", "-u", "origin", "main"]);
+    await recordPushedSoulSyncReceipts(storePath, remoteIdentityDigest, pushedCommit);
+    await writeLastSync(storePath, "push");
+    return withSyncResultSelectionSources({ ok: true, committed, pushed: true });
+  });
 }

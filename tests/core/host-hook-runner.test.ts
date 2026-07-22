@@ -7,6 +7,7 @@ import { createEngine } from "../../src/core/engine.js";
 import { runHostHook } from "../../src/core/host-hook-runner.js";
 import { learningRecordIdentity } from "../../src/core/learning-ingestion.js";
 import { initializeProjectConfig } from "../../src/core/project.js";
+import { approveSoulProfileDraft, createSoulProfileDraft } from "../../src/core/soul-profile-management.js";
 import { SYNC_RESULT_SELECTION_SOURCES } from "../../src/sync/git.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
@@ -334,6 +335,76 @@ describe("host hook runner", () => {
         degradation: { mode: "native" }
       });
       expect(result.hook_output.additional_context).toContain("Implement hooks");
+    });
+  });
+
+  it("uses the project Soul binding for automatic SessionStart delivery", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const projectPath = join(storePath, "project");
+      const source = { client: "user", device_id: "device-a" };
+      const approvedProfiles = [];
+      for (const [subjectId, text] of [
+        ["primary", "Use the primary project persona."],
+        ["secondary", "Use the secondary project persona."]
+      ] as const) {
+        const draft = await createSoulProfileDraft(storePath, {
+          subject: { kind: "agent", subject_id: subjectId },
+          clauses: [
+            {
+              clause_key: "persona",
+              category: "identity",
+              text,
+              distribution: "personal_sync"
+            }
+          ],
+          source,
+          occurred_at: "2026-07-10T23:58:00.000Z"
+        });
+        approvedProfiles.push(
+          (
+            await approveSoulProfileDraft(storePath, {
+              revision_id: draft.revision.revision_id,
+              confirmed: true,
+              source,
+              occurred_at: "2026-07-10T23:59:00.000Z"
+            })
+          ).revision
+        );
+      }
+      const initialized = await initializeProjectConfig(projectPath, {
+        project_id: "moryn",
+        sync: { mode: "manual" }
+      });
+      await writeFile(
+        initialized.path,
+        `${JSON.stringify(
+          {
+            ...initialized.config,
+            soul: { agent_profile_id: approvedProfiles[0]!.profile_id, char_budget: 2048, token_budget: 512 }
+          },
+          null,
+          2
+        )}\n`,
+        "utf8"
+      );
+
+      const result = await runHostHook({
+        storePath,
+        project_path: projectPath,
+        hook: { ...base, cwd: projectPath, event: "session_start", trigger: "startup" },
+        current_task: "Use a configured project persona",
+        pull: false
+      });
+      const details = result.details as {
+        effective_soul: { status: string; deliverable: boolean; clauses: Array<{ text: string }> };
+      };
+
+      expect(details.effective_soul).toMatchObject({ status: "ready", deliverable: true });
+      expect(details.effective_soul.clauses.map((clause) => clause.text)).toEqual(["Use the primary project persona."]);
+      expect(result.soul_delivery).toMatchObject({
+        delivery: "prepared",
+        context: { host_context_prepared: true }
+      });
     });
   });
 

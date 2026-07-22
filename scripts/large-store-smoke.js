@@ -45,6 +45,7 @@ const smokeScript = `
   import { rebuildDerivedViews } from ${JSON.stringify(moduleUrl("derived"))};
   import { createEngine } from ${JSON.stringify(moduleUrl("engine"))};
   import { appendEventIfAbsent, readEventFileManifest, readEvents } from ${JSON.stringify(moduleUrl("store"))};
+  import { withStoreStateLease } from ${JSON.stringify(moduleUrl("state-lease"))};
   import { buildDashboardData, renderDashboardHtml } from ${JSON.stringify(observabilityModuleUrl("dashboard"))};
   import { initializeGitSync, pullGitSync, pushGitSync } from ${JSON.stringify(pathToFileURL(join(packageRoot, sourceRoot, "sync", `git.${extension}`)).href)};
 
@@ -59,44 +60,47 @@ const smokeScript = `
   const source = { client: "large-store-smoke", device_id: "device_large_store" };
   await initializeStore(store, { now: () => "2026-07-12T00:00:00.000Z", id: () => source.device_id });
 
-  const writes = [];
-  for (let projectIndex = 0; projectIndex < projectCount; projectIndex += 1) {
-    const projectId = "project-" + String(projectIndex).padStart(2, "0");
-    for (let recordIndex = 0; recordIndex < recordsPerProject; recordIndex += 1) {
-      const isTarget = projectId === targetProject && recordIndex === 0;
-      const id = isTarget ? targetRecordId : "memory-" + projectId + "-" + String(recordIndex).padStart(3, "0");
-      const timestamp = new Date(Date.UTC(2026, 0, 1, projectIndex, recordIndex)).toISOString();
-      const text = isTarget
-        ? "Moryn large-store verification uses a bounded retrieval shard named cobalt-orchid."
-        : "Deterministic distractor " + projectId + " record " + recordIndex + " for append-only scale verification.";
-      writes.push(appendEventIfAbsent(store, {
-        event_id: "evt-" + id,
-        op: "upsert_record",
-        record: {
-          id,
-          kind: "memory",
-          type: isTarget ? "decision" : "note",
-          scope: "project",
-          project_id: projectId,
-          tags: isTarget ? ["large-store", "cobalt-orchid"] : ["large-store", projectId],
-          content: { text },
-          state: "canonical",
-          confidence: 1,
-          priority: isTarget ? "high" : "normal",
-          visibility: "active",
+  // Seed one logical fixture under one lease while retaining durable, validated event appends.
+  await withStoreStateLease(store, async () => {
+    const writes = [];
+    for (let projectIndex = 0; projectIndex < projectCount; projectIndex += 1) {
+      const projectId = "project-" + String(projectIndex).padStart(2, "0");
+      for (let recordIndex = 0; recordIndex < recordsPerProject; recordIndex += 1) {
+        const isTarget = projectId === targetProject && recordIndex === 0;
+        const id = isTarget ? targetRecordId : "memory-" + projectId + "-" + String(recordIndex).padStart(3, "0");
+        const timestamp = new Date(Date.UTC(2026, 0, 1, projectIndex, recordIndex)).toISOString();
+        const text = isTarget
+          ? "Moryn large-store verification uses a bounded retrieval shard named cobalt-orchid."
+          : "Deterministic distractor " + projectId + " record " + recordIndex + " for append-only scale verification.";
+        writes.push(appendEventIfAbsent(store, {
+          event_id: "evt-" + id,
+          op: "upsert_record",
+          record: {
+            id,
+            kind: "memory",
+            type: isTarget ? "decision" : "note",
+            scope: "project",
+            project_id: projectId,
+            tags: isTarget ? ["large-store", "cobalt-orchid"] : ["large-store", projectId],
+            content: { text },
+            state: "canonical",
+            confidence: 1,
+            priority: isTarget ? "high" : "normal",
+            visibility: "active",
+            created_at: timestamp,
+            updated_at: timestamp,
+            source
+          },
           created_at: timestamp,
-          updated_at: timestamp,
           source
-        },
-        created_at: timestamp,
-        source
-      }));
-      if (writes.length === 50) {
-        await Promise.all(writes.splice(0));
+        }));
+        if (writes.length === 50) {
+          await Promise.all(writes.splice(0));
+        }
       }
     }
-  }
-  if (writes.length) await Promise.all(writes);
+    if (writes.length) await Promise.all(writes);
+  });
   await rebuildDerivedViews(store);
   await rm(join(store, "snapshots", "retrieval"), { recursive: true, force: true });
 

@@ -104,6 +104,15 @@ prove stdout transport, Host acknowledgment, or model obedience.
   files. A `personal_sync` event may carry only portable clauses and a
   metadata-only, integrity-checked approval attestation; status, receipts, and
   the dashboard never expose `local_only` clause text.
+- Remote stages are evidence-backed rather than inferred. `remote_pushed`
+  requires a successful push whose updated `origin/main` equals the inspected
+  HEAD containing the exact projection event. `remote_pulled_and_verified`
+  requires a completed pull or existing-remote initialization, derived rebuild,
+  an exact remote/local Git blob match, valid projection integrity, and (for an
+  approved revision) a portable approval chain verified without local overlays.
+  The ignored `state/soul-sync/` receipts use modes `0700`/`0600`, hash the
+  remote identity, and expose only metadata receipt IDs through status and the
+  Dashboard.
 - Activation requires explicit approval. Rollback is append-only and creates a
   new active revision. Concurrent active heads become a visible conflict, while
   compilation may use the last known good approved head.
@@ -121,13 +130,53 @@ prove stdout transport, Host acknowledgment, or model obedience.
 | --- | --- | --- |
 | Memory model | Legacy and v2 metadata produce deterministic layer/trust/retention views; malformed metadata fails conservatively. | Retention, lifecycle, record-read-model tests. |
 | Working set | Total/per-layer token budgets are hard for normal records; mandatory overflow and omitted records are explicit. | Read-model, retrieval-index, boot/recall, large-store tests. |
-| Session/Episode compaction | Coverage and digest checks gate rollups; exact rollup publication/readback precedes source archival; per-event receipts distinguish confirmed, best-effort, and existing-readback durability; replay and retry are idempotent. | Fold/rollup unit, transaction, engine, and lifecycle tests. |
+| Session/Episode compaction | Coverage and digest checks gate rollups; exact rollup publication/readback precedes source archival; per-event receipts distinguish confirmed, best-effort, and existing-readback durability; replay and retry are idempotent. Identical offline plans converge after Git sync, while divergent plans remain as an explicit review-required conflict. | Fold/rollup unit and transaction tests, compaction Git concurrency E2E, conflict-projection tests, and lifecycle tests. |
 | Restore/expansion | Restore appends state changes and expansion remains bounded, cycle-safe, privacy-safe, and digest-aware. | Coordinator and expansion tests. |
-| Portable Soul | Draft, approve, conflict fallback, distribution filtering, rollback, compilation, and metadata-only status preserve revision truth. | Soul profile/store/management tests. |
+| Semantic consolidation | Relationship-only proposals remain the default. An explicit structured merge uses exact source values, field/value lineage, trust/privacy checks, stable identities, source-digest CAS, and resumable source-hiding order. | Structured-merge planner and Engine transaction tests. |
+| Portable Soul | Draft, approve, conflict fallback, distribution filtering, rollback, compilation, and metadata-only status preserve revision truth. Exact Git event blobs and projection digests gate push proof; pulled approved revisions additionally require a portable approval chain. | Soul profile/store/management tests, two-store portability E2E, and exact Git receipt E2E. |
 | Hook preparation | Codex/Claude SessionStart and PostCompact prepare the selected revision for hook output, without claiming stdout transport, Host acknowledgment, or model obedience. | Host context, receipt, adapter, hook, and lifecycle tests. |
 | Interfaces | Engine, CLI, MCP, operation contracts, public exports, and dashboard expose consistent fields and safety language. | CLI/MCP/contracts/package/dashboard tests. |
 | Compatibility | v0.2/v0.3 stores open without event rewrites; derived artifacts rebuild lazily. | Upgrade smoke and package smoke. |
 | Release | Build, typecheck, lint, full tests, pack audit, smokes, diff check, and privacy audit pass. | `npm run release:check` plus final repository audit. |
+
+`npm run test:v04-acceptance` is the focused automated evidence gate. Its
+script builds the current TypeScript sources before running the fixtures, so
+child-process lease tests cannot load a stale `dist/` implementation. Its
+deterministic fixtures currently establish all of the following; these numbers
+are test-fixture measurements, not production telemetry:
+
+- active session-summary reduction is `80%`, canonical preservation is `100%`,
+  Recall@5 decline is `0`, protected-fact loss is `0`, and privacy leakage is
+  `0`; automatic Episode Rollup also refuses a partial public day summary when
+  the same bucket contains omitted private evidence;
+- the store lease recovers an ownerless recovery gate and a terminated owner,
+  never steals from a live owner merely because its timestamp looks stale, and
+  drains nested work before release; the Git transaction fixture also proves a
+  concurrent append cannot enter a blocked push and remains pending for the
+  next push;
+- identical dual-device Session Fold plans converge to one logical rollup with
+  one event set, while divergent plans produce symmetric
+  `semantic/needs_review` projections, a deterministic
+  `session_fold_conflicts` diagnostic, and a `review_required` planner result
+  instead of a third rollup; derived records, retrieval shards, legacy recall,
+  and Engine recall preserve the same conflict annotation;
+- structured semantic merge fixtures cover stable source/evidence lineage,
+  trust/privacy and unsafe-field boundaries, dependency mutation, exact event
+  and relationship-projection readback, partial-transaction recovery,
+  same-plan retry convergence inside one local store/state-lease domain,
+  quarantined recovery across the upsert-to-claim
+  process-interruption window, and rejection or isolation of competing local
+  candidate plans;
+- Portable Soul fixtures prove cross-device Effective Soul/hook digest
+  portability. `remote_pushed` requires the exact pushed Git event blob and
+  projection digest, while `remote_pulled_and_verified` for an approved
+  revision additionally requires the portable approval chain. Rejected pushes
+  produce no push proof, and missing attestations produce no false
+  pulled-and-verified proof.
+
+These gates cover logical archive/cold/restore behavior. Physical purge remains
+out of scope for v0.4: no acceptance result claims that Git history or previously
+synchronized bytes were erased.
 
 The v0.4 release-gate JSON extends the existing evidence matrix with
 `memory_distillation` and `portable_soul`. `acceptance_complete: true` is only
@@ -473,7 +522,8 @@ not another dashboard tab.
   instead of destructive merge.
 - Keep machine-readable actions for promote, archive, quarantine, revise, and
   timeline follow-up.
-- Verify that private, secret, and sensitive records stay hidden by default.
+- Verify that private/secret/sensitive tags and legacy content privacy markers
+  stay hidden by default.
 
 ### Phase 3: Setup Wizard
 

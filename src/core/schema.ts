@@ -17,6 +17,7 @@ export const recordPrioritySchema = z.enum(RECORD_PRIORITIES);
 export const recordVisibilitySchema = z.enum(RECORD_VISIBILITIES);
 export const isoDateTimeSchema = z.string().datetime();
 const nonEmptyStringSchema = z.string().min(1);
+const UNSAFE_OBJECT_PATH_SEGMENTS = new Set(["__proto__", "prototype", "constructor"]);
 
 export const recordSourceSchema = z.object({
   client: z.string().min(1),
@@ -28,7 +29,9 @@ export const recordSourceSchema = z.object({
 const revisionPatchSchema = z
   .record(z.string(), z.unknown())
   .refine((patch) => Object.keys(patch).length > 0, { message: "Patch must not be empty" })
-  .refine((patch) => Object.keys(patch).every(isValidPatchPath), { message: "Patch paths must not be empty" });
+  .refine((patch) => Object.keys(patch).every(isValidPatchPath), {
+    message: "Patch paths must contain only safe non-empty segments"
+  });
 
 const recordContentSchema = z
   .record(z.string(), z.unknown())
@@ -41,7 +44,7 @@ const recordContentSchema = z
   );
 
 export function isValidPatchPath(path: string): boolean {
-  return path.split(".").every((part) => part.length > 0);
+  return path.split(".").every((part) => part.length > 0 && !UNSAFE_OBJECT_PATH_SEGMENTS.has(part));
 }
 
 export const recordLinkSchema = z.object({

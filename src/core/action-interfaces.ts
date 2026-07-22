@@ -4,6 +4,7 @@ import {
   operationCliArgvByTool
 } from "../operation-contracts.js";
 import { commandLineForCliInterface } from "./cli-command-line.js";
+import { isValidPatchPath } from "./schema.js";
 
 type ActionInterfaces<_TArguments> = {
   cli: {
@@ -62,10 +63,11 @@ function pathValue(root: Record<string, unknown>, path: string): unknown {
 }
 
 function setPathValue(root: Record<string, unknown>, path: string, value: unknown): void {
+  if (!isValidPatchPath(path)) throw new Error(`Invalid or unsafe operation argument path: ${path}`);
   const parts = path.split(".");
   let current = root;
   for (const part of parts.slice(0, -1)) {
-    const existing = current[part];
+    const existing = Object.hasOwn(current, part) ? current[part] : undefined;
     if (typeof existing !== "object" || existing === null || Array.isArray(existing)) {
       current[part] = {};
     }

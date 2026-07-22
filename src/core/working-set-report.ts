@@ -1,7 +1,7 @@
 import { createEngine } from "./engine.js";
 import { buildActiveLogicalMemoryView } from "./logical-memory.js";
 import { replayEvents } from "./replay.js";
-import { isPrivateTags } from "./sensitive.js";
+import { isPrivateMemoryBoundary } from "./sensitive.js";
 import { readEvents } from "./store.js";
 import type { MorynEvent, MorynRecord } from "./types.js";
 
@@ -114,9 +114,9 @@ export async function buildWorkingSetReport(storePath: string, options: WorkingS
   const events = await readEvents(storePath);
   const allRecords = [...replayEvents(events).values()];
   const excludedPrivateRecords =
-    options.include_private === true ? 0 : allRecords.filter((record) => isPrivateTags(record.tags)).length;
+    options.include_private === true ? 0 : allRecords.filter(isPrivateMemoryBoundary).length;
   const records =
-    options.include_private === true ? allRecords : allRecords.filter((record) => !isPrivateTags(record.tags));
+    options.include_private === true ? allRecords : allRecords.filter((record) => !isPrivateMemoryBoundary(record));
   const visibleRecordIds = new Set(records.map((record) => record.id));
   const visibleEvents = events.filter((event) =>
     eventRecordIds(event).every((recordId) => visibleRecordIds.has(recordId))
@@ -126,12 +126,13 @@ export async function buildWorkingSetReport(storePath: string, options: WorkingS
     current_task: options.current_task,
     include_private: options.include_private === true
   });
+  const defaultBootRecords = Object.keys(boot.records_by_id).filter((recordId) =>
+    visibleRecordIds.has(recordId)
+  ).length;
   return summarizeWorkingSet(records, visibleEvents, {
-    default_boot_records: Object.keys(boot.records_by_id).length,
+    default_boot_records: defaultBootRecords,
     excluded_private_records: excludedPrivateRecords,
     excluded_private_record_ids:
-      options.include_private === true
-        ? []
-        : allRecords.filter((record) => isPrivateTags(record.tags)).map((record) => record.id)
+      options.include_private === true ? [] : allRecords.filter(isPrivateMemoryBoundary).map((record) => record.id)
   });
 }

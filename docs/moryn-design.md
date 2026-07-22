@@ -66,7 +66,7 @@ Recommended package name:
 5. Recall is selective even when storage is fully synced.
 6. Durable memory requires promotion.
 7. Raw session material is useful but should not pollute boot context.
-8. Private-tagged records require explicit read intent.
+8. Private-boundary records require explicit read intent.
 9. The first version must work without semantic embeddings.
 10. Default path: setup, context pack, capture, dashboard review, approve,
     sync, and recall should stay fast and simple.
@@ -218,8 +218,8 @@ The core engine owns:
 - Boot context generation.
 - Recall filtering and ranking.
 - Timeline windows around record, event, or query anchors.
-- Private read-boundary filtering for active records tagged `private`,
-  `secret`, or `sensitive`.
+- Shared private read-boundary filtering for tags and legacy content privacy
+  markers.
 - Sync cursor evaluation.
 - Promotion and state transitions.
 - Sensitive content checks.
@@ -231,10 +231,13 @@ Clients should still use stable, host-specific identities such as `codex`,
 metadata so derived views can distinguish activity by real agent host.
 
 Read APIs share one private boundary. Normal `boot`, `recall`, `refresh`,
-`timeline`, `list_recent`, `memory_doctor`, and dashboard reads hide active records tagged
-`private`, `secret`, or `sensitive`. These records stay in event history and
-sync like other active records, but agents need an explicit `include_private`
-argument or `--include-private` flag to retrieve them.
+`timeline`, `list_recent`, `memory_doctor`, and dashboard reads hide active
+records tagged `private`, `secret`, or `sensitive`, plus records marked by
+`content.privacy: "private"` or `content.distribution: "local_only"`. These
+records stay in event history and sync like other active records, but agents
+need an explicit `include_private` argument or `--include-private` flag to
+retrieve them. Ordinary-memory `local_only` is therefore a read boundary, not a
+claim that its event bytes cannot enter store Git history.
 
 ### Local Store
 
@@ -250,7 +253,8 @@ The repo under active work may optionally contain:
 .moryn.json
 ```
 
-That file can override project identity, tags, default skills, and sync policy. It is not required.
+That file can override project identity, tags, default skills, sync policy, and
+optional Effective Soul profile bindings and budgets. It is not required.
 
 Recommended local store layout:
 
@@ -2735,6 +2739,35 @@ Each event is a separate JSON file. Personal scale is small enough that this is 
 ### Snapshot and Index Conflicts
 
 Snapshots and indexes are derived. The default Git sync should commit events only. Snapshots and indexes can be rebuilt locally after pull. If a future mode chooses to sync generated snapshots for performance, conflicts must be resolved by rebuilding them from events instead of asking the user to manually resolve generated data.
+
+### Structured Semantic Merge
+
+Structured semantic merge is an opt-in extension of the existing authored
+proposal JSON. It may retain an exact source value, deterministically union
+exact array members, or explicitly replace/obsolete a field with evidence. It
+never accepts synthesized output values. The derived record has a content-based
+stable ID plus source/evidence digests and per-field/value lineage. Evidence
+content therefore participates in identity, and the causal timestamp follows
+the latest cited dependency. The record is first written and read back with
+quarantined state/visibility. Only after its deterministic source-snapshot claim
+is projected does a separate event activate it as a candidate. It becomes
+canonical only when all sources and disposition evidence preserve canonical
+trust. Candidate results use non-hiding support links.
+Without an explicit `structured_merge.version: 1` object, semantic
+consolidation remains relationship-only and does not create a derived record.
+
+Local structured merge holds the store state lease from source read through the
+final link. It checks an existing source-snapshot claim before upsert, validates
+source and evidence digests, and reads every appended relationship back from the
+projection before continuing. A provisional upsert is quarantined and omitted
+from default retrieval, closing the process-interruption window before claim;
+explicit quarantined-state audit reads remain possible. Deterministic candidate
+activation and canonical promotion use distinct ordered events. Stable
+idempotent events make retry deterministic. Partial writes resume; a different
+local candidate plan can activate only one winner while any unclaimed orphan
+remains quarantined, and a stale plan cannot produce a second canonical record.
+Protected replacement or obsolescence requires user-confirmed evidence in the
+same active scope/project/privacy boundary.
 
 ### Semantic Conflicts
 

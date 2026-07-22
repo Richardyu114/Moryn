@@ -12,6 +12,7 @@ import {
 } from "../sync/git.js";
 import { type ActionInterfaces, actionInterfaces } from "./action-interfaces.js";
 import { type ActionExecution, type ActionSafety, actionExecution, actionSafety } from "./action-safety.js";
+import { type AutomaticEpisodeRollupResult, runAutomaticEpisodeRollups } from "./automatic-episode-rollup.js";
 import type { RecoveryPack } from "./checkpoint.js";
 import { buildCheckpointRecoveryPack } from "./checkpoint.js";
 import { activateClaudeSettings } from "./claude-activation.js";
@@ -66,6 +67,10 @@ interface AgentLifecycleInput {
   agent?: unknown;
   syncRemote?: string;
   hostRuntime?: HostRuntimeDescriptor;
+  userSoulProfileId?: string;
+  agentSoulProfileId?: string;
+  soulCharBudget?: number;
+  soulTokenBudget?: number;
 }
 
 export interface AgentStartInput extends AgentLifecycleInput {
@@ -73,10 +78,6 @@ export interface AgentStartInput extends AgentLifecycleInput {
   refreshSince?: unknown;
   limit?: unknown;
   includePrivate?: boolean;
-  userSoulProfileId?: string;
-  agentSoulProfileId?: string;
-  soulCharBudget?: number;
-  soulTokenBudget?: number;
 }
 
 export interface AgentFinishInput extends AgentLifecycleInput {
@@ -99,6 +100,7 @@ export interface AgentLifecycleDeps {
   pushGitSync?: typeof pushGitSync;
   handoffPayloadFingerprint?: string;
   finalizationRecovery?: { recovery_key: string; evidence_record_ids: string[] };
+  runAutomaticEpisodeRollups?: typeof runAutomaticEpisodeRollups;
 }
 
 export interface AgentSessionFoldWarning {
@@ -1365,6 +1367,18 @@ function appendOption(parts: string[], name: string, value: string | undefined):
   parts.push(name, shellQuote(value));
 }
 
+function appendNumberOption(parts: string[], name: string, value: number | undefined): void {
+  if (value === undefined) return;
+  parts.push(name, String(value));
+}
+
+function appendSoulOptions(parts: string[], input: AgentLifecycleInput): void {
+  appendOption(parts, "--user-profile-id", input.userSoulProfileId);
+  appendOption(parts, "--agent-profile-id", input.agentSoulProfileId);
+  appendNumberOption(parts, "--soul-char-budget", input.soulCharBudget);
+  appendNumberOption(parts, "--soul-token-budget", input.soulTokenBudget);
+}
+
 function appendTemplateOption(parts: string[], name: string, value: string | undefined): void {
   if (value === undefined) return;
   parts.push(name, /^<[^>]+>$/.test(value) ? value : shellQuote(value));
@@ -1389,6 +1403,7 @@ function buildAgentStartCommand(input: AgentLifecycleInput): string {
   appendOption(parts, "--session-id", agentIdentityFromInput(input)?.session_id);
   appendOption(parts, "--model", agentIdentityFromInput(input)?.model);
   appendOption(parts, "--device-id", agentIdentityFromInput(input)?.device_id);
+  appendSoulOptions(parts, input);
   return parts.join(" ");
 }
 
@@ -1402,6 +1417,7 @@ function buildDiscoveredProjectStartTemplateCommand(input: AgentLifecycleInput):
   appendOption(parts, "--session-id", agentIdentityFromInput(input)?.session_id);
   appendOption(parts, "--model", agentIdentityFromInput(input)?.model);
   appendOption(parts, "--device-id", agentIdentityFromInput(input)?.device_id);
+  appendSoulOptions(parts, input);
   return parts.join(" ");
 }
 
@@ -1415,6 +1431,7 @@ function buildAgentEnterCommand(input: AgentLifecycleInput): string {
   appendOption(parts, "--session-id", agentIdentityFromInput(input)?.session_id);
   appendOption(parts, "--model", agentIdentityFromInput(input)?.model);
   appendOption(parts, "--device-id", agentIdentityFromInput(input)?.device_id);
+  appendSoulOptions(parts, input);
   return parts.join(" ");
 }
 
@@ -1432,6 +1449,7 @@ function buildAgentStartTemplateCommand(input: AgentLifecycleInput, requiredFiel
   appendOption(parts, "--session-id", agentIdentityFromInput(input)?.session_id);
   appendOption(parts, "--model", agentIdentityFromInput(input)?.model);
   appendOption(parts, "--device-id", agentIdentityFromInput(input)?.device_id);
+  appendSoulOptions(parts, input);
   return parts.join(" ");
 }
 
@@ -1445,6 +1463,7 @@ function buildAgentRefreshCommand(input: AgentLifecycleInput, cursor: string): s
   appendOption(parts, "--session-id", agentIdentityFromInput(input)?.session_id);
   appendOption(parts, "--model", agentIdentityFromInput(input)?.model);
   appendOption(parts, "--device-id", agentIdentityFromInput(input)?.device_id);
+  appendSoulOptions(parts, input);
   appendOption(parts, "--refresh-since", cursor);
   return parts.join(" ");
 }
@@ -1459,6 +1478,7 @@ function buildAgentRefreshTemplateCommand(input: AgentLifecycleInput): string {
   appendOption(parts, "--session-id", agentIdentityFromInput(input)?.session_id);
   appendOption(parts, "--model", agentIdentityFromInput(input)?.model);
   appendOption(parts, "--device-id", agentIdentityFromInput(input)?.device_id);
+  appendSoulOptions(parts, input);
   parts.push("--refresh-since", "<refresh_since>");
   return parts.join(" ");
 }
@@ -1577,7 +1597,22 @@ function lifecycleActionArguments(input: AgentLifecycleInput): {
   };
 }
 
-function agentEnterActionTemplate(command: string, args: ReturnType<typeof lifecycleActionArguments>) {
+function lifecycleStartupActionArguments(input: AgentLifecycleInput): ReturnType<typeof lifecycleActionArguments> & {
+  user_profile_id?: string;
+  agent_profile_id?: string;
+  soul_char_budget?: number;
+  soul_token_budget?: number;
+} {
+  return {
+    ...lifecycleActionArguments(input),
+    user_profile_id: input.userSoulProfileId,
+    agent_profile_id: input.agentSoulProfileId,
+    soul_char_budget: input.soulCharBudget,
+    soul_token_budget: input.soulTokenBudget
+  };
+}
+
+function agentEnterActionTemplate(command: string, args: ReturnType<typeof lifecycleStartupActionArguments>) {
   const requiredFields: string[] = [];
   return withGuideEntrypointSelectionSources(
     withActionInterfaces({
@@ -1682,7 +1717,7 @@ function refreshActionArguments(
   agent?: AgentIdentity;
 } {
   return {
-    ...lifecycleActionArguments(input),
+    ...lifecycleStartupActionArguments(input),
     refresh_since: cursor
   };
 }
@@ -1725,7 +1760,7 @@ function agentStartActionArguments(
   current_task?: string;
   agent?: AgentIdentity;
 } {
-  const args = lifecycleActionArguments(input);
+  const args = lifecycleStartupActionArguments(input);
   if (requiredFields.includes("current_task") && !input.currentTask) {
     return { ...args, current_task: "<current_task>" };
   }
@@ -1819,7 +1854,7 @@ function checkpointLifecycleActions(
           required_when:
             "After compaction or when reopening this agent session and boot.checkpoint_recovery_pack.available is true.",
           required_fields: [],
-          arguments: lifecycleActionArguments(input),
+          arguments: lifecycleStartupActionArguments(input),
           argument_sources: { recovery_pack: "boot.checkpoint_recovery_pack" },
           workflow: {
             version: 1,
@@ -2255,9 +2290,11 @@ function agentGuideLifecycleWithSelectionSources(
 ) {
   const lifecycleInput = ensureGuideProjectIdentity(input);
   const lifecycleArguments = lifecycleActionArguments(lifecycleInput);
+  const lifecycleStartupArguments = lifecycleStartupActionArguments(lifecycleInput);
   const startCommand =
     startTool === "agent_start" ? buildAgentStartCommand(lifecycleInput) : buildAgentEnterCommand(input);
-  const startArguments = startTool === "agent_start" ? lifecycleArguments : lifecycleActionArguments(input);
+  const startArguments =
+    startTool === "agent_start" ? lifecycleStartupArguments : lifecycleStartupActionArguments(input);
   const startRequiredFields: string[] = [];
   const statusRequiredFields = guideRequiredFields(input, ["status"]);
   const finishRequiredFields = guideRequiredFields(input, ["summary"]);
@@ -2316,7 +2353,7 @@ function agentGuideLifecycleWithSelectionSources(
         command: buildAgentRefreshTemplateCommand(lifecycleInput),
         required_fields: refreshRequiredFields,
         workflow: lifecycleStepWorkflow("refresh_context", "agent_start", REFRESH_CONTEXT_WHEN, refreshRequiredFields),
-        arguments: { ...lifecycleArguments, refresh_since: "<refresh_since>" },
+        arguments: { ...lifecycleStartupArguments, refresh_since: "<refresh_since>" },
         argument_sources: userInputArgumentSources(refreshRequiredFields)
       }),
       selectionSources,
@@ -2990,13 +3027,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
               actions: doctorActions,
               actions_by_id: lifecycleActionsById(doctorActions),
               selection_sources: LIFECYCLE_NEXT_SELECTION_SOURCES,
-              arguments: {
-                project_path: input.projectPath,
-                project_id: input.projectId,
-                sync_remote: input.syncRemote,
-                current_task: input.currentTask,
-                agent: agentIdentityFromInput(input)
-              }
+              arguments: lifecycleStartupActionArguments(input)
             })
           : withActionInterfaces({
               recommended_action: "fix_project_config",
@@ -3138,7 +3169,7 @@ export async function agentGuide(input: AgentGuideInput) {
   validateLifecycleCurrentTask(input.currentTask, "agent_guide");
   validateLifecycleSyncRemote(input.syncRemote, "agent_guide");
   const command = buildAgentEnterCommand(input);
-  const startupArguments = lifecycleActionArguments(input);
+  const startupArguments = lifecycleStartupActionArguments(input);
   const startup = agentEnterActionTemplate(command, startupArguments);
   const lifecycle = agentGuideLifecycle(input);
   const guardrails = agentGuideGuardrails(startup);
@@ -3223,6 +3254,7 @@ async function assurePriorSessionFinalization(
       now: () => nowIso,
       createEngine: deps.createEngine,
       pushGitSync: deps.pushGitSync,
+      runAutomaticEpisodeRollups: deps.runAutomaticEpisodeRollups,
       handoffPayloadFingerprint: selection.recovery_key,
       finalizationRecovery: { recovery_key: selection.recovery_key, evidence_record_ids: selection.evidence_record_ids }
     }
@@ -3320,10 +3352,10 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
     default_skills: projectInfo.default_skills,
     current_task: input.currentTask,
     agent_session_id: agentIdentityFromInput(input)?.session_id,
-    user_profile_id: input.userSoulProfileId,
-    agent_profile_id: input.agentSoulProfileId,
-    soul_char_budget: input.soulCharBudget,
-    soul_token_budget: input.soulTokenBudget,
+    user_profile_id: input.userSoulProfileId ?? project.config?.soul?.user_profile_id,
+    agent_profile_id: input.agentSoulProfileId ?? project.config?.soul?.agent_profile_id,
+    soul_char_budget: input.soulCharBudget ?? project.config?.soul?.char_budget,
+    soul_token_budget: input.soulTokenBudget ?? project.config?.soul?.token_budget,
     include_private: input.includePrivate
   });
   const refresh = await engine.refresh({
@@ -3499,6 +3531,13 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
       return { status: "failed", plan, warning: sessionFoldWarning("apply", error) };
     }
   })();
+  const episodeRollup: AutomaticEpisodeRollupResult = await (
+    deps.runAutomaticEpisodeRollups ?? runAutomaticEpisodeRollups
+  )({
+    store_path: input.storePath,
+    project_id: project.project_id,
+    now: lifecycleNow
+  });
   const shouldPush = input.push ?? projectInfo.sync_mode !== "manual";
   const sync: {
     push?: GitSyncResult;
@@ -3536,6 +3575,7 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     learning_inbox: learningInbox,
     semantic_consolidation: semanticConsolidation,
     session_fold: sessionFold,
+    episode_rollup: episodeRollup,
     sync,
     next: {
       recommended_start_command: "moryn agent start --project <path> --current-task <task>",

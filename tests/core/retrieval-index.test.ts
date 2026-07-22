@@ -6,7 +6,8 @@ import type { EventManifest } from "../../src/core/record-read-model.js";
 import {
   buildRetrievalIndex,
   readRetrievalCandidates,
-  retrievalProjectShardName
+  retrievalProjectShardName,
+  writeRetrievalIndex
 } from "../../src/core/retrieval-index.js";
 import type { MorynRecord } from "../../src/core/types.js";
 
@@ -72,6 +73,39 @@ describe("retrieval index", () => {
     expect(index.projects.alpha?.records.map((item) => item.id)).toEqual(["alpha"]);
     expect(index.projects.beta?.records.map((item) => item.id)).toEqual(["beta"]);
     expect(retrievalProjectShardName("a/b c")).toBe("YS9iIGM.json");
+  });
+
+  it("preserves prototype-shaped project ids in memory and across JSON persistence", async () => {
+    const projectIds = ["__proto__", "constructor", "prototype"];
+    const records = projectIds.map((projectId) => record(`record-${projectId}`, "project", projectId));
+    const index = buildRetrievalIndex(records, manifest);
+
+    expect(Object.getPrototypeOf(index.projects)).toBeNull();
+    expect(Object.keys(index.projects).sort()).toEqual([...projectIds].sort());
+    for (const projectId of projectIds) {
+      expect(Object.hasOwn(index.projects, projectId)).toBe(true);
+      expect(index.projects[projectId]?.records.map((item) => item.id)).toEqual([`record-${projectId}`]);
+    }
+
+    await withTempStore(async (storePath) => {
+      await writeRetrievalIndex(storePath, index);
+      const persistedMetadata = JSON.parse(
+        await readFile(join(storePath, "snapshots", "retrieval", "metadata.json"), "utf8")
+      ) as { projects: Record<string, unknown> };
+      for (const projectId of projectIds) expect(Object.hasOwn(persistedMetadata.projects, projectId)).toBe(true);
+
+      for (const projectId of projectIds) {
+        const result = await readRetrievalCandidates(storePath, {
+          project_id: projectId,
+          read_event_manifest: async () => manifest,
+          read_current_records: async () => {
+            throw new Error("unexpected complete read");
+          }
+        });
+        expect(result.source).toBe("retrieval_index");
+        expect(result.records.map((item) => item.id)).toEqual([`record-${projectId}`]);
+      }
+    });
   });
 
   it("indexes only hot and warm memory by default while allowing explicit history builds", () => {

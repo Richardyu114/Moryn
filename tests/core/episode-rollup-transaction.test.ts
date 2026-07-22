@@ -1,5 +1,6 @@
 import { chmod, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { describe, expect, it } from "vitest";
 import { planEpisodeRollup } from "../../src/core/episode-rollup.js";
 import {
@@ -162,6 +163,61 @@ describe("Episode Rollup transaction", () => {
       expect(second.existing_event_ids).toEqual(first.receipt.event_ids);
       expect(second.receipt).toEqual(first.receipt);
       expect((await readEvents(storePath)).length).toBe(eventCount);
+    });
+  });
+
+  it("serializes different plans and rejects the queued stale plan before it can append", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      await seedRecords(storePath);
+      const records = (await readCurrentRecords(storePath)).records;
+      const firstPlan = planEpisodeRollup(records, IDENTITY, POLICY)!;
+      const stalePlan = planEpisodeRollup(records, IDENTITY, {
+        now: "2026-07-21T12:00:00.000Z",
+        recent_window_days: 7
+      })!;
+      expect(firstPlan.status).toBe("ready");
+      expect(stalePlan.status).toBe("ready");
+      expect(stalePlan.plan_id).not.toBe(firstPlan.plan_id);
+
+      let markFirstAppendStarted!: () => void;
+      const firstAppendStarted = new Promise<void>((resolve) => {
+        markFirstAppendStarted = resolve;
+      });
+      let releaseFirstAppend!: () => void;
+      const firstAppendRelease = new Promise<void>((resolve) => {
+        releaseFirstAppend = resolve;
+      });
+      let firstAppend = true;
+      const firstApply = applyEpisodeRollupPlan(storePath, firstPlan, {
+        append_event: async (path, event) => {
+          if (firstAppend) {
+            firstAppend = false;
+            markFirstAppendStarted();
+            await firstAppendRelease;
+          }
+          return appendEventIfAbsent(path, event);
+        }
+      });
+      await firstAppendStarted;
+
+      let staleAppendCount = 0;
+      const queuedApply = applyEpisodeRollupPlan(storePath, stalePlan, {
+        append_event: async (path, event) => {
+          staleAppendCount += 1;
+          return appendEventIfAbsent(path, event);
+        }
+      });
+      try {
+        await delay(50);
+        expect(staleAppendCount).toBe(0);
+      } finally {
+        releaseFirstAppend();
+      }
+
+      await expect(firstApply).resolves.toMatchObject({ receipt: { plan_id: firstPlan.plan_id } });
+      await expect(queuedApply).rejects.toThrow("Stale Episode Rollup plan");
+      expect(staleAppendCount).toBe(0);
+      expect((await readEvents(storePath)).some((event) => event.event_id.includes(stalePlan.plan_id))).toBe(false);
     });
   });
 

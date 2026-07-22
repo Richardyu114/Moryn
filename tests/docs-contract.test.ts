@@ -117,7 +117,8 @@ describe("documentation contracts", () => {
     expectText(migration, "offline guessing against the ID");
     expectText(migration, "provides a content-integrity chain, not a device-key signature");
     expectText(migration, "can verify only the portable projection digest");
-    expectText(migration, "That overlay selection is not ancestry-aware");
+    expectText(migration, "uses the nearest local full revision on that remote revision's parent ancestry");
+    expectText(migration, "does not carry a device-local overlay across an unrelated concurrent branch");
   });
 
   it("documents v0.4 Memory Distillation and Portable Soul safety boundaries", async () => {
@@ -151,6 +152,11 @@ describe("documentation contracts", () => {
     expect(contracts).toContain("soul_draft");
     expect(contracts).toContain("soul_approve");
     expect(contracts).toContain("soul_rollback");
+    expectText(contracts, "By default, proposals are relationship-only");
+    expectText(contracts, "Only an explicit `structured_merge` object with `version: 1`");
+    expectText(contracts, "transactionally creating a new derived record");
+    expectText(workflow, "Without an explicit `structured_merge.version: 1` plan");
+    expectText(design, "semantic consolidation remains relationship-only and does not create a derived record");
 
     expectText(design, "three orthogonal axes rather than one overloaded state field");
     expectText(

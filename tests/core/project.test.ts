@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { access, mkdir, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
@@ -112,6 +112,31 @@ describe("project config", () => {
     });
   });
 
+  it("reads and preserves optional project Soul bindings and budgets", async () => {
+    await withTempStore(async (projectPath) => {
+      const configPath = join(projectPath, ".moryn.json");
+      const soul = {
+        user_profile_id: "user-primary",
+        agent_profile_id: "agent-codex",
+        char_budget: 4096,
+        token_budget: 1024
+      };
+      await writeFile(
+        configPath,
+        `${JSON.stringify({ project_id: "moryn", sync: { mode: "manual" }, soul }, null, 2)}\n`,
+        "utf8"
+      );
+
+      await expect(readProjectConfig(projectPath)).resolves.toMatchObject({ soul });
+      const updated = await initializeProjectConfig(projectPath, { tags: ["typescript"] });
+      expect(updated.config).toMatchObject({ project_id: "moryn", tags: ["typescript"], soul });
+      await expect(resolveProjectContext({ projectPath })).resolves.toMatchObject({
+        project_id: "moryn",
+        config: { soul }
+      });
+    });
+  });
+
   it("rejects invalid project config initialization input before writing", async () => {
     await withTempStore(async (projectPath) => {
       await expectInvalidProjectArgument(
@@ -206,6 +231,36 @@ describe("project config", () => {
         default_skills: [],
         sync: { mode: "manual" }
       });
+      await expect(readProjectConfig(projectPath)).resolves.toEqual(result.config);
+    });
+  });
+
+  it("rejects a symlinked project config without modifying its destination", async () => {
+    await withTempStore(async (root) => {
+      const projectPath = join(root, "project");
+      const outside = join(root, "outside.json");
+      const original = '{"project_id":"outside","sync":{"mode":"manual"}}\n';
+      await mkdir(projectPath, { recursive: true });
+      await writeFile(outside, original, "utf8");
+      await symlink(outside, join(projectPath, ".moryn.json"));
+
+      await expect(initializeProjectConfig(projectPath, { project_id: "moryn", repair: true })).rejects.toThrow(
+        /symbolic link/
+      );
+      await expect(readFile(outside, "utf8")).resolves.toBe(original);
+    });
+  });
+
+  it("allows project initialization through a symlinked project path", async () => {
+    await withTempStore(async (root) => {
+      const projectPath = join(root, "real-project");
+      const alias = join(root, "project-alias");
+      await mkdir(projectPath, { recursive: true });
+      await symlink(projectPath, alias, "dir");
+
+      const result = await initializeProjectConfig(alias, { project_id: "moryn" });
+
+      expect(result.path).toBe(join(projectPath, ".moryn.json"));
       await expect(readProjectConfig(projectPath)).resolves.toEqual(result.config);
     });
   });

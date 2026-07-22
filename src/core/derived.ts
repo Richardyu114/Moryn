@@ -1,10 +1,12 @@
-import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { setTimeout as delay } from "node:timers/promises";
 import { displayRecordText, searchableRecordText } from "./content-text.js";
 import { buildRecordReadModel } from "./record-read-model.js";
 import { replayEvents } from "./replay.js";
 import { buildRetrievalIndex, writeRetrievalIndex } from "./retrieval-index.js";
+import { annotateSessionFoldConflicts } from "./session-fold-conflicts.js";
+import { withStoreStateLease } from "./state-lease.js";
 import { readEventFileManifest, readEvents } from "./store.js";
 import type { MorynRecord } from "./types.js";
 
@@ -43,99 +45,6 @@ export interface RebuildResult {
   selection_sources: typeof REBUILD_SELECTION_SOURCES;
 }
 
-const REBUILD_LOCK_TIMEOUT_MS = 60_000;
-const REBUILD_LOCK_STALE_MS = 120_000;
-const REBUILD_LOCK_POLL_MS = 25;
-
-function hasErrorCode(error: unknown, code: string): boolean {
-  return error instanceof Error && "code" in error && (error as { code?: unknown }).code === code;
-}
-
-function lockOwner(token: string): string {
-  return `${JSON.stringify(
-    {
-      token,
-      pid: process.pid,
-      updated_at: new Date().toISOString()
-    },
-    null,
-    2
-  )}\n`;
-}
-
-async function readLockToken(ownerPath: string): Promise<string | undefined> {
-  try {
-    const raw = JSON.parse(await readFile(ownerPath, "utf8")) as { token?: unknown };
-    return typeof raw.token === "string" ? raw.token : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-async function lockUpdatedAt(lockPath: string, ownerPath: string): Promise<number | undefined> {
-  try {
-    return (await stat(ownerPath)).mtimeMs;
-  } catch (error) {
-    if (!hasErrorCode(error, "ENOENT")) throw error;
-  }
-  try {
-    return (await stat(lockPath)).mtimeMs;
-  } catch (error) {
-    if (hasErrorCode(error, "ENOENT")) return undefined;
-    throw error;
-  }
-}
-
-async function withRebuildLock<T>(storePath: string, fn: () => Promise<T>): Promise<T> {
-  const statePath = join(storePath, "state");
-  const lockPath = join(statePath, "rebuild.lock");
-  const ownerPath = join(lockPath, "owner.json");
-  const token = `${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const startedAt = Date.now();
-
-  await mkdir(statePath, { recursive: true });
-
-  while (true) {
-    try {
-      await mkdir(lockPath);
-      break;
-    } catch (error) {
-      if (!hasErrorCode(error, "EEXIST")) throw error;
-
-      const updatedAt = await lockUpdatedAt(lockPath, ownerPath);
-      if (updatedAt === undefined) continue;
-      if (Date.now() - updatedAt > REBUILD_LOCK_STALE_MS) {
-        await rm(lockPath, { recursive: true, force: true });
-        continue;
-      }
-      if (Date.now() - startedAt > REBUILD_LOCK_TIMEOUT_MS) {
-        throw new Error("Derived view rebuild lock timed out");
-      }
-      await delay(REBUILD_LOCK_POLL_MS);
-    }
-  }
-
-  try {
-    await writeFile(ownerPath, lockOwner(token), "utf8");
-  } catch (error) {
-    await rm(lockPath, { recursive: true, force: true });
-    throw error;
-  }
-  const heartbeat = setInterval(() => {
-    void writeFile(ownerPath, lockOwner(token), "utf8").catch(() => undefined);
-  }, REBUILD_LOCK_STALE_MS / 4);
-  heartbeat.unref();
-
-  try {
-    return await fn();
-  } finally {
-    clearInterval(heartbeat);
-    if ((await readLockToken(ownerPath)) === token) {
-      await rm(lockPath, { recursive: true, force: true });
-    }
-  }
-}
-
 function textOf(record: MorynRecord): string {
   return displayRecordText(record);
 }
@@ -154,6 +63,21 @@ function projectSummary(records: MorynRecord[]): string {
     .filter((record) => record.type === "summary" || record.type === "project_summary")
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0];
   return summary ? textOf(summary) : "";
+}
+
+const READABLE_PROJECT_SNAPSHOT_ID = /^[a-z0-9][a-z0-9_-]{0,119}$/;
+const WINDOWS_RESERVED_FILE_STEM = /^(?:aux|con|nul|prn|com[1-9]|lpt[1-9])$/;
+
+function projectSnapshotFileName(projectId: string): string {
+  const stem =
+    READABLE_PROJECT_SNAPSHOT_ID.test(projectId) && !WINDOWS_RESERVED_FILE_STEM.test(projectId)
+      ? projectId
+      : `~${createHash("sha256").update(projectId, "utf8").digest("hex")}`;
+  return `${stem}.json`;
+}
+
+function projectSnapshotArtifact(projectId: string): string {
+  return `snapshots/projects/${projectSnapshotFileName(projectId)}`;
 }
 
 async function writeJson(path: string, value: unknown): Promise<void> {
@@ -186,7 +110,7 @@ function rebuildArtifacts(projectIds: string[]): RebuildResult["artifacts"] {
       records: "snapshots/records.json",
       retrieval: "snapshots/retrieval/metadata.json",
       projects_by_id: Object.fromEntries(
-        projectIds.map((projectId) => [projectId, `snapshots/projects/${projectId}.json`])
+        projectIds.map((projectId) => [projectId, projectSnapshotArtifact(projectId)])
       ),
       skills: "snapshots/skills/index.json"
     },
@@ -198,13 +122,13 @@ function rebuildArtifacts(projectIds: string[]): RebuildResult["artifacts"] {
 }
 
 export async function rebuildDerivedViews(storePath: string): Promise<RebuildResult> {
-  return withRebuildLock(storePath, () => rebuildDerivedViewsUnlocked(storePath));
+  return withStoreStateLease(storePath, () => rebuildDerivedViewsUnlocked(storePath));
 }
 
 async function rebuildDerivedViewsUnlocked(storePath: string): Promise<RebuildResult> {
   const events = await readEvents(storePath);
   const eventFileManifest = await readEventFileManifest(storePath);
-  const records = [...replayEvents(events).values()];
+  const records = annotateSessionFoldConflicts([...replayEvents(events).values()]);
   const trusted = canonical(records);
   const activeRecords = active(records);
   const snapshotPath = join(storePath, "snapshots");
@@ -245,7 +169,7 @@ async function rebuildDerivedViewsUnlocked(storePath: string): Promise<RebuildRe
   ].sort();
   for (const projectId of projectIds) {
     const projectRecords = trusted.filter((record) => record.scope === "project" && record.project_id === projectId);
-    await writeJson(join(snapshotPath, "projects", `${projectId}.json`), {
+    await writeJson(join(snapshotPath, "projects", projectSnapshotFileName(projectId)), {
       project_id: projectId,
       generated_from_cursor: generatedFromCursor,
       summary: projectSummary(projectRecords),
@@ -280,7 +204,8 @@ async function rebuildDerivedViewsUnlocked(storePath: string): Promise<RebuildRe
         priority: record.priority,
         tags: record.tags,
         text: searchableRecordText(record),
-        updated_at: record.updated_at
+        updated_at: record.updated_at,
+        conflict: record.conflict
       }))
   });
 

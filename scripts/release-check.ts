@@ -25,6 +25,7 @@ export type GateStepId =
   | "sync_conflict_smoke"
   | "permission_recovery_smoke"
   | "large_store_smoke"
+  | "v04_acceptance"
   | "package"
   | "private_remote";
 type GateStepMode = "required" | "skipped" | "optional_skipped";
@@ -101,6 +102,7 @@ export function releaseGateSteps(skipSlowChecks: boolean, hasPrivateRemote: bool
     { id: "sync_conflict_smoke", mode: "required" },
     { id: "permission_recovery_smoke", mode: "required" },
     { id: "large_store_smoke", mode: "required" },
+    { id: "v04_acceptance", mode: "required" },
     { id: "package", mode: "required" },
     { id: "private_remote", mode: hasPrivateRemote ? "required" : "optional_skipped" }
   ];
@@ -126,9 +128,18 @@ const V04_ACCEPTANCE_EVIDENCE: Record<V04AcceptanceArea, GateStepId[]> = {
     "sync_conflict_smoke",
     "permission_recovery_smoke"
   ],
-  working_set: ["tests", "large_store_smoke"],
-  consolidation: ["tests", "lifecycle_smoke", "large_store_smoke"],
-  memory_distillation: ["build", "typecheck", "lint", "tests", "lifecycle_smoke", "large_store_smoke", "package"],
+  working_set: ["tests", "large_store_smoke", "v04_acceptance"],
+  consolidation: ["tests", "lifecycle_smoke", "large_store_smoke", "v04_acceptance"],
+  memory_distillation: [
+    "build",
+    "typecheck",
+    "lint",
+    "tests",
+    "lifecycle_smoke",
+    "large_store_smoke",
+    "v04_acceptance",
+    "package"
+  ],
   portable_soul: [
     "build",
     "typecheck",
@@ -137,6 +148,7 @@ const V04_ACCEPTANCE_EVIDENCE: Record<V04AcceptanceArea, GateStepId[]> = {
     "host_runtime_binding_smoke",
     "official_host_handoff_smoke",
     "sync_resilience_smoke",
+    "v04_acceptance",
     "package"
   ],
   learning: ["tests", "lifecycle_smoke", "learning_inbox_smoke", "finalization_assurance_smoke"],
@@ -164,6 +176,7 @@ const V04_ACCEPTANCE_EVIDENCE: Record<V04AcceptanceArea, GateStepId[]> = {
     "sync_conflict_smoke",
     "permission_recovery_smoke",
     "large_store_smoke",
+    "v04_acceptance",
     "package"
   ]
 };
@@ -344,7 +357,8 @@ export async function runReleaseGate(options: ReleaseGateOptions = {}): Promise<
     sync_resilience_smoke: ["npm", ["run", "smoke:sync-resilience"]],
     sync_conflict_smoke: ["npm", ["run", "smoke:sync-conflict"]],
     permission_recovery_smoke: ["npm", ["run", "smoke:permission-recovery"]],
-    large_store_smoke: ["npm", ["run", "smoke:large-store"]]
+    large_store_smoke: ["npm", ["run", "smoke:large-store"]],
+    v04_acceptance: ["npm", ["run", "test:v04-acceptance"]]
   };
   for (const step of steps) {
     if (step.mode !== "required") {

@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { searchableRecordText } from "./content-text.js";
 import type { SemanticConsolidationProposal } from "./context-delta.js";
 import { buildActiveLogicalMemoryView, compareLogicalMemoryTargets } from "./logical-memory.js";
-import { isPrivateTags } from "./sensitive.js";
+import { isPrivateMemoryBoundary } from "./sensitive.js";
+import type { StructuredSemanticMergeRejectionReason } from "./structured-semantic-merge.js";
 import type { MorynRecord } from "./types.js";
 
 export type SemanticConsolidationValidationReason =
@@ -18,10 +19,12 @@ export type SemanticConsolidationValidationReason =
   | "existing_relationship"
   | "contradictory_relationship"
   | "replacement_cycle"
-  | "protected_replacement_requires_user_evidence";
+  | "protected_replacement_requires_user_evidence"
+  | StructuredSemanticMergeRejectionReason;
 
 export interface SemanticConsolidationValidationOptions {
   include_private?: boolean;
+  structured_merge_record_id?: string;
 }
 
 export interface SemanticConsolidationValidationResult {
@@ -35,8 +38,19 @@ export interface SemanticConsolidationValidationResult {
 
 export type SemanticConsolidationProposalResult = Omit<SemanticConsolidationValidationResult, "status" | "reason"> & {
   status: "accepted" | "rejected" | "idempotent" | "failed";
-  reason: SemanticConsolidationValidationReason | "candidate_not_bounded" | "persistence_failed" | "pipeline_failed";
+  reason:
+    | SemanticConsolidationValidationReason
+    | "candidate_not_bounded"
+    | "persistence_failed"
+    | "pipeline_failed"
+    | "structured_merge_source_changed"
+    | "structured_merge_concurrent_conflict"
+    | "structured_merge_readback_failed";
   event_id?: string;
+  links_created?: number;
+  merged_record_id?: string;
+  merged_record_state?: "candidate" | "canonical";
+  merged_record_persistence?: "created" | "existing";
 };
 
 export interface SemanticConsolidationReceipt {
@@ -56,6 +70,9 @@ export const SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES = {
   proposal_status: "proposal_results[].status",
   proposal_reason: "proposal_results[].reason",
   proposal_event_id: "proposal_results[].event_id",
+  merged_record_id: "proposal_results[].merged_record_id",
+  merged_record_state: "proposal_results[].merged_record_state",
+  merged_record_persistence: "proposal_results[].merged_record_persistence",
   accepted_relationship_count: "accepted_by_relationship.<relationship>",
   rejected_reason_count: "rejected_by_reason.<reason>"
 } as const;
@@ -251,8 +268,8 @@ export function validateSemanticConsolidationProposal(
   if (!source || !target) return result(proposal, "rejected", "missing_record");
   if (!active(source) || !active(target)) return result(proposal, "rejected", "inactive_record");
   if (!sameDomain(source, target)) return result(proposal, "rejected", "incompatible_domain");
-  const sourcePrivate = isPrivateTags(source.tags);
-  const targetPrivate = isPrivateTags(target.tags);
+  const sourcePrivate = isPrivateMemoryBoundary(source);
+  const targetPrivate = isPrivateMemoryBoundary(target);
   if (sourcePrivate !== targetPrivate || ((sourcePrivate || targetPrivate) && options.include_private !== true))
     return result(proposal, "rejected", "private_boundary");
   if (proposal.relationship === "duplicate_of") {
@@ -276,7 +293,14 @@ export function validateSemanticConsolidationProposal(
     return result(proposal, "rejected", "replacement_cycle", source.id, target.id);
   }
   const logicalView = buildActiveLogicalMemoryView([...records]);
-  if (logicalView.hidden_by_record_id[source.id] || logicalView.hidden_by_record_id[target.id])
+  const hiddenSources = [source.id, target.id]
+    .map((recordId) => logicalView.hidden_by_record_id[recordId])
+    .filter((hidden) => hidden !== undefined);
+  if (
+    hiddenSources.length > 0 &&
+    (!options.structured_merge_record_id ||
+      hiddenSources.some((hidden) => hidden.active_record_id !== options.structured_merge_record_id))
+  )
     return result(proposal, "rejected", "inactive_record", source.id, target.id);
   if (proposal.confidence < thresholds[proposal.relationship])
     return result(proposal, "rejected", "below_confidence_threshold", source.id, target.id);
@@ -294,7 +318,11 @@ export function validateSemanticConsolidationProposal(
   if ((proposal.relationship === "supersedes" || proposal.relationship === "conflicts_with") && !hasMaterialDifference)
     return result(proposal, "rejected", "material_difference", source.id, target.id);
   const hasProtectedDifference = protectedSignalDifference(source, target, proposal);
-  if ((proposal.relationship === "duplicate_of" || proposal.relationship === "revises") && hasProtectedDifference)
+  if (
+    !proposal.structured_merge &&
+    (proposal.relationship === "duplicate_of" || proposal.relationship === "revises") &&
+    hasProtectedDifference
+  )
     return result(proposal, "rejected", "protected_signal_difference", source.id, target.id);
   if (
     proposal.relationship === "supersedes" &&

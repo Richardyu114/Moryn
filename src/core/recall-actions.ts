@@ -1,7 +1,9 @@
+import { actionInterfaces } from "./action-interfaces.js";
 import type { RecallOutcome } from "./recall-outcome.js";
 
 export type RecallNextActionId =
   | "use_recalled_knowledge"
+  | "expand_memory_sources"
   | "inspect_record_timeline"
   | "inspect_recalled_candidate"
   | "verify_with_external_evidence"
@@ -11,6 +13,7 @@ export type RecallNextActionId =
 
 export interface RecallNextAction {
   id: RecallNextActionId;
+  operation?: string;
   title: string;
   description: string;
   executor: "moryn" | "host_agent";
@@ -37,6 +40,7 @@ export const RECALL_ACTION_SELECTION_SOURCES = {
   action: "next_actions_by_id.<action_id>",
   ordered_action: "next_actions[]",
   action_id: "next_actions_by_id.<action_id>.id",
+  operation: "next_actions_by_id.<action_id>.operation",
   executor: "next_actions_by_id.<action_id>.executor",
   evidence_record_id: "next_actions_by_id.<action_id>.evidence.record_ids[]",
   destination: "next_actions_by_id.<action_id>.destinations[]",
@@ -90,6 +94,26 @@ function captureLearningAction(): RecallNextAction {
   };
 }
 
+export function buildRecallMemoryExpandAction(recordId: string, includePrivate = false): RecallNextAction {
+  const argumentsByName = { record_id: recordId, include_private: includePrivate };
+  return {
+    id: "expand_memory_sources",
+    operation: "memory_expand",
+    title: "Expand rollup source evidence",
+    description: "Expand this rollup into bounded, digest-checked source evidence before deeper inspection.",
+    executor: "moryn",
+    safe_to_run: true,
+    evidence: { record_ids: [recordId] },
+    arguments_by_name: argumentsByName,
+    execution: { external_side_effects: false },
+    interfaces: actionInterfaces({
+      tool: "memory_expand",
+      command: "moryn memory expand <record_id>",
+      arguments: argumentsByName
+    })
+  };
+}
+
 function keyed(actions: RecallNextAction[]): RecallActionContract {
   return {
     next_actions: actions,
@@ -102,8 +126,12 @@ export function buildRecallNextActions(input: {
   query: string;
   outcome: RecallOutcome;
   include_private?: boolean;
+  expandable_record_id?: string;
 }): RecallActionContract {
   const includePrivate = input.include_private === true;
+  const expandAction = input.expandable_record_id
+    ? [buildRecallMemoryExpandAction(input.expandable_record_id, includePrivate)]
+    : [];
   if (input.outcome.status === "trusted_match" && input.outcome.best_record_id) {
     return keyed([
       {
@@ -115,11 +143,13 @@ export function buildRecallNextActions(input: {
         evidence: { record_ids: [input.outcome.best_record_id] },
         execution: { external_side_effects: false }
       },
+      ...expandAction,
       timelineAction("inspect_record_timeline", input.outcome.best_record_id, includePrivate)
     ]);
   }
   if (input.outcome.status === "verification_required" && input.outcome.best_record_id) {
     return keyed([
+      ...expandAction,
       timelineAction("inspect_recalled_candidate", input.outcome.best_record_id, includePrivate),
       {
         id: "verify_with_external_evidence",

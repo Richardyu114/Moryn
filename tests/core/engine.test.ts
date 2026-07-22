@@ -550,6 +550,35 @@ describe("core engine", () => {
     });
   });
 
+  it("does not consolidate content-level private duplicates without explicit authorization", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, id: (prefix) => `${prefix}_${++nextId}` });
+      const shared = {
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["sync"],
+        source: { client: "codex" }
+      } as const;
+
+      await engine.write({ ...shared, content: { text: "Private sync preference", privacy: "private" } });
+      await engine.write({ ...shared, content: { text: "Private sync preference", privacy: "private" } });
+      await engine.write({ ...shared, content: { text: "Local-only sync preference", distribution: "local_only" } });
+      await engine.write({ ...shared, content: { text: "Local-only sync preference", distribution: "local_only" } });
+
+      expect(await engine.consolidateExactDuplicates({ project_id: "moryn" })).toMatchObject({
+        groups_found: 0,
+        links_created: 0
+      });
+      expect(await engine.consolidateExactDuplicates({ project_id: "moryn", include_private: true })).toMatchObject({
+        groups_found: 2,
+        links_created: 2
+      });
+    });
+  });
+
   it("consolidates exact duplicates once across concurrent agents", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
@@ -3618,6 +3647,42 @@ describe("core engine", () => {
     });
   });
 
+  it("rejects unsafe revision paths without polluting Object.prototype or appending events", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const pollutionKey = "morynEnginePolluted";
+      const objectPrototype = Object.prototype as Record<string, unknown>;
+      delete objectPrototype[pollutionKey];
+      try {
+        const engine = createEngine({ storePath });
+        const written = await engine.write({
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: "Keep revision paths safe." },
+          source: { client: "test" }
+        });
+        const eventCount = (await readEvents(storePath)).length;
+        const maliciousPatch = JSON.parse(`{"content.constructor.prototype.${pollutionKey}":true}`) as Record<
+          string,
+          unknown
+        >;
+
+        await expect(
+          engine.revise({
+            record_id: written.record.id,
+            patch: maliciousPatch,
+            source: { client: "test" }
+          })
+        ).rejects.toThrow(/Invalid patch/);
+        expect(({} as Record<string, unknown>)[pollutionKey]).toBeUndefined();
+        expect(await readEvents(storePath)).toHaveLength(eventCount);
+      } finally {
+        delete objectPrototype[pollutionKey];
+      }
+    });
+  });
+
   it("rejects revisions that would create unconfirmed canonical conflicts", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
@@ -4463,6 +4528,7 @@ describe("core engine", () => {
         result: "results_by_id.<record_id>",
         record: "results_by_id.<record_id>.record",
         record_id: "results_by_id.<record_id>.record.id",
+        result_next_action: "results_by_id.<record_id>.next_action",
         memory_working_set: "memory_working_set",
         next_action: "next_actions_by_id.<action_id>",
         ordered_next_action: "next_actions[]"
@@ -4614,6 +4680,35 @@ describe("core engine", () => {
     });
   });
 
+  it.each(["__proto__", "constructor", "prototype"])(
+    "groups timeline items under the prototype-shaped record id %s",
+    async (recordId) => {
+      await withInitializedTempStore(async (storePath) => {
+        let nextEventId = 0;
+        const engine = createEngine({
+          storePath,
+          id: (prefix) => (prefix === "rec" ? recordId : `${prefix}_${++nextEventId}`)
+        });
+        await engine.write({
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: `Timeline for ${recordId}` },
+          source: { client: "test" }
+        });
+
+        const timeline = await engine.timeline({ record_id: recordId, project_id: "moryn", before: 0, after: 0 });
+        const serialized = JSON.parse(JSON.stringify(timeline.items_by_record_id)) as Record<string, unknown>;
+
+        expect(Object.getPrototypeOf(timeline.items_by_record_id)).toBeNull();
+        expect(Object.hasOwn(timeline.items_by_record_id, recordId)).toBe(true);
+        expect(timeline.items_by_record_id[recordId]?.map((item) => item.record_id)).toEqual([recordId]);
+        expect(Object.hasOwn(serialized, recordId)).toBe(true);
+      });
+    }
+  );
+
   it("hides private-tagged records from default reads unless explicitly included", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
@@ -4727,6 +4822,153 @@ describe("core engine", () => {
           include_private: true
         }
       });
+    });
+  });
+
+  it("hides content-level private boundaries from default reads unless explicitly included", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      let nextTime = 0;
+      const timestamps = ["2026-05-27T00:01:00.000Z", "2026-05-27T00:02:00.000Z", "2026-05-27T00:03:00.000Z"];
+      const engine = createEngine({
+        storePath,
+        now: () => timestamps[nextTime++] ?? "2026-05-27T00:04:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
+      const shared = {
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        state: "canonical",
+        source: { client: "test" }
+      } as const;
+
+      const publicRecord = await engine.write({
+        ...shared,
+        tags: ["public-sync"],
+        content: { text: "Public sync decision.", format: "text" }
+      });
+      const privateRecord = await engine.write({
+        ...shared,
+        tags: ["privacy-marker"],
+        content: { text: "Private sync preference.", format: "text", privacy: "private" }
+      });
+      const localOnlyRecord = await engine.write({
+        ...shared,
+        tags: ["distribution-marker"],
+        content: {
+          text: "Local-only sync procedure.",
+          format: "text",
+          distribution: "local_only"
+        }
+      });
+      const privateRecordIds = [privateRecord.record.id, localOnlyRecord.record.id];
+      const allRecordIds = [publicRecord.record.id, ...privateRecordIds];
+
+      const defaultRecall = await engine.recall({ query: "sync", project_id: "moryn", limit: 10 });
+      expect(defaultRecall.results.map((result) => result.record.id)).toEqual([publicRecord.record.id]);
+
+      const privateRecall = await engine.recall({
+        query: "sync",
+        project_id: "moryn",
+        include_private: true,
+        limit: 10
+      });
+      expect(privateRecall.results.map((result) => result.record.id)).toHaveLength(allRecordIds.length);
+      expect(privateRecall.results.map((result) => result.record.id)).toEqual(expect.arrayContaining(allRecordIds));
+
+      const boot = await engine.boot({ project_id: "moryn" });
+      expect(boot.records_by_id[publicRecord.record.id]?.id).toBe(publicRecord.record.id);
+      for (const recordId of privateRecordIds) expect(boot.records_by_id[recordId]).toBeUndefined();
+
+      const privateBoot = await engine.boot({ project_id: "moryn", include_private: true });
+      for (const recordId of privateRecordIds) expect(privateBoot.records_by_id[recordId]?.id).toBe(recordId);
+
+      const refresh = await engine.refresh({ project_id: "moryn", cursor: "2026-05-27T00:00:00.000Z" });
+      expect(refresh.changes.map((change) => change.record_id)).toEqual([publicRecord.record.id]);
+
+      const privateRefresh = await engine.refresh({
+        project_id: "moryn",
+        cursor: "2026-05-27T00:00:00.000Z",
+        include_private: true
+      });
+      expect(privateRefresh.changes.map((change) => change.record_id)).toHaveLength(allRecordIds.length);
+      expect(privateRefresh.changes.map((change) => change.record_id)).toEqual(expect.arrayContaining(allRecordIds));
+
+      const recent = await engine.listRecent({ limit: 10 });
+      expect(recent.records.map((record) => record.id)).toEqual([publicRecord.record.id]);
+
+      const privateRecent = await engine.listRecent({ limit: 10, include_private: true });
+      expect(privateRecent.records.map((record) => record.id)).toHaveLength(allRecordIds.length);
+      expect(privateRecent.records.map((record) => record.id)).toEqual(expect.arrayContaining(allRecordIds));
+
+      for (const recordId of privateRecordIds) {
+        await expect(
+          engine.timeline({ record_id: recordId, project_id: "moryn", before: 0, after: 0 })
+        ).rejects.toThrow(`Record not found: ${recordId}`);
+
+        const privateTimeline = await engine.timeline({
+          record_id: recordId,
+          project_id: "moryn",
+          before: 0,
+          after: 0,
+          include_private: true
+        });
+        expect(privateTimeline.items_by_record_id[recordId]?.[0]?.record_id).toBe(recordId);
+      }
+    });
+  });
+
+  it("keeps legacy content-private Soul out of Effective Soul unless explicitly included", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, id: (prefix) => `${prefix}_legacy_soul_${++nextId}` });
+      const shared = {
+        kind: "soul",
+        type: "preference",
+        scope: "global",
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      } as const;
+      const publicSoul = await engine.write({
+        ...shared,
+        tags: ["public-style"],
+        content: { text: "Use clear public updates." }
+      });
+      const contentPrivateSoul = await engine.write({
+        ...shared,
+        tags: ["privacy-marker"],
+        content: { text: "Use a device-only private style.", privacy: "private" }
+      });
+      const localOnlySoul = await engine.write({
+        ...shared,
+        tags: ["distribution-marker"],
+        content: { text: "Use a host-local response style.", distribution: "local_only" }
+      });
+
+      const safeBoot = await engine.boot({ project_id: "moryn" });
+      expect(safeBoot.profile.soul_profile_status.legacy_record_ids).toEqual([publicSoul.record.id]);
+      expect(safeBoot.profile.effective_soul.rendered).toContain("Use clear public updates.");
+      expect(safeBoot.profile.effective_soul.rendered).not.toContain("device-only private style");
+      expect(safeBoot.profile.effective_soul.rendered).not.toContain("host-local response style");
+
+      const privateBoot = await engine.boot({ project_id: "moryn", include_private: true });
+      expect(privateBoot.profile.soul_profile_status.legacy_record_ids).toEqual(
+        expect.arrayContaining([publicSoul.record.id, contentPrivateSoul.record.id, localOnlySoul.record.id])
+      );
+      expect(privateBoot.profile.effective_soul.rendered).toContain("Use a device-only private style.");
+      expect(privateBoot.profile.effective_soul.rendered).toContain("Use a host-local response style.");
+      expect(
+        privateBoot.profile.effective_soul.clauses
+          .filter((clause) =>
+            clause.provenance_record_ids.some((recordId) =>
+              [contentPrivateSoul.record.id, localOnlySoul.record.id].includes(recordId)
+            )
+          )
+          .every((clause) => clause.distribution === "local_only")
+      ).toBe(true);
     });
   });
 
@@ -4916,6 +5158,104 @@ describe("core engine", () => {
       expect(recall.results[0]?.reason).toContain("source_trust:user-confirmed");
       expect(recall.results[1]?.reason).toContain("source_trust:rule-promoted");
       expect(recall.results[2]?.reason).toContain("source_trust:agent-proposed");
+    });
+  });
+
+  it("prefers relevant rollups without outranking a stronger canonical claim and exposes source expansion", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const timestamps = [
+        "2026-07-20T00:00:00.000Z",
+        "2026-07-20T00:01:00.000Z",
+        "2026-07-20T00:02:00.000Z",
+        "2026-07-20T00:03:00.000Z",
+        "2026-07-20T00:04:00.000Z"
+      ];
+      const engine = createEngine({
+        storePath,
+        now: () => timestamps[nextId] ?? "2026-07-20T00:05:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
+
+      const direct = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Auth compaction rollback canonical decision with direct details." },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const sessionRollup = await engine.write({
+        kind: "session_summary",
+        type: "session_rollup",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Auth compaction rollback session rollup with session evidence." },
+        state: "candidate",
+        confidence: 0.9,
+        source: { client: "moryn" }
+      });
+      const episodeRollup = await engine.write({
+        kind: "session_summary",
+        type: "episode_rollup",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Auth compaction rollback episode rollup with cross-session evidence." },
+        state: "candidate",
+        confidence: 0.9,
+        source: { client: "moryn" }
+      });
+      const ordinary = await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Auth compaction rollback ordinary candidate with direct evidence." },
+        state: "candidate",
+        confidence: 0.9,
+        source: { client: "moryn" }
+      });
+      const weakRollup = await engine.write({
+        kind: "session_summary",
+        type: "session_rollup",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Auth-only weak rollup from unrelated work." },
+        state: "candidate",
+        confidence: 0.2,
+        source: { client: "codex" }
+      });
+
+      const recall = await engine.recall({ query: "auth compaction rollback", project_id: "moryn", limit: 5 });
+
+      expect(recall.results.map((result) => result.record.id)).toEqual([
+        direct.record.id,
+        episodeRollup.record.id,
+        sessionRollup.record.id,
+        ordinary.record.id,
+        weakRollup.record.id
+      ]);
+      expect(recall.results[1]?.reason).toContain("type_priority:episode_rollup");
+      expect(recall.results[2]?.reason).toContain("type_priority:session_rollup");
+      expect(recall.results[1]?.next_action).toMatchObject({
+        id: "expand_memory_sources",
+        operation: "memory_expand",
+        arguments_by_name: { record_id: episodeRollup.record.id, include_private: false },
+        interfaces: {
+          cli: { executable: "moryn", argv: ["memory", "expand", episodeRollup.record.id] },
+          mcp: {
+            tool: "memory_expand",
+            arguments: { record_id: episodeRollup.record.id, include_private: false }
+          }
+        }
+      });
+      expect(recall.results[0]?.next_action).toBeUndefined();
+      expect(recall.results[3]?.next_action).toBeUndefined();
+      expect(recall.results[4]?.reason).toEqual(expect.arrayContaining(["candidate", "type_priority:session_rollup"]));
+      expect(recall.next_actions_by_id.expand_memory_sources).toEqual(recall.results[1]?.next_action);
+      expect(recall.selection_sources.result_next_action).toBe("results_by_id.<record_id>.next_action");
     });
   });
 

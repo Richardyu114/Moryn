@@ -232,6 +232,37 @@ describe("buildCheckpointRecoveryPack", () => {
     expect(included.learnings).toHaveLength(1);
   });
 
+  it.each([
+    ["content privacy", { privacy: "private" }],
+    ["local-only distribution", { distribution: "local_only" }]
+  ] as const)("keeps checkpoints with %s behind include_private", (_label, privacyMarker) => {
+    const privateRecord = checkpointRecord({
+      id: "legacy-private",
+      checkpoint_id: "legacy-private",
+      occurred_at: "2026-07-11T00:01:00.000Z",
+      delta: { progress: ["private progress"] }
+    });
+    privateRecord.content = { ...privateRecord.content, ...privacyMarker };
+
+    const hidden = buildCheckpointRecoveryPack([privateRecord], {
+      project_id: "project-a",
+      session_id: "session-1"
+    });
+    const included = buildCheckpointRecoveryPack([privateRecord], {
+      project_id: "project-a",
+      session_id: "session-1",
+      include_private: true
+    });
+
+    expect(hidden).toMatchObject({ available: false, checkpoint_count: 0, source_record_ids: [] });
+    expect(included).toMatchObject({
+      available: true,
+      checkpoint_count: 1,
+      source_record_ids: [privateRecord.id],
+      progress: ["private progress"]
+    });
+  });
+
   it("selects the latest five visible checkpoints before private records can consume the limit", () => {
     const publicRecord = checkpointRecord({
       id: "public",

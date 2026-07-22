@@ -189,6 +189,11 @@ interface BucketRecord {
   closed_at?: string;
 }
 
+export interface EpisodeRollupSourceBucket {
+  identity: EpisodeRollupIdentity;
+  closed_at?: string;
+}
+
 interface ClaimAccumulator {
   kind: EpisodeClaimKind;
   text: string;
@@ -367,6 +372,24 @@ function closedAt(record: MorynRecord): string | undefined {
   const content = record.content as Record<string, unknown>;
   if (content.closed === false) return undefined;
   return validIso(content.closed_at) ? content.closed_at : undefined;
+}
+
+export function episodeRollupSourceBucket(
+  record: MorynRecord,
+  kind: EpisodeBucketKind
+): EpisodeRollupSourceBucket | undefined {
+  if (!sessionRollupMarker(record) || record.state === "archived" || record.visibility === "archived") {
+    return undefined;
+  }
+  const projectId = record.project_id?.trim();
+  if (!projectId) return undefined;
+  const closed = closedAt(record);
+  const key = bucketKey(record, kind, closed);
+  if (!key) return undefined;
+  return {
+    identity: { project_id: projectId, bucket_kind: kind, bucket_key: key },
+    ...(closed ? { closed_at: closed } : {})
+  };
 }
 
 function uniqueBucketRecords(records: readonly BucketRecord[]): BucketRecord[] {
@@ -1029,16 +1052,11 @@ export function planEpisodeRollups(
   const requestedProject = options.project_id?.trim();
   const groups = new Map<string, { identity: EpisodeRollupIdentity; records: BucketRecord[] }>();
   for (const record of records) {
-    if (!sessionRollupMarker(record) || record.state === "archived" || record.visibility === "archived") continue;
-    const projectId = record.project_id?.trim();
-    if (!projectId || (requestedProject && projectId !== requestedProject)) continue;
-    const closed = closedAt(record);
-    const key = bucketKey(record, kind, closed);
-    if (!key) continue;
-    const identity = { project_id: projectId, bucket_kind: kind, bucket_key: key };
-    const groupKey = `${projectId}\u0000${kind}\u0000${key}`;
-    const group = groups.get(groupKey) ?? { identity, records: [] };
-    group.records.push({ record, ...(closed ? { closed_at: closed } : {}) });
+    const source = episodeRollupSourceBucket(record, kind);
+    if (!source || (requestedProject && source.identity.project_id !== requestedProject)) continue;
+    const groupKey = `${source.identity.project_id}\u0000${kind}\u0000${source.identity.bucket_key}`;
+    const group = groups.get(groupKey) ?? { identity: source.identity, records: [] };
+    group.records.push({ record, ...(source.closed_at ? { closed_at: source.closed_at } : {}) });
     groups.set(groupKey, group);
   }
   return [...groups.values()]

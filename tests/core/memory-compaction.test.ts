@@ -1,5 +1,6 @@
 import { chmod, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { describe, expect, it } from "vitest";
 import {
   type MemoryCompactionPlanEnvelope,
@@ -413,6 +414,64 @@ describe("Memory Compaction coordinator", () => {
       const second = await applyMemoryCompactionPlan(storePath, { plan, confirmed: true });
       expect(second.created_event_ids).toEqual([]);
       expect(second.existing_event_ids).toEqual(result.receipt.event_ids);
+    });
+  });
+
+  it("serializes concurrent unified applies while reusing the lease in nested child transactions", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      await seedRecords(storePath, closedSessionRecords());
+      const plan = await previewStore(storePath, { project_id: "moryn", session_id: "session-current" });
+      let markChildAppendStarted!: () => void;
+      const childAppendStarted = new Promise<void>((resolve) => {
+        markChildAppendStarted = resolve;
+      });
+      let releaseChildAppend!: () => void;
+      const childAppendRelease = new Promise<void>((resolve) => {
+        releaseChildAppend = resolve;
+      });
+      let firstAppend = true;
+      const firstApply = applyMemoryCompactionPlan(
+        storePath,
+        { plan, confirmed: true },
+        {
+          apply_session_fold: (path, childPlan) =>
+            applySessionFoldPlan(path, childPlan, {
+              append_event: async (eventStorePath, event) => {
+                if (firstAppend) {
+                  firstAppend = false;
+                  markChildAppendStarted();
+                  await childAppendRelease;
+                }
+                return appendEventIfAbsent(eventStorePath, event);
+              }
+            })
+        }
+      );
+      await childAppendStarted;
+
+      let competingChildDispatchCount = 0;
+      const concurrentRetry = applyMemoryCompactionPlan(
+        storePath,
+        { plan, confirmed: true },
+        {
+          apply_session_fold: async () => {
+            competingChildDispatchCount += 1;
+            throw new Error("Concurrent retry dispatched a child transaction");
+          }
+        }
+      );
+      try {
+        await delay(50);
+        expect(competingChildDispatchCount).toBe(0);
+      } finally {
+        releaseChildAppend();
+      }
+
+      const [committed, retried] = await Promise.all([firstApply, concurrentRetry]);
+      expect(retried.receipt).toEqual(committed.receipt);
+      expect(retried.created_event_ids).toEqual([]);
+      expect(retried.existing_event_ids).toEqual(committed.receipt.event_ids);
+      expect(competingChildDispatchCount).toBe(0);
     });
   });
 

@@ -236,6 +236,42 @@ describe("session fold planning", () => {
     expect(first?.rollup_record?.provenance?.derived_from).toEqual(first?.source_record_ids);
   });
 
+  it("lets a newer status supersede earlier ordinary status text while requiring the latest status in the final", () => {
+    const earlier = record({ id: "status-earlier", type: "status", at: at(1) });
+    const latest = record({ id: "status-latest", type: "status", at: at(2) });
+    const final = record({
+      id: "summary-hot",
+      type: "summary",
+      at: at(3),
+      content: { text: "status-latest is complete", format: "text" }
+    });
+    const covered = withCoverage([earlier, latest, final]);
+    const plan = planSessionFold(covered, { project_id: "project-a", session_id: "session-a" });
+    const coverage = covered.find((candidate) => candidate.id === final.id)!.content.session_fold_coverage as {
+      covered_sources: Array<{ record_id: string; method: string }>;
+    };
+
+    expect(coverage.covered_sources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ record_id: earlier.id, method: "newer_status_supersession" }),
+        expect.objectContaining({ record_id: latest.id, method: "verbatim_final_projection" })
+      ])
+    );
+    expect(plan).toMatchObject({ status: "ready", auto_fold: true, review_reasons: [] });
+
+    const latestMissingFromFinal = withCoverage([
+      earlier,
+      latest,
+      { ...final, content: { text: "A different final summary", format: "text" } }
+    ]);
+    const blocked = planSessionFold(latestMissingFromFinal, {
+      project_id: "project-a",
+      session_id: "session-a"
+    });
+    expect(blocked).toMatchObject({ status: "review_required", auto_fold: false });
+    expect(blocked?.review_reasons.map((reason) => reason.code)).toContain("unverified_source_coverage");
+  });
+
   it("separates project and session groups and ignores inactive or unrelated records", () => {
     const records = [
       record({ id: "a-status", type: "status", at: at(1) }),

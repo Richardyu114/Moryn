@@ -12,6 +12,11 @@ import {
 } from "./memory-retention.js";
 import { replayEvents } from "./replay.js";
 import { parseRecord } from "./schema.js";
+import {
+  annotateSessionFoldConflicts,
+  detectSessionFoldConflicts,
+  type SessionFoldConflictDiagnostic
+} from "./session-fold-conflicts.js";
 import { type EventFileManifest, readEventFileManifest, readEvents } from "./store.js";
 import type { MorynEvent, MorynRecord } from "./types.js";
 
@@ -41,6 +46,7 @@ export function buildRecordReadModel(
   records: MorynRecord[],
   manifest: EventManifest
 ): RecordReadModelV1 {
+  const projectedRecords = annotateSessionFoldConflicts(records);
   return {
     version: 1,
     generated_at:
@@ -48,7 +54,7 @@ export function buildRecordReadModel(
         (left, right) => right.created_at.localeCompare(left.created_at) || right.event_id.localeCompare(left.event_id)
       )[0]?.created_at ?? "1970-01-01T00:00:00.000Z",
     event_manifest: manifest,
-    records: [...records].sort((left, right) => left.id.localeCompare(right.id))
+    records: projectedRecords.sort((left, right) => left.id.localeCompare(right.id))
   };
 }
 
@@ -60,6 +66,7 @@ export interface CurrentRecordReadResult {
   repaired: boolean;
   fallback_reason?: RecordReadFallbackReason;
   event_manifest: EventManifest;
+  session_fold_conflicts?: SessionFoldConflictDiagnostic[];
 }
 
 export interface ReadCurrentRecordsOptions {
@@ -324,7 +331,7 @@ export function selectMemoryWorkingSet(
     const exceedsTotalTokenBudget =
       totalTokenBudget !== undefined && selectedTokens + entry.estimated_tokens > totalTokenBudget;
     let reason: MemoryWorkingSetExclusionReason | undefined;
-    if (tier === "cold" && !includeCold) reason = "cold_tier";
+    if (tier === "cold" && !includeCold && !entry.mandatory) reason = "cold_tier";
     else if (tier === "purged" && options.include_purged !== true) reason = "purged_tier";
     else {
       const limit = normalizedLayerLimit(options.layer_limits?.[layer]);
@@ -404,7 +411,14 @@ export async function readCurrentRecords(
     const model = parseReadModel(JSON.parse(await readFile(path, "utf8")));
     const after = await readEventFileManifest(storePath);
     if (sameManifest(before, after) && sameManifest(model.event_manifest, after)) {
-      return { records: model.records, source: "read_model", repaired: false, event_manifest: after };
+      const sessionFoldConflicts = detectSessionFoldConflicts(model.records);
+      return {
+        records: annotateSessionFoldConflicts(model.records, sessionFoldConflicts),
+        source: "read_model",
+        repaired: false,
+        event_manifest: after,
+        ...(sessionFoldConflicts.length ? { session_fold_conflicts: sessionFoldConflicts } : {})
+      };
     }
     fallbackReason = "stale";
   } catch (error) {
@@ -422,11 +436,13 @@ export async function readCurrentRecords(
     );
     repaired = true;
   } catch {}
+  const sessionFoldConflicts = detectSessionFoldConflicts(replay.records);
   return {
-    records: replay.records,
+    records: annotateSessionFoldConflicts(replay.records, sessionFoldConflicts),
     source: "event_replay",
     repaired,
     fallback_reason: fallbackReason,
-    event_manifest: replay.manifest
+    event_manifest: replay.manifest,
+    ...(sessionFoldConflicts.length ? { session_fold_conflicts: sessionFoldConflicts } : {})
   };
 }

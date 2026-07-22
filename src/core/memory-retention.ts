@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { isPrivateTags } from "./sensitive.js";
+import { isPrivateMemoryBoundary } from "./sensitive.js";
 import type { MorynRecord, RecordKind, RecordScope, RecordState } from "./types.js";
 
 export const MEMORY_RETENTION_METADATA_KEY = "memory_retention" as const;
@@ -1176,7 +1176,7 @@ function buildMemoryRetentionViewInternal(
   const now = resolvedNow(options, warnings);
   const layer = layerAxis(record, metadata, reasons);
   const trust = trustAxis(record, metadata, reasons);
-  const privateRecord = isPrivateTags(record.tags);
+  const privateRecord = isPrivateMemoryBoundary(record);
   const conflicted = conflictedRecord(record);
   const isProtectedType = protectedType(record);
   const protectedSignals = protectedMemorySignals(record);

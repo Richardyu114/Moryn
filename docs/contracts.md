@@ -156,8 +156,9 @@ The MCP equivalent is:
 ```
 
 Add `"include_private": true` only when the user explicitly wants timeline to
-include records tagged `private`, `secret`, or `sensitive`. Private timeline
-items preserve that opt-in in their follow-up `recall` action.
+include records inside the shared private boundary (private tags or legacy
+content privacy markers). Private timeline items preserve that opt-in in their
+follow-up `recall` action.
 
 The read-only memory governance audit is also available through the registry:
 
@@ -822,10 +823,36 @@ the event is complete but the platform cannot confirm directory durability, and
 
 ## Semantic Consolidation Contract
 
-Semantic consolidation is an authored, bounded relationship proposal. Moryn never
-uses an external model to decide the relationship and never merges or deletes
-record content. Accepted proposals append the existing `link_records` event with
-one of `duplicate_of`, `revises`, `supersedes`, or `conflicts_with`.
+Semantic consolidation is an authored, bounded proposal. Moryn never uses an
+external model to decide the relationship. By default, proposals are
+relationship-only and append `link_records` with one of `duplicate_of`,
+`revises`, `supersedes`, or `conflicts_with`; absence of a structured merge plan
+does not create or merge record content.
+
+Only an explicit `structured_merge` object with `version: 1` opts the proposal
+into transactionally creating a new derived record. It does not accept authored
+output text or arbitrary JSON values. Equal fields are retained automatically;
+every differing top-level content field must declare one of these dispositions:
+
+- `retain`: valid only when it does not discard a distinct source value;
+- `union`: all referenced source values must be arrays with compatible member
+  shapes, and Moryn performs a canonical-JSON exact-value union with
+  deterministic ordering;
+- `replace`: selects the exact value from one source, identifies every replaced
+  source, and cites trusted evidence;
+- `obsolete`: omits a field only with trusted evidence identifying all sources
+  that carried it.
+
+`replace` is deliberately required instead of `retain` when source values differ.
+Protected replacement or obsolescence involving dates, numbers, versions, paths,
+commands, negation, permission, security, preference, or safety signals requires
+user-confirmed evidence. Evidence must share the source project/scope and privacy
+boundary, remain active, and be explicitly included with `include_private: true`
+when the merge itself is private. Every cited evidence record must pass this
+authorization check; one valid record cannot mask an invalid citation. Private
+boundaries include both private tags and legacy `content.privacy: "private"` or
+`content.distribution: "local_only"` markers. Private evidence cannot authorize
+or leak identifiers into a public derived record.
 
 A proposal is strict JSON:
 
@@ -839,9 +866,22 @@ A proposal is strict JSON:
   "rationale": "Equivalent lifecycle fact.",
   "semantic_equivalence": "equivalent",
   "material_differences": [],
-  "evidence_record_ids": []
+  "evidence_record_ids": [],
+  "structured_merge": {
+    "version": 1,
+    "requested_state": "canonical",
+    "fields": []
+  }
 }
 ```
+
+An empty structured field plan is sufficient only when the two content objects
+have no differing fields. For cumulative arrays, a field entry names both source
+record IDs and uses `disposition: "union"`. Replacement and obsolete entries
+must also list evidence IDs already declared by the proposal. The reserved
+`content.structured_semantic_merge` metadata key cannot appear in either source;
+this fails closed instead of overwriting user content. The prototype-sensitive
+top-level names `__proto__`, `constructor`, and `prototype` are also rejected.
 
 Relationship and equivalence must match: `duplicate_of/equivalent`,
 `revises/refinement`, `supersedes/replacement`, and
@@ -850,6 +890,38 @@ and `0.95` respectively. Moryn rejects protected changes involving negation,
 numbers, dates, versions, paths, commands, permissions, security, status,
 outcomes, or preference direction unless the relationship and evidence satisfy
 the stricter replacement/conflict rules.
+
+A successful structured merge first appends and reads back a stable-ID
+provisional record in quarantined state/visibility. Its content includes source
+and evidence IDs/digests plus per-field/per-value digest lineage. Evidence
+digests participate in the stable merge identity, and the derived causal
+timestamp follows the latest cited source or evidence update. Moryn then claims
+that exact source snapshot and reads the claim projection back before a separate
+deterministic event activates the record as a candidate. The candidate is
+promoted to canonical only when every source is active canonical memory with no
+unresolved conflict and all disposition evidence passes the trust boundary.
+Otherwise it remains a candidate with only non-hiding `supports` links. A
+canonical derived record is promoted before source-hiding `duplicate_of`,
+`revises`, or `supersedes` links are appended.
+
+`memory_expand` follows the derived record's structured lineage and verifies
+each edge with the same link-stable source digest algorithm.
+
+The entire local read/validate/write/link sequence holds the store state lease.
+Stable event IDs, a pre-upsert source-snapshot claim check, strict event and link
+projection readback, and dependency digest CAS make concurrent retries
+idempotent. A relationship counts as created only after its exact projection is
+visible. A process interruption or injected append failure between provisional
+upsert and claim leaves only a quarantined record omitted from default
+retrieval; the same plan resumes it, while a different plan can activate at
+most one winner and leaves the orphan quarantined. An interruption after
+candidate activation, canonical promotion, or one source link is also safe to
+retry. Explicit quarantined-state audit reads remain available. No receipt
+reports the transaction as accepted until the remaining links are verified. A
+competing local candidate plan with an existing claim is
+rejected before its upsert, and a stale field plan fails explicitly rather than
+creating a second canonical merge. `conflicts_with` never creates a merged
+record: both facts remain visible and only the conflict relationship is appended.
 
 Checkpoint accepts proposals inside `delta.semantic_consolidation_proposals` or
 through repeatable CLI `--semantic-consolidation-proposal` flags. Agent finish
@@ -871,8 +943,11 @@ The equivalent MCP tool is `consolidate_semantic` with `proposals`, optional
 project context, optional `include_private`, and an optional authored `source`.
 Unknown arguments are rejected. Private records require `include_private: true`,
 and public receipts expose IDs, status, reason, relationship, event ID, digest,
-and aggregate counts without record text. Repeating an accepted proposal is
-idempotent.
+aggregate counts, and (for structured merges) `merged_record_id`,
+`merged_record_state`, and `merged_record_persistence: created|existing` without
+record or evidence text. Repeating an accepted proposal is idempotent. The JSON
+payload is carried by the existing CLI/MCP proposal arguments, so no additional
+flag or tool is required.
 
 ## v0.4 Memory Distillation Contract
 
@@ -920,10 +995,10 @@ Session Fold and Episode Rollup follow one transaction contract:
    source must not silently apply.
 3. Apply writes the derived rollup before appending source archive/cold events.
    It does not delete the source event files.
-4. A committed, integrity-checked receipt is written only after the complete
-   append-only event set was atomically published and every exact event payload
-   was read back. Partial transactions are idempotently resumable and must not
-   be represented as committed.
+4. A committed, integrity-checked receipt is written only after each event was
+   individually published through the atomic append path and the complete
+   expected event set was read back with exact payloads. Partial transactions
+   are idempotently resumable and must not be represented as committed.
 5. Restore is append-only: it restores source trust/visibility with new events
    and archives the derived rollup. It never edits an earlier event or erases Git
    history, and it requires the committed receipt plus retained event history.
@@ -934,12 +1009,23 @@ Each Session Fold, Episode Rollup, unified apply, and restore receipt includes a
 metadata-only durability attestation that partitions every `event_id` into
 `confirmed_event_ids`, `best_effort_event_ids`, or
 `existing_readback_event_ids`, with `all_events_read_back: true`. `committed`
-therefore proves atomic publication plus exact readback; only
+therefore proves complete expected-set publication plus exact readback; only
 `confirmed_event_ids` prove that the containing directory entry was synced in
 that transaction. `best_effort_event_ids` and previously existing events must
 not be described as confirmed crash durability.
 Episode claims retain leaf-evidence lineage so regeneration does not summarize a
 summary without recoverable evidence.
+
+When Git synchronization joins independently committed Session Folds for the
+same project and session, multiple active rollups are not treated as ordinary
+episodic results. The records read model reports a deterministic
+`session_fold_conflicts` diagnostic and projects a symmetric
+`semantic/needs_review` conflict onto every competing rollup. Session Fold
+planning then returns `review_required` with `unresolved_conflict` and produces
+no new rollup. Records snapshots, retrieval shards, legacy recall indexes, and
+Engine recall use the same projection. It is recomputed from the active rollup
+set, so restoring or archiving an older rollup removes derived stale conflict
+edges without rewriting event history.
 
 The unified public interfaces are:
 
@@ -1016,6 +1102,38 @@ integrity-checked approval attestation that binds revision IDs and digests. The
 local receipt copy stays under ignored `state/`; neither the projection nor its
 attestation contains `local_only` clause text.
 
+Git sync advances the per-revision proof state only from exact remote evidence:
+
+- `remote_pushed` is written only after `git push` succeeds, `HEAD` equals the
+  updated `origin/main`, and the corresponding personal-sync event blob parses
+  from that commit;
+- `remote_pulled_and_verified` is written only after pull, or initialization
+  from an existing remote, rebuilds derived views; the exact `origin/main` blob
+  must match the local event, its projection integrity must parse, and an
+  approved revision's portable approval chain must verify without using a
+  local-full overlay.
+
+The hashed remote identity is captured before the corresponding network
+operation. Pull and existing-remote initialization use the effective fetch URL
+from `git remote get-url origin`; push uses the effective push URL from
+`git remote get-url --push origin`. When `origin` has multiple `pushurl` values,
+Git pushes to each configured destination, and Moryn deterministically binds a
+successful receipt to the first effective URL (the value returned without
+`--all`). It never substitutes the fetch URL for an explicit push URL.
+
+These metadata-only integrity receipts live under `state/soul-sync/` with
+directory mode `0700` and file mode `0600`. They contain revision, profile,
+event, projection digest, Git blob/commit, and hashed remote identity evidence,
+but no clause text or raw remote URL. `soul_status` and Dashboard Soul revision
+objects expose `remote_pushed`, `remote_pushed_receipt_ids`,
+`remote_pulled_and_verified`, and
+`remote_pulled_and_verified_receipt_ids`.
+The booleans mean that at least one valid local receipt exists for the revision;
+they may represent a historical remote identity. They do not claim that the
+currently configured `origin/main` still points at the receipt's commit. Use the
+receipt IDs and their hashed remote identity/commit evidence when that
+distinction matters.
+
 Draft, approval, conflict, and rollback are explicit revision transitions.
 Approval and rollback require user confirmation and append a new active revision
 plus an approval receipt. Competing heads remain visible as conflicts; Effective
@@ -1035,9 +1153,10 @@ The stable public interfaces are:
 | rollback | `moryn soul rollback --profile-id <profile_id> --to-revision <revision_id> --confirm` | `soul_rollback` | `rollbackSoulProfile` |
 
 `soul_status` is metadata-only: it reports heads, lifecycle state,
-`local_saved`/`personal_sync_saved` persistence, approval verification,
-Effective Soul compilation, conflicts, and hook-preparation receipts without
-clause text. `host_context_prepared` means that Moryn prepared a bounded Soul
-pack for a supported SessionStart or PostCompact hook output. The receipt proof
-scope is `hook_output_prepared_not_host_acknowledged_or_obedience`: it does not
-prove stdout transport, Host acknowledgment, or model obedience.
+`local_saved`/`personal_sync_saved` persistence, per-revision Git proof flags and
+receipt IDs, approval verification, Effective Soul compilation, conflicts, and
+hook-preparation receipts without clause text. `host_context_prepared` means
+that Moryn prepared a bounded Soul pack for a supported SessionStart or
+PostCompact hook output. The receipt proof scope is
+`hook_output_prepared_not_host_acknowledged_or_obedience`: it does not prove
+stdout transport, Host acknowledgment, or model obedience.

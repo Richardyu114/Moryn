@@ -1,7 +1,9 @@
-import { access, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ActivationHost, ActivationReceiptEvent } from "./activation-receipts.js";
+import { shellQuote } from "./cli-command-line.js";
 import { buildHostIntegrationArtifact, type HostRuntimeDescriptor } from "./host-integration-artifacts.js";
+import { projectFileExists, resolveProjectWriteTarget } from "./project-write-boundary.js";
 import { readCurrentRecords } from "./record-read-model.js";
 
 export type ActivationStatus =
@@ -52,15 +54,6 @@ export interface HostActivationStatus {
   suggested_actions: ActivationSuggestedAction[];
 }
 
-async function exists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function commandFromEntry(entry: unknown): string | undefined {
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) return undefined;
   const hooks = (entry as Record<string, unknown>).hooks;
@@ -97,7 +90,7 @@ function activationActions(input: {
           id: "inspect_invalid_codex_config",
           title: "Inspect invalid Codex hooks before repair",
           safe_to_run: false,
-          command: `cat '${join(input.project_path, ".codex", "hooks.json")}'`
+          command: `cat ${shellQuote(join(input.project_path, ".codex", "hooks.json"))}`
         }
       ];
     return [
@@ -110,7 +103,7 @@ function activationActions(input: {
               : "activate_codex_hooks",
         title: input.status === "stale_moryn_config" ? "Repair Moryn-owned Codex hooks" : "Activate Codex hooks",
         safe_to_run: true,
-        command: `moryn activation apply --host codex --project '${input.project_path}'`
+        command: `moryn activation apply --host codex --project ${shellQuote(input.project_path)}`
       }
     ];
   }
@@ -121,7 +114,7 @@ function activationActions(input: {
         id: "inspect_invalid_claude_config",
         title: "Inspect invalid Claude settings before repair",
         safe_to_run: false,
-        command: `cat '${join(input.project_path, ".claude", "settings.local.json")}'`
+        command: `cat ${shellQuote(join(input.project_path, ".claude", "settings.local.json"))}`
       }
     ];
   return [
@@ -129,7 +122,7 @@ function activationActions(input: {
       id: input.status === "stale_moryn_config" ? "repair_claude_hooks" : "activate_claude_hooks",
       title: input.status === "stale_moryn_config" ? "Repair Moryn-owned Claude hooks" : "Activate Claude hooks",
       safe_to_run: true,
-      command: `moryn activation apply --host claude --project '${input.project_path}'`
+      command: `moryn activation apply --host claude --project ${shellQuote(input.project_path)}`
     }
   ];
 }
@@ -149,9 +142,19 @@ export async function inspectHostActivation(input: {
     store_path: input.store_path,
     runtime: input.runtime
   });
-  const fragmentPath = join(input.project_path, artifact.path);
-  const targetPath = join(input.project_path, artifact.merge_target);
-  const fragmentExists = await exists(fragmentPath);
+  const fragmentBoundary = await resolveProjectWriteTarget(
+    input.project_path,
+    artifact.path,
+    `${artifact.host} integration`
+  );
+  const targetBoundary = await resolveProjectWriteTarget(
+    input.project_path,
+    artifact.merge_target,
+    `${artifact.host} activation`
+  );
+  const fragmentPath = fragmentBoundary.target_path;
+  const targetPath = targetBoundary.target_path;
+  const fragmentExists = await projectFileExists(fragmentBoundary, `${artifact.host} integration`);
   const records = (await readCurrentRecords(input.store_path)).records
     .filter(
       (record) =>
@@ -182,7 +185,7 @@ export async function inspectHostActivation(input: {
     : undefined;
 
   let settings: Record<string, unknown> | undefined;
-  if (await exists(targetPath)) {
+  if (await projectFileExists(targetBoundary, `${artifact.host} activation`)) {
     try {
       const parsed = JSON.parse(await readFile(targetPath, "utf8"));
       if (

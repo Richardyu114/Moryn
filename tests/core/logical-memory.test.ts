@@ -184,6 +184,36 @@ describe("logical memory fingerprints", () => {
 });
 
 describe("active logical memory view", () => {
+  it.each(["__proto__", "constructor", "prototype"])(
+    "keeps an active prototype-shaped record id %s visible",
+    async (recordId) => {
+      const { buildActiveLogicalMemoryView } = await import("../../src/core/logical-memory.js");
+      const view = buildActiveLogicalMemoryView([record({ id: recordId })]);
+
+      expect(view.active_records.map((item) => item.id)).toEqual([recordId]);
+      expect(Object.getPrototypeOf(view.hidden_by_record_id)).toBeNull();
+      expect(Object.hasOwn(view.hidden_by_record_id, recordId)).toBe(false);
+    }
+  );
+
+  it.each(["__proto__", "constructor", "prototype"])(
+    "serializes a hidden prototype-shaped record id %s without dropping it",
+    async (recordId) => {
+      const { buildActiveLogicalMemoryView } = await import("../../src/core/logical-memory.js");
+      const hidden = record({
+        id: recordId,
+        links: [{ record_id: "canonical", link_type: "duplicate_of", created_at: "2026-07-11T00:00:00.000Z" }]
+      });
+      const view = buildActiveLogicalMemoryView([hidden, record({ id: "canonical" })]);
+      const serialized = JSON.parse(JSON.stringify(view.hidden_by_record_id)) as Record<string, unknown>;
+
+      expect(view.active_records.map((item) => item.id)).toEqual(["canonical"]);
+      expect(Object.hasOwn(view.hidden_by_record_id, recordId)).toBe(true);
+      expect(Object.hasOwn(serialized, recordId)).toBe(true);
+      expect(serialized[recordId]).toEqual({ relationship: "duplicate_of", active_record_id: "canonical" });
+    }
+  );
+
   it("hides duplicate sources and superseded or revised targets", async () => {
     const { buildActiveLogicalMemoryView } = await import("../../src/core/logical-memory.js");
     const duplicate = record({

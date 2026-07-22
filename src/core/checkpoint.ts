@@ -3,7 +3,7 @@ import { type ContextDelta, type ContextDeltaInput, validateContextDelta } from 
 import type { LearningCandidateReviewWorkflow } from "./learning-candidate-review.js";
 import type { SemanticConsolidationReceipt } from "./semantic-consolidation.js";
 import type { SemanticConsolidationCandidate } from "./semantic-consolidation-candidates.js";
-import { isPrivateTags } from "./sensitive.js";
+import { isPrivateMemoryBoundary } from "./sensitive.js";
 import type { MorynRecord, RecordSource } from "./types.js";
 
 export interface LearningSemanticCandidatesReceipt {
@@ -373,7 +373,7 @@ export function buildCheckpointRecoveryPack(
     .filter((record) => record.visibility === "active" && record.state !== "archived" && record.state !== "quarantined")
     .filter((record) => record.kind === "session_summary" && record.type === "checkpoint" && record.scope === "project")
     .filter((record) => record.project_id === input.project_id)
-    .filter((record) => input.include_private === true || !isPrivateTags(record.tags))
+    .filter((record) => input.include_private === true || !isPrivateMemoryBoundary(record))
     .map((record) => ({ record, checkpoint: parseCheckpointContent(record.content) }))
     .filter((candidate): candidate is { record: MorynRecord; checkpoint: ContextDelta } =>
       Boolean(candidate.checkpoint)

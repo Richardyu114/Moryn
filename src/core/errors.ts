@@ -1139,6 +1139,10 @@ type AgentStartContextInput = {
   project_path?: unknown;
   sync_remote?: unknown;
   current_task?: unknown;
+  user_profile_id?: unknown;
+  agent_profile_id?: unknown;
+  soul_char_budget?: unknown;
+  soul_token_budget?: unknown;
   refresh_since?: unknown;
   limit?: unknown;
   pull?: boolean;
@@ -1156,6 +1160,10 @@ function commandForAgentSessionContext(command: "enter" | "start", input: AgentS
   appendCommandOptionValue(parts, "--project-id", input.project_id);
   appendCommandOptionValue(parts, "--sync-remote", input.sync_remote);
   appendCommandOptionValue(parts, "--current-task", input.current_task);
+  appendCommandOptionValue(parts, "--user-profile-id", input.user_profile_id);
+  appendCommandOptionValue(parts, "--agent-profile-id", input.agent_profile_id);
+  appendCommandOptionValue(parts, "--soul-char-budget", input.soul_char_budget);
+  appendCommandOptionValue(parts, "--soul-token-budget", input.soul_token_budget);
   appendCommandOptionValue(parts, "--refresh-since", input.refresh_since);
   appendCommandOptionValue(parts, "--limit", input.limit);
   if (input.pull === false) parts.push("--no-pull");

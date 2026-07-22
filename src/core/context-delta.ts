@@ -104,6 +104,65 @@ export const semanticConsolidationDifferenceSchema = z
   })
   .strict();
 
+const requiredUniqueStringListSchema = z
+  .array(nonEmptyStringSchema)
+  .min(1)
+  .transform((values, context) => {
+    if (new Set(values).size !== values.length) {
+      context.addIssue({ code: "custom", message: "Expected unique non-empty strings" });
+      return z.NEVER;
+    }
+    return values;
+  });
+
+const structuredSemanticMergeFieldSchema = z.discriminatedUnion("disposition", [
+  z
+    .object({
+      field: nonEmptyStringSchema,
+      disposition: z.literal("retain"),
+      source_record_id: nonEmptyStringSchema
+    })
+    .strict(),
+  z
+    .object({
+      field: nonEmptyStringSchema,
+      disposition: z.literal("union"),
+      source_record_ids: requiredUniqueStringListSchema
+    })
+    .strict(),
+  z
+    .object({
+      field: nonEmptyStringSchema,
+      disposition: z.literal("replace"),
+      source_record_id: nonEmptyStringSchema,
+      replaced_source_record_ids: requiredUniqueStringListSchema,
+      evidence_record_ids: requiredUniqueStringListSchema
+    })
+    .strict(),
+  z
+    .object({
+      field: nonEmptyStringSchema,
+      disposition: z.literal("obsolete"),
+      source_record_ids: requiredUniqueStringListSchema,
+      evidence_record_ids: requiredUniqueStringListSchema
+    })
+    .strict()
+]);
+
+export const structuredSemanticMergeSchema = z
+  .object({
+    version: z.literal(1),
+    requested_state: z.enum(["candidate", "canonical"]).optional().default("candidate"),
+    fields: z.array(structuredSemanticMergeFieldSchema).max(32).optional().default([])
+  })
+  .strict()
+  .superRefine((merge, context) => {
+    const fields = merge.fields.map((field) => field.field);
+    if (new Set(fields).size !== fields.length) {
+      context.addIssue({ code: "custom", path: ["fields"], message: "Expected unique structured merge fields" });
+    }
+  });
+
 export const semanticConsolidationProposalSchema = z
   .object({
     proposal_id: nonEmptyStringSchema,
@@ -114,7 +173,8 @@ export const semanticConsolidationProposalSchema = z
     rationale: nonEmptyStringSchema,
     semantic_equivalence: z.enum(["equivalent", "refinement", "replacement", "conflict"]),
     material_differences: z.array(semanticConsolidationDifferenceSchema).max(16).optional().default([]),
-    evidence_record_ids: strictUniqueStringListSchema
+    evidence_record_ids: strictUniqueStringListSchema,
+    structured_merge: structuredSemanticMergeSchema.optional()
   })
   .strict()
   .superRefine((proposal, context) => {
@@ -138,10 +198,39 @@ export const semanticConsolidationProposalSchema = z
         message: "semantic equivalence must match relationship"
       });
     }
+    if (proposal.structured_merge) {
+      const sourceIds = new Set([proposal.source_record_id, proposal.target_record_id]);
+      for (const [index, field] of proposal.structured_merge.fields.entries()) {
+        const referencedSourceIds =
+          field.disposition === "retain" || field.disposition === "replace"
+            ? [field.source_record_id, ...(field.disposition === "replace" ? field.replaced_source_record_ids : [])]
+            : field.source_record_ids;
+        if (referencedSourceIds.some((recordId) => !sourceIds.has(recordId))) {
+          context.addIssue({
+            code: "custom",
+            path: ["structured_merge", "fields", index],
+            message: "structured merge fields may reference only the proposal source and target records"
+          });
+        }
+        if (
+          (field.disposition === "replace" || field.disposition === "obsolete") &&
+          field.evidence_record_ids.some((recordId) => !proposal.evidence_record_ids.includes(recordId))
+        ) {
+          context.addIssue({
+            code: "custom",
+            path: ["structured_merge", "fields", index, "evidence_record_ids"],
+            message: "field evidence must also be declared by the proposal"
+          });
+        }
+      }
+    }
   });
 
 export type SemanticConsolidationDifferenceInput = z.input<typeof semanticConsolidationDifferenceSchema>;
 export type SemanticConsolidationDifference = z.output<typeof semanticConsolidationDifferenceSchema>;
+export type StructuredSemanticMergeInput = z.input<typeof structuredSemanticMergeSchema>;
+export type StructuredSemanticMerge = z.output<typeof structuredSemanticMergeSchema>;
+export type StructuredSemanticMergeField = StructuredSemanticMerge["fields"][number];
 export type SemanticConsolidationProposalInput = z.input<typeof semanticConsolidationProposalSchema>;
 export type SemanticConsolidationProposal = z.output<typeof semanticConsolidationProposalSchema>;
 

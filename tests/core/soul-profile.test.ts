@@ -158,6 +158,24 @@ describe("legacy Soul record compatibility", () => {
     });
   });
 
+  it("keeps legacy content-level private boundaries local-only", () => {
+    const contentPrivate = parseLegacySoulRecord(
+      legacyRecord({
+        id: "legacy-content-private",
+        content: { text: "Device-local preference.", privacy: "private" }
+      })
+    );
+    const localOnly = parseLegacySoulRecord(
+      legacyRecord({
+        id: "legacy-local-only",
+        content: { text: "Host-local preference.", distribution: "local_only" }
+      })
+    );
+
+    expect(contentPrivate?.clauses[0]?.distribution).toBe("local_only");
+    expect(localOnly?.clauses[0]?.distribution).toBe("local_only");
+  });
+
   it("ignores non-Soul records and rejects legacy scopes that v1 cannot express", () => {
     expect(parseLegacySoulRecord(legacyRecord({ kind: "memory" }))).toBeUndefined();
     expect(() => parseLegacySoulRecord(legacyRecord({ scope: "session" }))).toThrow("unsupported scope session");
@@ -231,6 +249,84 @@ describe("last-known-good revision selection", () => {
     expect(selection.selected_revision?.revision_id).toBe(good.revision_id);
     expect(selection.conflicted_revision_ids).toEqual([left.revision_id, right.revision_id].sort());
     expect(selection.ignored_revision_ids.filter((item) => item.reason === "ambiguous_active_head")).toHaveLength(2);
+  });
+
+  it("uses DAG heads instead of generation rank for unequal concurrent branches", () => {
+    const base = revision([clause("tone", "Use the shared known-good tone.")]);
+    const left = revision([clause("tone", "Prefer examples.")], {
+      generation: 2,
+      parent_revision_ids: [base.revision_id]
+    });
+    const leftAdvanced = revision([clause("tone", "Prefer examples with evidence.")], {
+      generation: 3,
+      parent_revision_ids: [left.revision_id]
+    });
+    const right = revision([clause("tone", "Prefer tables.")], {
+      generation: 2,
+      parent_revision_ids: [base.revision_id]
+    });
+
+    const selection = selectLastKnownGoodSoulRevision([leftAdvanced, right, left, base], base.profile_id);
+    const compiled = compileEffectiveSoul({ revisions: [leftAdvanced, right, left, base] });
+
+    expect(selection).toMatchObject({
+      status: "using_last_known_good",
+      selected_revision: { revision_id: base.revision_id },
+      conflicted_revision_ids: [leftAdvanced.revision_id, right.revision_id].sort()
+    });
+    expect(selection.ignored_revision_ids.filter((item) => item.reason === "ambiguous_active_head")).toEqual(
+      expect.arrayContaining([
+        { revision_id: leftAdvanced.revision_id, reason: "ambiguous_active_head" },
+        { revision_id: right.revision_id, reason: "ambiguous_active_head" }
+      ])
+    );
+    expect(compiled).toMatchObject({ status: "ready_with_omissions", deliverable: true });
+    expect(compiled.clauses.map((item) => item.text)).toEqual(["Use the shared known-good tone."]);
+  });
+
+  it("selects the nearest common approved ancestor of all active DAG heads", () => {
+    const root = revision([clause("tone", "Root tone.")]);
+    const shared = revision([clause("tone", "Nearest shared tone.")], {
+      generation: 2,
+      parent_revision_ids: [root.revision_id]
+    });
+    const left = revision([clause("tone", "Left tone.")], {
+      generation: 3,
+      parent_revision_ids: [shared.revision_id]
+    });
+    const right = revision([clause("tone", "Right tone.")], {
+      generation: 9,
+      parent_revision_ids: [shared.revision_id]
+    });
+
+    const selection = selectLastKnownGoodSoulRevision([right, root, left, shared], root.profile_id);
+
+    expect(selection).toMatchObject({
+      status: "using_last_known_good",
+      selected_revision: { revision_id: shared.revision_id },
+      conflicted_revision_ids: [left.revision_id, right.revision_id].sort()
+    });
+  });
+
+  it("returns no active revision when concurrent heads have no common approved ancestor", () => {
+    const left = revision([clause("tone", "Left root.")]);
+    const right = revision([clause("tone", "Right root.")], { generation: 4 });
+
+    const selection = selectLastKnownGoodSoulRevision([right, left], left.profile_id);
+    const compiled = compileEffectiveSoul({ revisions: [right, left] });
+
+    expect(selection).toMatchObject({
+      status: "no_active_revision",
+      conflicted_revision_ids: [left.revision_id, right.revision_id].sort()
+    });
+    expect(selection.selected_revision).toBeUndefined();
+    expect(compiled).toMatchObject({ status: "blocked", deliverable: false, selected_revisions: [] });
+    expect(compiled.conflicts).toContainEqual(
+      expect.objectContaining({
+        kind: "ambiguous_active_head",
+        revision_ids: [left.revision_id, right.revision_id].sort()
+      })
+    );
   });
 
   it("uses an approved superseded revision as last-known-good below conflicting heads", () => {
@@ -429,6 +525,24 @@ describe("deterministic effective Soul compiler", () => {
         profile_ids: [firstUser.profile_id, secondUser.profile_id].sort()
       })
     ]);
+  });
+
+  it("blocks explicit profile bindings that are missing or target the wrong subject kind", () => {
+    const agent = revision([clause("persona", "Agent persona.", { category: "identity" })], {
+      subject: agentSubject
+    });
+
+    const missing = compileEffectiveSoul({ revisions: [agent], agent_profile_id: "missing-profile" });
+    expect(missing).toMatchObject({ status: "blocked", deliverable: false, selected_revisions: [] });
+    expect(missing.conflicts).toContainEqual(
+      expect.objectContaining({ kind: "profile_binding_not_found", profile_id: "missing-profile" })
+    );
+
+    const wrongSubject = compileEffectiveSoul({ revisions: [agent], user_profile_id: agent.profile_id });
+    expect(wrongSubject).toMatchObject({ status: "blocked", deliverable: false });
+    expect(wrongSubject.conflicts).toContainEqual(
+      expect.objectContaining({ kind: "profile_subject_mismatch", profile_id: agent.profile_id })
+    );
   });
 });
 

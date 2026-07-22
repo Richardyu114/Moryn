@@ -116,6 +116,32 @@ describe("memory source expansion", () => {
     expect(visible.records_by_id[privateLeaf.id]?.private).toBe(true);
   });
 
+  it.each([
+    ["content privacy", { privacy: "private" }],
+    ["local-only distribution", { distribution: "local_only" }]
+  ] as const)("keeps leaf payloads with %s behind an explicit boundary", (_label, privacyMarker) => {
+    const privateLeaf = record("rec-private", {
+      content: { text: "legacy private payload", ...privacyMarker }
+    });
+    const root = record("rec-episode", {
+      content: { text: "episode", source_record_ids: [privateLeaf.id] }
+    });
+
+    const hidden = expandMemorySources({ records: [root, privateLeaf], record_id: root.id });
+    expect(hidden.records.map((entry) => entry.record.id)).toEqual([root.id]);
+    expect(hidden.omissions).toEqual([
+      { from_record_id: root.id, record_id: privateLeaf.id, reason: "private_boundary" }
+    ]);
+    expect(JSON.stringify(hidden.records)).not.toContain("legacy private payload");
+
+    const included = expandMemorySources({
+      records: [root, privateLeaf],
+      record_id: root.id,
+      include_private: true
+    });
+    expect(included.records_by_id[privateLeaf.id]?.private).toBe(true);
+  });
+
   it("is cycle-safe and bounds depth and record count", () => {
     const leaf = record("rec-leaf");
     const middle = record("rec-middle", { provenance: { derived_from: [leaf.id] } });
@@ -144,5 +170,19 @@ describe("memory source expansion", () => {
     expect(() => expandMemorySources({ records: [root], record_id: root.id })).toThrow(
       "Private memory expansion requires include_private"
     );
+  });
+
+  it.each([
+    ["content privacy", { privacy: "private" }],
+    ["local-only distribution", { distribution: "local_only" }]
+  ] as const)("requires explicit private access for a root with %s", (_label, privacyMarker) => {
+    const root = record("rec-private-root", { content: { text: "private root", ...privacyMarker } });
+    expect(() => expandMemorySources({ records: [root], record_id: root.id })).toThrow(
+      "Private memory expansion requires include_private"
+    );
+    expect(
+      expandMemorySources({ records: [root], record_id: root.id, include_private: true }).records_by_id[root.id]
+        ?.private
+    ).toBe(true);
   });
 });

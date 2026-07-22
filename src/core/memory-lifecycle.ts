@@ -11,6 +11,7 @@ import {
   type MemoryValidityStatus,
   type ProtectedMemorySignal
 } from "./memory-retention.js";
+import { isPrivateMemoryBoundary } from "./sensitive.js";
 import type { MorynRecord, RecordKind, RecordState } from "./types.js";
 import { type RequiredFieldMetadata, withPhasesByName, withRequiredFieldsByName } from "./workflow.js";
 
@@ -475,8 +476,15 @@ export function diagnoseMemoryLifecycle(input: MemoryLifecycleDiagnoseInput): Me
   const limit = input.limit ?? 20;
   const generatedAt = input.now ?? new Date().toISOString();
   const policy = DEFAULT_POLICY;
-  const records = [...input.records].sort(stableRecordSort);
   const privateRecordIds = new Set(input.private_record_ids ?? []);
+  const inputRecords = [...input.records];
+  const records = inputRecords
+    .filter(
+      (record) =>
+        input.include_private === true || (!privateRecordIds.has(record.id) && !isPrivateMemoryBoundary(record))
+    )
+    .sort(stableRecordSort);
+  const excludedPrivateRecords = (input.excluded_private_records ?? 0) + (inputRecords.length - records.length);
   const retention = buildMemoryRetentionReadModel(records, { now: generatedAt });
   const assessments = records
     .map((record) =>
@@ -521,7 +529,7 @@ export function diagnoseMemoryLifecycle(input: MemoryLifecycleDiagnoseInput): Me
     ...(input.project_id ? { project_id: input.project_id } : {}),
     generated_at: generatedAt,
     policy,
-    stats: stats(records, assessments, input.excluded_private_records ?? 0),
+    stats: stats(records, assessments, excludedPrivateRecords),
     assessments,
     assessments_by_record_id: assessmentByRecordId,
     findings,

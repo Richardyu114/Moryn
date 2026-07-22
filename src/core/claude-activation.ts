@@ -1,7 +1,13 @@
 import { createHash } from "node:crypto";
-import { lstat, mkdir, open, readFile, rename, writeFile } from "node:fs/promises";
+import { lstat, open, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { HostIntegrationArtifact } from "./host-integration-artifacts.js";
+import {
+  ensureProjectWriteDirectory,
+  ensureProjectWriteParent,
+  projectFileExists,
+  resolveProjectWriteTarget
+} from "./project-write-boundary.js";
 
 export interface ClaudeSettingsMergeResult {
   changed: boolean;
@@ -99,15 +105,17 @@ export async function activateClaudeSettings(input: {
 }): Promise<ClaudeActivationResult> {
   if (input.artifact.host !== "claude")
     throw new Error("Invalid Claude settings: activation requires a Claude artifact");
-  const targetPath = join(input.project_path, input.artifact.merge_target);
+  if (
+    input.artifact.path !== ".claude/moryn-settings.json" ||
+    input.artifact.merge_target !== ".claude/settings.local.json"
+  ) {
+    throw new Error("Invalid Claude settings: unexpected artifact path or merge target");
+  }
+  const boundary = await resolveProjectWriteTarget(input.project_path, input.artifact.merge_target, "Claude settings");
+  const targetPath = boundary.target_path;
   let existingText: string | undefined;
-  try {
-    const stat = await lstat(targetPath);
-    if (stat.isSymbolicLink()) throw new Error(`Invalid Claude settings: target is a symbolic link: ${targetPath}`);
-    if (!stat.isFile()) throw new Error(`Invalid Claude settings: target is not a regular file: ${targetPath}`);
+  if (await projectFileExists(boundary, "Claude settings")) {
     existingText = await readFile(targetPath, "utf8");
-  } catch (error) {
-    if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) throw error;
   }
   let current: unknown | undefined;
   if (existingText !== undefined) {
@@ -131,12 +139,15 @@ export async function activateClaudeSettings(input: {
     };
   }
 
-  await mkdir(dirname(targetPath), { recursive: true });
+  await ensureProjectWriteParent(boundary, "Claude settings");
   let backupPath: string | undefined;
   if (existingText !== undefined) {
     const previousDigest = digest(existingText);
-    const backupDir = join(dirname(targetPath), ".moryn-backups");
-    await mkdir(backupDir, { recursive: true });
+    const backupDir = await ensureProjectWriteDirectory(
+      boundary.root_path,
+      ".claude/.moryn-backups",
+      "Claude settings backup"
+    );
     backupPath = join(backupDir, `settings.local.${previousDigest.slice(0, 16)}.json`);
     try {
       const backupStat = await lstat(backupPath);

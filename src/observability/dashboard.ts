@@ -29,6 +29,7 @@ import type { RecallEvalReport } from "../core/recall-eval.js";
 import { readCurrentRecords } from "../core/record-read-model.js";
 import { replayEvents } from "../core/replay.js";
 import { readRetrievalCandidates } from "../core/retrieval-index.js";
+import { isPrivateMemoryBoundary } from "../core/sensitive.js";
 import { readEvents } from "../core/store.js";
 import { readSyncCompensationReceipt } from "../core/sync-compensation.js";
 import type { MorynEvent, MorynRecord, RecordKind, RecordSource } from "../core/types.js";
@@ -1006,14 +1007,8 @@ function recordText(record: MorynRecord): string {
     : displayRecordText(record);
 }
 
-const PRIVATE_RECORD_TAGS = new Set(["private", "secret", "sensitive"]);
-
-function isPrivateRecord(record: MorynRecord): boolean {
-  return record.tags.some((tag) => PRIVATE_RECORD_TAGS.has(tag.toLowerCase()));
-}
-
 function isVisibleForDashboard(record: MorynRecord, includePrivate: boolean | undefined): boolean {
-  return includePrivate === true || !isPrivateRecord(record);
+  return includePrivate === true || !isPrivateMemoryBoundary(record);
 }
 
 function recordProjectMatchesDashboard(record: MorynRecord, projectId: string | undefined): boolean {
@@ -1035,6 +1030,73 @@ function recallEvalRecordCases(record: MorynRecord): unknown[] {
 
 function targetRecordId(event: MorynEvent): string | undefined {
   return event.op === "upsert_record" ? event.record.id : event.record_id;
+}
+
+function eventRecordIds(event: MorynEvent): string[] {
+  if (event.op === "upsert_record") return [event.record.id];
+  if (event.op === "link_records") return [event.record_id, event.linked_record_id];
+  return [event.record_id];
+}
+
+function eventEndpointsAreVisible(event: MorynEvent, visibleRecordIds: ReadonlySet<string>): boolean {
+  return eventRecordIds(event).every((recordId) => visibleRecordIds.has(recordId));
+}
+
+function patchIntroducesPrivateBoundary(patch: Record<string, unknown>): boolean {
+  const content = patch.content;
+  const tags = patch.tags;
+  const dottedPrivateTag = Object.entries(patch).some(
+    ([path, value]) =>
+      /^tags\.\d+$/u.test(path) &&
+      typeof value === "string" &&
+      ["private", "secret", "sensitive"].includes(value.trim().toLowerCase())
+  );
+  return (
+    dottedPrivateTag ||
+    (Array.isArray(tags) &&
+      tags.some(
+        (tag) => typeof tag === "string" && ["private", "secret", "sensitive"].includes(tag.trim().toLowerCase())
+      )) ||
+    (typeof content === "object" &&
+      content !== null &&
+      !Array.isArray(content) &&
+      ((content as Record<string, unknown>).privacy === "private" ||
+        (content as Record<string, unknown>).distribution === "local_only")) ||
+    patch["content.privacy"] === "private" ||
+    patch["content.distribution"] === "local_only"
+  );
+}
+
+function recordIdsWithPrivateEventHistory(events: readonly MorynEvent[], records: readonly MorynRecord[]): Set<string> {
+  const recordIds = new Set(records.filter(isPrivateMemoryBoundary).map((record) => record.id));
+  for (const event of events) {
+    if (event.op === "upsert_record" && isPrivateMemoryBoundary(event.record)) recordIds.add(event.record.id);
+    if (event.op === "revise_record" && patchIntroducesPrivateBoundary(event.patch)) recordIds.add(event.record_id);
+  }
+  return recordIds;
+}
+
+function projectVisibleRecordReferences(record: MorynRecord, visibleRecordIds: ReadonlySet<string>): MorynRecord {
+  const links = record.links?.filter((link) => visibleRecordIds.has(link.record_id));
+  const conflictWith = record.conflict?.with.filter((recordId) => visibleRecordIds.has(recordId));
+  const derivedFrom = record.provenance?.derived_from?.filter((recordId) => visibleRecordIds.has(recordId));
+  const linksChanged = links?.length !== record.links?.length;
+  const conflictChanged = conflictWith?.length !== record.conflict?.with.length;
+  const provenanceChanged = derivedFrom?.length !== record.provenance?.derived_from?.length;
+  if (!linksChanged && !conflictChanged && !provenanceChanged) return record;
+
+  const projected = { ...record };
+  if (linksChanged) projected.links = links;
+  if (conflictChanged) {
+    if (conflictWith?.length) projected.conflict = { ...record.conflict!, with: conflictWith };
+    else delete projected.conflict;
+  }
+  if (provenanceChanged) {
+    projected.provenance = { ...record.provenance };
+    if (derivedFrom?.length) projected.provenance.derived_from = derivedFrom;
+    else delete projected.provenance.derived_from;
+  }
+  return projected;
 }
 
 function appendProjectId(parts: string[], projectId: string | undefined): void {
@@ -3373,14 +3435,20 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
   const currentRecordRead = await readCurrentRecords(storePath);
   const allRecordsById = new Map(currentRecordRead.records.map((record) => [record.id, record]));
   const allRecords = [...allRecordsById.values()];
-  const records = allRecords.filter((record) => isVisibleForDashboard(record, options.include_private));
+  const visibleRecordIds = new Set(
+    allRecords.filter((record) => isVisibleForDashboard(record, options.include_private)).map((record) => record.id)
+  );
+  const records = allRecords
+    .filter((record) => visibleRecordIds.has(record.id))
+    .map((record) => projectVisibleRecordReferences(record, visibleRecordIds));
   const logicalView = buildActiveLogicalMemoryView(records);
   const recordsById = new Map(records.map((record) => [record.id, record]));
-  const visibleRecordIds = new Set(records.map((record) => record.id));
-  const visibleEvents = events.filter((event) => {
-    const recordId = targetRecordId(event);
-    return !recordId || visibleRecordIds.has(recordId);
-  });
+  const privateHistoryRecordIds = recordIdsWithPrivateEventHistory(events, allRecords);
+  const eventVisibleRecordIds =
+    options.include_private === true
+      ? visibleRecordIds
+      : new Set([...visibleRecordIds].filter((recordId) => !privateHistoryRecordIds.has(recordId)));
+  const visibleEvents = events.filter((event) => eventEndpointsAreVisible(event, eventVisibleRecordIds));
   const eventsByRecord = latestEventsByRecord(visibleEvents);
   const allRecordsSorted = [...records].sort(
     (left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id)
@@ -3392,7 +3460,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     )
     .slice(0, limit);
   const generatedAt = options.now ?? new Date().toISOString();
-  const activationReceipts = allRecords
+  const activationReceipts = records
     .filter(
       (record) =>
         record.type === "activation_receipt" && (!options.project_id || record.project_id === options.project_id)
@@ -3460,14 +3528,12 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
   const sync = await getGitSyncStatus(storePath);
   const agentActivity = summarizeAgentActivity(visibleEvents, records, recordsById, eventsByRecord);
   const lifecycleAllRecords = allRecords.filter((record) => recordProjectMatchesDashboard(record, options.project_id));
-  const lifecycleRecords = lifecycleAllRecords.filter((record) =>
-    isVisibleForDashboard(record, options.include_private)
-  );
+  const lifecycleRecords = records.filter((record) => recordProjectMatchesDashboard(record, options.project_id));
   const capturePolicyAllRecords = allRecords.filter((record) => {
     return !options.project_id || record.project_id === options.project_id;
   });
-  const capturePolicyRecords = capturePolicyAllRecords.filter((record) =>
-    isVisibleForDashboard(record, options.include_private)
+  const capturePolicyRecords = records.filter(
+    (record) => !options.project_id || record.project_id === options.project_id
   );
   const captureInboxData = buildCaptureInbox(records, generatedAt, limit, eventsByRecord);
   const contextPackReviewData = buildContextPackReview(records, options);
@@ -3489,15 +3555,13 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     limit,
     include_private: options.include_private === true,
     now: generatedAt,
-    private_record_ids: lifecycleAllRecords.filter(isPrivateRecord).map((record) => record.id),
+    private_record_ids: lifecycleAllRecords.filter(isPrivateMemoryBoundary).map((record) => record.id),
     excluded_private_records: lifecycleAllRecords.length - lifecycleRecords.length
   });
   const memoryDoctorAllRecords = allRecords.filter((record) =>
     recordProjectMatchesDashboard(record, options.project_id)
   );
-  const memoryDoctorRecords = memoryDoctorAllRecords.filter((record) =>
-    isVisibleForDashboard(record, options.include_private)
-  );
+  const memoryDoctorRecords = records.filter((record) => recordProjectMatchesDashboard(record, options.project_id));
   const memoryDoctorData = diagnoseMemory({
     records: memoryDoctorRecords,
     project_id: options.project_id,
@@ -3507,12 +3571,9 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
   });
   const candidateTriageData = buildCandidateTriage(memoryDoctorRecords, eventsByRecord, generatedAt, limit);
   const dogfoodAllRecords = allRecords.filter((record) => recordProjectMatchesDogfood(record, options.project_id));
-  const dogfoodRecords = dogfoodAllRecords.filter((record) => isVisibleForDashboard(record, options.include_private));
+  const dogfoodRecords = records.filter((record) => recordProjectMatchesDogfood(record, options.project_id));
   const dogfoodRecordIds = new Set(dogfoodRecords.map((record) => record.id));
-  const dogfoodEvents = events.filter((event) => {
-    const recordId = targetRecordId(event);
-    return !recordId || dogfoodRecordIds.has(recordId);
-  });
+  const dogfoodEvents = visibleEvents.filter((event) => eventEndpointsAreVisible(event, dogfoodRecordIds));
   const dogfoodReportData = diagnoseDogfood({
     records: dogfoodRecords,
     events: dogfoodEvents,
@@ -3524,14 +3585,9 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
   const healthCheckAllRecords = allRecords.filter((record) =>
     recordProjectMatchesDashboard(record, options.project_id)
   );
-  const healthCheckRecords = healthCheckAllRecords.filter((record) =>
-    isVisibleForDashboard(record, options.include_private)
-  );
+  const healthCheckRecords = records.filter((record) => recordProjectMatchesDashboard(record, options.project_id));
   const healthCheckRecordIds = new Set(healthCheckRecords.map((record) => record.id));
-  const healthCheckEvents = events.filter((event) => {
-    const recordId = targetRecordId(event);
-    return !recordId || healthCheckRecordIds.has(recordId);
-  });
+  const healthCheckEvents = visibleEvents.filter((event) => eventEndpointsAreVisible(event, healthCheckRecordIds));
   const latestSyncCompensation = await readSyncCompensationReceipt(storePath);
   const syncCompensation =
     latestSyncCompensation && (!options.project_id || latestSyncCompensation.project_id === options.project_id)

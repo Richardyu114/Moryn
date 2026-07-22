@@ -27,6 +27,7 @@ import {
   type SessionFoldApplyResult,
   type SessionFoldReceipt
 } from "./session-fold-transaction.js";
+import { withStoreStateLease } from "./state-lease.js";
 import { readEvents } from "./store.js";
 import type { MorynEvent, MorynRecord } from "./types.js";
 
@@ -528,7 +529,7 @@ function existingApplyResult(receipt: MemoryCompactionReceipt): MemoryCompaction
   };
 }
 
-export async function applyMemoryCompactionPlan(
+async function applyMemoryCompactionPlanWithLease(
   storePath: string,
   input: ApplyMemoryCompactionInput,
   deps: MemoryCompactionApplyDeps = {}
@@ -607,4 +608,12 @@ export async function applyMemoryCompactionPlan(
     created_event_ids: createdEventIds,
     existing_event_ids: existingEventIds
   };
+}
+
+export async function applyMemoryCompactionPlan(
+  storePath: string,
+  input: ApplyMemoryCompactionInput,
+  deps: MemoryCompactionApplyDeps = {}
+): Promise<MemoryCompactionApplyResult> {
+  return withStoreStateLease(storePath, () => applyMemoryCompactionPlanWithLease(storePath, input, deps));
 }

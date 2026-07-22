@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { isPrivateMemoryBoundary } from "./sensitive.js";
 import type { MorynRecord } from "./types.js";
 
 export const SOUL_PROFILE_SCHEMA_VERSION = 1 as const;
@@ -115,7 +116,13 @@ export interface SoulOmission {
 }
 
 export interface SoulCompileConflict {
-  kind: "revision_conflict" | "ambiguous_active_head" | "ambiguous_profile_binding" | "protected_clause_override";
+  kind:
+    | "revision_conflict"
+    | "ambiguous_active_head"
+    | "ambiguous_profile_binding"
+    | "profile_binding_not_found"
+    | "profile_subject_mismatch"
+    | "protected_clause_override";
   profile_id: string;
   profile_ids?: string[];
   revision_ids?: string[];
@@ -180,7 +187,6 @@ export interface EffectiveSoul {
 
 const DEFAULT_CHAR_BUDGET = 4_000;
 const DEFAULT_TOKEN_BUDGET = 1_000;
-const PRIVATE_TAGS = new Set(["private", "secret", "sensitive"]);
 const PROTECTED_CATEGORIES = new Set<SoulClauseCategory>(["boundary", "identity"]);
 
 function compareCodeUnits(left: string, right: string): number {
@@ -418,7 +424,7 @@ function legacyText(record: MorynRecord): string {
 }
 
 function legacyDistribution(record: MorynRecord, fallback: SoulDistribution): SoulDistribution {
-  return record.tags.some((tag) => PRIVATE_TAGS.has(tag.trim().toLowerCase())) ? "local_only" : fallback;
+  return isPrivateMemoryBoundary(record) ? "local_only" : fallback;
 }
 
 /**
@@ -516,16 +522,85 @@ function revisionOrder(left: SoulProfileRevision, right: SoulProfileRevision): n
   return right.generation - left.generation || compareCodeUnits(right.revision_id, left.revision_id);
 }
 
+function revisionAncestors(
+  revisionId: string,
+  revisionsById: ReadonlyMap<string, SoulProfileRevision>
+): Map<string, number> {
+  const distances = new Map<string, number>([[revisionId, 0]]);
+  const pending = [revisionId];
+  for (let index = 0; index < pending.length; index += 1) {
+    const currentId = pending[index]!;
+    const currentDistance = distances.get(currentId)!;
+    const current = revisionsById.get(currentId);
+    if (!current) continue;
+    for (const parentId of current.parent_revision_ids) {
+      if (!revisionsById.has(parentId)) continue;
+      const distance = currentDistance + 1;
+      const previous = distances.get(parentId);
+      if (previous !== undefined && previous <= distance) continue;
+      distances.set(parentId, distance);
+      pending.push(parentId);
+    }
+  }
+  return distances;
+}
+
+function approvedActiveHeads(
+  revisions: readonly SoulProfileRevision[],
+  ancestorsByRevisionId: ReadonlyMap<string, ReadonlyMap<string, number>>
+): SoulProfileRevision[] {
+  const active = revisions.filter((revision) => revision.state === "active" && revision.approved);
+  const heads = active.filter(
+    (candidate) =>
+      !active.some(
+        (other) =>
+          other.revision_id !== candidate.revision_id &&
+          ancestorsByRevisionId.get(other.revision_id)?.has(candidate.revision_id)
+      )
+  );
+  // A malformed cycle has no graph head. Preserve every participant so callers
+  // fail closed as an ambiguous set rather than silently selecting by generation.
+  return (heads.length ? heads : active).sort(revisionOrder);
+}
+
+function nearestCommonApprovedAncestor(
+  tips: readonly SoulProfileRevision[],
+  revisions: readonly SoulProfileRevision[],
+  ancestorsByRevisionId: ReadonlyMap<string, ReadonlyMap<string, number>>,
+  excludedRevisionIds: ReadonlySet<string> = new Set()
+): SoulProfileRevision | undefined {
+  if (!tips.length) return undefined;
+  const distances = tips.map((tip) => ancestorsByRevisionId.get(tip.revision_id) ?? new Map([[tip.revision_id, 0]]));
+  const candidates = revisions.filter(
+    (revision) =>
+      revision.approved &&
+      (revision.state === "active" || revision.state === "superseded") &&
+      !excludedRevisionIds.has(revision.revision_id) &&
+      distances.every((distance) => distance.has(revision.revision_id))
+  );
+  return candidates.sort((left, right) => {
+    const leftDistances = distances.map((distance) => distance.get(left.revision_id)!);
+    const rightDistances = distances.map((distance) => distance.get(right.revision_id)!);
+    return (
+      Math.max(...leftDistances) - Math.max(...rightDistances) ||
+      leftDistances.reduce((total, distance) => total + distance, 0) -
+        rightDistances.reduce((total, distance) => total + distance, 0) ||
+      right.generation - left.generation ||
+      compareCodeUnits(left.revision_id, right.revision_id)
+    );
+  })[0];
+}
+
 export function selectLastKnownGoodSoulRevision(
   revisions: readonly SoulProfileRevision[],
   profileId: string
 ): SoulRevisionSelection {
   const relevant = revisions.filter((revision) => revision.profile_id === profileId).sort(revisionOrder);
+  const revisionsById = new Map(relevant.map((revision) => [revision.revision_id, revision]));
+  const ancestorsByRevisionId = new Map(
+    relevant.map((revision) => [revision.revision_id, revisionAncestors(revision.revision_id, revisionsById)])
+  );
   const ignored: SoulRevisionSelection["ignored_revision_ids"] = [];
-  const conflictedRevisionIds = relevant
-    .filter((revision) => revision.state === "conflicted")
-    .map((revision) => revision.revision_id)
-    .sort(compareCodeUnits);
   for (const revision of relevant) {
     if (!revision.approved) {
       ignored.push({ revision_id: revision.revision_id, reason: "unapproved" });
@@ -537,66 +612,51 @@ export function selectLastKnownGoodSoulRevision(
       ignored.push({ revision_id: revision.revision_id, reason: "conflicted" });
     }
   }
-  const active = relevant.filter((revision) => revision.state === "active" && revision.approved);
-  if (!active.length) {
-    const newestConflictGeneration = relevant
-      .filter((revision) => revision.state === "conflicted")
-      .reduce((maximum, revision) => Math.max(maximum, revision.generation), 0);
-    const fallback = relevant.find(
-      (revision) =>
-        revision.state === "superseded" && revision.approved && newestConflictGeneration > revision.generation
-    );
-    if (fallback) {
-      return {
-        profile_id: profileId,
-        status: "using_last_known_good",
-        selected_revision: fallback,
-        conflicted_revision_ids: [...new Set(conflictedRevisionIds)].sort(compareCodeUnits),
-        ignored_revision_ids: ignored
-          .filter((item) => item.revision_id !== fallback.revision_id)
-          .sort((left, right) => compareCodeUnits(left.revision_id, right.revision_id))
-      };
-    }
-    return {
-      profile_id: profileId,
-      status: "no_active_revision",
-      conflicted_revision_ids: conflictedRevisionIds,
-      ignored_revision_ids: ignored
-    };
-  }
-  const topGeneration = active[0]!.generation;
-  const topHeads = active.filter((revision) => revision.generation === topGeneration);
-  let selected: SoulProfileRevision | undefined;
-  if (topHeads.length === 1) {
-    selected = topHeads[0];
-  } else {
-    for (const head of topHeads) {
+  const activeHeads = approvedActiveHeads(relevant, ancestorsByRevisionId);
+  const unresolvedExplicitConflicts = relevant.filter(
+    (revision) =>
+      revision.state === "conflicted" &&
+      !activeHeads.some((head) => ancestorsByRevisionId.get(head.revision_id)?.has(revision.revision_id))
+  );
+  const hasAmbiguousActiveHeads = activeHeads.length > 1;
+  if (hasAmbiguousActiveHeads) {
+    for (const head of activeHeads) {
       ignored.push({ revision_id: head.revision_id, reason: "ambiguous_active_head" });
     }
-    selected = relevant.find(
-      (revision) =>
-        revision.approved &&
-        (revision.state === "active" || revision.state === "superseded") &&
-        revision.generation < topGeneration
+  }
+
+  const conflictedRevisionIds = [
+    ...new Set([
+      ...unresolvedExplicitConflicts.map((revision) => revision.revision_id),
+      ...(hasAmbiguousActiveHeads ? activeHeads.map((revision) => revision.revision_id) : [])
+    ])
+  ].sort(compareCodeUnits);
+  const hasConflict = conflictedRevisionIds.length > 0;
+  let selected: SoulProfileRevision | undefined;
+  if (!hasConflict && activeHeads.length === 1) {
+    selected = activeHeads[0];
+  } else if (hasConflict) {
+    const competingTips = [...activeHeads, ...unresolvedExplicitConflicts];
+    selected = nearestCommonApprovedAncestor(
+      competingTips,
+      relevant,
+      ancestorsByRevisionId,
+      hasAmbiguousActiveHeads ? new Set(activeHeads.map((revision) => revision.revision_id)) : undefined
     );
-    conflictedRevisionIds.push(...topHeads.map((revision) => revision.revision_id));
   }
   if (!selected) {
     return {
       profile_id: profileId,
       status: "no_active_revision",
-      conflicted_revision_ids: [...new Set(conflictedRevisionIds)].sort(compareCodeUnits),
+      conflicted_revision_ids: conflictedRevisionIds,
       ignored_revision_ids: ignored.sort((left, right) => compareCodeUnits(left.revision_id, right.revision_id))
     };
   }
-  const hasNewerConflict = relevant.some(
-    (revision) => revision.state === "conflicted" && revision.generation > selected!.generation
-  );
   return {
     profile_id: profileId,
-    status: hasNewerConflict || topHeads.length > 1 ? "using_last_known_good" : "active",
+    status: hasConflict ? "using_last_known_good" : "active",
     selected_revision: selected,
-    conflicted_revision_ids: [...new Set(conflictedRevisionIds)].sort(compareCodeUnits),
+    conflicted_revision_ids: conflictedRevisionIds,
     ignored_revision_ids: ignored
       .filter((item) => item.revision_id !== selected.revision_id)
       .sort((left, right) => compareCodeUnits(left.revision_id, right.revision_id))
@@ -613,12 +673,47 @@ function resolveBoundProfileId(
   revisions: readonly SoulProfileRevision[],
   kind: SoulSubject["kind"],
   explicit: string | undefined
-): { profile_id?: string; ambiguous_profile_ids: string[] } {
-  if (explicit) return { profile_id: explicit, ambiguous_profile_ids: [] };
+): { profile_id?: string; conflicts: SoulCompileConflict[] } {
+  if (explicit) {
+    const matching = revisions.filter((revision) => revision.profile_id === explicit);
+    if (!matching.length) {
+      return {
+        conflicts: [
+          {
+            kind: "profile_binding_not_found",
+            profile_id: explicit,
+            detail: `The explicit ${kind} profile binding does not match a known Soul profile.`
+          }
+        ]
+      };
+    }
+    if (matching.some((revision) => revision.subject.kind !== kind)) {
+      const actualKinds = [...new Set(matching.map((revision) => revision.subject.kind))].sort(compareCodeUnits);
+      return {
+        conflicts: [
+          {
+            kind: "profile_subject_mismatch",
+            profile_id: explicit,
+            detail: `The explicit ${kind} profile binding resolves to subject kind${actualKinds.length > 1 ? "s" : ""} ${actualKinds.join(", ")}.`
+          }
+        ]
+      };
+    }
+    return { profile_id: explicit, conflicts: [] };
+  }
   const ids = profileIdsForSubject(revisions, kind);
-  return ids.length === 1
-    ? { profile_id: ids[0], ambiguous_profile_ids: [] }
-    : { ambiguous_profile_ids: ids.length > 1 ? ids : [] };
+  if (ids.length === 1) return { profile_id: ids[0], conflicts: [] };
+  if (ids.length === 0) return { conflicts: [] };
+  return {
+    conflicts: [
+      {
+        kind: "ambiguous_profile_binding",
+        profile_id: `unbound:${kind}`,
+        profile_ids: ids,
+        detail: `Multiple ${kind === "user" ? "user Soul" : "Agent Soul"} profiles are available; provide ${kind}_profile_id before delivery.`
+      }
+    ]
+  };
 }
 
 function precedence(clause: SoulClause, subjectKind: SoulSubject["kind"]): number {
@@ -704,8 +799,12 @@ function revisionConflicts(selection: SoulRevisionSelection): SoulCompileConflic
       profile_id: selection.profile_id,
       revision_ids: selection.conflicted_revision_ids,
       detail: ambiguous.length
-        ? "Multiple approved active heads were found; the compiler retained an older last-known-good revision."
-        : "A newer conflicted revision was ignored; the compiler retained the last-known-good active revision."
+        ? selection.selected_revision
+          ? "Multiple approved active heads were found; the compiler retained their nearest common approved ancestor."
+          : "Multiple approved active heads were found, but they have no common approved ancestor."
+        : selection.selected_revision
+          ? "A conflicted revision was ignored; the compiler retained the nearest common approved ancestor."
+          : "A conflicted revision was found, but no common approved ancestor is available."
     }
   ];
 }
@@ -799,28 +898,7 @@ export function compileEffectiveSoul(input: CompileEffectiveSoulInput): Effectiv
   const allowedDistributions = new Set(input.allowed_distributions ?? SOUL_DISTRIBUTIONS);
   const userBinding = resolveBoundProfileId(input.revisions, "user", input.user_profile_id);
   const agentBinding = resolveBoundProfileId(input.revisions, "agent", input.agent_profile_id);
-  const bindingConflicts: SoulCompileConflict[] = [
-    ...(userBinding.ambiguous_profile_ids.length
-      ? [
-          {
-            kind: "ambiguous_profile_binding" as const,
-            profile_id: "unbound:user",
-            profile_ids: userBinding.ambiguous_profile_ids,
-            detail: "Multiple user Soul profiles are available; provide user_profile_id before delivery."
-          }
-        ]
-      : []),
-    ...(agentBinding.ambiguous_profile_ids.length
-      ? [
-          {
-            kind: "ambiguous_profile_binding" as const,
-            profile_id: "unbound:agent",
-            profile_ids: agentBinding.ambiguous_profile_ids,
-            detail: "Multiple Agent Soul profiles are available; provide agent_profile_id before delivery."
-          }
-        ]
-      : [])
-  ];
+  const bindingConflicts: SoulCompileConflict[] = [...userBinding.conflicts, ...agentBinding.conflicts];
   const boundProfileIds = [
     ...new Set([userBinding.profile_id, agentBinding.profile_id].filter((value): value is string => Boolean(value)))
   ];
@@ -906,7 +984,10 @@ export function compileEffectiveSoul(input: CompileEffectiveSoulInput): Effectiv
       compareCodeUnits(left.detail, right.detail)
   );
   const rendered = renderClauses(included);
-  const deliverable = !mandatoryExceedsBudget && bindingConflicts.length === 0;
+  const unresolvedRevisionConflict = selections.some(
+    (selection) => selection.conflicted_revision_ids.length > 0 && !selection.selected_revision
+  );
+  const deliverable = !mandatoryExceedsBudget && bindingConflicts.length === 0 && !unresolvedRevisionConflict;
   const status = !deliverable ? "blocked" : omissions.length || conflicts.length ? "ready_with_omissions" : "ready";
   return {
     version: 1,

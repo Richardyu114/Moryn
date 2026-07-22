@@ -1,4 +1,4 @@
-import { mkdir, readFile, symlink, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { activateCodexHooks, mergeCodexHooks } from "../../src/core/codex-activation.js";
@@ -65,6 +65,66 @@ describe("Codex hook activation", () => {
         /Invalid Codex hooks JSON/
       );
       expect(await readFile(target, "utf8")).toBe('{"hooks":');
+    });
+  });
+
+  it("rejects an artifact merge target that escapes the project", async () => {
+    await withTempStore(async (root) => {
+      const projectPath = join(root, "project");
+      const outside = join(root, "outside.json");
+      await mkdir(projectPath, { recursive: true });
+      await writeFile(outside, '{"safe":true}\n', "utf8");
+
+      await expect(
+        activateCodexHooks({
+          project_path: projectPath,
+          artifact: { ...artifact, merge_target: "../outside.json" }
+        })
+      ).rejects.toThrow(/merge target/);
+      await expect(readFile(outside, "utf8")).resolves.toBe('{"safe":true}\n');
+    });
+  });
+
+  it("rejects symlinked project and backup directories without modifying outside files", async () => {
+    await withTempStore(async (root) => {
+      const projectPath = join(root, "project");
+      const outside = join(root, "outside-codex");
+      await mkdir(projectPath, { recursive: true });
+      await mkdir(outside, { recursive: true });
+      await writeFile(join(outside, "hooks.json"), '{"safe":true}\n', "utf8");
+      await symlink(outside, join(projectPath, ".codex"), "dir");
+
+      await expect(activateCodexHooks({ project_path: projectPath, artifact })).rejects.toThrow(/symbolic link/);
+      await expect(readFile(join(outside, "hooks.json"), "utf8")).resolves.toBe('{"safe":true}\n');
+    });
+
+    await withTempStore(async (projectPath) => {
+      const codexDir = join(projectPath, ".codex");
+      const outside = join(projectPath, "outside-backups");
+      const target = join(codexDir, "hooks.json");
+      const original = '{"hooks":{}}\n';
+      await mkdir(codexDir, { recursive: true });
+      await mkdir(outside, { recursive: true });
+      await writeFile(target, original, "utf8");
+      await symlink(outside, join(codexDir, ".moryn-backups"), "dir");
+
+      await expect(activateCodexHooks({ project_path: projectPath, artifact })).rejects.toThrow(/symbolic link/);
+      await expect(readFile(target, "utf8")).resolves.toBe(original);
+      await expect(readdir(outside)).resolves.toEqual([]);
+    });
+  });
+
+  it("allows the project path itself to be a symlink", async () => {
+    await withTempStore(async (root) => {
+      const projectPath = join(root, "real-project");
+      const alias = join(root, "project-alias");
+      await mkdir(projectPath, { recursive: true });
+      await symlink(projectPath, alias, "dir");
+
+      const result = await activateCodexHooks({ project_path: alias, artifact });
+
+      expect(result.target_path).toBe(join(projectPath, ".codex", "hooks.json"));
+      await expect(readFile(result.target_path, "utf8")).resolves.toContain("host hook --host codex");
     });
   });
 });

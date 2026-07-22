@@ -483,6 +483,11 @@ describe("package smoke test", () => {
     expect(getOperationContract("missing_operation")).toBeUndefined();
     expect(getOperationContractByMcpTool("missing_tool")).toBeUndefined();
     expect(getOperationContractByCliCommand("moryn missing")).toBeUndefined();
+    for (const prototypeShapedLookup of ["__proto__", "constructor", "prototype"]) {
+      expect(getOperationContract(prototypeShapedLookup)).toBeUndefined();
+      expect(getOperationContractByMcpTool(prototypeShapedLookup)).toBeUndefined();
+      expect(getOperationContractByCliCommand(prototypeShapedLookup)).toBeUndefined();
+    }
     const lookupError = new OperationContractLookupError("cli_command", "moryn agent finsh");
     expect(lookupError.recovery_hint.suggested_matches[0]).toEqual({
       value: "moryn agent finish --summary <summary>",
@@ -1103,6 +1108,32 @@ describe("package smoke test", () => {
       cli: { negative_flag: "--no-pull" },
       mcp: { argument: "pull" }
     });
+    for (const operation of ["agent_enter", "agent_start"] as const) {
+      expect(response.operations_by_id[operation].arguments_by_name.user_profile_id).toMatchObject({
+        type: "string",
+        required: false,
+        cli: { flag: "--user-profile-id" },
+        mcp: { argument: "user_profile_id" }
+      });
+      expect(response.operations_by_id[operation].arguments_by_name.agent_profile_id).toMatchObject({
+        type: "string",
+        required: false,
+        cli: { flag: "--agent-profile-id" },
+        mcp: { argument: "agent_profile_id" }
+      });
+      expect(response.operations_by_id[operation].arguments_by_name.soul_char_budget).toMatchObject({
+        type: "number",
+        required: false,
+        cli: { flag: "--soul-char-budget" },
+        mcp: { argument: "soul_char_budget" }
+      });
+      expect(response.operations_by_id[operation].arguments_by_name.soul_token_budget).toMatchObject({
+        type: "number",
+        required: false,
+        cli: { flag: "--soul-token-budget" },
+        mcp: { argument: "soul_token_budget" }
+      });
+    }
     expect(response.operations_by_id.agent_enter.arguments_by_name.agent_client).toMatchObject({
       type: "string",
       required: false,

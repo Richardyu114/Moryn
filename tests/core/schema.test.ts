@@ -138,7 +138,11 @@ describe("record schema", () => {
       { "": "Updated text." },
       { ".content.text": "Updated text." },
       { "content..text": "Updated text." },
-      { "content.text.": "Updated text." }
+      { "content.text.": "Updated text." },
+      { "__proto__.morynPolluted": true },
+      { "content.__proto__.morynPolluted": true },
+      { "content.constructor.prototype.morynPolluted": true },
+      { "content.prototype.morynPolluted": true }
     ]) {
       expect(() =>
         parseEvent({

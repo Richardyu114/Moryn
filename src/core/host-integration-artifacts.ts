@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { readFile, rename, rm, writeFile } from "node:fs/promises";
 import { normalizeHostId } from "./host-adapter-registry.js";
+import { ensureProjectWriteParent, projectFileExists, resolveProjectWriteTarget } from "./project-write-boundary.js";
 
 export interface HostIntegrationArtifact {
   host: "codex" | "claude";
@@ -139,13 +139,20 @@ export async function writeHostIntegrationArtifact(input: {
   runtime?: HostRuntimeDescriptor;
 }) {
   const artifact = buildHostIntegrationArtifact(input);
-  const path = join(input.project_path, artifact.path);
+  const boundary = await resolveProjectWriteTarget(input.project_path, artifact.path, `${artifact.host} integration`);
+  const path = boundary.target_path;
   let existing: string | undefined;
-  try {
+  if (await projectFileExists(boundary, `${artifact.host} integration`)) {
     existing = await readFile(path, "utf8");
-  } catch {}
+  }
   if (existing === artifact.content) return { created: false, updated: false, path, artifact };
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, artifact.content, "utf8");
+  await ensureProjectWriteParent(boundary, `${artifact.host} integration`);
+  const temporary = `${path}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  try {
+    await writeFile(temporary, artifact.content, { encoding: "utf8", flag: "wx" });
+    await rename(temporary, path);
+  } finally {
+    await rm(temporary, { force: true });
+  }
   return { created: existing === undefined, updated: existing !== undefined, path, artifact };
 }

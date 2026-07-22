@@ -93,7 +93,7 @@ describe("working set report", () => {
     });
   });
 
-  it("excludes private records unless explicitly requested", async () => {
+  it("excludes tagged and legacy content-private records unless explicitly requested", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device-test" });
       const engine = createEngine({ storePath });
@@ -106,6 +106,18 @@ describe("working set report", () => {
         state: "canonical",
         confirmed: true
       });
+      await engine.write({
+        ...base,
+        content: { text: "Legacy private preference", privacy: "private" },
+        state: "canonical",
+        confirmed: true
+      });
+      await engine.write({
+        ...base,
+        content: { text: "Local-only preference", distribution: "local_only" },
+        state: "canonical",
+        confirmed: true
+      });
 
       const safe = await buildWorkingSetReport(storePath);
       const privateReport = await buildWorkingSetReport(storePath, { include_private: true });
@@ -114,12 +126,12 @@ describe("working set report", () => {
         total_records: 1,
         active_logical_records: 1,
         default_boot_records: 1,
-        excluded_private_records: 1
+        excluded_private_records: 3
       });
       expect(privateReport).toMatchObject({
-        total_records: 2,
-        active_logical_records: 2,
-        default_boot_records: 2,
+        total_records: 4,
+        active_logical_records: 4,
+        default_boot_records: 4,
         excluded_private_records: 0
       });
     });

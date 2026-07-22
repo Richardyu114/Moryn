@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { link, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -131,6 +131,65 @@ describe("host integration artifacts", () => {
       expect(first.created).toBe(true);
       expect(second.created).toBe(false);
       expect(await readFile(join(projectPath, ".claude", "moryn-settings.json"), "utf8")).toBe(first.artifact.content);
+    });
+  });
+
+  it("rejects symlinked fragment targets and parent directories", async () => {
+    await withTempStore(async (projectPath) => {
+      const claudeDir = join(projectPath, ".claude");
+      const outside = join(projectPath, "outside.json");
+      await mkdir(claudeDir, { recursive: true });
+      await writeFile(outside, '{"safe":true}\n', "utf8");
+      await symlink(outside, join(claudeDir, "moryn-settings.json"));
+
+      await expect(
+        writeHostIntegrationArtifact({
+          host: "claude",
+          project_id: "moryn",
+          project_path: projectPath,
+          store_path: "/store"
+        })
+      ).rejects.toThrow(/symbolic link/);
+      await expect(readFile(outside, "utf8")).resolves.toBe('{"safe":true}\n');
+    });
+
+    await withTempStore(async (root) => {
+      const projectPath = join(root, "project");
+      const outside = join(root, "outside-claude");
+      await mkdir(projectPath, { recursive: true });
+      await mkdir(outside, { recursive: true });
+      await symlink(outside, join(projectPath, ".claude"), "dir");
+
+      await expect(
+        writeHostIntegrationArtifact({
+          host: "claude",
+          project_id: "moryn",
+          project_path: projectPath,
+          store_path: "/store"
+        })
+      ).rejects.toThrow(/symbolic link/);
+      await expect(readFile(join(outside, "moryn-settings.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    });
+  });
+
+  it("replaces a hard-linked fragment without modifying the other link", async () => {
+    await withTempStore(async (projectPath) => {
+      const claudeDir = join(projectPath, ".claude");
+      const outside = join(projectPath, "outside.json");
+      const fragment = join(claudeDir, "moryn-settings.json");
+      await mkdir(claudeDir, { recursive: true });
+      await writeFile(outside, '{"safe":true}\n', "utf8");
+      await link(outside, fragment);
+
+      const result = await writeHostIntegrationArtifact({
+        host: "claude",
+        project_id: "moryn",
+        project_path: projectPath,
+        store_path: "/store"
+      });
+
+      await expect(readFile(outside, "utf8")).resolves.toBe('{"safe":true}\n');
+      await expect(readFile(fragment, "utf8")).resolves.toBe(result.artifact.content);
     });
   });
 });

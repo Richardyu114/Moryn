@@ -2,6 +2,46 @@ import { describe, expect, it } from "vitest";
 import { actionInterfaces } from "../../src/core/action-interfaces.js";
 
 describe("action interfaces", () => {
+  it.each(["agent_enter", "agent_start"])("serializes explicit Soul bindings for %s", (tool) => {
+    const command = tool === "agent_enter" ? "moryn agent enter" : "moryn agent start";
+    const interfaces = actionInterfaces({
+      tool,
+      command,
+      arguments: {
+        project_id: "moryn",
+        user_profile_id: "user-primary",
+        agent_profile_id: "agent-codex",
+        soul_char_budget: 2048,
+        soul_token_budget: 512,
+        pull: false
+      }
+    });
+
+    expect(interfaces.cli.argv).toEqual([
+      "agent",
+      tool === "agent_enter" ? "enter" : "start",
+      "--project-id",
+      "moryn",
+      "--user-profile-id",
+      "user-primary",
+      "--agent-profile-id",
+      "agent-codex",
+      "--soul-char-budget",
+      "2048",
+      "--soul-token-budget",
+      "512",
+      "--no-pull"
+    ]);
+    expect(interfaces.mcp.arguments).toEqual({
+      project_id: "moryn",
+      user_profile_id: "user-primary",
+      agent_profile_id: "agent-codex",
+      soul_char_budget: 2048,
+      soul_token_budget: 512,
+      pull: false
+    });
+  });
+
   it("exposes a shell-safe command line for moryn actions", () => {
     const interfaces = actionInterfaces({
       tool: "agent_finish",

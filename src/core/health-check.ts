@@ -6,6 +6,7 @@ import type { HostActivationStatus } from "./host-activation.js";
 import { getHostAdapter, type HostAdapterId } from "./host-adapter-registry.js";
 import type { CurrentRecordReadResult, RecordReadFallbackReason } from "./record-read-model.js";
 import type { RetrievalCandidateReadResult, RetrievalIndexFallbackReason } from "./retrieval-index.js";
+import { isPrivateMemoryBoundary } from "./sensitive.js";
 import type { SyncCompensationReceipt } from "./sync-compensation.js";
 import type { MorynEvent, MorynRecord } from "./types.js";
 import { type RequiredFieldMetadata, withPhasesByName, withRequiredFieldsByName } from "./workflow.js";
@@ -157,10 +158,6 @@ export const HEALTH_CHECK_SELECTION_SOURCES = {
   activation_status: "activation_status",
   record_read_model: "record_read_model"
 } as const;
-
-function isPrivateRecord(record: MorynRecord): boolean {
-  return record.tags.includes("private");
-}
 
 function recordEventIds(events: MorynEvent[], recordIds: Set<string>): string[] {
   return events
@@ -454,7 +451,7 @@ function stats(
 ): HealthCheckStats {
   return {
     visible_records: input.records.length,
-    excluded_private_records: input.excluded_private_records ?? input.records.filter(isPrivateRecord).length,
+    excluded_private_records: input.excluded_private_records ?? input.records.filter(isPrivateMemoryBoundary).length,
     total_events: input.events.length,
     project_records: projectRecords.length,
     capture_review_candidates: reviewCandidates.length,
@@ -565,7 +562,7 @@ function privateBoundaryCheck(excludedPrivateRecords: number): HealthCheckItem {
     reason:
       excludedPrivateRecords > 0
         ? `${excludedPrivateRecords} private record${excludedPrivateRecords === 1 ? "" : "s"} excluded from this read-only report.`
-        : "The default read boundary did not need to hide private-tagged records."
+        : "The default read boundary did not need to hide private records."
   };
 }
 

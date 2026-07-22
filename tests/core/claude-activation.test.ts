@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, symlink, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { activateClaudeSettings, mergeClaudeSettings } from "../../src/core/claude-activation.js";
@@ -112,6 +112,52 @@ describe("Claude activation files", () => {
 
       await expect(activateClaudeSettings({ project_path: projectPath, artifact })).rejects.toThrow(/symbolic link/);
       expect(await readFile(destination, "utf8")).toBe('{"safe":true}\n');
+    });
+  });
+
+  it("rejects an artifact merge target that escapes the project", async () => {
+    await withTempStore(async (root) => {
+      const projectPath = join(root, "project");
+      const outside = join(root, "outside.json");
+      await mkdir(projectPath, { recursive: true });
+      await writeFile(outside, '{"safe":true}\n', "utf8");
+
+      await expect(
+        activateClaudeSettings({
+          project_path: projectPath,
+          artifact: { ...artifact, merge_target: "../outside.json" }
+        })
+      ).rejects.toThrow(/merge target/);
+      await expect(readFile(outside, "utf8")).resolves.toBe('{"safe":true}\n');
+    });
+  });
+
+  it("rejects symlinked project and backup directories without modifying outside files", async () => {
+    await withTempStore(async (root) => {
+      const projectPath = join(root, "project");
+      const outside = join(root, "outside-claude");
+      await mkdir(projectPath, { recursive: true });
+      await mkdir(outside, { recursive: true });
+      await writeFile(join(outside, "settings.local.json"), '{"safe":true}\n', "utf8");
+      await symlink(outside, join(projectPath, ".claude"), "dir");
+
+      await expect(activateClaudeSettings({ project_path: projectPath, artifact })).rejects.toThrow(/symbolic link/);
+      await expect(readFile(join(outside, "settings.local.json"), "utf8")).resolves.toBe('{"safe":true}\n');
+    });
+
+    await withTempStore(async (projectPath) => {
+      const claudeDir = join(projectPath, ".claude");
+      const outside = join(projectPath, "outside-backups");
+      const target = join(claudeDir, "settings.local.json");
+      const original = '{"hooks":{}}\n';
+      await mkdir(claudeDir, { recursive: true });
+      await mkdir(outside, { recursive: true });
+      await writeFile(target, original, "utf8");
+      await symlink(outside, join(claudeDir, ".moryn-backups"), "dir");
+
+      await expect(activateClaudeSettings({ project_path: projectPath, artifact })).rejects.toThrow(/symbolic link/);
+      await expect(readFile(target, "utf8")).resolves.toBe(original);
+      await expect(readdir(outside)).resolves.toEqual([]);
     });
   });
 

@@ -65,7 +65,11 @@ import { diagnoseMemory, MEMORY_DOCTOR_SELECTION_SOURCES } from "./memory-doctor
 import { expandMemorySources as buildMemorySourceExpansion } from "./memory-expansion.js";
 import { normalizeMemoryExpansionCommand } from "./memory-expansion-command.js";
 import { diagnoseMemoryLifecycle, type MemoryLifecycleInput } from "./memory-lifecycle.js";
-import { buildRecallNextActions, RECALL_ACTION_SELECTION_SOURCES } from "./recall-actions.js";
+import {
+  buildRecallMemoryExpandAction,
+  buildRecallNextActions,
+  RECALL_ACTION_SELECTION_SOURCES
+} from "./recall-actions.js";
 import { evaluateRecall, RECALL_EVAL_SELECTION_SOURCES, type RecallEvalInput } from "./recall-eval.js";
 import { assessRecallOutcome } from "./recall-outcome.js";
 import {
@@ -98,14 +102,17 @@ import {
   SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES,
   type SemanticConsolidationProposalResult,
   type SemanticConsolidationReceipt,
+  type SemanticConsolidationValidationResult,
   semanticConsolidationProposalDigest,
   validateSemanticConsolidationProposal
 } from "./semantic-consolidation.js";
-import { retrieveSemanticConsolidationCandidates } from "./semantic-consolidation-candidates.js";
+import {
+  retrieveSemanticConsolidationCandidates,
+  type SemanticConsolidationCandidate
+} from "./semantic-consolidation-candidates.js";
 import {
   detectSensitiveContent,
   isPrivateMemoryBoundary,
-  isPrivateTags,
   redactSensitiveContent,
   sensitiveScanText
 } from "./sensitive.js";
@@ -130,7 +137,27 @@ import {
   rollbackSoulProfile as persistSoulProfileRollback
 } from "./soul-profile-management.js";
 import { readSoulProfileRevisions, SOUL_PROFILE_RECORD_TYPE } from "./soul-profile-store.js";
+import { withStoreStateLease } from "./state-lease.js";
 import { type AppendEventIfAbsentResult, appendEvent, appendEventIfAbsent, readEvents } from "./store.js";
+import { createStringKeyedRecord, stringKeyedRecordFromEntries } from "./string-keyed-record.js";
+import {
+  planStructuredSemanticMerge,
+  STRUCTURED_SEMANTIC_MERGE_ACTIVATION_OFFSET_MS,
+  STRUCTURED_SEMANTIC_MERGE_ACTIVATION_REASON,
+  STRUCTURED_SEMANTIC_MERGE_CLAIM_OFFSET_MS,
+  STRUCTURED_SEMANTIC_MERGE_DEVICE_ID,
+  STRUCTURED_SEMANTIC_MERGE_HIDE_REASON,
+  STRUCTURED_SEMANTIC_MERGE_PROMOTION_OFFSET_MS,
+  STRUCTURED_SEMANTIC_MERGE_PROMOTION_REASON,
+  STRUCTURED_SEMANTIC_MERGE_RELATIONSHIP_OFFSET_MS,
+  type StructuredSemanticMergePlan,
+  structuredSemanticMergeDependenciesMatch,
+  structuredSemanticMergeDigest,
+  structuredSemanticMergeInitialRecordMatches,
+  structuredSemanticMergeProvisionalRecordMatches,
+  structuredSemanticMergeRecordMatches,
+  structuredSemanticMergeTimestamp
+} from "./structured-semantic-merge.js";
 import { readSyncCompensationReceipt } from "./sync-compensation.js";
 import type {
   MorynEvent,
@@ -346,6 +373,83 @@ function semanticConsolidationEventId(sourceRecordId: string, targetRecordId: st
   return `evt_semantic_consolidation_${createHash("sha256").update(JSON.stringify({ sourceRecordId, targetRecordId, relationship })).digest("hex")}`;
 }
 
+function structuredSemanticMergeEventId(
+  operation: "activate" | "claim" | "hide" | "promote" | "support" | "upsert",
+  identity: unknown
+): string {
+  return `evt_structured_semantic_merge_${operation}_${structuredSemanticMergeDigest({ operation, identity })}`;
+}
+
+function structuredSemanticMergeEventSourceMatches(source: RecordSource): boolean {
+  return (
+    source.client === "moryn" &&
+    source.device_id === STRUCTURED_SEMANTIC_MERGE_DEVICE_ID &&
+    source.session_id === undefined &&
+    source.model === undefined
+  );
+}
+
+function structuredSemanticMergeRelationshipProjected(
+  records: readonly MorynRecord[],
+  event: Extract<MorynEvent, { op: "link_records" }>
+): boolean {
+  return Boolean(
+    records
+      .find((record) => record.id === event.record_id)
+      ?.links?.some(
+        (link) =>
+          link.record_id === event.linked_record_id &&
+          link.link_type === event.link_type &&
+          link.reason === event.reason &&
+          link.created_at === event.created_at
+      )
+  );
+}
+
+function structuredSemanticMergeRelationshipEventMatches(
+  actual: MorynEvent,
+  expected: Extract<MorynEvent, { op: "link_records" }>
+): actual is Extract<MorynEvent, { op: "link_records" }> {
+  return (
+    actual.event_id === expected.event_id &&
+    actual.op === "link_records" &&
+    actual.record_id === expected.record_id &&
+    actual.linked_record_id === expected.linked_record_id &&
+    actual.link_type === expected.link_type &&
+    actual.reason === expected.reason &&
+    actual.created_at === expected.created_at &&
+    structuredSemanticMergeEventSourceMatches(actual.source)
+  );
+}
+
+function structuredSemanticMergePromotionEventMatches(actual: MorynEvent, expected: MorynEvent): boolean {
+  return (
+    expected.op === "promote_record" &&
+    actual.event_id === expected.event_id &&
+    actual.op === "promote_record" &&
+    actual.record_id === expected.record_id &&
+    actual.target_state === expected.target_state &&
+    actual.reason === expected.reason &&
+    actual.confirmed === expected.confirmed &&
+    actual.conflict === expected.conflict &&
+    actual.created_at === expected.created_at &&
+    structuredSemanticMergeEventSourceMatches(actual.source)
+  );
+}
+
+function structuredSemanticMergePersistedRecordMatches(
+  record: MorynRecord,
+  plan: StructuredSemanticMergePlan
+): boolean {
+  return (
+    structuredSemanticMergeProvisionalRecordMatches(record, plan) || structuredSemanticMergeRecordMatches(record, plan)
+  );
+}
+
+function structuredSemanticMergeReceiptState(record: MorynRecord | undefined): "candidate" | "canonical" | undefined {
+  return record?.state === "candidate" || record?.state === "canonical" ? record.state : undefined;
+}
+
 function semanticConsolidationReceipt(
   proposalResults: SemanticConsolidationProposalResult[]
 ): SemanticConsolidationReceipt {
@@ -356,9 +460,9 @@ function semanticConsolidationReceipt(
   let linksCreated = 0;
   let idempotentReplays = 0;
   for (const item of proposalResults) {
+    linksCreated += item.links_created ?? (item.status === "accepted" ? 1 : 0);
     if (item.status === "accepted") {
       proposalsAccepted += 1;
-      linksCreated += 1;
       acceptedByRelationship[item.relationship] = (acceptedByRelationship[item.relationship] ?? 0) + 1;
     } else if (item.status === "idempotent") {
       idempotentReplays += 1;
@@ -551,6 +655,7 @@ export const RECALL_SELECTION_SOURCES = {
   result: "results_by_id.<record_id>",
   record: "results_by_id.<record_id>.record",
   record_id: "results_by_id.<record_id>.record.id",
+  result_next_action: "results_by_id.<record_id>.next_action",
   memory_working_set: "memory_working_set",
   next_action: RECALL_ACTION_SELECTION_SOURCES.action,
   ordered_next_action: RECALL_ACTION_SELECTION_SOURCES.ordered_action
@@ -2704,7 +2809,7 @@ function isVisibleByDefault(record: MorynRecord): boolean {
 }
 
 function isPrivateRecord(record: MorynRecord): boolean {
-  return isPrivateTags(record.tags);
+  return isPrivateMemoryBoundary(record);
 }
 
 function isAllowedByPrivateBoundary(record: MorynRecord, includePrivate: boolean | undefined): boolean {
@@ -2836,6 +2941,8 @@ function recordsById(records: MorynRecord[]): Record<string, MorynRecord> {
 
 function recallTypePriority(type: string): { score: number; reason: string } | undefined {
   const normalized = type.toLowerCase();
+  if (normalized === "session_rollup" || normalized === "episode_rollup")
+    return { score: 2, reason: `type_priority:${normalized}` };
   if (normalized === "blocker" || normalized === "warning" || normalized === "conflict")
     return { score: 4, reason: `type_priority:${normalized}` };
   if (normalized === "decision") return { score: 3, reason: "type_priority:decision" };
@@ -2843,6 +2950,11 @@ function recallTypePriority(type: string): { score: number; reason: string } | u
   if (normalized === "summary" || normalized === "project_summary")
     return { score: 1, reason: "type_priority:summary" };
   return undefined;
+}
+
+function recallRollupType(type: string): "session_rollup" | "episode_rollup" | undefined {
+  const normalized = type.toLowerCase();
+  return normalized === "session_rollup" || normalized === "episode_rollup" ? normalized : undefined;
 }
 
 function recallSourceTrust(record: MorynRecord): { score: number; reason: string } {
@@ -3442,6 +3554,302 @@ export function createEngine(deps: EngineDeps) {
     await rebuildDerivedViews(deps.storePath);
   }
 
+  async function persistStructuredSemanticMergeWithLease(
+    proposal: SemanticConsolidationProposal,
+    validation: SemanticConsolidationValidationResult,
+    plan: StructuredSemanticMergePlan
+  ): Promise<SemanticConsolidationProposalResult> {
+    const eventSource: RecordSource = {
+      client: "moryn",
+      device_id: STRUCTURED_SEMANTIC_MERGE_DEVICE_ID
+    };
+    const upsertEventId = structuredSemanticMergeEventId("upsert", {
+      merged_record_id: plan.initial_record.id,
+      merge_digest: plan.merge_digest
+    });
+    const claimEvent: Extract<MorynEvent, { op: "link_records" }> = {
+      event_id: structuredSemanticMergeEventId("claim", { claim_digest: plan.claim_digest }),
+      op: "link_records",
+      record_id: plan.initial_record.id,
+      linked_record_id: plan.source_record_ids[0]!,
+      link_type: "supports",
+      reason: "Claims this exact source snapshot for one deterministic structured semantic merge.",
+      created_at: structuredSemanticMergeTimestamp(plan, STRUCTURED_SEMANTIC_MERGE_CLAIM_OFFSET_MS),
+      source: eventSource
+    };
+    const activationEvent: MorynEvent = {
+      event_id: structuredSemanticMergeEventId("activate", {
+        merged_record_id: plan.initial_record.id,
+        merge_digest: plan.merge_digest
+      }),
+      op: "promote_record",
+      record_id: plan.initial_record.id,
+      target_state: "candidate",
+      reason: STRUCTURED_SEMANTIC_MERGE_ACTIVATION_REASON,
+      confirmed: false,
+      created_at: structuredSemanticMergeTimestamp(plan, STRUCTURED_SEMANTIC_MERGE_ACTIVATION_OFFSET_MS),
+      source: eventSource
+    };
+    let persistence: "created" | "existing" | undefined;
+    let linksCreated = 0;
+    let anyCreated = false;
+    const expectedRelationshipEvents: Extract<MorynEvent, { op: "link_records" }>[] = [];
+
+    const failed = (
+      reason: Extract<
+        SemanticConsolidationProposalResult["reason"],
+        | "persistence_failed"
+        | "structured_merge_source_changed"
+        | "structured_merge_concurrent_conflict"
+        | "structured_merge_readback_failed"
+      >,
+      state?: "candidate" | "canonical"
+    ): SemanticConsolidationProposalResult => ({
+      ...validation,
+      status: "failed",
+      reason,
+      event_id: upsertEventId,
+      links_created: linksCreated,
+      merged_record_id: plan.initial_record.id,
+      ...(state ? { merged_record_state: state } : {}),
+      ...(persistence ? { merged_record_persistence: persistence } : {})
+    });
+
+    const appendRelationship = async (event: Extract<MorynEvent, { op: "link_records" }>) => {
+      const appended = await appendIdempotentEvent(deps.storePath, event);
+      if (!structuredSemanticMergeRelationshipEventMatches(appended.event, event)) {
+        return { status: "collision", created: false, event: appended.event } as const;
+      }
+      if (!structuredSemanticMergeRelationshipProjected(await currentRecords(), event)) {
+        return { status: "readback_failed", created: false, event: appended.event } as const;
+      }
+      expectedRelationshipEvents.push(event);
+      if (appended.created) {
+        linksCreated += 1;
+        anyCreated = true;
+      }
+      return { status: "ok", created: appended.created, event: appended.event } as const;
+    };
+
+    try {
+      if (!structuredSemanticMergeDependenciesMatch(await currentRecords(), plan)) {
+        return failed("structured_merge_source_changed");
+      }
+      const existingClaim = (await readEvents(deps.storePath)).find((event) => event.event_id === claimEvent.event_id);
+      if (existingClaim && !structuredSemanticMergeRelationshipEventMatches(existingClaim, claimEvent)) {
+        return failed("structured_merge_concurrent_conflict");
+      }
+      const upsert: MorynEvent = {
+        event_id: upsertEventId,
+        op: "upsert_record",
+        record: plan.initial_record,
+        created_at: plan.initial_record.created_at,
+        source: eventSource
+      };
+      const appendedUpsert = await appendIdempotentEvent(deps.storePath, upsert);
+      if (
+        appendedUpsert.event.event_id !== upsert.event_id ||
+        appendedUpsert.event.op !== "upsert_record" ||
+        appendedUpsert.event.created_at !== upsert.created_at ||
+        !structuredSemanticMergeEventSourceMatches(appendedUpsert.event.source) ||
+        !structuredSemanticMergeInitialRecordMatches(appendedUpsert.event.record, plan)
+      ) {
+        return failed("structured_merge_concurrent_conflict");
+      }
+      persistence = appendedUpsert.created ? "created" : "existing";
+      anyCreated ||= appendedUpsert.created;
+
+      let records = await currentRecords();
+      let merged = records.find((record) => record.id === plan.initial_record.id);
+      if (!merged || !structuredSemanticMergePersistedRecordMatches(merged, plan)) {
+        return failed("structured_merge_readback_failed", structuredSemanticMergeReceiptState(merged));
+      }
+      if (!structuredSemanticMergeDependenciesMatch(records, plan)) {
+        return failed("structured_merge_source_changed", structuredSemanticMergeReceiptState(merged));
+      }
+
+      const claim = await appendRelationship(claimEvent);
+      if (claim.status === "collision") {
+        return failed("structured_merge_concurrent_conflict", structuredSemanticMergeReceiptState(merged));
+      }
+      if (claim.status === "readback_failed") {
+        return failed("structured_merge_readback_failed", structuredSemanticMergeReceiptState(merged));
+      }
+
+      records = await currentRecords();
+      merged = records.find((record) => record.id === plan.initial_record.id);
+      if (!merged || !structuredSemanticMergePersistedRecordMatches(merged, plan)) {
+        return failed("structured_merge_readback_failed", structuredSemanticMergeReceiptState(merged));
+      }
+      if (!structuredSemanticMergeDependenciesMatch(records, plan)) {
+        return failed("structured_merge_source_changed", structuredSemanticMergeReceiptState(merged));
+      }
+
+      const activated = await appendIdempotentEvent(deps.storePath, activationEvent);
+      if (!structuredSemanticMergePromotionEventMatches(activated.event, activationEvent)) {
+        return failed("structured_merge_concurrent_conflict", structuredSemanticMergeReceiptState(merged));
+      }
+      anyCreated ||= activated.created;
+
+      records = await currentRecords();
+      merged = records.find((record) => record.id === plan.initial_record.id);
+      if (!merged || !structuredSemanticMergeRecordMatches(merged, plan)) {
+        return failed("structured_merge_readback_failed", structuredSemanticMergeReceiptState(merged));
+      }
+      if (!structuredSemanticMergeDependenciesMatch(records, plan)) {
+        return failed("structured_merge_source_changed", structuredSemanticMergeReceiptState(merged));
+      }
+
+      if (plan.final_state === "canonical") {
+        const promoteEvent: MorynEvent = {
+          event_id: structuredSemanticMergeEventId("promote", {
+            merged_record_id: plan.initial_record.id,
+            merge_digest: plan.merge_digest
+          }),
+          op: "promote_record",
+          record_id: plan.initial_record.id,
+          target_state: "canonical",
+          reason: STRUCTURED_SEMANTIC_MERGE_PROMOTION_REASON,
+          confirmed: false,
+          created_at: structuredSemanticMergeTimestamp(plan, STRUCTURED_SEMANTIC_MERGE_PROMOTION_OFFSET_MS),
+          source: eventSource
+        };
+        const promoted = await appendIdempotentEvent(deps.storePath, promoteEvent);
+        if (!structuredSemanticMergePromotionEventMatches(promoted.event, promoteEvent)) {
+          return failed("structured_merge_concurrent_conflict", "candidate");
+        }
+        anyCreated ||= promoted.created;
+      }
+
+      records = await currentRecords();
+      merged = records.find((record) => record.id === plan.initial_record.id);
+      if (
+        !merged ||
+        !structuredSemanticMergeRecordMatches(merged, plan) ||
+        (plan.final_state === "canonical" && merged.state !== "canonical")
+      ) {
+        return failed("structured_merge_readback_failed", structuredSemanticMergeReceiptState(merged));
+      }
+      if (!structuredSemanticMergeDependenciesMatch(records, plan)) {
+        return failed("structured_merge_source_changed", structuredSemanticMergeReceiptState(merged));
+      }
+
+      const relationshipState = merged.state === "canonical" ? "canonical" : plan.final_state;
+      const remainingRelationships = plan.source_record_ids.flatMap((sourceRecordId) => {
+        if (relationshipState === "candidate" && sourceRecordId === claimEvent.linked_record_id) return [];
+        const relationship = relationshipState === "candidate" ? "supports" : proposal.relationship;
+        const recordId =
+          relationshipState === "canonical" && relationship === "duplicate_of"
+            ? sourceRecordId
+            : plan.initial_record.id;
+        const linkedRecordId =
+          relationshipState === "canonical" && relationship === "duplicate_of"
+            ? plan.initial_record.id
+            : sourceRecordId;
+        return [{ sourceRecordId, relationship, recordId, linkedRecordId }];
+      });
+
+      for (const [relationshipIndex, relationship] of remainingRelationships.entries()) {
+        records = await currentRecords();
+        merged = records.find((record) => record.id === plan.initial_record.id);
+        const sourceRecord = records.find((record) => record.id === relationship.sourceRecordId);
+        if (!merged || !structuredSemanticMergeRecordMatches(merged, plan)) {
+          return failed("structured_merge_readback_failed", structuredSemanticMergeReceiptState(merged));
+        }
+        if (!sourceRecord || !structuredSemanticMergeDependenciesMatch(records, plan)) {
+          return failed("structured_merge_source_changed", structuredSemanticMergeReceiptState(merged));
+        }
+        const relationEvent: Extract<MorynEvent, { op: "link_records" }> = {
+          event_id: structuredSemanticMergeEventId(relationshipState === "canonical" ? "hide" : "support", {
+            merged_record_id: plan.initial_record.id,
+            source_record_id: sourceRecord.id,
+            relationship: relationship.relationship
+          }),
+          op: "link_records",
+          record_id: relationship.recordId,
+          linked_record_id: relationship.linkedRecordId,
+          link_type: relationship.relationship,
+          reason:
+            relationshipState === "canonical"
+              ? STRUCTURED_SEMANTIC_MERGE_HIDE_REASON
+              : "Candidate merge retains a non-hiding source relationship pending canonical trust.",
+          created_at: structuredSemanticMergeTimestamp(
+            plan,
+            STRUCTURED_SEMANTIC_MERGE_RELATIONSHIP_OFFSET_MS + relationshipIndex
+          ),
+          source: eventSource
+        };
+        const appended = await appendRelationship(relationEvent);
+        if (appended.status === "collision") {
+          return failed("structured_merge_concurrent_conflict", structuredSemanticMergeReceiptState(merged));
+        }
+        if (appended.status === "readback_failed") {
+          return failed("structured_merge_readback_failed", structuredSemanticMergeReceiptState(merged));
+        }
+      }
+
+      if (anyCreated) await rebuildDerivedViews(deps.storePath);
+      const finalRecords = await currentRecords();
+      const readback = finalRecords.find((record) => record.id === plan.initial_record.id);
+      if (
+        !readback ||
+        !structuredSemanticMergeRecordMatches(readback, plan) ||
+        expectedRelationshipEvents.some((event) => !structuredSemanticMergeRelationshipProjected(finalRecords, event))
+      ) {
+        return failed("structured_merge_readback_failed", structuredSemanticMergeReceiptState(readback));
+      }
+      const status = anyCreated ? "accepted" : "idempotent";
+      return {
+        ...validation,
+        status,
+        reason: status === "accepted" ? "accepted" : "existing_relationship",
+        event_id: upsertEventId,
+        links_created: linksCreated,
+        merged_record_id: plan.initial_record.id,
+        merged_record_state: readback.state === "canonical" ? "canonical" : "candidate",
+        merged_record_persistence: persistence
+      };
+    } catch {
+      let state: "candidate" | "canonical" | undefined;
+      try {
+        const record = (await currentRecords()).find((candidate) => candidate.id === plan.initial_record.id);
+        state = structuredSemanticMergeReceiptState(record);
+      } catch {}
+      return failed("persistence_failed", state);
+    }
+  }
+
+  async function consolidateStructuredSemanticProposal(
+    proposal: SemanticConsolidationProposal,
+    input: ConsolidateSemanticProposalsInput
+  ): Promise<SemanticConsolidationProposalResult> {
+    return withStoreStateLease(deps.storePath, async () => {
+      const records = await currentRecords();
+      const planning = planStructuredSemanticMerge(records, proposal, {
+        include_private: input.include_private === true
+      });
+      const validation = validateSemanticConsolidationProposal(records, proposal, {
+        include_private: input.include_private === true,
+        ...(planning.status === "ready" ? { structured_merge_record_id: planning.plan.initial_record.id } : {})
+      });
+      if (input.project_id) {
+        const sourceRecord = records.find((record) => record.id === validation.source_record_id);
+        const targetRecord = records.find((record) => record.id === validation.target_record_id);
+        if (
+          (sourceRecord?.scope === "project" && sourceRecord.project_id !== input.project_id) ||
+          (targetRecord?.scope === "project" && targetRecord.project_id !== input.project_id)
+        ) {
+          return { ...validation, status: "rejected", reason: "incompatible_domain" };
+        }
+      }
+      if (validation.status === "rejected") return validation;
+      if (planning.status === "rejected") {
+        return { ...validation, status: "rejected", reason: planning.reason };
+      }
+      return persistStructuredSemanticMergeWithLease(proposal, validation, planning.plan);
+    });
+  }
+
   const engine = {
     async createSoulProfileDraft(input: unknown) {
       return persistSoulProfileDraft(
@@ -3668,11 +4076,11 @@ export function createEngine(deps: EngineDeps) {
           );
           return {
             candidates,
-            candidates_by_source_record_id: Object.fromEntries(
-              ingestedRecordIds.map((recordId) => [
-                recordId,
-                candidates.filter((candidate) => candidate.source_record_id === recordId)
-              ])
+            candidates_by_source_record_id: stringKeyedRecordFromEntries(
+              ingestedRecordIds.map(
+                (recordId) =>
+                  [recordId, candidates.filter((candidate) => candidate.source_record_id === recordId)] as const
+              )
             ),
             next_action: {
               action: "recall_then_propose_semantic_relationship" as const,
@@ -3687,7 +4095,9 @@ export function createEngine(deps: EngineDeps) {
         } catch (error) {
           return {
             candidates: [],
-            candidates_by_source_record_id: Object.fromEntries(ingestedRecordIds.map((recordId) => [recordId, []])),
+            candidates_by_source_record_id: stringKeyedRecordFromEntries<SemanticConsolidationCandidate[]>(
+              ingestedRecordIds.map((recordId) => [recordId, []])
+            ),
             next_action: {
               action: "none" as const,
               reason: "candidate_discovery_failed" as const
@@ -3928,7 +4338,7 @@ export function createEngine(deps: EngineDeps) {
           (record) => record.visibility === "active" && record.state !== "archived" && record.state !== "quarantined"
         )
         .filter((record) => !input.project_id || record.project_id === input.project_id)
-        .filter((record) => includePrivate || !isPrivateTags(record.tags));
+        .filter((record) => includePrivate || !isPrivateRecord(record));
       const recordsByFingerprint = new Map<string, MorynRecord[]>();
       for (const record of records) {
         const fingerprint = logicalMemoryFingerprint(record);
@@ -3996,15 +4406,14 @@ export function createEngine(deps: EngineDeps) {
         semanticConsolidationProposalSchema.parse(proposal)
       ) as SemanticConsolidationProposal[];
       const proposalResults: SemanticConsolidationProposalResult[] = [];
-      const acceptedByRelationship: SemanticConsolidationReceipt["accepted_by_relationship"] = {};
-      const rejectedByReason: Record<string, number> = {};
-      let proposalsAccepted = 0;
-      let proposalsRejected = 0;
-      let linksCreated = 0;
-      let idempotentReplays = 0;
+      let legacyLinksCreated = 0;
       const source = input.source ?? { client: "moryn" };
 
       for (const proposal of proposals) {
+        if (proposal.structured_merge && proposal.relationship !== "conflicts_with") {
+          proposalResults.push(await consolidateStructuredSemanticProposal(proposal, input));
+          continue;
+        }
         const records = await currentRecords();
         const validation = validateSemanticConsolidationProposal(records, proposal, {
           include_private: input.include_private === true
@@ -4017,15 +4426,11 @@ export function createEngine(deps: EngineDeps) {
             (targetRecord?.scope === "project" && targetRecord.project_id !== input.project_id)
           ) {
             proposalResults.push({ ...validation, status: "rejected", reason: "incompatible_domain" });
-            proposalsRejected += 1;
-            rejectedByReason.incompatible_domain = (rejectedByReason.incompatible_domain ?? 0) + 1;
             continue;
           }
         }
         if (validation.status === "rejected") {
           proposalResults.push(validation);
-          proposalsRejected += 1;
-          rejectedByReason[validation.reason] = (rejectedByReason[validation.reason] ?? 0) + 1;
           continue;
         }
         const eventId = semanticConsolidationEventId(
@@ -4035,15 +4440,12 @@ export function createEngine(deps: EngineDeps) {
         );
         if (validation.status === "idempotent") {
           proposalResults.push({ ...validation, event_id: eventId });
-          idempotentReplays += 1;
           continue;
         }
         const sourceRecord = records.find((record) => record.id === validation.source_record_id);
         const targetRecord = records.find((record) => record.id === validation.target_record_id);
         if (!sourceRecord || !targetRecord) {
           proposalResults.push({ ...validation, status: "rejected", reason: "missing_record" });
-          proposalsRejected += 1;
-          rejectedByReason.missing_record = (rejectedByReason.missing_record ?? 0) + 1;
           continue;
         }
         const event: MorynEvent = {
@@ -4067,13 +4469,9 @@ export function createEngine(deps: EngineDeps) {
             throw new Error("semantic consolidation idempotency collision");
           }
           if (appended.created) {
-            linksCreated += 1;
-            proposalsAccepted += 1;
-            acceptedByRelationship[validation.relationship] =
-              (acceptedByRelationship[validation.relationship] ?? 0) + 1;
+            legacyLinksCreated += 1;
             proposalResults.push({ ...validation, event_id: eventId });
           } else {
-            idempotentReplays += 1;
             proposalResults.push({
               ...validation,
               status: "idempotent",
@@ -4082,23 +4480,11 @@ export function createEngine(deps: EngineDeps) {
             });
           }
         } catch {
-          proposalsRejected += 1;
-          rejectedByReason.persistence_failed = (rejectedByReason.persistence_failed ?? 0) + 1;
           proposalResults.push({ ...validation, status: "failed", reason: "persistence_failed", event_id: eventId });
         }
       }
-      if (linksCreated > 0) await rebuildDerivedViews(deps.storePath);
-      return {
-        proposals_received: proposals.length,
-        proposals_accepted: proposalsAccepted,
-        proposals_rejected: proposalsRejected,
-        links_created: linksCreated,
-        idempotent_replays: idempotentReplays,
-        accepted_by_relationship: acceptedByRelationship,
-        rejected_by_reason: rejectedByReason,
-        proposal_results: proposalResults,
-        selection_sources: SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES
-      };
+      if (legacyLinksCreated > 0) await rebuildDerivedViews(deps.storePath);
+      return semanticConsolidationReceipt(proposalResults);
     },
 
     async consolidateLearningProposals(
@@ -4437,7 +4823,15 @@ export function createEngine(deps: EngineDeps) {
               `${searchableText(record)} ${record.tags.join(" ")}`.toLowerCase().includes(file.toLowerCase())
             )
         )
-        .map((record) => ({ record, ...reasonAndScore(record, recallInput) }))
+        .map((record) => {
+          const result = { record, ...reasonAndScore(record, recallInput) };
+          return recallRollupType(record.type)
+            ? {
+                ...result,
+                next_action: buildRecallMemoryExpandAction(record.id, recallInput.include_private)
+              }
+            : result;
+        })
         .filter((result) => matchesQuery(result, recallInput))
         .filter((result) => result.score > 0 || (!recallInput.query && !recallInput.record_ids?.length))
         .sort(
@@ -4451,11 +4845,13 @@ export function createEngine(deps: EngineDeps) {
         ? assessRecallOutcome({ query: recallInput.query, results: rankedRecords, now: now() })
         : undefined;
       const records = outcome?.status === "knowledge_gap" ? [] : rankedRecords;
+      const expandableRecordId = records.find((result) => recallRollupType(result.record.type))?.record.id;
       const actionContract = outcome
         ? buildRecallNextActions({
             query: recallInput.query ?? "",
             outcome,
-            include_private: recallInput.include_private
+            include_private: recallInput.include_private,
+            expandable_record_id: expandableRecordId
           })
         : undefined;
       return {
@@ -4503,7 +4899,7 @@ export function createEngine(deps: EngineDeps) {
             : {})
         };
       });
-      const itemsByRecordId: Record<string, typeof items> = {};
+      const itemsByRecordId = createStringKeyedRecord<typeof items>();
       for (const item of items) {
         itemsByRecordId[item.record_id] = [...(itemsByRecordId[item.record_id] ?? []), item];
       }
@@ -4515,7 +4911,7 @@ export function createEngine(deps: EngineDeps) {
         },
         items,
         selection_sources: TIMELINE_SELECTION_SOURCES,
-        items_by_event_id: Object.fromEntries(items.map((item) => [item.event_id, item])),
+        items_by_event_id: stringKeyedRecordFromEntries(items.map((item) => [item.event_id, item] as const)),
         items_by_record_id: itemsByRecordId
       };
     },
@@ -4611,7 +5007,7 @@ export function createEngine(deps: EngineDeps) {
       const activeCheckpoint = checkpointRecoveryPack?.source_record_ids
         .map((recordId) => currentRecordsById.get(recordId))
         .filter((record): record is MorynRecord => Boolean(record))
-        .filter((record) => bootInput.include_private || !isPrivateTags(record.tags))
+        .filter((record) => bootInput.include_private || !isPrivateRecord(record))
         .filter((record) => Boolean(parseCheckpointContent(record.content)))
         .at(-1);
       return {

@@ -1,15 +1,22 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { promisify } from "node:util";
 import { z } from "zod";
+import { ensureProjectWriteParent, projectFileExists, resolveProjectWriteTarget } from "./project-write-boundary.js";
 
 const exec = promisify(execFile);
 export const SYNC_MODES = ["manual", "session", "interval"] as const;
 export const PROJECT_SYNC_MODE_INPUTS = [...SYNC_MODES, "auto"] as const;
 
 const syncModeSchema = z.preprocess((value) => (value === "auto" ? "interval" : value), z.enum(SYNC_MODES));
+const projectSoulConfigSchema = z.object({
+  user_profile_id: z.string().trim().min(1).optional(),
+  agent_profile_id: z.string().trim().min(1).optional(),
+  char_budget: z.number().int().positive().optional(),
+  token_budget: z.number().int().positive().optional()
+});
 
 const projectConfigSchema = z.object({
   project_id: z.string().min(1).optional(),
@@ -19,7 +26,8 @@ const projectConfigSchema = z.object({
     .object({
       mode: syncModeSchema.default("session")
     })
-    .default({ mode: "session" })
+    .default({ mode: "session" }),
+  soul: projectSoulConfigSchema.optional()
 });
 
 export type ProjectConfig = z.infer<typeof projectConfigSchema>;
@@ -439,14 +447,17 @@ export async function initializeProjectConfig(
   validateInitializeProjectConfigInput(input);
   const resolved = resolve(projectPath);
   await mkdir(resolved, { recursive: true });
+  const boundary = await resolveProjectWriteTarget(resolved, ".moryn.json", "project config");
   let existing: ProjectConfig | undefined;
-  try {
-    existing = await readProjectConfigAt(resolved);
-  } catch (error) {
-    if (!input.repair || !(error instanceof Error && error.message.startsWith("Invalid project config:"))) {
-      throw error;
+  if (await projectFileExists(boundary, "project config")) {
+    try {
+      existing = await readProjectConfigAt(boundary.root_path);
+    } catch (error) {
+      if (!input.repair || !(error instanceof Error && error.message.startsWith("Invalid project config:"))) {
+        throw error;
+      }
+      existing = undefined;
     }
-    existing = undefined;
   }
   const parsed = projectConfigSchema.parse({
     project_id: input.project_id ?? existing?.project_id ?? projectIdFromPath(resolved),
@@ -454,10 +465,18 @@ export async function initializeProjectConfig(
     default_skills: input.default_skills ?? existing?.default_skills ?? [],
     sync: {
       mode: input.sync?.mode ?? existing?.sync.mode ?? "session"
-    }
+    },
+    ...(existing?.soul ? { soul: existing.soul } : {})
   });
-  const path = resolve(resolved, ".moryn.json");
-  await writeFile(path, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
+  const path = boundary.target_path;
+  const temporary = `${path}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  await ensureProjectWriteParent(boundary, "project config");
+  try {
+    await writeFile(temporary, `${JSON.stringify(parsed, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
+    await rename(temporary, path);
+  } finally {
+    await rm(temporary, { force: true });
+  }
   return {
     config: parsed,
     path,

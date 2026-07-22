@@ -2,6 +2,7 @@ import { type ActionExecution, type ActionSafety, actionExecution, actionSafety 
 import { commandLineForCliInterface } from "./core/cli-command-line.js";
 import { PROJECT_SYNC_MODE_INPUTS } from "./core/project.js";
 import { PROVENANCE_METHODS, RECORD_KINDS, RECORD_PRIORITIES, RECORD_SCOPES, RECORD_STATES } from "./core/schema.js";
+import { stringKeyedRecordFromEntries } from "./core/string-keyed-record.js";
 import { type RequiredFieldMetadata, requiredFieldsByName } from "./core/workflow.js";
 
 type OperationCategory = "setup" | "core" | "sync" | "lifecycle" | "contracts" | "maintenance" | "observability";
@@ -895,8 +896,36 @@ const lifecycleContextArguments = {
   ...agentSourceArgument
 } as const satisfies Record<string, OperationArgumentMetadataInput>;
 
+const soulBindingArguments = {
+  user_profile_id: {
+    type: "string",
+    required: false,
+    cli: { flag: "--user-profile-id" },
+    mcp: { argument: "user_profile_id" }
+  },
+  agent_profile_id: {
+    type: "string",
+    required: false,
+    cli: { flag: "--agent-profile-id" },
+    mcp: { argument: "agent_profile_id" }
+  },
+  soul_char_budget: {
+    type: "number",
+    required: false,
+    cli: { flag: "--soul-char-budget" },
+    mcp: { argument: "soul_char_budget" }
+  },
+  soul_token_budget: {
+    type: "number",
+    required: false,
+    cli: { flag: "--soul-token-budget" },
+    mcp: { argument: "soul_token_budget" }
+  }
+} as const satisfies Record<string, OperationArgumentMetadataInput>;
+
 const startSessionArguments = {
   ...lifecycleContextArguments,
+  ...soulBindingArguments,
   refresh_since: {
     type: "string",
     required: false,
@@ -1179,7 +1208,8 @@ export const OPERATION_CONTRACTS = [
   operationContract({
     operation: "consolidate_semantic",
     category: "maintenance",
-    summary: "Validate and persist authored semantic memory relationships without exposing record content.",
+    summary:
+      "Validate authored semantic relationships and optional source-backed structured merges without exposing record content.",
     safe_to_run: false,
     required_when: "Only when an agent has bounded candidate records and an authored semantic proposal.",
     required_fields: ["proposals"],
@@ -2973,18 +3003,18 @@ export const OPERATION_CONTRACTS = [
 ] as const satisfies readonly OperationContract[];
 
 function operationsById(operations: readonly OperationContract[]): Record<string, OperationContract> {
-  return Object.fromEntries(operations.map((operation) => [operation.operation, operation]));
+  return stringKeyedRecordFromEntries(operations.map((operation) => [operation.operation, operation] as const));
 }
 
 const OPERATION_CONTRACTS_BY_ID = operationsById(OPERATION_CONTRACTS);
 
-const OPERATION_CONTRACTS_BY_TOOL = Object.fromEntries(
-  OPERATION_CONTRACTS.map((operation) => [operation.interfaces.mcp.tool, operation])
-) as Record<string, OperationContract>;
+const OPERATION_CONTRACTS_BY_TOOL = stringKeyedRecordFromEntries(
+  OPERATION_CONTRACTS.map((operation) => [operation.interfaces.mcp.tool, operation] as const)
+);
 
-const OPERATION_CONTRACTS_BY_CLI_COMMAND = Object.fromEntries(
-  OPERATION_CONTRACTS.map((operation) => [operation.interfaces.cli.command, operation])
-) as Record<string, OperationContract>;
+const OPERATION_CONTRACTS_BY_CLI_COMMAND = stringKeyedRecordFromEntries(
+  OPERATION_CONTRACTS.map((operation) => [operation.interfaces.cli.command, operation] as const)
+);
 
 export function operationArgumentsByTool(tool: string): Record<string, OperationArgumentMetadata> {
   return OPERATION_CONTRACTS_BY_TOOL[tool]?.arguments_by_name ?? {};

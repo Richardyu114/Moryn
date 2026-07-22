@@ -253,14 +253,17 @@ raw ──> candidate ──> canonical
 - `archived` — preserved history, hidden by default
 - `quarantined` — sensitive or unsafe, hidden by default
 
-Records tagged `private`, `secret`, or `sensitive` are excluded from normal
-reads (`boot`, `recall`, `refresh`, `timeline`, doctor/lifecycle reports, and
-the dashboard). Unified compaction preview also excludes private-classified
-sources by default, including legacy Episode inputs marked by
-`content.privacy: "private"` or `content.distribution: "local_only"`, and returns
+Records classified private by a `private`/`secret`/`sensitive` tag,
+`content.privacy: "private"`, or `content.distribution: "local_only"` are
+excluded from normal reads (`boot`, `recall`, `refresh`, `timeline`,
+doctor/lifecycle reports, and the dashboard). Unified compaction preview also
+excludes private-classified sources by default and returns
 a count-only, non-applicable omission blocker when they are present in the
 requested scope. Pass `--include-private` (or MCP `include_private: true`) only
-with explicit user intent. High-risk canonical writes require confirmation.
+with explicit user intent. For ordinary memory, `local_only` is a read
+authorization marker and does not prevent the append-only event from following
+the store's configured Git sync; Soul clause distribution is the separate
+portable-projection boundary. High-risk canonical writes require confirmation.
 
 **Capture Inbox** is the exceptional human-review path. Low-risk handoffs are
 auto-captured as local evidence without a click; risky or durable decisions go
@@ -295,8 +298,11 @@ code repo:
 moryn sync init git@github.com:yourname/moryn-store.git
 ```
 
-`config.json`, snapshots, and indexes are not synced; event history is the
-source of truth and derived views rebuild via `moryn rebuild`.
+`config.json`, `.moryn/`, `snapshots/`, `indexes/`, and `state/` are local-only;
+event history is the source of truth and derived views rebuild via `moryn
+rebuild`. Sync fails closed if local or remote reachable history ever contained
+one of those local-only paths: deleting it from the current tip does not erase
+the earlier Git blob.
 
 ## Dashboard
 
@@ -356,6 +362,27 @@ draft` persists an unapproved revision; `moryn soul approve <revision_id>
 --confirm` require explicit confirmation and append receipts. The draft response
 is the content-review boundary; later status and dashboard reads do not echo
 clause text.
+
+Projects can select their normal approved User/Agent profiles and bounded
+delivery budgets in `.moryn.json`:
+
+```json
+{
+  "project_id": "moryn",
+  "soul": {
+    "user_profile_id": "soul_profile_...",
+    "agent_profile_id": "soul_profile_...",
+    "char_budget": 4096,
+    "token_budget": 1024
+  }
+}
+```
+
+Explicit `agent start`/`agent enter` profile and Soul-budget arguments override
+these fallback values for one call without rewriting project config. Automatic
+`SessionStart` and `PostCompact` hooks use the project binding. See
+[Portable Soul Workflow](docs/agent-workflow.md#v04-portable-soul-workflow) for
+the exact CLI/MCP argument mapping and safety rules.
 
 For installation trust, the read-only `health_check` operation reports store
 replay, project context, privacy boundaries, MCP freshness, and setup readiness:

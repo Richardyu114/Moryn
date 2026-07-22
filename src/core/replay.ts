@@ -1,4 +1,4 @@
-import { parseRecord } from "./schema.js";
+import { isValidPatchPath, parseRecord } from "./schema.js";
 import type { MorynEvent, MorynRecord, RecordState } from "./types.js";
 
 type ReplayFailure = "invalid_replay_result" | "missing_replay_target" | "invalid_state_transition";
@@ -34,10 +34,11 @@ class ReplayHistoryError extends Error {
 }
 
 function setPath(target: Record<string, unknown>, path: string, value: unknown): void {
+  if (!isValidPatchPath(path)) throw new Error(`Invalid or unsafe record patch path: ${path}`);
   const parts = path.split(".");
   let cursor: Record<string, unknown> = target;
   for (const part of parts.slice(0, -1)) {
-    const existing = cursor[part];
+    const existing = Object.hasOwn(cursor, part) ? cursor[part] : undefined;
     if (typeof existing !== "object" || existing === null || Array.isArray(existing)) {
       cursor[part] = {};
     }

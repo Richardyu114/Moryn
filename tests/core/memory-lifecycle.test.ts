@@ -25,6 +25,44 @@ function record(id: string, overrides: Partial<MorynRecord> = {}): MorynRecord {
 }
 
 describe("memory lifecycle retention v2 integration", () => {
+  it.each([
+    ["private tag", { tags: ["private"] }],
+    ["content privacy", { content: { text: "private", privacy: "private" } }],
+    ["local-only distribution", { content: { text: "local", distribution: "local_only" } }]
+  ] as const)("fails closed for %s in direct planner calls", (_label, overrides) => {
+    const privateRecord = record("private-direct", overrides);
+
+    const result = diagnoseMemoryLifecycle({ records: [privateRecord], now: NOW });
+
+    expect(result.stats).toMatchObject({ total_records: 0, excluded_private_records: 1 });
+    expect(result.assessments).toEqual([]);
+    expect(result.suggested_actions).toEqual([]);
+    expect(JSON.stringify(result)).not.toContain(privateRecord.id);
+
+    const included = diagnoseMemoryLifecycle({ records: [privateRecord], now: NOW, include_private: true });
+    expect(included.assessments_by_record_id[privateRecord.id]).toMatchObject({
+      lifecycle_state: "private_retained",
+      recommended_action: "keep"
+    });
+    expect(included.suggested_actions_by_id[`recall:${privateRecord.id}`]?.arguments).toMatchObject({
+      record_ids: [privateRecord.id],
+      include_private: true
+    });
+  });
+
+  it("treats explicit private record ids as a fail-closed boundary", () => {
+    const externallyPrivate = record("external-private");
+
+    const result = diagnoseMemoryLifecycle({
+      records: [externallyPrivate],
+      private_record_ids: [externallyPrivate.id],
+      now: NOW
+    });
+
+    expect(result.stats).toMatchObject({ total_records: 0, excluded_private_records: 1 });
+    expect(JSON.stringify(result)).not.toContain(externallyPrivate.id);
+  });
+
   it("keeps cold and purged records outside the working set without repeated archive advice", () => {
     const cold = record("cold", {
       content: { text: "ordinary fact", memory_retention: { version: 2, retention: { tier: "cold" } } }

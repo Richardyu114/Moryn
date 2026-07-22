@@ -10,6 +10,7 @@ import {
 } from "./event-durability-attestation.js";
 import { readCurrentRecords } from "./record-read-model.js";
 import { replayEvents } from "./replay.js";
+import { withStoreStateLease } from "./state-lease.js";
 import { type AppendEventIfAbsentResult, appendEventIfAbsent, readEvents } from "./store.js";
 import type { MorynEvent, MorynRecord, RecordSource } from "./types.js";
 
@@ -455,7 +456,7 @@ async function appendChecked(
   return result;
 }
 
-export async function applyEpisodeRollupPlan(
+async function applyEpisodeRollupPlanWithLease(
   storePath: string,
   plan: EpisodeRollupPlan,
   deps: EpisodeRollupTransactionDeps = {}
@@ -549,4 +550,12 @@ export async function applyEpisodeRollupPlan(
     existing_event_ids: events.map((event) => event.event_id).filter((eventId) => !createdIds.has(eventId)),
     durability: durabilityCounts(appendResults)
   };
+}
+
+export async function applyEpisodeRollupPlan(
+  storePath: string,
+  plan: EpisodeRollupPlan,
+  deps: EpisodeRollupTransactionDeps = {}
+): Promise<EpisodeRollupApplyResult> {
+  return withStoreStateLease(storePath, () => applyEpisodeRollupPlanWithLease(storePath, plan, deps));
 }

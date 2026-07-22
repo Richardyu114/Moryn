@@ -61,6 +61,7 @@
     "dev": "tsx src/cli.ts",
     "release:check": "tsx scripts/release-check.ts",
     "release:readiness": "tsx scripts/release-readiness.ts",
+    "test:v04-acceptance": "npm run build && vitest run tests/core/v04-compaction-quality-gate.test.ts tests/core/state-lease.test.ts tests/core/session-fold-transaction.test.ts tests/core/episode-rollup-transaction.test.ts tests/core/automatic-episode-rollup.test.ts tests/core/memory-compaction.test.ts tests/core/session-fold-conflict-projection.test.ts tests/core/structured-semantic-merge.test.ts tests/core/semantic-consolidation-engine.test.ts tests/e2e/soul-git-portability.test.ts tests/e2e/soul-git-sync-receipts.test.ts tests/e2e/compaction-git-concurrency.test.ts tests/sync/git-state-lease.test.ts",
     "smoke:agent-lifecycle": "node scripts/agent-lifecycle-smoke.js",
     "smoke:host-runtime-binding": "node scripts/host-runtime-binding-smoke.js",
     "smoke:transcript-compact-safety": "node scripts/transcript-compact-safety-smoke.js",
@@ -82,6 +83,11 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "commander": "^14.0.2",
     "zod": "^4.1.13"
+  },
+  "overrides": {
+    "@modelcontextprotocol/sdk": {
+      "@hono/node-server": "2.0.11"
+    }
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.4",

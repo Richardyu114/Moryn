@@ -3,6 +3,7 @@ import { chmod, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/
 import { join } from "node:path";
 import { rebuildDerivedViews } from "./derived.js";
 import { readCurrentRecords } from "./record-read-model.js";
+import { isPrivateMemoryBoundary } from "./sensitive.js";
 import {
   parseSoulApprovalReceipt,
   readSoulApprovalReceipt,
@@ -77,6 +78,8 @@ export interface ReadSoulProfileRevisionsResult {
 export interface ReadSoulProfileRevisionsOptions {
   records?: MorynRecord[];
   include_legacy_private?: boolean;
+  /** Disable ignored local-full overlays when verifying an exact remote projection set. */
+  include_local_projections?: boolean;
 }
 
 const LOCAL_DIRECTORY = "soul-profiles";
@@ -552,33 +555,34 @@ export async function readSoulProfileRevisions(
     personalIds.add(envelope.full_revision_id);
   }
 
-  for (const local of await readLocalEnvelopes(storePath)) {
-    if (!local.envelope) {
-      warnings.push({ code: "invalid_local_projection", source: local.source });
-      continue;
+  if (options.include_local_projections !== false) {
+    for (const local of await readLocalEnvelopes(storePath)) {
+      if (!local.envelope) {
+        warnings.push({ code: "invalid_local_projection", source: local.source });
+        continue;
+      }
+      const existing = byId.get(local.envelope.full_revision_id);
+      if (
+        existing?.approval_attestation &&
+        canonicalJson(existing.approval_attestation) !== canonicalJson(local.envelope.approval_attestation)
+      ) {
+        warnings.push({ code: "projection_collision", source: local.source });
+      }
+      byId.set(local.envelope.full_revision_id, {
+        revision: local.envelope.revision,
+        source: "local",
+        partial: false,
+        ...(local.envelope.approval_attestation ? { approval_attestation: local.envelope.approval_attestation } : {})
+      });
+      localIds.add(local.envelope.full_revision_id);
     }
-    const existing = byId.get(local.envelope.full_revision_id);
-    if (
-      existing?.approval_attestation &&
-      canonicalJson(existing.approval_attestation) !== canonicalJson(local.envelope.approval_attestation)
-    ) {
-      warnings.push({ code: "projection_collision", source: local.source });
-    }
-    byId.set(local.envelope.full_revision_id, {
-      revision: local.envelope.revision,
-      source: "local",
-      partial: false,
-      ...(local.envelope.approval_attestation ? { approval_attestation: local.envelope.approval_attestation } : {})
-    });
-    localIds.add(local.envelope.full_revision_id);
   }
 
   const legacyRecords = records.filter(
     (record) =>
       record.kind === "soul" &&
       record.type !== SOUL_PROFILE_RECORD_TYPE &&
-      (options.include_legacy_private === true ||
-        !record.tags.some((tag) => ["private", "secret", "sensitive"].includes(tag.trim().toLowerCase())))
+      (options.include_legacy_private === true || !isPrivateMemoryBoundary(record))
   );
   for (const revision of parseLegacySoulRecords(legacyRecords)) {
     if (!byId.has(revision.revision_id)) byId.set(revision.revision_id, { revision, source: "legacy", partial: false });

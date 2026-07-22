@@ -1,7 +1,13 @@
 import { createHash } from "node:crypto";
-import { lstat, mkdir, open, readFile, rename, writeFile } from "node:fs/promises";
+import { lstat, open, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { HostIntegrationArtifact } from "./host-integration-artifacts.js";
+import {
+  ensureProjectWriteDirectory,
+  ensureProjectWriteParent,
+  projectFileExists,
+  resolveProjectWriteTarget
+} from "./project-write-boundary.js";
 
 export interface CodexHooksMergeResult {
   changed: boolean;
@@ -92,15 +98,14 @@ export async function activateCodexHooks(input: {
   artifact: HostIntegrationArtifact;
 }): Promise<CodexActivationResult> {
   if (input.artifact.host !== "codex") throw new Error("Invalid Codex hooks: activation requires a Codex artifact");
-  const targetPath = join(input.project_path, input.artifact.merge_target);
+  if (input.artifact.path !== ".codex/moryn-hooks.json" || input.artifact.merge_target !== ".codex/hooks.json") {
+    throw new Error("Invalid Codex hooks: unexpected artifact path or merge target");
+  }
+  const boundary = await resolveProjectWriteTarget(input.project_path, input.artifact.merge_target, "Codex hooks");
+  const targetPath = boundary.target_path;
   let existingText: string | undefined;
-  try {
-    const stat = await lstat(targetPath);
-    if (stat.isSymbolicLink()) throw new Error(`Invalid Codex hooks: target is a symbolic link: ${targetPath}`);
-    if (!stat.isFile()) throw new Error(`Invalid Codex hooks: target is not a regular file: ${targetPath}`);
+  if (await projectFileExists(boundary, "Codex hooks")) {
     existingText = await readFile(targetPath, "utf8");
-  } catch (error) {
-    if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) throw error;
   }
   let current: unknown | undefined;
   if (existingText !== undefined) {
@@ -122,12 +127,15 @@ export async function activateCodexHooks(input: {
       previous_digest: digest(existingText),
       new_digest: newDigest
     };
-  await mkdir(dirname(targetPath), { recursive: true });
+  await ensureProjectWriteParent(boundary, "Codex hooks");
   let backupPath: string | undefined;
   if (existingText !== undefined) {
     const previousDigest = digest(existingText);
-    const backupDir = join(dirname(targetPath), ".moryn-backups");
-    await mkdir(backupDir, { recursive: true });
+    const backupDir = await ensureProjectWriteDirectory(
+      boundary.root_path,
+      ".codex/.moryn-backups",
+      "Codex hooks backup"
+    );
     backupPath = join(backupDir, `hooks.${previousDigest.slice(0, 16)}.json`);
     try {
       const stat = await lstat(backupPath);

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { displayRecordText } from "../core/content-text.js";
 import { createEngine } from "../core/engine.js";
 import { replayEvents } from "../core/replay.js";
+import { isPrivateMemoryBoundary } from "../core/sensitive.js";
 import { readEvents } from "../core/store.js";
 import type { MorynRecord, RecordState } from "../core/types.js";
 
@@ -118,10 +119,6 @@ export type DashboardMaintenanceApprovalResult =
       plan_id: string;
       message: string;
     };
-
-function isPrivateRecord(record: MorynRecord): boolean {
-  return record.tags.some((tag) => PRIVATE_RECORD_TAGS.has(tag.toLowerCase()));
-}
 
 function meaningfulTags(record: MorynRecord): string[] {
   return record.tags
@@ -277,11 +274,11 @@ function buildCandidateNoiseArchivePlan(
     .filter((record) => record.project_id === projectId)
     .filter(isMarkerNoiseCandidate)
     .sort(stableRecordSort);
-  const records = matchingRecords.filter((record) => includePrivate || !isPrivateRecord(record));
+  const records = matchingRecords.filter((record) => includePrivate || !isPrivateMemoryBoundary(record));
   if (records.length === 0) return undefined;
 
   const skippedPrivateRecords = matchingRecords.length - records.length;
-  const includedPrivateRecords = records.filter(isPrivateRecord).length;
+  const includedPrivateRecords = records.filter(isPrivateMemoryBoundary).length;
   const recordIds = records.map((record) => record.id);
   const states = stateCounts(records);
   const hash = planHash({
@@ -348,11 +345,11 @@ function buildProjectIdentityPlan(
   includePrivate: boolean
 ): DashboardMaintenancePlan | undefined {
   const matchingRecords = allRecords.filter((record) => record.project_id === fromProjectId).sort(stableRecordSort);
-  const records = matchingRecords.filter((record) => includePrivate || !isPrivateRecord(record));
+  const records = matchingRecords.filter((record) => includePrivate || !isPrivateMemoryBoundary(record));
   if (records.length === 0) return undefined;
 
   const skippedPrivateRecords = matchingRecords.length - records.length;
-  const includedPrivateRecords = records.filter(isPrivateRecord).length;
+  const includedPrivateRecords = records.filter(isPrivateMemoryBoundary).length;
   const recordIds = records.map((record) => record.id);
   const states = stateCounts(records);
   const hash = planHash({
@@ -421,17 +418,16 @@ export function buildDashboardMaintenance(
   const projectId = options.project_id;
   if (!projectId) return { plans: [], plans_by_id: {} };
   const includePrivate = options.include_private === true;
+  const visibleRecords = allRecords.filter((record) => includePrivate || !isPrivateMemoryBoundary(record));
 
-  const currentProjectRecords = allRecords
-    .filter((record) => record.project_id === projectId)
-    .filter((record) => includePrivate || !isPrivateRecord(record));
+  const currentProjectRecords = visibleRecords.filter((record) => record.project_id === projectId);
   if (currentProjectRecords.length === 0) return { plans: [], plans_by_id: {} };
   const currentProjectTags = new Set(currentProjectRecords.flatMap(meaningfulTags));
-  const tagProjectCounts = meaningfulTagProjectCounts(allRecords);
+  const tagProjectCounts = meaningfulTagProjectCounts(visibleRecords);
 
   const relatedProjectIds = [
     ...new Set(
-      allRecords
+      visibleRecords
         .filter((record) => record.project_id && record.project_id !== projectId)
         .filter((record) => hasSharedMeaningfulTag(currentProjectTags, record, tagProjectCounts))
         .map((record) => record.project_id as string)

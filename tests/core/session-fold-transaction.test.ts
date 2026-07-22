@@ -1,5 +1,6 @@
 import { chmod, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { describe, expect, it } from "vitest";
 import { createEngine } from "../../src/core/engine.js";
 import { readCurrentRecords } from "../../src/core/record-read-model.js";
@@ -157,6 +158,59 @@ describe("Session Fold transaction", () => {
       expect(second.existing_event_ids).toEqual(first.receipt.event_ids);
       expect((await readEvents(storePath)).length).toBe(eventCount);
       expect(second.receipt).toEqual(first.receipt);
+    });
+  });
+
+  it("serializes concurrent retries of the same plan into one committed transaction", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const plan = planSessionFold(await sessionRecords(storePath), {
+        project_id: "moryn",
+        session_id: "session-a"
+      })!;
+      let markFirstAppendStarted!: () => void;
+      const firstAppendStarted = new Promise<void>((resolve) => {
+        markFirstAppendStarted = resolve;
+      });
+      let releaseFirstAppend!: () => void;
+      const firstAppendRelease = new Promise<void>((resolve) => {
+        releaseFirstAppend = resolve;
+      });
+      let firstAppend = true;
+      const firstApply = applySessionFoldPlan(storePath, plan, {
+        append_event: async (path, event) => {
+          if (firstAppend) {
+            firstAppend = false;
+            markFirstAppendStarted();
+            await firstAppendRelease;
+          }
+          return appendEventIfAbsent(path, event);
+        }
+      });
+      await firstAppendStarted;
+
+      let competingAppendCount = 0;
+      const concurrentRetry = applySessionFoldPlan(storePath, plan, {
+        append_event: async (path, event) => {
+          competingAppendCount += 1;
+          return appendEventIfAbsent(path, event);
+        }
+      });
+      try {
+        await delay(50);
+        expect(competingAppendCount).toBe(0);
+      } finally {
+        releaseFirstAppend();
+      }
+
+      const [committed, retried] = await Promise.all([firstApply, concurrentRetry]);
+      expect(committed.created_event_ids).toEqual(committed.receipt.event_ids);
+      expect(retried.created_event_ids).toEqual([]);
+      expect(retried.existing_event_ids).toEqual(committed.receipt.event_ids);
+      expect(retried.receipt).toEqual(committed.receipt);
+      expect(competingAppendCount).toBe(0);
+      expect((await readEvents(storePath)).filter((event) => event.event_id.includes(plan.plan_id))).toHaveLength(
+        committed.receipt.event_ids.length
+      );
     });
   });
 

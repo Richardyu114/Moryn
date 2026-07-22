@@ -285,10 +285,11 @@ moryn refresh \
 Changes are classified as `silent`, `notice`, or `interrupt`. Reportable
 changes include safe `recall` next actions for retrieving full records.
 
-Normal refresh reads exclude records tagged `private`, `secret`, or
-`sensitive`. Use `--include-private` only when the user has explicitly asked
-the agent to inspect private memory; returned `recall` next actions preserve
-that opt-in.
+Normal refresh reads exclude the shared private boundary: records tagged
+`private`, `secret`, or `sensitive`, plus legacy records marked by
+`content.privacy: "private"` or `content.distribution: "local_only"`. Use
+`--include-private` only when the user has explicitly asked the agent to inspect
+private memory; returned `recall` next actions preserve that opt-in.
 
 ## Autonomous Knowledge Loop
 
@@ -368,6 +369,18 @@ relationship assertion. If no candidate is convincing, the agent continues
 without creating maintenance work for the user; exceptional ambiguity can
 remain visible through the existing read-only diagnostics.
 
+When the recalled records expose compatible structured fields, the same
+proposal may opt into `structured_merge`. Agents name dispositions, source
+record IDs, and evidence IDs; they never author a merged value. Moryn copies
+exact retained/replacement values or deterministically unions exact array
+members, records field/value lineage, and keeps the result candidate unless the
+canonical safety gates pass. Differing values cannot use `retain`: they require
+an evidence-backed `replace`, an exact-value `union`, or an explicit
+evidence-backed `obsolete`. A conflict always remains two records plus a
+`conflicts_with` relationship.
+Without an explicit `structured_merge.version: 1` plan, the proposal remains
+relationship-only and can append only its validated logical link.
+
 Checkpoint and finish lifecycle results promote unresolved candidates into an
 agent-owned `review_learning_candidates` workflow. Codex and Claude Code
 follow the supplied record-id recalls without routine user confirmation, then
@@ -403,10 +416,11 @@ with a record includes a safe `recall` next action; agents should follow that
 action when full content is needed instead of reconstructing arguments.
 
 Timeline follows the same private read boundary as `recall`, `boot`,
-`refresh`, and `list-recent`: records tagged `private`, `secret`, or
-`sensitive` are hidden unless `--include-private` is passed or MCP
-`include_private` is set to `true`. If timeline is run with private reads
-enabled, its follow-up `recall` actions include the same opt-in.
+`refresh`, and `list-recent`: private tags and legacy
+`content.privacy: "private"` / `content.distribution: "local_only"` markers are
+hidden unless `--include-private` is passed or MCP `include_private` is set to
+`true`. If timeline is run with private reads enabled, its follow-up `recall`
+actions include the same opt-in.
 
 ## Memory Governance
 
@@ -526,7 +540,7 @@ with safety checks and `plan_hash`. If the user clicks `Approve Repair`, the
 dashboard server re-runs the dry run and applies only when the hash still
 matches. Agents must not invent approval or send `confirmed: true` unless the
 user approved the specific plan. Serve with `--include-private` only when the
-user explicitly asked private-tagged memories to be included in the review and
+user explicitly asked private memories to be included in the review and
 repair.
 
 For autocaptured session handoffs, use `moryn capture session` and let
@@ -943,6 +957,44 @@ moryn soul rollback \
 
 The MCP equivalent is `soul_rollback`. Rollback creates a new active revision
 and receipt; it does not mutate or delete the intervening revisions.
+
+Projects that have more than one User or Agent profile can keep their normal
+binding and delivery budget in `.moryn.json`:
+
+```json
+{
+  "project_id": "moryn",
+  "sync": { "mode": "session" },
+  "soul": {
+    "user_profile_id": "soul_profile_...",
+    "agent_profile_id": "soul_profile_...",
+    "char_budget": 4096,
+    "token_budget": 1024
+  }
+}
+```
+
+Both profile ids are optional; each binds the corresponding subject kind and
+prevents ambiguous profile selection. The budgets are optional positive
+integers applied to Effective Soul compilation. Omitted bindings use normal
+automatic selection, and omitted budgets use the compiler defaults. Keep only
+profile metadata here—never put clause text or secrets in project config.
+
+`agent start`, `agent enter`, and automatic `SessionStart`/`PostCompact` hooks
+use this config whenever project context resolves through that directory.
+Explicit lifecycle arguments take precedence for that call:
+
+| `.moryn.json` | CLI override | MCP argument |
+| --- | --- | --- |
+| `soul.user_profile_id` | `--user-profile-id` | `user_profile_id` |
+| `soul.agent_profile_id` | `--agent-profile-id` | `agent_profile_id` |
+| `soul.char_budget` | `--soul-char-budget` | `soul_char_budget` |
+| `soul.token_budget` | `--soul-token-budget` | `soul_token_budget` |
+
+An explicit override is call-local: it neither rewrites `.moryn.json` nor
+changes approval state. Project-config bindings are fallbacks, so a host can
+select a different approved persona or tighter budget for one session without
+changing the project's normal binding.
 
 Effective Soul compilation applies subject binding, project scope,
 distribution, protected-clause precedence, and character/token budgets. If a

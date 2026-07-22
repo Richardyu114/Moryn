@@ -3489,7 +3489,7 @@ describe("observability dashboard", () => {
     });
   });
 
-  it("hides private-tagged records from the dashboard unless explicitly included", async () => {
+  it("hides private records from dashboard data and API unless explicitly included", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
         now: () => "2026-06-01T00:00:00.000Z",
@@ -3498,8 +3498,13 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = ["2026-06-01T00:01:00.000Z", "2026-06-01T00:02:00.000Z"];
-          return () => timestamps.shift() ?? "2026-06-01T00:03:00.000Z";
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z",
+            "2026-06-01T00:03:00.000Z",
+            "2026-06-01T00:04:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:05:00.000Z";
         })(),
         id: (() => {
           let record = 0;
@@ -3528,19 +3533,66 @@ describe("observability dashboard", () => {
         state: "canonical",
         source: { client: "codex" }
       });
+      const privateContentRecord = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Content-private dashboard memory.", format: "text", privacy: "private" },
+        state: "canonical",
+        source: { client: "codex" }
+      });
+      const localOnlyRecord = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Local-only dashboard memory.", format: "text", distribution: "local_only" },
+        state: "canonical",
+        source: { client: "codex" }
+      });
+      const crossBoundaryLink = await engine.link({
+        record_id: publicRecord.record.id,
+        linked_record_id: privateContentRecord.record.id,
+        link_type: "related_to",
+        source: { client: "codex" }
+      });
 
       const data = await buildDashboardData(storePath, { limit: 10 });
       expect(data.recent_records.map((record) => record.id)).toEqual([publicRecord.record.id]);
       expect(data.recent_value.map((record) => record.id)).toEqual([publicRecord.record.id]);
       expect(data.recent_events.map((event) => event.record_id)).toEqual([publicRecord.record.id]);
       expect(JSON.stringify(data)).not.toContain("Private dashboard memory.");
+      expect(JSON.stringify(data)).not.toContain("Content-private dashboard memory.");
+      expect(JSON.stringify(data)).not.toContain("Local-only dashboard memory.");
+      expect(JSON.stringify(data)).not.toContain(privateContentRecord.record.id);
+      expect(JSON.stringify(data)).not.toContain(crossBoundaryLink.event.event_id);
 
       const withPrivate = await buildDashboardData(storePath, { limit: 10, include_private: true });
       expect(withPrivate.recent_records.map((record) => record.id)).toEqual([
-        privateRecord.record.id,
-        publicRecord.record.id
+        publicRecord.record.id,
+        localOnlyRecord.record.id,
+        privateContentRecord.record.id,
+        privateRecord.record.id
       ]);
       expect(JSON.stringify(withPrivate)).toContain("Private dashboard memory.");
+      expect(JSON.stringify(withPrivate)).toContain("Content-private dashboard memory.");
+      expect(JSON.stringify(withPrivate)).toContain("Local-only dashboard memory.");
+      expect(JSON.stringify(withPrivate)).toContain(crossBoundaryLink.event.event_id);
+
+      const defaultServer = await startDashboardServer(storePath, {
+        host: "127.0.0.1",
+        port: 0,
+        limit: 10
+      });
+      try {
+        const serverData = await (await fetch(new URL("/api/dashboard", defaultServer.url))).text();
+        expect(serverData).not.toContain("Private dashboard memory.");
+        expect(serverData).not.toContain("Content-private dashboard memory.");
+        expect(serverData).not.toContain("Local-only dashboard memory.");
+      } finally {
+        await defaultServer.close();
+      }
 
       const server = await startDashboardServer(storePath, {
         host: "127.0.0.1",
@@ -3554,8 +3606,14 @@ describe("observability dashboard", () => {
           recent_value: Array<{ id: string; summary: string }>;
         };
         expect(serverData.recent_records.map((record) => record.id)).toContain(privateRecord.record.id);
+        expect(serverData.recent_records.map((record) => record.id)).toContain(privateContentRecord.record.id);
+        expect(serverData.recent_records.map((record) => record.id)).toContain(localOnlyRecord.record.id);
         expect(serverData.recent_value.map((record) => record.id)).toContain(privateRecord.record.id);
+        expect(serverData.recent_value.map((record) => record.id)).toContain(privateContentRecord.record.id);
+        expect(serverData.recent_value.map((record) => record.id)).toContain(localOnlyRecord.record.id);
         expect(serverData.recent_value.map((record) => record.summary)).toContain("Private dashboard memory.");
+        expect(serverData.recent_value.map((record) => record.summary)).toContain("Content-private dashboard memory.");
+        expect(serverData.recent_value.map((record) => record.summary)).toContain("Local-only dashboard memory.");
         const fragment = await (await fetch(new URL("/fragment", server.url))).text();
         expect(fragment).toContain("data-dashboard-editorial-shell");
         // include_private was explicitly requested, so the redesigned Memory view
@@ -3564,6 +3622,65 @@ describe("observability dashboard", () => {
       } finally {
         await server.close();
       }
+    });
+  });
+
+  it("keeps events from an ever-private record out of the default dashboard after a public revision", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = ["2026-07-21T00:00:00.000Z", "2026-07-21T00:01:00.000Z"];
+          return () => timestamps.shift() ?? "2026-07-21T00:02:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => (prefix === "rec" ? `rec_history_${++record}` : `evt_history_${++event}`);
+        })()
+      });
+      const initial = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Private historical dashboard content.", privacy: "private" },
+        state: "canonical",
+        source: { client: "private-agent", session_id: "private-session" }
+      });
+      const revision = await engine.revise({
+        record_id: initial.record.id,
+        patch: { content: { text: "Explicitly public current content.", format: "text" } },
+        reason: "Publish a replacement without exposing private event history",
+        source: { client: "public-agent", session_id: "public-session" }
+      });
+      const initialEvent = (await readEvents(storePath)).find(
+        (event) => event.op === "upsert_record" && event.record.id === initial.record.id
+      );
+      expect(initialEvent).toBeDefined();
+
+      const safe = await buildDashboardData(storePath, { project_id: "moryn", limit: 10 });
+      const serializedSafe = JSON.stringify(safe);
+      expect(safe.recent_records).toEqual([
+        expect.objectContaining({ id: initial.record.id, text: "Explicitly public current content." })
+      ]);
+      expect(serializedSafe).not.toContain(initialEvent!.event_id);
+      expect(serializedSafe).not.toContain(revision.event.event_id);
+      expect(safe.recent_events).toEqual([]);
+      expect(safe.totals.events).toBe(0);
+      expect(safe.agent_activity).toEqual([expect.objectContaining({ events: 0, records: 1 })]);
+
+      const included = await buildDashboardData(storePath, {
+        project_id: "moryn",
+        limit: 10,
+        include_private: true
+      });
+      const serializedIncluded = JSON.stringify(included);
+      expect(serializedIncluded).toContain(initialEvent!.event_id);
+      expect(serializedIncluded).toContain(revision.event.event_id);
+      expect(included.recent_events).toHaveLength(2);
+      expect(included.totals.events).toBe(2);
     });
   });
 
@@ -3953,7 +4070,70 @@ describe("observability dashboard", () => {
     });
   });
 
-  it("keeps include_private explicit in maintenance repair plans", async () => {
+  it("does not infer project identity from private-only cross-project evidence", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["shared-private-evidence"],
+        content: { text: "Public current project context." },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const contentPrivate = await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "private-evidence-project",
+        tags: ["shared-private-evidence"],
+        content: { text: "Private-only project identity hint.", privacy: "private" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const localOnly = await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "private-evidence-project",
+        tags: ["shared-private-evidence"],
+        content: { text: "Local-only project identity hint.", distribution: "local_only" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const unrelatedPublic = await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "private-evidence-project",
+        tags: ["unrelated-public"],
+        content: { text: "Public record with no project identity evidence." },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+
+      const safe = await buildDashboardData(storePath, { project_id: "moryn" });
+      expect(safe.maintenance.plans.filter((plan) => plan.type === "project_identity_repair")).toEqual([]);
+      expect(JSON.stringify(safe.maintenance)).not.toContain("private-evidence-project");
+
+      const included = await buildDashboardData(storePath, { project_id: "moryn", include_private: true });
+      const plan = included.maintenance.plans.find((candidate) => candidate.type === "project_identity_repair");
+      expect(plan).toMatchObject({
+        from_project_id: "private-evidence-project",
+        record_ids: expect.arrayContaining([contentPrivate.record.id, localOnly.record.id, unrelatedPublic.record.id]),
+        dry_run: { included_private_records: 2 }
+      });
+    });
+  });
+
+  it("keeps content-level private records out of maintenance repair plans unless explicitly included", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
         now: () => "2026-06-01T00:00:00.000Z",
@@ -3962,8 +4142,14 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = ["2026-06-01T00:01:00.000Z", "2026-06-01T00:02:00.000Z", "2026-06-01T00:03:00.000Z"];
-          return () => timestamps.shift() ?? "2026-06-01T00:04:00.000Z";
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z",
+            "2026-06-01T00:03:00.000Z",
+            "2026-06-01T00:04:00.000Z",
+            "2026-06-01T00:05:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:06:00.000Z";
         })(),
         id: (() => {
           let record = 0;
@@ -3984,7 +4170,7 @@ describe("observability dashboard", () => {
         confirmed: true,
         source: { client: "user" }
       });
-      await engine.write({
+      const publicOldProjectRecord = await engine.write({
         kind: "memory",
         type: "rule",
         scope: "project",
@@ -3995,7 +4181,7 @@ describe("observability dashboard", () => {
         confirmed: true,
         source: { client: "user" }
       });
-      await engine.write({
+      const taggedPrivateRecord = await engine.write({
         kind: "memory",
         type: "rule",
         scope: "project",
@@ -4006,6 +4192,55 @@ describe("observability dashboard", () => {
         confirmed: true,
         source: { client: "user" }
       });
+      const contentPrivateRecord = await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "repo-e6f0166fd942",
+        tags: ["moryn"],
+        content: {
+          text: "Content-private old project repair evidence.",
+          format: "text",
+          privacy: "private"
+        },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const localOnlyRecord = await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "repo-e6f0166fd942",
+        tags: ["moryn"],
+        content: {
+          text: "Local-only old project repair evidence.",
+          format: "text",
+          distribution: "local_only"
+        },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+
+      const defaultData = await buildDashboardData(storePath, { limit: 10, project_id: "moryn" });
+      const defaultPlan = defaultData.maintenance.plans.find(
+        (candidate) => candidate.type === "project_identity_repair"
+      );
+      const defaultMaintenance = JSON.stringify(defaultData.maintenance);
+
+      expect(defaultPlan).toMatchObject({
+        record_ids: [publicOldProjectRecord.record.id],
+        dry_run: {
+          matched_records: 1,
+          skipped_private_records: 3,
+          included_private_records: 0
+        }
+      });
+      for (const privateRecord of [taggedPrivateRecord, contentPrivateRecord, localOnlyRecord]) {
+        expect(defaultMaintenance).not.toContain(privateRecord.record.id);
+        expect(defaultMaintenance).not.toContain(privateRecord.record.content.text);
+      }
 
       const data = await buildDashboardData(storePath, {
         limit: 10,
@@ -4017,14 +4252,20 @@ describe("observability dashboard", () => {
       expect(plan).toMatchObject({
         command: "moryn project migrate --from repo-e6f0166fd942 --to moryn --apply --confirm --include-private",
         dry_run: {
-          matched_records: 2,
+          matched_records: 4,
           skipped_private_records: 0,
-          included_private_records: 1,
+          included_private_records: 3,
           states: {
-            canonical: 2
+            canonical: 4
           }
         }
       });
+      expect(plan?.record_ids).toEqual([
+        localOnlyRecord.record.id,
+        contentPrivateRecord.record.id,
+        taggedPrivateRecord.record.id,
+        publicOldProjectRecord.record.id
+      ]);
       expect(plan?.safety_checks).toEqual(
         expect.arrayContaining([expect.objectContaining({ id: "no_private_records", ok: false })])
       );
@@ -4045,9 +4286,11 @@ describe("observability dashboard", () => {
             "2026-06-01T00:02:00.000Z",
             "2026-06-01T00:03:00.000Z",
             "2026-06-01T00:04:00.000Z",
-            "2026-06-01T00:05:00.000Z"
+            "2026-06-01T00:05:00.000Z",
+            "2026-06-01T00:06:00.000Z",
+            "2026-06-01T00:07:00.000Z"
           ];
-          return () => timestamps.shift() ?? "2026-06-01T00:06:00.000Z";
+          return () => timestamps.shift() ?? "2026-06-01T00:08:00.000Z";
         })(),
         id: (() => {
           let record = 0;
@@ -4095,13 +4338,39 @@ describe("observability dashboard", () => {
         state: "candidate",
         source: { client: "codex" }
       });
-      await engine.write({
+      const taggedPrivateNoise = await engine.write({
         kind: "session_summary",
         type: "summary",
         scope: "project",
         project_id: "moryn",
         tags: ["moryn", "private", "smoke"],
         content: { text: "Private smoke marker stays out unless include-private is set.", format: "text" },
+        source: { client: "codex" }
+      });
+      const contentPrivateNoise = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn", "smoke"],
+        content: {
+          text: "Content-private smoke marker stays out by default.",
+          format: "text",
+          privacy: "private"
+        },
+        source: { client: "codex" }
+      });
+      const localOnlyNoise = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn", "marker"],
+        content: {
+          text: "Local-only marker candidate stays out by default.",
+          format: "text",
+          distribution: "local_only"
+        },
         source: { client: "codex" }
       });
 
@@ -4119,7 +4388,7 @@ describe("observability dashboard", () => {
           "moryn archive rec_noise_plan_4 --reason 'Memory doctor: e2e marker/noise candidate' && moryn archive rec_noise_plan_3 --reason 'Memory doctor: e2e marker/noise candidate' && moryn archive rec_noise_plan_2 --reason 'Memory doctor: e2e marker/noise candidate'",
         dry_run: {
           matched_records: 3,
-          skipped_private_records: 1,
+          skipped_private_records: 3,
           included_private_records: 0,
           states: {
             candidate: 3
@@ -4144,7 +4413,7 @@ describe("observability dashboard", () => {
           ]),
           evidence: expect.arrayContaining([
             "Matched records: 3 records; 3 candidate.",
-            "Private records: 1 private record skipped.",
+            "Private records: 3 private records skipped.",
             "Write behavior: append-only archive_record events; no deletion."
           ])
         }
@@ -4198,6 +4467,37 @@ describe("observability dashboard", () => {
         summary: "Start with Likely noise: Inspect likely noise before archive",
         evidence_path: "candidate_triage.groups_by_id.likely_noise"
       });
+      const defaultMaintenance = JSON.stringify(data.maintenance);
+      for (const privateRecord of [taggedPrivateNoise, contentPrivateNoise, localOnlyNoise]) {
+        expect(defaultMaintenance).not.toContain(privateRecord.record.id);
+        expect(defaultMaintenance).not.toContain(privateRecord.record.content.text);
+      }
+
+      const withPrivateData = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        include_private: true
+      });
+      const withPrivatePlan = withPrivateData.maintenance.plans.find(
+        (candidate) => candidate.type === "candidate_noise_archive"
+      );
+      expect(withPrivatePlan).toMatchObject({
+        dry_run: {
+          matched_records: 6,
+          skipped_private_records: 0,
+          included_private_records: 3,
+          states: { candidate: 6 }
+        }
+      });
+      expect(withPrivatePlan?.safety_checks).toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: "no_private_records", ok: false })])
+      );
+      expect(withPrivatePlan?.record_ids).toEqual(
+        expect.arrayContaining([taggedPrivateNoise.record.id, contentPrivateNoise.record.id, localOnlyNoise.record.id])
+      );
+      const withPrivateMaintenance = JSON.stringify(withPrivateData.maintenance);
+      expect(withPrivateMaintenance).toContain(contentPrivateNoise.record.content.text);
+      expect(withPrivateMaintenance).toContain(localOnlyNoise.record.content.text);
       expect(html).toContain("data-dashboard-editorial-shell");
     });
   });
@@ -7004,6 +7304,53 @@ describe("quiet dashboard model", () => {
         autopilot: { status: "active", host: "codex", last_event: "session_start" }
       });
       expect(quietFirstScreenHtml(renderDashboardHtml(active))).toContain("Active · Codex");
+    });
+  });
+
+  it.each([
+    ["content privacy", { privacy: "private" }],
+    ["local-only distribution", { distribution: "local_only" }]
+  ] as const)("hides %s activation receipts from the default system pulse", async (_label, privacyMarker) => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath, now: () => "2026-07-11T00:02:00.000Z" });
+      const hidden = await engine.write({
+        kind: "agent_note",
+        type: "activation_receipt",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["activation", "activation-receipt"],
+        content: {
+          text: "Private activation evidence.",
+          host: "codex",
+          event: "private_session_start",
+          ...privacyMarker
+        },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex" }
+      });
+
+      const safe = await buildDashboardData(storePath, {
+        project_id: "moryn",
+        now: "2026-07-11T00:03:00.000Z"
+      });
+      expect(safe.quiet_dashboard.system_pulse).toMatchObject({
+        autopilot_active: false,
+        autopilot: { status: "not_installed", host: "unknown" }
+      });
+      expect(JSON.stringify(safe.quiet_dashboard.system_pulse)).not.toContain(hidden.record.id);
+      expect(JSON.stringify(safe.quiet_dashboard.system_pulse)).not.toContain("private_session_start");
+
+      const included = await buildDashboardData(storePath, {
+        project_id: "moryn",
+        include_private: true,
+        now: "2026-07-11T00:03:00.000Z"
+      });
+      expect(included.quiet_dashboard.system_pulse).toMatchObject({
+        autopilot_active: true,
+        autopilot: { status: "active", host: "codex", last_event: "private_session_start" }
+      });
     });
   });
 

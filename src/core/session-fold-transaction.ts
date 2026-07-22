@@ -10,6 +10,7 @@ import {
 import { readCurrentRecords } from "./record-read-model.js";
 import { replayEvents } from "./replay.js";
 import { planSessionFold, type SessionFoldPlan } from "./session-fold.js";
+import { withStoreStateLease } from "./state-lease.js";
 import { type AppendEventIfAbsentResult, appendEventIfAbsent, readEvents } from "./store.js";
 import type { MorynEvent, MorynRecord, RecordSource } from "./types.js";
 
@@ -397,7 +398,7 @@ function assertReceiptMatchesPlan(
   }
 }
 
-export async function applySessionFoldPlan(
+async function applySessionFoldPlanWithLease(
   storePath: string,
   plan: SessionFoldPlan,
   deps: SessionFoldTransactionDeps = {}
@@ -484,4 +485,12 @@ export async function applySessionFoldPlan(
     existing_event_ids: events.map((event) => event.event_id).filter((eventId) => !createdIds.has(eventId)),
     durability: durabilityCounts(appendResults)
   };
+}
+
+export async function applySessionFoldPlan(
+  storePath: string,
+  plan: SessionFoldPlan,
+  deps: SessionFoldTransactionDeps = {}
+): Promise<SessionFoldApplyResult> {
+  return withStoreStateLease(storePath, () => applySessionFoldPlanWithLease(storePath, plan, deps));
 }

@@ -16,7 +16,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # The release-check script owns the full ordering, including building
+      # ignored dist artifacts before readiness and package validation.
       - name: Run full release gate (build, typecheck, tests, smokes)
-        env:
-          MORYN_SKIP_SLOW_CHECKS: "1"
         run: npm run release:check

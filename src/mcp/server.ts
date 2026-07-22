@@ -626,6 +626,32 @@ function lifecycleProjectContextInput(
   };
 }
 
+function lifecycleSoulBindingInput(input: Record<string, unknown>): {
+  userSoulProfileId?: string;
+  agentSoulProfileId?: string;
+  soulCharBudget?: number;
+  soulTokenBudget?: number;
+} {
+  for (const argument of ["user_profile_id", "agent_profile_id"] as const) {
+    const value = input[argument];
+    if (value !== undefined && (typeof value !== "string" || value.length === 0)) {
+      throw new Error(`Invalid argument: Invalid ${argument}`);
+    }
+  }
+  for (const argument of ["soul_char_budget", "soul_token_budget"] as const) {
+    const value = input[argument];
+    if (value !== undefined && (typeof value !== "number" || !Number.isInteger(value) || value < 1)) {
+      throw new Error(`Invalid argument: ${argument} must be a positive integer`);
+    }
+  }
+  return {
+    userSoulProfileId: input.user_profile_id as string | undefined,
+    agentSoulProfileId: input.agent_profile_id as string | undefined,
+    soulCharBudget: input.soul_char_budget as number | undefined,
+    soulTokenBudget: input.soul_token_budget as number | undefined
+  };
+}
+
 async function resolveProjectInput(
   operation: McpProjectContextOperation,
   input: { project_id?: unknown; project_path?: unknown }
@@ -2498,6 +2524,10 @@ export async function runMcpServer(
         project_path: coreValidatedStringSchema.optional(),
         sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
+        user_profile_id: coreValidatedStringSchema.optional(),
+        agent_profile_id: coreValidatedStringSchema.optional(),
+        soul_char_budget: coreValidatedNumberSchema.optional(),
+        soul_token_budget: coreValidatedNumberSchema.optional(),
         refresh_since: z.unknown().optional(),
         limit: coreValidatedNumberSchema.optional(),
         pull: coreValidatedBooleanSchema.optional(),
@@ -2523,6 +2553,7 @@ export async function runMcpServer(
             }),
             syncRemote: normalizedInput.sync_remote as string | undefined,
             currentTask: normalizedInput.current_task as string | undefined,
+            ...lifecycleSoulBindingInput(normalizedInput),
             refreshSince: normalizedInput.refresh_since,
             limit: normalizedInput.limit,
             pull: coreValidatedPull,
@@ -2543,6 +2574,10 @@ export async function runMcpServer(
             project_path: normalizedInput.project_path,
             sync_remote: normalizedInput.sync_remote,
             current_task: normalizedInput.current_task,
+            user_profile_id: normalizedInput.user_profile_id,
+            agent_profile_id: normalizedInput.agent_profile_id,
+            soul_char_budget: normalizedInput.soul_char_budget,
+            soul_token_budget: normalizedInput.soul_token_budget,
             refresh_since: normalizedInput.refresh_since,
             limit: normalizedInput.limit,
             pull: coreValidatedPull,
@@ -2603,6 +2638,10 @@ export async function runMcpServer(
         project_path: coreValidatedStringSchema.optional(),
         sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
+        user_profile_id: coreValidatedStringSchema.optional(),
+        agent_profile_id: coreValidatedStringSchema.optional(),
+        soul_char_budget: coreValidatedNumberSchema.optional(),
+        soul_token_budget: coreValidatedNumberSchema.optional(),
         refresh_since: z.unknown().optional(),
         limit: coreValidatedNumberSchema.optional(),
         pull: coreValidatedBooleanSchema.optional(),
@@ -2628,6 +2667,7 @@ export async function runMcpServer(
             }),
             syncRemote: normalizedInput.sync_remote as string | undefined,
             currentTask: normalizedInput.current_task as string | undefined,
+            ...lifecycleSoulBindingInput(normalizedInput),
             refreshSince: normalizedInput.refresh_since,
             limit: normalizedInput.limit,
             pull: coreValidatedPull,
@@ -2647,6 +2687,10 @@ export async function runMcpServer(
             project_path: normalizedInput.project_path,
             sync_remote: normalizedInput.sync_remote,
             current_task: normalizedInput.current_task,
+            user_profile_id: normalizedInput.user_profile_id,
+            agent_profile_id: normalizedInput.agent_profile_id,
+            soul_char_budget: normalizedInput.soul_char_budget,
+            soul_token_budget: normalizedInput.soul_token_budget,
             refresh_since: normalizedInput.refresh_since,
             limit: normalizedInput.limit,
             pull: coreValidatedPull,

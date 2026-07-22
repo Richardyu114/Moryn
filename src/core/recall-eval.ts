@@ -1,3 +1,4 @@
+import { isPrivateMemoryBoundary } from "./sensitive.js";
 import type { MorynRecord, RecordKind, RecordScope, RecordState } from "./types.js";
 
 export const RECALL_EVAL_SELECTION_SOURCES = {
@@ -49,6 +50,7 @@ export interface RecallEvalRecallResult {
     record: {
       id: string;
       tags: string[];
+      content: MorynRecord["content"];
       provenance?: { method?: string };
     };
     score: number;
@@ -225,16 +227,12 @@ function commandForRecall(input: RecallEvalRecallInput): string {
   return parts.join(" ");
 }
 
-function isPrivateRecord(record: MorynRecord): boolean {
-  return record.tags.some((tag) => ["private", "secret", "sensitive"].includes(tag.toLowerCase()));
-}
-
 function expectedRecordHiddenReason(
   record: MorynRecord,
   input: RecallEvalRecallInput
 ): RecallEvalHiddenReason | undefined {
   if (input.project_id && record.scope !== "global" && record.project_id !== input.project_id) return "project_filter";
-  if (!input.include_private && isPrivateRecord(record)) return "private_filter";
+  if (!input.include_private && isPrivateMemoryBoundary(record)) return "private_filter";
   if (input.states?.length) {
     if (!input.states.includes(record.state)) return "state_filter";
   } else if (record.state === "raw" || record.state === "archived" || record.state === "quarantined") {
@@ -303,7 +301,7 @@ export async function evaluateRecall(
     };
     const recalled = await recall(recallInput);
     const ranked = recalled.results.map((result, index) => {
-      if (!includePrivate && result.record.tags.includes("private")) leakedPrivate.add(result.record.id);
+      if (!includePrivate && isPrivateMemoryBoundary(result.record)) leakedPrivate.add(result.record.id);
       return {
         record_id: result.record.id,
         rank: index + 1,

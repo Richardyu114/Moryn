@@ -10,7 +10,9 @@ import {
   selectMemoryWorkingSet
 } from "./record-read-model.js";
 import { parseRecord } from "./schema.js";
+import { annotateSessionFoldConflicts } from "./session-fold-conflicts.js";
 import { readEventFileManifest } from "./store.js";
+import { createStringKeyedRecord, stringKeyedRecordFromEntries } from "./string-keyed-record.js";
 import type { MorynRecord } from "./types.js";
 
 export interface RetrievalIndexMetadataV1 {
@@ -116,13 +118,14 @@ export function buildRetrievalIndex(
   eventManifest: EventManifest,
   options: MemoryWorkingSetSelectionOptions = {}
 ): BuiltRetrievalIndex {
-  const logicalRecords = buildActiveLogicalMemoryView(records).active_records.filter(
+  const projectedRecords = annotateSessionFoldConflicts(records);
+  const logicalRecords = buildActiveLogicalMemoryView(projectedRecords).active_records.filter(
     (record) => record.state !== "quarantined" && record.visibility !== "quarantined"
   );
   const selection = selectMemoryWorkingSet(logicalRecords, options);
   const active = selection.selected.map((entry) => entry.record).sort((left, right) => left.id.localeCompare(right.id));
   const globalRecords = active.filter((record) => record.scope === "global");
-  const projects: Record<string, RetrievalIndexShardV1> = {};
+  const projects = createStringKeyedRecord<RetrievalIndexShardV1>();
   for (const record of active) {
     if (record.scope !== "project" || !record.project_id) continue;
     const shard = projects[record.project_id] ?? {
@@ -135,16 +138,19 @@ export function buildRetrievalIndex(
     shard.records.push(record);
     projects[record.project_id] = shard;
   }
-  const projectMetadata = Object.fromEntries(
+  const projectMetadata = stringKeyedRecordFromEntries(
     Object.keys(projects)
       .sort()
-      .map((projectId) => [
-        projectId,
-        {
-          shard: retrievalProjectShardName(projectId),
-          records: projects[projectId]!.records.length
-        }
-      ])
+      .map(
+        (projectId) =>
+          [
+            projectId,
+            {
+              shard: retrievalProjectShardName(projectId),
+              records: projects[projectId]!.records.length
+            }
+          ] as const
+      )
   );
   return {
     metadata: {
@@ -221,7 +227,7 @@ function parseMetadata(value: unknown): RetrievalIndexMetadataV1 {
     Array.isArray(metadata.projects)
   )
     throw new Error("invalid");
-  const projects: RetrievalIndexMetadataV1["projects"] = {};
+  const projects = createStringKeyedRecord<RetrievalIndexMetadataV1["projects"][string]>();
   for (const [projectId, raw] of Object.entries(metadata.projects as Record<string, unknown>)) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("invalid");
     const entry = raw as Record<string, unknown>;
@@ -327,7 +333,7 @@ export async function readRetrievalCandidates(
     }
     const after = await readManifest(storePath);
     if (!sameManifest(before, after)) throw new Error("stale");
-    const records = [...global.records, ...(project?.records ?? [])];
+    const records = annotateSessionFoldConflicts([...global.records, ...(project?.records ?? [])]);
     return {
       records,
       source: "retrieval_index",

@@ -199,7 +199,7 @@ describe("Soul Profile management", () => {
     });
   });
 
-  it("preserves the newest local-only clauses when deriving from a remote partial parent", async () => {
+  it("preserves local-only clauses from the nearest local ancestor of a remote partial parent", async () => {
     await withInitializedTempStore(async (sourceStorePath) => {
       await withInitializedTempStore(async (localStorePath) => {
         const localSecret = "DEVICE B LOCAL SOUL CONTEXT";
@@ -281,15 +281,75 @@ describe("Soul Profile management", () => {
         });
         expect(derived.revision.clauses).toEqual(
           expect.arrayContaining([
-            expect.objectContaining({ distribution: "local_only", text: localSecret }),
+            expect.objectContaining({ distribution: "local_only", text: secret }),
             expect.objectContaining({ distribution: "personal_sync", text: "Adopt the remote persona on device B." })
           ])
         );
+        expect(derived.revision.clauses.map((clause) => clause.text)).not.toContain(localSecret);
         expect(derived.revision.clauses.map((clause) => clause.text)).not.toContain(remoteSecret);
 
         const serializedEvents = JSON.stringify(await readEvents(localStorePath));
         expect(serializedEvents).not.toContain(localSecret);
         expect(serializedEvents).not.toContain(remoteSecret);
+      });
+    });
+  });
+
+  it("does not inherit a local-only overlay from an unrelated profile branch", async () => {
+    await withInitializedTempStore(async (remoteStorePath) => {
+      await withInitializedTempStore(async (localStorePath) => {
+        const unrelatedLocalSecret = "UNRELATED DEVICE B SOUL CONTEXT";
+        const remoteSecret = "UNRELATED DEVICE A SOUL CONTEXT";
+        const localDraft = await createSoulProfileDraft(localStorePath, {
+          subject: { kind: "agent", subject_id: "moryn" },
+          clauses: [initialClauses[0], { ...initialClauses[1], text: unrelatedLocalSecret }],
+          source,
+          occurred_at: firstAt
+        });
+        const local = await approveSoulProfileDraft(localStorePath, {
+          revision_id: localDraft.revision.revision_id,
+          confirmed: true,
+          source,
+          occurred_at: secondAt
+        });
+
+        const remoteDraft = await createSoulProfileDraft(remoteStorePath, {
+          subject: { kind: "agent", subject_id: "moryn" },
+          clauses: [
+            { ...initialClauses[0], text: "Use an independently created remote persona." },
+            { ...initialClauses[1], text: remoteSecret }
+          ],
+          source,
+          occurred_at: firstAt
+        });
+        const remote = await approveSoulProfileDraft(remoteStorePath, {
+          revision_id: remoteDraft.revision.revision_id,
+          confirmed: true,
+          source,
+          occurred_at: secondAt
+        });
+        expect(remote.revision.profile_id).toBe(local.revision.profile_id);
+        expect(remote.revision.parent_revision_ids).not.toContain(local.revision.revision_id);
+
+        await copyEvents(remoteStorePath, localStorePath);
+        const beforeDerive = await readSoulProfileRevisions(localStorePath);
+        expect(beforeDerive.partial_revision_ids).toContain(remote.revision.revision_id);
+        expect(beforeDerive.local_revision_ids).toContain(local.revision.revision_id);
+
+        const derived = await createSoulProfileDraft(localStorePath, {
+          from_revision_id: remote.revision.revision_id,
+          clauses: [{ ...initialClauses[0], text: "Adopt the independent remote persona on device B." }],
+          source,
+          occurred_at: thirdAt
+        });
+        expect(derived.revision.clauses).toEqual([
+          expect.objectContaining({
+            distribution: "personal_sync",
+            text: "Adopt the independent remote persona on device B."
+          })
+        ]);
+        expect(derived.revision.clauses.map((clause) => clause.text)).not.toContain(unrelatedLocalSecret);
+        expect(derived.revision.clauses.map((clause) => clause.text)).not.toContain(remoteSecret);
       });
     });
   });

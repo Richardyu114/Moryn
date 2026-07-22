@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createEngine } from "../../src/core/engine.js";
+import { evaluateRecall } from "../../src/core/recall-eval.js";
 import { readEvents } from "../../src/core/store.js";
 import type { RecordKind, RecordScope, RecordState } from "../../src/core/types.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
@@ -25,6 +26,8 @@ describe("recall eval", () => {
       project_id?: string;
       tags?: string[];
       text: string;
+      privacy?: "private";
+      distribution?: "local_only";
       state?: RecordState;
       confirmed?: boolean;
     }
@@ -35,7 +38,12 @@ describe("recall eval", () => {
       scope: input.scope,
       project_id: input.project_id,
       tags: input.tags ?? [],
-      content: { text: input.text, format: "text" },
+      content: {
+        text: input.text,
+        format: "text",
+        ...(input.privacy ? { privacy: input.privacy } : {}),
+        ...(input.distribution ? { distribution: input.distribution } : {})
+      },
       state: input.state ?? "canonical",
       confirmed: input.confirmed ?? true,
       source: { client: "test" },
@@ -223,6 +231,24 @@ describe("recall eval", () => {
         tags: ["private"],
         text: "Private eval token rotation note should never leak by default."
       });
+      const contentPrivateRecord = await writeFixtureRecord(engine, {
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["privacy-marker"],
+        text: "Content-private eval note should never leak by default.",
+        privacy: "private"
+      });
+      const localOnlyRecord = await writeFixtureRecord(engine, {
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["distribution-marker"],
+        text: "Local-only eval note should never leak by default.",
+        distribution: "local_only"
+      });
       const otherProject = await writeFixtureRecord(engine, {
         kind: "memory",
         type: "decision",
@@ -266,6 +292,8 @@ describe("recall eval", () => {
               archived.record.id,
               quarantined.record.id,
               privateRecord.record.id,
+              contentPrivateRecord.record.id,
+              localOnlyRecord.record.id,
               otherProject.record.id
             ],
             limit: 10
@@ -301,6 +329,8 @@ describe("recall eval", () => {
           archived.record.id,
           quarantined.record.id,
           privateRecord.record.id,
+          contentPrivateRecord.record.id,
+          localOnlyRecord.record.id,
           otherProject.record.id
         ])
       });
@@ -321,6 +351,14 @@ describe("recall eval", () => {
         reason: "private_filter",
         tags: ["private"]
       });
+      expect(report.cases_by_id["default-hidden"]?.hidden_records_by_id[contentPrivateRecord.record.id]).toMatchObject({
+        reason: "private_filter",
+        tags: ["privacy-marker"]
+      });
+      expect(report.cases_by_id["default-hidden"]?.hidden_records_by_id[localOnlyRecord.record.id]).toMatchObject({
+        reason: "private_filter",
+        tags: ["distribution-marker"]
+      });
       expect(report.cases_by_id["default-hidden"]?.hidden_records_by_id[otherProject.record.id]).toMatchObject({
         reason: "project_filter",
         project_id: "other"
@@ -340,6 +378,8 @@ describe("recall eval", () => {
           archived.record.id,
           quarantined.record.id,
           privateRecord.record.id,
+          contentPrivateRecord.record.id,
+          localOnlyRecord.record.id,
           otherProject.record.id
         ])
       });
@@ -364,6 +404,61 @@ describe("recall eval", () => {
       );
       expect(report.suggested_actions_by_id["revise-golden-case:default-hidden"]).toBeUndefined();
       expect(JSON.stringify(report)).not.toContain("Private eval token rotation note");
+      expect(JSON.stringify(report)).not.toContain("Content-private eval note");
+      expect(JSON.stringify(report)).not.toContain("Local-only eval note");
+    });
+  });
+
+  it("flags content-level private records returned by a faulty recall adapter", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, id: (prefix) => `${prefix}_leak_${++nextId}` });
+      const contentPrivate = await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["privacy-marker"],
+        content: { text: "Private adapter result.", privacy: "private" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "test" }
+      });
+      const localOnly = await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["distribution-marker"],
+        content: { text: "Local adapter result.", distribution: "local_only" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "test" }
+      });
+      const leakedRecords = [contentPrivate.record, localOnly.record];
+
+      const report = await evaluateRecall(
+        {
+          project_id: "moryn",
+          cases: [
+            {
+              case_id: "faulty-adapter",
+              query: "adapter result",
+              expected_record_ids: leakedRecords.map((record) => record.id)
+            }
+          ]
+        },
+        async () => ({
+          results: leakedRecords.map((record) => ({ record, score: 1, reason: ["fault injection"] }))
+        })
+      );
+
+      expect(report.privacy).toEqual({
+        include_private: false,
+        leaked_private_record_ids: leakedRecords.map((record) => record.id),
+        leak_count: 2
+      });
+      expect(report.summary.privacy_leaks).toBe(2);
     });
   });
 });

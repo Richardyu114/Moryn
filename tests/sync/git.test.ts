@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { initializeStore } from "../../src/core/config.js";
@@ -42,6 +42,84 @@ const SYNC_RESULT_SELECTION_SOURCES = {
   pulled: "pulled",
   message: "message"
 };
+const LOCAL_ONLY_HISTORY_ERROR = /local-only Moryn paths/i;
+const MORYN_GITIGNORE = "config.json\nsnapshots/\nindexes/\nstate/\n.moryn/\n";
+
+type FileSnapshot = Record<string, string>;
+
+async function configureGitIdentity(repository: string, name: string): Promise<void> {
+  await exec("git", ["config", "user.name", name], { cwd: repository });
+  await exec("git", ["config", "user.email", `${name.toLowerCase()}@example.local`], { cwd: repository });
+}
+
+async function initializeGitRepository(repository: string, remote: string, name: string): Promise<void> {
+  await mkdir(repository, { recursive: true });
+  await exec("git", ["init"], { cwd: repository });
+  await configureGitIdentity(repository, name);
+  await exec("git", ["branch", "-M", "main"], { cwd: repository });
+  await exec("git", ["remote", "add", "origin", remote], { cwd: repository });
+}
+
+async function commitAndPushAll(repository: string, message: string): Promise<string> {
+  await exec("git", ["add", "-f", "-A", "--", "."], { cwd: repository });
+  await exec("git", ["commit", "-m", message], { cwd: repository });
+  await exec("git", ["push", "-u", "origin", "main"], { cwd: repository });
+  return (await exec("git", ["rev-parse", "HEAD"], { cwd: repository })).stdout.trim();
+}
+
+async function stageSyntheticSymlink(repository: string, path: string, target: string): Promise<void> {
+  const targetFile = join(repository, ".synthetic-symlink-target");
+  await writeFile(targetFile, target, "utf8");
+  const blobOid = (await exec("git", ["hash-object", "-w", targetFile], { cwd: repository })).stdout.trim();
+  await rm(targetFile, { force: true });
+  await exec("git", ["update-index", "--add", "--cacheinfo", `120000,${blobOid},${path}`], { cwd: repository });
+}
+
+async function stageSyntheticGitlink(repository: string, path: string, commit: string): Promise<void> {
+  await exec("git", ["update-index", "--add", "--cacheinfo", `160000,${commit},${path}`], { cwd: repository });
+}
+
+async function remoteMainOid(remote: string): Promise<string | undefined> {
+  const output = (await exec("git", ["ls-remote", "--heads", remote, "refs/heads/main"])).stdout.trim();
+  return output ? output.split(/\s+/)[0] : undefined;
+}
+
+async function writeLocalOnlySentinels(
+  store: string,
+  label: string,
+  additionalFiles: Record<string, string> = {}
+): Promise<FileSnapshot> {
+  const sentinelFiles = {
+    "state/soul-profiles/local-overlay.json": `local soul overlay: ${label}\n`,
+    "state/soul-sync/local-receipt.json": `local sync receipt: ${label}\n`,
+    "state/local-lease-evidence.json": `local lease evidence: ${label}\n`,
+    ...additionalFiles
+  };
+  for (const [path, contents] of Object.entries(sentinelFiles)) {
+    await mkdir(dirname(join(store, path)), { recursive: true });
+    await writeFile(join(store, path), contents, "utf8");
+  }
+
+  const snapshot: FileSnapshot = {};
+  for (const path of ["config.json", "state/sync-status.json", ...Object.keys(sentinelFiles)]) {
+    try {
+      snapshot[path] = await readFile(join(store, path), "utf8");
+    } catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+    }
+  }
+  return snapshot;
+}
+
+async function expectFilesUnchanged(store: string, snapshot: FileSnapshot): Promise<void> {
+  for (const [path, contents] of Object.entries(snapshot)) {
+    await expect(readFile(join(store, path), "utf8"), path).resolves.toBe(contents);
+  }
+}
+
+async function expectLocalOnlyHistoryRejection(action: () => Promise<unknown>): Promise<void> {
+  await expect(action()).rejects.toThrow(LOCAL_ONLY_HISTORY_ERROR);
+}
 
 async function _expectInvalidArgument(action: () => Promise<unknown>, expectedMessage: RegExp): Promise<void> {
   let caught: unknown;
@@ -554,7 +632,7 @@ describe("git sync adapter", () => {
       await initializeGitSync(store, remote);
 
       await expect(readFile(join(store, ".gitignore"), "utf8")).resolves.toBe(
-        "config.json\nsnapshots/\nindexes/\nstate/\n"
+        "config.json\nsnapshots/\nindexes/\nstate/\n.moryn/\n"
       );
       const status = await getGitSyncStatus(store);
       expect(status.dirty).toBe(false);
@@ -563,138 +641,213 @@ describe("git sync adapter", () => {
     }
   });
 
-  it("untracks legacy synced config and generated views during sync init import", async () => {
-    const root = await mkdtemp(join(tmpdir(), "moryn-sync-init-untrack-"));
+  it("rejects sync init before checkout when remote history tracks .moryn", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-init-local-only-history-"));
     const remote = join(root, "remote.git");
     const seed = join(root, "seed");
     const store = join(root, "store");
     try {
       await exec("git", ["init", "--bare", remote]);
-      await mkdir(join(seed, "events", "device_seed", "2026-05"), { recursive: true });
-      await mkdir(join(seed, "snapshots"), { recursive: true });
-      await mkdir(join(seed, "indexes"), { recursive: true });
-      await exec("git", ["init"], { cwd: seed });
-      await exec("git", ["config", "user.name", "Seed"], { cwd: seed });
-      await exec("git", ["config", "user.email", "seed@example.local"], { cwd: seed });
-      await writeFile(
-        join(seed, "config.json"),
-        `${JSON.stringify(
-          {
-            store_version: 1,
-            device_id: "device_seed",
-            created_at: "2026-05-27T00:00:00.000Z"
-          },
-          null,
-          2
-        )}\n`,
-        "utf8"
-      );
-      await writeFile(
-        join(seed, "events", "device_seed", "2026-05", "evt_seed.json"),
-        `${JSON.stringify(
-          {
-            event_id: "evt_seed",
-            op: "upsert_record",
-            record: {
-              id: "rec_seed",
-              kind: "memory",
-              type: "decision",
-              scope: "project",
-              project_id: "moryn",
-              tags: [],
-              content: { text: "Imported remote event with legacy generated files.", format: "text" },
-              state: "canonical",
-              confidence: 0.5,
-              priority: "normal",
-              visibility: "active",
-              created_at: "2026-05-27T00:01:00.000Z",
-              updated_at: "2026-05-27T00:01:00.000Z",
-              source: { client: "seed", device_id: "device_seed" }
-            },
-            created_at: "2026-05-27T00:01:00.000Z",
-            source: { client: "seed", device_id: "device_seed" }
-          },
-          null,
-          2
-        )}\n`,
-        "utf8"
-      );
-      await writeFile(join(seed, "snapshots", "user.json"), '{"legacy":true}\n', "utf8");
-      await writeFile(join(seed, "indexes", "recall.json"), '{"legacy":true}\n', "utf8");
-      await exec("git", ["add", "."], { cwd: seed });
-      await exec("git", ["commit", "-m", "Seed legacy synced generated files"], { cwd: seed });
-      await exec("git", ["branch", "-M", "main"], { cwd: seed });
-      await exec("git", ["remote", "add", "origin", remote], { cwd: seed });
-      await exec("git", ["push", "-u", "origin", "main"], { cwd: seed });
+      await initializeGitRepository(seed, remote, "Seed");
+      await mkdir(join(seed, ".moryn"), { recursive: true });
+      await writeFile(join(seed, ".moryn", "private.json"), '{"private":true}\n', "utf8");
+      const rejectedRemoteOid = await commitAndPushAll(seed, "Track nested Moryn state");
 
       await initializeStore(store, {
         now: () => "2026-05-27T00:00:00.000Z",
         id: () => "device_importer"
       });
-      await initializeGitSync(store, remote);
+      const localState = await writeLocalOnlySentinels(store, "init remote config");
 
-      const localConfig = JSON.parse(await readFile(join(store, "config.json"), "utf8")) as { device_id: string };
-      expect(localConfig.device_id).toBe("device_importer");
-      const tracked = (await exec("git", ["ls-files"], { cwd: store })).stdout.trim().split(/\r?\n/).filter(Boolean);
-      expect(tracked).toContain(".gitignore");
-      expect(tracked).toContain("events/device_seed/2026-05/evt_seed.json");
-      expect(tracked).not.toContain("config.json");
-      expect(tracked).not.toContain("snapshots/user.json");
-      expect(tracked).not.toContain("indexes/recall.json");
-      await expect(getGitSyncStatus(store)).resolves.toEqual(
-        expect.objectContaining({
-          dirty: false
-        })
-      );
+      await expectLocalOnlyHistoryRejection(() => initializeGitSync(store, remote));
+
+      await expectFilesUnchanged(store, localState);
+      await expect(exec("git", ["rev-parse", "--verify", "HEAD"], { cwd: store })).rejects.toBeDefined();
+      expect(await remoteMainOid(remote)).toBe(rejectedRemoteOid);
+      await expect(access(join(store, "state", "store-state.lease"))).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(access(join(store, "state", "sync-status.json"))).rejects.toMatchObject({ code: "ENOENT" });
     } finally {
       await rm(root, { recursive: true, force: true });
     }
   });
 
-  it("untracks legacy synced config and generated views during push from configured stores", async () => {
-    const root = await mkdtemp(join(tmpdir(), "moryn-sync-push-untrack-"));
+  it.each([
+    ["State/soul-profiles/remote-overlay.json", "remote state overlay\n"],
+    ["CONFIG.JSON", '{"device_id":"remote-device"}\n']
+  ])(
+    "rejects sync init before checkout when remote history tracks case-folded local-only path %s",
+    async (path, contents) => {
+      const root = await mkdtemp(join(tmpdir(), "moryn-sync-init-case-folded-local-only-"));
+      const remote = join(root, "remote.git");
+      const seed = join(root, "seed");
+      const store = join(root, "store");
+      try {
+        await exec("git", ["init", "--bare", remote]);
+        await initializeGitRepository(seed, remote, "Seed");
+        await mkdir(dirname(join(seed, path)), { recursive: true });
+        await writeFile(join(seed, path), contents, "utf8");
+        const rejectedRemoteOid = await commitAndPushAll(seed, "Track case-folded local-only state");
+
+        await initializeStore(store, {
+          now: () => "2026-05-27T00:00:00.000Z",
+          id: () => "device_case_folded_importer"
+        });
+        const localState = await writeLocalOnlySentinels(store, "case-folded remote state");
+
+        await expectLocalOnlyHistoryRejection(() => initializeGitSync(store, remote));
+
+        await expectFilesUnchanged(store, localState);
+        await expect(exec("git", ["rev-parse", "--verify", "HEAD"], { cwd: store })).rejects.toBeDefined();
+        expect(await remoteMainOid(remote)).toBe(rejectedRemoteOid);
+        await expect(access(join(store, "state", "store-state.lease"))).rejects.toMatchObject({ code: "ENOENT" });
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+  );
+
+  it("rejects a remote .gitignore symlink before sync init can overwrite local config", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-init-symlink-tree-"));
+    const remote = join(root, "remote.git");
+    const seed = join(root, "seed");
+    const store = join(root, "store");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeGitRepository(seed, remote, "Seed");
+      await stageSyntheticSymlink(seed, ".gitignore", "config.json");
+      await exec("git", ["commit", "-m", "Add unsafe gitignore symlink"], { cwd: seed });
+      await exec("git", ["push", "-u", "origin", "main"], { cwd: seed });
+      const rejectedRemoteOid = (await exec("git", ["rev-parse", "HEAD"], { cwd: seed })).stdout.trim();
+
+      await initializeStore(store, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_symlink_importer"
+      });
+      const configPath = join(store, "config.json");
+      const parsedConfig = JSON.parse(await readFile(configPath, "utf8")) as Record<string, unknown>;
+      const localConfig = `  ${JSON.stringify(parsedConfig)}\n`;
+      await writeFile(configPath, localConfig, "utf8");
+      await chmod(configPath, 0o640);
+      const localState = await writeLocalOnlySentinels(store, "remote symlink tree");
+
+      await expect(initializeGitSync(store, remote)).rejects.toThrow(/symlink.*mode 120000/i);
+
+      await expectFilesUnchanged(store, localState);
+      await expect(readFile(configPath, "utf8")).resolves.toBe(localConfig);
+      expect((await stat(configPath)).mode & 0o777).toBe(0o640);
+      await expect(exec("git", ["rev-parse", "--verify", "HEAD"], { cwd: store })).rejects.toBeDefined();
+      expect(await remoteMainOid(remote)).toBe(rejectedRemoteOid);
+      await expect(access(join(store, "state", "store-state.lease"))).rejects.toMatchObject({ code: "ENOENT" });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a remote event-directory symlink before pull can checkout an unborn branch", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-pull-event-symlink-tree-"));
+    const remote = join(root, "remote.git");
+    const seed = join(root, "seed");
+    const store = join(root, "store");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeGitRepository(seed, remote, "Seed");
+      await stageSyntheticSymlink(seed, "events/idempotent", "../../state");
+      await exec("git", ["commit", "-m", "Add unsafe event symlink"], { cwd: seed });
+      await exec("git", ["push", "-u", "origin", "main"], { cwd: seed });
+      const rejectedRemoteOid = (await exec("git", ["rev-parse", "HEAD"], { cwd: seed })).stdout.trim();
+
+      await initializeStore(store, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_symlink_puller"
+      });
+      await initializeGitRepository(store, remote, "Puller");
+      const localState = await writeLocalOnlySentinels(store, "remote event symlink tree");
+
+      await expect(pullGitSync(store)).rejects.toThrow(/symlink.*mode 120000/i);
+
+      await expectFilesUnchanged(store, localState);
+      await expect(exec("git", ["rev-parse", "--verify", "HEAD"], { cwd: store })).rejects.toBeDefined();
+      await expect(access(join(store, "events", "idempotent"))).rejects.toMatchObject({ code: "ENOENT" });
+      expect(await remoteMainOid(remote)).toBe(rejectedRemoteOid);
+      await expect(access(join(store, "state", "store-state.lease"))).rejects.toMatchObject({ code: "ENOENT" });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a remote gitlink tree entry before pull rebases local history", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-pull-gitlink-tree-"));
+    const remote = join(root, "remote.git");
+    const store = join(root, "store");
+    const legacy = join(root, "legacy");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(store, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_gitlink_pull"
+      });
+      await initializeGitSync(store, remote);
+
+      await exec("git", ["clone", remote, legacy]);
+      await exec("git", ["checkout", "-B", "main", "origin/main"], { cwd: legacy });
+      await configureGitIdentity(legacy, "Legacy");
+      const linkedCommit = (await exec("git", ["rev-parse", "HEAD"], { cwd: legacy })).stdout.trim();
+      await stageSyntheticGitlink(legacy, "events/linked-store", linkedCommit);
+      await exec("git", ["commit", "-m", "Add unsafe event gitlink"], { cwd: legacy });
+      await exec("git", ["push", "origin", "main"], { cwd: legacy });
+      const rejectedRemoteOid = (await exec("git", ["rev-parse", "HEAD"], { cwd: legacy })).stdout.trim();
+
+      const localState = await writeLocalOnlySentinels(store, "remote gitlink tree");
+      const localHead = (await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim();
+
+      await expect(pullGitSync(store)).rejects.toThrow(/gitlink.*mode 160000/i);
+
+      await expectFilesUnchanged(store, localState);
+      expect((await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim()).toBe(localHead);
+      await expect(access(join(store, "events", "linked-store"))).rejects.toMatchObject({ code: "ENOENT" });
+      expect(await remoteMainOid(remote)).toBe(rejectedRemoteOid);
+      await expect(access(join(store, "state", "store-state.lease"))).rejects.toMatchObject({ code: "ENOENT" });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects push before changing the index when local history tracks snapshots", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-push-local-only-history-"));
     const remote = join(root, "remote.git");
     const store = join(root, "store");
     try {
       await exec("git", ["init", "--bare", remote]);
       await initializeStore(store, {
         now: () => "2026-05-27T00:00:00.000Z",
-        id: () => "device_push_untrack"
+        id: () => "device_push_rejected"
       });
-      await initializeGitSync(store, remote);
+      await initializeGitRepository(store, remote, "Local");
+      await writeFile(join(store, ".gitignore"), MORYN_GITIGNORE, "utf8");
       await mkdir(join(store, "snapshots"), { recursive: true });
-      await mkdir(join(store, "indexes"), { recursive: true });
-      await writeFile(join(store, "snapshots", "user.json"), '{"legacy":true}\n', "utf8");
-      await writeFile(join(store, "indexes", "recall.json"), '{"legacy":true}\n', "utf8");
-      await exec("git", ["add", "-f", "config.json", "snapshots", "indexes"], { cwd: store });
-      await exec("git", ["commit", "-m", "Simulate legacy tracked local files"], { cwd: store });
+      await writeFile(join(store, "snapshots", "private.json"), "local private snapshot\n", "utf8");
+      await exec("git", ["add", "-f", ".gitignore", "snapshots/private.json"], { cwd: store });
+      await exec("git", ["commit", "-m", "Track a local snapshot"], { cwd: store });
+      const localHead = (await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim();
+      const localState = await writeLocalOnlySentinels(store, "push local snapshot");
 
-      const push = await pushGitSync(store, { message: "drop legacy tracked local files" });
+      await expectLocalOnlyHistoryRejection(() => pushGitSync(store, { message: "must not push" }));
 
-      expect(push).toEqual(
-        expect.objectContaining({
-          ok: true,
-          committed: true,
-          pushed: true
-        })
+      await expectFilesUnchanged(store, localState);
+      expect((await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim()).toBe(localHead);
+      expect((await exec("git", ["ls-files", "snapshots/private.json"], { cwd: store })).stdout.trim()).toBe(
+        "snapshots/private.json"
       );
-      const tracked = (await exec("git", ["ls-files"], { cwd: store })).stdout.trim().split(/\r?\n/).filter(Boolean);
-      expect(tracked).toContain(".gitignore");
-      expect(tracked).not.toContain("config.json");
-      expect(tracked).not.toContain("snapshots/user.json");
-      expect(tracked).not.toContain("indexes/recall.json");
-      await expect(getGitSyncStatus(store)).resolves.toEqual(
-        expect.objectContaining({
-          dirty: false
-        })
-      );
+      expect((await exec("git", ["diff", "--cached", "--name-only"], { cwd: store })).stdout.trim()).toBe("");
+      expect(await remoteMainOid(remote)).toBeUndefined();
+      await expect(access(join(store, "state", "store-state.lease"))).rejects.toMatchObject({ code: "ENOENT" });
     } finally {
       await rm(root, { recursive: true, force: true });
     }
   });
 
-  it("preserves local config and untracks legacy synced local-only files during pull", async () => {
-    const root = await mkdtemp(join(tmpdir(), "moryn-sync-pull-untrack-"));
+  it("rejects pull before rebase when remote history tracks indexes", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-pull-local-only-history-"));
     const remote = join(root, "remote.git");
     const store = join(root, "store");
     const legacy = join(root, "legacy");
@@ -702,65 +855,37 @@ describe("git sync adapter", () => {
       await exec("git", ["init", "--bare", remote]);
       await initializeStore(store, {
         now: () => "2026-05-27T00:00:00.000Z",
-        id: () => "device_pull_untrack"
+        id: () => "device_pull_rejected"
       });
       await initializeGitSync(store, remote);
 
       await exec("git", ["clone", remote, legacy]);
       await exec("git", ["checkout", "-B", "main", "origin/main"], { cwd: legacy });
-      await exec("git", ["config", "user.name", "Legacy"], { cwd: legacy });
-      await exec("git", ["config", "user.email", "legacy@example.local"], { cwd: legacy });
-      await mkdir(join(legacy, "snapshots"), { recursive: true });
+      await configureGitIdentity(legacy, "Legacy");
       await mkdir(join(legacy, "indexes"), { recursive: true });
-      await mkdir(join(legacy, "state"), { recursive: true });
-      await writeFile(
-        join(legacy, "config.json"),
-        `${JSON.stringify(
-          {
-            store_version: 1,
-            device_id: "device_legacy",
-            created_at: "2026-05-27T00:00:00.000Z"
-          },
-          null,
-          2
-        )}\n`,
-        "utf8"
-      );
-      await writeFile(join(legacy, "snapshots", "user.json"), '{"legacy":true}\n', "utf8");
-      await writeFile(join(legacy, "indexes", "recall.json"), '{"legacy":true}\n', "utf8");
-      await writeFile(join(legacy, "state", "sync-status.json"), '{"legacy":true}\n', "utf8");
-      await exec("git", ["add", "-f", "config.json", "snapshots", "indexes", "state"], { cwd: legacy });
-      await exec("git", ["commit", "-m", "Legacy tracks local-only files"], { cwd: legacy });
-      await exec("git", ["push", "origin", "main"], { cwd: legacy });
+      await writeFile(join(legacy, "indexes", "recall.json"), "remote generated index\n", "utf8");
+      const rejectedRemoteOid = await commitAndPushAll(legacy, "Track a remote index");
 
-      const pull = await pullGitSync(store);
+      const localState = await writeLocalOnlySentinels(store, "pull remote index", {
+        "indexes/recall.json": "local generated index\n"
+      });
+      const localHead = (await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim();
 
-      expect(pull).toEqual(
-        expect.objectContaining({
-          ok: true,
-          pulled: true
-        })
-      );
-      const localConfig = JSON.parse(await readFile(join(store, "config.json"), "utf8")) as { device_id: string };
-      expect(localConfig.device_id).toBe("device_pull_untrack");
-      const tracked = (await exec("git", ["ls-files"], { cwd: store })).stdout.trim().split(/\r?\n/).filter(Boolean);
-      expect(tracked).toContain(".gitignore");
-      expect(tracked).not.toContain("config.json");
-      expect(tracked).not.toContain("snapshots/user.json");
-      expect(tracked).not.toContain("indexes/recall.json");
-      expect(tracked).not.toContain("state/sync-status.json");
-      await expect(getGitSyncStatus(store)).resolves.toEqual(
-        expect.objectContaining({
-          dirty: false
-        })
-      );
+      await expectLocalOnlyHistoryRejection(() => pullGitSync(store));
+
+      await expectFilesUnchanged(store, localState);
+      expect((await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim()).toBe(localHead);
+      expect((await exec("git", ["ls-files", "indexes/recall.json"], { cwd: store })).stdout.trim()).toBe("");
+      expect((await exec("git", ["diff", "--cached", "--name-only"], { cwd: store })).stdout.trim()).toBe("");
+      expect(await remoteMainOid(remote)).toBe(rejectedRemoteOid);
+      await expect(access(join(store, "state", "store-state.lease"))).rejects.toMatchObject({ code: "ENOENT" });
     } finally {
       await rm(root, { recursive: true, force: true });
     }
   });
 
-  it("preserves local config and untracks legacy synced local-only files during push rebase", async () => {
-    const root = await mkdtemp(join(tmpdir(), "moryn-sync-push-rebase-untrack-"));
+  it("rejects push before rebase when remote history tracks local state", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-push-rebase-local-only-history-"));
     const remote = join(root, "remote.git");
     const store = join(root, "store");
     const legacy = join(root, "legacy");
@@ -768,65 +893,24 @@ describe("git sync adapter", () => {
       await exec("git", ["init", "--bare", remote]);
       await initializeStore(store, {
         now: () => "2026-05-27T00:00:00.000Z",
-        id: () => "device_push_rebase_untrack"
+        id: () => "device_push_rebase_rejected"
       });
       await initializeGitSync(store, remote);
 
       await exec("git", ["clone", remote, legacy]);
       await exec("git", ["checkout", "-B", "main", "origin/main"], { cwd: legacy });
-      await exec("git", ["config", "user.name", "Legacy"], { cwd: legacy });
-      await exec("git", ["config", "user.email", "legacy@example.local"], { cwd: legacy });
-      await mkdir(join(legacy, "events", "device_legacy", "2026-05"), { recursive: true });
-      await mkdir(join(legacy, "snapshots"), { recursive: true });
-      await mkdir(join(legacy, "indexes"), { recursive: true });
-      await writeFile(
-        join(legacy, "config.json"),
-        `${JSON.stringify(
-          {
-            store_version: 1,
-            device_id: "device_legacy",
-            created_at: "2026-05-27T00:00:00.000Z"
-          },
-          null,
-          2
-        )}\n`,
-        "utf8"
-      );
-      await writeFile(
-        join(legacy, "events", "device_legacy", "2026-05", "evt_legacy.json"),
-        `${JSON.stringify(
-          {
-            event_id: "evt_legacy",
-            op: "upsert_record",
-            record: {
-              id: "rec_legacy",
-              kind: "memory",
-              type: "decision",
-              scope: "project",
-              project_id: "moryn",
-              tags: [],
-              content: { text: "Legacy remote event survives push rebase.", format: "text" },
-              state: "canonical",
-              confidence: 0.5,
-              priority: "normal",
-              visibility: "active",
-              created_at: "2026-05-27T00:01:00.000Z",
-              updated_at: "2026-05-27T00:01:00.000Z",
-              source: { client: "legacy", device_id: "device_legacy" }
-            },
-            created_at: "2026-05-27T00:01:00.000Z",
-            source: { client: "legacy", device_id: "device_legacy" }
-          },
-          null,
-          2
-        )}\n`,
-        "utf8"
-      );
-      await writeFile(join(legacy, "snapshots", "user.json"), '{"legacy":true}\n', "utf8");
-      await writeFile(join(legacy, "indexes", "recall.json"), '{"legacy":true}\n', "utf8");
-      await exec("git", ["add", "-f", "config.json", "events", "snapshots", "indexes"], { cwd: legacy });
-      await exec("git", ["commit", "-m", "Legacy remote tracks local-only files"], { cwd: legacy });
-      await exec("git", ["push", "origin", "main"], { cwd: legacy });
+      await configureGitIdentity(legacy, "Legacy");
+      const remoteState = {
+        "state/soul-profiles/local-overlay.json": "remote soul overlay\n",
+        "state/soul-sync/local-receipt.json": "remote sync receipt\n",
+        "state/local-lease-evidence.json": "remote lease evidence\n",
+        "state/store-state.lease/owner.json": "remote lease owner\n"
+      };
+      for (const [path, contents] of Object.entries(remoteState)) {
+        await mkdir(dirname(join(legacy, path)), { recursive: true });
+        await writeFile(join(legacy, path), contents, "utf8");
+      }
+      const rejectedRemoteOid = await commitAndPushAll(legacy, "Track remote local state");
 
       const engine = createEngine({
         storePath: store,
@@ -838,44 +922,105 @@ describe("git sync adapter", () => {
         type: "decision",
         scope: "project",
         project_id: "moryn",
-        content: { text: "Local event survives legacy push rebase.", format: "text" },
+        content: { text: "Uncommitted local event remains local after rejected push.", format: "text" },
         state: "canonical",
-        source: { client: "test", device_id: "device_push_rebase_untrack" }
+        source: { client: "test", device_id: "device_push_rebase_rejected" }
       });
+      const localState = await writeLocalOnlySentinels(store, "push remote state");
+      const localHead = (await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim();
+      const localEventPath = (
+        await exec("git", ["ls-files", "--others", "--exclude-standard", "--", "events"], { cwd: store })
+      ).stdout.trim();
+      const localEvent = await readFile(join(store, localEventPath), "utf8");
 
-      const push = await pushGitSync(store, { message: "push after legacy remote" });
+      await expectLocalOnlyHistoryRejection(() => pushGitSync(store, { message: "must not rebase or push" }));
 
-      expect(push).toEqual(
-        expect.objectContaining({
-          ok: true,
-          committed: true,
-          pushed: true
-        })
+      await expectFilesUnchanged(store, localState);
+      expect((await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim()).toBe(localHead);
+      await expect(readFile(join(store, localEventPath), "utf8")).resolves.toBe(localEvent);
+      expect(await remoteMainOid(remote)).toBe(rejectedRemoteOid);
+      await expect(access(join(store, "state", "store-state.lease"))).rejects.toMatchObject({ code: "ENOENT" });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects sync init when a cleaned remote tip still has local-only history", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-init-cleaned-remote-history-"));
+    const remote = join(root, "remote.git");
+    const seed = join(root, "seed");
+    const store = join(root, "store");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeGitRepository(seed, remote, "Seed");
+      await writeFile(join(seed, "config.json"), '{"device_id":"leaked-remote-device"}\n', "utf8");
+      await commitAndPushAll(seed, "Leak remote config");
+      await rm(join(seed, "config.json"));
+      await writeFile(join(seed, "README.md"), "The remote tip is clean.\n", "utf8");
+      const cleanRemoteOid = await commitAndPushAll(seed, "Remove remote config from tip");
+      const tipPaths = (await exec("git", ["ls-tree", "-r", "--name-only", "HEAD"], { cwd: seed })).stdout;
+      expect(tipPaths).not.toMatch(/(^|\n)config\.json(\n|$)/);
+      expect((await exec("git", ["log", "--format=%H", "--", "config.json"], { cwd: seed })).stdout.trim()).not.toBe(
+        ""
       );
-      const localConfig = JSON.parse(await readFile(join(store, "config.json"), "utf8")) as { device_id: string };
-      expect(localConfig.device_id).toBe("device_push_rebase_untrack");
-      const tracked = (await exec("git", ["ls-files"], { cwd: store })).stdout.trim().split(/\r?\n/).filter(Boolean);
-      expect(tracked).toContain(".gitignore");
-      expect(tracked).toContain("events/device_legacy/2026-05/evt_legacy.json");
-      expect(tracked).not.toContain("config.json");
-      expect(tracked).not.toContain("snapshots/user.json");
-      expect(tracked).not.toContain("indexes/recall.json");
-      const recallIndex = JSON.parse(await readFile(join(store, "indexes", "recall.json"), "utf8")) as {
-        records: Array<{ text: string }>;
+
+      await initializeStore(store, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_cleaned_remote_importer"
+      });
+      const localState = await writeLocalOnlySentinels(store, "cleaned remote history");
+
+      await expectLocalOnlyHistoryRejection(() => initializeGitSync(store, remote));
+
+      await expectFilesUnchanged(store, localState);
+      await expect(exec("git", ["rev-parse", "--verify", "HEAD"], { cwd: store })).rejects.toBeDefined();
+      expect(await remoteMainOid(remote)).toBe(cleanRemoteOid);
+      await expect(access(join(store, "README.md"))).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(access(join(store, "state", "store-state.lease"))).rejects.toMatchObject({ code: "ENOENT" });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects sync init when local-only paths were deleted from the local tip and leaves an empty remote empty", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-init-cleaned-local-history-"));
+    const remote = join(root, "remote.git");
+    const store = join(root, "store");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(store, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_cleaned_local_history"
+      });
+      await initializeGitRepository(store, remote, "Local");
+      await writeFile(join(store, ".gitignore"), MORYN_GITIGNORE, "utf8");
+      const leakedState = {
+        "state/soul-profiles/leaked-overlay.json": "leaked local soul overlay\n",
+        "state/soul-sync/leaked-receipt.json": "leaked local sync receipt\n",
+        "state/store-state.lease/owner.json": "leaked local lease owner\n"
       };
-      expect(recallIndex.records.map((record) => record.text)).toEqual(
-        expect.arrayContaining([
-          "Legacy remote event survives push rebase.",
-          "Local event survives legacy push rebase."
-        ])
-      );
-      await expect(getGitSyncStatus(store)).resolves.toEqual(
-        expect.objectContaining({
-          dirty: false,
-          ahead: 0,
-          behind: 0
-        })
-      );
+      for (const [path, contents] of Object.entries(leakedState)) {
+        await mkdir(dirname(join(store, path)), { recursive: true });
+        await writeFile(join(store, path), contents, "utf8");
+      }
+      await exec("git", ["add", "-f", ".gitignore", "state"], { cwd: store });
+      await exec("git", ["commit", "-m", "Leak local state"], { cwd: store });
+      await exec("git", ["rm", "-r", "state"], { cwd: store });
+      await exec("git", ["commit", "-m", "Delete local state from tip"], { cwd: store });
+      const tipPaths = (await exec("git", ["ls-tree", "-r", "--name-only", "HEAD"], { cwd: store })).stdout;
+      expect(tipPaths).not.toMatch(/(^|\n)state\//);
+      expect((await exec("git", ["log", "--format=%H", "--", "state"], { cwd: store })).stdout.trim()).not.toBe("");
+      const localHead = (await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim();
+      const localState = await writeLocalOnlySentinels(store, "cleaned local history");
+
+      await expectLocalOnlyHistoryRejection(() => initializeGitSync(store, remote));
+
+      await expectFilesUnchanged(store, localState);
+      expect((await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim()).toBe(localHead);
+      expect((await exec("git", ["ls-files", "state"], { cwd: store })).stdout.trim()).toBe("");
+      expect((await exec("git", ["diff", "--cached", "--name-only"], { cwd: store })).stdout.trim()).toBe("");
+      expect(await remoteMainOid(remote)).toBeUndefined();
+      await expect(access(join(store, "state", "store-state.lease"))).rejects.toMatchObject({ code: "ENOENT" });
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -899,6 +1044,11 @@ describe("git sync adapter", () => {
 
       await initializeGitSync(storeA, remote);
       await initializeGitSync(storeB, remote);
+      const storeBConfigPath = join(storeB, "config.json");
+      const storeBConfig = JSON.parse(await readFile(storeBConfigPath, "utf8")) as Record<string, unknown>;
+      const customStoreBConfig = `  ${JSON.stringify(storeBConfig)}\n`;
+      await writeFile(storeBConfigPath, customStoreBConfig, "utf8");
+      await chmod(storeBConfigPath, 0o640);
 
       const engineA = createEngine({
         storePath: storeA,
@@ -936,6 +1086,8 @@ describe("git sync adapter", () => {
 
       const pull = await pullGitSync(storeB);
       expect(pull.pulled).toBe(true);
+      await expect(readFile(storeBConfigPath, "utf8")).resolves.toBe(customStoreBConfig);
+      expect((await stat(storeBConfigPath)).mode & 0o777).toBe(0o640);
 
       const engineBAfterPull = createEngine({ storePath: storeB });
       const recallA = await engineBAfterPull.recall({ query: "Device A", project_id: "moryn" });

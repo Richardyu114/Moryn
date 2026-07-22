@@ -4405,6 +4405,7 @@ describe("MCP stdio server", () => {
           result: "results_by_id.<record_id>",
           record: "results_by_id.<record_id>.record",
           record_id: "results_by_id.<record_id>.record.id",
+          result_next_action: "results_by_id.<record_id>.next_action",
           memory_working_set: "memory_working_set",
           next_action: "next_actions_by_id.<action_id>",
           ordered_next_action: "next_actions[]"

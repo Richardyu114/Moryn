@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { releaseGateSteps, runReleaseGate, v04AcceptanceMatrix } from "../scripts/release-check.js";
 
@@ -21,6 +23,7 @@ describe("v0.4 release gate", () => {
       "sync_conflict_smoke",
       "permission_recovery_smoke",
       "large_store_smoke",
+      "v04_acceptance",
       "package",
       "private_remote"
     ]);
@@ -42,9 +45,48 @@ describe("v0.4 release gate", () => {
       ["sync_conflict_smoke", "required"],
       ["permission_recovery_smoke", "required"],
       ["large_store_smoke", "required"],
+      ["v04_acceptance", "required"],
       ["package", "required"],
       ["private_remote", "optional_skipped"]
     ]);
+  });
+
+  it("runs the full gate in CI and builds clean-checkout artifacts before readiness and packaging", () => {
+    const workflow = readFileSync(join(process.cwd(), ".github", "workflows", "release-check.yml"), "utf8");
+    expect(workflow).toContain("run: npm run release:check");
+    expect(workflow).not.toContain("MORYN_SKIP_SLOW_CHECKS");
+
+    const requiredSteps = releaseGateSteps(false, false)
+      .filter((step) => step.mode === "required")
+      .map((step) => step.id);
+    expect(requiredSteps.indexOf("build")).toBeLessThan(requiredSteps.indexOf("release_readiness"));
+    expect(requiredSteps.indexOf("build")).toBeLessThan(requiredSteps.indexOf("package"));
+  });
+
+  it("pins the focused v0.4 acceptance evidence to the required transaction and portability fixtures", () => {
+    const packageJson = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")) as {
+      scripts?: Record<string, string>;
+    };
+    const acceptanceCommand = packageJson.scripts?.["test:v04-acceptance"];
+    expect(acceptanceCommand).toBeDefined();
+    expect(acceptanceCommand).toMatch(/^npm run build && vitest run /);
+    expect(acceptanceCommand?.split(/\s+/)).toEqual(
+      expect.arrayContaining([
+        "tests/core/v04-compaction-quality-gate.test.ts",
+        "tests/core/state-lease.test.ts",
+        "tests/core/session-fold-transaction.test.ts",
+        "tests/core/episode-rollup-transaction.test.ts",
+        "tests/core/automatic-episode-rollup.test.ts",
+        "tests/core/memory-compaction.test.ts",
+        "tests/core/session-fold-conflict-projection.test.ts",
+        "tests/core/structured-semantic-merge.test.ts",
+        "tests/core/semantic-consolidation-engine.test.ts",
+        "tests/e2e/soul-git-portability.test.ts",
+        "tests/e2e/soul-git-sync-receipts.test.ts",
+        "tests/e2e/compaction-git-concurrency.test.ts",
+        "tests/sync/git-state-lease.test.ts"
+      ])
+    );
   });
 
   it("emits machine-readable evidence only after every required step succeeds", async () => {
@@ -107,6 +149,7 @@ describe("v0.4 release gate", () => {
       "npm run smoke:sync-conflict",
       "npm run smoke:permission-recovery",
       "npm run smoke:large-store",
+      "npm run test:v04-acceptance",
       "npm pack --dry-run --json"
     ]);
     expect(result).toMatchObject({
@@ -126,6 +169,7 @@ describe("v0.4 release gate", () => {
         "sync_conflict_smoke",
         "permission_recovery_smoke",
         "large_store_smoke",
+        "v04_acceptance",
         "package"
       ],
       skipped: ["build", "typecheck", "lint", "tests", "private_remote"],
@@ -161,10 +205,10 @@ describe("v0.4 release gate", () => {
     );
     expect(acceptance.dashboard.required_evidence).toEqual(expect.arrayContaining(["tests", "large_store_smoke"]));
     expect(acceptance.memory_distillation.required_evidence).toEqual(
-      expect.arrayContaining(["tests", "lifecycle_smoke", "large_store_smoke"])
+      expect.arrayContaining(["tests", "lifecycle_smoke", "large_store_smoke", "v04_acceptance"])
     );
     expect(acceptance.portable_soul.required_evidence).toEqual(
-      expect.arrayContaining(["tests", "host_runtime_binding_smoke", "official_host_handoff_smoke"])
+      expect.arrayContaining(["tests", "host_runtime_binding_smoke", "official_host_handoff_smoke", "v04_acceptance"])
     );
     expect(acceptance.autopilot.required_evidence).toContain("official_host_handoff_smoke");
     expect(acceptance.sync.required_evidence).toContain("official_host_handoff_smoke");
@@ -177,7 +221,9 @@ describe("v0.4 release gate", () => {
         "official_host_handoff_smoke"
       ])
     );
-    expect(acceptance.reliability.required_evidence).toContain("official_host_handoff_smoke");
+    expect(acceptance.reliability.required_evidence).toEqual(
+      expect.arrayContaining(["official_host_handoff_smoke", "v04_acceptance"])
+    );
   });
 
   it("stops on the first failed required step without success evidence", async () => {

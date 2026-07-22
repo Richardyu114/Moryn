@@ -168,6 +168,26 @@ describe("validateSemanticConsolidationProposal", () => {
         proposal()
       )
     ).toMatchObject({ status: "rejected", reason: "private_boundary" });
+
+    const legacyPrivateContent = {
+      text: "Agents pull memory when entering a project.",
+      privacy: "private"
+    };
+    const legacyPrivateSource = record({ content: legacyPrivateContent });
+    const legacyPrivateTarget = record({ id: "old", content: legacyPrivateContent });
+    expect(
+      validateSemanticConsolidationProposal([newRecord, legacyPrivateTarget], proposal(), {
+        include_private: true
+      })
+    ).toMatchObject({ status: "rejected", reason: "private_boundary" });
+    expect(validateSemanticConsolidationProposal([legacyPrivateSource, legacyPrivateTarget], proposal())).toMatchObject(
+      { status: "rejected", reason: "private_boundary" }
+    );
+    expect(
+      validateSemanticConsolidationProposal([legacyPrivateSource, legacyPrivateTarget], proposal(), {
+        include_private: true
+      })
+    ).toMatchObject({ status: "accepted", reason: "accepted" });
     expect(
       validateSemanticConsolidationProposal(
         [newRecord, record({ id: "old", state: "archived", visibility: "archived" })],

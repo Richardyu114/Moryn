@@ -33,13 +33,17 @@ export type {
   SemanticConsolidationDifference,
   SemanticConsolidationDifferenceInput,
   SemanticConsolidationProposal,
-  SemanticConsolidationProposalInput
+  SemanticConsolidationProposalInput,
+  StructuredSemanticMerge,
+  StructuredSemanticMergeField,
+  StructuredSemanticMergeInput
 } from "./core/context-delta.js";
 export {
   contextDeltaSchema,
   learningDeltaSchema,
   semanticConsolidationDifferenceSchema,
   semanticConsolidationProposalSchema,
+  structuredSemanticMergeSchema,
   validateContextDelta
 } from "./core/context-delta.js";
 export { createEngine } from "./core/engine.js";
@@ -425,6 +429,51 @@ export {
   readSoulProfileRevisions,
   SOUL_PROFILE_RECORD_TYPE
 } from "./core/soul-profile-store.js";
+export type {
+  SoulSyncApprovalVerification,
+  SoulSyncReceipt,
+  SoulSyncReceiptInput,
+  SoulSyncReceiptOperation,
+  SoulSyncReceiptStage
+} from "./core/soul-sync-receipts.js";
+export {
+  listSoulSyncReceipts,
+  parseSoulSyncReceipt,
+  readSoulSyncReceipt,
+  soulRemoteIdentityDigest,
+  soulSyncReceiptIdentity
+} from "./core/soul-sync-receipts.js";
+export type {
+  StructuredSemanticMergeFieldLineage,
+  StructuredSemanticMergeMetadata,
+  StructuredSemanticMergePlan,
+  StructuredSemanticMergePlanningOptions,
+  StructuredSemanticMergePlanningResult,
+  StructuredSemanticMergeRejectionReason,
+  StructuredSemanticMergeValueLineage
+} from "./core/structured-semantic-merge.js";
+export {
+  canonicalStructuredSemanticMergeValue,
+  planStructuredSemanticMerge,
+  STRUCTURED_SEMANTIC_MERGE_ACTIVATION_OFFSET_MS,
+  STRUCTURED_SEMANTIC_MERGE_ACTIVATION_REASON,
+  STRUCTURED_SEMANTIC_MERGE_CLAIM_OFFSET_MS,
+  STRUCTURED_SEMANTIC_MERGE_CONTENT_KEY,
+  STRUCTURED_SEMANTIC_MERGE_DEVICE_ID,
+  STRUCTURED_SEMANTIC_MERGE_HIDE_REASON,
+  STRUCTURED_SEMANTIC_MERGE_PROMOTION_OFFSET_MS,
+  STRUCTURED_SEMANTIC_MERGE_PROMOTION_REASON,
+  STRUCTURED_SEMANTIC_MERGE_RELATIONSHIP_OFFSET_MS,
+  structuredSemanticMergeDependenciesMatch,
+  structuredSemanticMergeDigest,
+  structuredSemanticMergeEvidenceMatches,
+  structuredSemanticMergeInitialRecordMatches,
+  structuredSemanticMergeProvisionalRecordMatches,
+  structuredSemanticMergeRecordMatches,
+  structuredSemanticMergeSourceDigest,
+  structuredSemanticMergeSourcesMatch,
+  structuredSemanticMergeTimestamp
+} from "./core/structured-semantic-merge.js";
 export type { SyncCompensationAssessment, SyncCompensationReceipt } from "./core/sync-compensation.js";
 export {
   assessSyncCompensation,

@@ -18,6 +18,7 @@ import { dirname, join, relative } from "node:path";
 import { readStoreConfig, validateStorePath } from "./config.js";
 import { parseEvent } from "./schema.js";
 import { detectSensitiveContent, sensitiveScanText } from "./sensitive.js";
+import { withStoreStateLease } from "./state-lease.js";
 import type { MorynEvent } from "./types.js";
 
 function monthFromIso(iso: string): string {
@@ -106,8 +107,7 @@ function assertNoUnredactedSensitiveContent(event: MorynEvent): void {
   }
 }
 
-export async function appendEvent(storePath: string, event: MorynEvent): Promise<string> {
-  await ensureStoreInitialized(storePath);
+async function appendEventWithLease(storePath: string, event: MorynEvent): Promise<string> {
   const config = await readStoreConfig(storePath);
   const parsed = parseEvent(withDefaultDeviceId(event, config.device_id));
   assertNoUnredactedSensitiveContent(parsed);
@@ -127,6 +127,11 @@ export async function appendEvent(storePath: string, event: MorynEvent): Promise
     throw error;
   }
   return path;
+}
+
+export async function appendEvent(storePath: string, event: MorynEvent): Promise<string> {
+  await ensureStoreInitialized(storePath);
+  return withStoreStateLease(storePath, () => appendEventWithLease(storePath, event));
 }
 
 export interface AppendEventIfAbsentOptions {
@@ -157,12 +162,11 @@ export interface AppendEventIfAbsentResult {
   warnings?: AppendEventIfAbsentWarning[];
 }
 
-export async function appendEventIfAbsent(
+async function appendEventIfAbsentWithLease(
   storePath: string,
   event: MorynEvent,
   options: AppendEventIfAbsentOptions = {}
 ): Promise<AppendEventIfAbsentResult> {
-  await ensureStoreInitialized(storePath);
   const config = await readStoreConfig(storePath);
   const parsed = parseEvent(withDefaultDeviceId(event, config.device_id));
   assertNoUnredactedSensitiveContent(parsed);
@@ -259,6 +263,15 @@ export async function appendEventIfAbsent(
   if (operationError) throw operationError;
   if (!result) throw new Error(`Idempotent event append failed: ${parsed.event_id}`);
   return result;
+}
+
+export async function appendEventIfAbsent(
+  storePath: string,
+  event: MorynEvent,
+  options: AppendEventIfAbsentOptions = {}
+): Promise<AppendEventIfAbsentResult> {
+  await ensureStoreInitialized(storePath);
+  return withStoreStateLease(storePath, () => appendEventIfAbsentWithLease(storePath, event, options));
 }
 
 async function walkJsonFiles(dir: string): Promise<string[]> {

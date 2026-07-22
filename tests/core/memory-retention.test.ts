@@ -417,6 +417,30 @@ describe("memory retention safety", () => {
     );
   });
 
+  it.each([
+    ["content privacy", { privacy: "private" }],
+    ["local-only distribution", { distribution: "local_only" }]
+  ] as const)("marks records with %s as private and blocks automatic retention mutation", (_label, privacyMarker) => {
+    const view = buildMemoryRetentionView(
+      record({
+        kind: "agent_note",
+        content: {
+          text: "Temporary trace",
+          ...privacyMarker,
+          memory_retention: metadata({
+            retention: { tier: "purged" },
+            lineage: { covered_by_record_ids: ["rec-rollup"], coverage_verified: true }
+          })
+        }
+      })
+    );
+
+    expect(view.safety.private).toBe(true);
+    expect(view.retention).toMatchObject({ tier: "cold", source: "safety" });
+    expect(view.safety.archive_blockers).toContain("private");
+    expect(view.safety.purge_blockers).toContain("private");
+  });
+
   it("detects protected facts without scanning retention metadata itself", () => {
     const protectedRecord = record({
       kind: "agent_note",

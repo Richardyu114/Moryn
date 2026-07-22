@@ -27,6 +27,7 @@ import {
   type WriteSoulProfileRevisionResult,
   writeSoulProfileRevision
 } from "./soul-profile-store.js";
+import { listSoulSyncReceipts, type SoulSyncReceipt } from "./soul-sync-receipts.js";
 import type { RecordSource } from "./types.js";
 
 export interface CreateSoulProfileDraftInput {
@@ -79,6 +80,10 @@ export interface SoulProfileRevisionStatus {
   is_effective: boolean;
   local_saved: boolean;
   personal_sync_saved: boolean;
+  remote_pushed: boolean;
+  remote_pushed_receipt_ids: string[];
+  remote_pulled_and_verified: boolean;
+  remote_pulled_and_verified_receipt_ids: string[];
   created_at?: string;
 }
 
@@ -210,20 +215,33 @@ function preserveLocalOnlyClausesForPartialParent(
   authoredClauses: readonly (SoulClause | SoulClauseInput)[]
 ): readonly (SoulClause | SoulClauseInput)[] {
   if (!loaded.partial_revision_ids.includes(parent.revision_id)) return authoredClauses;
+  const ancestorDistances = new Map<string, number>();
+  const pending = parent.parent_revision_ids.map((revisionId) => ({ revision_id: revisionId, distance: 1 }));
+  for (let index = 0; index < pending.length; index += 1) {
+    const candidate = pending[index]!;
+    const knownDistance = ancestorDistances.get(candidate.revision_id);
+    if (knownDistance !== undefined && knownDistance <= candidate.distance) continue;
+    ancestorDistances.set(candidate.revision_id, candidate.distance);
+    const revision = loaded.stored_revisions_by_id[candidate.revision_id];
+    for (const parentRevisionId of revision?.parent_revision_ids ?? []) {
+      pending.push({ revision_id: parentRevisionId, distance: candidate.distance + 1 });
+    }
+  }
   const localRevision = loaded.local_revision_ids
     .map((revisionId) => loaded.stored_revisions_by_id[revisionId])
     .filter(
       (revision): revision is SoulProfileRevision =>
         Boolean(revision?.profile_id === parent.profile_id) &&
+        ancestorDistances.has(revision!.revision_id) &&
         revision!.clauses.some((clause) => clause.distribution === "local_only")
     )
     .sort(
       (left, right) =>
-        left.generation - right.generation ||
-        compareCodeUnits(left.created_at ?? "", right.created_at ?? "") ||
+        ancestorDistances.get(left.revision_id)! - ancestorDistances.get(right.revision_id)! ||
+        right.generation - left.generation ||
+        compareCodeUnits(right.created_at ?? "", left.created_at ?? "") ||
         compareCodeUnits(left.revision_id, right.revision_id)
-    )
-    .at(-1);
+    )[0];
   if (!localRevision) return authoredClauses;
 
   const normalizedAuthored = authoredClauses.map((clause) =>
@@ -546,6 +564,7 @@ function compilationStatus(effective: EffectiveSoul): SoulCompilationStatus {
 function profileStatus(
   revisions: SoulProfileRevision[],
   loaded: ReadSoulProfileRevisionsResult,
+  syncReceipts: readonly SoulSyncReceipt[],
   verifiedApprovalRevisionIds: ReadonlySet<string>,
   effectiveRevisionIds: Set<string>
 ): SoulProfileStatusEntry {
@@ -568,20 +587,44 @@ function profileStatus(
     selection_status: selection.status,
     conflicted: heads.length > 1 || conflictedRevisionIds.length > 0,
     conflicted_revision_ids: conflictedRevisionIds,
-    revisions: revisions.map((revision) => ({
-      revision_id: revision.revision_id,
-      generation: revision.generation,
-      parent_revision_ids: revision.parent_revision_ids,
-      state: revision.state,
-      approved: revision.approved,
-      ...(revision.approval_receipt_id ? { approval_receipt_id: revision.approval_receipt_id } : {}),
-      approval_receipt_verified: verifiedApprovalRevisionIds.has(revision.revision_id),
-      is_head: headIds.has(revision.revision_id),
-      is_effective: effectiveRevisionIds.has(revision.revision_id),
-      local_saved: loaded.local_revision_ids.includes(revision.revision_id),
-      personal_sync_saved: loaded.personal_sync_revision_ids.includes(revision.revision_id),
-      ...(revision.created_at ? { created_at: revision.created_at } : {})
-    }))
+    revisions: revisions.map((revision) => {
+      const pushedReceiptIds = syncReceipts
+        .filter(
+          (receipt) =>
+            receipt.profile_id === revision.profile_id &&
+            receipt.revision_id === revision.revision_id &&
+            receipt.stage === "remote_pushed"
+        )
+        .map((receipt) => receipt.receipt_id)
+        .sort(compareCodeUnits);
+      const pulledReceiptIds = syncReceipts
+        .filter(
+          (receipt) =>
+            receipt.profile_id === revision.profile_id &&
+            receipt.revision_id === revision.revision_id &&
+            receipt.stage === "remote_pulled_and_verified"
+        )
+        .map((receipt) => receipt.receipt_id)
+        .sort(compareCodeUnits);
+      return {
+        revision_id: revision.revision_id,
+        generation: revision.generation,
+        parent_revision_ids: revision.parent_revision_ids,
+        state: revision.state,
+        approved: revision.approved,
+        ...(revision.approval_receipt_id ? { approval_receipt_id: revision.approval_receipt_id } : {}),
+        approval_receipt_verified: verifiedApprovalRevisionIds.has(revision.revision_id),
+        is_head: headIds.has(revision.revision_id),
+        is_effective: effectiveRevisionIds.has(revision.revision_id),
+        local_saved: loaded.local_revision_ids.includes(revision.revision_id),
+        personal_sync_saved: loaded.personal_sync_revision_ids.includes(revision.revision_id),
+        remote_pushed: pushedReceiptIds.length > 0,
+        remote_pushed_receipt_ids: pushedReceiptIds,
+        remote_pulled_and_verified: pulledReceiptIds.length > 0,
+        remote_pulled_and_verified_receipt_ids: pulledReceiptIds,
+        ...(revision.created_at ? { created_at: revision.created_at } : {})
+      };
+    })
   };
 }
 
@@ -605,9 +648,10 @@ export async function readSoulProfileStatus(
   options: ReadSoulProfileStatusOptions = {}
 ): Promise<SoulProfileStatus> {
   const loaded = await readSoulProfileRevisions(storePath);
-  const [localApprovalReceipts, deliveryReceipts] = await Promise.all([
+  const [localApprovalReceipts, deliveryReceipts, syncReceipts] = await Promise.all([
     listSoulApprovalReceipts(storePath),
-    listSoulDeliveryReceipts(storePath)
+    listSoulDeliveryReceipts(storePath),
+    listSoulSyncReceipts(storePath)
   ]);
   const approvalReceipts = [
     ...new Map(
@@ -637,6 +681,7 @@ export async function readSoulProfileStatus(
       profileStatus(
         revisionsForProfile(loaded.stored_revisions, profileId),
         loaded,
+        syncReceipts,
         verifiedApprovalRevisionIds,
         effectiveRevisionIds
       )

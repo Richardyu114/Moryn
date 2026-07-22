@@ -22,6 +22,7 @@ npm run build
 npm run typecheck
 npm run lint
 npm test
+npm run test:v04-acceptance
 npm run release:readiness
 npm run release:check
 npm run smoke:dogfood-demo
@@ -35,6 +36,7 @@ npm run smoke:upgrade-compat
 npm run smoke:sync-resilience
 npm run smoke:sync-conflict
 npm run smoke:permission-recovery
+npm run smoke:large-store
 ```
 
 `npm run release:readiness` is a read-only v0.4 release-candidate check. It
@@ -242,7 +244,7 @@ Before publishing:
 
 `buildWorkingSetReport(storePath, options)` is a read-only capacity diagnostic for store growth. It reports visible event and record counts, active logical records, hidden duplicate/superseded/revised records, conflicts, cycles, the number of records selected by default boot, and the logical compaction ratio.
 
-Private-tagged records are excluded by default. Pass `include_private: true` only inside an explicitly authorized private read path. The dashboard uses this report for the quiet Memory Flow summary; it does not create approval queues or maintenance actions.
+Private-boundary records are excluded by default, including legacy content privacy markers. Pass `include_private: true` only inside an explicitly authorized private read path. The dashboard uses this report for the quiet Memory Flow summary; it does not create approval queues or maintenance actions.
 
 The dogfood smoke writes 100 duplicate records, links them to one canonical record, and verifies that the active logical set and default boot context remain bounded:
 
@@ -260,6 +262,7 @@ npx vitest run \
   tests/core/context-delta.test.ts \
   tests/core/semantic-consolidation-candidates.test.ts \
   tests/core/semantic-consolidation.test.ts \
+  tests/core/structured-semantic-merge.test.ts \
   tests/core/semantic-consolidation-engine.test.ts \
   tests/core/checkpoint.test.ts \
   tests/e2e/agent-lifecycle.test.ts \

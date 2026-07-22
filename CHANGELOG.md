@@ -18,6 +18,12 @@ memory.
   attestations, source digests, rollup-first publication/readback, per-event
   durability attestations, private receipts,
   stale/partial-resume guards, and append-only logical restore.
+- Automatic Episode Rollup planning for complete public project/day buckets,
+  plus deterministic Session Fold conflict projection for converged and
+  divergent offline rollups.
+- Opt-in structured semantic merge with exact field/value lineage,
+  source/evidence digest guards, quarantined pre-claim publication,
+  deterministic activation/promotion, and resumable same-plan retries.
 - Bounded source expansion from a rollup to immediate sources and leaf evidence,
   including cycle, digest, privacy, conflict, and quarantine reporting.
 - Versioned User Soul and Agent Persona profiles with global/project clauses,
@@ -31,6 +37,9 @@ memory.
   acknowledgment, or model obedience.
 - Read-only Dashboard Memory Maintenance and Soul Studio projections, plus CLI,
   MCP, operation-contract, and public TypeScript surfaces for v0.4 workflows.
+- Cross-process store-state leases around append, derived-view, compaction, and
+  Git transactions. Soul Git receipts bind exact pushed/pulled commits, event
+  blobs, projection digests, and the effective fetch or push remote identity.
 
 ### Safety and compatibility
 
@@ -45,6 +54,22 @@ memory.
   permissions. A synchronized `personal_sync` event contains only portable
   clauses plus a metadata-only, integrity-checked approval attestation; it never
   contains `local_only` clause text.
+- Git sync fails closed before checkout, rebase, or push when local or remote
+  reachable history has ever contained `config.json`, `.moryn/`, `snapshots/`,
+  `indexes/`, or `state/`; deleting those paths only from the tip is not a
+  privacy-history rewrite.
+- Git sync treats those local-only paths case-insensitively and rejects commit
+  trees containing symlinks or gitlinks before materializing them. Derived
+  project snapshots hash unsafe filesystem identifiers instead of using them as
+  paths.
+- Project config and Codex/Claude activation writes reject path escapes,
+  symlinked targets, and symlinked parent or backup directories; generated
+  files are replaced atomically inside the real project root.
+- Production dependency resolutions include the current `body-parser`, Hono,
+  and `fast-uri` security fixes. Until the MCP SDK accepts Hono's safe 2.x
+  adapter range directly, the root development install applies a scoped
+  `@hono/node-server` 2.0.11 override and verifies it with a real Streamable
+  HTTP initialization request.
 - Existing v0.2/v0.3 event history opens in place. Retention metadata is
   additive, legacy memory receives conservative defaults, and derived indexes
   rebuild lazily.

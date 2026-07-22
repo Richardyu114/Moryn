@@ -4776,6 +4776,54 @@ describe("agent lifecycle", () => {
     }
   );
 
+  it("preserves explicit Soul bindings and budgets in startup and refresh actions", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-soul-actions-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(store, { now: () => "2026-07-20T00:00:00.000Z", id: () => "device_codex" });
+
+      const guide = await agentGuide({
+        storePath: store,
+        projectPath: project,
+        currentTask: "Continue portable Soul work",
+        agent: { client: "codex", session_id: "session-soul" },
+        userSoulProfileId: "soul_profile_user",
+        agentSoulProfileId: "soul_profile_agent",
+        soulCharBudget: 2048,
+        soulTokenBudget: 512
+      });
+      const expectedSoulArguments = {
+        user_profile_id: "soul_profile_user",
+        agent_profile_id: "soul_profile_agent",
+        soul_char_budget: 2048,
+        soul_token_budget: 512
+      };
+      const expectedSoulFlags = [
+        "--user-profile-id soul_profile_user",
+        "--agent-profile-id soul_profile_agent",
+        "--soul-char-budget 2048",
+        "--soul-token-budget 512"
+      ];
+
+      expect(guide.startup.arguments).toMatchObject(expectedSoulArguments);
+      expect(guide.lifecycle_by_step.start_or_resume.arguments).toMatchObject(expectedSoulArguments);
+      expect(guide.lifecycle_by_step.refresh_context.arguments).toMatchObject(expectedSoulArguments);
+      for (const action of [
+        guide.startup,
+        guide.lifecycle_by_step.start_or_resume,
+        guide.lifecycle_by_step.refresh_context
+      ]) {
+        for (const flag of expectedSoulFlags) expect(action.command).toContain(flag);
+      }
+      expect(guide.lifecycle_by_step.publish_status.arguments).not.toMatchObject(expectedSoulArguments);
+      expect(guide.lifecycle_by_step.finish_handoff.arguments).not.toMatchObject(expectedSoulArguments);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it.each([
     ["claude-code", "claude", ".claude/settings.local.json"],
     ["codex", "codex", ".codex/hooks.json"]

@@ -296,6 +296,59 @@ describe("validateContextDelta", () => {
     });
   });
 
+  it("normalizes an opt-in structured merge field plan", () => {
+    const proposal = validateContextDelta({
+      session_id: "session-structured",
+      checkpoint_id: "checkpoint-structured",
+      semantic_consolidation_proposals: [
+        {
+          proposal_id: " structured-1 ",
+          source_record_id: " rec-new ",
+          target_record_id: " rec-old ",
+          relationship: "revises",
+          confidence: 0.99,
+          rationale: "Preserve cumulative commands and replace one source-backed label.",
+          semantic_equivalence: "refinement",
+          material_differences: [{ field: "commands", significance: "minor" }],
+          evidence_record_ids: [" evidence-1 "],
+          structured_merge: {
+            version: 1,
+            requested_state: "canonical",
+            fields: [
+              {
+                field: " commands ",
+                disposition: "union",
+                source_record_ids: ["rec-new", "rec-old"]
+              },
+              {
+                field: " label ",
+                disposition: "replace",
+                source_record_id: "rec-new",
+                replaced_source_record_ids: ["rec-old"],
+                evidence_record_ids: ["evidence-1"]
+              }
+            ]
+          }
+        }
+      ]
+    }).semantic_consolidation_proposals[0];
+
+    expect(proposal?.structured_merge).toEqual({
+      version: 1,
+      requested_state: "canonical",
+      fields: [
+        { field: "commands", disposition: "union", source_record_ids: ["rec-new", "rec-old"] },
+        {
+          field: "label",
+          disposition: "replace",
+          source_record_id: "rec-new",
+          replaced_source_record_ids: ["rec-old"],
+          evidence_record_ids: ["evidence-1"]
+        }
+      ]
+    });
+  });
+
   it("rejects malformed semantic consolidation proposals", () => {
     const valid = {
       proposal_id: "proposal-1",
@@ -317,7 +370,29 @@ describe("validateContextDelta", () => {
       { ...valid, rationale: " " },
       { ...valid, evidence_record_ids: ["rec-evidence", " rec-evidence "] },
       { ...valid, material_differences: [{ field: " ", significance: "minor" }] },
-      { ...valid, material_differences: [{ field: "wording", significance: "major" }] }
+      { ...valid, material_differences: [{ field: "wording", significance: "major" }] },
+      {
+        ...valid,
+        structured_merge: {
+          version: 1,
+          fields: [{ field: "text", disposition: "union", source_record_ids: ["rec-other"] }]
+        }
+      },
+      {
+        ...valid,
+        structured_merge: {
+          version: 1,
+          fields: [
+            {
+              field: "text",
+              disposition: "replace",
+              source_record_id: "rec-new",
+              replaced_source_record_ids: ["rec-old"],
+              evidence_record_ids: ["undeclared-evidence"]
+            }
+          ]
+        }
+      }
     ];
 
     for (const proposal of invalid) {

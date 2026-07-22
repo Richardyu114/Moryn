@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { toErrorEnvelope } from "../../src/core/errors.js";
-import { replayEvents } from "../../src/core/replay.js";
+import { applyRecordPatch, replayEvents } from "../../src/core/replay.js";
 
 describe("event replay", () => {
   const baseRecord = {
@@ -18,6 +18,19 @@ describe("event replay", () => {
     updated_at: "2026-05-27T00:00:00.000Z",
     source: { client: "test" }
   } as const;
+
+  it("rejects unsafe patch paths without polluting Object.prototype", () => {
+    const pollutionKey = "morynReplayPolluted";
+    const objectPrototype = Object.prototype as Record<string, unknown>;
+    delete objectPrototype[pollutionKey];
+    try {
+      const maliciousPatch = JSON.parse(`{"__proto__.${pollutionKey}":true}`) as Record<string, unknown>;
+      expect(() => applyRecordPatch(baseRecord, maliciousPatch)).toThrow(/unsafe record patch path/i);
+      expect(({} as Record<string, unknown>)[pollutionKey]).toBeUndefined();
+    } finally {
+      delete objectPrototype[pollutionKey];
+    }
+  });
 
   function expectReplayRecoveryHint(action: () => unknown, expectedHint: Record<string, unknown>): void {
     let caught: unknown;

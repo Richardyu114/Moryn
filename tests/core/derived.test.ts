@@ -1,4 +1,4 @@
-import { readFile, rm } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { rebuildDerivedViews } from "../../src/core/derived.js";
@@ -267,6 +267,39 @@ describe("derived views", () => {
 
       await expect(recallTexts()).resolves.not.toContain("Generated recall indexes update after revisions.");
       await expect(projectDecisionTexts()).resolves.not.toContain("Generated recall indexes update after revisions.");
+    });
+  });
+
+  it("keeps arbitrary project ids inside the project snapshot directory", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const escapedStatePath = join(storePath, "state", "soul-profiles", "derived-escape.json");
+      await mkdir(join(storePath, "state", "soul-profiles"), { recursive: true });
+      await writeFile(escapedStatePath, "local-only sentinel\n", "utf8");
+
+      const projectId = "../../state/soul-profiles/derived-escape";
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_path_boundary`
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: projectId,
+        content: { text: "Project snapshot paths stay contained.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      const rebuilt = await rebuildDerivedViews(storePath);
+      const artifact = rebuilt.artifacts.snapshots.projects_by_id[projectId];
+      expect(artifact).toMatch(/^snapshots\/projects\/~[a-f0-9]{64}\.json$/);
+      if (!artifact) throw new Error("Expected a project snapshot artifact");
+      await expect(readFile(escapedStatePath, "utf8")).resolves.toBe("local-only sentinel\n");
+      await expect(readFile(join(storePath, artifact), "utf8")).resolves.toContain(
+        `"project_id": ${JSON.stringify(projectId)}`
+      );
     });
   });
 

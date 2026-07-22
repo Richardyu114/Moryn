@@ -1,6 +1,7 @@
 import { searchableRecordText } from "./content-text.js";
 import { buildActiveLogicalMemoryView, logicalMemoryFingerprint } from "./logical-memory.js";
-import { isPrivateTags } from "./sensitive.js";
+import { isPrivateMemoryBoundary } from "./sensitive.js";
+import { createStringKeyedRecord } from "./string-keyed-record.js";
 import type { MorynRecord } from "./types.js";
 
 export const SEMANTIC_CONSOLIDATION_CANDIDATE_SELECTION_SOURCES = {
@@ -129,12 +130,12 @@ export function retrieveSemanticConsolidationCandidates(
   );
   const activeById = new Map(activeRecords.map((record) => [record.id, record]));
   const candidates: SemanticConsolidationCandidate[] = [];
-  const candidatesBySourceRecordId: Record<string, SemanticConsolidationCandidate[]> = {};
+  const candidatesBySourceRecordId = createStringKeyedRecord<SemanticConsolidationCandidate[]>();
 
   for (const sourceRecordId of [...new Set(options.source_record_ids)]) {
     if (candidates.length >= totalLimit) break;
     const source = activeById.get(sourceRecordId);
-    const sourcePrivate = source ? isPrivateTags(source.tags) : false;
+    const sourcePrivate = source ? isPrivateMemoryBoundary(source) : false;
     if (!source || (sourcePrivate && options.include_private !== true)) {
       candidatesBySourceRecordId[sourceRecordId] = [];
       continue;
@@ -142,7 +143,7 @@ export function retrieveSemanticConsolidationCandidates(
     const ranked = activeRecords
       .filter((candidate) => candidate.id !== source.id)
       .filter((candidate) => sameDomain(source, candidate))
-      .filter((candidate) => isPrivateTags(candidate.tags) === sourcePrivate)
+      .filter((candidate) => isPrivateMemoryBoundary(candidate) === sourcePrivate)
       .map((candidate) => candidateFor(source, candidate))
       .sort((left, right) => right.score - left.score || compareCodeUnits(left.record_id, right.record_id))
       .slice(0, Math.min(perSourceLimit, totalLimit - candidates.length));

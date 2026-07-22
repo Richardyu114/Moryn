@@ -109,7 +109,7 @@ Defaults:
 - `--port 8765`
 - `--interval 2000`
 - `--limit 20`
-- private-tagged records hidden
+- private records hidden by the shared privacy boundary
 
 `--host` is the server bind address. It controls where the local HTTP server
 listens, so `--host 0.0.0.0` exposes the dashboard on external network
@@ -378,7 +378,7 @@ button and does not mutate the store while generating lifecycle data.
 
 When `--project-id <id>` or `--project <path>` is provided, the lifecycle report
 uses the same project scope as the CLI report: matching project records plus
-global records. Private-tagged records remain hidden unless
+global records. Private-boundary records remain hidden unless
 `--include-private` is passed.
 
 ### Review Queue
@@ -459,7 +459,7 @@ noise approvals append `archive_record` events and never delete records. Stale
 approvals return `409` with `status: "stale_plan"`. `Not now` is
 browser-session-only and does not write store events.
 
-If the dashboard is served with `--include-private`, matching private-tagged
+If the dashboard is served with `--include-private`, matching private
 records are included in the dry run and the copied command includes
 `--include-private`. Without that explicit flag, private records are counted as
 skipped and stay out of the approval.
@@ -628,7 +628,7 @@ Governance Hub does not add mutation endpoints. Items that require writes point
 back to existing explicit controls such as Capture Inbox approval/rejection or
 Review Queue maintenance approval. Lifecycle and dogfood items stay read-only
 inspection guidance unless another existing surface already exposes a confirmed
-action. Private-tagged records remain hidden unless `--include-private` is
+action. Private-boundary records remain hidden unless `--include-private` is
 explicit.
 
 ### Static Snapshot
@@ -1642,6 +1642,8 @@ inspect the available evidence behind a rollup, use the separate read-only
 - draft, active, superseded, and conflicted revision counts;
 - per-revision head/effective/approval status;
 - `local_saved` and `personal_sync_saved` persistence metadata;
+- per-revision `remote_pushed` and `remote_pulled_and_verified` booleans plus
+  their metadata-only receipt ID arrays;
 - Effective Soul deliverability, selected revision ids, omission/conflict
   counts, and current compilation receipt state;
 - current Codex/Claude hook-preparation receipt count and latest host/event
@@ -1656,6 +1658,14 @@ ordinary tagged-record read boundary; it does not authorize rendering
 their local full projection is used to compute status.
 
 Compilation, approval, and hook-preparation receipts are shown as metadata only.
+Remote-stage receipt IDs refer to ignored `state/soul-sync/` integrity receipts;
+they are created from exact Git event blobs after a successful push or a
+rebuilt-and-verified pull, not inferred from `personal_sync_saved`. Raw remote
+URLs and clause bodies are never included.
+The booleans report the presence of any retained valid receipt for that
+revision, which can be historical or belong to a previously configured remote;
+they are not a live assertion about the current `origin/main`.
+
 `host_context_prepared` means that Moryn prepared the selected, bounded
 Effective Soul for supported hook output. The UI and receipt proof scope
 `hook_output_prepared_not_host_acknowledged_or_obedience` explicitly do not
@@ -1673,7 +1683,8 @@ analytics.
 
 Default read-boundary and redaction rules still apply:
 
-- records tagged `private`, `secret`, or `sensitive` are hidden unless
+- records with private tags or legacy `content.privacy: "private"` /
+  `content.distribution: "local_only"` markers are hidden unless
   `--include-private` or MCP `include_private: true` is used
 - quarantined records render as `[quarantined]`
 - sensitive text is not shown in overview cards

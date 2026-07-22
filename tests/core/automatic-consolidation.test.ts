@@ -77,4 +77,14 @@ describe("automatic near-duplicate consolidation", () => {
       )
     ).toBeUndefined();
   });
+
+  it.each([
+    ["content privacy", { privacy: "private" }],
+    ["local-only distribution", { distribution: "local_only" }]
+  ] as const)("does not automatically consolidate a source with %s", (_label, privacyMarker) => {
+    const source = record({ content: { text: "Shared durable memory fact", ...privacyMarker } });
+    const target = record({ id: "old", content: { text: "Shared durable memory fact" } });
+
+    expect(discoverAutomaticDuplicateProposal([source, target], source.id)).toBeUndefined();
+  });
 });

@@ -117,6 +117,10 @@ export interface DashboardSoulRevision {
   is_effective: boolean;
   local_saved: boolean;
   personal_sync_saved: boolean;
+  remote_pushed: boolean;
+  remote_pushed_receipt_ids: string[];
+  remote_pulled_and_verified: boolean;
+  remote_pulled_and_verified_receipt_ids: string[];
   created_at?: string;
 }
 
@@ -427,12 +431,19 @@ function soulProfile(profile: SoulProfileStatusEntry, status: SoulProfileStatus)
   const rollbackReceipt = status.approval_receipts.find(
     (receipt) => receipt.profile_id === profile.profile_id && receipt.action === "rollback"
   );
+  const unverifiedApprovalRevisionIds = new Set(
+    status.warnings
+      .filter((warning) => warning.code === "unverified_approval_attestation")
+      .map((warning) => warning.source)
+  );
+  const soleHeadRevisionId = profile.head_revision_ids.length === 1 ? profile.head_revision_ids[0] : undefined;
   const rollbackTargets = profile.revisions
     .filter(
       (revision) =>
         revision.approved &&
+        !unverifiedApprovalRevisionIds.has(revision.revision_id) &&
         (revision.state === "active" || revision.state === "superseded") &&
-        !profile.head_revision_ids.includes(revision.revision_id)
+        revision.revision_id !== soleHeadRevisionId
     )
     .sort((left, right) => right.generation - left.generation || compareCodeUnits(left.revision_id, right.revision_id))
     .map((revision) => revision.revision_id);
@@ -460,6 +471,10 @@ function soulProfile(profile: SoulProfileStatusEntry, status: SoulProfileStatus)
       is_effective: revision.is_effective,
       local_saved: revision.local_saved,
       personal_sync_saved: revision.personal_sync_saved,
+      remote_pushed: revision.remote_pushed,
+      remote_pushed_receipt_ids: revision.remote_pushed_receipt_ids,
+      remote_pulled_and_verified: revision.remote_pulled_and_verified,
+      remote_pulled_and_verified_receipt_ids: revision.remote_pulled_and_verified_receipt_ids,
       ...(revision.created_at ? { created_at: revision.created_at } : {})
     })),
     rollback: {
@@ -505,7 +520,7 @@ export async function buildDashboardSoulStudio(
       revisions: revisions.length,
       draft: revisions.filter((revision) => revision.state === "draft").length,
       active: revisions.filter((revision) => revision.state === "active").length,
-      conflicted: revisions.filter((revision) => revision.state === "conflicted").length,
+      conflicted: profiles.filter((profile) => profile.conflicted).length,
       local_saved: revisions.filter((revision) => revision.local_saved).length,
       personal_sync_saved: revisions.filter((revision) => revision.personal_sync_saved).length
     },

@@ -25,14 +25,22 @@ async function withLifecycleStore(run: (input: { storePath: string; projectPath:
 
 const source = { client: "codex", session_id: "session-a", device_id: "device-a" };
 
-async function writeVerifiedCheckpoint(storePath: string) {
+async function writeVerifiedCheckpoint(
+  storePath: string,
+  input: {
+    source?: typeof source;
+    occurred_at?: string;
+    checkpoint_id?: string;
+  } = {}
+) {
+  const checkpointSource = input.source ?? source;
   await createEngine({ storePath }).checkpoint({
     project_id: "moryn",
-    source,
-    occurred_at: "2026-07-20T02:00:01.000Z",
+    source: checkpointSource,
+    occurred_at: input.occurred_at ?? "2026-07-20T02:00:01.000Z",
     delta: {
-      session_id: source.session_id,
-      checkpoint_id: "verified-finish",
+      session_id: checkpointSource.session_id,
+      checkpoint_id: input.checkpoint_id ?? "verified-finish",
       current_task: "Finish a verified structured session",
       decisions: ["Fold only after learning ingestion"],
       changed_facts: ["The final handoff is durable"],
@@ -74,6 +82,75 @@ describe("agentFinish Session Fold", () => {
       expect(result.record.content.session_fold_coverage).toBeDefined();
       expect(activeAtPush).toEqual(["session_rollup"]);
       expect(result.sync.push?.pushed).toBe(true);
+    });
+  });
+
+  it("automatically rolls up eligible closed days after folding and before push", async () => {
+    await withLifecycleStore(async ({ storePath, projectPath }) => {
+      const oldSource = { ...source, session_id: "session-old" };
+      await writeVerifiedCheckpoint(storePath, {
+        source: oldSource,
+        occurred_at: "2026-07-01T02:00:01.000Z",
+        checkpoint_id: "old-day"
+      });
+      const oldFinish = await agentFinish(
+        {
+          storePath,
+          projectPath,
+          agent: oldSource,
+          summary: "The old verified session is complete.",
+          push: false
+        },
+        { now: () => "2026-07-01T02:00:02.000Z" }
+      );
+      expect(oldFinish).toMatchObject({
+        session_fold: { status: "committed" },
+        episode_rollup: { status: "skipped", eligible_plan_count: 0 }
+      });
+
+      const currentSource = { ...source, session_id: "session-current" };
+      await writeVerifiedCheckpoint(storePath, {
+        source: currentSource,
+        occurred_at: "2026-07-20T02:00:01.000Z",
+        checkpoint_id: "current-day"
+      });
+      let activeTypesAtPush: string[] = [];
+      const currentFinish = await agentFinish(
+        {
+          storePath,
+          projectPath,
+          agent: currentSource,
+          summary: "The current verified session is complete.",
+          push: true
+        },
+        {
+          now: () => "2026-07-20T02:00:02.000Z",
+          pushGitSync: async () => {
+            activeTypesAtPush = (await readCurrentRecords(storePath)).records
+              .filter((record) => record.kind === "session_summary" && record.visibility === "active")
+              .map((record) => record.type)
+              .sort();
+            return { ok: true, pushed: true, selection_sources: SYNC_RESULT_SELECTION_SOURCES };
+          }
+        }
+      );
+
+      expect(currentFinish).toMatchObject({
+        session_fold: { status: "committed" },
+        episode_rollup: {
+          status: "committed",
+          inspected_plan_count: 2,
+          eligible_plan_count: 1,
+          deferred_plan_count: 1,
+          failures: []
+        }
+      });
+      expect(currentFinish.episode_rollup.committed[0]?.plan.identity).toEqual({
+        project_id: "moryn",
+        bucket_kind: "day",
+        bucket_key: "2026-07-01"
+      });
+      expect(activeTypesAtPush).toEqual(["episode_rollup", "session_rollup"]);
     });
   });
 

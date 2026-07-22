@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { initializeStore } from "../../src/core/config.js";
+import { rebuildDerivedViews } from "../../src/core/derived.js";
 import { estimateMemoryRecordTokens } from "../../src/core/record-read-model.js";
 import { writeSoulCompilationReceipt } from "../../src/core/soul-compilation-receipts.js";
 import { writeSoulDeliveryReceipt } from "../../src/core/soul-delivery-receipts.js";
 import { compileEffectiveSoul } from "../../src/core/soul-profile.js";
 import { approveSoulProfileDraft, createSoulProfileDraft } from "../../src/core/soul-profile-management.js";
 import { readSoulProfileRevisions } from "../../src/core/soul-profile-store.js";
+import { appendEventIfAbsent, readEvents } from "../../src/core/store.js";
 import type { MorynRecord } from "../../src/core/types.js";
 import { buildDashboardData, renderDashboardHtml } from "../../src/observability/dashboard.js";
-import { buildDashboardMemoryMaintenance } from "../../src/observability/dashboard-v04.js";
+import { buildDashboardMemoryMaintenance, buildDashboardSoulStudio } from "../../src/observability/dashboard-v04.js";
 import { withTempStore } from "../helpers/temp-store.js";
 
 function record(input: {
@@ -40,6 +42,11 @@ function record(input: {
       ...(input.source_session ? { session_id: input.source_session } : {})
     }
   };
+}
+
+async function copyEvents(fromStorePath: string, toStorePath: string): Promise<void> {
+  for (const event of await readEvents(fromStorePath)) await appendEventIfAbsent(toStorePath, event);
+  await rebuildDerivedViews(toStorePath);
 }
 
 describe("v0.4 dashboard projections", () => {
@@ -255,6 +262,85 @@ describe("v0.4 dashboard projections", () => {
       expect(html).toContain('data-i18n-zh="记忆维护"');
       expect(html).not.toContain(privateClause);
       expect(html).not.toContain(nextPrivateClause);
+    });
+  });
+
+  it("counts derived multi-head profile conflicts and exposes every verified rollback target", async () => {
+    await withTempStore(async (leftStorePath) => {
+      await withTempStore(async (rightStorePath) => {
+        await initializeStore(leftStorePath, {
+          now: () => "2026-07-20T01:00:00.000Z",
+          id: () => "device_dashboard_left"
+        });
+        await initializeStore(rightStorePath, {
+          now: () => "2026-07-20T01:00:00.000Z",
+          id: () => "device_dashboard_right"
+        });
+        const leftSource = { client: "user", device_id: "device_dashboard_left" };
+        const rightSource = { client: "user", device_id: "device_dashboard_right" };
+        const baseDraft = await createSoulProfileDraft(leftStorePath, {
+          subject: { kind: "agent", subject_id: "dashboard-conflict" },
+          clauses: [
+            {
+              clause_key: "tone",
+              category: "communication",
+              text: "Use the shared approved tone.",
+              distribution: "personal_sync"
+            }
+          ],
+          source: leftSource,
+          occurred_at: "2026-07-20T01:01:00.000Z"
+        });
+        const base = await approveSoulProfileDraft(leftStorePath, {
+          revision_id: baseDraft.revision.revision_id,
+          confirmed: true,
+          source: leftSource,
+          occurred_at: "2026-07-20T01:02:00.000Z"
+        });
+        await copyEvents(leftStorePath, rightStorePath);
+
+        const leftDraft = await createSoulProfileDraft(leftStorePath, {
+          from_revision_id: base.revision.revision_id,
+          clauses: [{ ...base.revision.clauses[0]!, text: "Prefer the left branch tone." }],
+          source: leftSource,
+          occurred_at: "2026-07-20T01:03:00.000Z"
+        });
+        const left = await approveSoulProfileDraft(leftStorePath, {
+          revision_id: leftDraft.revision.revision_id,
+          confirmed: true,
+          source: leftSource,
+          occurred_at: "2026-07-20T01:04:00.000Z"
+        });
+        const rightDraft = await createSoulProfileDraft(rightStorePath, {
+          from_revision_id: base.revision.revision_id,
+          clauses: [{ ...base.revision.clauses[0]!, text: "Prefer the right branch tone." }],
+          source: rightSource,
+          occurred_at: "2026-07-20T01:03:30.000Z"
+        });
+        const right = await approveSoulProfileDraft(rightStorePath, {
+          revision_id: rightDraft.revision.revision_id,
+          confirmed: true,
+          source: rightSource,
+          occurred_at: "2026-07-20T01:04:30.000Z"
+        });
+        await copyEvents(rightStorePath, leftStorePath);
+
+        const studio = await buildDashboardSoulStudio(leftStorePath, { project_id: "moryn" });
+        const profile = studio.profiles[0]!;
+        expect(studio.summary).toMatchObject({ profiles: 1, active: 3, conflicted: 1 });
+        expect(profile).toMatchObject({
+          conflicted: true,
+          selection_status: "using_last_known_good",
+          active_revision_id: base.revision.revision_id,
+          states: { conflicted: 0 },
+          rollback: { available: true, requires_confirmation: true }
+        });
+        expect(profile.head_revision_ids).toEqual([left.revision.revision_id, right.revision.revision_id].sort());
+        expect(profile.rollback.target_revision_ids).toEqual([
+          ...[left.revision.revision_id, right.revision.revision_id].sort(),
+          base.revision.revision_id
+        ]);
+      });
     });
   });
 });

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { createStringKeyedRecord } from "./string-keyed-record.js";
 import type { MorynRecord, RecordPriority, RecordState } from "./types.js";
 
 export const LOGICAL_RELATIONSHIP_TYPES = [
@@ -180,7 +181,7 @@ export function buildActiveLogicalMemoryView(records: MorynRecord[]): ActiveLogi
       current = replacementEdges.get(current);
     }
   }
-  const hiddenByRecordId: ActiveLogicalMemoryView["hidden_by_record_id"] = {};
+  const hiddenByRecordId = createStringKeyedRecord<ActiveLogicalMemoryView["hidden_by_record_id"][string]>();
   for (const record of records) {
     if (cyclicIds.has(record.id)) continue;
     for (const link of record.links ?? []) {

@@ -2,7 +2,7 @@ import type { SemanticConsolidationProposal } from "./context-delta.js";
 import { compareLogicalMemoryTargets } from "./logical-memory.js";
 import { validateSemanticConsolidationProposal } from "./semantic-consolidation.js";
 import { retrieveSemanticConsolidationCandidates } from "./semantic-consolidation-candidates.js";
-import { isPrivateTags } from "./sensitive.js";
+import { isPrivateMemoryBoundary } from "./sensitive.js";
 import type { MorynRecord } from "./types.js";
 
 const AUTOMATIC_DUPLICATE_OVERLAP = 0.9;
@@ -13,7 +13,7 @@ export function discoverAutomaticDuplicateProposal(
   sourceRecordId: string
 ): SemanticConsolidationProposal | undefined {
   const source = records.find((record) => record.id === sourceRecordId);
-  if (!source || !DURABLE_KINDS.has(source.kind) || isPrivateTags(source.tags)) return undefined;
+  if (!source || !DURABLE_KINDS.has(source.kind) || isPrivateMemoryBoundary(source)) return undefined;
   const candidate = retrieveSemanticConsolidationCandidates(records, {
     source_record_ids: [sourceRecordId],
     per_source_limit: 8,
