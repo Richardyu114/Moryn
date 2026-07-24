@@ -360,8 +360,10 @@ Soul authoring is deliberately separate from read-only status. `moryn soul
 draft` persists an unapproved revision; `moryn soul approve <revision_id>
 --confirm` and `moryn soul rollback --profile-id <id> --to-revision <revision_id>
 --confirm` require explicit confirmation and append receipts. The draft response
-is the content-review boundary; later status and dashboard reads do not echo
-clause text.
+is the authoring review boundary. CLI status remains metadata-only; the
+Dashboard's dedicated Collaboration Preferences view may render only selected
+`personal_sync` text for the current project, while `local_only` text always
+stays hidden.
 
 Projects can select their normal approved User/Agent profiles and bounded
 delivery budgets in `.moryn.json`:

@@ -155,6 +155,11 @@ export function dashboardWorkspaceCss(): string {
 
     /* ---- Memory state metrics (quiet, hairline-separated, no card lift) ---- */
     .editorial-memory-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border-top: 1px solid var(--border); }
+    .editorial-memory-summary {
+      display: flex; justify-content: space-between; gap: 18px; margin: -4px 0 16px; color: var(--muted);
+      font-size: 14px; line-height: 1.5;
+    }
+    .editorial-memory-summary strong { color: var(--ink-2); font-weight: 600; }
     .editorial-metric {
       appearance: none; border: 0; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);
       padding: 20px 20px 22px; background: transparent; color: var(--ink); text-align: left; cursor: pointer;
@@ -164,6 +169,7 @@ export function dashboardWorkspaceCss(): string {
     .editorial-metric:hover, .editorial-metric:focus-visible { background: #fffdf8; transform: translateY(-4px); box-shadow: 0 14px 30px rgba(60,45,25,.12); z-index: 2; }
     .editorial-metric span { display: block; color: var(--muted); font-size: 13px; letter-spacing: 0.02em; }
     .editorial-metric strong { display: block; margin-top: 9px; font-size: 30px; font-weight: 500; letter-spacing: -0.01em; transition: color 220ms ease; }
+    .editorial-metric small { display: block; min-height: 2.8em; margin-top: 7px; color: var(--muted); font-size: 12px; line-height: 1.4; }
     .editorial-metric:hover strong { color: var(--brand); }
 
     /* ---- What changed (event list) ---- */
@@ -389,6 +395,10 @@ export function dashboardWorkspaceCss(): string {
     .v04-disclosure-label { flex: none; color: var(--accent); font-size: 12px; }
     .v04-soul-body { padding: 0 24px 24px; border-top: 1px solid var(--hairline); }
     .v04-soul-body > .v04-safety-note { margin-top: 20px; }
+    .v04-soul-item { padding: 24px; }
+    .v04-soul-item .editorial-eyebrow { margin-bottom: 7px; color: var(--brand); }
+    .v04-soul-item-text { margin: 18px 0 14px; color: var(--ink); font-size: 17px; line-height: 1.75; white-space: pre-wrap; }
+    .v04-soul-item > small { color: var(--muted); font-size: 13px; }
     .v04-soul-diagnostics { margin-top: 14px; }
 
     .editorial-view-page > .v04-dashboard-sections { animation: rise 700ms cubic-bezier(.2,.7,.2,1) both; animation-delay: .16s; }
@@ -419,6 +429,8 @@ export function dashboardWorkspaceCss(): string {
     .memory-chip[aria-pressed="true"] .memory-chip-count { color: var(--surface); opacity: 0.7; }
     .memory-chip:focus-visible { outline: none; box-shadow: var(--ring); }
     .memory-search-count { margin: 16px 0 6px; color: var(--muted); font-size: 14px; }
+    .memory-search-breakdown { margin: 0 0 14px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .memory-search-breakdown strong { color: var(--ink-2); font-weight: 600; }
     .memory-search-capped { margin: 0 0 10px; padding: 8px 12px; border-left: 2px solid var(--brand); background: var(--brand-soft); color: var(--brand-ink); font-size: 13px; line-height: 1.5; }
     .ms-results { border-top: 1px solid var(--border); }
     .memory-result {
@@ -518,6 +530,7 @@ export function dashboardWorkspaceCss(): string {
       .editorial-sidebar { border-left: 0; border-top: 1px solid var(--border); }
       .editorial-reading-column, .editorial-view-page { padding: 44px 34px; }
       .editorial-memory-grid { grid-template-columns: repeat(2, 1fr); }
+      .editorial-memory-summary { align-items: flex-start; flex-direction: column; gap: 3px; }
       .editorial-metric:nth-child(2) { border-right: 0; }
       .editorial-decision-scope { grid-template-columns: 1fr; }
       .editorial-decision-scope div { padding: 12px 0; }
@@ -529,7 +542,8 @@ export function dashboardWorkspaceCss(): string {
       [data-dashboard-editorial-shell] { width: 100%; min-height: 100vh; margin: 0; border: 0; }
       .editorial-header { padding: 0 18px; }
       .editorial-sync { display: none; }
-      .editorial-navigation { gap: 24px; }
+      .editorial-navigation { gap: 16px; }
+      .editorial-nav-button { font-size: 14px; }
       .editorial-reading-column, .editorial-sidebar, .editorial-view-page { padding: 34px 22px; }
       .editorial-task { font-size: 34px; }
       .editorial-memory-grid { grid-template-columns: 1fr 1fr; }

@@ -13,7 +13,7 @@ import type {
 import { dashboardRecordTitleLabel, memoryKindLabel, memoryStateLabelFromRecordState } from "./dashboard.js";
 import { dashboardDrawerId } from "./dashboard-drawer-id.js";
 import type { DashboardMaintenanceData, DashboardMaintenancePlan } from "./dashboard-maintenance.js";
-import { renderDashboardV04MemoryPage, renderedPlanSourceRecords } from "./dashboard-v04-workspace.js";
+import { renderedPlanSourceRecords, renderMemoryMaintenance, renderSoulStudio } from "./dashboard-v04-workspace.js";
 
 export interface DashboardWorkspaceFragments {
   memory_html: string;
@@ -58,10 +58,15 @@ export interface DashboardWorkspaceModel {
   sync_label_en: string;
   sync_label_zh: string;
   memory: {
-    active: number;
+    saved: number;
+    current: number;
+    history: number;
+    quarantined: number;
     learned: number;
+    pending_learning: number;
     conflicts: number;
-    compaction_ratio: number;
+    organized: number;
+    organization_groups: number;
   };
   recent_events: DashboardEventSummary[];
   important_records: DashboardRecordSummary[];
@@ -234,7 +239,8 @@ function metricDrawer(
   value: number | string,
   summaryEn: string,
   summaryZh: string,
-  data: DashboardData
+  data: DashboardData,
+  content: Pick<DashboardDrawerItem, "body_label_en" | "body_label_zh" | "body_en" | "body_zh" | "sections"> = {}
 ): DashboardDrawerItem {
   return {
     id,
@@ -243,10 +249,11 @@ function metricDrawer(
     title_zh: titleZh,
     summary_en: summaryEn,
     summary_zh: summaryZh,
+    ...content,
     metadata: [
       { label_en: "Value", label_zh: "数值", value_en: String(value) },
       { label_en: "Generated", label_zh: "生成时间", value_en: data.generated_at },
-      { label_en: "Source", label_zh: "数据来源", value_en: "DashboardData.quiet_dashboard.memory_flow" }
+      { label_en: "Source", label_zh: "数据来源", value_en: "DashboardData.memory_status" }
     ],
     evidence_html: `<code>${escapeHtml(data.store.path)}</code>`
   };
@@ -262,7 +269,6 @@ function buildDrawerItems(
   memoryRecords: readonly DashboardRecordSummary[]
 ): DashboardDrawerItem[] {
   const context = data.quiet_dashboard.current_context;
-  const flow = data.quiet_dashboard.memory_flow;
   const contextCopy = contextSummary(data);
   const githubBase = githubBaseFromRemote(data.sync.remote, data.sync.branch);
   const storePath = data.store.path;
@@ -301,42 +307,158 @@ function buildDrawerItems(
     }
   ];
 
+  const currentSections: NonNullable<DashboardDrawerItem["sections"]> = data.memory_status.recent_current_records
+    .slice(0, 10)
+    .map((record) => {
+      const kind = memoryKindLabel(record.kind);
+      const state = memoryStateLabelFromRecordState(record.state);
+      return {
+        label_en: `${state.en} · ${kind.en}`,
+        label_zh: `${state.zh} · ${kind.zh}`,
+        body_en: clip(record.text, BODY_LIMIT),
+        body_zh: clip(record.text, BODY_LIMIT),
+        truncated: record.text.length > BODY_LIMIT
+      };
+    });
+  const learnedSections: NonNullable<DashboardDrawerItem["sections"]> = [
+    ...data.memory_status.learning.absorbed_records.map((record) => {
+      const ready = record.state === "canonical";
+      return {
+        label_en: ready ? "Learned conclusion · ready to use" : "Learned conclusion · checked when used",
+        label_zh: ready ? "已吸收结论 · 可直接使用" : "已吸收结论 · 使用时会核对",
+        body_en: clip(record.text, BODY_LIMIT),
+        body_zh: clip(record.text, BODY_LIMIT),
+        truncated: record.text.length > BODY_LIMIT
+      };
+    }),
+    ...data.memory_status.learning.pending_records.map((record) => {
+      const text = record.text.replace(/^Pending learning:\s*/i, "");
+      return {
+        label_en: "New finding · being absorbed automatically",
+        label_zh: "新发现 · 正在自动吸收",
+        body_en: clip(text, BODY_LIMIT),
+        body_zh: clip(text, BODY_LIMIT),
+        truncated: text.length > BODY_LIMIT
+      };
+    })
+  ];
+  const conflictSections: NonNullable<DashboardDrawerItem["sections"]> = data.memory_status.conflict_records.map(
+    (record) => ({
+      label_en: "Content kept for a careful decision",
+      label_zh: "等待谨慎判断的内容",
+      body_en: clip(record.text, BODY_LIMIT),
+      body_zh: clip(record.text, BODY_LIMIT),
+      truncated: record.text.length > BODY_LIMIT
+    })
+  );
+  const organizationSections: NonNullable<DashboardDrawerItem["sections"]> =
+    data.memory_status.organization.groups.flatMap((group) => [
+      {
+        label_en: "Current conclusion",
+        label_zh: "当前结论",
+        body_en: clip(group.current.text, BODY_LIMIT),
+        body_zh: clip(group.current.text, BODY_LIMIT),
+        truncated: group.current.text.length > BODY_LIMIT
+      },
+      ...group.older.map(({ record, relationship }) => {
+        const relation =
+          relationship === "duplicate_of"
+            ? { en: "Matching older copy · kept in history", zh: "内容相同的旧副本 · 原文保留在历史中" }
+            : relationship === "supersedes"
+              ? { en: "Older conclusion · replaced by the current one", zh: "较早结论 · 已由当前结论替代" }
+              : { en: "Older wording · corrected by the current one", zh: "较早表述 · 已由当前结论修正" };
+        return {
+          label_en: relation.en,
+          label_zh: relation.zh,
+          body_en: clip(record.text, BODY_LIMIT),
+          body_zh: clip(record.text, BODY_LIMIT),
+          truncated: record.text.length > BODY_LIMIT
+        };
+      })
+    ]);
+
   items.push(
     metricDrawer(
       "memory-active",
-      "Ready for agents",
-      "当前可用",
-      flow.active_working_set_records,
-      "Memories Moryn is currently making available to agents.",
-      "Moryn 当前会提供给 Agent 参考的记忆。",
-      data
+      "Current usable content",
+      "当前可用内容",
+      data.memory_status.summary.current_total,
+      `${data.memory_status.summary.current_total} of ${data.memory_status.summary.saved_total} saved items are current and not set aside as history or review material.`,
+      `共保存 ${data.memory_status.summary.saved_total} 条，其中 ${data.memory_status.summary.current_total} 条处于当前可用状态；历史与待查内容不计入。`,
+      data,
+      {
+        body_label_en: "What is usable now",
+        body_label_zh: "当前可用的具体内容",
+        body_en: currentSections.length
+          ? "The newest items are shown below. Open Memory to browse and search the complete library."
+          : "No saved content is currently available for use.",
+        body_zh: currentSections.length
+          ? "下面展示最近的具体内容；可前往“记忆”浏览和搜索完整知识库。"
+          : "目前没有处于可用状态的保存内容。",
+        sections: currentSections
+      }
     ),
     metricDrawer(
       "memory-learned",
-      "Learned conclusions",
-      "已学习结论",
-      flow.learned_records,
-      "Reusable conclusions learned and retained by Moryn.",
-      "Moryn 已学习并保留的可复用结论。",
-      data
+      "Absorbed conclusions",
+      "已吸收结论",
+      data.memory_status.learning.absorbed_total,
+      `${data.memory_status.learning.absorbed_total} reusable conclusions have been absorbed. ${data.memory_status.learning.pending_total} new findings are being processed automatically.`,
+      `已吸收 ${data.memory_status.learning.absorbed_total} 条可复用结论；另有 ${data.memory_status.learning.pending_total} 条新发现正在自动处理。`,
+      data,
+      {
+        body_label_en: "What Moryn learned",
+        body_label_zh: "Moryn 学到了什么",
+        body_en:
+          data.memory_status.learning.pending_total > 0
+            ? "Pending findings are absorbed during the next progress-save cycle. You do not need to manage them."
+            : "There are no pending findings. You do not need to manage this process.",
+        body_zh:
+          data.memory_status.learning.pending_total > 0
+            ? "这些新发现会在下一次保存进度时自动吸收，你无需手动管理。"
+            : "目前没有等待吸收的新发现，你无需管理这个过程。",
+        sections: learnedSections
+      }
     ),
     metricDrawer(
       "memory-conflicts",
       "Needs review",
       "存在分歧",
-      flow.conflict_records,
+      data.memory_status.summary.conflict_total,
       "Memories that disagree and have been kept for a careful decision.",
       "内容有分歧的记忆会被保留，等待谨慎处理。",
-      data
+      data,
+      {
+        body_label_en: "What needs attention",
+        body_label_zh: "需要关注什么",
+        body_en: conflictSections.length
+          ? "The concrete statements are shown below; neither side is silently discarded."
+          : "No conflicting saved statements need your attention.",
+        body_zh: conflictSections.length
+          ? "下面列出存在分歧的具体表述；Moryn 不会静默丢弃任何一方。"
+          : "目前没有需要你关注的记忆分歧。",
+        sections: conflictSections
+      }
     ),
     metricDrawer(
       "memory-compaction",
-      "Organized memory",
-      "已自动整理",
-      `${Math.round(flow.compaction_ratio * 100)}%`,
-      "Older or repeated versions kept out of the current view without deleting their original text.",
-      "较旧或重复版本已从当前视图中收起，原文并未删除。",
-      data
+      "Older versions tucked away",
+      "已收起旧版本",
+      data.memory_status.organization.hidden_total,
+      `${data.memory_status.organization.hidden_total} older or matching versions were grouped under ${data.memory_status.organization.group_total} current conclusions. Original text is retained.`,
+      `已将 ${data.memory_status.organization.hidden_total} 条较旧或相同版本归入 ${data.memory_status.organization.group_total} 条当前结论，所有原文仍然保留。`,
+      data,
+      {
+        body_label_en: "What was organized",
+        body_label_zh: "具体整理了什么",
+        body_en: organizationSections.length
+          ? "Current conclusions and their retained older versions are shown together below."
+          : "No older or matching versions have been tucked away in this project.",
+        body_zh: organizationSections.length
+          ? "下面将当前结论与保留的旧版本放在一起展示。"
+          : "当前项目还没有需要收起的旧版本或相同内容。",
+        sections: organizationSections
+      }
     )
   );
 
@@ -577,7 +699,6 @@ export function buildDashboardWorkspaceModel(
   memoryRecords: readonly DashboardRecordSummary[] = data.all_records
 ): DashboardWorkspaceModel {
   const context = data.quiet_dashboard.current_context;
-  const flow = data.quiet_dashboard.memory_flow;
   const task = context.task ?? "No active task";
   const project = context.project_id ?? "Local store";
   const agent = context.agent ?? "Unknown agent";
@@ -599,10 +720,15 @@ export function buildDashboardWorkspaceModel(
     sync_label_en: sync.en,
     sync_label_zh: sync.zh,
     memory: {
-      active: flow.active_working_set_records,
-      learned: flow.learned_records,
-      conflicts: flow.conflict_records,
-      compaction_ratio: flow.compaction_ratio
+      saved: data.memory_status.summary.saved_total,
+      current: data.memory_status.summary.current_total,
+      history: data.memory_status.summary.history_total,
+      quarantined: data.memory_status.summary.quarantined_total,
+      learned: data.memory_status.learning.absorbed_total,
+      pending_learning: data.memory_status.learning.pending_total,
+      conflicts: data.memory_status.summary.conflict_total,
+      organized: data.memory_status.summary.organized_total,
+      organization_groups: data.memory_status.organization.group_total
     },
     recent_events: data.recent_events.slice(0, 5),
     important_records: importantRecords,
@@ -812,9 +938,16 @@ function renderAttention(
   </section>`;
 }
 
-function renderMetric(id: string, labelEn: string, labelZh: string, value: number | string): string {
+function renderMetric(
+  id: string,
+  labelEn: string,
+  labelZh: string,
+  value: number | string,
+  detailEn: string,
+  detailZh: string
+): string {
   return `<button type="button" class="editorial-metric" data-drawer-target="${escapeHtml(id)}" aria-haspopup="dialog">
-    <span data-i18n-en="${escapeHtml(labelEn)}" data-i18n-zh="${escapeHtml(labelZh)}">${escapeHtml(labelEn)}</span><strong>${escapeHtml(value)}</strong>
+    <span data-i18n-en="${escapeHtml(labelEn)}" data-i18n-zh="${escapeHtml(labelZh)}">${escapeHtml(labelEn)}</span><strong>${escapeHtml(value)}</strong><small data-i18n-en="${escapeHtml(detailEn)}" data-i18n-zh="${escapeHtml(detailZh)}">${escapeHtml(detailEn)}</small>
   </button>`;
 }
 
@@ -966,6 +1099,8 @@ export function renderMemorySearch(
   // recent memories searchable; older ones remain reachable via CLI recall.
   const capped = allEntries.length > MEMORY_SEARCH_RENDER_LIMIT;
   const entries = capped ? allEntries.slice(0, MEMORY_SEARCH_RENDER_LIMIT) : allEntries;
+  const stateBreakdown = data.memory_status.summary;
+  const organizedEn = `${stateBreakdown.organized_total} older ${stateBreakdown.organized_total === 1 ? "version" : "versions"} tucked away`;
   const countLabel = (n: number) => ({ en: `${n} ${n === 1 ? "memory" : "memories"}`, zh: `${n} 条记忆` });
   const total = capped
     ? {
@@ -1009,6 +1144,7 @@ export function renderMemorySearch(
       </div>
       <div class="memory-chips" data-memory-chips>${allChip}${kindChips}</div>
       <p class="memory-search-count" data-memory-search-count role="status" aria-live="polite" data-total="${entries.length}" data-i18n-en="${escapeHtml(total.en)}" data-i18n-zh="${escapeHtml(total.zh)}">${escapeHtml(total.en)}</p>
+      <p class="memory-search-breakdown" data-i18n-en="${escapeHtml(`${records.length} saved here: ${stateBreakdown.current_total} current · ${stateBreakdown.history_total} history · ${organizedEn} · ${stateBreakdown.quarantined_total} set aside`)}" data-i18n-zh="${escapeHtml(`这里共保存 ${records.length} 条：${stateBreakdown.current_total} 条当前可用 · ${stateBreakdown.history_total} 条历史 · ${stateBreakdown.organized_total} 条旧版本已收起 · ${stateBreakdown.quarantined_total} 条待查`)}"><strong>${records.length}</strong> saved here: ${stateBreakdown.current_total} current · ${stateBreakdown.history_total} history · ${organizedEn} · ${stateBreakdown.quarantined_total} set aside</p>
       ${cappedNotice}
       <div class="ms-results" data-memory-search-results>${results}</div>
       <button type="button" class="memory-search-more" data-memory-search-more hidden data-i18n-en="Show more matches" data-i18n-zh="显示更多匹配项">Show more matches</button>
@@ -1069,7 +1205,8 @@ function renderDrawer(drawers: DashboardDrawerItem[]): string {
 
 export function renderDashboardWorkspace(data: DashboardData, fragments: DashboardWorkspaceFragments): string {
   const model = buildDashboardWorkspaceModel(data, fragments.memory_records);
-  const compaction = `${Math.round(model.memory.compaction_ratio * 100)}%`;
+  const savedItemsEn = `${model.memory.saved} ${model.memory.saved === 1 ? "item" : "items"}`;
+  const organizedSummaryEn = `${model.memory.organized} older ${model.memory.organized === 1 ? "version" : "versions"} tucked away`;
   const memoryScope =
     data.memory_maintenance.scope.mode === "project"
       ? {
@@ -1086,6 +1223,7 @@ export function renderDashboardWorkspace(data: DashboardData, fragments: Dashboa
       <nav class="editorial-navigation" aria-label="Dashboard views">
         <button type="button" class="editorial-nav-button" data-dashboard-nav="workspace" aria-current="page">${i18n("Overview", "概览")}</button>
         <button type="button" class="editorial-nav-button" data-dashboard-nav="memory">${i18n("Memory", "记忆")}</button>
+        <button type="button" class="editorial-nav-button" data-dashboard-nav="preferences">${i18n("Preferences", "协作偏好")}</button>
         <button type="button" class="editorial-nav-button" data-dashboard-nav="history">${i18n("History", "历史")}</button>
       </nav>
       <div class="editorial-header-status"><span class="editorial-sync">● ${i18n(model.sync_label_en, model.sync_label_zh)}</span><button type="button" class="editorial-refresh" data-dashboard-refresh-button><span data-i18n-en="Refresh" data-i18n-zh="刷新">Refresh</span></button>${fragments.language_toggle_html}</div>
@@ -1101,11 +1239,13 @@ export function renderDashboardWorkspace(data: DashboardData, fragments: Dashboa
               ${model.no_action_required ? `<div class="editorial-conclusion" data-editorial-conclusion="no-action-required"><div class="editorial-conclusion-mark">✓</div><div><strong>${i18n("No action required", "无需操作")}</strong><span>${i18n("Moryn has saved the latest work and is taking care of routine organization.", "Moryn 已保存最新进度，并在后台处理日常整理。")}</span></div></div>` : ""}
             </section>
             ${renderAttention(data.quiet_dashboard.attention_needed, data.decision_summary.items, data.actions_by_id, data.maintenance)}
-            <section class="editorial-section" data-editorial-section="memory-state"><div class="editorial-section-heading"><div class="editorial-section-title">${i18n("Memory State", "记忆状态")}</div><p>${i18n("What agents can use now", "Agent 现在会参考的记忆")}</p></div><div class="editorial-memory-grid">
-              ${renderMetric("memory-active", "Active", "活跃记忆", model.memory.active)}
-              ${renderMetric("memory-learned", "Learned", "已学习", model.memory.learned)}
-              ${renderMetric("memory-conflicts", "Conflicts", "冲突", model.memory.conflicts)}
-              ${renderMetric("memory-compaction", "Organized", "已整理", compaction)}
+            <section class="editorial-section" data-editorial-section="memory-state"><div class="editorial-section-heading"><div class="editorial-section-title">${i18n("Memory State", "记忆状态")}</div><p>${i18n("Concrete content and its current status", "具体保存了什么，以及当前状态")}</p></div>
+              <p class="editorial-memory-summary"><strong>${i18n(`${savedItemsEn} saved for this project and shared use`, `当前项目及共享范围共保存 ${model.memory.saved} 条内容`)}</strong><span>${i18n(`${model.memory.current} current · ${organizedSummaryEn} · ${model.memory.history} history · ${model.memory.quarantined} set aside`, `${model.memory.current} 条当前可用 · ${model.memory.organized} 条旧版本已收起 · ${model.memory.history} 条历史 · ${model.memory.quarantined} 条待查`)}</span></p>
+              <div class="editorial-memory-grid">
+              ${renderMetric("memory-active", "Current", "当前可用", model.memory.current, `of ${model.memory.saved} saved items`, `共 ${model.memory.saved} 条保存内容`)}
+              ${renderMetric("memory-learned", "Absorbed", "已吸收结论", model.memory.learned, `${model.memory.pending_learning} new findings processing`, `${model.memory.pending_learning} 条新发现正在处理`)}
+              ${renderMetric("memory-conflicts", "Needs review", "存在分歧", model.memory.conflicts, model.memory.conflicts ? "Concrete statements are preserved" : "Nothing needs your attention", model.memory.conflicts ? "相关具体表述均已保留" : "目前无需你处理")}
+              ${renderMetric("memory-compaction", "Older versions tucked away", "已收起旧版本", model.memory.organized, `${model.memory.organization_groups} current conclusions`, `归入 ${model.memory.organization_groups} 条当前结论`)}
             </div></section>
             ${renderGlance(data)}
             <section class="editorial-section" data-editorial-section="what-changed"><div class="editorial-section-heading"><div class="editorial-section-title">${i18n("What Changed", "近期变化")}</div><p>${i18n("Recent saves and updates, in plain language", "最近保存和整理的内容变化")}</p></div>${renderEvents(model.recent_events)}</section>
@@ -1113,7 +1253,8 @@ export function renderDashboardWorkspace(data: DashboardData, fragments: Dashboa
           ${renderImportant(model.important_records, model)}
         </div>
       </section>
-      <section class="editorial-view-page" data-dashboard-view="memory" hidden><header><div class="editorial-eyebrow">${i18n("Knowledge library", "知识库")}</div><h1>${i18n("Memory", "记忆")}</h1><p>${i18n(memoryScope.en, memoryScope.zh)}</p></header>${fragments.memory_html}${renderDashboardV04MemoryPage(data.memory_maintenance, data.soul_studio, fragments.memory_records)}</section>
+      <section class="editorial-view-page" data-dashboard-view="memory" hidden><header><div class="editorial-eyebrow">${i18n("Knowledge library", "知识库")}</div><h1>${i18n("Memory", "记忆")}</h1><p>${i18n(memoryScope.en, memoryScope.zh)}</p></header>${fragments.memory_html}<div class="v04-dashboard-sections">${renderMemoryMaintenance(data.memory_maintenance, fragments.memory_records)}</div></section>
+      <section class="editorial-view-page" data-dashboard-view="preferences" hidden><header><div class="editorial-eyebrow">${i18n("How assistants work with you", "你希望 Agent 如何与你协作")}</div><h1>${i18n("Collaboration Preferences", "协作偏好")}</h1><p>${i18n("Read the concrete preferences currently guiding supported assistants. Device-only text remains hidden.", "查看当前实际指导 Agent 的具体偏好；仅本机内容仍保持隐藏。")}</p></header><div class="v04-dashboard-sections">${renderSoulStudio(data.soul_studio)}</div></section>
       <section class="editorial-view-page" data-dashboard-view="history" hidden><header><div class="editorial-eyebrow">${i18n("Recent activity", "近期动态")}</div><h1>${i18n("History", "历史")}</h1><p>${i18n("A plain-language record of what has happened, newest first.", "用日常语言记录发生过的事，最新在前。")}</p></header>${fragments.history_html}</section>
     </div>
     ${renderDrawer(model.drawers)}

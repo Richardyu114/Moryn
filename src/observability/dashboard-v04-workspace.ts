@@ -3,6 +3,7 @@ import { dashboardDrawerId } from "./dashboard-drawer-id.js";
 import type {
   DashboardCompactionPlanPreview,
   DashboardMemoryMaintenance,
+  DashboardSoulItem,
   DashboardSoulProfile,
   DashboardSoulStudio
 } from "./dashboard-v04.js";
@@ -367,6 +368,56 @@ function profileRows(profiles: DashboardSoulProfile[]): string {
     .join("");
 }
 
+function soulCategoryCopy(category: DashboardSoulItem["category"]): { en: string; zh: string } {
+  if (category === "identity") return { en: "Identity", zh: "身份定位" };
+  if (category === "mission") return { en: "Goal", zh: "目标" };
+  if (category === "value") return { en: "Working principle", zh: "工作原则" };
+  if (category === "boundary") return { en: "Boundary", zh: "边界" };
+  if (category === "communication") return { en: "Communication", zh: "沟通方式" };
+  if (category === "decision_style") return { en: "Decision style", zh: "决策方式" };
+  return { en: "Collaboration", zh: "协作方式" };
+}
+
+function soulScopeCopy(scope: DashboardSoulItem["scope"]): { en: string; zh: string } {
+  if (scope.kind === "global") return { en: "Applies across projects", zh: "适用于所有项目" };
+  return { en: `Applies to project ${scope.project_id}`, zh: `适用于项目 ${scope.project_id}` };
+}
+
+function soulSubjectCopy(subject: DashboardSoulItem["subject"]): { en: string; zh: string } {
+  const name = subject.display_name?.trim() || subject.subject_id;
+  if (subject.kind === "user") return { en: `Your preference · ${name}`, zh: `你的偏好 · ${name}` };
+  return { en: `Assistant preference · ${name}`, zh: `助手偏好 · ${name}` };
+}
+
+function soulItemStatusCopy(status: DashboardSoulItem["status"]): { en: string; zh: string; css: string } {
+  if (status === "using_last_known_good") {
+    return { en: "Using last safe version", zh: "使用上一个安全版本", css: "deferred" };
+  }
+  return { en: "In use", zh: "正在使用", css: "ready" };
+}
+
+function renderSoulItems(items: readonly DashboardSoulItem[]): string {
+  if (items.length === 0) {
+    return `<p class="v04-empty">${i18n(
+      "No portable preference text is currently in use. Device-only preferences remain hidden.",
+      "当前没有正在使用的可迁移偏好正文；仅本机偏好仍保持隐藏。"
+    )}</p>`;
+  }
+  return `<div class="v04-plan-list">${items
+    .map((item) => {
+      const category = soulCategoryCopy(item.category);
+      const scope = soulScopeCopy(item.scope);
+      const subject = soulSubjectCopy(item.subject);
+      const status = soulItemStatusCopy(item.status);
+      return `<article class="v04-card v04-soul-item">
+        <div class="v04-card-head"><div><div class="editorial-eyebrow">${i18n(category.en, category.zh)}</div><h3 data-i18n-en="${escapeHtml(subject.en)}" data-i18n-zh="${escapeHtml(subject.zh)}">${escapeHtml(subject.en)}</h3></div><span class="v04-status v04-status-${status.css}" data-i18n-en="${escapeHtml(status.en)}" data-i18n-zh="${escapeHtml(status.zh)}">${escapeHtml(status.en)}</span></div>
+        <p class="v04-soul-item-text">${escapeHtml(item.text)}</p>
+        <small data-i18n-en="${escapeHtml(scope.en)}" data-i18n-zh="${escapeHtml(scope.zh)}">${escapeHtml(scope.en)}</small>
+      </article>`;
+    })
+    .join("")}</div>`;
+}
+
 function soulSummary(data: DashboardSoulStudio): { titleEn: string; titleZh: string; bodyEn: string; bodyZh: string } {
   if (data.summary.profiles === 0) {
     return {
@@ -414,20 +465,21 @@ export function renderSoulStudio(data: DashboardSoulStudio): string {
   const profiles = data.profiles.length
     ? `<div class="v04-table-scroll"><table class="v04-table v04-soul-table"><thead><tr><th>${i18n("Applies to", "适用对象")}</th><th>${i18n("Current version", "当前版本")}</th><th>${i18n("Versions", "版本数")}</th><th>${i18n("Saved where", "保存位置")}</th><th>${i18n("Older version", "旧版本")}</th></tr></thead><tbody>${profileRows(data.profiles)}</tbody></table></div>`
     : `<p class="v04-empty">${i18n("No collaboration preference profile has been configured yet.", "尚未配置协作偏好。")}</p>`;
-  return `<details class="v04-section v04-soul-disclosure" data-soul-studio>
+  return `<details class="v04-section v04-soul-disclosure" data-soul-studio open>
     <summary data-v04-soul-summary>
       <span class="v04-soul-summary-copy"><span class="editorial-eyebrow">${i18n("Collaboration preferences", "协作偏好")}</span><strong>${i18n(summary.titleEn, summary.titleZh)}</strong><small data-i18n-en="${escapeHtml(summary.bodyEn)}" data-i18n-zh="${escapeHtml(summary.bodyZh)}">${escapeHtml(summary.bodyEn)}</small></span>
-      <span class="v04-disclosure-label">${i18n("View preference details", "查看偏好详情")}</span>
+      <span class="v04-disclosure-label">${i18n("Preferences shown below", "下方显示偏好正文")}</span>
     </summary>
     <div class="v04-soul-body">
-      <div class="v04-safety-note"><strong>${i18n("Preference text stays private.", "偏好正文保持私密。")}</strong><span>${i18n("This page only explains whether approved versions are available; it never renders clause text.", "此页面只说明已批准版本是否可用，不会显示条款正文。")}</span></div>
-      <div class="v04-delivery-grid">
-        <article class="v04-card"><div class="v04-card-head"><div><h3>${i18n("What Moryn can use", "Moryn 当前可用的设置")}</h3><p>${i18n(`${data.compilation.selected_revision_ids.length} approved version sources selected.`, `已选择 ${data.compilation.selected_revision_ids.length} 个批准版本来源。`)}</p></div><span class="v04-status v04-status-${compilation.css}" data-i18n-en="${escapeHtml(compilation.en)}" data-i18n-zh="${escapeHtml(compilation.zh)}">${escapeHtml(compilation.en)}</span></div></article>
-        <article class="v04-card"><div class="v04-card-head"><div><h3>${i18n("Availability to assistants", "对助手的可用状态")}</h3><p>${i18n("Moryn prepares these settings when a supported assistant starts. No preparation yet is normal.", "受支持的助手启动时，Moryn 才会准备这些设置；当前尚未准备也属于正常状态。")}</p></div><span class="v04-status v04-status-${delivery.css}" data-i18n-en="${escapeHtml(delivery.en)}" data-i18n-zh="${escapeHtml(delivery.zh)}">${escapeHtml(delivery.en)}</span></div></article>
-      </div>
+      <div class="v04-safety-note"><strong>${i18n("Only portable preferences in use are shown.", "这里只显示正在使用的可迁移偏好。")}</strong><span>${i18n("Device-only preference text stays hidden, including when private records are visible elsewhere.", "仅本机偏好正文始终隐藏，即使其他区域允许查看私密记录也不会显示。")}</span></div>
+      ${renderSoulItems(data.items)}
       <details class="v04-diagnostics v04-soul-diagnostics" data-v04-soul-diagnostics>
         <summary><span>${i18n("Version and delivery diagnostics", "版本与交付诊断")}</span><small>${i18n("Advanced details", "高级详情")}</small></summary>
         <div class="v04-diagnostics-body">
+          <div class="v04-delivery-grid">
+            <article class="v04-card"><div class="v04-card-head"><div><h3>${i18n("What Moryn can use", "Moryn 当前可用的设置")}</h3><p>${i18n(`${data.compilation.selected_revision_ids.length} approved version sources selected.`, `已选择 ${data.compilation.selected_revision_ids.length} 个批准版本来源。`)}</p></div><span class="v04-status v04-status-${compilation.css}" data-i18n-en="${escapeHtml(compilation.en)}" data-i18n-zh="${escapeHtml(compilation.zh)}">${escapeHtml(compilation.en)}</span></div></article>
+            <article class="v04-card"><div class="v04-card-head"><div><h3>${i18n("Availability to assistants", "对助手的可用状态")}</h3><p>${i18n("Moryn prepares these settings when a supported assistant starts. No preparation yet is normal.", "受支持的助手启动时，Moryn 才会准备这些设置；当前尚未准备也属于正常状态。")}</p></div><span class="v04-status v04-status-${delivery.css}" data-i18n-en="${escapeHtml(delivery.en)}" data-i18n-zh="${escapeHtml(delivery.zh)}">${escapeHtml(delivery.en)}</span></div></article>
+          </div>
           <div class="v04-metrics v04-soul-metrics">
             <div><span>${i18n("Preference profiles", "偏好配置")}</span><strong>${data.summary.profiles}</strong></div>
             <div><span>${i18n("Draft versions", "草稿版本")}</span><strong>${data.summary.draft}</strong></div>

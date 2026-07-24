@@ -1118,7 +1118,7 @@ describe("observability dashboard", () => {
     });
   });
 
-  it("keeps untagged legacy Soul clause text out of every Dashboard surface", async () => {
+  it("keeps legacy Soul out of generic record lanes while showing its validated portable preference text", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device-test" });
       const engine = createEngine({ storePath });
@@ -1148,8 +1148,16 @@ describe("observability dashboard", () => {
 
       expect(data.all_records.map((record) => record.id)).not.toContain(legacySoul.record.id);
       expect(data.recent_events.map((event) => event.event_id)).not.toContain(legacySoulEvent!.event_id);
-      expect(serialized).not.toContain(clauseText);
-      expect(html).not.toContain(clauseText);
+      expect(data.soul_studio.items).toEqual([
+        expect.objectContaining({
+          text: clauseText,
+          distribution: "personal_sync",
+          scope: { kind: "global" },
+          status: "in_use"
+        })
+      ]);
+      expect(serialized).toContain(clauseText);
+      expect(html).toContain(clauseText);
       expect(html).not.toContain(dashboardDrawerId("record", legacySoul.record.id));
       expect(html).not.toContain(dashboardDrawerId("event", legacySoulEvent!.event_id));
     });
@@ -7895,14 +7903,13 @@ describe("quiet dashboard first screen", () => {
 
       expect(html).toContain('data-i18n-en="Overview" data-i18n-zh="概览"');
       expect(html).toContain('data-i18n-en="Memory" data-i18n-zh="记忆"');
+      expect(html).toContain('data-i18n-en="Preferences" data-i18n-zh="协作偏好"');
       expect(html).toContain('data-i18n-en="History" data-i18n-zh="历史"');
       expect(html).toContain('data-i18n-en="No action required" data-i18n-zh="无需操作"');
       expect(html).toContain('data-i18n-en="Close details" data-i18n-zh="关闭详情"');
       expect(html).toContain('data-i18n-en="Local only" data-i18n-zh="仅保存在本机"');
-      expect(html).toContain('data-i18n-en="Ready for agents" data-i18n-zh="当前可用"');
-      expect(html).toContain(
-        'data-i18n-en="Memories Moryn is currently making available to agents." data-i18n-zh="Moryn 当前会提供给 Agent 参考的记忆。"'
-      );
+      expect(html).toContain('data-i18n-en="Current usable content" data-i18n-zh="当前可用内容"');
+      expect(html).toContain('data-i18n-en="What is usable now" data-i18n-zh="当前可用的具体内容"');
       expect(html).toContain('data-i18n-en="Current work" data-i18n-zh="当前工作"');
       expect(html).toContain("window.applyDashboardLanguage?.()");
       expect(html).toContain("const browserLanguage = () =>");

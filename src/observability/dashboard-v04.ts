@@ -2,14 +2,23 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { type EpisodeRollupPlan, planEpisodeRollups } from "../core/episode-rollup.js";
 import { buildMemoryRetentionReadModel, type MemoryLayer, type MemoryRetentionTier } from "../core/memory-retention.js";
-import { estimateMemoryRecordTokens } from "../core/record-read-model.js";
+import { estimateMemoryRecordTokens, readCurrentRecords } from "../core/record-read-model.js";
+import { isPrivateMemoryBoundary } from "../core/sensitive.js";
 import { planSessionFolds, type SessionFoldPlan } from "../core/session-fold.js";
 import { readSoulCompilationReceipt, type SoulCompilationReceipt } from "../core/soul-compilation-receipts.js";
+import {
+  compileEffectiveSoul,
+  type SoulClauseCategory,
+  type SoulProfileRevision,
+  type SoulScope,
+  type SoulSubject
+} from "../core/soul-profile.js";
 import {
   readSoulProfileStatus,
   type SoulProfileStatus,
   type SoulProfileStatusEntry
 } from "../core/soul-profile-management.js";
+import { type ReadSoulProfileRevisionsResult, readSoulProfileRevisions } from "../core/soul-profile-store.js";
 import type { MorynRecord } from "../core/types.js";
 
 export const DASHBOARD_V04_SELECTION_SOURCES = {
@@ -23,6 +32,7 @@ export const DASHBOARD_V04_SELECTION_SOURCES = {
   soul_studio: "soul_studio",
   soul_profile: "soul_studio.profiles[]",
   soul_revision: "soul_studio.profiles[].revisions[]",
+  soul_item: "soul_studio.items[]",
   soul_compilation: "soul_studio.compilation",
   soul_delivery: "soul_studio.delivery"
 } as const;
@@ -167,6 +177,15 @@ export interface DashboardSoulProfile {
   };
 }
 
+export interface DashboardSoulItem {
+  text: string;
+  category: SoulClauseCategory;
+  scope: SoulScope;
+  subject: SoulSubject;
+  status: "in_use" | "using_last_known_good";
+  distribution: "personal_sync";
+}
+
 export interface DashboardSoulStudio {
   version: 1;
   read_only: true;
@@ -179,6 +198,8 @@ export interface DashboardSoulStudio {
     local_saved: number;
     personal_sync_saved: number;
   };
+  /** Allowlisted, currently selected portable preference text. Raw Soul envelopes are never returned. */
+  items: DashboardSoulItem[];
   profiles: DashboardSoulProfile[];
   compilation: {
     status: SoulProfileStatus["compilation"]["status"];
@@ -211,6 +232,7 @@ export interface DashboardSoulStudio {
   };
   privacy: {
     clause_payloads_exposed: false;
+    personal_sync_clause_text_exposed: true;
     local_only_clause_text_exposed: false;
     receipt_payloads: "metadata_only";
   };
@@ -559,14 +581,81 @@ function soulProfile(profile: SoulProfileStatusEntry, status: SoulProfileStatus)
   };
 }
 
+function isLegacyPortableRevision(revision: SoulProfileRevision, loaded: ReadSoulProfileRevisionsResult): boolean {
+  const legacyRecordIds = new Set(loaded.legacy_record_ids);
+  return (
+    revision.clauses.length > 0 &&
+    revision.clauses.every(
+      (clause) =>
+        clause.provenance_record_ids.length > 0 &&
+        clause.provenance_record_ids.every((recordId) => legacyRecordIds.has(recordId))
+    )
+  );
+}
+
+function soulItems(
+  status: SoulProfileStatus,
+  loaded: ReadSoulProfileRevisionsResult,
+  projectId: string | undefined
+): DashboardSoulItem[] {
+  const selectedRevisionIds = new Set(status.compilation.selected_revision_ids);
+  if (selectedRevisionIds.size === 0) return [];
+
+  const portableRevisionIds = new Set([
+    ...loaded.personal_sync_revision_ids,
+    ...loaded.revisions
+      .filter((revision) => isLegacyPortableRevision(revision, loaded))
+      .map((revision) => revision.revision_id)
+  ]);
+  const portableRevisions = loaded.revisions.filter((revision) => portableRevisionIds.has(revision.revision_id));
+  const revisionsById = new Map(portableRevisions.map((revision) => [revision.revision_id, revision]));
+  const profileSelectionByRevisionId = new Map(
+    status.profiles.flatMap((profile) =>
+      profile.active_revision_id ? [[profile.active_revision_id, profile.selection_status] as const] : []
+    )
+  );
+  const effective = compileEffectiveSoul({
+    revisions: portableRevisions,
+    project_id: projectId,
+    allowed_distributions: ["personal_sync"]
+  });
+
+  return effective.clauses
+    .filter(
+      (clause) =>
+        clause.distribution === "personal_sync" &&
+        selectedRevisionIds.has(clause.revision_id) &&
+        portableRevisionIds.has(clause.revision_id) &&
+        (clause.scope.kind === "global" || (projectId !== undefined && clause.scope.project_id === projectId))
+    )
+    .map((clause) => {
+      const selection = profileSelectionByRevisionId.get(clause.revision_id);
+      const revision = revisionsById.get(clause.revision_id)!;
+      return {
+        text: clause.text,
+        category: clause.category,
+        scope: clause.scope,
+        subject: revision.subject,
+        status: selection === "using_last_known_good" ? "using_last_known_good" : "in_use",
+        distribution: "personal_sync" as const
+      };
+    });
+}
+
 export async function buildDashboardSoulStudio(
   storePath: string,
   options: Pick<BuildDashboardV04Options, "project_id">
 ): Promise<DashboardSoulStudio> {
-  const [status, compilationReceipts] = await Promise.all([
+  const [status, compilationReceipts, current] = await Promise.all([
     readSoulProfileStatus(storePath, { project_id: options.project_id }),
-    listCompilationReceipts(storePath)
+    listCompilationReceipts(storePath),
+    readCurrentRecords(storePath)
   ]);
+  const portable = await readSoulProfileRevisions(storePath, {
+    records: current.records.filter((record) => !isPrivateMemoryBoundary(record)),
+    include_legacy_private: false,
+    include_local_projections: false
+  });
   const profiles = status.profiles.map((profile) => soulProfile(profile, status));
   const revisions = profiles.flatMap((profile) => profile.revisions);
   const currentCompilation = compilationReceipts.find(
@@ -588,6 +677,7 @@ export async function buildDashboardSoulStudio(
       local_saved: revisions.filter((revision) => revision.local_saved).length,
       personal_sync_saved: revisions.filter((revision) => revision.personal_sync_saved).length
     },
+    items: soulItems(status, portable, options.project_id),
     profiles,
     compilation: {
       status: status.compilation.status,
@@ -628,6 +718,7 @@ export async function buildDashboardSoulStudio(
     },
     privacy: {
       clause_payloads_exposed: false,
+      personal_sync_clause_text_exposed: true,
       local_only_clause_text_exposed: false,
       receipt_payloads: "metadata_only"
     }

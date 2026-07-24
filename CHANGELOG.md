@@ -37,9 +37,24 @@ memory.
   acknowledgment, or model obedience.
 - Read-only Dashboard Memory Maintenance and Soul Studio projections, plus CLI,
   MCP, operation-contract, and public TypeScript surfaces for v0.4 workflows.
+- A content-bearing Dashboard memory-status projection that separates current,
+  historical, quarantined, pending-learning, and organized-old-version content,
+  plus an allowlisted Collaboration Preferences view for selected
+  `personal_sync` Soul text.
 - Cross-process store-state leases around append, derived-view, compaction, and
   Git transactions. Soul Git receipts bind exact pushed/pulled commits, event
   blobs, projection digests, and the effective fetch or push remote identity.
+
+### Changed
+
+- Dashboard Overview, charts, saved-content search, learning status, and
+  organization status now share the current-project-plus-global scope. Learning
+  Inbox candidates no longer count as absorbed conclusions, compaction is shown
+  as concrete old/current text instead of a percentage, and search reports its
+  total scope and lifecycle breakdown.
+- Collaboration Preferences is a first-class Dashboard view. It renders only
+  selected portable text; `local_only`, private, and other-project Soul content
+  remains excluded even when ordinary private records are explicitly enabled.
 
 ### Safety and compatibility
 

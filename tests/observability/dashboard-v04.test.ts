@@ -20,7 +20,7 @@ import {
   buildDashboardSoulStudio,
   type DashboardCompactionPlanPreview
 } from "../../src/observability/dashboard-v04.js";
-import { renderMemoryMaintenance } from "../../src/observability/dashboard-v04-workspace.js";
+import { renderMemoryMaintenance, renderSoulStudio } from "../../src/observability/dashboard-v04-workspace.js";
 import { withTempStore } from "../helpers/temp-store.js";
 
 function record(input: {
@@ -557,6 +557,7 @@ describe("v0.4 dashboard projections", () => {
       expect(data.soul_studio).toMatchObject({
         read_only: true,
         summary: { profiles: 1, active: 2, conflicted: 0, personal_sync_saved: 0 },
+        items: [],
         compilation: {
           status: "ready",
           deliverable: true,
@@ -565,6 +566,7 @@ describe("v0.4 dashboard projections", () => {
         delivery: { host_context_prepared: true, current_receipts: 1 },
         privacy: {
           clause_payloads_exposed: false,
+          personal_sync_clause_text_exposed: true,
           local_only_clause_text_exposed: false,
           receipt_payloads: "metadata_only"
         }
@@ -583,9 +585,182 @@ describe("v0.4 dashboard projections", () => {
       expect(html).toContain("Collaboration preferences");
       expect(html).toContain('data-i18n-zh="协作偏好"');
       expect(html).toContain("approved preference version");
-      expect(html).toContain("Preference text stays private.");
+      expect(html).toContain("Only portable preferences in use are shown.");
+      expect(html).toContain('<details class="v04-section v04-soul-disclosure" data-soul-studio open>');
       expect(html).not.toContain(privateClause);
       expect(html).not.toContain(nextPrivateClause);
+    });
+  });
+
+  it("shows selected portable preference text while hiding local-only and other-project clauses", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-07-20T00:00:00.000Z",
+        id: () => "device_dashboard_safe_soul"
+      });
+      const globalText = "Use concise, concrete explanations across projects.";
+      const currentProjectText = "For Moryn, explain memory behavior in user-facing language.";
+      const otherProjectText = "OTHER_PROJECT_SOUL_TEXT_MUST_NOT_APPEAR";
+      const localOnlyText = "LOCAL_ONLY_SOUL_TEXT_MUST_NOT_APPEAR_EVEN_WITH_PRIVATE_ACCESS";
+      const source = { client: "user", device_id: "device_dashboard_safe_soul" };
+      const draft = await createSoulProfileDraft(storePath, {
+        subject: { kind: "user", subject_id: "default", display_name: "Owner" },
+        clauses: [
+          {
+            clause_key: "portable-global-style",
+            category: "communication",
+            text: globalText,
+            scope: { kind: "global" },
+            distribution: "personal_sync"
+          },
+          {
+            clause_key: "portable-moryn-style",
+            category: "collaboration",
+            text: currentProjectText,
+            scope: { kind: "project", project_id: "moryn" },
+            distribution: "personal_sync"
+          },
+          {
+            clause_key: "portable-other-style",
+            category: "decision_style",
+            text: otherProjectText,
+            scope: { kind: "project", project_id: "other-project" },
+            distribution: "personal_sync"
+          },
+          {
+            clause_key: "device-only-style",
+            category: "boundary",
+            text: localOnlyText,
+            scope: { kind: "project", project_id: "moryn" },
+            distribution: "local_only",
+            mandatory: true
+          }
+        ],
+        source,
+        occurred_at: "2026-07-20T00:01:00.000Z"
+      });
+      await approveSoulProfileDraft(storePath, {
+        revision_id: draft.revision.revision_id,
+        confirmed: true,
+        source,
+        occurred_at: "2026-07-20T00:02:00.000Z"
+      });
+
+      const moryn = await buildDashboardSoulStudio(storePath, { project_id: "moryn" });
+      expect(moryn.items).toEqual([
+        {
+          text: currentProjectText,
+          category: "collaboration",
+          scope: { kind: "project", project_id: "moryn" },
+          subject: { kind: "user", subject_id: "default", display_name: "Owner" },
+          status: "in_use",
+          distribution: "personal_sync"
+        },
+        {
+          text: globalText,
+          category: "communication",
+          scope: { kind: "global" },
+          subject: { kind: "user", subject_id: "default", display_name: "Owner" },
+          status: "in_use",
+          distribution: "personal_sync"
+        }
+      ]);
+      expect(JSON.stringify(moryn)).not.toContain(localOnlyText);
+      expect(JSON.stringify(moryn)).not.toContain(otherProjectText);
+
+      const otherProject = await buildDashboardSoulStudio(storePath, { project_id: "other-project" });
+      expect(otherProject.items.map((item) => item.text)).toEqual([otherProjectText, globalText]);
+      expect(JSON.stringify(otherProject)).not.toContain(currentProjectText);
+      expect(JSON.stringify(otherProject)).not.toContain(localOnlyText);
+
+      const storeScope = await buildDashboardSoulStudio(storePath, {});
+      expect(storeScope.items.map((item) => item.text)).toEqual([globalText]);
+      expect(JSON.stringify(storeScope)).not.toContain(currentProjectText);
+      expect(JSON.stringify(storeScope)).not.toContain(otherProjectText);
+      expect(JSON.stringify(storeScope)).not.toContain(localOnlyText);
+
+      const included = await buildDashboardData(storePath, {
+        project_id: "moryn",
+        include_private: true,
+        now: "2026-07-20T00:03:00.000Z"
+      });
+      const serialized = JSON.stringify(included);
+      const html = renderDashboardHtml(included);
+      expect(serialized).toContain(globalText);
+      expect(serialized).toContain(currentProjectText);
+      expect(serialized).not.toContain(otherProjectText);
+      expect(serialized).not.toContain(localOnlyText);
+      expect(html).toContain(globalText);
+      expect(html).toContain(currentProjectText);
+      expect(html).not.toContain(otherProjectText);
+      expect(html).not.toContain(localOnlyText);
+      expect(html.indexOf(currentProjectText)).toBeLessThan(html.indexOf("data-v04-soul-diagnostics"));
+      expect(html).toContain('data-i18n-zh="正在使用"');
+      expect(html).toContain('data-i18n-zh="适用于项目 moryn"');
+    });
+  });
+
+  it("renders validated public legacy Soul text without opening the generic Soul record lane", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-07-20T00:00:00.000Z",
+        id: () => "device_dashboard_legacy_soul"
+      });
+      const portableText = "Keep legacy portable preferences visible to their owner.";
+      const privateText = "PRIVATE_LEGACY_SOUL_TEXT_MUST_NOT_APPEAR";
+      const publicLegacy = record({
+        id: "rec_legacy_portable_soul",
+        kind: "soul",
+        type: "preference",
+        scope: "global",
+        state: "canonical",
+        content: { format: "text", text: portableText }
+      });
+      const privateLegacy: MorynRecord = {
+        ...record({
+          id: "rec_legacy_private_soul",
+          kind: "soul",
+          type: "preference",
+          scope: "global",
+          state: "canonical",
+          content: { format: "text", text: privateText, distribution: "local_only" }
+        }),
+        tags: ["private"]
+      };
+      for (const item of [publicLegacy, privateLegacy]) {
+        await appendEventIfAbsent(storePath, {
+          event_id: `evt_${item.id}`,
+          op: "upsert_record",
+          record: item,
+          created_at: item.created_at,
+          source: item.source
+        });
+      }
+      await rebuildDerivedViews(storePath);
+
+      const studio = await buildDashboardSoulStudio(storePath, { project_id: "moryn" });
+      expect(studio.items).toEqual([
+        expect.objectContaining({
+          text: portableText,
+          category: "collaboration",
+          scope: { kind: "global" },
+          status: "in_use",
+          distribution: "personal_sync"
+        })
+      ]);
+      expect(JSON.stringify(studio)).not.toContain(privateText);
+      const studioHtml = renderSoulStudio(studio);
+      expect(studioHtml).toContain(portableText);
+      expect(studioHtml).not.toContain(privateText);
+
+      const dashboard = await buildDashboardData(storePath, {
+        project_id: "moryn",
+        include_private: true,
+        now: "2026-07-20T00:03:00.000Z"
+      });
+      expect(dashboard.all_records.some((item) => item.kind === "soul")).toBe(false);
+      expect(JSON.stringify(dashboard)).toContain(portableText);
+      expect(JSON.stringify(dashboard)).not.toContain(privateText);
     });
   });
 
@@ -664,6 +839,14 @@ describe("v0.4 dashboard projections", () => {
           ...[left.revision.revision_id, right.revision.revision_id].sort(),
           base.revision.revision_id
         ]);
+        expect(studio.items).toEqual([
+          expect.objectContaining({
+            text: "Use the shared approved tone.",
+            status: "using_last_known_good",
+            distribution: "personal_sync"
+          })
+        ]);
+        expect(renderSoulStudio(studio)).toContain('data-i18n-zh="使用上一个安全版本"');
       });
     });
   });

@@ -1613,9 +1613,23 @@ uses the read-only, paginated `GET /api/memory/search` route when the user types
 a query or chooses a content type. Server-side search scans the complete
 privacy-filtered Memory scope, so older visible records remain searchable
 without asking the user to run a CLI command. The route accepts `q`, `kind`,
-`offset`, and `limit` (capped at 50), and returns `total_matches`, `has_more`,
-and record summaries. A static snapshot explains that its embedded results are
-bounded and points to the live Dashboard for older content.
+`offset`, and `limit` (capped at 50), and returns the selected `scope`, the
+complete visible `breakdown` (`usable`, `history`, and `quarantined`),
+`total_visible`, `total_matches`, page-local `returned`, `has_more`, and record
+summaries. The Memory heading uses the same current-project-plus-global scope
+as Overview and spells out current, organized-old-version, history, and
+set-aside counts, so the library total is no longer confused with the current
+working set. A static snapshot explains that its embedded results are bounded
+and points to the live Dashboard for older content.
+
+`/api/dashboard.memory_status` is the content-bearing, human-facing status
+projection. It excludes other projects, separates pending Learning Inbox items
+from conclusions already absorbed into normal memory, and groups every hidden
+duplicate/revised/superseded record under the current conclusion that replaced
+it. Overview drawers render those concrete texts; record IDs, paths, and
+commands remain under Advanced details. The UI reports counts such as “3 older
+versions tucked away,” not a compaction percentage, because 100% compaction is
+not a memory-quality goal.
 
 The History view uses the same drawer. An event row shows the bounded content
 saved by that event or the fields it changed, its outcome and reason when
@@ -1694,13 +1708,15 @@ coverage. The renderer obtains preview text only from authorized
 Git history. To inspect deeper rollup lineage, use the separate read-only
 `moryn memory expand <record_id>` or MCP `memory_expand` surface.
 
-### Collaboration Preferences (Soul Studio Internals)
+### Collaboration Preferences
 
-The default Memory view calls this section **Collaboration preferences**. Its
-closed summary answers whether an approved version is in use, whether versions
-conflict, and whether optional preferences were omitted from the current
-context. Raw compilation status, revision IDs, receipt state, Host vocabulary,
-and rollback metadata stay in a second closed advanced-details disclosure.
+The top-level **Collaboration preferences** view shows how the user wants
+supported assistants to work with them. Its open content area renders the
+concrete, currently selected `personal_sync` preference text together with a
+human-readable category, applicable scope, and “in use” or “using last safe
+version” status. Raw compilation status, revision IDs, receipt state, Host
+vocabulary, and rollback metadata stay in a closed advanced-details
+disclosure.
 
 `/api/dashboard.soul_studio` reports metadata for User Soul and Agent Persona:
 
@@ -1716,22 +1732,28 @@ and rollback metadata stay in a second closed advanced-details disclosure.
 - current Codex/Claude hook-preparation receipt count and latest host/event
   metadata, including `host_context_prepared`;
 - confirmed rollback availability and eligible prior revision ids.
+- `items[]`, an allowlisted projection containing only selected portable
+  preference text, category, global/current-project scope, subject label, and
+  user-facing effective status.
 
-Soul Studio deliberately has no clause-body field. A `local_only` clause stays
-in ignored local state and never enters Dashboard JSON, Dashboard HTML, Memory
-Search, or a synchronized Soul projection. Legacy `kind: soul` records are also
-excluded from the generic Dashboard content and event lanes, so an untagged
-legacy clause cannot bypass this rule. `--include-private` authorizes the
-ordinary tagged-record read boundary; it does not authorize rendering
-`local_only` Soul clauses or any other Soul clause body. Mixed revisions expose
-only metadata here, even when their local full projection is used to compute
-status.
+The safe text projection is independent from generic records. A `local_only`
+clause stays in ignored local state and never enters Dashboard JSON, Dashboard
+HTML, Memory Search, or a synchronized Soul projection. Generic `kind: soul`
+records remain excluded from ordinary content, events, maintenance, and search.
+A validated legacy clause can appear only through the dedicated Soul projection
+after it passes the normal private boundary, is converted as `personal_sync`,
+is selected by Effective Soul, and matches global or the current project scope.
+`--include-private` authorizes the ordinary tagged-record read boundary; it does
+not authorize rendering `local_only` Soul clauses. Mixed revisions expose only
+their selected `personal_sync` items; local-full overlays are not read by this
+projection.
 
 Compilation, approval, and hook-preparation receipts are shown as metadata only.
 Remote-stage receipt IDs refer to ignored `state/soul-sync/` integrity receipts;
 they are created from exact Git event blobs after a successful push or a
 rebuilt-and-verified pull, not inferred from `personal_sync_saved`. Raw remote
-URLs and clause bodies are never included.
+URLs, raw projection envelopes, receipt payloads, and local-only clause bodies
+are never included.
 The booleans report the presence of any retained valid receipt for that
 revision, which can be historical or belong to a previously configured remote;
 they are not a live assertion about the current `origin/main`.

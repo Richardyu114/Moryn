@@ -42,6 +42,7 @@ import {
   type DashboardMaintenanceData,
   type DashboardMaintenancePlan
 } from "./dashboard-maintenance.js";
+import { buildDashboardMemoryStatus } from "./dashboard-memory-status.js";
 import { buildDashboardV04Data, type DashboardMemoryMaintenance, type DashboardSoulStudio } from "./dashboard-v04.js";
 import { dashboardWorkspaceCss } from "./dashboard-workspace.css.js";
 import { renderDashboardWorkspace, renderMemorySearch } from "./dashboard-workspace.js";
@@ -150,6 +151,7 @@ export const DASHBOARD_SELECTION_SOURCES = {
   decision_summary: "decision_summary",
   charts: "charts",
   totals: "totals",
+  memory_status: "memory_status",
   action: "actions_by_id.<action_id>",
   action_id: "actions_by_id.<action_id>.action_id",
   capture_inbox: "capture_inbox",
@@ -206,6 +208,43 @@ export interface DashboardRecordSummary {
   updated_at: string;
   text: string;
   citation: DashboardRecordCitation;
+}
+
+export interface DashboardMemoryStatusView {
+  scope: {
+    mode: "store" | "project";
+    project_id?: string;
+    includes_global: true;
+  };
+  summary: {
+    saved_total: number;
+    current_total: number;
+    history_total: number;
+    quarantined_total: number;
+    organized_total: number;
+    conflict_total: number;
+  };
+  learning: {
+    absorbed_total: number;
+    canonical_total: number;
+    candidate_total: number;
+    pending_total: number;
+    absorbed_records: DashboardRecordSummary[];
+    pending_records: DashboardRecordSummary[];
+  };
+  organization: {
+    hidden_total: number;
+    group_total: number;
+    groups: Array<{
+      current: DashboardRecordSummary;
+      older: Array<{
+        record: DashboardRecordSummary;
+        relationship: "duplicate_of" | "supersedes" | "revises";
+      }>;
+    }>;
+  };
+  recent_current_records: DashboardRecordSummary[];
+  conflict_records: DashboardRecordSummary[];
 }
 
 export interface DashboardEventSummary {
@@ -872,6 +911,7 @@ export interface DashboardData {
   decision_summary: DashboardDecisionSummary;
   charts: DashboardCharts;
   memory_inventory: DashboardMemoryInventory;
+  memory_status: DashboardMemoryStatusView;
   totals: {
     events: number;
     records: number;
@@ -3555,11 +3595,17 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
   );
   const visibleEvents = events.filter((event) => eventEndpointsAreVisible(event, eventVisibleRecordIds));
   const eventsByRecord = latestEventsByRecord(visibleEvents);
+  const memoryStatusProjection = buildDashboardMemoryStatus(records, options.project_id);
+  const scopedRecordIds = new Set(memoryStatusProjection.scoped_records.map((record) => record.id));
+  const scopedVisibleEvents = visibleEvents.filter((event) => eventEndpointsAreVisible(event, scopedRecordIds));
   const allRecordsSorted = [...records].sort(
     (left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id)
   );
-  const recentRecords = allRecordsSorted.slice(0, limit);
-  const recentEvents = [...visibleEvents]
+  const scopedRecordsSorted = [...memoryStatusProjection.scoped_records].sort(
+    (left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id)
+  );
+  const recentRecords = scopedRecordsSorted.slice(0, limit);
+  const recentEvents = [...scopedVisibleEvents]
     .sort(
       (left, right) => right.created_at.localeCompare(left.created_at) || left.event_id.localeCompare(right.event_id)
     )
@@ -3589,7 +3635,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
         last_seen_at: latestActivationReceipt.created_at
       }
     : { status: "not_installed" as const, host: "unknown" as const };
-  const semanticLinkEvents = visibleEvents.filter(
+  const semanticLinkEvents = scopedVisibleEvents.filter(
     (event) => event.op === "link_records" && event.event_id.startsWith("evt_semantic_consolidation_")
   );
   const semanticLinkKeys = new Set(
@@ -3597,7 +3643,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
       event.op === "link_records" ? `${event.record_id}\u0000${event.linked_record_id}\u0000${event.link_type}` : ""
     )
   );
-  const checkpointProposals = records.flatMap((record) => {
+  const checkpointProposals = memoryStatusProjection.scoped_records.flatMap((record) => {
     const checkpoint = record.content.checkpoint;
     if (!checkpoint || typeof checkpoint !== "object" || Array.isArray(checkpoint)) return [];
     const proposals = (checkpoint as Record<string, unknown>).semantic_consolidation_proposals;
@@ -3614,7 +3660,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
       )
   ).length;
   const investigationsById = new Map<string, Record<string, unknown>>();
-  for (const record of [...records].sort(
+  for (const record of [...memoryStatusProjection.scoped_records].sort(
     (left, right) => left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id)
   )) {
     const checkpoint = record.content.checkpoint;
@@ -3629,9 +3675,14 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     }
   }
   const knowledgeInvestigations = [...investigationsById.values()];
-  const learnedRecords = records.filter((record) => record.tags.includes("learning"));
+  const learnedRecords = memoryStatusProjection.absorbed_learning_records;
   const sync = await getGitSyncStatus(storePath);
-  const agentActivity = summarizeAgentActivity(visibleEvents, records, recordsById, eventsByRecord);
+  const agentActivity = summarizeAgentActivity(
+    scopedVisibleEvents,
+    memoryStatusProjection.scoped_records,
+    recordsById,
+    eventsByRecord
+  );
   const lifecycleAllRecords = dashboardContentRecords.filter((record) =>
     recordProjectMatchesDashboard(record, options.project_id)
   );
@@ -3728,7 +3779,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     now: generatedAt,
     visible_record_ids: memoryMaintenanceVisibleRecordIds
   });
-  const workingSetReport = summarizeWorkingSet(records, visibleEvents);
+  const workingSetReport = summarizeWorkingSet(memoryStatusProjection.scoped_records, scopedVisibleEvents);
   const actions = dashboardActions({
     captureInbox: captureInboxData,
     capturePolicy: capturePolicyData,
@@ -3758,7 +3809,53 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     sync,
     health
   });
-  const memoryInventory = buildMemoryInventory(records);
+  const memoryInventory = buildMemoryInventory(memoryStatusProjection.scoped_records);
+  const summarizeMemoryStatusRecords = (statusRecords: readonly MorynRecord[]) =>
+    [...statusRecords]
+      .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id))
+      .map((record) => summarizeRecord(record, eventsByRecord));
+  const memoryStatus: DashboardMemoryStatusView = {
+    scope: {
+      mode: options.project_id ? "project" : "store",
+      ...(options.project_id ? { project_id: options.project_id } : {}),
+      includes_global: true
+    },
+    summary: {
+      saved_total: memoryStatusProjection.scoped_records.length,
+      current_total: memoryStatusProjection.logical_active_records.length,
+      history_total: memoryStatusProjection.history_records.length,
+      quarantined_total: memoryStatusProjection.quarantined_records.length,
+      organized_total: Object.keys(memoryStatusProjection.logical_hidden_by_record_id).length,
+      conflict_total: memoryStatusProjection.logical_conflict_record_ids.length
+    },
+    learning: {
+      absorbed_total: memoryStatusProjection.absorbed_learning_records.length,
+      canonical_total: memoryStatusProjection.absorbed_learning_records.filter((record) => record.state === "canonical")
+        .length,
+      candidate_total: memoryStatusProjection.absorbed_learning_records.filter((record) => record.state === "candidate")
+        .length,
+      pending_total: memoryStatusProjection.pending_learning_inbox_records.length,
+      absorbed_records: summarizeMemoryStatusRecords(memoryStatusProjection.absorbed_learning_records),
+      pending_records: summarizeMemoryStatusRecords(memoryStatusProjection.pending_learning_inbox_records)
+    },
+    organization: {
+      hidden_total: Object.keys(memoryStatusProjection.logical_hidden_by_record_id).length,
+      group_total: memoryStatusProjection.organization_groups.length,
+      groups: memoryStatusProjection.organization_groups.map((group) => ({
+        current: summarizeRecord(group.current_record, eventsByRecord),
+        older: group.older_records.map((older) => ({
+          record: summarizeRecord(older.record, eventsByRecord),
+          relationship: older.relationship
+        }))
+      }))
+    },
+    recent_current_records: summarizeMemoryStatusRecords(memoryStatusProjection.logical_active_records).slice(0, 12),
+    conflict_records: summarizeMemoryStatusRecords(
+      memoryStatusProjection.scoped_records.filter((record) =>
+        memoryStatusProjection.logical_conflict_record_ids.includes(record.id)
+      )
+    )
+  };
   const dashboardOverviewData = buildDashboardOverview({
     actionBoard: actionBoardData,
     health,
@@ -3779,14 +3876,15 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     typeof (checkpointContent as Record<string, unknown>).current_task === "string"
       ? ((checkpointContent as Record<string, unknown>).current_task as string)
       : undefined;
+  const sessionSynthesisRecords = memoryStatusProjection.scoped_records;
   const sessionSynthesis = {
-    host_authored: records.filter(
+    host_authored: sessionSynthesisRecords.filter(
       (record) => record.kind === "session_summary" && record.content.synthesis_mode === "host_authored"
     ).length,
-    evidence_synthesized: records.filter(
+    evidence_synthesized: sessionSynthesisRecords.filter(
       (record) => record.kind === "session_summary" && record.content.synthesis_mode === "evidence_synthesized"
     ).length,
-    minimal_fallback: records.filter(
+    minimal_fallback: sessionSynthesisRecords.filter(
       (record) => record.kind === "session_summary" && record.content.synthesis_mode === "minimal_fallback"
     ).length
   };
@@ -3845,12 +3943,13 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     decision_summary: decisionSummaryData,
     charts: {
       agent_activity: buildAgentChart(agentActivity, generatedAt),
-      activity_trend: buildActivityTrendChart(records, generatedAt),
-      memory_states: buildMemoryStateChart(records),
-      record_types: buildRecordTypeChart(records),
+      activity_trend: buildActivityTrendChart(memoryStatusProjection.scoped_records, generatedAt),
+      memory_states: buildMemoryStateChart(memoryStatusProjection.scoped_records),
+      record_types: buildRecordTypeChart(memoryStatusProjection.scoped_records),
       sync_position: buildSyncPositionChart(sync)
     },
     memory_inventory: memoryInventory,
+    memory_status: memoryStatus,
     totals: {
       events: visibleEvents.length,
       records: records.length,
@@ -3863,12 +3962,21 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
       hidden_logical_records: Object.keys(logicalView.hidden_by_record_id).length,
       conflict_records: logicalView.conflict_record_ids.length,
       cycle_findings: logicalView.findings.length,
-      learned_records: records.filter((record) => record.tags.includes("learning")).length,
+      learned_records: records.filter(
+        (record) =>
+          record.tags.includes("learning") && !(record.kind === "agent_note" && record.type === "learning_inbox")
+      ).length,
       learned_canonical_records: records.filter(
-        (record) => record.tags.includes("learning") && record.state === "canonical"
+        (record) =>
+          record.tags.includes("learning") &&
+          !(record.kind === "agent_note" && record.type === "learning_inbox") &&
+          record.state === "canonical"
       ).length,
       learned_candidate_records: records.filter(
-        (record) => record.tags.includes("learning") && record.state === "candidate"
+        (record) =>
+          record.tags.includes("learning") &&
+          !(record.kind === "agent_note" && record.type === "learning_inbox") &&
+          record.state === "candidate"
       ).length,
       learning_evidence_links: records.reduce(
         (count, record) =>
@@ -3902,19 +4010,16 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
       memory_flow: {
         store_events: workingSetReport.total_events,
         store_records: workingSetReport.total_records,
-        active_working_set_records: workingSetReport.active_logical_records,
-        hidden_logical_records:
-          workingSetReport.hidden_duplicate_records +
-          workingSetReport.hidden_superseded_records +
-          workingSetReport.hidden_revised_records,
+        active_working_set_records: memoryStatus.summary.current_total,
+        hidden_logical_records: memoryStatus.summary.organized_total,
         hidden_duplicate_records: workingSetReport.hidden_duplicate_records,
         hidden_superseded_records: workingSetReport.hidden_superseded_records,
         hidden_revised_records: workingSetReport.hidden_revised_records,
-        conflict_records: workingSetReport.conflict_records,
+        conflict_records: memoryStatus.summary.conflict_total,
         cycle_findings: workingSetReport.cycle_findings,
         default_boot_records: workingSetReport.default_boot_records,
         compaction_ratio: workingSetReport.compaction_ratio,
-        learned_records: records.filter((record) => record.tags.includes("learning")).length,
+        learned_records: memoryStatus.learning.absorbed_total,
         semantic_equivalent_links: semanticLinkEvents.filter(
           (event) => event.op === "link_records" && event.link_type === "duplicate_of"
         ).length,
@@ -3963,8 +4068,18 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     memory_maintenance: dashboardV04Data.memory_maintenance,
     soul_studio: dashboardV04Data.soul_studio,
     dogfood_report: dogfoodReportData,
-    stored_content_preview: buildStoredContentPreview(records, generatedAt, 4, eventsByRecord),
-    recent_value: buildRecentValue(records, generatedAt, Math.min(limit, RECENT_VALUE_LIMIT), eventsByRecord),
+    stored_content_preview: buildStoredContentPreview(
+      memoryStatusProjection.scoped_records,
+      generatedAt,
+      4,
+      eventsByRecord
+    ),
+    recent_value: buildRecentValue(
+      memoryStatusProjection.scoped_records,
+      generatedAt,
+      Math.min(limit, RECENT_VALUE_LIMIT),
+      eventsByRecord
+    ),
     recent_records: recentRecords.map((record) => summarizeRecord(record, eventsByRecord)),
     all_records: allRecordsSorted.map((record) => summarizeRecord(record, eventsByRecord)),
     recent_events: recentEvents.map((event) => summarizeEvent(event, recordsById)),
@@ -4334,6 +4449,19 @@ function dashboardMemorySearch(data: DashboardData, searchParams: URLSearchParam
     )
   );
   const visibleRecords = memoryViewRecords(data);
+  const breakdown = visibleRecords.reduce(
+    (counts, record) => {
+      if (record.state === "canonical" || record.state === "candidate" || record.state === "raw") {
+        counts.usable += 1;
+      } else if (record.state === "archived") {
+        counts.history += 1;
+      } else {
+        counts.quarantined += 1;
+      }
+      return counts;
+    },
+    { usable: 0, history: 0, quarantined: 0 }
+  );
   const matches = visibleRecords.filter((record) => {
     if (kind && record.kind !== kind) return false;
     if (!normalizedQuery) return true;
@@ -4344,12 +4472,15 @@ function dashboardMemorySearch(data: DashboardData, searchParams: URLSearchParam
   const records = matches.slice(offset, offset + limit);
   return {
     read_only: true as const,
+    scope: data.memory_maintenance.scope,
+    breakdown,
     query,
     ...(kind ? { kind } : {}),
     total_visible: visibleRecords.length,
     total_matches: matches.length,
     offset,
     limit,
+    returned: records.length,
     has_more: offset + records.length < matches.length,
     records
   };
