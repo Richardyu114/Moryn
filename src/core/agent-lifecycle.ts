@@ -13,6 +13,7 @@ import {
 import { type ActionInterfaces, actionInterfaces } from "./action-interfaces.js";
 import { type ActionExecution, type ActionSafety, actionExecution, actionSafety } from "./action-safety.js";
 import { type AutomaticEpisodeRollupResult, runAutomaticEpisodeRollups } from "./automatic-episode-rollup.js";
+import { type AutomaticEventAuditFailureCode, runAutomaticEventAudit } from "./automatic-event-audit.js";
 import type { RecoveryPack } from "./checkpoint.js";
 import { buildCheckpointRecoveryPack } from "./checkpoint.js";
 import { activateClaudeSettings } from "./claude-activation.js";
@@ -26,6 +27,7 @@ import {
 } from "./context-delta.js";
 import { createEngine } from "./engine.js";
 import { type MorynErrorEnvelope, toErrorEnvelope } from "./errors.js";
+import { runAutomaticExactDuplicateConsolidation } from "./exact-duplicate-consolidation.js";
 import { type FinalizationAssuranceSelection, selectPriorSessionForFinalization } from "./finalization-assurance.js";
 import { type HostActivationStatus, inspectHostActivation } from "./host-activation.js";
 import { normalizeHostId } from "./host-adapter-registry.js";
@@ -101,6 +103,7 @@ export interface AgentLifecycleDeps {
   handoffPayloadFingerprint?: string;
   finalizationRecovery?: { recovery_key: string; evidence_record_ids: string[] };
   runAutomaticEpisodeRollups?: typeof runAutomaticEpisodeRollups;
+  runAutomaticEventAudit?: typeof runAutomaticEventAudit;
 }
 
 export interface AgentSessionFoldWarning {
@@ -3506,6 +3509,10 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     source: agentSource,
     occurred_at: lifecycleNow
   });
+  const exactDuplicateConsolidation = await runAutomaticExactDuplicateConsolidation(engine, {
+    project_id: project.project_id,
+    source: agentSource
+  });
   const inboxConsumption = await consumeLearningInbox(input.storePath, {
     inbox_records: pendingInbox,
     consumed_at: new Date(Date.parse(lifecycleNow) + 1).toISOString(),
@@ -3539,8 +3546,14 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     now: lifecycleNow
   });
   const shouldPush = input.push ?? projectInfo.sync_mode !== "manual";
+  const auditEvents = deps.runAutomaticEventAudit ?? runAutomaticEventAudit;
+  let automaticEventAudit: Awaited<ReturnType<typeof runAutomaticEventAudit>>;
   const sync: {
     push?: GitSyncResult;
+    push_skipped?: {
+      reason: "automatic_event_audit_failed";
+      audit_code: AutomaticEventAuditFailureCode;
+    };
     push_error?: string;
     push_error_details?: MorynErrorEnvelope["error"];
     status?: GitSyncStatus;
@@ -3548,14 +3561,32 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
 
   if (shouldPush) {
     const pushed = await trySync(() =>
-      (deps.pushGitSync ?? pushGitSync)(input.storePath, { message: `agent finish: ${project.project_id}` })
+      (deps.pushGitSync ?? pushGitSync)(
+        input.storePath,
+        { message: `agent finish: ${project.project_id}` },
+        { run_automatic_event_audit: auditEvents }
+      )
     );
     if (pushed.ok) {
-      sync.push = pushed.result;
+      automaticEventAudit = pushed.result.automatic_event_audit ?? (await auditEvents(input.storePath));
+      if (automaticEventAudit.status === "failed") {
+        sync.push_skipped = {
+          reason: "automatic_event_audit_failed",
+          audit_code: automaticEventAudit.code
+        };
+      } else {
+        sync.push = pushed.result;
+        if (!pushed.result.ok) {
+          sync.push_error = pushed.result.message ?? "Remote synchronization did not complete.";
+        }
+      }
     } else {
+      automaticEventAudit = await auditEvents(input.storePath);
       sync.push_error = pushed.error;
       sync.push_error_details = syncErrorDetails(pushed.cause);
     }
+  } else {
+    automaticEventAudit = await auditEvents(input.storePath);
   }
   sync.status = await getGitSyncStatus(input.storePath);
   const actions = finishNextActions(
@@ -3573,9 +3604,11 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     warning: record.warning,
     learning_ingestion: learningIngestion,
     learning_inbox: learningInbox,
+    exact_duplicate_consolidation: exactDuplicateConsolidation,
     semantic_consolidation: semanticConsolidation,
     session_fold: sessionFold,
     episode_rollup: episodeRollup,
+    automatic_event_audit: automaticEventAudit,
     sync,
     next: {
       recommended_start_command: "moryn agent start --project <path> --current-task <task>",

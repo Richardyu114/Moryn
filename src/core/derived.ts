@@ -2,6 +2,12 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { displayRecordText, searchableRecordText } from "./content-text.js";
+import {
+  buildEventAuditProof,
+  readRecordsSnapshotFingerprint,
+  removeEventAuditProof,
+  writeEventAuditProof
+} from "./event-audit-proof.js";
 import { buildRecordReadModel } from "./record-read-model.js";
 import { replayEvents } from "./replay.js";
 import { buildRetrievalIndex, writeRetrievalIndex } from "./retrieval-index.js";
@@ -81,8 +87,9 @@ function projectSnapshotArtifact(projectId: string): string {
 }
 
 async function writeJson(path: string, value: unknown): Promise<void> {
+  const serialized = `${JSON.stringify(value, null, 2)}\n`;
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  await writeFile(path, serialized, "utf8");
 }
 
 async function readJsonIfExists(path: string): Promise<unknown | undefined> {
@@ -126,6 +133,7 @@ export async function rebuildDerivedViews(storePath: string): Promise<RebuildRes
 }
 
 async function rebuildDerivedViewsUnlocked(storePath: string): Promise<RebuildResult> {
+  await removeEventAuditProof(storePath);
   const events = await readEvents(storePath);
   const eventFileManifest = await readEventFileManifest(storePath);
   const records = annotateSessionFoldConflicts([...replayEvents(events).values()]);
@@ -213,6 +221,20 @@ async function rebuildDerivedViewsUnlocked(storePath: string): Promise<RebuildRe
     generated_from_cursor: generatedFromCursor,
     latest_record_update: generatedFromCursor
   });
+
+  const auditProof = buildEventAuditProof({
+    events,
+    event_manifest: eventFileManifest,
+    record_count: records.length,
+    records_snapshot: await readRecordsSnapshotFingerprint(storePath)
+  });
+  try {
+    if (auditProof) await writeEventAuditProof(storePath, auditProof);
+    else await removeEventAuditProof(storePath);
+  } catch {
+    // The proof is a rebuild optimization only. Its absence forces a full audit.
+    await removeEventAuditProof(storePath).catch(() => undefined);
+  }
 
   return {
     ok: true,

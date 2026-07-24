@@ -996,6 +996,7 @@ export interface DashboardServerOptions extends DashboardOptions {
 export interface DashboardRenderOptions {
   refreshIntervalMs?: number;
   showStoredContent?: boolean;
+  memorySearchEndpoint?: string;
 }
 
 export interface DashboardServerHandle {
@@ -4298,9 +4299,65 @@ function memoryViewRecords(data: DashboardData): DashboardRecordSummary[] {
   return data.all_records.filter((record) => record.scope === "global" || record.project_id === projectId);
 }
 
+const DASHBOARD_MEMORY_SEARCH_PAGE_SIZE = 20;
+const DASHBOARD_MEMORY_SEARCH_MAX_PAGE_SIZE = 50;
+const DASHBOARD_MEMORY_SEARCH_KINDS = new Set<MorynRecord["kind"]>([
+  "memory",
+  "skill",
+  "soul",
+  "session_summary",
+  "agent_note"
+]);
+
+function boundedSearchInteger(value: string | null, fallback: number, maximum: number): number {
+  if (value === null || value.trim() === "") return fallback;
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 0) return fallback;
+  return Math.min(parsed, maximum);
+}
+
+function dashboardMemorySearch(data: DashboardData, searchParams: URLSearchParams) {
+  const query = (searchParams.get("q") ?? "").trim().slice(0, 500);
+  const normalizedQuery = query.toLocaleLowerCase();
+  const requestedKind = searchParams.get("kind");
+  const kind =
+    requestedKind && DASHBOARD_MEMORY_SEARCH_KINDS.has(requestedKind as MorynRecord["kind"])
+      ? (requestedKind as MorynRecord["kind"])
+      : undefined;
+  const offset = boundedSearchInteger(searchParams.get("offset"), 0, Number.MAX_SAFE_INTEGER);
+  const limit = Math.max(
+    1,
+    boundedSearchInteger(
+      searchParams.get("limit"),
+      DASHBOARD_MEMORY_SEARCH_PAGE_SIZE,
+      DASHBOARD_MEMORY_SEARCH_MAX_PAGE_SIZE
+    )
+  );
+  const visibleRecords = memoryViewRecords(data);
+  const matches = visibleRecords.filter((record) => {
+    if (kind && record.kind !== kind) return false;
+    if (!normalizedQuery) return true;
+    return `${record.text} ${record.kind} ${record.type} ${record.state} ${record.source.client}`
+      .toLocaleLowerCase()
+      .includes(normalizedQuery);
+  });
+  const records = matches.slice(offset, offset + limit);
+  return {
+    read_only: true as const,
+    query,
+    ...(kind ? { kind } : {}),
+    total_visible: visibleRecords.length,
+    total_matches: matches.length,
+    offset,
+    limit,
+    has_more: offset + records.length < matches.length,
+    records
+  };
+}
+
 function renderDashboardBody(
   data: DashboardData,
-  _options: Pick<DashboardRenderOptions, "showStoredContent"> = {}
+  options: Pick<DashboardRenderOptions, "showStoredContent" | "memorySearchEndpoint"> = {}
 ): string {
   const displayHealth = dashboardDisplayHealth(data);
   const healthLabelZh = dashboardHealthZh(
@@ -4308,7 +4365,7 @@ function renderDashboardBody(
     displayHealth.label
   );
   const memoryRecords = memoryViewRecords(data);
-  const memoryHtml = renderMemorySearch(data, memoryRecords);
+  const memoryHtml = renderMemorySearch(data, memoryRecords, { endpoint: options.memorySearchEndpoint });
   const historyHtml = plainHistoryTimeline(data);
   return `<div hidden aria-hidden="true"><header><span class="health-badge ${healthClass(displayHealth.status)}" ${i18nAttribute(displayHealth.label, healthLabelZh)}>${escapeHtml(displayHealth.label)}</span></header>${quietDashboardFirstScreen(data)}<span data-quiet-dashboard-end></span></div>
     ${renderDashboardWorkspace(data, {
@@ -4431,7 +4488,16 @@ function dashboardLanguageScript(): string {
         ["Remote not configured", "远端未连接"]
       ]);
       const validLanguage = (value) => value === "zh" ? "zh" : "en";
-      const selectedLanguage = () => validLanguage(localStorage.getItem(key));
+      const browserLanguage = () => {
+        const languages = Array.isArray(navigator.languages) && navigator.languages.length > 0
+          ? navigator.languages
+          : [navigator.language];
+        return languages.some((language) => /^zh(?:-|$)/i.test(language || "")) ? "zh" : "en";
+      };
+      const selectedLanguage = () => {
+        const stored = localStorage.getItem(key);
+        return stored === "en" || stored === "zh" ? stored : browserLanguage();
+      };
       const legacyTranslationScopes = "[data-dashboard-detail='attention-info-checks'], [data-reference-library-index], [data-dashboard-sync-action], [data-dashboard-detail='store-sync-details']";
       const translateStaticText = (text) => {
         if (staticTranslations.has(text)) return staticTranslations.get(text);
@@ -9966,7 +10032,10 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
   </style>
 </head>
 <body class="neutral-intelligence">
-  <main${refreshAttributes}>${renderDashboardBody(data, { showStoredContent: options.showStoredContent })}</main>
+  <main${refreshAttributes}>${renderDashboardBody(data, {
+    showStoredContent: options.showStoredContent,
+    memorySearchEndpoint: options.memorySearchEndpoint
+  })}</main>
   ${dashboardLanguageScript()}
   ${dashboardRefreshScript(options.refreshIntervalMs)}
   ${dashboardActionBoardScript()}
@@ -9991,14 +10060,18 @@ export function renderDashboardHtml(
 export function renderDashboardServerHtml(
   data: DashboardData,
   refreshIntervalMs: number,
-  options: Pick<DashboardRenderOptions, "showStoredContent"> = {}
+  options: Pick<DashboardRenderOptions, "showStoredContent" | "memorySearchEndpoint"> = {}
 ): string {
-  return renderDashboardShell(data, { refreshIntervalMs, showStoredContent: options.showStoredContent });
+  return renderDashboardShell(data, {
+    refreshIntervalMs,
+    showStoredContent: options.showStoredContent,
+    memorySearchEndpoint: options.memorySearchEndpoint ?? "api/memory/search"
+  });
 }
 
 export function renderDashboardFragment(
   data: DashboardData,
-  options: Pick<DashboardRenderOptions, "showStoredContent"> = {}
+  options: Pick<DashboardRenderOptions, "showStoredContent" | "memorySearchEndpoint"> = {}
 ): string {
   return renderDashboardBody(data, options);
 }
@@ -10546,8 +10619,19 @@ export async function startDashboardServer(
         sendResponse(
           response,
           200,
-          renderDashboardFragment(data, renderOptions),
+          renderDashboardFragment(data, { ...renderOptions, memorySearchEndpoint: "api/memory/search" }),
           "text/html; charset=utf-8",
+          includeBody
+        );
+        return;
+      }
+      if (url.pathname === "/api/memory/search") {
+        const data = await dashboardDataLoader.load();
+        sendResponse(
+          response,
+          200,
+          JSON.stringify(dashboardMemorySearch(data, url.searchParams)),
+          "application/json; charset=utf-8",
           includeBody
         );
         return;

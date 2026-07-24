@@ -19,6 +19,14 @@ import { MEMORY_LIFECYCLE_SELECTION_SOURCES } from "./core/memory-lifecycle.js";
 import { WORKING_SET_REPORT_SELECTION_SOURCES } from "./core/working-set-report.js";
 
 export type {
+  AutomaticEventAuditDependencies,
+  AutomaticEventAuditFailureCode,
+  AutomaticEventAuditFailureStage,
+  AutomaticEventAuditReceipt,
+  AutomaticEventAuditSnapshotStatus
+} from "./core/automatic-event-audit.js";
+export { runAutomaticEventAudit } from "./core/automatic-event-audit.js";
+export type {
   CheckpointInput,
   CheckpointRecoveryPackInput,
   CheckpointResult,
@@ -47,6 +55,12 @@ export {
   validateContextDelta
 } from "./core/context-delta.js";
 export { createEngine } from "./core/engine.js";
+export type {
+  AutomaticExactDuplicateConsolidationResult,
+  ExactDuplicateConsolidationGroup,
+  ExactDuplicateConsolidationReceipt
+} from "./core/exact-duplicate-consolidation.js";
+export { AUTOMATIC_EXACT_DUPLICATE_RECORD_KINDS } from "./core/exact-duplicate-consolidation.js";
 export type { FinalizationAssuranceSelection, IncomingSessionIdentity } from "./core/finalization-assurance.js";
 export { selectPriorSessionForFinalization } from "./core/finalization-assurance.js";
 export type { WorkingSetReportOptions, WorkingSetSummaryOptions } from "./core/working-set-report.js";
@@ -61,6 +75,11 @@ export type {
   ActivationReceiptInput
 } from "./core/activation-receipts.js";
 export { activationReceiptIdentity, recordActivationReceipt } from "./core/activation-receipts.js";
+export type { AutomaticEpisodeRollupRecoveryPlan } from "./core/automatic-episode-rollup-recovery.js";
+export {
+  countPrivateAutomaticEpisodeRollupRecoveryPlans,
+  readAutomaticEpisodeRollupRecoveryPlans
+} from "./core/automatic-episode-rollup-recovery.js";
 export type { ClaudeActivationResult, ClaudeSettingsMergeResult } from "./core/claude-activation.js";
 export { activateClaudeSettings, mergeClaudeSettings } from "./core/claude-activation.js";
 export { activateCodexHooks, mergeCodexHooks } from "./core/codex-activation.js";
@@ -133,6 +152,7 @@ export type {
 export {
   buildActiveLogicalMemoryView,
   compareLogicalMemoryTargets,
+  EXACT_DUPLICATE_LINK_REASON,
   LOGICAL_RELATIONSHIP_TYPES,
   logicalMemoryFingerprint,
   validateLogicalRelationship

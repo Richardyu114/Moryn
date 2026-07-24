@@ -307,6 +307,32 @@ describe("git sync adapter", () => {
     }
   });
 
+  it("skips the first remote push when initial event integrity verification fails", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-init-audit-gate-"));
+    const store = join(root, "store");
+    const remote = join(root, "remote.git");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(store, {
+        now: () => "2026-07-24T00:00:00.000Z",
+        id: () => "device_init_audit_gate"
+      });
+      const eventDirectory = join(store, "events", "device-corrupt", "2026-07");
+      await mkdir(eventDirectory, { recursive: true });
+      await writeFile(join(eventDirectory, "evt_broken.json"), "{broken", "utf8");
+
+      await expect(initializeGitSync(store, remote)).resolves.toMatchObject({
+        ok: false,
+        committed: true,
+        pushed: false,
+        automatic_event_audit: { status: "failed", code: "EVENT_SCHEMA_INVALID" }
+      });
+      expect(await remoteMainOid(remote)).toBeUndefined();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("rejects pull and push before Git sync is initialized", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-sync-unconfigured-"));
     const store = join(root, "store");
@@ -1228,6 +1254,11 @@ describe("git sync adapter", () => {
       const push = await pushGitSync(storeB, { message: "device b pushes after remote moved" });
 
       expect(push.pushed).toBe(true);
+      expect(push.automatic_event_audit).toMatchObject({
+        status: "completed",
+        event_count: 2,
+        record_count: 2
+      });
       const recallIndex = JSON.parse(await readFile(join(storeB, "indexes", "recall.json"), "utf8")) as {
         records: Array<{ text: string }>;
       };
@@ -1237,6 +1268,106 @@ describe("git sync adapter", () => {
           "Local event should survive push rebase."
         ])
       );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps a committed local event out of the remote when the final event audit fails", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-audit-gate-"));
+    const remote = join(root, "remote.git");
+    const store = join(root, "store");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(store, {
+        now: () => "2026-07-24T00:00:00.000Z",
+        id: () => "device_audit_gate"
+      });
+      await initializeGitSync(store, remote);
+      const remoteBefore = await remoteMainOid(remote);
+      const engine = createEngine({
+        storePath: store,
+        now: () => "2026-07-24T00:01:00.000Z",
+        id: (prefix) => `${prefix}_audit_gate`
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "This remains local until integrity verification succeeds." },
+        source: { client: "test", device_id: "device_audit_gate" }
+      });
+
+      const result = await pushGitSync(
+        store,
+        { message: "must stop at final audit" },
+        {
+          run_automatic_event_audit: async () => ({
+            status: "failed",
+            failure_stage: "replay",
+            code: "EVENT_REPLAY_INVALID",
+            reason: "Stored event history could not be replayed safely.",
+            event_count: 1,
+            record_count: 0,
+            snapshot_status: "not_checked"
+          })
+        }
+      );
+
+      expect(result).toMatchObject({
+        ok: false,
+        committed: true,
+        pushed: false,
+        automatic_event_audit: { status: "failed", code: "EVENT_REPLAY_INVALID" }
+      });
+      expect(await remoteMainOid(remote)).toBe(remoteBefore);
+      await expect(
+        engine.write({
+          kind: "memory",
+          type: "fact",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: "The store lease was released after the guarded skip." },
+          source: { client: "test", device_id: "device_audit_gate" }
+        })
+      ).resolves.toMatchObject({ record: { type: "fact" } });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("returns a fixed audit receipt instead of leaking a malformed event path during push", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-malformed-event-gate-"));
+    const remote = join(root, "remote.git");
+    const store = join(root, "store");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(store, {
+        now: () => "2026-07-24T00:00:00.000Z",
+        id: () => "device_malformed_gate"
+      });
+      await initializeGitSync(store, remote);
+      const remoteBefore = await remoteMainOid(remote);
+      const eventDirectory = join(store, "events", "device-corrupt", "2026-07");
+      await mkdir(eventDirectory, { recursive: true });
+      await writeFile(join(eventDirectory, "evt_broken.json"), "{broken", "utf8");
+
+      const result = await pushGitSync(store, { message: "malformed event must remain local" });
+
+      expect(result).toMatchObject({
+        ok: false,
+        committed: true,
+        pushed: false,
+        message: "Automatic event integrity verification failed; remote push was skipped.",
+        automatic_event_audit: {
+          status: "failed",
+          failure_stage: "schema",
+          code: "EVENT_SCHEMA_INVALID"
+        }
+      });
+      expect(JSON.stringify(result)).not.toContain(root);
+      expect(await remoteMainOid(remote)).toBe(remoteBefore);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

@@ -208,16 +208,22 @@ function contextSummary(data: DashboardData): { en: string; zh: string } {
     };
   if (context.checkpoint_available && context.handoff_available)
     return {
-      en: "The active task has both checkpoint and handoff protection.",
-      zh: "当前任务同时具有检查点和交接保护。"
+      en: "The latest progress and work summary are saved, so this task is ready to continue.",
+      zh: "当前工作的最新进度和总结都已保存，可随时继续。"
     };
   if (context.checkpoint_available)
-    return { en: "The active task is protected by a recent checkpoint.", zh: "当前任务已由最近的检查点保护。" };
+    return {
+      en: "The latest progress is saved, so this task is ready to continue.",
+      zh: "当前工作的最新进度已保存，可随时继续。"
+    };
   if (context.handoff_available)
-    return { en: "The active task has a recoverable handoff.", zh: "当前任务已有可恢复的交接记录。" };
+    return {
+      en: "The previous work summary is saved, so this task is ready to continue.",
+      zh: "上一段工作的总结已保存，可随时继续。"
+    };
   return {
-    en: "The active task is visible, but no checkpoint or handoff is currently available.",
-    zh: "当前任务可见，但暂时没有可用的检查点或交接记录。"
+    en: "The current task is recorded, but its latest progress has not been saved yet.",
+    zh: "当前任务已记录，但最新进度尚未保存。"
   };
 }
 
@@ -298,11 +304,11 @@ function buildDrawerItems(
   items.push(
     metricDrawer(
       "memory-active",
-      "Active knowledge",
-      "活跃知识",
+      "Ready for agents",
+      "当前可用",
       flow.active_working_set_records,
-      "The bounded working set currently available for agent context.",
-      "当前可供 Agent 上下文使用的有界工作记忆。",
+      "Memories Moryn is currently making available to agents.",
+      "Moryn 当前会提供给 Agent 参考的记忆。",
       data
     ),
     metricDrawer(
@@ -316,20 +322,20 @@ function buildDrawerItems(
     ),
     metricDrawer(
       "memory-conflicts",
-      "Material conflicts",
-      "重要冲突",
+      "Needs review",
+      "存在分歧",
       flow.conflict_records,
-      "Conflicting active memories preserved for explicit resolution.",
-      "为明确处理而保留的活跃记忆冲突。",
+      "Memories that disagree and have been kept for a careful decision.",
+      "内容有分歧的记忆会被保留，等待谨慎处理。",
       data
     ),
     metricDrawer(
       "memory-compaction",
-      "Consolidation",
-      "记忆收敛",
+      "Organized memory",
+      "已自动整理",
       `${Math.round(flow.compaction_ratio * 100)}%`,
-      "The share of logical memory hidden from the active working set through revision, supersession, or duplicate consolidation.",
-      "通过修订、替代或重复合并，从活跃工作记忆中隐藏的逻辑记忆比例。",
+      "Older or repeated versions kept out of the current view without deleting their original text.",
+      "较旧或重复版本已从当前视图中收起，原文并未删除。",
       data
     )
   );
@@ -359,8 +365,8 @@ function buildDrawerItems(
       changeSections.push({
         label_en: "Additional changes",
         label_zh: "其他变更",
-        body_en: "More changed fields are available in the event timeline command below.",
-        body_zh: "还有其他变更字段，可通过下方事件追溯命令查看。"
+        body_en: "More changed fields are available in Advanced details.",
+        body_zh: "更多变更内容可在“高级详情”中查看。"
       });
     }
     if (state) {
@@ -525,6 +531,8 @@ export interface DashboardMemorySearchEntry {
   kind: DashboardRecordSummary["kind"];
   title_en: string;
   title_zh: string;
+  state_en: string;
+  state_zh: string;
   meta_en: string;
   meta_zh: string;
   search_text: string;
@@ -546,14 +554,16 @@ function buildMemorySearchEntries(records: readonly DashboardRecordSummary[]): D
     const state = memoryStateLabelFromRecordState(record.state);
     const rawTitle = record.text || `${record.kind} · ${record.type}`;
     const title = clip(rawTitle.replace(/\s+/g, " "), 120);
-    const metaEn = `${kind.en} · ${state.en} · from ${source.en}`;
-    const metaZh = `${kind.zh} · ${state.zh} · 来源：${source.zh}`;
+    const metaEn = `${kind.en} · from ${source.en}`;
+    const metaZh = `${kind.zh} · 来源：${source.zh}`;
     return {
       id: record.id,
       drawer_id: dashboardDrawerId("record", record.id),
       kind: record.kind,
       title_en: title,
       title_zh: title,
+      state_en: state.en,
+      state_zh: state.zh,
       meta_en: metaEn,
       meta_zh: metaZh,
       search_text:
@@ -835,7 +845,7 @@ function renderImportant(records: DashboardRecordSummary[], model: DashboardWork
     .join("");
   return `<aside class="editorial-sidebar" data-editorial-sidebar="important-now">
     <div class="editorial-sidebar-heading"><div class="editorial-section-title">${i18n("Important Now", "当前重要内容")}</div></div>
-    <button type="button" class="editorial-important" data-drawer-target="context-current" aria-haspopup="dialog"><strong>${escapeHtml(model.task)}</strong><p>${i18n("Current task · continuity protected", "当前任务 · 连续性已保护")}</p></button>
+    <button type="button" class="editorial-important" data-drawer-target="context-current" aria-haspopup="dialog"><strong>${escapeHtml(model.task)}</strong><p>${i18n("Current task · latest work saved", "当前任务 · 最新进度已保存")}</p></button>
     ${recordItems || `<p>${i18n("No additional important items", "暂无其他重要内容")}</p>`}
     <div class="editorial-sync-card"><span>● </span>${i18n(model.sync_label_en, model.sync_label_zh)}</div>
   </aside>`;
@@ -938,9 +948,14 @@ function renderGlance(data: DashboardData): string {
 
 const MEMORY_SEARCH_RENDER_LIMIT = 600;
 
+export interface DashboardMemorySearchOptions {
+  endpoint?: string;
+}
+
 export function renderMemorySearch(
   data: DashboardData,
-  records: readonly DashboardRecordSummary[] = data.all_records
+  records: readonly DashboardRecordSummary[] = data.all_records,
+  options: DashboardMemorySearchOptions = {}
 ): string {
   const allEntries = buildMemorySearchEntries(records);
   if (allEntries.length === 0) {
@@ -959,14 +974,19 @@ export function renderMemorySearch(
       }
     : countLabel(entries.length);
   const cappedNotice = capped
-    ? `<p class="memory-search-capped" data-i18n-en="Showing the ${MEMORY_SEARCH_RENDER_LIMIT} most recent memories. Use the CLI (moryn recall) to search the full store." data-i18n-zh="仅显示最近 ${MEMORY_SEARCH_RENDER_LIMIT} 条记忆。要搜索完整存储，请使用命令行 moryn recall。">Showing the ${MEMORY_SEARCH_RENDER_LIMIT} most recent memories. Use the CLI (moryn recall) to search the full store.</p>`
+    ? options.endpoint
+      ? `<p class="memory-search-capped" data-memory-search-scope-note data-i18n-en="The newest ${MEMORY_SEARCH_RENDER_LIMIT} memories are ready to browse. Type a search to look across every visible saved memory." data-i18n-zh="可直接浏览最近 ${MEMORY_SEARCH_RENDER_LIMIT} 条记忆。输入搜索内容即可查找全部可见的已保存记忆。">The newest ${MEMORY_SEARCH_RENDER_LIMIT} memories are ready to browse. Type a search to look across every visible saved memory.</p>`
+      : `<p class="memory-search-capped" data-memory-search-scope-note data-i18n-en="This saved dashboard contains the ${MEMORY_SEARCH_RENDER_LIMIT} most recent memories. Open the live Dashboard to search older saved memories here." data-i18n-zh="这份 Dashboard 快照包含最近 ${MEMORY_SEARCH_RENDER_LIMIT} 条记忆。打开实时 Dashboard 后，可在此搜索更早的已保存记忆。">This saved dashboard contains the ${MEMORY_SEARCH_RENDER_LIMIT} most recent memories. Open the live Dashboard to search older saved memories here.</p>`
     : "";
   const results = entries
     .map(
       (entry) => `
         <button type="button" class="memory-result" data-memory-result data-search-text="${escapeHtml(entry.search_text)}" data-kind="${escapeHtml(entry.kind)}" data-drawer-target="${escapeHtml(entry.drawer_id)}" aria-haspopup="dialog">
-          <span class="memory-result-title" data-i18n-en="${escapeHtml(entry.title_en)}" data-i18n-zh="${escapeHtml(entry.title_zh)}">${escapeHtml(entry.title_en)}</span>
-          <span class="memory-result-meta" data-i18n-en="${escapeHtml(entry.meta_en)}" data-i18n-zh="${escapeHtml(entry.meta_zh)}">${escapeHtml(entry.meta_en)}</span>
+          <span class="memory-result-copy">
+            <span class="memory-result-title" data-i18n-en="${escapeHtml(entry.title_en)}" data-i18n-zh="${escapeHtml(entry.title_zh)}">${escapeHtml(entry.title_en)}</span>
+            <span class="memory-result-meta" data-i18n-en="${escapeHtml(entry.meta_en)}" data-i18n-zh="${escapeHtml(entry.meta_zh)}">${escapeHtml(entry.meta_en)}</span>
+          </span>
+          <span class="memory-result-state" data-i18n-en="${escapeHtml(entry.state_en)}" data-i18n-zh="${escapeHtml(entry.state_zh)}">${escapeHtml(entry.state_en)}</span>
         </button>`
     )
     .join("");
@@ -982,7 +1002,7 @@ export function renderMemorySearch(
     })
     .join("");
   return `
-    <div class="memory-search" id="saved-memory-library" data-memory-search>
+    <div class="memory-search" id="saved-memory-library" data-memory-search${options.endpoint ? ` data-memory-search-endpoint="${escapeHtml(options.endpoint)}"` : ""}>
       <div class="memory-search-heading"><div class="editorial-eyebrow">${i18n("Saved content", "已保存内容")}</div><h2>${i18n("What Moryn remembers", "Moryn 记住了什么")}</h2><p>${i18n("These are the actual saved items. Open any one to read its content and recent changes.", "下面都是实际保存的内容。点开任意一条，即可查看正文和近期变更。")}</p></div>
       <div class="memory-search-field">
         <input type="search" data-memory-search-input placeholder="Search saved memories" aria-label="Search saved memories" data-i18n-placeholder-en="Search saved memories" data-i18n-placeholder-zh="搜索已保存的记忆" data-i18n-aria-label-en="Search saved memories" data-i18n-aria-label-zh="搜索已保存的记忆">
@@ -991,43 +1011,55 @@ export function renderMemorySearch(
       <p class="memory-search-count" data-memory-search-count role="status" aria-live="polite" data-total="${entries.length}" data-i18n-en="${escapeHtml(total.en)}" data-i18n-zh="${escapeHtml(total.zh)}">${escapeHtml(total.en)}</p>
       ${cappedNotice}
       <div class="ms-results" data-memory-search-results>${results}</div>
+      <button type="button" class="memory-search-more" data-memory-search-more hidden data-i18n-en="Show more matches" data-i18n-zh="显示更多匹配项">Show more matches</button>
       <p class="memory-search-empty" data-memory-search-noresults hidden role="status" aria-live="polite" data-i18n-en="No memories match your search." data-i18n-zh="没有匹配的记忆。">No memories match your search.</p>
     </div>`;
 }
 
 function renderDrawer(drawers: DashboardDrawerItem[]): string {
+  const kindLabel = (kind: DashboardDrawerItem["kind"]): { en: string; zh: string } => {
+    if (kind === "context") return { en: "Current work", zh: "当前工作" };
+    if (kind === "memory") return { en: "Memory", zh: "记忆" };
+    if (kind === "event") return { en: "Change", zh: "变化" };
+    return { en: "Important", zh: "重要内容" };
+  };
   return `<div data-dashboard-drawer hidden>
     <aside class="editorial-drawer-panel" role="dialog" aria-modal="true" aria-label="Details" tabindex="-1">
       <div class="editorial-drawer-head"><div class="editorial-section-title">${i18n("Read-only details", "只读详情")}</div><button type="button" class="editorial-drawer-close" data-dashboard-drawer-close data-i18n-en="Close details" data-i18n-zh="关闭详情">Close details</button></div>
       ${drawers
         .map(
           (drawer) => `<section data-drawer-payload="${escapeHtml(drawer.id)}" hidden>
-        <div class="editorial-eyebrow">${i18n(drawer.kind, drawer.kind === "context" ? "上下文" : drawer.kind === "memory" ? "记忆" : drawer.kind === "event" ? "事件" : "重要内容")}</div>
+        <div class="editorial-eyebrow">${i18n(kindLabel(drawer.kind).en, kindLabel(drawer.kind).zh)}</div>
         <h2 class="editorial-drawer-title" data-i18n-en="${escapeHtml(drawer.title_en)}" data-i18n-zh="${escapeHtml(drawer.title_zh)}">${escapeHtml(drawer.title_en)}</h2>
         <p class="editorial-drawer-summary" data-i18n-en="${escapeHtml(drawer.summary_en)}" data-i18n-zh="${escapeHtml(drawer.summary_zh)}">${escapeHtml(drawer.summary_en)}</p>
         ${drawer.body_en ? `${drawer.body_label_en ? `<div class="editorial-drawer-body-label">${i18n(drawer.body_label_en, drawer.body_label_zh ?? drawer.body_label_en)}</div>` : ""}<div class="editorial-drawer-body" data-i18n-en="${escapeHtml(drawer.body_en)}" data-i18n-zh="${escapeHtml(drawer.body_zh ?? drawer.body_en)}">${escapeHtml(drawer.body_en)}</div>` : ""}
-        ${drawer.truncated ? `<p class="editorial-drawer-truncated" data-i18n-en="Content truncated — open the full memory below." data-i18n-zh="内容已截断 —— 可在下方查看完整记忆。">Content truncated — open the full memory below.</p>` : ""}
+        ${drawer.truncated ? `<p class="editorial-drawer-truncated" data-i18n-en="This long memory is shortened here. An original source link is shown below when one is available." data-i18n-zh="这条较长的记忆在此做了缩略。若有可用的原始来源，会显示在下方。">This long memory is shortened here. An original source link is shown below when one is available.</p>` : ""}
         ${(drawer.sections ?? [])
           .map(
             (section) => `<section class="editorial-drawer-content-section">
           <div class="editorial-drawer-body-label">${i18n(section.label_en, section.label_zh)}</div>
           <div class="editorial-drawer-body" data-i18n-en="${escapeHtml(section.body_en)}" data-i18n-zh="${escapeHtml(section.body_zh ?? section.body_en)}">${escapeHtml(section.body_en)}</div>
-          ${section.truncated ? `<p class="editorial-drawer-truncated" data-i18n-en="This value is shortened here. Use the trace command below for the stored event." data-i18n-zh="此处内容已缩短，可使用下方追溯命令查看已保存事件。">This value is shortened here. Use the trace command below for the stored event.</p>` : ""}
+          ${section.truncated ? `<p class="editorial-drawer-truncated" data-i18n-en="This value is shortened here. Its technical trace is available under Advanced details." data-i18n-zh="此处内容已缩短，技术追溯信息可在“高级详情”中查看。">This value is shortened here. Its technical trace is available under Advanced details.</p>` : ""}
         </section>`
           )
           .join("")}
         ${
-          drawer.github_url || drawer.recall_command || drawer.store_path
+          drawer.github_url
             ? `<div class="editorial-drawer-source">
-          <div class="editorial-section-title">${i18n("View full memory", "查看完整记忆")}</div>
+          <div class="editorial-section-title">${i18n("Original saved file", "原始保存文件")}</div>
           ${drawer.github_url ? `<a class="editorial-drawer-link" href="${escapeHtml(drawer.github_url)}" target="_blank" rel="noopener noreferrer" data-i18n-en="Open on GitHub" data-i18n-zh="在 GitHub 打开">Open on GitHub</a><small class="editorial-drawer-hint" data-i18n-en="If newly saved, it may need a sync first." data-i18n-zh="若为新记忆，可能需要先同步。">If newly saved, it may need a sync first.</small>` : ""}
-          ${drawer.recall_command ? `<div class="editorial-drawer-cmd"><span data-i18n-en="Or via CLI" data-i18n-zh="或通过 CLI">Or via CLI</span><code lang="en">${escapeHtml(drawer.recall_command)}</code></div>` : ""}
-          ${drawer.store_path ? `<div class="editorial-drawer-cmd"><span data-i18n-en="Local store" data-i18n-zh="本地存储">Local store</span><code lang="en">${escapeHtml(drawer.store_path)}</code></div>` : ""}
         </div>`
             : ""
         }
-        <dl class="editorial-drawer-meta">${drawer.metadata.map((item) => `<div><dt data-i18n-en="${escapeHtml(item.label_en)}" data-i18n-zh="${escapeHtml(item.label_zh)}">${escapeHtml(item.label_en)}</dt><dd data-i18n-en="${escapeHtml(item.value_en)}" data-i18n-zh="${escapeHtml(item.value_zh ?? item.value_en)}">${escapeHtml(item.value_en)}</dd></div>`).join("")}</dl>
-        <div class="editorial-drawer-evidence"><div class="editorial-section-title">${i18n("Evidence", "证据")}</div><p>${drawer.evidence_html}</p></div>
+        <details class="editorial-drawer-advanced">
+          <summary>${i18n("Advanced details", "高级详情")}</summary>
+          <div class="editorial-drawer-advanced-body">
+            ${drawer.recall_command ? `<div class="editorial-drawer-cmd"><span data-i18n-en="Command-line lookup" data-i18n-zh="命令行查找">Command-line lookup</span><code lang="en">${escapeHtml(drawer.recall_command)}</code></div>` : ""}
+            ${drawer.store_path ? `<div class="editorial-drawer-cmd"><span data-i18n-en="Local store path" data-i18n-zh="本地存储路径">Local store path</span><code lang="en">${escapeHtml(drawer.store_path)}</code></div>` : ""}
+            <dl class="editorial-drawer-meta">${drawer.metadata.map((item) => `<div><dt data-i18n-en="${escapeHtml(item.label_en)}" data-i18n-zh="${escapeHtml(item.label_zh)}">${escapeHtml(item.label_en)}</dt><dd data-i18n-en="${escapeHtml(item.value_en)}" data-i18n-zh="${escapeHtml(item.value_zh ?? item.value_en)}">${escapeHtml(item.value_en)}</dd></div>`).join("")}</dl>
+            <div class="editorial-drawer-evidence"><div class="editorial-section-title">${i18n("Technical evidence", "技术依据")}</div><p>${drawer.evidence_html}</p></div>
+          </div>
+        </details>
       </section>`
         )
         .join("")}
@@ -1052,7 +1084,7 @@ export function renderDashboardWorkspace(data: DashboardData, fragments: Dashboa
     <header class="editorial-header">
       <div class="editorial-brand">Moryn</div>
       <nav class="editorial-navigation" aria-label="Dashboard views">
-        <button type="button" class="editorial-nav-button" data-dashboard-nav="workspace" aria-current="page">${i18n("Workspace", "工作区")}</button>
+        <button type="button" class="editorial-nav-button" data-dashboard-nav="workspace" aria-current="page">${i18n("Overview", "概览")}</button>
         <button type="button" class="editorial-nav-button" data-dashboard-nav="memory">${i18n("Memory", "记忆")}</button>
         <button type="button" class="editorial-nav-button" data-dashboard-nav="history">${i18n("History", "历史")}</button>
       </nav>
@@ -1063,21 +1095,20 @@ export function renderDashboardWorkspace(data: DashboardData, fragments: Dashboa
         <div class="editorial-layout">
           <article class="editorial-reading-column">
             <section data-editorial-section="current-context">
-              <div class="editorial-eyebrow">${i18n("Current workspace / Moryn", "当前工作区 / Moryn")}</div>
+              <div class="editorial-eyebrow">${i18n("Current work", "当前工作")}</div>
               <button type="button" class="editorial-task-button" data-drawer-target="context-current" aria-haspopup="dialog"><h1 class="editorial-task">${escapeHtml(model.task)}</h1></button>
               <p class="editorial-lead">${i18n(contextSummary(data).en, contextSummary(data).zh)}</p>
-              <div class="editorial-context-meta"><span>${escapeHtml(model.project)}</span><span>${escapeHtml(model.agent)}</span><span>${escapeHtml(model.device)}</span><time datetime="${escapeHtml(model.generated_at)}">${escapeHtml(model.generated_at)}</time></div>
-              ${model.no_action_required ? `<div class="editorial-conclusion" data-editorial-conclusion="no-action-required"><div class="editorial-conclusion-mark">✓</div><div><strong>${i18n("No action required", "无需操作")}</strong><span>${i18n("Moryn is handling continuity in the background.", "Moryn 正在后台处理上下文连续性。")}</span></div></div>` : ""}
+              ${model.no_action_required ? `<div class="editorial-conclusion" data-editorial-conclusion="no-action-required"><div class="editorial-conclusion-mark">✓</div><div><strong>${i18n("No action required", "无需操作")}</strong><span>${i18n("Moryn has saved the latest work and is taking care of routine organization.", "Moryn 已保存最新进度，并在后台处理日常整理。")}</span></div></div>` : ""}
             </section>
             ${renderAttention(data.quiet_dashboard.attention_needed, data.decision_summary.items, data.actions_by_id, data.maintenance)}
-            <section class="editorial-section" data-editorial-section="memory-state"><div class="editorial-section-heading"><div class="editorial-section-title">${i18n("Memory State", "记忆状态")}</div><p>${i18n("A bounded view of what agents can use now", "Agent 当前可用的有界记忆视图")}</p></div><div class="editorial-memory-grid">
+            <section class="editorial-section" data-editorial-section="memory-state"><div class="editorial-section-heading"><div class="editorial-section-title">${i18n("Memory State", "记忆状态")}</div><p>${i18n("What agents can use now", "Agent 现在会参考的记忆")}</p></div><div class="editorial-memory-grid">
               ${renderMetric("memory-active", "Active", "活跃记忆", model.memory.active)}
               ${renderMetric("memory-learned", "Learned", "已学习", model.memory.learned)}
               ${renderMetric("memory-conflicts", "Conflicts", "冲突", model.memory.conflicts)}
-              ${renderMetric("memory-compaction", "Consolidated", "已收敛", compaction)}
+              ${renderMetric("memory-compaction", "Organized", "已整理", compaction)}
             </div></section>
             ${renderGlance(data)}
-            <section class="editorial-section" data-editorial-section="what-changed"><div class="editorial-section-heading"><div class="editorial-section-title">${i18n("What Changed", "近期变化")}</div><p>${i18n("The latest meaningful local events", "最新的重要本地事件")}</p></div>${renderEvents(model.recent_events)}</section>
+            <section class="editorial-section" data-editorial-section="what-changed"><div class="editorial-section-heading"><div class="editorial-section-title">${i18n("What Changed", "近期变化")}</div><p>${i18n("Recent saves and updates, in plain language", "最近保存和整理的内容变化")}</p></div>${renderEvents(model.recent_events)}</section>
           </article>
           ${renderImportant(model.important_records, model)}
         </div>

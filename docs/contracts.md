@@ -812,8 +812,8 @@ authored, project-scoped session checkpoint. Required authored fields are:
 MCP accepts `projectId`, `occurredAt`, `includePrivate`, `source.sessionId`, and
 `source.deviceId` aliases. Unknown or conflicting aliases are rejected. The
 result contains `record`, `idempotent_replay`, `committed`, `durability`,
-`derived_views_refreshed`, optional `warnings`, `recovery_pack`, and stable
-`selection_sources`.
+`derived_views_refreshed`, optional `warnings`, `recovery_pack`,
+`automatic_event_audit`, and stable `selection_sources`.
 
 Checkpoint is a local operation. It does not implicitly pull or push. Hosts must
 reuse the complete authored payload for idempotent retry. `durability` is
@@ -821,7 +821,57 @@ reuse the complete authored payload for idempotent retry. `durability` is
 the event is complete but the platform cannot confirm directory durability, and
 `failed` when durability confirmation failed after atomic publication.
 
+## Automatic Event Integrity Audit Contract
+
+Checkpoint and agent finish run a local integrity audit after their memory
+writes. A successful complete derived-view rebuild publishes a local proof that
+binds its schema-checked, duplicate-free event manifest to the
+`snapshots/records.json` file fingerprint it produced. The normal path verifies
+the proof checksum, current event-file metadata manifest, and snapshot
+fingerprint, avoiding schema parsing and replay for unchanged history. A missing,
+stale, corrupt, or mismatched proof falls back to parsing the complete event
+set, rejecting duplicate identities, replaying record references and state
+transitions, and comparing the complete deterministic record projection. A
+missing, stale, corrupt, or mismatched snapshot uses the existing derived-view
+rebuild path and must pass readback before the audit reports success.
+
+The bounded receipt contains only `completed` or `failed`, event and record
+counts, snapshot status (`fresh`, `repaired`, or `repair_failed`), and a stable
+failure code with a fixed plain-language reason. It never returns event or
+record bodies, private text, filesystem paths, or raw parser/replay errors. A
+healthy or successfully repaired result does not create a review task.
+
+Audit failure does not invalidate an already committed checkpoint or finish
+handoff. A local-only finish audits directly. When sync is requested, Git push
+owns the decisive gate while holding the store lease, after any remote rebase
+and directly before upload. When the gate fails, Moryn keeps the handoff local
+and returns
+`sync.push_skipped.reason` as
+`automatic_event_audit_failed` instead of automatically pushing an unverified
+store. This is not a timer or daemon, does not change memory records, and writes
+only derived snapshots and local integrity-proof state.
+
+Supported Moryn writers and Git updates invalidate the proof before changing
+events. The metadata manifest also detects ordinary out-of-band changes. This
+contract does not claim adversarial detection when a same-user process changes
+event bytes while deliberately preserving the corresponding filesystem
+metadata; that threat requires a content-addressed or signed store.
+
 ## Semantic Consolidation Contract
+
+Checkpoint and agent finish automatically consolidate exact duplicates only
+inside the current project's active public durable-memory set (`memory`,
+`skill`, and `soul`). Exact identity includes logical kind, type, scope,
+project, tags, and normalized content. Already-hidden or conflicted records,
+global records, private boundaries, session summaries, and agent notes are not
+eligible for this automatic pass. A successful pass appends deterministic,
+idempotent `duplicate_of` events; it never deletes or archives either source.
+Its `exact_duplicate_consolidation` receipt reports `completed` plus group/link
+counts, or `failed` plus a reason while leaving the durable checkpoint/handoff
+valid. An automatically created exact-duplicate link remains effective only
+while both records still have the same current fingerprint. Revising either
+record makes a stale exact link stop hiding it immediately; authored semantic
+`duplicate_of` links keep their existing evidence-based behavior.
 
 Semantic consolidation is an authored, bounded proposal. Moryn never uses an
 external model to decide the relationship. By default, proposals are
@@ -999,6 +1049,12 @@ Session Fold and Episode Rollup follow one transaction contract:
    individually published through the atomic append path and the complete
    expected event set was read back with exact payloads. Partial transactions
    are idempotently resumable and must not be represented as committed.
+   Automatic Episode Rollup durably publishes its complete integrity-bound plan
+   before the first child event. Subsequent safe lifecycle finalization retries
+   that persisted plan before planning the same bucket again. A failed or stale
+   recovery blocks replacement auto-apply for that bucket. Private recovery
+   plans require renewed explicit private authorization and are count-only at
+   the default public boundary.
 5. Restore is append-only: it restores source trust/visibility with new events
    and archives the derived rollup. It never edits an earlier event or erases Git
    history, and it requires the committed receipt plus retained event history.

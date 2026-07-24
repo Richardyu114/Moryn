@@ -77,6 +77,11 @@ describe("documentation contracts", () => {
     expectText(workflow, "Official side-effect hooks remain silent when no agent follow-up exists");
     expectText(
       workflow,
+      "A failed check does not undo the local checkpoint or handoff, but finish skips automatic push"
+    );
+    expectText(workflow, "it is not a background daemon and never edits memory records");
+    expectText(
+      workflow,
       "PreCompact and Claude SessionEnd conditionally inject the bounded workflow into host output only when candidate review is required"
     );
     expectText(dashboard, "Capture Inbox is a compatibility and exceptional review surface");
@@ -146,6 +151,13 @@ describe("documentation contracts", () => {
     expect(contracts).toContain("memory_compaction_apply");
     expect(contracts).toContain("memory_compaction_restore");
     expectText(contracts, "Unified apply and restore always require explicit confirmation");
+    expectText(contracts, "Checkpoint and agent finish run a local integrity audit after their memory writes");
+    expectText(
+      contracts,
+      "It never returns event or record bodies, private text, filesystem paths, or raw parser/replay errors"
+    );
+    expect(contracts).toContain("automatic_event_audit_failed");
+    expectText(contracts, "Revising either record makes a stale exact link stop hiding it immediately");
     expect(contracts).toContain("moryn memory expand <record_id>");
     expect(contracts).toContain('"tool": "memory_expand"');
     expect(contracts).toContain("moryn soul status");
@@ -278,9 +290,10 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("moryn dashboard --serve --host 0.0.0.0 --port 8765");
     expect(dashboard).toContain("GET /fragment");
     expect(dashboard).toContain("GET /api/dashboard");
+    expect(dashboard).toContain("GET /api/memory/search");
     expectText(
       dashboard,
-      "Concurrent `GET /`, `GET /fragment`, and `GET /api/dashboard` requests share the same in-flight dashboard data build"
+      "Concurrent `GET /`, `GET /fragment`, `GET /api/dashboard`, and `GET /api/memory/search` requests share the same in-flight dashboard data build"
     );
     expectText(dashboard, "After that build settles, the next read request rebuilds from the local store again");
     expect(dashboard).toContain("actions_by_id");
@@ -358,10 +371,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Memory and History are dedicated read-only views");
     expectText(dashboard, "Existing approval actions remain in Audit Details");
     expectText(dashboard, "Healthy pages do not render an Attention zero state");
-    expectText(dashboard, "top navigation switches between `Workspace`, `Memory`, and `History`");
+    expectText(dashboard, "top navigation switches between `Overview`, `Memory`, and `History`");
     expectText(dashboard, "Live refresh preserves the active top-level view, language, scroll position");
     expectText(dashboard, "drawer becomes a full-screen detail sheet");
-    expectText(dashboard, "does not add a write path to Workspace, Memory, History, or the reading drawer");
+    expectText(dashboard, "does not add a write path to Overview, Memory, History, or the reading drawer");
     expectText(dashboard, "The read-only detail pane opens with the first visible saved item");
     expectText(dashboard, "follows the first matching item after filtering");
     expectText(dashboard, "It starts with a read-first summary for `Status`, `Meaning`, `Why saved`,");

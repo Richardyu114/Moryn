@@ -2,8 +2,10 @@ import { execFile, spawn } from "node:child_process";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { type AutomaticEventAuditReceipt, runAutomaticEventAudit } from "../core/automatic-event-audit.js";
 import { readStoreConfig } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
+import { removeEventAuditProof } from "../core/event-audit-proof.js";
 import { parseEvent } from "../core/schema.js";
 import { withStoreStateLease } from "../core/state-lease.js";
 import type { MorynEvent } from "../core/types.js";
@@ -139,7 +141,12 @@ export interface GitSyncResult {
   pushed?: boolean;
   pulled?: boolean;
   message?: string;
+  automatic_event_audit?: AutomaticEventAuditReceipt;
   selection_sources: typeof SYNC_RESULT_SELECTION_SOURCES;
+}
+
+export interface PushGitSyncDependencies {
+  run_automatic_event_audit?: typeof runAutomaticEventAudit;
 }
 
 type SyncArgumentRecoveryHint =
@@ -420,6 +427,7 @@ async function writeLastSync(storePath: string, operation: GitLastSync["operatio
 async function ensureMainBranch(storePath: string): Promise<void> {
   const branch = await git(storePath, ["branch", "--show-current"]).catch(() => "");
   if (branch !== "main") {
+    await removeEventAuditProof(storePath);
     await git(storePath, ["checkout", "-B", "main"]);
   }
 }
@@ -541,6 +549,7 @@ export async function initializeGitSync(storePath: string, remoteUrl: string): P
       const remoteCommit = await fetchVerifiedRemoteMainCommit(storePath);
       if (!hasLocalCommits) {
         importedRemoteCommit = remoteCommit;
+        await removeEventAuditProof(storePath);
         await git(storePath, ["reset", "--hard", remoteCommit]);
       }
     }
@@ -552,10 +561,23 @@ export async function initializeGitSync(storePath: string, remoteUrl: string): P
     await untrackLocalOnlyPaths(storePath);
     await git(storePath, ["add", "events", ".gitignore"]);
     const shouldPushInitialCommit = !remoteMainExists;
+    let committed = false;
     if (await hasStagedChanges(storePath)) {
       await git(storePath, ["commit", "-m", "Initialize Moryn store"]);
+      committed = true;
     }
+    let automaticEventAudit: AutomaticEventAuditReceipt | undefined;
     if (shouldPushInitialCommit && (await hasCommits(storePath))) {
+      automaticEventAudit = await runAutomaticEventAudit(storePath);
+      if (automaticEventAudit.status === "failed") {
+        return withSyncResultSelectionSources({
+          ok: false,
+          committed,
+          pushed: false,
+          message: "Automatic event integrity verification failed; initial remote push was skipped.",
+          automatic_event_audit: automaticEventAudit
+        });
+      }
       await assertHistoryExcludesLocalOnlyPaths(storePath, ["HEAD"], "history selected for initial push");
       const pushedCommit = await git(storePath, ["rev-parse", "HEAD"]);
       await assertCommitTreeExcludesUnsafeEntryModes(storePath, pushedCommit, "commit selected for initial push");
@@ -572,7 +594,11 @@ export async function initializeGitSync(storePath: string, remoteUrl: string): P
       );
     }
     await writeLastSync(storePath, "init");
-    return withSyncResultSelectionSources({ ok: true, message: "Git sync initialized" });
+    return withSyncResultSelectionSources({
+      ok: true,
+      message: "Git sync initialized",
+      ...(automaticEventAudit ? { automatic_event_audit: automaticEventAudit } : {})
+    });
   });
 }
 
@@ -640,12 +666,14 @@ export async function pullGitSync(storePath: string): Promise<GitSyncResult> {
       await assertCommitTreeExcludesUnsafeEntryModes(storePath, localCommit, "local commit selected for rebase");
     }
     if (!hasLocal) {
+      await removeEventAuditProof(storePath);
       await git(storePath, ["checkout", "-B", "main", remoteCommit]);
       await rebuildLocalStateAfterGitUpdate(storePath);
       await recordPulledAndVerifiedSoulSyncReceipts(storePath, "pull", remoteIdentityDigest, remoteCommit);
       await writeLastSync(storePath, "pull");
       return withSyncResultSelectionSources({ ok: true, pulled: true });
     }
+    await removeEventAuditProof(storePath);
     await git(storePath, ["rebase", remoteCommit]);
     await rebuildLocalStateAfterGitUpdate(storePath);
     await recordPulledAndVerifiedSoulSyncReceipts(storePath, "pull", remoteIdentityDigest, remoteCommit);
@@ -654,7 +682,11 @@ export async function pullGitSync(storePath: string): Promise<GitSyncResult> {
   });
 }
 
-export async function pushGitSync(storePath: string, options: { message?: string } = {}): Promise<GitSyncResult> {
+export async function pushGitSync(
+  storePath: string,
+  options: { message?: string } = {},
+  dependencies: PushGitSyncDependencies = {}
+): Promise<GitSyncResult> {
   validateRequiredString(storePath, "storePath");
   validateSyncOptions(options);
   return withStoreStateLease(storePath, async () => {
@@ -685,10 +717,42 @@ export async function pushGitSync(storePath: string, options: { message?: string
       committed = true;
     }
 
+    let automaticEventAudit: AutomaticEventAuditReceipt | undefined;
     if (remoteCommit && pulledRemoteIdentityDigest) {
+      await removeEventAuditProof(storePath);
       await git(storePath, ["rebase", remoteCommit]);
-      await rebuildLocalStateAfterGitUpdate(storePath);
+      try {
+        await rebuildLocalStateAfterGitUpdate(storePath);
+      } catch {
+        automaticEventAudit = await (dependencies.run_automatic_event_audit ?? runAutomaticEventAudit)(storePath);
+        if (automaticEventAudit.status === "failed") {
+          return withSyncResultSelectionSources({
+            ok: false,
+            committed,
+            pushed: false,
+            message: "Automatic event integrity verification failed; remote push was skipped.",
+            automatic_event_audit: automaticEventAudit
+          });
+        }
+        return withSyncResultSelectionSources({
+          ok: false,
+          committed,
+          pushed: false,
+          message: "Local derived state could not be refreshed; remote push was skipped.",
+          automatic_event_audit: automaticEventAudit
+        });
+      }
       await recordPulledAndVerifiedSoulSyncReceipts(storePath, "pull", pulledRemoteIdentityDigest, remoteCommit);
+    }
+    automaticEventAudit ??= await (dependencies.run_automatic_event_audit ?? runAutomaticEventAudit)(storePath);
+    if (automaticEventAudit.status === "failed") {
+      return withSyncResultSelectionSources({
+        ok: false,
+        committed,
+        pushed: false,
+        message: "Automatic event integrity verification failed; remote push was skipped.",
+        automatic_event_audit: automaticEventAudit
+      });
     }
     await assertHistoryExcludesLocalOnlyPaths(storePath, ["HEAD"], "history selected for push");
     const pushedCommit = await git(storePath, ["rev-parse", "HEAD"]);
@@ -697,6 +761,11 @@ export async function pushGitSync(storePath: string, options: { message?: string
     await git(storePath, ["push", "-u", "origin", "main"]);
     await recordPushedSoulSyncReceipts(storePath, remoteIdentityDigest, pushedCommit);
     await writeLastSync(storePath, "push");
-    return withSyncResultSelectionSources({ ok: true, committed, pushed: true });
+    return withSyncResultSelectionSources({
+      ok: true,
+      committed,
+      pushed: true,
+      automatic_event_audit: automaticEventAudit
+    });
   });
 }

@@ -428,6 +428,206 @@ describe("buildCheckpointRecoveryPack", () => {
 });
 
 describe("engine.checkpoint", () => {
+  it("automatically links public project exact duplicates without touching private or operational records", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createTestEngine(storePath);
+      const durable = {
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "project-a",
+        tags: ["lifecycle"],
+        content: { text: "Checkpoint events are append-only." }
+      } as const;
+      const canonical = await engine.write({
+        ...durable,
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const duplicate = await engine.write({ ...durable, source: { client: "codex" } });
+      const privateFact = {
+        ...durable,
+        tags: ["private"],
+        content: { text: "Private checkpoint preference." }
+      } as const;
+      const privateRecords = [
+        await engine.write({ ...privateFact, source: { client: "codex" } }),
+        await engine.write({ ...privateFact, source: { client: "claude-code" } })
+      ];
+      const globalFact = {
+        ...durable,
+        scope: "global",
+        tags: ["global"],
+        content: { text: "Global exact duplicates are outside project lifecycle maintenance." }
+      } as const;
+      const globalRecords = [
+        await engine.write({ ...globalFact, source: { client: "codex" } }),
+        await engine.write({ ...globalFact, source: { client: "claude-code" } })
+      ];
+      const operational = {
+        kind: "session_summary",
+        type: "handoff",
+        scope: "project",
+        project_id: "project-a",
+        tags: ["handoff"],
+        content: { text: "Same operational receipt." }
+      } as const;
+      const operationalRecords = [
+        await engine.write({ ...operational, source: { client: "codex" } }),
+        await engine.write({ ...operational, source: { client: "claude-code" } })
+      ];
+      const conflictedFact = {
+        ...durable,
+        tags: ["conflicted"],
+        content: { text: "A conflict marker keeps exact facts visible for review." }
+      } as const;
+      const conflictedRecords = [
+        await engine.write({ ...conflictedFact, source: { client: "codex" } }),
+        await engine.write({ ...conflictedFact, source: { client: "claude-code" } })
+      ];
+      await engine.logicalLink({
+        record_id: conflictedRecords[0].record.id,
+        linked_record_id: conflictedRecords[1].record.id,
+        relationship: "conflicts_with",
+        reason: "Keep explicit review state",
+        source: { client: "codex" }
+      });
+      const input = {
+        project_id: "project-a",
+        ...authored,
+        delta: { ...baseDelta, checkpoint_id: "automatic-exact-dedup" }
+      };
+
+      const first = await engine.checkpoint(input);
+      const replay = await engine.checkpoint(input);
+
+      expect(first.exact_duplicate_consolidation).toMatchObject({
+        status: "completed",
+        project_id: "project-a",
+        privacy_boundary: "public",
+        record_kinds: ["memory", "skill", "soul"],
+        groups_found: 1,
+        links_created: 1,
+        groups: [
+          {
+            target_record_id: canonical.record.id,
+            duplicate_record_ids: [duplicate.record.id]
+          }
+        ]
+      });
+      expect(replay.exact_duplicate_consolidation).toMatchObject({
+        status: "completed",
+        groups_found: 0,
+        links_created: 0
+      });
+      const events = await readEvents(storePath);
+      const exactLinks = events.filter(
+        (event) => event.op === "link_records" && event.event_id.startsWith("evt_duplicate_")
+      );
+      expect(exactLinks).toHaveLength(1);
+      expect(
+        exactLinks.some(
+          (event) =>
+            event.op === "link_records" &&
+            conflictedRecords.some(
+              (record) => event.record_id === record.record.id || event.linked_record_id === record.record.id
+            )
+        )
+      ).toBe(false);
+      expect(events.some((event) => event.op === "archive_record")).toBe(false);
+      const records = (await engine.listRecent({ limit: 100, include_private: true })).records;
+      for (const record of [...privateRecords, ...globalRecords, ...operationalRecords].map(
+        (result) => result.record
+      )) {
+        expect(records.find((candidate) => candidate.id === record.id)?.links).toBeUndefined();
+      }
+      expect(records.map((record) => record.id)).toEqual(
+        expect.arrayContaining([canonical.record.id, duplicate.record.id])
+      );
+    });
+  });
+
+  it("keeps a checkpoint durable when automatic exact duplicate maintenance fails", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const writer = createTestEngine(storePath);
+      const duplicate = {
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "project-a",
+        tags: ["durability"],
+        content: { text: "Exact duplicate maintenance is best effort." },
+        source: { client: "codex" }
+      } as const;
+      await writer.write(duplicate);
+      await writer.write(duplicate);
+      const engine = createEngine({
+        storePath,
+        appendEventIfAbsent: async (path, event) => {
+          if (event.event_id.startsWith("evt_duplicate_")) throw new Error("exact duplicate disk failure");
+          return appendEventIfAbsent(path, event);
+        }
+      });
+
+      const result = await engine.checkpoint({
+        project_id: "project-a",
+        ...authored,
+        delta: { ...baseDelta, checkpoint_id: "automatic-exact-dedup-failure" }
+      });
+
+      expect(result).toMatchObject({
+        committed: true,
+        exact_duplicate_consolidation: {
+          status: "failed",
+          project_id: "project-a",
+          privacy_boundary: "public",
+          reason: "exact duplicate disk failure"
+        }
+      });
+      expect(await engine.recall({ record_ids: [result.record.id], project_id: "project-a" })).toMatchObject({
+        results: [{ record: { id: result.record.id } }]
+      });
+    });
+  });
+
+  it("keeps a checkpoint durable when the automatic event audit fails", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({
+        storePath,
+        runAutomaticEventAudit: async () => ({
+          status: "failed",
+          failure_stage: "replay",
+          code: "EVENT_REPLAY_INVALID",
+          reason: "Stored event history could not be replayed safely.",
+          event_count: 1,
+          record_count: 0,
+          snapshot_status: "not_checked"
+        })
+      });
+
+      const result = await engine.checkpoint({
+        project_id: "project-a",
+        ...authored,
+        delta: { ...baseDelta, checkpoint_id: "automatic-event-audit-failure" }
+      });
+
+      expect(result).toMatchObject({
+        committed: true,
+        automatic_event_audit: {
+          status: "failed",
+          failure_stage: "replay",
+          code: "EVENT_REPLAY_INVALID",
+          snapshot_status: "not_checked"
+        },
+        selection_sources: { automatic_event_audit: "automatic_event_audit" }
+      });
+      expect(await engine.recall({ record_ids: [result.record.id], project_id: "project-a" })).toMatchObject({
+        results: [{ record: { id: result.record.id } }]
+      });
+    });
+  });
+
   it("automatically consumes queued learning and preserves idempotent replay evidence", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createTestEngine(storePath);

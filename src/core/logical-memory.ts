@@ -10,6 +10,8 @@ export const LOGICAL_RELATIONSHIP_TYPES = [
   "conflicts_with"
 ] as const;
 
+export const EXACT_DUPLICATE_LINK_REASON = "Exact logical fingerprint match.";
+
 export type LogicalRelationshipType = (typeof LOGICAL_RELATIONSHIP_TYPES)[number];
 
 export interface LogicalRelationshipInput {
@@ -139,14 +141,24 @@ export interface ActiveLogicalMemoryView {
   findings: Array<{ code: "LOGICAL_RELATIONSHIP_CYCLE"; record_ids: string[] }>;
 }
 
+function isEffectiveDuplicateLink(record: MorynRecord, linkedRecord: MorynRecord, reason?: string): boolean {
+  return (
+    reason !== EXACT_DUPLICATE_LINK_REASON ||
+    logicalMemoryFingerprint(record) === logicalMemoryFingerprint(linkedRecord)
+  );
+}
+
 export function buildActiveLogicalMemoryView(records: MorynRecord[]): ActiveLogicalMemoryView {
   const recordsById = new Map(records.map((record) => [record.id, record]));
   const replacementEdges = new Map<string, string>();
   const conflictIds = new Set<string>();
   for (const record of records) {
     for (const link of record.links ?? []) {
-      if (!recordsById.has(link.record_id)) continue;
-      if (link.link_type === "duplicate_of") replacementEdges.set(record.id, link.record_id);
+      const linkedRecord = recordsById.get(link.record_id);
+      if (!linkedRecord) continue;
+      if (link.link_type === "duplicate_of" && isEffectiveDuplicateLink(record, linkedRecord, link.reason)) {
+        replacementEdges.set(record.id, link.record_id);
+      }
       if (link.link_type === "supersedes" || link.link_type === "revises")
         replacementEdges.set(link.record_id, record.id);
       if (link.link_type === "conflicts_with") {
@@ -185,8 +197,9 @@ export function buildActiveLogicalMemoryView(records: MorynRecord[]): ActiveLogi
   for (const record of records) {
     if (cyclicIds.has(record.id)) continue;
     for (const link of record.links ?? []) {
-      if (!recordsById.has(link.record_id)) continue;
-      if (link.link_type === "duplicate_of") {
+      const linkedRecord = recordsById.get(link.record_id);
+      if (!linkedRecord) continue;
+      if (link.link_type === "duplicate_of" && isEffectiveDuplicateLink(record, linkedRecord, link.reason)) {
         hiddenByRecordId[record.id] = { relationship: "duplicate_of", active_record_id: link.record_id };
       } else if ((link.link_type === "supersedes" || link.link_type === "revises") && !cyclicIds.has(link.record_id)) {
         hiddenByRecordId[link.record_id] = { relationship: link.link_type, active_record_id: record.id };

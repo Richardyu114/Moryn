@@ -139,7 +139,6 @@ export function dashboardWorkspaceCss(): string {
     }
     .editorial-task-button:hover .editorial-task { color: var(--ink-2); }
     .editorial-lead { max-width: 760px; margin: 0; color: var(--ink-2); font-size: 21px; line-height: 1.6; }
-    .editorial-context-meta { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 28px; color: var(--muted); font-size: 14px; }
     .editorial-conclusion {
       display: flex; gap: 15px; align-items: center; margin-top: 36px; padding: 22px 0;
       border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
@@ -423,14 +422,19 @@ export function dashboardWorkspaceCss(): string {
     .memory-search-capped { margin: 0 0 10px; padding: 8px 12px; border-left: 2px solid var(--brand); background: var(--brand-soft); color: var(--brand-ink); font-size: 13px; line-height: 1.5; }
     .ms-results { border-top: 1px solid var(--border); }
     .memory-result {
-      appearance: none; width: 100%; display: block; padding: 18px 0; border: 0; border-bottom: 1px solid var(--hairline);
+      appearance: none; width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: start; padding: 18px 0; border: 0; border-bottom: 1px solid var(--hairline);
       background: transparent; color: var(--ink); text-align: left; cursor: pointer; transition: background 200ms ease, transform 200ms ease; position: relative;
     }
     .memory-result::before { content: ""; position: absolute; left: -16px; top: 0; bottom: 0; width: 2px; background: var(--brand); transform: scaleY(0); transform-origin: top; transition: transform 240ms cubic-bezier(.2,.7,.2,1); }
     .memory-result:hover, .memory-result:focus-visible { background: #fffdf8; transform: translateX(6px); outline: none; }
     .memory-result:hover::before, .memory-result:focus-visible::before { transform: scaleY(1); }
+    .memory-result-copy { min-width: 0; }
     .memory-result-title { display: block; font-size: 17px; font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; }
     .memory-result-meta { display: block; margin-top: 6px; color: var(--muted); font-size: 13px; }
+    .memory-result-state { display: inline-flex; align-items: center; min-height: 24px; padding: 2px 9px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); color: var(--brand-ink); font-size: 12px; line-height: 1.35; white-space: nowrap; }
+    .memory-search-more { appearance: none; margin-top: 14px; padding: 9px 14px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: var(--ink-2); cursor: pointer; font: inherit; font-size: 14px; }
+    .memory-search-more:hover { background: var(--surface-2); }
+    .memory-search-more:focus-visible { outline: none; box-shadow: var(--ring); }
     .memory-search-empty { padding: 26px 0; color: var(--muted); font-size: 16px; }
 
     /* ---- History timeline ---- */
@@ -497,6 +501,12 @@ export function dashboardWorkspaceCss(): string {
       display: inline-block; margin: 4px 6px 0 0; padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px;
       background: var(--surface-2); color: var(--ink-2); font-family: var(--mono); font-size: 13px;
     }
+    .editorial-drawer-advanced { margin-top: 30px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .editorial-drawer-advanced > summary { padding: 15px 0; color: var(--muted); cursor: pointer; font-size: 14px; font-weight: 600; }
+    .editorial-drawer-advanced > summary:hover { color: var(--ink); }
+    .editorial-drawer-advanced-body { padding: 0 0 22px; }
+    .editorial-drawer-advanced .editorial-drawer-meta { margin-top: 20px; }
+    .editorial-drawer-advanced .editorial-drawer-evidence { margin-top: 22px; }
 
     .editorial-nav-button:focus-visible, button[data-drawer-target]:focus-visible, .editorial-drawer-close:focus-visible, .editorial-refresh:focus-visible { outline: none; box-shadow: var(--ring); }
 
@@ -535,6 +545,8 @@ export function dashboardWorkspaceCss(): string {
       .history-timeline .history-row { grid-template-columns: 1fr; gap: 4px; }
       .history-timeline .history-open { grid-column: 1; margin-top: 4px; }
       .v04-soul-disclosure > summary { align-items: flex-start; flex-direction: column; gap: 12px; }
+      .memory-result { grid-template-columns: 1fr; gap: 9px; }
+      .memory-result-state { justify-self: start; }
       [data-dashboard-drawer] { align-items: flex-end; }
       .editorial-drawer-panel {
         width: 100%; height: min(92dvh, 820px); border-left: 0; border-top: 1px solid var(--border);

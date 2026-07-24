@@ -984,12 +984,22 @@ describe("observability dashboard", () => {
       );
       expect(html).toContain("What Moryn remembers");
       expect(html).toContain("Ready to use");
+      expect(html).toContain('class="memory-result-state"');
+      expect(html).toContain('class="memory-result-copy"');
       expect(html).toContain(`data-drawer-target="${recordDrawerId}"`);
       expect(html).toContain("Searchable dashboard keyword alpha");
       expect(html).toContain(`data-drawer-payload="${recordDrawerId}"`);
       expect(html).toContain(`data-drawer-target="${eventDrawerId}"`);
       expect(html).toContain(`data-drawer-payload="${eventDrawerId}"`);
       expect(html).toContain("Content saved in this change");
+      const recordDrawer = dashboardDrawerPayloadHtml(html, recordDrawerId);
+      const advancedStart = recordDrawer.indexOf('<details class="editorial-drawer-advanced">');
+      expect(advancedStart).toBeGreaterThan(-1);
+      expect(recordDrawer.slice(0, advancedStart)).not.toContain("moryn recall");
+      expect(recordDrawer.slice(0, advancedStart)).not.toContain("Record id");
+      expect(recordDrawer.slice(advancedStart)).toContain("Command-line lookup");
+      expect(recordDrawer.slice(advancedStart)).toContain("Technical evidence");
+      expect(recordDrawer.slice(advancedStart)).toContain("rec_memory_search_1");
       const memoryLibrary = html.slice(
         html.indexOf('id="saved-memory-library" data-memory-search'),
         html.indexOf("data-v04-summary")
@@ -6380,6 +6390,8 @@ describe("observability dashboard", () => {
         expect(page).toContain('fetch("fragment"');
         expect(page).toContain("data-dashboard-editorial-shell");
         expect(page).toContain("data-memory-result");
+        expect(page).toContain('data-memory-search-endpoint="api/memory/search"');
+        expect(page).toContain("new URL(endpoint, window.location.href)");
         expect(page).toContain("Initial live dashboard memory");
 
         const head = await fetch(server.url, { method: "HEAD" });
@@ -6437,10 +6449,73 @@ describe("observability dashboard", () => {
         expect(refreshedApi.totals.records).toBe(2);
         expect(refreshedApi.recent_value.map((record) => record.summary)).toContain("Live dashboard refresh memory");
 
+        const searched = (await (await fetch(new URL("/api/memory/search?q=refresh&limit=1", server.url))).json()) as {
+          read_only: boolean;
+          total_visible: number;
+          total_matches: number;
+          has_more: boolean;
+          records: Array<{ id: string; text: string; state: string; citation: { recall_command: string } }>;
+        };
+        expect(searched).toMatchObject({
+          read_only: true,
+          total_visible: 2,
+          total_matches: 1,
+          has_more: false
+        });
+        expect(searched.records).toEqual([
+          expect.objectContaining({
+            text: "Live dashboard refresh memory",
+            state: "candidate",
+            citation: expect.objectContaining({ recall_command: expect.stringContaining("moryn recall") })
+          })
+        ]);
+
+        const firstPage = (await (await fetch(new URL("/api/memory/search?limit=1&offset=0", server.url))).json()) as {
+          total_matches: number;
+          has_more: boolean;
+          records: Array<{ id: string }>;
+        };
+        const secondPage = (await (await fetch(new URL("/api/memory/search?limit=1&offset=1", server.url))).json()) as {
+          total_matches: number;
+          has_more: boolean;
+          records: Array<{ id: string }>;
+        };
+        expect(firstPage).toMatchObject({ total_matches: 2, has_more: true });
+        expect(secondPage).toMatchObject({ total_matches: 2, has_more: false });
+        expect(firstPage.records[0]?.id).not.toBe(secondPage.records[0]?.id);
+
         const refreshedFragment = await (await fetch(new URL("/fragment", server.url))).text();
         expect(refreshedFragment).toContain("data-dashboard-editorial-shell");
         expect(refreshedFragment).toContain("data-memory-result");
         expect(refreshedFragment).toContain("Live dashboard refresh memory");
+
+        await engine.write({
+          kind: "memory",
+          type: "warning",
+          scope: "project",
+          project_id: "moryn",
+          tags: ["private"],
+          content: { text: "Private server search secret", format: "text" },
+          state: "canonical",
+          confirmed: true,
+          source: { client: "codex" }
+        });
+        await engine.write({
+          kind: "memory",
+          type: "fact",
+          scope: "project",
+          project_id: "other-project",
+          content: { text: "Other project server search content", format: "text" },
+          state: "canonical",
+          confirmed: true,
+          source: { client: "codex" }
+        });
+        const hiddenSearch = (await (
+          await fetch(new URL("/api/memory/search?q=server%20search", server.url))
+        ).json()) as { total_visible: number; total_matches: number; records: Array<{ text: string }> };
+        expect(hiddenSearch).toMatchObject({ total_visible: 2, total_matches: 0, records: [] });
+        expect(JSON.stringify(hiddenSearch)).not.toContain("Private server search secret");
+        expect(JSON.stringify(hiddenSearch)).not.toContain("Other project server search content");
 
         const missing = await fetch(new URL("/missing", server.url));
         expect(missing.status).toBe(404);
@@ -7699,6 +7774,10 @@ describe("quiet dashboard first screen", () => {
       expect(html).toContain('data-editorial-section="what-changed"');
       expect(html).toContain('data-editorial-sidebar="important-now"');
       expect(html).toContain("Redesign the Moryn dashboard");
+      expect(html).toContain("The latest progress is saved, so this task is ready to continue.");
+      expect(html).toContain("Recent saves and updates, in plain language");
+      expect(html).toContain("Moryn has saved the latest work and is taking care of routine organization.");
+      expect(html).not.toContain('class="editorial-context-meta"');
       expect(html).not.toContain("color-scheme: dark");
     });
   });
@@ -7814,18 +7893,21 @@ describe("quiet dashboard first screen", () => {
       await initializeStore(storePath, { device_id: "device-test" });
       const html = renderDashboardHtml(await buildDashboardData(storePath));
 
-      expect(html).toContain('data-i18n-en="Workspace" data-i18n-zh="工作区"');
+      expect(html).toContain('data-i18n-en="Overview" data-i18n-zh="概览"');
       expect(html).toContain('data-i18n-en="Memory" data-i18n-zh="记忆"');
       expect(html).toContain('data-i18n-en="History" data-i18n-zh="历史"');
       expect(html).toContain('data-i18n-en="No action required" data-i18n-zh="无需操作"');
       expect(html).toContain('data-i18n-en="Close details" data-i18n-zh="关闭详情"');
       expect(html).toContain('data-i18n-en="Local only" data-i18n-zh="仅保存在本机"');
-      expect(html).toContain('data-i18n-en="Active knowledge" data-i18n-zh="活跃知识"');
+      expect(html).toContain('data-i18n-en="Ready for agents" data-i18n-zh="当前可用"');
       expect(html).toContain(
-        'data-i18n-en="The bounded working set currently available for agent context." data-i18n-zh="当前可供 Agent 上下文使用的有界工作记忆。"'
+        'data-i18n-en="Memories Moryn is currently making available to agents." data-i18n-zh="Moryn 当前会提供给 Agent 参考的记忆。"'
       );
-      expect(html).toContain('data-i18n-en="context" data-i18n-zh="上下文"');
+      expect(html).toContain('data-i18n-en="Current work" data-i18n-zh="当前工作"');
       expect(html).toContain("window.applyDashboardLanguage?.()");
+      expect(html).toContain("const browserLanguage = () =>");
+      expect(html).toContain("navigator.languages");
+      expect(html).toContain('return stored === "en" || stored === "zh" ? stored : browserLanguage()');
     });
   });
 

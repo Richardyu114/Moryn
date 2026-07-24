@@ -363,6 +363,15 @@ twelve candidates per ingestion. Candidate feedback contains record ids,
 scores, and signals, but not record text, so the normal receipt stays bounded
 and does not expose private content by accident.
 
+Checkpoint and finish also run bounded exact-duplicate maintenance for active
+public `memory`, `skill`, and `soul` records owned by the current project. It
+uses the complete logical fingerprint, skips private, already-hidden, and
+conflicted records, and appends only deterministic `duplicate_of` links. It
+never archives or deletes source records and does not mutate global or
+operational session records. The `exact_duplicate_consolidation` receipt makes
+the boundary, created links, and any best-effort failure explicit; maintenance
+failure does not invalidate the durable checkpoint or handoff.
+
 Agents recall candidate records before proposing `duplicate_of`, `revises`,
 `supersedes`, or `conflicts_with`. A similarity score alone is not a semantic
 relationship assertion. If no candidate is convincing, the agent continues
@@ -833,6 +842,31 @@ This optimization does not delete events, compact Git history, weaken private
 record filtering, or change logical duplicate and semantic consolidation rules.
 Timeline and raw audit operations continue to read append-only events directly.
 
+Checkpoint and finish also verify local event integrity before the lifecycle
+moves on. A complete derived-view rebuild emits a local integrity proof for the
+exact event-file manifest and records snapshot it just schema-checked and
+replayed. The normal lifecycle path verifies that proof, the current event-file
+metadata manifest, and the snapshot file fingerprint;
+missing, stale, or damaged proof falls back to schema-checking every event,
+replaying references and state changes, and comparing the full record
+projection. A derived snapshot is repaired only when readback proves the
+repair. The returned
+`automatic_event_audit` receipt is metadata-only: status, counts, snapshot
+health, and a stable generic failure code. It contains no memory text, private
+content, raw parser error, or path. Healthy checks stay quiet. A failed check
+does not undo the local checkpoint or handoff, but finish skips automatic push
+so an unverified event store is not propagated. Git push repeats the gate under
+the store lease after any remote rebase and immediately before upload, ensuring
+the pushed event generation is the one that passed. This runs at lifecycle
+boundaries and push only; it is not a background daemon and never edits memory
+records.
+
+The fast proof assumes event mutations use Moryn's leased writers or Git sync,
+which invalidate the proof before changing authoritative files. Ordinary
+out-of-band file changes are also detected by the metadata manifest. This is an
+operational corruption guard, not a cryptographic defense against a same-user
+actor deliberately changing bytes while preserving filesystem metadata.
+
 ## v0.4 Distilled Memory Workflow
 
 Treat abstraction, trust, and retention as separate decisions:
@@ -860,7 +894,14 @@ The normal Session Fold workflow is automatic:
 
 Episode Rollup uses the same lineage rule at L1 and preserves leaf-evidence
 digests. The Dashboard may show ready/deferred/review previews, but it never
-applies them. Manual unified maintenance uses the exact reviewed artifacts:
+applies them. Before automatic Episode apply, Moryn durably publishes the exact
+integrity-bound plan under local `state/` storage. A later `agent_finish` retries
+that plan before making a replacement plan for the same bucket, so an interrupted
+append-only transaction resumes idempotently. A stale or unreadable recovery plan
+fails closed for its bucket and remains an explicit exception. Private recovery
+plans are stored separately and are neither read nor resumed without renewed
+`include_private: true` authorization; the default result exposes only their
+count. Manual unified maintenance uses the exact reviewed artifacts:
 
 ```bash
 moryn memory compact preview --project-id <project_id>

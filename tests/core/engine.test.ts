@@ -610,6 +610,158 @@ describe("core engine", () => {
     });
   });
 
+  it("restores an exact duplicate source to default recall after its content changes", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      let tick = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => `2026-07-11T00:01:0${tick++}.000Z`,
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
+      const base = {
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["audit"],
+        content: { text: "Original shared fact" },
+        source: { client: "codex" }
+      } as const;
+      const source = await engine.write({ ...base, state: "candidate" });
+      const target = await engine.write({
+        ...base,
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.consolidateExactDuplicates({ project_id: "moryn" });
+
+      expect((await engine.recall({ project_id: "moryn" })).results.map((result) => result.record.id)).toEqual([
+        target.record.id
+      ]);
+
+      await engine.revise({
+        record_id: source.record.id,
+        patch: { "content.text": "Now a materially different fact" },
+        reason: "Correct the duplicate source",
+        source: { client: "codex" }
+      });
+      const recalled = await engine.recall({ project_id: "moryn" });
+
+      expect(recalled.results.map((result) => result.record.id).sort()).toEqual(
+        [source.record.id, target.record.id].sort()
+      );
+      expect(recalled.results_by_id[source.record.id]?.record.content.text).toBe("Now a materially different fact");
+    });
+  });
+
+  it("restores an exact duplicate source to default recall after the target changes", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      let tick = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => `2026-07-11T00:02:0${tick++}.000Z`,
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
+      const base = {
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["audit"],
+        content: { text: "Original shared fact" },
+        source: { client: "codex" }
+      } as const;
+      const source = await engine.write({ ...base, state: "candidate" });
+      const target = await engine.write({
+        ...base,
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.consolidateExactDuplicates({ project_id: "moryn" });
+
+      await engine.revise({
+        record_id: target.record.id,
+        patch: { "content.text": "The canonical fact changed" },
+        reason: "Correct the exact duplicate target",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const recalled = await engine.recall({ project_id: "moryn" });
+
+      expect(recalled.results.map((result) => result.record.id).sort()).toEqual(
+        [source.record.id, target.record.id].sort()
+      );
+      expect(recalled.results_by_id[source.record.id]?.record.content.text).toBe("Original shared fact");
+    });
+  });
+
+  it("invalidates a stale exact link after concurrent content and tag revisions", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      let tick = 0;
+      const writer = createEngine({
+        storePath,
+        now: () => `2026-07-11T00:03:0${tick++}.000Z`,
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
+      const base = {
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["audit"],
+        content: { text: "Original concurrent fact" },
+        source: { client: "codex" }
+      } as const;
+      const source = await writer.write({ ...base, state: "candidate" });
+      const target = await writer.write({
+        ...base,
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await writer.consolidateExactDuplicates({ project_id: "moryn" });
+      const contentWriter = createEngine({
+        storePath,
+        now: () => "2026-07-11T00:03:10.000Z",
+        id: (prefix) => `${prefix}_content_revision`
+      });
+      const tagWriter = createEngine({
+        storePath,
+        now: () => "2026-07-11T00:03:10.000Z",
+        id: (prefix) => `${prefix}_tag_revision`
+      });
+
+      await Promise.all([
+        contentWriter.revise({
+          record_id: source.record.id,
+          patch: { "content.text": "Changed concurrent fact" },
+          reason: "Update content concurrently",
+          source: { client: "codex" }
+        }),
+        tagWriter.revise({
+          record_id: source.record.id,
+          patch: { tags: ["audit", "changed"] },
+          reason: "Update tags concurrently",
+          source: { client: "claude-code" }
+        })
+      ]);
+      const recalled = await writer.recall({ project_id: "moryn" });
+
+      expect(recalled.results.map((result) => result.record.id).sort()).toEqual(
+        [source.record.id, target.record.id].sort()
+      );
+      expect(recalled.results_by_id[source.record.id]?.record).toMatchObject({
+        tags: ["audit", "changed"],
+        content: { text: "Changed concurrent fact" }
+      });
+    });
+  });
+
   it("adds checkpoint recovery to boot only when an agent session id is provided", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createEngine({ storePath });

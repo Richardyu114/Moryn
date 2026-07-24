@@ -16,6 +16,7 @@ import {
 } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { readStoreConfig, validateStorePath } from "./config.js";
+import { removeEventAuditProof } from "./event-audit-proof.js";
 import { parseEvent } from "./schema.js";
 import { detectSensitiveContent, sensitiveScanText } from "./sensitive.js";
 import { withStoreStateLease } from "./state-lease.js";
@@ -112,6 +113,7 @@ async function appendEventWithLease(storePath: string, event: MorynEvent): Promi
   const parsed = parseEvent(withDefaultDeviceId(event, config.device_id));
   assertNoUnredactedSensitiveContent(parsed);
   const path = eventPath(storePath, parsed);
+  await removeEventAuditProof(storePath);
   const tempDir = join(storePath, "state", "event-writes");
   await mkdir(dirname(path), { recursive: true });
   await mkdir(tempDir, { recursive: true });
@@ -171,6 +173,7 @@ async function appendEventIfAbsentWithLease(
   const parsed = parseEvent(withDefaultDeviceId(event, config.device_id));
   assertNoUnredactedSensitiveContent(parsed);
   const path = idempotentEventPath(storePath, parsed.event_id);
+  await removeEventAuditProof(storePath);
   const tempDir = join(storePath, "state", "event-writes");
   await mkdir(dirname(path), { recursive: true });
   await mkdir(tempDir, { recursive: true });
@@ -274,19 +277,21 @@ export async function appendEventIfAbsent(
   return withStoreStateLease(storePath, () => appendEventIfAbsentWithLease(storePath, event, options));
 }
 
-async function walkJsonFiles(dir: string): Promise<string[]> {
+async function walkJsonFiles(dir: string, strictDirectoryReads = false): Promise<string[]> {
   let entries: Dirent[];
   try {
     entries = await readdir(dir, { withFileTypes: true });
-  } catch {
-    return [];
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return [];
+    if (!strictDirectoryReads) return [];
+    throw error;
   }
 
   const files: string[] = [];
   for (const entry of entries) {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) {
-      files.push(...(await walkJsonFiles(path)));
+      files.push(...(await walkJsonFiles(path, strictDirectoryReads)));
     } else if (entry.isFile() && entry.name.endsWith(".json")) {
       files.push(path);
     }
@@ -302,7 +307,7 @@ export interface EventFileManifest {
 export async function readEventFileManifest(storePath: string): Promise<EventFileManifest> {
   await ensureStoreInitialized(storePath);
   const eventsPath = join(storePath, "events");
-  const files = (await walkJsonFiles(eventsPath)).sort();
+  const files = (await walkJsonFiles(eventsPath, true)).sort();
   const hash = createHash("sha256");
   for (const file of files) {
     const metadata = await stat(file);
@@ -312,6 +317,26 @@ export async function readEventFileManifest(storePath: string): Promise<EventFil
     hash.update("\u0000");
   }
   return { count: files.length, digest: hash.digest("hex") };
+}
+
+/**
+ * Reads event JSON inputs without applying the event schema. Malformed JSON is
+ * represented as an invalid input so integrity audits can classify it with
+ * schema failures, while filesystem read failures still reject the operation.
+ */
+export async function readEventInputs(storePath: string): Promise<unknown[]> {
+  await ensureStoreInitialized(storePath);
+  const files = (await walkJsonFiles(join(storePath, "events"), true)).sort();
+  return Promise.all(
+    files.map(async (file) => {
+      const text = await readFile(file, "utf8");
+      try {
+        return JSON.parse(text) as unknown;
+      } catch {
+        return undefined;
+      }
+    })
+  );
 }
 
 export async function readEvents(storePath: string): Promise<MorynEvent[]> {

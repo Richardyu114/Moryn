@@ -120,8 +120,12 @@ export function dashboardWorkspaceScript(): string {
 
         const restore = (state) => {
           activateView(state?.view || 'workspace');
-          if (state?.drawer) openDrawer(state.drawer, null, { focus: true });
-          else window.scrollTo({ top: Number(state?.scrollY || 0), behavior: 'auto' });
+          const restoredDrawer = state?.drawer ? openDrawer(state.drawer, null, { focus: true }) : false;
+          if (!restoredDrawer) {
+            document.documentElement.classList.remove('dashboard-drawer-open');
+            document.body.style.top = '';
+            window.scrollTo({ top: Number(state?.scrollY || 0), behavior: 'auto' });
+          }
           window.applyDashboardLanguage?.();
         };
 
@@ -235,14 +239,171 @@ export function dashboardWorkspaceScript(): string {
           const container = root.querySelector('[data-memory-search]');
           if (!(container instanceof HTMLElement)) return;
           const input = container.querySelector('[data-memory-search-input]');
-          const results = Array.from(container.querySelectorAll('[data-memory-result]'));
+          const resultsContainer = container.querySelector('[data-memory-search-results]');
           const countEl = container.querySelector('[data-memory-search-count]');
           const noResults = container.querySelector('[data-memory-search-noresults]');
+          const moreButton = container.querySelector('[data-memory-search-more]');
           const chips = Array.from(container.querySelectorAll('[data-memory-chip]'));
-          if (!(input instanceof HTMLInputElement)) return;
-          const total = Number(countEl?.dataset.total || results.length);
+          if (!(input instanceof HTMLInputElement) || !(resultsContainer instanceof HTMLElement)) return;
+          const endpoint = container.dataset.memorySearchEndpoint || '';
+          const initialResultsHtml = resultsContainer.innerHTML;
+          const initialTotal = Number(countEl?.dataset.total || container.querySelectorAll('[data-memory-result]').length);
           let activeKind = 'all';
-          const apply = () => {
+          let searchSequence = 0;
+          let remoteOffset = 0;
+          let remoteDrawerSequence = 0;
+          let debounceTimer = null;
+          const remoteDrawerIds = new Map();
+
+          const localizedNode = (tag, en, zh, className = '') => {
+            const node = document.createElement(tag);
+            if (className) node.className = className;
+            node.dataset.i18nEn = en;
+            node.dataset.i18nZh = zh;
+            node.textContent = en;
+            return node;
+          };
+          const kindCopy = (kind) => ({
+            memory: { en: 'Memory', zh: '记忆' },
+            skill: { en: 'Skill', zh: '技能' },
+            soul: { en: 'Profile', zh: '个人设定' },
+            session_summary: { en: 'Session note', zh: '会话记录' },
+            agent_note: { en: 'Agent note', zh: 'Agent 记录' }
+          })[kind] || { en: 'Saved item', zh: '已保存内容' };
+          const stateCopy = (state) => ({
+            canonical: { en: 'Ready to use', zh: '可直接使用' },
+            candidate: { en: 'Saved for later', zh: '已保存，稍后整理' },
+            raw: { en: 'Saved briefly', zh: '临时保存' },
+            archived: { en: 'Archived', zh: '已归档' },
+            quarantined: { en: 'Set aside', zh: '已放一边' }
+          })[state] || { en: 'Set aside', zh: '已放一边' };
+          const sourceCopy = (source) => {
+            const client = String(source?.client || '').trim();
+            const normalized = client.toLowerCase();
+            if (normalized === 'codex') return { en: 'Codex', zh: 'Codex' };
+            if (normalized === 'claude') return { en: 'Claude', zh: 'Claude' };
+            if (normalized === 'user') return { en: 'you', zh: '用户' };
+            if (normalized === 'moryn' || normalized === 'moryn-local') return { en: 'Moryn', zh: 'Moryn' };
+            if (normalized === 'protected-history') return { en: 'a protected source', zh: '受保护来源' };
+            return { en: client || 'unknown source', zh: client || '未知来源' };
+          };
+          const clippedText = (value, limit = 220) => {
+            const text = String(value || '').replace(/\\s+/g, ' ').trim();
+            return text.length <= limit ? text : text.slice(0, limit).replace(/\\s+\\S*$/, '').trim() + '…';
+          };
+          const drawerIdForRecord = (record) => {
+            const recordId = String(record.id || 'unknown');
+            const existing = remoteDrawerIds.get(recordId);
+            if (existing) return existing;
+            const generated = 'remote-record-' + String(++remoteDrawerSequence);
+            remoteDrawerIds.set(recordId, generated);
+            return generated;
+          };
+          const addMetadata = (list, labelEn, labelZh, value) => {
+            const row = document.createElement('div');
+            row.append(localizedNode('dt', labelEn, labelZh));
+            const item = document.createElement('dd');
+            item.textContent = String(value ?? '—');
+            row.append(item);
+            list.append(row);
+          };
+          const addCommand = (parent, labelEn, labelZh, command) => {
+            if (!command) return;
+            const row = document.createElement('div');
+            row.className = 'editorial-drawer-cmd';
+            row.append(localizedNode('span', labelEn, labelZh));
+            const code = document.createElement('code');
+            code.lang = 'en';
+            code.textContent = command;
+            row.append(code);
+            parent.append(row);
+          };
+          const ensureRemoteDrawer = (record) => {
+            const drawerId = drawerIdForRecord(record);
+            const drawerPanel = drawer instanceof HTMLElement ? drawer.querySelector('.editorial-drawer-panel') : null;
+            if (!(drawerPanel instanceof HTMLElement)) return drawerId;
+            const existing = Array.from(drawerPanel.querySelectorAll('[data-drawer-payload]')).find((item) => item.dataset.drawerPayload === drawerId);
+            if (existing) return drawerId;
+            const kind = kindCopy(record.kind);
+            const state = stateCopy(record.state);
+            const source = sourceCopy(record.source);
+            const section = document.createElement('section');
+            section.dataset.drawerPayload = drawerId;
+            section.hidden = true;
+            section.append(localizedNode('div', kind.en, kind.zh, 'editorial-eyebrow'));
+            section.append(localizedNode('h2', kind.en, kind.zh, 'editorial-drawer-title'));
+            section.append(localizedNode(
+              'p',
+              kind.en + ' · ' + state.en + ' · saved by ' + source.en + '.',
+              kind.zh + ' · ' + state.zh + ' · 保存来源：' + source.zh + '。',
+              'editorial-drawer-summary'
+            ));
+            section.append(localizedNode('div', 'Current saved content', '当前保存的正文', 'editorial-drawer-body-label'));
+            const body = document.createElement('div');
+            body.className = 'editorial-drawer-body';
+            body.textContent = String(record.text || '');
+            section.append(body);
+
+            const advanced = document.createElement('details');
+            advanced.className = 'editorial-drawer-advanced';
+            advanced.append(localizedNode('summary', 'Advanced details', '高级详情'));
+            const advancedBody = document.createElement('div');
+            advancedBody.className = 'editorial-drawer-advanced-body';
+            addCommand(advancedBody, 'Timeline command', '时间线命令', record.citation?.timeline_command);
+            addCommand(advancedBody, 'Record lookup command', '记录查找命令', record.citation?.recall_command);
+            const metadata = document.createElement('dl');
+            metadata.className = 'editorial-drawer-meta';
+            addMetadata(metadata, 'Kind', '类别', record.kind);
+            addMetadata(metadata, 'Type', '类型', record.type);
+            addMetadata(metadata, 'State', '状态', record.state);
+            addMetadata(metadata, 'Updated', '更新时间', record.updated_at);
+            addMetadata(metadata, 'Record ID', '记录 ID', record.id);
+            if (record.citation?.event_id) addMetadata(metadata, 'Event ID', '事件 ID', record.citation.event_id);
+            advancedBody.append(metadata);
+            advanced.append(advancedBody);
+            section.append(advanced);
+            drawerPanel.append(section);
+            return drawerId;
+          };
+          const remoteResult = (record) => {
+            const kind = kindCopy(record.kind);
+            const state = stateCopy(record.state);
+            const source = sourceCopy(record.source);
+            const title = clippedText(record.text) || kind.en;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'memory-result';
+            button.dataset.memoryResult = '';
+            button.dataset.kind = record.kind;
+            button.dataset.drawerTarget = ensureRemoteDrawer(record);
+            button.setAttribute('aria-haspopup', 'dialog');
+            const copy = document.createElement('span');
+            copy.className = 'memory-result-copy';
+            copy.append(localizedNode('span', title, title, 'memory-result-title'));
+            copy.append(localizedNode(
+              'span',
+              kind.en + ' · from ' + source.en,
+              kind.zh + ' · 来源：' + source.zh,
+              'memory-result-meta'
+            ));
+            button.append(copy, localizedNode('span', state.en, state.zh, 'memory-result-state'));
+            return button;
+          };
+          const updateCount = (shown, total, remote = false) => {
+            if (!(countEl instanceof HTMLElement)) return;
+            const en = remote
+              ? shown + ' of ' + total + (total === 1 ? ' match' : ' matches')
+              : shown + (shown === 1 ? ' memory' : ' memories');
+            const zh = remote ? total + ' 条匹配中的 ' + shown + ' 条' : shown + ' 条记忆';
+            countEl.dataset.i18nEn = en;
+            countEl.dataset.i18nZh = zh;
+            countEl.textContent = en;
+            window.applyDashboardLanguage?.();
+          };
+          const applyLocal = () => {
+            searchSequence += 1;
+            resultsContainer.innerHTML = initialResultsHtml;
+            const results = Array.from(resultsContainer.querySelectorAll('[data-memory-result]'));
             const query = input.value.trim().toLowerCase();
             let shown = 0;
             results.forEach((result) => {
@@ -254,15 +415,63 @@ export function dashboardWorkspaceScript(): string {
               if (match) shown += 1;
             });
             if (noResults instanceof HTMLElement) noResults.hidden = shown !== 0;
+            if (moreButton instanceof HTMLElement) moreButton.hidden = true;
             if (countEl instanceof HTMLElement) {
               const filtered = query !== '' || activeKind !== 'all';
-              const en = filtered ? shown + ' of ' + total : total + (total === 1 ? ' memory' : ' memories');
-              const zh = filtered ? total + ' 条中的 ' + shown + ' 条' : total + ' 条记忆';
+              const en = filtered ? shown + ' of ' + initialTotal : initialTotal + (initialTotal === 1 ? ' memory' : ' memories');
+              const zh = filtered ? initialTotal + ' 条中的 ' + shown + ' 条' : initialTotal + ' 条记忆';
               countEl.dataset.i18nEn = en;
               countEl.dataset.i18nZh = zh;
               countEl.textContent = en;
               window.applyDashboardLanguage?.();
             }
+          };
+          const runRemote = async (append = false) => {
+            if (!endpoint) { applyLocal(); return; }
+            const sequence = ++searchSequence;
+            if (!append) {
+              remoteOffset = 0;
+              resultsContainer.replaceChildren();
+              updateCount(0, 0, true);
+            }
+            if (noResults instanceof HTMLElement) noResults.hidden = true;
+            if (moreButton instanceof HTMLElement) moreButton.hidden = true;
+            try {
+              const url = new URL(endpoint, window.location.href);
+              url.searchParams.set('q', input.value.trim());
+              if (activeKind !== 'all') url.searchParams.set('kind', activeKind);
+              url.searchParams.set('offset', String(remoteOffset));
+              url.searchParams.set('limit', '20');
+              const response = await fetch(url, { cache: 'no-store' });
+              if (!response.ok) throw new Error('search unavailable');
+              const payload = await response.json();
+              if (sequence !== searchSequence) return;
+              const records = Array.isArray(payload.records) ? payload.records : [];
+              records.forEach((record) => resultsContainer.append(remoteResult(record)));
+              remoteOffset += records.length;
+              const totalMatches = Number(payload.total_matches || 0);
+              updateCount(remoteOffset, totalMatches, true);
+              if (noResults instanceof HTMLElement) noResults.hidden = totalMatches !== 0;
+              if (moreButton instanceof HTMLElement) moreButton.hidden = payload.has_more !== true;
+              window.applyDashboardLanguage?.();
+            } catch {
+              if (sequence !== searchSequence) return;
+              applyLocal();
+              if (countEl instanceof HTMLElement) {
+                countEl.dataset.i18nEn = 'Full search is temporarily unavailable; showing recent memories.';
+                countEl.dataset.i18nZh = '完整搜索暂时不可用；当前显示最近的记忆。';
+                window.applyDashboardLanguage?.();
+              }
+            }
+          };
+          const apply = () => {
+            if (debounceTimer) {
+              window.clearTimeout(debounceTimer);
+              debounceTimer = null;
+            }
+            const needsFullSearch = endpoint && (input.value.trim() !== '' || activeKind !== 'all');
+            if (!needsFullSearch) { applyLocal(); return; }
+            debounceTimer = window.setTimeout(() => { void runRemote(false); }, 180);
           };
           chips.forEach((chip) => {
             chip.addEventListener('click', () => {
@@ -272,6 +481,7 @@ export function dashboardWorkspaceScript(): string {
             });
           });
           input.addEventListener('input', apply);
+          if (moreButton instanceof HTMLButtonElement) moreButton.addEventListener('click', () => { void runRemote(true); });
         };
         setupMemorySearch();
 

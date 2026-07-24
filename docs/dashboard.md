@@ -39,15 +39,17 @@ user genuinely needs to intervene.
   for authentication, unsafe sync divergence, sensitive confirmation, project
   repair, or material memory conflict that truly requires user input.
 
-The top navigation switches between `Workspace`, `Memory`, and `History`
+The top navigation switches between `Overview`, `Memory`, and `History`
 without reloading the page. Memory and History are dedicated read-only views;
 they provide calm summaries while the complete saved-content search,
 diagnostics, governance, maintenance, citations, and raw evidence remain in
 `Audit Details`.
 
 Clicking Current Context, a memory figure, an important item, or a recent event
-opens a reading drawer. The reading drawer is read-only and includes an
-explanation, literal metadata, and evidence commands. It closes with its button,
+opens a reading drawer. The reading drawer is read-only and leads with the
+actual saved content and recent changes. Commands, record/event IDs, local
+paths, literal metadata, and technical evidence stay inside a closed
+`Advanced details` disclosure. It closes with its button,
 Escape, or the backdrop and returns keyboard focus to the trigger. On narrow
 screens the drawer becomes a full-screen detail sheet.
 
@@ -56,7 +58,7 @@ and open drawer when the referenced item still exists. If the item disappears,
 the drawer closes without disturbing the refreshed page.
 
 Existing approval actions remain in Audit Details. The redesign does not add a
-write path to Workspace, Memory, History, or the reading drawer. Existing
+write path to Overview, Memory, History, or the reading drawer. Existing
 privacy filtering, static snapshots, live server behavior, localization, and
 action endpoints remain compatible.
 
@@ -124,6 +126,8 @@ Server endpoints:
 - `GET /` serves the full dashboard shell.
 - `GET /fragment` rebuilds dashboard data and returns the current body HTML.
 - `GET /api/dashboard` rebuilds dashboard data and returns JSON.
+- `GET /api/memory/search` searches and paginates the complete visible Memory
+  scope without crossing the configured project or private-record boundary.
 - `POST /api/capture-inbox/:record_id/approve` promotes one active Capture
   Inbox candidate to canonical memory with explicit user confirmation.
 - `POST /api/capture-inbox/:record_id/reject` archives one active Capture Inbox
@@ -133,11 +137,11 @@ Server endpoints:
   `plan_hash`.
 - `GET /healthz` returns a lightweight health response for deployment checks.
 
-Concurrent `GET /`, `GET /fragment`, and `GET /api/dashboard` requests share
-the same in-flight dashboard data build. After that build settles, the next
-read request rebuilds from the local store again, so refreshes still see new
-append-only events without multiplying one expensive snapshot across several
-simultaneous browser/API reads.
+Concurrent `GET /`, `GET /fragment`, `GET /api/dashboard`, and
+`GET /api/memory/search` requests share the same in-flight dashboard data
+build. After that build settles, the next read request rebuilds from the local
+store again, so refreshes still see new append-only events without multiplying
+one expensive snapshot across several simultaneous browser/API reads.
 
 The browser refreshes from `fragment` on the configured interval. The refresh
 URL is relative so the dashboard can also work behind a reverse proxy path such
@@ -1603,6 +1607,15 @@ library contains that project's records plus global records. Without an
 explicit project it is store-wide. The projection publishes this contract as
 `memory_maintenance.scope.mode` (`project` or `store`), optional `project_id`,
 and `includes_global: true`.
+
+The live page embeds the newest 600 visible records for immediate browsing and
+uses the read-only, paginated `GET /api/memory/search` route when the user types
+a query or chooses a content type. Server-side search scans the complete
+privacy-filtered Memory scope, so older visible records remain searchable
+without asking the user to run a CLI command. The route accepts `q`, `kind`,
+`offset`, and `limit` (capped at 50), and returns `total_matches`, `has_more`,
+and record summaries. A static snapshot explains that its embedded results are
+bounded and points to the live Dashboard for older content.
 
 The History view uses the same drawer. An event row shows the bounded content
 saved by that event or the fields it changed, its outcome and reason when

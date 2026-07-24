@@ -22,7 +22,7 @@ import { learningRecordIdentity } from "../../src/core/learning-ingestion.js";
 import { initializeProjectConfig } from "../../src/core/project.js";
 import { appendEventIfAbsent, readEvents } from "../../src/core/store.js";
 import { buildDashboardData } from "../../src/observability/dashboard.js";
-import { initializeGitSync, pullGitSync, pushGitSync } from "../../src/sync/git.js";
+import { initializeGitSync, pullGitSync, pushGitSync, SYNC_RESULT_SELECTION_SOURCES } from "../../src/sync/git.js";
 
 const exec = promisify(execFile);
 const LIFECYCLE_ACTION_SELECTION_SOURCES = {
@@ -760,6 +760,126 @@ describe("agent lifecycle", () => {
     }
   });
 
+  it("preserves the finish handoff but skips automatic push when event audit fails", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-event-audit-failure-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    let pushAttempts = 0;
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(store, { now: () => "2026-05-27T00:00:00.000Z", id: () => "device_codex" });
+
+      const result = await agentFinish(
+        {
+          storePath: store,
+          projectPath: project,
+          agent: { client: "codex", session_id: "audit-failure", device_id: "device_codex" },
+          summary: "Durable handoff remains local when event audit fails.",
+          push: true
+        },
+        {
+          now: () => "2026-07-24T00:00:00.000Z",
+          runAutomaticEventAudit: async () => ({
+            status: "failed",
+            failure_stage: "replay",
+            code: "EVENT_REPLAY_INVALID",
+            reason: "Stored event history could not be replayed safely.",
+            event_count: 1,
+            record_count: 0,
+            snapshot_status: "not_checked"
+          }),
+          pushGitSync: async (path, _options, dependencies) => {
+            const audit = await dependencies.run_automatic_event_audit!(path);
+            if (audit.status === "failed") {
+              return {
+                ok: false,
+                committed: true,
+                pushed: false,
+                message: "Automatic event integrity verification failed; remote push was skipped.",
+                automatic_event_audit: audit,
+                selection_sources: SYNC_RESULT_SELECTION_SOURCES
+              };
+            }
+            pushAttempts += 1;
+            throw new Error("remote push must not run after failed event audit");
+          }
+        }
+      );
+
+      expect(pushAttempts).toBe(0);
+      expect(result).toMatchObject({
+        ok: true,
+        record: { content: { text: "Durable handoff remains local when event audit fails." } },
+        automatic_event_audit: {
+          status: "failed",
+          code: "EVENT_REPLAY_INVALID"
+        },
+        sync: {
+          push_skipped: {
+            reason: "automatic_event_audit_failed",
+            audit_code: "EVENT_REPLAY_INVALID"
+          }
+        }
+      });
+      expect(result.sync.push).toBeUndefined();
+      expect(result.sync.push_error).toBeUndefined();
+      expect((await readEvents(store)).some((event) => event.op === "upsert_record")).toBe(true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("refreshes the audit receipt after a post-audit push error", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-final-event-audit-failure-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    let auditAttempts = 0;
+    let pushAttempts = 0;
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(store, { now: () => "2026-05-27T00:00:00.000Z", id: () => "device_codex" });
+
+      const result = await agentFinish(
+        {
+          storePath: store,
+          projectPath: project,
+          agent: { client: "codex", session_id: "final-audit-failure", device_id: "device_codex" },
+          summary: "The final push gate must report the event generation it actually verified.",
+          push: true
+        },
+        {
+          now: () => "2026-07-24T00:00:00.000Z",
+          runAutomaticEventAudit: async () => {
+            auditAttempts += 1;
+            return {
+              status: "completed",
+              event_count: auditAttempts === 1 ? 2 : 3,
+              record_count: auditAttempts === 1 ? 2 : 3,
+              snapshot_status: "fresh"
+            };
+          },
+          pushGitSync: async (path, _options, dependencies) => {
+            pushAttempts += 1;
+            await dependencies.run_automatic_event_audit!(path);
+            throw new Error("simulated failure after the final in-lease audit");
+          }
+        }
+      );
+
+      expect(auditAttempts).toBe(2);
+      expect(pushAttempts).toBe(1);
+      expect(result).toMatchObject({
+        automatic_event_audit: { status: "completed", event_count: 3, record_count: 3 },
+        sync: {
+          push_error: "simulated failure after the final in-lease audit"
+        }
+      });
+      expect(result.sync.push).toBeUndefined();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("rejects invalid required lifecycle text with operation contract recovery hints", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-agent-lifecycle-invalid-text-"));
     const store = join(root, "store");
@@ -1431,6 +1551,68 @@ describe("agent lifecycle", () => {
         semantic_consolidation: { proposals_received: 1, proposals_accepted: 1, links_created: 1 }
       });
       expect(result.next.actions_by_id.review_learning_candidates).toBeUndefined();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("automatically consolidates public exact duplicates during agent finish", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-finish-exact-duplicate-"));
+    const storePath = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(storePath, { id: () => "device-codex" });
+      const engine = createEngine({ storePath });
+      const duplicate = {
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["lifecycle"],
+        content: { text: "Agent finish persists the handoff before optional sync." }
+      } as const;
+      const canonical = await engine.write({
+        ...duplicate,
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const repeated = await engine.write({ ...duplicate, source: { client: "codex" } });
+
+      const result = await agentFinish(
+        {
+          storePath,
+          projectPath: project,
+          agent: { client: "codex", device_id: "device-codex", session_id: "codex-exact-duplicate" },
+          summary: "Finished exact duplicate lifecycle coverage.",
+          push: false
+        },
+        { now: () => "2026-07-12T00:00:00.000Z" }
+      );
+
+      expect(result).toMatchObject({
+        ok: true,
+        exact_duplicate_consolidation: {
+          status: "completed",
+          project_id: "moryn",
+          privacy_boundary: "public",
+          record_kinds: ["memory", "skill", "soul"],
+          groups_found: 1,
+          links_created: 1,
+          groups: [
+            {
+              target_record_id: canonical.record.id,
+              duplicate_record_ids: [repeated.record.id]
+            }
+          ]
+        }
+      });
+      const events = await readEvents(storePath);
+      expect(
+        events.filter((event) => event.op === "link_records" && event.event_id.startsWith("evt_duplicate_"))
+      ).toHaveLength(1);
+      expect(events.some((event) => event.op === "archive_record")).toBe(false);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

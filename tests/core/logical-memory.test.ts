@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { logicalMemoryFingerprint, validateLogicalRelationship } from "../../src/core/logical-memory.js";
+import {
+  buildActiveLogicalMemoryView,
+  EXACT_DUPLICATE_LINK_REASON,
+  logicalMemoryFingerprint,
+  validateLogicalRelationship
+} from "../../src/core/logical-memory.js";
 import type { MorynRecord } from "../../src/core/types.js";
 
 function record(overrides: Partial<MorynRecord> = {}): MorynRecord {
@@ -184,6 +189,46 @@ describe("logical memory fingerprints", () => {
 });
 
 describe("active logical memory view", () => {
+  it("invalidates stale automatic exact links without changing authored semantic duplicate links", () => {
+    const staleExactSource = record({
+      id: "stale-exact-source",
+      content: { text: "This fact changed after exact consolidation" },
+      links: [
+        {
+          record_id: "stale-exact-target",
+          link_type: "duplicate_of",
+          reason: EXACT_DUPLICATE_LINK_REASON,
+          created_at: "2026-07-11T00:00:01.000Z"
+        }
+      ]
+    });
+    const staleExactTarget = record({ id: "stale-exact-target", content: { text: "Original exact fact" } });
+    const semanticSource = record({
+      id: "semantic-source",
+      content: { text: "Prefer append-only storage" },
+      links: [
+        {
+          record_id: "semantic-target",
+          link_type: "duplicate_of",
+          reason: "Agent verified these differently worded records are semantically equivalent.",
+          created_at: "2026-07-11T00:00:01.000Z"
+        }
+      ]
+    });
+    const semanticTarget = record({ id: "semantic-target", content: { text: "Use an immutable event log" } });
+
+    const view = buildActiveLogicalMemoryView([staleExactSource, staleExactTarget, semanticSource, semanticTarget]);
+
+    expect(view.active_records.map((item) => item.id).sort()).toEqual(
+      ["semantic-target", "stale-exact-source", "stale-exact-target"].sort()
+    );
+    expect(view.hidden_by_record_id["stale-exact-source"]).toBeUndefined();
+    expect(view.hidden_by_record_id["semantic-source"]).toEqual({
+      relationship: "duplicate_of",
+      active_record_id: "semantic-target"
+    });
+  });
+
   it.each(["__proto__", "constructor", "prototype"])(
     "keeps an active prototype-shaped record id %s visible",
     async (recordId) => {

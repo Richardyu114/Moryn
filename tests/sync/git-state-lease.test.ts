@@ -161,7 +161,11 @@ describe("git sync store-state lease", () => {
       expect(await isStillPending(append)).toBe(true);
 
       await writeFile(hookRelease, "release\n", "utf8");
-      await expect(blockedPush).resolves.toMatchObject({ ok: true, pushed: true });
+      await expect(blockedPush).resolves.toMatchObject({
+        ok: true,
+        pushed: true,
+        automatic_event_audit: { status: "completed", event_count: 1, record_count: 1 }
+      });
       blockedPush = undefined;
       await append;
       const competingEventId = "evt_during_push";

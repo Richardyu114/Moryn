@@ -3,6 +3,7 @@ import { operationArgumentsByTool } from "../operation-contracts.js";
 import { type ActionInterfaces, actionInterfaces } from "./action-interfaces.js";
 import { actionExecution, actionSafety } from "./action-safety.js";
 import { discoverAutomaticDuplicateProposal } from "./automatic-consolidation.js";
+import { runAutomaticEventAudit } from "./automatic-event-audit.js";
 import { type CapturePolicyInput, diagnoseCapturePolicy } from "./capture-policy-report.js";
 import {
   buildCheckpointRecoveryPack,
@@ -34,6 +35,10 @@ import {
   PROMOTE_CANDIDATE_WHEN,
   withNextActionMetadata
 } from "./errors.js";
+import {
+  type ExactDuplicateConsolidationInput,
+  runAutomaticExactDuplicateConsolidation
+} from "./exact-duplicate-consolidation.js";
 import { diagnoseHealthCheck, HEALTH_CHECK_SELECTION_SOURCES, type HealthCheckInput } from "./health-check.js";
 import { inspectHostActivation } from "./host-activation.js";
 import { normalizeHostId } from "./host-adapter-registry.js";
@@ -45,6 +50,7 @@ import { learningStatePolicy } from "./learning-policy.js";
 import {
   buildActiveLogicalMemoryView,
   compareLogicalMemoryTargets,
+  EXACT_DUPLICATE_LINK_REASON,
   type LogicalRelationshipType,
   logicalMemoryFingerprint,
   validateLogicalRelationship
@@ -177,6 +183,7 @@ interface EngineDeps {
   id?: (prefix: string) => string;
   syncStatus?: () => Promise<{ behind?: number; remote_has_updates?: boolean }>;
   rebuild?: (storePath: string) => Promise<unknown>;
+  runAutomaticEventAudit?: typeof runAutomaticEventAudit;
   appendEventIfAbsent?: (storePath: string, event: MorynEvent) => Promise<AppendEventIfAbsentResult>;
   readCurrentRecords?: (storePath: string) => Promise<CurrentRecordReadResult>;
   readRetrievalCandidates?: (
@@ -305,12 +312,6 @@ interface MemoryDoctorInput {
   include_private?: unknown;
 }
 
-interface ConsolidateExactDuplicatesInput {
-  project_id?: string;
-  include_private?: unknown;
-  source?: RecordSource;
-}
-
 interface IngestLearningsInput {
   project_id?: string;
   learnings: unknown;
@@ -367,6 +368,11 @@ function duplicateLinkEventId(recordId: string, targetRecordId: string): string 
     updated_at: "",
     source: { client: "moryn" }
   }).slice(0, 32)}`;
+}
+
+function exactDuplicateLinkTimestamp(record: MorynRecord, target: MorynRecord): string {
+  const latestEndpoint = record.updated_at >= target.updated_at ? record : target;
+  return new Date(Date.parse(latestEndpoint.updated_at) + 1).toISOString();
 }
 
 function semanticConsolidationEventId(sourceRecordId: string, targetRecordId: string, relationship: string): string {
@@ -4196,6 +4202,10 @@ export function createEngine(deps: EngineDeps) {
         source: normalized.source,
         occurred_at: normalized.occurred_at
       });
+      const exactDuplicateConsolidation = await runAutomaticExactDuplicateConsolidation(engine, {
+        project_id: normalized.project_id,
+        source: normalized.source
+      });
       const candidateReview = buildLearningCandidateReviewWorkflow(
         normalized.project_id,
         unresolvedLearningCandidates(learningIngestion.semantic_candidates.candidates, semanticConsolidation)
@@ -4217,40 +4227,32 @@ export function createEngine(deps: EngineDeps) {
         session_id: normalized.delta.session_id,
         include_private: normalized.include_private
       });
+      let derivedViewsRefreshed = true;
       try {
         await checkpointRebuild(deps.storePath);
-        return {
-          record: outcome.record,
-          idempotent_replay: outcome.idempotent_replay,
-          committed: true,
-          durability: outcome.durability,
-          derived_views_refreshed: true,
-          ...(warnings.length ? { warnings } : {}),
-          recovery_pack: recoveryPack,
-          learning_ingestion: learningIngestionResult,
-          learning_inbox: learningInbox,
-          semantic_consolidation: semanticConsolidation,
-          selection_sources: CHECKPOINT_SELECTION_SOURCES
-        };
       } catch (error) {
+        derivedViewsRefreshed = false;
         warnings.push({
           code: "DERIVED_VIEW_REBUILD_FAILED",
           reason: error instanceof Error ? error.message : String(error)
         });
-        return {
-          record: outcome.record,
-          idempotent_replay: outcome.idempotent_replay,
-          committed: true,
-          durability: outcome.durability,
-          derived_views_refreshed: false,
-          warnings,
-          recovery_pack: recoveryPack,
-          learning_ingestion: learningIngestionResult,
-          learning_inbox: learningInbox,
-          semantic_consolidation: semanticConsolidation,
-          selection_sources: CHECKPOINT_SELECTION_SOURCES
-        };
       }
+      const automaticEventAudit = await (deps.runAutomaticEventAudit ?? runAutomaticEventAudit)(deps.storePath);
+      return {
+        record: outcome.record,
+        idempotent_replay: outcome.idempotent_replay,
+        committed: true,
+        durability: outcome.durability,
+        derived_views_refreshed: derivedViewsRefreshed,
+        ...(warnings.length ? { warnings } : {}),
+        recovery_pack: recoveryPack,
+        learning_ingestion: learningIngestionResult,
+        learning_inbox: learningInbox,
+        exact_duplicate_consolidation: exactDuplicateConsolidation,
+        semantic_consolidation: semanticConsolidation,
+        automatic_event_audit: automaticEventAudit,
+        selection_sources: CHECKPOINT_SELECTION_SOURCES
+      };
     },
 
     async write(input: WriteInput) {
@@ -4328,17 +4330,50 @@ export function createEngine(deps: EngineDeps) {
       };
     },
 
-    async consolidateExactDuplicates(input: ConsolidateExactDuplicatesInput = {}) {
+    async consolidateExactDuplicates(input: ExactDuplicateConsolidationInput = {}) {
       if (input.include_private !== undefined && typeof input.include_private !== "boolean") {
         throw new Error("Invalid argument: consolidate exact duplicates include_private must be a boolean");
       }
+      if (
+        input.record_kinds !== undefined &&
+        (!Array.isArray(input.record_kinds) ||
+          input.record_kinds.some((kind) => !RECORD_KINDS.includes(kind as (typeof RECORD_KINDS)[number])))
+      ) {
+        throw new Error(
+          `Invalid argument: consolidate exact duplicates record_kinds must use ${RECORD_KINDS.join(", ")}`
+        );
+      }
+      if (input.active_logical_only !== undefined && typeof input.active_logical_only !== "boolean") {
+        throw new Error("Invalid argument: consolidate exact duplicates active_logical_only must be a boolean");
+      }
+      if (input.skip_conflicted !== undefined && typeof input.skip_conflicted !== "boolean") {
+        throw new Error("Invalid argument: consolidate exact duplicates skip_conflicted must be a boolean");
+      }
+      if (input.exclude_global !== undefined && typeof input.exclude_global !== "boolean") {
+        throw new Error("Invalid argument: consolidate exact duplicates exclude_global must be a boolean");
+      }
       const includePrivate = input.include_private === true;
-      const records = (await currentRecords())
+      const allRecords = await currentRecords();
+      const logicalView = buildActiveLogicalMemoryView(allRecords);
+      const activeLogicalRecordIds = input.active_logical_only
+        ? new Set(logicalView.active_records.map((record) => record.id))
+        : undefined;
+      const conflictedRecordIds = input.skip_conflicted ? new Set(logicalView.conflict_record_ids) : undefined;
+      const recordKinds = input.record_kinds ? new Set(input.record_kinds) : undefined;
+      const records = allRecords
         .filter(
           (record) => record.visibility === "active" && record.state !== "archived" && record.state !== "quarantined"
         )
         .filter((record) => !input.project_id || record.project_id === input.project_id)
-        .filter((record) => includePrivate || !isPrivateRecord(record));
+        .filter((record) => !input.exclude_global || record.scope !== "global")
+        .filter((record) => includePrivate || !isPrivateRecord(record))
+        .filter((record) => !recordKinds || recordKinds.has(record.kind))
+        .filter((record) => !activeLogicalRecordIds || activeLogicalRecordIds.has(record.id))
+        .filter(
+          (record) =>
+            !conflictedRecordIds ||
+            (!conflictedRecordIds.has(record.id) && record.conflict?.resolution !== "needs_review")
+        );
       const recordsByFingerprint = new Map<string, MorynRecord[]>();
       for (const record of records) {
         const fingerprint = logicalMemoryFingerprint(record);
@@ -4371,10 +4406,11 @@ export function createEngine(deps: EngineDeps) {
             record_id: duplicate.id,
             linked_record_id: group.target.id,
             link_type: "duplicate_of",
-            created_at: now(),
+            reason: EXACT_DUPLICATE_LINK_REASON,
+            created_at: exactDuplicateLinkTimestamp(duplicate, group.target),
             source
           };
-          const appended = await appendEventIfAbsent(deps.storePath, event);
+          const appended = await appendIdempotentEvent(deps.storePath, event);
           if (appended.created) linksCreated += 1;
           else linksExisting += 1;
         }
