@@ -7893,6 +7893,7 @@ describe("quiet dashboard first screen", () => {
       expect(html).toContain("lastTrigger.focus()");
       expect(html).toContain("restoreDashboardWorkspaceAfterFragment");
       expect(html).toContain("openDrawer(state.drawer, null, { focus: true })");
+      expect(html).toContain(".editorial-view-page > .v04-dashboard-sections');");
     });
   });
 

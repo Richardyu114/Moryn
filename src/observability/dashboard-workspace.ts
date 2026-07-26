@@ -1207,6 +1207,8 @@ export function renderDashboardWorkspace(data: DashboardData, fragments: Dashboa
   const model = buildDashboardWorkspaceModel(data, fragments.memory_records);
   const savedItemsEn = `${model.memory.saved} ${model.memory.saved === 1 ? "item" : "items"}`;
   const organizedSummaryEn = `${model.memory.organized} older ${model.memory.organized === 1 ? "version" : "versions"} tucked away`;
+  const retainedNonCurrent = Math.max(0, model.memory.saved - model.memory.current);
+  const retainedNonCurrentEn = `${retainedNonCurrent} ${retainedNonCurrent === 1 ? "item remains" : "items remain"} outside current use as older-version, history, or review material`;
   const memoryScope =
     data.memory_maintenance.scope.mode === "project"
       ? {
@@ -1240,9 +1242,9 @@ export function renderDashboardWorkspace(data: DashboardData, fragments: Dashboa
             </section>
             ${renderAttention(data.quiet_dashboard.attention_needed, data.decision_summary.items, data.actions_by_id, data.maintenance)}
             <section class="editorial-section" data-editorial-section="memory-state"><div class="editorial-section-heading"><div class="editorial-section-title">${i18n("Memory State", "记忆状态")}</div><p>${i18n("Concrete content and its current status", "具体保存了什么，以及当前状态")}</p></div>
-              <p class="editorial-memory-summary"><strong>${i18n(`${savedItemsEn} saved for this project and shared use`, `当前项目及共享范围共保存 ${model.memory.saved} 条内容`)}</strong><span>${i18n(`${model.memory.current} current · ${organizedSummaryEn} · ${model.memory.history} history · ${model.memory.quarantined} set aside`, `${model.memory.current} 条当前可用 · ${model.memory.organized} 条旧版本已收起 · ${model.memory.history} 条历史 · ${model.memory.quarantined} 条待查`)}</span></p>
+              <p class="editorial-memory-summary"><strong>${i18n(`${savedItemsEn} saved in total for this project and shared use`, `当前项目及共享范围共保存 ${model.memory.saved} 条内容（含当前、历史与待查）`)}</strong><span>${i18n(`Breakdown: ${model.memory.current} current + ${organizedSummaryEn} + ${model.memory.history} history + ${model.memory.quarantined} set aside`, `构成：${model.memory.current} 条当前可用 + ${model.memory.organized} 条旧版本已收起 + ${model.memory.history} 条历史 + ${model.memory.quarantined} 条待查`)}</span></p>
               <div class="editorial-memory-grid">
-              ${renderMetric("memory-active", "Current", "当前可用", model.memory.current, `of ${model.memory.saved} saved items`, `共 ${model.memory.saved} 条保存内容`)}
+              ${renderMetric("memory-active", "Current", "当前可用", model.memory.current, retainedNonCurrentEn, `另有 ${retainedNonCurrent} 条作为旧版本、历史或待查内容保留`)}
               ${renderMetric("memory-learned", "Absorbed", "已吸收结论", model.memory.learned, `${model.memory.pending_learning} new findings processing`, `${model.memory.pending_learning} 条新发现正在处理`)}
               ${renderMetric("memory-conflicts", "Needs review", "存在分歧", model.memory.conflicts, model.memory.conflicts ? "Concrete statements are preserved" : "Nothing needs your attention", model.memory.conflicts ? "相关具体表述均已保留" : "目前无需你处理")}
               ${renderMetric("memory-compaction", "Older versions tucked away", "已收起旧版本", model.memory.organized, `${model.memory.organization_groups} current conclusions`, `归入 ${model.memory.organization_groups} 条当前结论`)}

@@ -101,8 +101,9 @@ describe("human-facing dashboard memory status", () => {
         pending_total: 1
       });
       expect(data.memory_status.organization).toMatchObject({ hidden_total: 1, group_total: 1 });
-      expect(html).toContain("8 items saved for this project and shared use");
-      expect(html).toContain("5 current · 1 older version tucked away · 1 history · 1 set aside");
+      expect(html).toContain("8 items saved in total for this project and shared use");
+      expect(html).toContain("Breakdown: 5 current + 1 older version tucked away + 1 history + 1 set aside");
+      expect(html).toContain("3 items remain outside current use as older-version, history, or review material");
       expect(html).toContain(absorbedText);
       expect(html).toContain(pendingText);
       expect(html).toContain(currentText);

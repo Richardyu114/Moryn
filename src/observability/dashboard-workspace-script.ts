@@ -36,7 +36,7 @@ export function dashboardWorkspaceScript(): string {
         const replayEntrance = (section) => {
           if (!(section instanceof HTMLElement)) return;
           if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-          const targets = section.querySelectorAll('[data-editorial-section], .editorial-sidebar, .editorial-view-page > header, .editorial-view-page > .memory-search, .editorial-view-page > .history-timeline');
+          const targets = section.querySelectorAll('[data-editorial-section], .editorial-sidebar, .editorial-view-page > header, .editorial-view-page > .memory-search, .editorial-view-page > .history-timeline, .editorial-view-page > .v04-dashboard-sections');
           targets.forEach((el) => {
             if (!(el instanceof HTMLElement)) return;
             el.style.animation = 'none';
