@@ -535,14 +535,14 @@ Current semantic-maintenance slice:
 - [x] Require guaranteed consolidation to strictly reduce both current logical
   records and estimated working-set tokens; blocked candidates do not count as
   reductions.
-- [ ] Author a derived semantic record from evidence, prove protected-term and
+- [x] Author a derived semantic record from evidence, prove protected-term and
   coverage preservation, and calculate its real token size.
-- [ ] Run semantic proposals automatically only after false-positive, conflict,
-  privacy, sync, rollback, and bounded-growth dogfood gates pass. Exact duplicate
-  linking remains the only automatic semantic-maintenance action before then.
-- [ ] Add the bounded periodic scheduler and append-only application receipt so
-  successful maintenance makes the actual current-usable count decrease over
-  time rather than merely producing summaries.
+- [x] Run at most one cumulative semantic proposal automatically at
+  `agent_finish` after topic, conflict, privacy, source-digest, coverage, real
+  token, and strict current-count gates pass. The receipt verifies observed
+  before/after values and retains append-only source history.
+- [ ] Decide from dogfood whether a periodic scheduler adds value beyond the
+  lifecycle hook. Do not add a background daemon merely to create activity.
 
 ### Phase 3: Setup Wizard
 

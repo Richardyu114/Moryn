@@ -2744,8 +2744,9 @@ Snapshots and indexes are derived. The default Git sync should commit events onl
 
 Structured semantic merge is an opt-in extension of the existing authored
 proposal JSON. It may retain an exact source value, deterministically union
-exact array members, or explicitly replace/obsolete a field with evidence. It
-never accepts synthesized output values. The derived record has a content-based
+exact array members, recompute a lossless source-text segment union, or explicitly
+replace/obsolete a field with evidence. Synthesized text is accepted only when
+it exactly matches the planner's deterministic source-derived output. The derived record has a content-based
 stable ID plus source/evidence digests and per-field/value lineage. Evidence
 content therefore participates in identity, and the causal timestamp follows
 the latest cited dependency. The record is first written and read back with

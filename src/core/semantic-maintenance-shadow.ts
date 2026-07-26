@@ -9,6 +9,12 @@ import {
   discoverSemanticConsolidationCandidates,
   type SemanticConsolidationCandidate
 } from "./semantic-consolidation-candidates.js";
+import {
+  authorSemanticMaintenanceMergeDraft,
+  publicSemanticMaintenanceMergeDraft,
+  type SemanticMaintenanceDraftBlockerCode,
+  type SemanticMaintenanceMergeDraft
+} from "./semantic-maintenance-draft.js";
 import { isPrivateMemoryBoundary } from "./sensitive.js";
 import type { MorynRecord, RecordKind } from "./types.js";
 
@@ -24,6 +30,11 @@ export const SEMANTIC_MAINTENANCE_SHADOW_SELECTION_SOURCES = {
   potential_after_current_records: "projection.potential_after.current_records",
   guaranteed_record_reduction: "projection.guaranteed_reduction.current_records",
   potential_record_reduction: "projection.potential_reduction.current_records",
+  authored_merge_draft: "authored_merge_drafts[]",
+  authored_merge_draft_status: "authored_merge_drafts[].status",
+  authored_merge_draft_blocker: "authored_merge_drafts[].blocker_codes[]",
+  authored_merge_draft_record_proof: "authored_merge_drafts[].proof.projection.strict_record_decrease",
+  authored_merge_draft_token_proof: "authored_merge_drafts[].proof.projection.strict_token_decrease",
   growth_status: "growth.status"
 } as const;
 
@@ -41,7 +52,8 @@ export type SemanticMaintenanceShadowBlockerCode =
   | "private_boundary_requires_explicit_authorization"
   | "protected_record_kind"
   | "project_scope_required"
-  | "token_reduction_not_proven";
+  | "token_reduction_not_proven"
+  | SemanticMaintenanceDraftBlockerCode;
 
 export interface SemanticMaintenanceShadowOptions {
   project_id?: string;
@@ -59,7 +71,7 @@ export interface SemanticMaintenanceShadowCandidate {
   score: number;
   token_overlap: number;
   signals: SemanticConsolidationCandidate["signals"];
-  action: "auto_link_exact_duplicate" | "review_semantic_merge" | "blocked";
+  action: "auto_link_exact_duplicate" | "auto_merge_lossless" | "review_semantic_merge" | "blocked";
   auto_apply_safe: boolean;
   blocker_codes: SemanticMaintenanceShadowBlockerCode[];
   projection: {
@@ -91,10 +103,13 @@ export interface SemanticMaintenanceShadowReport {
     omitted_private_records: number;
   };
   candidates: SemanticMaintenanceShadowCandidate[];
+  authored_merge_drafts: SemanticMaintenanceMergeDraft[];
   summary: {
     exact_duplicate_groups: number;
     exact_duplicate_records: number;
     semantic_candidate_pairs: number;
+    authored_drafts_ready: number;
+    authored_drafts_blocked: number;
     auto_safe_candidates: number;
     review_candidates: number;
     blocked_candidates: number;
@@ -124,7 +139,8 @@ export interface SemanticMaintenanceShadowReport {
   safety: {
     writes: "none";
     scores_prove_equivalence: false;
-    semantic_auto_apply: false;
+    semantic_auto_apply: true;
+    proof_gated_semantic_auto_apply: true;
     exact_duplicates_may_auto_apply: true;
     protected_content_auto_merged: false;
     physical_purge: false;
@@ -199,6 +215,17 @@ function hasConflict(record: MorynRecord): boolean {
   return record.conflict?.resolution === "needs_review";
 }
 
+function hasExternalConflict(records: readonly MorynRecord[]): boolean {
+  const sourceIds = new Set(records.map((record) => record.id));
+  return records.some(
+    (record) =>
+      hasConflict(record) &&
+      (record.conflict?.kind !== "semantic" ||
+        record.conflict.with.length === 0 ||
+        record.conflict.with.some((recordId) => recordId === record.id || !sourceIds.has(recordId)))
+  );
+}
+
 function exactAutoBlockers(
   records: readonly MorynRecord[],
   projectId: string | undefined
@@ -220,7 +247,7 @@ function semanticBlockers(records: readonly MorynRecord[]): SemanticMaintenanceS
   ]);
   if (records.some((record) => !SEMANTIC_REVIEW_KINDS.has(record.kind))) blockers.add("protected_record_kind");
   if (records.some(isPrivateMemoryBoundary)) blockers.add("private_boundary_requires_explicit_authorization");
-  if (records.some(hasConflict)) blockers.add("conflict_requires_review");
+  if (hasExternalConflict(records)) blockers.add("conflict_requires_review");
   if (records.some((record) => record.scope === "global")) blockers.add("global_scope_requires_review");
   if (records.some((record) => record.priority === "high")) blockers.add("high_priority_requires_review");
   return [...blockers].sort(compareCodeUnits);
@@ -375,6 +402,26 @@ export function buildSemanticMaintenanceShadowReport(
       }
     });
   }
+  const authoredDrafts = candidates
+    .filter(
+      (candidate) => candidate.classification === "semantic_overlap" && candidate.action === "review_semantic_merge"
+    )
+    .map((candidate) =>
+      authorSemanticMaintenanceMergeDraft(scoped.records, candidate, { project_id: projectId ?? "" })
+    );
+  const authoredDraftsByCandidateId = new Map(authoredDrafts.map((draft) => [draft.candidate_id, draft]));
+  for (const candidate of candidates) {
+    const draft = authoredDraftsByCandidateId.get(candidate.candidate_id);
+    if (!draft) continue;
+    candidate.blocker_codes = draft.blocker_codes;
+    if (draft.status !== "ready") continue;
+    candidate.action = "auto_merge_lossless";
+    candidate.auto_apply_safe = true;
+    candidate.projection.guaranteed_after_current_records = 1;
+    candidate.projection.guaranteed_current_record_reduction = 1;
+    candidate.projection.guaranteed_after_estimated_tokens = draft.proof.projection.after_estimated_tokens;
+    candidate.projection.guaranteed_estimated_token_reduction = draft.proof.projection.estimated_token_reduction;
+  }
   candidates.sort(
     (left, right) =>
       Number(right.auto_apply_safe) - Number(left.auto_apply_safe) ||
@@ -383,8 +430,19 @@ export function buildSemanticMaintenanceShadowReport(
       right.score - left.score ||
       compareCodeUnits(left.candidate_id, right.candidate_id)
   );
-  const guaranteedRecordReduction = guaranteedRemovedRecordIds.size;
   const reserved = new Set(guaranteedRemovedRecordIds);
+  let guaranteedSemanticReduction = 0;
+  for (const candidate of candidates) {
+    if (candidate.action !== "auto_merge_lossless" || !candidate.auto_apply_safe) continue;
+    if (reserved.has(candidate.source_record_id) || reserved.has(candidate.target_record_id)) continue;
+    const draft = authoredDraftsByCandidateId.get(candidate.candidate_id);
+    if (draft?.status !== "ready") continue;
+    reserved.add(candidate.source_record_id);
+    reserved.add(candidate.target_record_id);
+    guaranteedSemanticReduction += 1;
+    guaranteedTokenReduction += draft.proof.projection.estimated_token_reduction;
+  }
+  const guaranteedRecordReduction = guaranteedRemovedRecordIds.size + guaranteedSemanticReduction;
   const semanticOpportunity = semanticOpportunityCount(candidates, reserved);
   const potentialRecordReduction = guaranteedRecordReduction + semanticOpportunity;
   const guaranteedAfterRecords = Math.max(0, scoped.records.length - guaranteedRecordReduction);
@@ -418,11 +476,14 @@ export function buildSemanticMaintenanceShadowReport(
       omitted_private_records: scoped.omitted_private_records
     },
     candidates: candidates.slice(0, candidateLimit),
+    authored_merge_drafts: authoredDrafts.map(publicSemanticMaintenanceMergeDraft).slice(0, candidateLimit),
     summary: {
       exact_duplicate_groups: exactGroups.length,
       exact_duplicate_records: exactGroups.reduce((total, group) => total + group.length - 1, 0),
       semantic_candidate_pairs: candidates.filter((candidate) => candidate.classification === "semantic_overlap")
         .length,
+      authored_drafts_ready: authoredDrafts.filter((draft) => draft.status === "ready").length,
+      authored_drafts_blocked: authoredDrafts.filter((draft) => draft.status === "blocked").length,
       auto_safe_candidates: candidates.filter((candidate) => candidate.auto_apply_safe).length,
       review_candidates: candidates.filter((candidate) => candidate.action === "review_semantic_merge").length,
       blocked_candidates: candidates.filter((candidate) => candidate.action === "blocked").length,
@@ -459,7 +520,8 @@ export function buildSemanticMaintenanceShadowReport(
     safety: {
       writes: "none",
       scores_prove_equivalence: false,
-      semantic_auto_apply: false,
+      semantic_auto_apply: true,
+      proof_gated_semantic_auto_apply: true,
       exact_duplicates_may_auto_apply: true,
       protected_content_auto_merged: false,
       physical_purge: false

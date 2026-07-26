@@ -133,6 +133,15 @@ const structuredSemanticMergeFieldSchema = z.discriminatedUnion("disposition", [
   z
     .object({
       field: nonEmptyStringSchema,
+      disposition: z.literal("synthesize"),
+      strategy: z.enum(["lossless_concatenate", "lossless_segment_union"]),
+      source_record_ids: requiredUniqueStringListSchema,
+      value: nonEmptyStringSchema
+    })
+    .strict(),
+  z
+    .object({
+      field: nonEmptyStringSchema,
       disposition: z.literal("replace"),
       source_record_id: nonEmptyStringSchema,
       replaced_source_record_ids: requiredUniqueStringListSchema,

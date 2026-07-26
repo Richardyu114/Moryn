@@ -24,6 +24,9 @@ memory.
 - Opt-in structured semantic merge with exact field/value lineage,
   source/evidence digest guards, quarantined pre-claim publication,
   deterministic activation/promotion, and resumable same-plan retries.
+- Proof-gated semantic maintenance drafts with deterministic lossless text-unit
+  union, complete source coverage, final-record token projection, and at most
+  one automatic public project merge per `agent_finish`.
 - Bounded source expansion from a rollup to immediate sources and leaf evidence,
   including cycle, digest, privacy, conflict, and quarantine reporting.
 - Versioned User Soul and Agent Persona profiles with global/project clauses,
@@ -55,6 +58,9 @@ memory.
 - Collaboration Preferences is a first-class Dashboard view. It renders only
   selected portable text; `local_only`, private, and other-project Soul content
   remains excluded even when ordinary private records are explicitly enabled.
+- Memory Shadow now distinguishes authored merge proofs from similarity-only
+  candidates and reports observed record/token decreases without exposing the
+  synthesized text in CLI, MCP, or Dashboard receipts.
 
 ### Safety and compatibility
 

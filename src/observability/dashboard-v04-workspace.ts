@@ -292,13 +292,14 @@ export function renderMemoryMaintenance(
   const potentialAfter = shadow.projection.potential_after.current_records;
   const guaranteedReduction = shadow.projection.guaranteed_reduction.current_records;
   const potentialReduction = shadow.projection.potential_reduction.current_records;
+  const authoredReady = shadow.summary.authored_drafts_ready;
   const shadowCopy =
     guaranteedReduction > 0
       ? {
           titleEn: "Safe cleanup can make current memory smaller",
           titleZh: "安全整理可以让当前记忆变少",
-          bodyEn: `A verified pass can reduce current memory from ${currentRecords} to ${guaranteedAfter} items. Source history remains recoverable.`,
-          bodyZh: `经过验证的整理可以将当前可用记忆从 ${currentRecords} 条减少到 ${guaranteedAfter} 条，来源历史仍可恢复。`
+          bodyEn: `A verified pass can reduce current memory from ${currentRecords} to ${guaranteedAfter} items${authoredReady > 0 ? `, including ${authoredReady} lossless meaning merge${authoredReady === 1 ? "" : "s"}` : ""}. Source history remains recoverable.`,
+          bodyZh: `经过验证的整理可以将当前可用记忆从 ${currentRecords} 条减少到 ${guaranteedAfter} 条${authoredReady > 0 ? `，其中 ${authoredReady} 组为保真语义合并` : ""}，来源历史仍可恢复。`
         }
       : potentialReduction > 0
         ? {
@@ -348,7 +349,7 @@ export function renderMemoryMaintenance(
         <div><span>${i18n("After reviewed merges", "核对合并后")}</span><strong>${integer(potentialAfter)}</strong></div>
         <div><span>${i18n("Proven token reduction", "已证明可减少 token")}</span><strong>${integer(shadow.projection.guaranteed_reduction.estimated_tokens)}</strong></div>
       </div>
-      <p class="v04-shadow-rule">${i18n("Read-only forecast. A consolidation only qualifies when the usable-record count strictly decreases; source history is linked, not physically deleted.", "只读预测。只有当前可用记忆数量确实减少时才算完成整理；来源历史只会被关联收起，不会被物理删除。")}</p>
+      <p class="v04-shadow-rule">${i18n("This page is read only. At agent finish, Moryn may apply at most one merge only when every source text unit is covered and both usable records and tokens strictly decrease; source history is linked, not physically deleted.", "此页面只读。每次 Agent 结束时，Moryn 最多自动执行一组合并；只有全部原文片段均被覆盖，且可用记忆数和 token 都确实减少时才会生效。来源历史只会被关联收起，不会被物理删除。")}</p>
     </div>
     ${renderedPlans ? `<div class="v04-plan-list">${renderedPlans}</div>` : ""}
     ${plans.length > PLAN_RENDER_LIMIT ? `<p class="v04-more">${i18n(`Showing ${PLAN_RENDER_LIMIT} of ${plans.length} suggestions.`, `显示 ${plans.length} 条建议中的 ${PLAN_RENDER_LIMIT} 条。`)}</p>` : ""}

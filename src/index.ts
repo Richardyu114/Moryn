@@ -80,6 +80,14 @@ export {
   countPrivateAutomaticEpisodeRollupRecoveryPlans,
   readAutomaticEpisodeRollupRecoveryPlans
 } from "./core/automatic-episode-rollup-recovery.js";
+export type {
+  AutomaticSemanticMaintenanceInput,
+  AutomaticSemanticMaintenanceResult
+} from "./core/automatic-semantic-maintenance.js";
+export {
+  AUTOMATIC_SEMANTIC_MAINTENANCE_MAX_MERGES,
+  runAutomaticSemanticMaintenance
+} from "./core/automatic-semantic-maintenance.js";
 export type { ClaudeActivationResult, ClaudeSettingsMergeResult } from "./core/claude-activation.js";
 export { activateClaudeSettings, mergeClaudeSettings } from "./core/claude-activation.js";
 export { activateCodexHooks, mergeCodexHooks } from "./core/codex-activation.js";
@@ -323,6 +331,17 @@ export {
   SEMANTIC_CONSOLIDATION_DISCOVERY_SELECTION_SOURCES
 } from "./core/semantic-consolidation-candidates.js";
 export type {
+  AuthoredSemanticMaintenanceMergeDraft,
+  SemanticMaintenanceDraftBlockerCode,
+  SemanticMaintenanceDraftCandidate,
+  SemanticMaintenanceMergeDraft
+} from "./core/semantic-maintenance-draft.js";
+export {
+  AUTOMATIC_SEMANTIC_MERGE_MINIMUM_TOKEN_OVERLAP,
+  authorSemanticMaintenanceMergeDraft,
+  publicSemanticMaintenanceMergeDraft
+} from "./core/semantic-maintenance-draft.js";
+export type {
   SemanticMaintenanceShadowBlockerCode,
   SemanticMaintenanceShadowCandidate,
   SemanticMaintenanceShadowOptions,
@@ -490,7 +509,11 @@ export type {
 } from "./core/structured-semantic-merge.js";
 export {
   canonicalStructuredSemanticMergeValue,
+  losslessSemanticMergeSegmentUnionText,
+  losslessSemanticMergeText,
+  losslessSemanticMergeTextSegments,
   planStructuredSemanticMerge,
+  projectStructuredSemanticMergeFinalRecord,
   STRUCTURED_SEMANTIC_MERGE_ACTIVATION_OFFSET_MS,
   STRUCTURED_SEMANTIC_MERGE_ACTIVATION_REASON,
   STRUCTURED_SEMANTIC_MERGE_CLAIM_OFFSET_MS,

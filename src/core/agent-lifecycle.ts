@@ -14,6 +14,10 @@ import { type ActionInterfaces, actionInterfaces } from "./action-interfaces.js"
 import { type ActionExecution, type ActionSafety, actionExecution, actionSafety } from "./action-safety.js";
 import { type AutomaticEpisodeRollupResult, runAutomaticEpisodeRollups } from "./automatic-episode-rollup.js";
 import { type AutomaticEventAuditFailureCode, runAutomaticEventAudit } from "./automatic-event-audit.js";
+import {
+  type AutomaticSemanticMaintenanceResult,
+  runAutomaticSemanticMaintenance
+} from "./automatic-semantic-maintenance.js";
 import type { RecoveryPack } from "./checkpoint.js";
 import { buildCheckpointRecoveryPack } from "./checkpoint.js";
 import { activateClaudeSettings } from "./claude-activation.js";
@@ -103,6 +107,7 @@ export interface AgentLifecycleDeps {
   handoffPayloadFingerprint?: string;
   finalizationRecovery?: { recovery_key: string; evidence_record_ids: string[] };
   runAutomaticEpisodeRollups?: typeof runAutomaticEpisodeRollups;
+  runAutomaticSemanticMaintenance?: typeof runAutomaticSemanticMaintenance;
   runAutomaticEventAudit?: typeof runAutomaticEventAudit;
 }
 
@@ -3545,6 +3550,12 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     project_id: project.project_id,
     now: lifecycleNow
   });
+  const automaticSemanticMaintenance: AutomaticSemanticMaintenanceResult = await (
+    deps.runAutomaticSemanticMaintenance ?? runAutomaticSemanticMaintenance
+  )(engine, {
+    project_id: project.project_id,
+    source: agentSource
+  });
   const shouldPush = input.push ?? projectInfo.sync_mode !== "manual";
   const auditEvents = deps.runAutomaticEventAudit ?? runAutomaticEventAudit;
   let automaticEventAudit: Awaited<ReturnType<typeof runAutomaticEventAudit>>;
@@ -3608,6 +3619,7 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     semantic_consolidation: semanticConsolidation,
     session_fold: sessionFold,
     episode_rollup: episodeRollup,
+    automatic_semantic_maintenance: automaticSemanticMaintenance,
     automatic_event_audit: automaticEventAudit,
     sync,
     next: {

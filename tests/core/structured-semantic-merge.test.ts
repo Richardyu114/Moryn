@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { SemanticConsolidationProposal } from "../../src/core/context-delta.js";
 import { isPrivateMemoryBoundary } from "../../src/core/sensitive.js";
 import {
+  losslessSemanticMergeSegmentUnionText,
   planStructuredSemanticMerge,
+  projectStructuredSemanticMergeFinalRecord,
   STRUCTURED_SEMANTIC_MERGE_ACTIVATION_OFFSET_MS,
   STRUCTURED_SEMANTIC_MERGE_CONTENT_KEY,
   STRUCTURED_SEMANTIC_MERGE_HIDE_REASON,
@@ -221,6 +223,58 @@ describe("planStructuredSemanticMerge", () => {
     );
 
     expect(result).toEqual({ status: "rejected", reason: "structured_merge_invalid_field_disposition" });
+  });
+
+  it("accepts only the deterministic lossless text-segment union and projects the final transaction record", () => {
+    const shared = "The source-backed deployment command is npm run dashboard.";
+    const old = record("old", { text: `${shared} The old endpoint remains available.` });
+    const next = record("new", { text: `${shared} The new endpoint is canonical.` });
+    const value = losslessSemanticMergeSegmentUnionText([next, old]);
+    expect(value).toBe(`${shared}\nThe old endpoint remains available.\nThe new endpoint is canonical.`);
+    const mergeProposal = proposal({
+      evidence_record_ids: [old.id, next.id],
+      material_differences: [{ field: "text", significance: "minor" }],
+      structured_merge: {
+        version: 1,
+        requested_state: "canonical",
+        fields: [
+          {
+            field: "text",
+            disposition: "synthesize",
+            strategy: "lossless_segment_union",
+            source_record_ids: [old.id, next.id],
+            value: value as string
+          }
+        ]
+      }
+    });
+    const result = planStructuredSemanticMerge([next, old], mergeProposal);
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") return;
+    expect(result.plan.initial_record.content.text).toBe(value);
+    expect(result.plan.initial_record.content[STRUCTURED_SEMANTIC_MERGE_CONTENT_KEY]).toMatchObject({
+      field_lineage: expect.arrayContaining([
+        expect.objectContaining({ field: "text", disposition: "synthesize", source_record_ids: ["new", "old"] })
+      ])
+    });
+    const projected = projectStructuredSemanticMergeFinalRecord(result.plan, "revises");
+    expect(projected).toMatchObject({ state: "canonical", visibility: "active" });
+    expect(projected.links).toHaveLength(3);
+    expect(projected.links?.filter((link) => link.link_type === "revises")).toHaveLength(2);
+
+    const changed = planStructuredSemanticMerge([next, old], {
+      ...mergeProposal,
+      structured_merge: {
+        ...mergeProposal.structured_merge!,
+        fields: [
+          {
+            ...mergeProposal.structured_merge!.fields[0]!,
+            value: `${value}\nUnverified interpretation.`
+          }
+        ]
+      }
+    });
+    expect(changed).toEqual({ status: "rejected", reason: "structured_merge_invalid_field_disposition" });
   });
 
   it("rejects union across incompatible cumulative value shapes", () => {

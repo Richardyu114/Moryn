@@ -44,7 +44,7 @@ export interface StructuredSemanticMergeValueLineage {
 
 export interface StructuredSemanticMergeFieldLineage {
   field: string;
-  disposition: "retain" | "union" | "replace" | "obsolete";
+  disposition: "retain" | "union" | "synthesize" | "replace" | "obsolete";
   source_record_ids: string[];
   evidence_record_ids: string[];
   evidence_digests: Record<string, string>;
@@ -157,6 +157,46 @@ function sortedUnique(values: readonly string[]): string[] {
 
 function exactIds(actual: readonly string[], expected: readonly string[]): boolean {
   return canonicalJson(sortedUnique(actual)) === canonicalJson(sortedUnique(expected));
+}
+
+export function losslessSemanticMergeText(records: readonly MorynRecord[]): string | undefined {
+  const ordered = [...records]
+    .sort(
+      (left, right) =>
+        compareCodeUnits(left.created_at, right.created_at) ||
+        compareCodeUnits(left.updated_at, right.updated_at) ||
+        compareCodeUnits(left.id, right.id)
+    )
+    .map((record) => (typeof record.content.text === "string" ? record.content.text.trim() : ""));
+  if (ordered.some((text) => !text)) return undefined;
+  return [...new Set(ordered)].join("\n\n");
+}
+
+export function losslessSemanticMergeTextSegments(records: readonly MorynRecord[]): string[] | undefined {
+  const ordered = [...records].sort(
+    (left, right) =>
+      compareCodeUnits(left.created_at, right.created_at) ||
+      compareCodeUnits(left.updated_at, right.updated_at) ||
+      compareCodeUnits(left.id, right.id)
+  );
+  const segments = ordered.flatMap((record) => {
+    if (typeof record.content.text !== "string" || !record.content.text.trim()) return [];
+    return record.content.text
+      .trim()
+      .split(/(?<=[.!?。！？])\s+|\n+/u)
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+  });
+  if (
+    !segments.length ||
+    ordered.some((record) => typeof record.content.text !== "string" || !record.content.text.trim())
+  )
+    return undefined;
+  return [...new Set(segments)];
+}
+
+export function losslessSemanticMergeSegmentUnionText(records: readonly MorynRecord[]): string | undefined {
+  return losslessSemanticMergeTextSegments(records)?.join("\n");
 }
 
 function activeEvidence(record: MorynRecord | undefined): record is MorynRecord {
@@ -320,6 +360,18 @@ function canonicalEligible(
   proposal: SemanticConsolidationProposal
 ): boolean {
   const conflicted = new Set(buildActiveLogicalMemoryView([...allRecords]).conflict_record_ids);
+  const sourceIds = new Set(sources.map((record) => record.id));
+  const cumulativeOnly =
+    proposal.structured_merge?.fields.every(
+      (field) => field.disposition === "retain" || field.disposition === "union" || field.disposition === "synthesize"
+    ) === true;
+  const sourceConflictCovered = (record: MorynRecord): boolean =>
+    !record.conflict ||
+    record.conflict.resolution === "resolved" ||
+    (cumulativeOnly &&
+      record.conflict.kind === "semantic" &&
+      record.conflict.with.length > 0 &&
+      record.conflict.with.every((recordId) => recordId !== record.id && sourceIds.has(recordId)));
   return (
     proposal.structured_merge?.requested_state === "canonical" &&
     sources.every(
@@ -327,7 +379,7 @@ function canonicalEligible(
         record.state === "canonical" &&
         record.visibility === "active" &&
         !conflicted.has(record.id) &&
-        (!record.conflict || record.conflict.resolution === "resolved")
+        sourceConflictCovered(record)
     )
   );
 }
@@ -446,6 +498,40 @@ export function planStructuredSemanticMerge(
         evidence_record_ids: [],
         evidence_digests: {},
         values: union.lineage
+      });
+      continue;
+    }
+    if (disposition.disposition === "synthesize") {
+      if (
+        fieldName !== "text" ||
+        !["lossless_concatenate", "lossless_segment_union"].includes(disposition.strategy) ||
+        !exactIds(
+          disposition.source_record_ids,
+          present.map((record) => record.id)
+        )
+      ) {
+        return { status: "rejected", reason: "structured_merge_invalid_field_disposition" };
+      }
+      const expectedText =
+        disposition.strategy === "lossless_segment_union"
+          ? losslessSemanticMergeSegmentUnionText(present)
+          : losslessSemanticMergeText(present);
+      if (!expectedText || disposition.value !== expectedText) {
+        return { status: "rejected", reason: "structured_merge_invalid_field_disposition" };
+      }
+      content[fieldName] = expectedText;
+      fieldLineage.push({
+        field: fieldName,
+        disposition: "synthesize",
+        source_record_ids: sortedUnique(disposition.source_record_ids),
+        evidence_record_ids: [],
+        evidence_digests: {},
+        values: [
+          {
+            value_digest: structuredSemanticMergeDigest(expectedText),
+            source_record_ids: sortedUnique(disposition.source_record_ids)
+          }
+        ]
       });
       continue;
     }
@@ -688,4 +774,51 @@ export function structuredSemanticMergeInitialRecordMatches(
   plan: StructuredSemanticMergePlan
 ): boolean {
   return sameValue(record, plan.initial_record);
+}
+
+export function projectStructuredSemanticMergeFinalRecord(
+  plan: StructuredSemanticMergePlan,
+  relationship: Exclude<SemanticConsolidationProposal["relationship"], "conflicts_with">
+): MorynRecord {
+  const claimTimestamp = structuredSemanticMergeTimestamp(plan, STRUCTURED_SEMANTIC_MERGE_CLAIM_OFFSET_MS);
+  const activationTimestamp = structuredSemanticMergeTimestamp(plan, STRUCTURED_SEMANTIC_MERGE_ACTIVATION_OFFSET_MS);
+  const claimLink = {
+    record_id: plan.source_record_ids[0]!,
+    link_type: "supports" as const,
+    reason: "Claims this exact source snapshot for one deterministic structured semantic merge.",
+    created_at: claimTimestamp
+  };
+  const canonical = plan.final_state === "canonical";
+  const promotionTimestamp = structuredSemanticMergeTimestamp(plan, STRUCTURED_SEMANTIC_MERGE_PROMOTION_OFFSET_MS);
+  const relationshipLinks = canonical
+    ? relationship === "duplicate_of"
+      ? []
+      : plan.source_record_ids.map((recordId, index) => ({
+          record_id: recordId,
+          link_type: relationship,
+          reason: STRUCTURED_SEMANTIC_MERGE_HIDE_REASON,
+          created_at: structuredSemanticMergeTimestamp(plan, STRUCTURED_SEMANTIC_MERGE_RELATIONSHIP_OFFSET_MS + index)
+        }))
+    : plan.source_record_ids.slice(1).map((recordId, index) => ({
+        record_id: recordId,
+        link_type: "supports" as const,
+        reason: "Candidate merge retains a non-hiding source relationship pending canonical trust.",
+        created_at: structuredSemanticMergeTimestamp(plan, STRUCTURED_SEMANTIC_MERGE_RELATIONSHIP_OFFSET_MS + index)
+      }));
+  const updatedAt = relationshipLinks.at(-1)?.created_at ?? (canonical ? promotionTimestamp : activationTimestamp);
+  return {
+    ...structuredClone(plan.initial_record),
+    state: canonical ? "canonical" : "candidate",
+    visibility: "active",
+    updated_at: updatedAt,
+    links: [claimLink, ...relationshipLinks],
+    provenance: canonical
+      ? {
+          ...plan.initial_record.provenance,
+          reason: STRUCTURED_SEMANTIC_MERGE_PROMOTION_REASON,
+          method: "rule-promoted",
+          promoted_at: promotionTimestamp
+        }
+      : plan.initial_record.provenance
+  };
 }

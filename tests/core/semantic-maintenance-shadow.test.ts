@@ -40,7 +40,7 @@ describe("buildSemanticMaintenanceShadowReport", () => {
         guaranteed_after: { current_records: 1 },
         guaranteed_reduction: { current_records: 2, estimated_tokens: removedTokens, strict_decrease: true }
       },
-      safety: { writes: "none", semantic_auto_apply: false, physical_purge: false }
+      safety: { writes: "none", semantic_auto_apply: true, physical_purge: false }
     });
     expect(report.projection.guaranteed_after.estimated_tokens).toBe(
       report.projection.before.estimated_tokens - removedTokens
@@ -48,7 +48,7 @@ describe("buildSemanticMaintenanceShadowReport", () => {
     expect(JSON.stringify(records)).toBe(before);
   });
 
-  it("does not claim a guaranteed reduction for semantic overlap without an authored merge", () => {
+  it("does not claim a guaranteed reduction when an authored merge cannot prove token reduction", () => {
     const records = [
       record({ id: "new", content: { text: "Pull project memory before agent work starts" } }),
       record({ id: "old", content: { text: "Pull project memory when agent work begins" } })
@@ -69,9 +69,40 @@ describe("buildSemanticMaintenanceShadowReport", () => {
         token_projection: "not_proven_until_authored_merge"
       }
     });
-    expect(report.candidates[0]?.blocker_codes).toEqual(
-      expect.arrayContaining(["authored_semantic_merge_required", "token_reduction_not_proven"])
-    );
+    expect(report.candidates[0]?.blocker_codes).toEqual(["token_reduction_not_proven"]);
+    expect(report.authored_merge_drafts[0]).toMatchObject({
+      status: "blocked",
+      blocker_codes: ["token_reduction_not_proven"]
+    });
+  });
+
+  it("promotes a lossless authored draft to a guaranteed reduction only after both strict proofs pass", () => {
+    const shared = `Moryn keeps this complete source-backed sentence ${"shared ".repeat(600)}.`;
+    const records = [
+      record({ id: "old", content: { text: `${shared} Old endpoint remains available.` } }),
+      record({ id: "new", content: { text: `${shared} New endpoint is canonical.` } })
+    ];
+    const report = buildSemanticMaintenanceShadowReport(records, {
+      project_id: "moryn",
+      minimum_token_overlap: 0.2
+    });
+
+    expect(report.summary).toMatchObject({ authored_drafts_ready: 1, auto_safe_candidates: 1 });
+    expect(report.candidates[0]).toMatchObject({ action: "auto_merge_lossless", auto_apply_safe: true });
+    expect(report.authored_merge_drafts[0]).toMatchObject({
+      status: "ready",
+      proof: {
+        coverage: { all_source_text_units_covered: true, dropped_fields: 0 },
+        projection: { strict_record_decrease: true, strict_token_decrease: true }
+      }
+    });
+    expect(report.projection).toMatchObject({
+      before: { current_records: 2 },
+      guaranteed_after: { current_records: 1 },
+      guaranteed_reduction: { current_records: 1, strict_decrease: true }
+    });
+    expect(report.projection.guaranteed_after.estimated_tokens).toBeLessThan(report.projection.before.estimated_tokens);
+    expect(JSON.stringify(report.authored_merge_drafts)).not.toContain(shared);
   });
 
   it("does not count blocked global or private exact records as a possible reduction", () => {

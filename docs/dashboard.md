@@ -395,10 +395,12 @@ only exact duplicates that pass the automatic safety boundary; `After reviewed
 merges` is a separate possibility and does not change the current count.
 
 Semantic similarity is discovery evidence, not proof of equivalent meaning.
-Until a combined record is authored, checked for protected terms and evidence
-coverage, and shown to reduce the working set, its token forecast remains
-unknown and no write is allowed. Source history remains append-only and
-recoverable after a later apply; the forecast never implies physical deletion.
+Until a combined record is authored, checked for source-unit coverage, and
+shown to reduce both records and final serialized tokens, its token forecast
+remains unknown and no write is allowed. A ready proof-gated merge may run at
+the next `agent_finish`, at most one group per finish. The Dashboard remains
+read-only. Source history remains append-only and recoverable after apply; the
+forecast never implies physical deletion.
 
 ### Review Queue
 

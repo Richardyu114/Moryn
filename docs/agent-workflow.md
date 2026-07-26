@@ -380,13 +380,19 @@ remain visible through the existing read-only diagnostics.
 
 When the recalled records expose compatible structured fields, the same
 proposal may opt into `structured_merge`. Agents name dispositions, source
-record IDs, and evidence IDs; they never author a merged value. Moryn copies
-exact retained/replacement values or deterministically unions exact array
-members, records field/value lineage, and keeps the result candidate unless the
-canonical safety gates pass. Differing values cannot use `retain`: they require
-an evidence-backed `replace`, an exact-value `union`, or an explicit
-evidence-backed `obsolete`. A conflict always remains two records plus a
-`conflicts_with` relationship.
+record IDs, and evidence IDs. Moryn copies exact retained/replacement values,
+deterministically unions exact array members, or recomputes a lossless text-unit
+union from the cited sources. Caller-supplied synthesized text is rejected when
+it differs from that deterministic result. Differing values cannot use
+`retain`: they require an evidence-backed `replace`, an exact-value `union`, a
+verified lossless text synthesis, or an explicit evidence-backed `obsolete`.
+
+At finish, Moryn may apply at most one public project merge without asking the
+user. Similarity only discovers the pair. Automatic apply additionally requires
+strong topic evidence, cumulative-only fields, complete source text-unit
+coverage, a canonical final record, and strict decreases in both current records
+and the final serialized token estimate. The receipt verifies the actual
+post-write counts; old source records stay in append-only history.
 Without an explicit `structured_merge.version: 1` plan, the proposal remains
 relationship-only and can append only its validated logical link.
 

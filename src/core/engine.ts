@@ -4,6 +4,11 @@ import { type ActionInterfaces, actionInterfaces } from "./action-interfaces.js"
 import { actionExecution, actionSafety } from "./action-safety.js";
 import { discoverAutomaticDuplicateProposal } from "./automatic-consolidation.js";
 import { runAutomaticEventAudit } from "./automatic-event-audit.js";
+import {
+  AUTOMATIC_SEMANTIC_MAINTENANCE_MAX_MERGES,
+  type AutomaticSemanticMaintenanceInput,
+  type AutomaticSemanticMaintenanceResult
+} from "./automatic-semantic-maintenance.js";
 import { type CapturePolicyInput, diagnoseCapturePolicy } from "./capture-policy-report.js";
 import {
   buildCheckpointRecoveryPack,
@@ -116,6 +121,7 @@ import {
   retrieveSemanticConsolidationCandidates,
   type SemanticConsolidationCandidate
 } from "./semantic-consolidation-candidates.js";
+import { authorSemanticMaintenanceMergeDraft } from "./semantic-maintenance-draft.js";
 import {
   buildSemanticMaintenanceShadowReport,
   DEFAULT_SEMANTIC_SHADOW_CANDIDATE_LIMIT,
@@ -5290,6 +5296,97 @@ export function createEngine(deps: EngineDeps) {
         candidate_limit: resolvedInput.candidate_limit,
         minimum_token_overlap: resolvedInput.minimum_token_overlap
       });
+    },
+
+    async applyAutomaticSemanticMaintenance(
+      input: AutomaticSemanticMaintenanceInput
+    ): Promise<AutomaticSemanticMaintenanceResult> {
+      const projectId = typeof input?.project_id === "string" ? input.project_id.trim() : "";
+      if (!projectId) throw new Error("Automatic semantic maintenance requires project_id");
+      if (!input.source || typeof input.source.client !== "string" || !input.source.client.trim())
+        throw new Error("Automatic semantic maintenance requires source.client");
+      const beforeRecords = await currentRecords();
+      const beforeReport = buildSemanticMaintenanceShadowReport(beforeRecords, {
+        project_id: projectId,
+        include_global: true,
+        include_private: false
+      });
+      const authored = beforeReport.candidates
+        .filter((candidate) => candidate.action === "auto_merge_lossless" && candidate.auto_apply_safe)
+        .map((candidate) => authorSemanticMaintenanceMergeDraft(beforeRecords, candidate, { project_id: projectId }))
+        .filter((draft) => draft.status === "ready" && draft.proposal && draft.plan && draft.projected_record);
+      const selected = [] as typeof authored;
+      const reserved = new Set<string>();
+      for (const draft of authored) {
+        if (selected.length >= AUTOMATIC_SEMANTIC_MAINTENANCE_MAX_MERGES) break;
+        if (draft.source_record_ids.some((recordId) => reserved.has(recordId))) continue;
+        draft.source_record_ids.forEach((recordId) => {
+          reserved.add(recordId);
+        });
+        selected.push(draft);
+      }
+      const committed: AutomaticSemanticMaintenanceResult["committed"] = [];
+      const failures: AutomaticSemanticMaintenanceResult["failures"] = [];
+      for (const draft of selected) {
+        const result = await consolidateStructuredSemanticProposal(draft.proposal!, {
+          proposals: [draft.proposal!],
+          project_id: projectId,
+          include_private: false,
+          source: input.source
+        });
+        if (result.status === "accepted" || result.status === "idempotent") {
+          committed.push({
+            draft_id: draft.draft_id,
+            merged_record_id: draft.merged_record_id!,
+            source_record_ids: draft.source_record_ids,
+            projected_record_reduction: 1,
+            projected_token_reduction: draft.proof.projection.estimated_token_reduction,
+            result
+          });
+        } else {
+          failures.push({ draft_id: draft.draft_id, reason: result.reason });
+        }
+      }
+      const afterReport = buildSemanticMaintenanceShadowReport(await currentRecords(), {
+        project_id: projectId,
+        include_global: true,
+        include_private: false
+      });
+      const before = beforeReport.projection.before;
+      const after = afterReport.projection.before;
+      const strictRecordDecreaseObserved = committed.length > 0 && after.current_records < before.current_records;
+      const strictTokenDecreaseObserved = committed.length > 0 && after.estimated_tokens < before.estimated_tokens;
+      if (committed.length > 0 && (!strictRecordDecreaseObserved || !strictTokenDecreaseObserved)) {
+        failures.push({ reason: "automatic semantic maintenance postcondition failed" });
+      }
+      const status =
+        committed.length === 0
+          ? failures.length > 0
+            ? "failed"
+            : "skipped"
+          : failures.length > 0
+            ? "failed"
+            : "committed";
+      return {
+        status,
+        project_id: projectId,
+        maximum_merges: AUTOMATIC_SEMANTIC_MAINTENANCE_MAX_MERGES,
+        drafts_ready: authored.length,
+        merges_attempted: selected.length,
+        merges_committed: committed.length,
+        before,
+        after,
+        committed,
+        failures,
+        proof: {
+          strict_record_decrease_required: true,
+          strict_token_decrease_required: true,
+          strict_record_decrease_observed: strictRecordDecreaseObserved,
+          strict_token_decrease_observed: strictTokenDecreaseObserved,
+          source_history_retained: true,
+          physical_delete: false
+        }
+      };
     },
 
     async memoryLifecycle(input: MemoryLifecycleInput = {}) {

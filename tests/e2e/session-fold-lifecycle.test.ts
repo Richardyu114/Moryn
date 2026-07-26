@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { agentFinish } from "../../src/core/agent-lifecycle.js";
 import { initializeStore } from "../../src/core/config.js";
 import { createEngine } from "../../src/core/engine.js";
+import { buildActiveLogicalMemoryView } from "../../src/core/logical-memory.js";
 import { initializeProjectConfig } from "../../src/core/project.js";
 import { readCurrentRecords } from "../../src/core/record-read-model.js";
 import { appendEventIfAbsent, readEvents } from "../../src/core/store.js";
@@ -52,6 +53,66 @@ async function writeVerifiedCheckpoint(
 }
 
 describe("agentFinish Session Fold", () => {
+  it("applies one proof-gated semantic merge before finish sync without user confirmation", async () => {
+    await withLifecycleStore(async ({ storePath, projectPath }) => {
+      let tick = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => new Date(Date.parse("2026-07-19T00:00:00.000Z") + tick++).toISOString()
+      });
+      const shared = `The verified lifecycle procedure retains this complete evidence ${"shared ".repeat(600)}.`;
+      const base = {
+        kind: "memory" as const,
+        type: "decision",
+        scope: "project" as const,
+        project_id: "moryn",
+        tags: ["maintenance"],
+        state: "canonical" as const,
+        confirmed: true,
+        confidence: 0.99,
+        source: { client: "codex" }
+      };
+      await engine.write({ ...base, content: { text: `${shared} Old endpoint remains available.` } });
+      await engine.write({ ...base, content: { text: `${shared} New endpoint is canonical.` } });
+      let activeAtPush = 0;
+
+      const result = await agentFinish(
+        {
+          storePath,
+          projectPath,
+          agent: { client: "codex" },
+          summary: "Finished proof-gated maintenance integration.",
+          push: true
+        },
+        {
+          now: () => "2026-07-20T02:00:02.000Z",
+          pushGitSync: async () => {
+            activeAtPush = buildActiveLogicalMemoryView(
+              (await readCurrentRecords(storePath)).records
+            ).active_records.filter((record) => record.visibility === "active").length;
+            return { ok: true, pushed: true, selection_sources: SYNC_RESULT_SELECTION_SOURCES };
+          }
+        }
+      );
+
+      expect(result.automatic_semantic_maintenance).toMatchObject({
+        status: "committed",
+        maximum_merges: 1,
+        merges_committed: 1,
+        proof: {
+          strict_record_decrease_observed: true,
+          strict_token_decrease_observed: true,
+          source_history_retained: true
+        }
+      });
+      expect(result.automatic_semantic_maintenance.after.current_records).toBe(
+        result.automatic_semantic_maintenance.before.current_records - 1
+      );
+      expect(activeAtPush).toBe(2);
+      expect(result.sync.push?.pushed).toBe(true);
+    });
+  });
+
   it("folds a verified structured session before push and leaves one active episodic target", async () => {
     await withLifecycleStore(async ({ storePath, projectPath }) => {
       await writeVerifiedCheckpoint(storePath);

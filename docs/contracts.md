@@ -189,8 +189,8 @@ records; any returned mutation action has `safe_to_run: false` and requires
 user authority. Read-only inspection actions such as timeline commands may be
 `safe_to_run: true`.
 
-The bounded consolidation shadow report is available before any automatic
-semantic merge is enabled:
+The bounded consolidation shadow report previews the same proof gate used by
+automatic semantic maintenance:
 
 ```bash
 moryn contracts operations --operation memory_maintenance_shadow
@@ -214,9 +214,9 @@ The MCP equivalent is:
 only comparing newly ingested records. It is read-only. Its projection keeps
 the actual `before.current_records` separate from two forecasts:
 
-- `guaranteed_after` counts only exact project-owned duplicates that already
-  satisfy automatic safety rules. Both record and token counts must strictly
-  decrease.
+- `guaranteed_after` counts exact project-owned duplicates plus non-overlapping
+  authored merge drafts that prove complete source-unit coverage and strict
+  record and token decreases against the projected final transaction record.
 - `potential_after` may count non-overlapping semantic candidates, but token
   savings remain `null` until Moryn authors and validates a combined record.
 
@@ -916,14 +916,17 @@ relationship-only and append `link_records` with one of `duplicate_of`,
 does not create or merge record content.
 
 Only an explicit `structured_merge` object with `version: 1` opts the proposal
-into transactionally creating a new derived record. It does not accept authored
-output text or arbitrary JSON values. Equal fields are retained automatically;
+into transactionally creating a new derived record. It never accepts arbitrary
+JSON values. Equal fields are retained automatically;
 every differing top-level content field must declare one of these dispositions:
 
 - `retain`: valid only when it does not discard a distinct source value;
 - `union`: all referenced source values must be arrays with compatible member
   shapes, and Moryn performs a canonical-JSON exact-value union with
   deterministic ordering;
+- `synthesize`: valid only for `text` with `lossless_concatenate` or
+  `lossless_segment_union`; the planner recomputes the deterministic text from
+  source records and rejects any caller-authored deviation;
 - `replace`: selects the exact value from one source, identifies every replaced
   source, and cites trusted evidence;
 - `obsolete`: omits a field only with trusted evidence identifying all sources
@@ -984,8 +987,11 @@ digests participate in the stable merge identity, and the derived causal
 timestamp follows the latest cited source or evidence update. Moryn then claims
 that exact source snapshot and reads the claim projection back before a separate
 deterministic event activates the record as a candidate. The candidate is
-promoted to canonical only when every source is active canonical memory with no
-unresolved conflict and all disposition evidence passes the trust boundary.
+promoted to canonical only when every source is active canonical memory and all
+disposition evidence passes the trust boundary. A pair-only semantic conflict
+may be resolved by a cumulative `retain`/`union`/`synthesize` merge because no
+source value is selected away; conflicts involving any third record remain
+blocked.
 Otherwise it remains a candidate with only non-hiding `supports` links. A
 canonical derived record is promoted before source-hiding `duplicate_of`,
 `revises`, or `supersedes` links are appended.
@@ -1008,6 +1014,16 @@ competing local candidate plan with an existing claim is
 rejected before its upsert, and a stale field plan fails explicitly rather than
 creating a second canonical merge. `conflicts_with` never creates a merged
 record: both facts remain visible and only the conflict relationship is appended.
+
+At `agent_finish`, proof-gated semantic maintenance runs after Session Fold and
+Episode Rollup and before sync. It applies at most one public, project-owned,
+normal-priority `memory` or `skill` draft. Preferences, principles, rules,
+private/global/high-priority content, non-cumulative field conflicts, weak topic
+evidence, nested prior merges, incomplete text-unit coverage, or a non-decreasing
+final token estimate all block the write. The returned
+`automatic_semantic_maintenance` receipt reports before/after current records
+and tokens, the merged/source IDs, and observed postconditions. Source events
+remain append-only; this path never physically deletes either input record.
 
 Checkpoint accepts proposals inside `delta.semantic_consolidation_proposals` or
 through repeatable CLI `--semantic-consolidation-proposal` flags. Agent finish
