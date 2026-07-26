@@ -322,6 +322,12 @@ export function dashboardWorkspaceCss(): string {
     .v04-outcome h2 { margin: 10px 0 9px; color: var(--ink); font-size: 30px; font-weight: 500; letter-spacing: -0.015em; }
     .v04-outcome p { margin: 0; color: var(--ink-2); font-size: 16px; line-height: 1.65; }
     .v04-mode { position: absolute; top: 27px; right: 0; padding: 6px 11px; border: 1px solid var(--border); border-radius: 999px; color: var(--accent); background: var(--accent-soft); font-size: 12px; font-weight: 600; white-space: nowrap; }
+    .v04-shadow-forecast { margin: 8px 0 26px; padding: 22px 24px 17px; border: 1px solid var(--border); border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--surface) 88%, var(--accent-soft)); }
+    .v04-shadow-copy { max-width: 860px; }
+    .v04-shadow-copy h3 { margin: 8px 0 7px; color: var(--ink); font-size: 22px; font-weight: 520; }
+    .v04-shadow-copy p { margin: 0; color: var(--ink-2); line-height: 1.6; }
+    .v04-shadow-metrics { margin-top: 16px; }
+    .v04-shadow-rule { margin: 13px 0 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
     .v04-safety-note { display: flex; align-items: baseline; gap: 12px 20px; padding: 14px 16px; border-left: 2px solid var(--accent); background: var(--accent-soft); }
     .v04-safety-note strong { color: var(--ink); font-size: 14px; white-space: nowrap; }
     .v04-safety-note span { color: var(--ink-2); font-size: 13px; line-height: 1.5; }

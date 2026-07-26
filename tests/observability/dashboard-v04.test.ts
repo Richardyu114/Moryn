@@ -195,6 +195,32 @@ describe("v0.4 dashboard projections", () => {
     });
   });
 
+  it("shows actual current memory separately from strictly decreasing shadow projections", () => {
+    const duplicateContent = { format: "text", text: "Use project memory before starting agent work" };
+    const records = [
+      record({ id: "duplicate-a", type: "decision", state: "canonical", content: duplicateContent }),
+      record({ id: "duplicate-b", type: "decision", state: "canonical", content: duplicateContent })
+    ];
+    const data = buildDashboardMemoryMaintenance(records, {
+      project_id: "moryn",
+      now: "2026-07-20T12:00:00.000Z",
+      visible_record_ids: new Set(records.map((item) => item.id))
+    });
+    const html = renderMemoryMaintenance(data);
+
+    expect(data.semantic_shadow.projection).toMatchObject({
+      before: { current_records: 2 },
+      guaranteed_after: { current_records: 1 },
+      potential_after: { current_records: 1 },
+      guaranteed_reduction: { current_records: 1, strict_decrease: true }
+    });
+    expect(html).toContain("Memory size forecast");
+    expect(html).toContain("Safe cleanup can make current memory smaller");
+    expect(html).toContain("Current usable");
+    expect(html).toContain("After proven cleanup");
+    expect(html).toContain("当前可用记忆从 2 条减少到 1 条");
+  });
+
   it("renders plain-language results before closed diagnostics and links visible source content safely", () => {
     const source = record({
       id: "rec_visible_source",

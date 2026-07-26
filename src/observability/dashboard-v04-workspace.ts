@@ -286,6 +286,33 @@ export function renderMemoryMaintenance(
   const recordsById = new Map(visibleRecords.map((record) => [record.id, record]));
   const plans = visiblePlans(data);
   const summary = maintenanceSummary(visibleRecords.length, plans);
+  const shadow = data.semantic_shadow;
+  const currentRecords = shadow.projection.before.current_records;
+  const guaranteedAfter = shadow.projection.guaranteed_after.current_records;
+  const potentialAfter = shadow.projection.potential_after.current_records;
+  const guaranteedReduction = shadow.projection.guaranteed_reduction.current_records;
+  const potentialReduction = shadow.projection.potential_reduction.current_records;
+  const shadowCopy =
+    guaranteedReduction > 0
+      ? {
+          titleEn: "Safe cleanup can make current memory smaller",
+          titleZh: "安全整理可以让当前记忆变少",
+          bodyEn: `A verified pass can reduce current memory from ${currentRecords} to ${guaranteedAfter} items. Source history remains recoverable.`,
+          bodyZh: `经过验证的整理可以将当前可用记忆从 ${currentRecords} 条减少到 ${guaranteedAfter} 条，来源历史仍可恢复。`
+        }
+      : potentialReduction > 0
+        ? {
+            titleEn: "Possible merges need meaning checks first",
+            titleZh: "发现可合并内容，但要先核对含义",
+            bodyEn: `Current memory stays at ${currentRecords} items. After Moryn authors and verifies the combined text, it may decrease to ${potentialAfter}; similarity alone never changes memory.`,
+            bodyZh: `当前可用记忆仍为 ${currentRecords} 条。Moryn 生成并验证合并正文后，最多可能降至 ${potentialAfter} 条；仅凭相似度不会改动记忆。`
+          }
+        : {
+            titleEn: "No safe merge is currently proven",
+            titleZh: "目前没有已证明安全的合并",
+            bodyEn: `Current memory stays at ${currentRecords} items. Moryn found no bounded merge that can prove a smaller working set yet.`,
+            bodyZh: `当前可用记忆保持 ${currentRecords} 条。Moryn 暂未找到能够证明会缩小工作集的合并。`
+          };
   const layers = [
     { en: "Original notes (L0)", zh: "原始笔记（L0）", value: data.inventory.layers.L0 },
     { en: "Session summaries (L1)", zh: "会话总结（L1）", value: data.inventory.layers.L1 },
@@ -308,6 +335,20 @@ export function renderMemoryMaintenance(
       <h2>${i18n(summary.titleEn, summary.titleZh)}</h2>
       <p data-i18n-en="${escapeHtml(summary.bodyEn)}" data-i18n-zh="${escapeHtml(summary.bodyZh)}">${escapeHtml(summary.bodyEn)}</p>
       <span class="v04-mode">${i18n("Read only", "只读")}</span>
+    </div>
+    <div class="v04-shadow-forecast" data-semantic-shadow>
+      <div class="v04-shadow-copy">
+        <div class="editorial-eyebrow">${i18n("Memory size forecast", "记忆数量预测")}</div>
+        <h3>${i18n(shadowCopy.titleEn, shadowCopy.titleZh)}</h3>
+        <p data-i18n-en="${escapeHtml(shadowCopy.bodyEn)}" data-i18n-zh="${escapeHtml(shadowCopy.bodyZh)}">${escapeHtml(shadowCopy.bodyEn)}</p>
+      </div>
+      <div class="v04-metrics v04-shadow-metrics">
+        <div><span>${i18n("Current usable", "当前可用")}</span><strong>${integer(currentRecords)}</strong></div>
+        <div><span>${i18n("After proven cleanup", "安全整理后")}</span><strong>${integer(guaranteedAfter)}</strong></div>
+        <div><span>${i18n("After reviewed merges", "核对合并后")}</span><strong>${integer(potentialAfter)}</strong></div>
+        <div><span>${i18n("Proven token reduction", "已证明可减少 token")}</span><strong>${integer(shadow.projection.guaranteed_reduction.estimated_tokens)}</strong></div>
+      </div>
+      <p class="v04-shadow-rule">${i18n("Read-only forecast. A consolidation only qualifies when the usable-record count strictly decreases; source history is linked, not physically deleted.", "只读预测。只有当前可用记忆数量确实减少时才算完成整理；来源历史只会被关联收起，不会被物理删除。")}</p>
     </div>
     ${renderedPlans ? `<div class="v04-plan-list">${renderedPlans}</div>` : ""}
     ${plans.length > PLAN_RENDER_LIMIT ? `<p class="v04-more">${i18n(`Showing ${PLAN_RENDER_LIMIT} of ${plans.length} suggestions.`, `显示 ${plans.length} 条建议中的 ${PLAN_RENDER_LIMIT} 条。`)}</p>` : ""}

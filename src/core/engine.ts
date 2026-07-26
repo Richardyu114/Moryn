@@ -117,6 +117,11 @@ import {
   type SemanticConsolidationCandidate
 } from "./semantic-consolidation-candidates.js";
 import {
+  buildSemanticMaintenanceShadowReport,
+  DEFAULT_SEMANTIC_SHADOW_CANDIDATE_LIMIT,
+  DEFAULT_SEMANTIC_SHADOW_MINIMUM_TOKEN_OVERLAP
+} from "./semantic-maintenance-shadow.js";
+import {
   detectSensitiveContent,
   isPrivateMemoryBoundary,
   redactSensitiveContent,
@@ -312,6 +317,13 @@ interface MemoryDoctorInput {
   include_private?: unknown;
 }
 
+interface MemoryMaintenanceShadowInput {
+  project_id?: string;
+  candidate_limit?: unknown;
+  minimum_token_overlap?: unknown;
+  include_private?: unknown;
+}
+
 interface IngestLearningsInput {
   project_id?: string;
   learnings: unknown;
@@ -346,6 +358,12 @@ interface ConsolidateLearningProposalsInput extends ConsolidateSemanticProposals
 
 type ValidatedMemoryDoctorInput = MemoryDoctorInput & {
   include_private?: boolean;
+};
+
+type ValidatedMemoryMaintenanceShadowInput = MemoryMaintenanceShadowInput & {
+  candidate_limit: number;
+  minimum_token_overlap: number;
+  include_private: boolean;
 };
 
 function compareCodeUnits(left: string, right: string): number {
@@ -1004,6 +1022,7 @@ type ReadOperation =
   | "list_recent"
   | "project_list"
   | "memory_doctor"
+  | "memory_maintenance_shadow"
   | "memory_lifecycle"
   | "capture_policy"
   | "dogfood_report"
@@ -1193,6 +1212,29 @@ function validateLimit(limit: unknown, fallback: number, operation: ReadOperatio
   const resolved = limit ?? fallback;
   if (typeof resolved !== "number" || !Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
     throw invalidReadLimitError(operation, resolved);
+  }
+  return resolved;
+}
+
+function validateReadNumberRange(
+  value: unknown,
+  fallback: number | undefined,
+  operation: ReadOperation,
+  argument: string,
+  minimum: number,
+  maximum: number,
+  integer: boolean
+): number | undefined {
+  const resolved = value ?? fallback;
+  if (resolved === undefined) return undefined;
+  if (
+    typeof resolved !== "number" ||
+    !Number.isFinite(resolved) ||
+    resolved < minimum ||
+    resolved > maximum ||
+    (integer && !Number.isSafeInteger(resolved))
+  ) {
+    throw invalidReadNumberRangeError(operation, argument, resolved, minimum, maximum, integer);
   }
   return resolved;
 }
@@ -1524,6 +1566,13 @@ type ReadArgumentRecoveryHint =
       retry_with: { argument: "include_private"; value_placeholder: true };
     }
   | {
+      operation_contract: ReadOperationContractSource;
+      rejected_argument: { argument: string; value: unknown };
+      expected: { kind: "number_range" | "integer_range"; min: number; max: number; integer: boolean };
+      argument_sources: Record<string, ReadArgumentSource>;
+      retry_with: { argument: string; value_placeholder: number };
+    }
+  | {
       operation_contract: "operations_by_id.timeline";
       rejected_argument: { argument: "anchor"; value: string[] };
       expected: { kind: "one_of"; allowed_arguments: ["record_id", "event_id", "query"] };
@@ -1594,6 +1643,33 @@ function invalidReadWindowError(
       expected: { kind: "integer_range", min: 0, max: 50, integer: true },
       argument_sources: { [argument]: readArgumentSource(operation, argument) },
       retry_with: { argument, value_placeholder: argument === "before" ? 5 : 5 }
+    }
+  );
+}
+
+function invalidReadNumberRangeError(
+  operation: ReadOperation,
+  argument: string,
+  value: unknown,
+  minimum: number,
+  maximum: number,
+  integer: boolean
+): ReadArgumentError {
+  const range = `${minimum} and ${maximum}`;
+  return new ReadArgumentError(
+    `Invalid argument: Invalid ${argument}; must be ${integer ? "an integer" : "a number"} between ${range}`,
+    `retry read with a valid ${argument} value`,
+    {
+      operation_contract: readOperationContractSource(operation),
+      rejected_argument: { argument, value },
+      expected: {
+        kind: integer ? "integer_range" : "number_range",
+        min: minimum,
+        max: maximum,
+        integer
+      },
+      argument_sources: { [argument]: readArgumentSource(operation, argument) },
+      retry_with: { argument, value_placeholder: minimum }
     }
   );
 }
@@ -2580,6 +2656,32 @@ function validateMemoryDoctorInput(input: MemoryDoctorInput): void {
   assertPlainObject(input, "memory doctor input");
   validateOptionalString("memory_doctor", input.project_id, "project_id");
   validateOptionalBoolean("memory_doctor", input.include_private, "include_private");
+}
+
+function validateMemoryMaintenanceShadowInput(
+  input: MemoryMaintenanceShadowInput
+): ValidatedMemoryMaintenanceShadowInput {
+  assertPlainObject(input, "memory maintenance shadow input");
+  validateOptionalString("memory_maintenance_shadow", input.project_id, "project_id");
+  validateOptionalBoolean("memory_maintenance_shadow", input.include_private, "include_private");
+  return {
+    ...input,
+    candidate_limit: validateLimit(
+      input.candidate_limit,
+      DEFAULT_SEMANTIC_SHADOW_CANDIDATE_LIMIT,
+      "memory_maintenance_shadow"
+    ),
+    minimum_token_overlap: validateReadNumberRange(
+      input.minimum_token_overlap,
+      DEFAULT_SEMANTIC_SHADOW_MINIMUM_TOKEN_OVERLAP,
+      "memory_maintenance_shadow",
+      "minimum_token_overlap",
+      0,
+      1,
+      false
+    ) as number,
+    include_private: input.include_private === true
+  };
 }
 
 function validateMemoryLifecycleInput(input: MemoryLifecycleInput): void {
@@ -5176,6 +5278,17 @@ export function createEngine(deps: EngineDeps) {
         limit,
         include_private: resolvedInput.include_private,
         excluded_private_records: allRecords.length - records.length
+      });
+    },
+
+    async memoryMaintenanceShadow(input: MemoryMaintenanceShadowInput = {}) {
+      const resolvedInput = validateMemoryMaintenanceShadowInput(input);
+      return buildSemanticMaintenanceShadowReport(await currentRecords(), {
+        project_id: resolvedInput.project_id,
+        include_global: true,
+        include_private: resolvedInput.include_private,
+        candidate_limit: resolvedInput.candidate_limit,
+        minimum_token_overlap: resolvedInput.minimum_token_overlap
       });
     },
 

@@ -3,6 +3,10 @@ import { join } from "node:path";
 import { type EpisodeRollupPlan, planEpisodeRollups } from "../core/episode-rollup.js";
 import { buildMemoryRetentionReadModel, type MemoryLayer, type MemoryRetentionTier } from "../core/memory-retention.js";
 import { estimateMemoryRecordTokens, readCurrentRecords } from "../core/record-read-model.js";
+import {
+  buildSemanticMaintenanceShadowReport,
+  type SemanticMaintenanceShadowReport
+} from "../core/semantic-maintenance-shadow.js";
 import { isPrivateMemoryBoundary } from "../core/sensitive.js";
 import { planSessionFolds, type SessionFoldPlan } from "../core/session-fold.js";
 import { readSoulCompilationReceipt, type SoulCompilationReceipt } from "../core/soul-compilation-receipts.js";
@@ -27,6 +31,11 @@ export const DASHBOARD_V04_SELECTION_SOURCES = {
   memory_tier: "memory_maintenance.inventory.tiers.<tier>",
   session_fold: "memory_maintenance.session_fold.plans[]",
   episode_rollup: "memory_maintenance.episode_rollup.plans[]",
+  semantic_shadow: "memory_maintenance.semantic_shadow",
+  semantic_shadow_candidate: "memory_maintenance.semantic_shadow.candidates[]",
+  semantic_shadow_before: "memory_maintenance.semantic_shadow.projection.before",
+  semantic_shadow_guaranteed_after: "memory_maintenance.semantic_shadow.projection.guaranteed_after",
+  semantic_shadow_potential_after: "memory_maintenance.semantic_shadow.projection.potential_after",
   session_fold_related_record: "memory_maintenance.session_fold.plans[].related_records.record_ids[]",
   episode_rollup_related_record: "memory_maintenance.episode_rollup.plans[].related_records.record_ids[]",
   soul_studio: "soul_studio",
@@ -121,6 +130,7 @@ export interface DashboardMemoryMaintenance {
     hidden_plans: number;
     plans: DashboardCompactionPlanPreview[];
   };
+  semantic_shadow: SemanticMaintenanceShadowReport;
   safety: {
     mode: "preview_only";
     writes: "none";
@@ -432,6 +442,12 @@ export function buildDashboardMemoryMaintenance(
     .reduce((total, plan) => total + plan.token_estimate.reducible, 0);
   const visibleFoldPlans = foldPlans.filter((plan) => plan.related_records.visible > 0);
   const visibleEpisodePlans = episodePlans.filter((plan) => plan.related_records.visible > 0);
+  const visibleSelected = selected.filter((record) => visibleRecordIds.has(record.id));
+  const semanticShadow = buildSemanticMaintenanceShadowReport(visibleSelected, {
+    project_id: options.project_id,
+    include_global: true,
+    include_private: true
+  });
 
   return {
     version: 1,
@@ -474,6 +490,7 @@ export function buildDashboardMemoryMaintenance(
       hidden_plans: episodePlans.length - visibleEpisodePlans.length,
       plans: visibleEpisodePlans
     },
+    semantic_shadow: semanticShadow,
     safety: {
       mode: "preview_only",
       writes: "none",

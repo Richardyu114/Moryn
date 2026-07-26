@@ -312,12 +312,28 @@ export {
 } from "./core/semantic-consolidation.js";
 export type {
   SemanticConsolidationCandidate,
-  SemanticConsolidationCandidateOptions
+  SemanticConsolidationCandidateOptions,
+  SemanticConsolidationDiscoveryOptions,
+  SemanticConsolidationDiscoveryResult
 } from "./core/semantic-consolidation-candidates.js";
 export {
+  discoverSemanticConsolidationCandidates,
   retrieveSemanticConsolidationCandidates,
-  SEMANTIC_CONSOLIDATION_CANDIDATE_SELECTION_SOURCES
+  SEMANTIC_CONSOLIDATION_CANDIDATE_SELECTION_SOURCES,
+  SEMANTIC_CONSOLIDATION_DISCOVERY_SELECTION_SOURCES
 } from "./core/semantic-consolidation-candidates.js";
+export type {
+  SemanticMaintenanceShadowBlockerCode,
+  SemanticMaintenanceShadowCandidate,
+  SemanticMaintenanceShadowOptions,
+  SemanticMaintenanceShadowReport
+} from "./core/semantic-maintenance-shadow.js";
+export {
+  buildSemanticMaintenanceShadowReport,
+  DEFAULT_SEMANTIC_SHADOW_CANDIDATE_LIMIT,
+  DEFAULT_SEMANTIC_SHADOW_MINIMUM_TOKEN_OVERLAP,
+  SEMANTIC_MAINTENANCE_SHADOW_SELECTION_SOURCES
+} from "./core/semantic-maintenance-shadow.js";
 export type {
   PlanSessionFoldsOptions,
   SessionFoldCandidate,
@@ -528,6 +544,7 @@ import {
   WRITE_SELECTION_SOURCES
 } from "./core/engine.js";
 import { NEXT_ACTION_SELECTION_SOURCES } from "./core/errors.js";
+import { SEMANTIC_MAINTENANCE_SHADOW_SELECTION_SOURCES } from "./core/semantic-maintenance-shadow.js";
 import { SETUP_WIZARD_SELECTION_SOURCES } from "./core/setup-wizard.js";
 
 export {
@@ -642,6 +659,7 @@ export const SELECTION_SOURCE_CONTRACTS = {
     project_list_next_action: PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES,
     project_migrate: PROJECT_MIGRATE_SELECTION_SOURCES,
     memory_doctor: MEMORY_DOCTOR_SELECTION_SOURCES,
+    memory_maintenance_shadow: SEMANTIC_MAINTENANCE_SHADOW_SELECTION_SOURCES,
     memory_lifecycle: MEMORY_LIFECYCLE_SELECTION_SOURCES,
     working_set_report: WORKING_SET_REPORT_SELECTION_SOURCES,
     capture_policy: CAPTURE_POLICY_SELECTION_SOURCES,

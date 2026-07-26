@@ -189,6 +189,42 @@ records; any returned mutation action has `safe_to_run: false` and requires
 user authority. Read-only inspection actions such as timeline commands may be
 `safe_to_run: true`.
 
+The bounded consolidation shadow report is available before any automatic
+semantic merge is enabled:
+
+```bash
+moryn contracts operations --operation memory_maintenance_shadow
+moryn memory shadow --project . --limit 100
+```
+
+The MCP equivalent is:
+
+```json
+{
+  "tool": "memory_maintenance_shadow",
+  "arguments": {
+    "project_path": ".",
+    "limit": 100,
+    "minimum_token_overlap": 0.15
+  }
+}
+```
+
+`memory_maintenance_shadow` scans the current logical working set instead of
+only comparing newly ingested records. It is read-only. Its projection keeps
+the actual `before.current_records` separate from two forecasts:
+
+- `guaranteed_after` counts only exact project-owned duplicates that already
+  satisfy automatic safety rules. Both record and token counts must strictly
+  decrease.
+- `potential_after` may count non-overlapping semantic candidates, but token
+  savings remain `null` until Moryn authors and validates a combined record.
+
+Private records stay excluded unless explicitly authorized. Global, private,
+conflicting, high-priority, and protected records expose blockers and do not
+contribute to an automatic reduction. Shadow mode never writes, archives, links,
+or physically deletes records.
+
 The read-only memory lifecycle report is available through the same registry:
 
 ```bash

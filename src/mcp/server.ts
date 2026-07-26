@@ -525,6 +525,7 @@ type McpProjectContextOperation =
   | "dashboard"
   | "refresh"
   | "memory_doctor"
+  | "memory_maintenance_shadow"
   | "memory_lifecycle"
   | "capture_policy"
   | "dogfood_report"
@@ -2325,6 +2326,36 @@ export async function runMcpServer(
         return engine.memoryDoctor({
           project_id: project.project_id,
           limit: normalizedInput.limit,
+          include_private: normalizedInput.include_private
+        });
+      })
+  );
+
+  server.registerTool(
+    "memory_maintenance_shadow",
+    {
+      title: "Preview Moryn Memory Consolidation",
+      description:
+        "Read-only whole-working-set candidate discovery with strict before/after record and token projections.",
+      inputSchema: mcpInputSchema({
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
+        limit: coreValidatedNumberSchema.optional(),
+        minimum_token_overlap: coreValidatedNumberSchema.optional(),
+        include_private: coreValidatedBooleanSchema.optional(),
+        ...camelCaseAliasInputSchema("memory_maintenance_shadow")
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("memory_maintenance_shadow", input, async (normalizedInput) => {
+        const project = await resolveProjectInput("memory_maintenance_shadow", {
+          project_id: normalizedInput.project_id,
+          project_path: normalizedInput.project_path
+        });
+        return engine.memoryMaintenanceShadow({
+          project_id: project.project_id,
+          candidate_limit: normalizedInput.limit,
+          minimum_token_overlap: normalizedInput.minimum_token_overlap,
           include_private: normalizedInput.include_private
         });
       })

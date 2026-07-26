@@ -2522,6 +2522,38 @@ export const OPERATION_CONTRACTS = [
     }
   }),
   operationContract({
+    operation: "memory_maintenance_shadow",
+    category: "maintenance",
+    summary:
+      "Discover exact duplicates and semantic-overlap candidates across the current working set, then project before/after record and token counts without writing.",
+    safe_to_run: true,
+    required_when:
+      "Before enabling or applying automatic semantic memory consolidation, to prove strict working-set reduction and expose every safety blocker.",
+    required_fields: [],
+    arguments_by_name: {
+      ...projectContextArguments,
+      limit: {
+        type: "number",
+        required: false,
+        default: 100,
+        cli: { flag: "--limit", default: 100 },
+        mcp: { argument: "limit" }
+      },
+      minimum_token_overlap: {
+        type: "number",
+        required: false,
+        default: 0.15,
+        cli: { flag: "--minimum-token-overlap", default: 0.15 },
+        mcp: { argument: "minimum_token_overlap" }
+      },
+      ...privateReadArgument
+    },
+    interfaces: {
+      cli: { command: "moryn memory shadow", argv: ["memory", "shadow"] },
+      mcp: { tool: "memory_maintenance_shadow", arguments: {} }
+    }
+  }),
+  operationContract({
     operation: "memory_compaction_preview",
     category: "maintenance",
     summary:

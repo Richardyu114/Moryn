@@ -3889,6 +3889,7 @@ describe("MCP stdio server", () => {
           "memory_doctor",
           "memory_expand",
           "memory_lifecycle",
+          "memory_maintenance_shadow",
           "operation_contracts",
           "project_init",
           "project_list",

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { retrieveSemanticConsolidationCandidates } from "../../src/core/semantic-consolidation-candidates.js";
+import {
+  discoverSemanticConsolidationCandidates,
+  retrieveSemanticConsolidationCandidates
+} from "../../src/core/semantic-consolidation-candidates.js";
 import type { MorynRecord } from "../../src/core/types.js";
 
 function record(overrides: Partial<MorynRecord> = {}): MorynRecord {
@@ -190,5 +193,58 @@ describe("retrieveSemanticConsolidationCandidates", () => {
       candidate: "candidates_by_source_record_id.<source_record_id>[]",
       score: "candidates_by_source_record_id.<source_record_id>[].score"
     });
+  });
+});
+
+describe("discoverSemanticConsolidationCandidates", () => {
+  it("discovers each compatible pair once across the current project working set", () => {
+    const records = [
+      record({ id: "newest", updated_at: "2026-07-12T00:00:00.000Z" }),
+      record({ id: "middle", content: { text: "Pull project memory when an agent enters" } }),
+      record({ id: "oldest", content: { text: "Agent startup pulls project memory context" } }),
+      record({ id: "other-project", project_id: "other" })
+    ];
+
+    const result = discoverSemanticConsolidationCandidates(records, {
+      project_id: "moryn",
+      include_global: false,
+      minimum_token_overlap: 0.2
+    });
+
+    expect(result.inspected_source_record_count).toBe(3);
+    expect(result.candidate_pairs).toHaveLength(3);
+    expect(
+      new Set(
+        result.candidate_pairs.map((candidate) => [candidate.source_record_id, candidate.record_id].sort().join(":"))
+      ).size
+    ).toBe(3);
+    expect(result.selection_sources.candidate).toBe("candidate_pairs[]");
+  });
+
+  it("keeps private records out by default and reports bounded deterministic results", () => {
+    const records = [
+      record({ id: "public-a" }),
+      record({ id: "public-b" }),
+      record({ id: "public-c" }),
+      record({ id: "private-a", content: { text: "Pull memory on agent enter", privacy: "private" } }),
+      record({ id: "private-b", content: { text: "Pull memory on agent enter", privacy: "private" } })
+    ];
+    const before = JSON.stringify(records);
+    const first = discoverSemanticConsolidationCandidates(records, { project_id: "moryn", limit: 2 });
+    const second = discoverSemanticConsolidationCandidates([...records].reverse(), { project_id: "moryn", limit: 2 });
+
+    expect(first.omitted_private_record_count).toBe(2);
+    expect(first.candidate_pairs).toHaveLength(2);
+    expect(first.truncated).toBe(true);
+    expect(second.candidate_pairs).toEqual(first.candidate_pairs);
+    expect(JSON.stringify(records)).toBe(before);
+  });
+
+  it("validates discovery bounds", () => {
+    expect(() => discoverSemanticConsolidationCandidates([], { limit: 0 })).toThrow("limit");
+    expect(() => discoverSemanticConsolidationCandidates([], { minimum_token_overlap: 1.1 })).toThrow(
+      "minimum_token_overlap"
+    );
+    expect(() => discoverSemanticConsolidationCandidates([], { project_id: " " })).toThrow("project_id");
   });
 });

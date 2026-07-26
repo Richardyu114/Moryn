@@ -121,6 +121,7 @@ type CliLimitOperation =
   | "list_recent"
   | "project_list"
   | "memory_doctor"
+  | "memory_maintenance_shadow"
   | "memory_lifecycle"
   | "capture_policy"
   | "dogfood_report"
@@ -185,6 +186,7 @@ type CliParserOperation =
   | "timeline"
   | "refresh"
   | "memory_doctor"
+  | "memory_maintenance_shadow"
   | "memory_lifecycle"
   | "memory_expand"
   | "memory_compaction_preview"
@@ -1679,6 +1681,14 @@ function cliParserArgumentSource(option: string): CliParserSource | undefined {
     if (option === "--project-id") return { operation: "memory_doctor", argument: "project_id" };
     if (option === "--limit") return { operation: "memory_doctor", argument: "limit" };
   }
+  if (commandPath[0] === "memory" && commandPath[1] === "shadow") {
+    if (option === "--project") return { operation: "memory_maintenance_shadow", argument: "project_path" };
+    if (option === "--project-id") return { operation: "memory_maintenance_shadow", argument: "project_id" };
+    if (option === "--limit") return { operation: "memory_maintenance_shadow", argument: "limit" };
+    if (option === "--minimum-token-overlap") {
+      return { operation: "memory_maintenance_shadow", argument: "minimum_token_overlap" };
+    }
+  }
   if (commandPath[0] === "memory" && commandPath[1] === "lifecycle") {
     if (option === "--project") return { operation: "memory_lifecycle", argument: "project_path" };
     if (option === "--project-id") return { operation: "memory_lifecycle", argument: "project_id" };
@@ -2004,6 +2014,22 @@ function parseLimit(value: string, operation?: CliLimitOperation, option = "--li
           ? { argument_sources: { limit: `operations_by_id.${operation}.arguments_by_name.limit` as const } }
           : {}),
         retry_with: { option, value_placeholder: "<integer 1-100>" }
+      }
+    );
+  }
+  return parsed;
+}
+
+function parseNumberRange(value: string, option: string, minimum: number, maximum: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < minimum || parsed > maximum) {
+    throw new CliArgumentError(
+      `Invalid argument: Invalid ${option}; must be a number between ${minimum} and ${maximum}`,
+      `${CLI_ARGUMENT_RECOVERY_ACTION_PREFIX} ${option} value`,
+      {
+        rejected_argument: { option, value },
+        expected: { kind: "number_range", min: minimum, max: maximum, inclusive: true },
+        retry_with: { option, value_placeholder: `<number ${minimum}-${maximum}>` }
       }
     );
   }
@@ -3460,6 +3486,27 @@ memory
       await engine.memoryDoctor({
         project_id: projectId,
         limit: parseLimit(options.limit, "memory_doctor"),
+        include_private: options.includePrivate
+      })
+    );
+  });
+
+memory
+  .command("shadow")
+  .description("Preview bounded memory consolidation without writing")
+  .option("--project-id <id>")
+  .option("--project <path>")
+  .option("--limit <n>", "Candidate pair limit", "100")
+  .option("--minimum-token-overlap <ratio>", "Semantic overlap threshold from 0 to 1", "0.15")
+  .option("--include-private", "Include private records")
+  .action(async (options) => {
+    const engine = createCliEngine();
+    const projectId = await resolveOptionalProject(options, "memory_maintenance_shadow");
+    printJson(
+      await engine.memoryMaintenanceShadow({
+        project_id: projectId,
+        candidate_limit: parseLimit(options.limit, "memory_maintenance_shadow"),
+        minimum_token_overlap: parseNumberRange(options.minimumTokenOverlap, "--minimum-token-overlap", 0, 1),
         include_private: options.includePrivate
       })
     );

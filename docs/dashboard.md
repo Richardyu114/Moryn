@@ -385,6 +385,21 @@ uses the same project scope as the CLI report: matching project records plus
 global records. Private-boundary records remain hidden unless
 `--include-private` is passed.
 
+### Memory Size Forecast
+
+The Memory view includes a read-only consolidation forecast from
+`memory_maintenance.semantic_shadow`, the same deterministic report exposed by
+`moryn memory shadow` and MCP `memory_maintenance_shadow`. It always displays
+the actual current logical-record count first. `After proven cleanup` includes
+only exact duplicates that pass the automatic safety boundary; `After reviewed
+merges` is a separate possibility and does not change the current count.
+
+Semantic similarity is discovery evidence, not proof of equivalent meaning.
+Until a combined record is authored, checked for protected terms and evidence
+coverage, and shown to reduce the working set, its token forecast remains
+unknown and no write is allowed. Source history remains append-only and
+recoverable after a later apply; the forecast never implies physical deletion.
+
 ### Review Queue
 
 The live dashboard can include a `Review Queue` for local maintenance plans. In

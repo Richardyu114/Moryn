@@ -525,6 +525,25 @@ not another dashboard tab.
 - Verify that private/secret/sensitive tags and legacy content privacy markers
   stay hidden by default.
 
+Current semantic-maintenance slice:
+
+- [x] Discover deterministic exact and semantic-overlap candidates across the
+  whole current logical working set, bounded by project, privacy, threshold,
+  and result limit.
+- [x] Expose read-only Shadow Mode through Engine, CLI, MCP, contracts, and the
+  dashboard with actual-before, guaranteed-after, and possible-after counts.
+- [x] Require guaranteed consolidation to strictly reduce both current logical
+  records and estimated working-set tokens; blocked candidates do not count as
+  reductions.
+- [ ] Author a derived semantic record from evidence, prove protected-term and
+  coverage preservation, and calculate its real token size.
+- [ ] Run semantic proposals automatically only after false-positive, conflict,
+  privacy, sync, rollback, and bounded-growth dogfood gates pass. Exact duplicate
+  linking remains the only automatic semantic-maintenance action before then.
+- [ ] Add the bounded periodic scheduler and append-only application receipt so
+  successful maintenance makes the actual current-usable count decrease over
+  time rather than merely producing summaries.
+
 ### Phase 3: Setup Wizard
 
 Do not start this phase until normal agent install still requires too much

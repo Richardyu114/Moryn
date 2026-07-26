@@ -347,6 +347,7 @@ The read-only inspection commands (all safe, none mutate memory):
 | --- | --- |
 | `moryn timeline --record-id <id>` | chronological neighbors + recall next actions |
 | `moryn memory doctor` | candidate backlog, promotable records, marker noise, split project ids |
+| `moryn memory shadow` | whole-working-set merge candidates + read-only before/after size forecast |
 | `moryn memory lifecycle` | classify records: retained / stale / archive candidate |
 | `moryn memory expand <record_id>` | bounded, digest-aware source and leaf-evidence expansion |
 | `moryn soul status` | metadata-only profile, revision, compilation, and hook-preparation status |
