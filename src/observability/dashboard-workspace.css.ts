@@ -396,6 +396,7 @@ export function dashboardWorkspaceCss(): string {
     .v04-soul-body { padding: 0 24px 24px; border-top: 1px solid var(--hairline); }
     .v04-soul-body > .v04-safety-note { margin-top: 20px; }
     .v04-soul-item { padding: 24px; }
+    [data-dashboard-view="preferences"] [data-preferences-motion] { will-change: opacity, transform; }
     .v04-soul-item .editorial-eyebrow { margin-bottom: 7px; color: var(--brand); }
     .v04-soul-item-text { margin: 18px 0 14px; color: var(--ink); font-size: 17px; line-height: 1.75; white-space: pre-wrap; }
     .v04-soul-item > small { color: var(--muted); font-size: 13px; }

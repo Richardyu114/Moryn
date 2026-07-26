@@ -398,12 +398,12 @@ function soulItemStatusCopy(status: DashboardSoulItem["status"]): { en: string; 
 
 function renderSoulItems(items: readonly DashboardSoulItem[]): string {
   if (items.length === 0) {
-    return `<p class="v04-empty">${i18n(
+    return `<p class="v04-empty" data-preferences-motion="items">${i18n(
       "No portable preference text is currently in use. Device-only preferences remain hidden.",
       "当前没有正在使用的可迁移偏好正文；仅本机偏好仍保持隐藏。"
     )}</p>`;
   }
-  return `<div class="v04-plan-list">${items
+  return `<div class="v04-plan-list" data-preferences-motion="items">${items
     .map((item) => {
       const category = soulCategoryCopy(item.category);
       const scope = soulScopeCopy(item.scope);
@@ -466,14 +466,14 @@ export function renderSoulStudio(data: DashboardSoulStudio): string {
     ? `<div class="v04-table-scroll"><table class="v04-table v04-soul-table"><thead><tr><th>${i18n("Applies to", "适用对象")}</th><th>${i18n("Current version", "当前版本")}</th><th>${i18n("Versions", "版本数")}</th><th>${i18n("Saved where", "保存位置")}</th><th>${i18n("Older version", "旧版本")}</th></tr></thead><tbody>${profileRows(data.profiles)}</tbody></table></div>`
     : `<p class="v04-empty">${i18n("No collaboration preference profile has been configured yet.", "尚未配置协作偏好。")}</p>`;
   return `<details class="v04-section v04-soul-disclosure" data-soul-studio open>
-    <summary data-v04-soul-summary>
+    <summary data-v04-soul-summary data-preferences-motion="summary">
       <span class="v04-soul-summary-copy"><span class="editorial-eyebrow">${i18n("Collaboration preferences", "协作偏好")}</span><strong>${i18n(summary.titleEn, summary.titleZh)}</strong><small data-i18n-en="${escapeHtml(summary.bodyEn)}" data-i18n-zh="${escapeHtml(summary.bodyZh)}">${escapeHtml(summary.bodyEn)}</small></span>
       <span class="v04-disclosure-label">${i18n("Preferences shown below", "下方显示偏好正文")}</span>
     </summary>
     <div class="v04-soul-body">
-      <div class="v04-safety-note"><strong>${i18n("Only portable preferences in use are shown.", "这里只显示正在使用的可迁移偏好。")}</strong><span>${i18n("Device-only preference text stays hidden, including when private records are visible elsewhere.", "仅本机偏好正文始终隐藏，即使其他区域允许查看私密记录也不会显示。")}</span></div>
+      <div class="v04-safety-note" data-preferences-motion="privacy"><strong>${i18n("Only portable preferences in use are shown.", "这里只显示正在使用的可迁移偏好。")}</strong><span>${i18n("Device-only preference text stays hidden, including when private records are visible elsewhere.", "仅本机偏好正文始终隐藏，即使其他区域允许查看私密记录也不会显示。")}</span></div>
       ${renderSoulItems(data.items)}
-      <details class="v04-diagnostics v04-soul-diagnostics" data-v04-soul-diagnostics>
+      <details class="v04-diagnostics v04-soul-diagnostics" data-v04-soul-diagnostics data-preferences-motion="diagnostics">
         <summary><span>${i18n("Version and delivery diagnostics", "版本与交付诊断")}</span><small>${i18n("Advanced details", "高级详情")}</small></summary>
         <div class="v04-diagnostics-body">
           <div class="v04-delivery-grid">

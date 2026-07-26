@@ -695,6 +695,10 @@ describe("v0.4 dashboard projections", () => {
       expect(html).not.toContain(otherProjectText);
       expect(html).not.toContain(localOnlyText);
       expect(html.indexOf(currentProjectText)).toBeLessThan(html.indexOf("data-v04-soul-diagnostics"));
+      expect(html).toContain('data-preferences-motion="summary"');
+      expect(html).toContain('data-preferences-motion="privacy"');
+      expect(html).toContain('data-preferences-motion="items"');
+      expect(html).toContain('data-preferences-motion="diagnostics"');
       expect(html).toContain('data-i18n-zh="正在使用"');
       expect(html).toContain('data-i18n-zh="适用于项目 moryn"');
     });

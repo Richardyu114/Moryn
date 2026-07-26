@@ -36,9 +36,28 @@ export function dashboardWorkspaceScript(): string {
         const replayEntrance = (section) => {
           if (!(section instanceof HTMLElement)) return;
           if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-          const targets = section.querySelectorAll('[data-editorial-section], .editorial-sidebar, .editorial-view-page > header, .editorial-view-page > .memory-search, .editorial-view-page > .history-timeline, .editorial-view-page > .v04-dashboard-sections');
-          targets.forEach((el) => {
+          const selector = section.dataset.dashboardView === 'preferences'
+            ? '.editorial-view-page > header, [data-preferences-motion]'
+            : '[data-editorial-section], .editorial-sidebar, .editorial-view-page > header, .editorial-view-page > .memory-search, .editorial-view-page > .history-timeline, .editorial-view-page > .v04-dashboard-sections';
+          const targets = section.querySelectorAll(selector);
+          targets.forEach((el, index) => {
             if (!(el instanceof HTMLElement)) return;
+            if (typeof el.animate === 'function') {
+              el.getAnimations().forEach((animation) => animation.cancel());
+              el.animate(
+                [
+                  { opacity: 0, transform: 'translateY(24px)' },
+                  { opacity: 1, transform: 'translateY(0)' }
+                ],
+                {
+                  duration: 620,
+                  delay: index * 80,
+                  easing: 'cubic-bezier(.2,.7,.2,1)',
+                  fill: 'both'
+                }
+              );
+              return;
+            }
             el.style.animation = 'none';
             void el.offsetWidth;
             el.style.animation = '';

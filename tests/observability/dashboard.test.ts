@@ -7893,7 +7893,10 @@ describe("quiet dashboard first screen", () => {
       expect(html).toContain("lastTrigger.focus()");
       expect(html).toContain("restoreDashboardWorkspaceAfterFragment");
       expect(html).toContain("openDrawer(state.drawer, null, { focus: true })");
-      expect(html).toContain(".editorial-view-page > .v04-dashboard-sections');");
+      expect(html).toContain("section.dataset.dashboardView === 'preferences'");
+      expect(html).toContain("[data-preferences-motion]");
+      expect(html).toContain("delay: index * 80");
+      expect(html).toContain("el.animate(");
     });
   });
 
