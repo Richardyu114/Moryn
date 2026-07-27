@@ -1,5 +1,7 @@
 import { execFile } from "node:child_process";
-import { access, chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
@@ -8,6 +10,7 @@ import { initializeStore } from "../../src/core/config.js";
 import { rebuildDerivedViews } from "../../src/core/derived.js";
 import { createEngine } from "../../src/core/engine.js";
 import { toErrorEnvelope } from "../../src/core/errors.js";
+import { retrievalProjectShardName } from "../../src/core/retrieval-index.js";
 import {
   SYNC_RESULT_SELECTION_SOURCES as EXPORTED_SYNC_RESULT_SELECTION_SOURCES,
   getGitSyncStatus,
@@ -33,6 +36,8 @@ const SYNC_STATUS_SELECTION_SOURCES = {
   behind: "behind",
   last_sync: "last_sync",
   last_commit: "last_commit",
+  pending_changes: "pending_changes",
+  remote_observation: "remote_observation",
   error: "error"
 };
 const SYNC_RESULT_SELECTION_SOURCES = {
@@ -44,6 +49,10 @@ const SYNC_RESULT_SELECTION_SOURCES = {
 };
 const LOCAL_ONLY_HISTORY_ERROR = /local-only Moryn paths/i;
 const MORYN_GITIGNORE = "config.json\nsnapshots/\nindexes/\nstate/\n.moryn/\n";
+const EVENT_HISTORY_MUTATION_MESSAGE =
+  "Git sync refused because append-only event history could not be verified safely. Existing events must remain byte-for-byte unchanged, and only new regular .json event files may be added.";
+const EVENT_HISTORY_MUTATION_RECOMMENDED_ACTION =
+  "restore existing event files, clear event ignore or hidden-index rules, and append a corrective event before retrying sync";
 
 type FileSnapshot = Record<string, string>;
 
@@ -121,6 +130,183 @@ async function expectLocalOnlyHistoryRejection(action: () => Promise<unknown>): 
   await expect(action()).rejects.toThrow(LOCAL_ONLY_HISTORY_ERROR);
 }
 
+async function expectEventHistoryMutation(
+  action: () => Promise<unknown>,
+  forbiddenDetails: readonly string[] = []
+): Promise<void> {
+  let caught: unknown;
+  try {
+    await action();
+  } catch (error) {
+    caught = error;
+  }
+  if (!caught) throw new Error("Expected append-only event history rejection");
+  const envelope = toErrorEnvelope(caught);
+  expect(envelope.error).toMatchObject({
+    code: "EVENT_HISTORY_MUTATION",
+    message: EVENT_HISTORY_MUTATION_MESSAGE,
+    recoverable: true,
+    recommended_action: EVENT_HISTORY_MUTATION_RECOMMENDED_ACTION
+  });
+  for (const detail of forbiddenDetails.filter(Boolean)) {
+    expect(JSON.stringify(envelope)).not.toContain(detail);
+  }
+}
+
+async function firstTrackedEventPath(store: string): Promise<string> {
+  const paths = (await exec("git", ["ls-files", "-z", "--", "events"], { cwd: store })).stdout
+    .split("\0")
+    .filter((path) => path.endsWith(".json"));
+  if (!paths[0]) throw new Error("Expected a tracked event file");
+  return paths[0];
+}
+
+async function rewriteTrackedEventText(store: string, path: string, text: string): Promise<string> {
+  const event = JSON.parse(await readFile(join(store, path), "utf8")) as {
+    event_id: string;
+    op: string;
+    record?: { content: Record<string, unknown> };
+  };
+  if (event.op !== "upsert_record" || !event.record) throw new Error("Expected an upsert event");
+  event.record.content = { ...event.record.content, text };
+  await writeFile(join(store, path), `${JSON.stringify(event, null, 2)}\n`, "utf8");
+  return event.event_id;
+}
+
+async function seedTrackedEvent(store: string, remote: string, deviceId: string): Promise<string> {
+  await initializeStore(store, {
+    now: () => "2026-07-27T00:00:00.000Z",
+    id: () => deviceId
+  });
+  await initializeGitSync(store, remote);
+  const engine = createEngine({
+    storePath: store,
+    now: () => "2026-07-27T00:01:00.000Z",
+    id: (prefix) => `${prefix}_${deviceId}`
+  });
+  await engine.write({
+    kind: "memory",
+    type: "decision",
+    scope: "project",
+    project_id: "moryn",
+    content: { text: "Append-only history protects this event.", format: "text" },
+    state: "canonical",
+    confirmed: true,
+    source: { client: "test", device_id: deviceId }
+  });
+  await pushGitSync(store, { message: "seed append-only event" });
+  return firstTrackedEventPath(store);
+}
+
+type ReplayInvalidRemoteHistory = "missing_target" | "duplicate_event_id";
+
+const LONG_UNSAFE_REMOTE_PROJECT_ID = `../PRIVATE_REMOTE_PROJECT_${"p".repeat(300)}`;
+
+async function writeLongProjectRemoteEvent(repository: string): Promise<string> {
+  const path = join("events", "remote-long-project", "2026-07", "evt_long_project.json");
+  const createdAt = "2026-07-28T00:00:00.000Z";
+  const source = { client: "remote-test", device_id: "remote-long-project" };
+  await mkdir(dirname(join(repository, path)), { recursive: true });
+  await writeFile(
+    join(repository, path),
+    `${JSON.stringify(
+      {
+        event_id: "evt_long_project",
+        op: "upsert_record",
+        record: {
+          id: "rec_long_project",
+          kind: "memory",
+          type: "fact",
+          scope: "project",
+          project_id: LONG_UNSAFE_REMOTE_PROJECT_ID,
+          tags: [],
+          content: { text: "A valid remote record uses an unsafe and oversized project identity.", format: "text" },
+          state: "canonical",
+          confidence: 0.9,
+          priority: "normal",
+          visibility: "active",
+          created_at: createdAt,
+          updated_at: createdAt,
+          source
+        },
+        created_at: createdAt,
+        source
+      },
+      null,
+      2
+    )}\n`,
+    "utf8"
+  );
+  return path;
+}
+
+async function writeReplayInvalidRemoteHistory(
+  repository: string,
+  invalidity: ReplayInvalidRemoteHistory
+): Promise<string[]> {
+  const directory = join("events", "remote-invalid", "2026-07");
+  await mkdir(join(repository, directory), { recursive: true });
+  if (invalidity === "missing_target") {
+    const path = join(directory, "evt_missing_target.json");
+    await writeFile(
+      join(repository, path),
+      `${JSON.stringify(
+        {
+          event_id: "evt_missing_target",
+          op: "revise_record",
+          record_id: "rec_missing_remote_target",
+          patch: { "content.text": "REMOTE_REPLAY_INVALID_MARKER" },
+          reason: "Remote history must not revise a missing record.",
+          created_at: "2026-07-28T00:00:00.000Z",
+          source: { client: "remote-test", device_id: "remote-invalid" }
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+    return [path];
+  }
+
+  const duplicateEventId = "evt_duplicate_remote_identity";
+  const paths = [join(directory, "first.json"), join(directory, "second.json")];
+  for (const [index, path] of paths.entries()) {
+    const recordId = `rec_duplicate_remote_${index + 1}`;
+    const createdAt = `2026-07-28T00:00:0${index}.000Z`;
+    await writeFile(
+      join(repository, path),
+      `${JSON.stringify(
+        {
+          event_id: duplicateEventId,
+          op: "upsert_record",
+          record: {
+            id: recordId,
+            kind: "memory",
+            type: "fact",
+            scope: "project",
+            project_id: "moryn",
+            tags: [],
+            content: { text: `REMOTE_DUPLICATE_ID_MARKER_${index + 1}`, format: "text" },
+            state: "canonical",
+            confidence: 0.9,
+            priority: "normal",
+            visibility: "active",
+            created_at: createdAt,
+            updated_at: createdAt,
+            source: { client: "remote-test", device_id: "remote-invalid" }
+          },
+          created_at: createdAt,
+          source: { client: "remote-test", device_id: "remote-invalid" }
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+  }
+  return paths;
+}
+
 async function _expectInvalidArgument(action: () => Promise<unknown>, expectedMessage: RegExp): Promise<void> {
   let caught: unknown;
   try {
@@ -189,6 +375,187 @@ describe("git sync adapter", () => {
       expect(status.selection_sources).toEqual(SYNC_STATUS_SELECTION_SOURCES);
     } finally {
       await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("bounds remote observation time without misreporting the configured local repository", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-status-timeout-"));
+    const store = join(root, "store");
+    const server = createServer(() => {
+      // Intentionally leave the smart-HTTP request open; the sync status timeout
+      // must terminate Git without waiting for the remote indefinitely.
+    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        server.once("error", reject);
+        server.listen(0, "127.0.0.1", resolve);
+      });
+      const address = server.address() as AddressInfo;
+      await initializeStore(store, { id: () => "device_status_timeout" });
+      await exec("git", ["init"], { cwd: store });
+      await exec("git", ["branch", "-M", "main"], { cwd: store });
+      await exec("git", ["remote", "add", "origin", `http://127.0.0.1:${address.port}/memory.git`], {
+        cwd: store
+      });
+
+      const startedAt = Date.now();
+      const status = await getGitSyncStatus(store, { remote_timeout_ms: 100 });
+      expect(Date.now() - startedAt).toBeLessThan(2_000);
+      expect(status).toMatchObject({
+        configured: true,
+        remote_observation: { checked: true, reachable: false }
+      });
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps configured true when a later local status projection fails", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-status-error-"));
+    const store = join(root, "store");
+    try {
+      await initializeStore(store, { id: () => "device_status_error" });
+      await exec("git", ["init"], { cwd: store });
+      await writeFile(join(store, ".git", "index"), "not-a-git-index\n", "utf8");
+
+      await expect(getGitSyncStatus(store)).resolves.toEqual(
+        expect.objectContaining({
+          configured: true,
+          error: expect.any(String)
+        })
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("projects bounded pending event counts, local file time, and checked remote proof", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-pending-status-"));
+    const store = join(root, "store");
+    const remote = join(root, "remote.git");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(store, {
+        now: () => "2026-07-27T00:00:00.000Z",
+        id: () => "device_pending_status"
+      });
+      await initializeGitSync(store, remote);
+      const engine = createEngine({
+        storePath: store,
+        now: () => "2026-07-27T00:01:00.000Z",
+        id: (prefix) => `${prefix}_pending_status`
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Pending status should distinguish local save from remote proof.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex", device_id: "device_pending_status" }
+      });
+
+      const pending = await getGitSyncStatus(store);
+      expect(pending).toMatchObject({
+        configured: true,
+        dirty: true,
+        sync_state: "dirty",
+        pending_changes: {
+          total_files: 1,
+          managed_files: 1,
+          unmanaged_files: 0,
+          event_files: 1,
+          untracked_event_files: 1,
+          added_event_files: 0,
+          modified_event_files: 0,
+          ignored_event_files: 0,
+          pending_time_complete: true
+        },
+        remote_observation: {
+          checked: true,
+          reachable: true,
+          contains_local_head: true
+        }
+      });
+      expect(pending.pending_changes?.oldest_pending_file_mtime).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+
+      const pendingEventPath = (await getPendingSyncEvidence(store)).paths.find(
+        (path) => path.startsWith("events/") && path.endsWith(".json")
+      );
+      expect(pendingEventPath).toBeDefined();
+      await writeFile(join(store, ".git", "info", "exclude"), `${pendingEventPath}\n`, "utf8");
+      const ignored = await getGitSyncStatus(store);
+      expect(ignored).toMatchObject({
+        dirty: true,
+        sync_state: "dirty",
+        pending_changes: {
+          total_files: 1,
+          managed_files: 1,
+          unmanaged_files: 0,
+          event_files: 1,
+          untracked_event_files: 0,
+          modified_event_files: 0,
+          ignored_event_files: 1,
+          pending_time_complete: true
+        },
+        remote_observation: { contains_local_head: true }
+      });
+      expect(ignored.pending_changes).not.toHaveProperty("paths");
+
+      await symlink(join(store, pendingEventPath ?? "missing-event"), join(store, "events", "pending-event-link.json"));
+      const withEventSymlink = await getGitSyncStatus(store);
+      expect(withEventSymlink.pending_changes).toMatchObject({
+        managed_files: 2,
+        unmanaged_files: 0,
+        event_files: 2,
+        untracked_event_files: 1,
+        ignored_event_files: 1,
+        pending_time_complete: false
+      });
+      expect(withEventSymlink.pending_changes).not.toHaveProperty("oldest_pending_file_mtime");
+
+      await Promise.all(
+        Array.from({ length: 51 }, (_, index) => writeFile(join(store, `scratch-${index}.txt`), "local\n", "utf8"))
+      );
+      const bounded = await getGitSyncStatus(store);
+      expect(bounded.pending_changes).toMatchObject({
+        total_files: 53,
+        managed_files: 2,
+        unmanaged_files: 51,
+        event_files: 2,
+        ignored_event_files: 1
+      });
+      expect(bounded.pending_changes).not.toHaveProperty("paths");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps a managed path visible when Git records it as a rename out of the sync tree", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-managed-rename-status-"));
+    const store = join(root, "store");
+    const remote = join(root, "remote.git");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(store, { id: () => "device_managed_rename_status" });
+      await initializeGitSync(store, remote);
+      await exec("git", ["mv", ".gitignore", "scratch-ignore"], { cwd: store });
+
+      const status = await getGitSyncStatus(store);
+      expect(status).toMatchObject({
+        dirty: true,
+        sync_state: "dirty",
+        pending_changes: {
+          managed_files: 1,
+          event_files: 0
+        }
+      });
+      expect(status.pending_changes?.unmanaged_files).toBeGreaterThan(0);
+    } finally {
+      await rm(root, { recursive: true, force: true });
     }
   });
 
@@ -307,7 +674,7 @@ describe("git sync adapter", () => {
     }
   });
 
-  it("skips the first remote push when initial event integrity verification fails", async () => {
+  it("rejects malformed initial event JSON before creating a commit", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-sync-init-audit-gate-"));
     const store = join(root, "store");
     const remote = join(root, "remote.git");
@@ -321,13 +688,10 @@ describe("git sync adapter", () => {
       await mkdir(eventDirectory, { recursive: true });
       await writeFile(join(eventDirectory, "evt_broken.json"), "{broken", "utf8");
 
-      await expect(initializeGitSync(store, remote)).resolves.toMatchObject({
-        ok: false,
-        committed: true,
-        pushed: false,
-        automatic_event_audit: { status: "failed", code: "EVENT_SCHEMA_INVALID" }
-      });
+      await expectEventHistoryMutation(() => initializeGitSync(store, remote), [root, "evt_broken.json", "{broken"]);
       expect(await remoteMainOid(remote)).toBeUndefined();
+      await expect(exec("git", ["rev-parse", "--verify", "HEAD"], { cwd: store })).rejects.toBeDefined();
+      await expect(exec("git", ["diff", "--cached", "--quiet"], { cwd: store })).resolves.toBeDefined();
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -519,8 +883,35 @@ describe("git sync adapter", () => {
 
       await mkdir(join(storeA, "events", "shared-device", "2026-05"), { recursive: true });
       await mkdir(join(storeB, "events", "shared-device", "2026-05"), { recursive: true });
-      await writeFile(join(storeA, conflictFile), '{"from":"a"}\n', "utf8");
-      await writeFile(join(storeB, conflictFile), '{"from":"b"}\n', "utf8");
+      const conflictingEvent = (side: "a" | "b") =>
+        `${JSON.stringify(
+          {
+            event_id: "evt_conflict",
+            op: "upsert_record",
+            record: {
+              id: "rec_conflict",
+              kind: "memory",
+              type: "decision",
+              scope: "project",
+              project_id: "moryn",
+              tags: [],
+              content: { text: `Device ${side} chose a different valid value.`, format: "text" },
+              state: "canonical",
+              confidence: 0.9,
+              priority: "normal",
+              visibility: "active",
+              created_at: "2026-05-27T00:01:00.000Z",
+              updated_at: "2026-05-27T00:01:00.000Z",
+              source: { client: "test", device_id: `device_${side}` }
+            },
+            created_at: "2026-05-27T00:01:00.000Z",
+            source: { client: "test", device_id: `device_${side}` }
+          },
+          null,
+          2
+        )}\n`;
+      await writeFile(join(storeA, conflictFile), conflictingEvent("a"), "utf8");
+      await writeFile(join(storeB, conflictFile), conflictingEvent("b"), "utf8");
       await exec("git", ["add", conflictFile], { cwd: storeA });
       await exec("git", ["commit", "-m", "device a conflicting event"], { cwd: storeA });
       await exec("git", ["push", "-u", "origin", "main"], { cwd: storeA });
@@ -789,7 +1180,7 @@ describe("git sync adapter", () => {
       await initializeGitRepository(store, remote, "Puller");
       const localState = await writeLocalOnlySentinels(store, "remote event symlink tree");
 
-      await expect(pullGitSync(store)).rejects.toThrow(/symlink.*mode 120000/i);
+      await expectEventHistoryMutation(() => pullGitSync(store), [root, "events/idempotent"]);
 
       await expectFilesUnchanged(store, localState);
       await expect(exec("git", ["rev-parse", "--verify", "HEAD"], { cwd: store })).rejects.toBeDefined();
@@ -826,7 +1217,7 @@ describe("git sync adapter", () => {
       const localState = await writeLocalOnlySentinels(store, "remote gitlink tree");
       const localHead = (await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim();
 
-      await expect(pullGitSync(store)).rejects.toThrow(/gitlink.*mode 160000/i);
+      await expectEventHistoryMutation(() => pullGitSync(store), [root, "events/external"]);
 
       await expectFilesUnchanged(store, localState);
       expect((await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim()).toBe(localHead);
@@ -1337,7 +1728,7 @@ describe("git sync adapter", () => {
     }
   });
 
-  it("returns a fixed audit receipt instead of leaking a malformed event path during push", async () => {
+  it("rejects malformed event JSON before push can create a local commit", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-sync-malformed-event-gate-"));
     const remote = join(root, "remote.git");
     const store = join(root, "store");
@@ -1352,26 +1743,485 @@ describe("git sync adapter", () => {
       const eventDirectory = join(store, "events", "device-corrupt", "2026-07");
       await mkdir(eventDirectory, { recursive: true });
       await writeFile(join(eventDirectory, "evt_broken.json"), "{broken", "utf8");
+      const headBefore = (await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim();
 
-      const result = await pushGitSync(store, { message: "malformed event must remain local" });
-
-      expect(result).toMatchObject({
-        ok: false,
-        committed: true,
-        pushed: false,
-        message: "Automatic event integrity verification failed; remote push was skipped.",
-        automatic_event_audit: {
-          status: "failed",
-          failure_stage: "schema",
-          code: "EVENT_SCHEMA_INVALID"
-        }
-      });
-      expect(JSON.stringify(result)).not.toContain(root);
+      await expectEventHistoryMutation(
+        () => pushGitSync(store, { message: "malformed event must remain local" }),
+        [root, "evt_broken.json", "{broken"]
+      );
       expect(await remoteMainOid(remote)).toBe(remoteBefore);
+      expect((await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim()).toBe(headBefore);
+      await expect(exec("git", ["diff", "--cached", "--quiet"], { cwd: store })).resolves.toBeDefined();
     } finally {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it.each(["modified", "deleted"] as const)(
+    "rejects a %s tracked event before changing the index or remote",
+    async (mode) => {
+      const root = await mkdtemp(join(tmpdir(), `moryn-sync-event-${mode}-`));
+      const remote = join(root, "remote.git");
+      const store = join(root, "store");
+      try {
+        await exec("git", ["init", "--bare", remote]);
+        const trackedPath = await seedTrackedEvent(store, remote, `device_${mode}`);
+        const original = JSON.parse(await readFile(join(store, trackedPath), "utf8")) as { event_id: string };
+        const remoteBefore = await remoteMainOid(remote);
+        const headBefore = (await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim();
+
+        if (mode === "modified") {
+          await rewriteTrackedEventText(store, trackedPath, "A valid rewrite must still be rejected.");
+        } else {
+          await rm(join(store, trackedPath));
+        }
+
+        await expectEventHistoryMutation(() => pushGitSync(store), [root, trackedPath, original.event_id]);
+        expect(await remoteMainOid(remote)).toBe(remoteBefore);
+        expect((await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim()).toBe(headBefore);
+        await expect(exec("git", ["diff", "--cached", "--quiet"], { cwd: store })).resolves.toBeDefined();
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+  );
+
+  it("rejects an already committed valid event rewrite", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-committed-event-rewrite-"));
+    const remote = join(root, "remote.git");
+    const store = join(root, "store");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      const trackedPath = await seedTrackedEvent(store, remote, "device_committed_rewrite");
+      const eventId = await rewriteTrackedEventText(store, trackedPath, "Committed valid rewrites are forbidden too.");
+      await exec("git", ["add", "--", trackedPath], { cwd: store });
+      await exec("git", ["commit", "-m", "rewrite old event"], { cwd: store });
+      const localHead = (await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim();
+      const remoteBefore = await remoteMainOid(remote);
+
+      await expectEventHistoryMutation(() => pushGitSync(store), [root, trackedPath, eventId]);
+
+      expect(await remoteMainOid(remote)).toBe(remoteBefore);
+      expect((await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim()).toBe(localHead);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects an ignored event that would be omitted from the remote", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-ignored-event-"));
+    const remote = join(root, "remote.git");
+    const store = join(root, "store");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(store, { id: () => "device_ignored" });
+      await initializeGitSync(store, remote);
+      await writeFile(join(store, ".git", "info", "exclude"), "events/device_ignored/\n", "utf8");
+      const engine = createEngine({
+        storePath: store,
+        now: () => "2026-07-27T00:01:00.000Z",
+        id: (prefix) => `${prefix}_ignored`
+      });
+      await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Invisible event must not pass sync." },
+        source: { client: "test", device_id: "device_ignored" }
+      });
+      const remoteBefore = await remoteMainOid(remote);
+
+      await expectEventHistoryMutation(() => pushGitSync(store), [root, "device_ignored", "Invisible event"]);
+
+      expect(await remoteMainOid(remote)).toBe(remoteBefore);
+      await expect(exec("git", ["diff", "--cached", "--quiet"], { cwd: store })).resolves.toBeDefined();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a symlink or non-JSON file under events", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-unsafe-event-entry-"));
+    const remote = join(root, "remote.git");
+    const store = join(root, "store");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(store, { id: () => "device_unsafe_entry" });
+      await initializeGitSync(store, remote);
+      const eventDirectory = join(store, "events", "device-unsafe", "2026-07");
+      await mkdir(eventDirectory, { recursive: true });
+      await writeFile(join(store, "outside.json"), "{}\n", "utf8");
+      await symlink(join(store, "outside.json"), join(eventDirectory, "evt_symlink.json"));
+      await writeFile(join(eventDirectory, "notes.txt"), "not an event\n", "utf8");
+
+      await expectEventHistoryMutation(() => pushGitSync(store), [root, "evt_symlink.json", "notes.txt"]);
+      await expect(exec("git", ["diff", "--cached", "--quiet"], { cwd: store })).resolves.toBeDefined();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("allows a new regular schema-valid event and publishes it", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-valid-new-event-"));
+    const remote = join(root, "remote.git");
+    const store = join(root, "store");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(store, { id: () => "device_valid_new" });
+      await initializeGitSync(store, remote);
+      const engine = createEngine({
+        storePath: store,
+        now: () => "2026-07-27T00:01:00.000Z",
+        id: (prefix) => `${prefix}_valid_new`
+      });
+      await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "A valid append-only event is published." },
+        source: { client: "test", device_id: "device_valid_new" }
+      });
+
+      await expect(pushGitSync(store)).resolves.toMatchObject({ ok: true, committed: true, pushed: true });
+      expect(await remoteMainOid(remote)).toBeDefined();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("reuses the append-only workspace gate during sync init", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-init-event-rewrite-"));
+    const remote = join(root, "remote.git");
+    const store = join(root, "store");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(store, { id: () => "device_init_rewrite" });
+      const engine = createEngine({
+        storePath: store,
+        now: () => "2026-07-27T00:01:00.000Z",
+        id: (prefix) => `${prefix}_init_rewrite`
+      });
+      await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Initial tracked event." },
+        source: { client: "test", device_id: "device_init_rewrite" }
+      });
+      await exec("git", ["init"], { cwd: store });
+      await configureGitIdentity(store, "InitRewrite");
+      await exec("git", ["branch", "-M", "main"], { cwd: store });
+      await exec("git", ["add", "events"], { cwd: store });
+      await exec("git", ["commit", "-m", "track initial event"], { cwd: store });
+      const trackedPath = await firstTrackedEventPath(store);
+      const eventId = await rewriteTrackedEventText(store, trackedPath, "Init must reject this valid rewrite.");
+      const headBefore = (await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim();
+
+      await expectEventHistoryMutation(() => initializeGitSync(store, remote), [root, trackedPath, eventId]);
+
+      expect(await remoteMainOid(remote)).toBeUndefined();
+      expect((await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim()).toBe(headBefore);
+      await expect(exec("git", ["diff", "--cached", "--quiet"], { cwd: store })).resolves.toBeDefined();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a fetched remote history that rewrites a valid event", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-remote-event-rewrite-"));
+    const remote = join(root, "remote.git");
+    const storeA = join(root, "store-a");
+    const storeB = join(root, "store-b");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      const trackedPath = await seedTrackedEvent(storeA, remote, "device_remote_rewrite");
+      await initializeStore(storeB, { id: () => "device_remote_reader" });
+      await initializeGitSync(storeB, remote);
+      const localHeadBefore = (await exec("git", ["rev-parse", "HEAD"], { cwd: storeB })).stdout.trim();
+
+      const eventId = await rewriteTrackedEventText(storeA, trackedPath, "Remote history contains a valid rewrite.");
+      await exec("git", ["add", "--", trackedPath], { cwd: storeA });
+      await exec("git", ["commit", "-m", "rewrite remote event"], { cwd: storeA });
+      await exec("git", ["push", "origin", "main"], { cwd: storeA });
+
+      await expectEventHistoryMutation(() => pullGitSync(storeB), [root, trackedPath, eventId]);
+
+      expect((await exec("git", ["rev-parse", "HEAD"], { cwd: storeB })).stdout.trim()).toBe(localHeadBefore);
+      await expect(exec("git", ["diff", "--cached", "--quiet"], { cwd: storeB })).resolves.toBeDefined();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects malformed remote event JSON before sync init checks out remote history", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-init-malformed-remote-event-"));
+    const remote = join(root, "remote.git");
+    const seed = join(root, "seed");
+    const store = join(root, "store");
+    const malformedPath = join("events", "remote-device", "2026-07", "evt_malformed.json");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeGitRepository(seed, remote, "MalformedRemote");
+      await mkdir(dirname(join(seed, malformedPath)), { recursive: true });
+      await writeFile(join(seed, malformedPath), "{malformed remote event", "utf8");
+      const rejectedRemoteOid = await commitAndPushAll(seed, "Add malformed remote event");
+
+      await initializeStore(store, {
+        now: () => "2026-07-27T00:00:00.000Z",
+        id: () => "device_malformed_remote_init"
+      });
+      const configBefore = await readFile(join(store, "config.json"), "utf8");
+
+      await expectEventHistoryMutation(
+        () => initializeGitSync(store, remote),
+        [root, malformedPath, "malformed remote event"]
+      );
+
+      await expect(readFile(join(store, "config.json"), "utf8")).resolves.toBe(configBefore);
+      await expect(exec("git", ["rev-parse", "--verify", "HEAD"], { cwd: store })).rejects.toBeDefined();
+      await expect(access(join(store, malformedPath))).rejects.toMatchObject({ code: "ENOENT" });
+      expect(await remoteMainOid(remote)).toBe(rejectedRemoteOid);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it.each(["pull", "push"] as const)(
+    "rejects malformed remote event JSON before %s changes local HEAD or event files",
+    async (operation) => {
+      const root = await mkdtemp(join(tmpdir(), `moryn-sync-${operation}-malformed-remote-event-`));
+      const remote = join(root, "remote.git");
+      const store = join(root, "store");
+      const legacy = join(root, "legacy");
+      const malformedPath = join("events", "remote-device", "2026-07", "evt_malformed.json");
+      try {
+        await exec("git", ["init", "--bare", remote]);
+        await initializeStore(store, {
+          now: () => "2026-07-27T00:00:00.000Z",
+          id: () => `device_malformed_remote_${operation}`
+        });
+        await initializeGitSync(store, remote);
+
+        await exec("git", ["clone", remote, legacy]);
+        await exec("git", ["checkout", "-B", "main", "origin/main"], { cwd: legacy });
+        await configureGitIdentity(legacy, "MalformedRemote");
+        await mkdir(dirname(join(legacy, malformedPath)), { recursive: true });
+        await writeFile(join(legacy, malformedPath), "{malformed remote event", "utf8");
+        const rejectedRemoteOid = await commitAndPushAll(legacy, "Add malformed remote event");
+
+        let localEventPath: string | undefined;
+        let localEventContents: string | undefined;
+        if (operation === "push") {
+          const engine = createEngine({
+            storePath: store,
+            now: () => "2026-07-27T00:01:00.000Z",
+            id: (prefix) => `${prefix}_local_before_malformed_remote`
+          });
+          await engine.write({
+            kind: "memory",
+            type: "fact",
+            scope: "project",
+            project_id: "moryn",
+            content: { text: "This valid local event must remain untouched when the remote is malformed." },
+            source: { client: "test", device_id: `device_malformed_remote_${operation}` }
+          });
+          localEventPath = (
+            await exec("git", ["ls-files", "--others", "--exclude-standard", "--", "events"], { cwd: store })
+          ).stdout.trim();
+          if (!localEventPath) throw new Error("Expected a local event before guarded push");
+          localEventContents = await readFile(join(store, localEventPath), "utf8");
+        }
+        const localHeadBefore = (await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim();
+        const worktreeBefore = (await exec("git", ["status", "--porcelain=v1", "-z"], { cwd: store })).stdout;
+
+        await expectEventHistoryMutation(
+          () => (operation === "pull" ? pullGitSync(store) : pushGitSync(store, { message: "must not rebase" })),
+          [root, malformedPath, "malformed remote event"]
+        );
+
+        expect((await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim()).toBe(localHeadBefore);
+        expect((await exec("git", ["status", "--porcelain=v1", "-z"], { cwd: store })).stdout).toBe(worktreeBefore);
+        await expect(access(join(store, malformedPath))).rejects.toMatchObject({ code: "ENOENT" });
+        if (localEventPath && localEventContents) {
+          await expect(readFile(join(store, localEventPath), "utf8")).resolves.toBe(localEventContents);
+        }
+        expect(await remoteMainOid(remote)).toBe(rejectedRemoteOid);
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+  );
+
+  it.each(["missing_target", "duplicate_event_id"] as const)(
+    "rejects replay-invalid remote history (%s) before sync init checks it out",
+    async (invalidity) => {
+      const root = await mkdtemp(join(tmpdir(), `moryn-sync-init-${invalidity}-remote-event-`));
+      const remote = join(root, "remote.git");
+      const seed = join(root, "seed");
+      const store = join(root, "store");
+      try {
+        await exec("git", ["init", "--bare", remote]);
+        await initializeGitRepository(seed, remote, "ReplayInvalidRemote");
+        const invalidPaths = await writeReplayInvalidRemoteHistory(seed, invalidity);
+        const rejectedRemoteOid = await commitAndPushAll(seed, `Add ${invalidity} remote event history`);
+
+        await initializeStore(store, {
+          now: () => "2026-07-27T00:00:00.000Z",
+          id: () => `device_replay_invalid_init_${invalidity}`
+        });
+        const configBefore = await readFile(join(store, "config.json"), "utf8");
+
+        await expectEventHistoryMutation(
+          () => initializeGitSync(store, remote),
+          [root, ...invalidPaths, "REMOTE_REPLAY_INVALID_MARKER", "REMOTE_DUPLICATE_ID_MARKER"]
+        );
+
+        await expect(readFile(join(store, "config.json"), "utf8")).resolves.toBe(configBefore);
+        await expect(exec("git", ["rev-parse", "--verify", "HEAD"], { cwd: store })).rejects.toBeDefined();
+        for (const path of invalidPaths) {
+          await expect(access(join(store, path))).rejects.toMatchObject({ code: "ENOENT" });
+        }
+        expect(await remoteMainOid(remote)).toBe(rejectedRemoteOid);
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+  );
+
+  it.each([
+    ["pull", "missing_target"],
+    ["pull", "duplicate_event_id"],
+    ["push", "missing_target"],
+    ["push", "duplicate_event_id"]
+  ] as const)(
+    "rejects replay-invalid remote history before %s changes local state (%s)",
+    async (operation, invalidity) => {
+      const root = await mkdtemp(join(tmpdir(), `moryn-sync-${operation}-${invalidity}-remote-event-`));
+      const remote = join(root, "remote.git");
+      const store = join(root, "store");
+      const legacy = join(root, "legacy");
+      try {
+        await exec("git", ["init", "--bare", remote]);
+        await initializeStore(store, {
+          now: () => "2026-07-27T00:00:00.000Z",
+          id: () => `device_replay_invalid_${operation}_${invalidity}`
+        });
+        await initializeGitSync(store, remote);
+
+        await exec("git", ["clone", remote, legacy]);
+        await exec("git", ["checkout", "-B", "main", "origin/main"], { cwd: legacy });
+        await configureGitIdentity(legacy, "ReplayInvalidRemote");
+        const invalidPaths = await writeReplayInvalidRemoteHistory(legacy, invalidity);
+        const rejectedRemoteOid = await commitAndPushAll(legacy, `Add ${invalidity} remote event history`);
+
+        let localEventPath: string | undefined;
+        let localEventContents: string | undefined;
+        if (operation === "push") {
+          const engine = createEngine({
+            storePath: store,
+            now: () => "2026-07-27T00:01:00.000Z",
+            id: (prefix) => `${prefix}_local_before_replay_invalid_remote_${invalidity}`
+          });
+          await engine.write({
+            kind: "memory",
+            type: "fact",
+            scope: "project",
+            project_id: "moryn",
+            content: { text: "A valid local event remains untouched by invalid remote history." },
+            source: { client: "test", device_id: `device_replay_invalid_${operation}_${invalidity}` }
+          });
+          localEventPath = (
+            await exec("git", ["ls-files", "--others", "--exclude-standard", "--", "events"], { cwd: store })
+          ).stdout.trim();
+          if (!localEventPath) throw new Error("Expected a local event before guarded push");
+          localEventContents = await readFile(join(store, localEventPath), "utf8");
+        }
+        const localHeadBefore = (await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim();
+        const worktreeBefore = (await exec("git", ["status", "--porcelain=v1", "-z"], { cwd: store })).stdout;
+
+        await expectEventHistoryMutation(
+          () => (operation === "pull" ? pullGitSync(store) : pushGitSync(store, { message: "must not rebase" })),
+          [root, ...invalidPaths, "REMOTE_REPLAY_INVALID_MARKER", "REMOTE_DUPLICATE_ID_MARKER"]
+        );
+
+        expect((await exec("git", ["rev-parse", "HEAD"], { cwd: store })).stdout.trim()).toBe(localHeadBefore);
+        expect((await exec("git", ["status", "--porcelain=v1", "-z"], { cwd: store })).stdout).toBe(worktreeBefore);
+        for (const path of invalidPaths) {
+          await expect(access(join(store, path))).rejects.toMatchObject({ code: "ENOENT" });
+        }
+        if (localEventPath && localEventContents) {
+          await expect(readFile(join(store, localEventPath), "utf8")).resolves.toBe(localEventContents);
+        }
+        expect(await remoteMainOid(remote)).toBe(rejectedRemoteOid);
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+  );
+
+  it.each(["init", "pull", "push"] as const)(
+    "syncs an unsafe oversized project identity through %s with bounded artifact names",
+    async (operation) => {
+      const root = await mkdtemp(join(tmpdir(), `moryn-sync-${operation}-long-project-`));
+      const remote = join(root, "remote.git");
+      const store = join(root, "store");
+      const remoteWriter = join(root, "remote-writer");
+      try {
+        await exec("git", ["init", "--bare", remote]);
+        let remoteEventPath: string;
+        let result: Awaited<ReturnType<typeof initializeGitSync | typeof pullGitSync | typeof pushGitSync>>;
+
+        if (operation === "init") {
+          await initializeGitRepository(remoteWriter, remote, "LongProjectRemote");
+          remoteEventPath = await writeLongProjectRemoteEvent(remoteWriter);
+          await commitAndPushAll(remoteWriter, "Add long project identity");
+          await initializeStore(store, { id: () => "device_long_project_init" });
+          result = await initializeGitSync(store, remote);
+        } else {
+          await initializeStore(store, { id: () => `device_long_project_${operation}` });
+          await initializeGitSync(store, remote);
+          await exec("git", ["clone", remote, remoteWriter]);
+          await exec("git", ["checkout", "-B", "main", "origin/main"], { cwd: remoteWriter });
+          await configureGitIdentity(remoteWriter, "LongProjectRemote");
+          remoteEventPath = await writeLongProjectRemoteEvent(remoteWriter);
+          await commitAndPushAll(remoteWriter, "Add long project identity");
+
+          if (operation === "push") {
+            const engine = createEngine({
+              storePath: store,
+              now: () => "2026-07-28T00:01:00.000Z",
+              id: (prefix) => `${prefix}_local_alongside_long_project`
+            });
+            await engine.write({
+              kind: "memory",
+              type: "fact",
+              scope: "project",
+              project_id: "moryn",
+              content: { text: "A local append rebases safely over the long remote project identity." },
+              source: { client: "test", device_id: "device_long_project_push" }
+            });
+            result = await pushGitSync(store, { message: "Sync alongside long project identity" });
+          } else {
+            result = await pullGitSync(store);
+          }
+        }
+
+        expect(result).toMatchObject({ ok: true });
+        await expect(access(join(store, remoteEventPath))).resolves.toBeUndefined();
+        const shardName = retrievalProjectShardName(LONG_UNSAFE_REMOTE_PROJECT_ID);
+        expect(shardName).toMatch(/^~[a-f0-9]{64}\.json$/);
+        expect(shardName.length).toBeLessThan(80);
+        expect(shardName).not.toContain("PRIVATE_REMOTE_PROJECT");
+        await expect(access(join(store, "snapshots", "retrieval", "projects", shardName))).resolves.toBeUndefined();
+        expect(await readdir(join(store, "snapshots", "retrieval", "projects"))).toContain(shardName);
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+  );
 
   it("pushes cleanly when non-Moryn files leave the store worktree dirty", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-sync-untracked-file-"));

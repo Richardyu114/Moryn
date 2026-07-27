@@ -425,6 +425,16 @@ export const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   ordered_operation: "operations[]"
 } as const;
 
+export type OperationContractsResponse = {
+  recommended_entrypoint: "agent_enter";
+  operations: OperationContractReference[];
+  operations_by_id: Record<string, OperationContract>;
+  operations_by_category: Record<string, Record<string, OperationContractReference>>;
+  operations_by_mcp_tool: Record<string, OperationContractReference>;
+  operations_by_cli_command: Record<string, OperationContractReference>;
+  selection_sources: typeof OPERATION_CONTRACTS_SELECTION_SOURCES;
+};
+
 export const OPERATION_CONTRACT_INDEX_SELECTION_SOURCES = {
   operation: OPERATION_CONTRACTS_SELECTION_SOURCES.operation,
   operation_source: "operations_by_id.<operation>.operation_source",
@@ -2554,6 +2564,49 @@ export const OPERATION_CONTRACTS = [
     }
   }),
   operationContract({
+    operation: "maintenance_run",
+    category: "maintenance",
+    summary:
+      "Run one local proof-gated public-project maintenance pass and verify event integrity without remote publication.",
+    safe_to_run: true,
+    required_when:
+      "When an agent needs a bounded local maintenance checkpoint outside agent_finish and has explicit project context.",
+    required_fields: ["project_context"],
+    argument_sources: userInputSources(["project_context"]),
+    arguments_by_name: {
+      ...projectContextArguments,
+      source: {
+        type: "object",
+        required: false,
+        mcp: { argument: "source" }
+      },
+      ...sourceIdentityArguments,
+      source_client: {
+        ...sourceClientArgument,
+        cli: { flag: "--source-client", default: "cli" }
+      },
+      source_session_id: {
+        ...sourceIdentityArguments.source_session_id,
+        cli: { flag: "--session-id" }
+      }
+    },
+    required_fields_by_name: {
+      project_context: {
+        name: "project_context",
+        argument_path: "project_id|project_path",
+        placeholder: "<project_id_or_path>",
+        alternatives: ["project_id", "project_path"]
+      }
+    },
+    interfaces: {
+      cli: {
+        command: "moryn maintenance run --project <path>",
+        argv: ["maintenance", "run", "--project", "<path>"]
+      },
+      mcp: { tool: "maintenance_run", arguments: { project_path: "<project_path>" } }
+    }
+  }),
+  operationContract({
     operation: "memory_compaction_preview",
     category: "maintenance",
     summary:
@@ -3245,10 +3298,10 @@ function operationsByCliCommand(operations: readonly OperationContract[]): Recor
   );
 }
 
-export function getOperationContracts() {
+export function getOperationContracts(): OperationContractsResponse {
   return {
     recommended_entrypoint: "agent_enter",
-    operations: OPERATION_CONTRACTS,
+    operations: OPERATION_CONTRACTS.map(operationContractReference),
     operations_by_id: OPERATION_CONTRACTS_BY_ID,
     operations_by_category: operationsByCategory(OPERATION_CONTRACTS),
     operations_by_mcp_tool: operationsByMcpTool(OPERATION_CONTRACTS),

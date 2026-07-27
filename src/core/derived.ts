@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { displayRecordText, searchableRecordText } from "./content-text.js";
@@ -8,6 +7,7 @@ import {
   removeEventAuditProof,
   writeEventAuditProof
 } from "./event-audit-proof.js";
+import { projectArtifactFileName } from "./project-artifact.js";
 import { buildRecordReadModel } from "./record-read-model.js";
 import { replayEvents } from "./replay.js";
 import { buildRetrievalIndex, writeRetrievalIndex } from "./retrieval-index.js";
@@ -71,19 +71,8 @@ function projectSummary(records: MorynRecord[]): string {
   return summary ? textOf(summary) : "";
 }
 
-const READABLE_PROJECT_SNAPSHOT_ID = /^[a-z0-9][a-z0-9_-]{0,119}$/;
-const WINDOWS_RESERVED_FILE_STEM = /^(?:aux|con|nul|prn|com[1-9]|lpt[1-9])$/;
-
-function projectSnapshotFileName(projectId: string): string {
-  const stem =
-    READABLE_PROJECT_SNAPSHOT_ID.test(projectId) && !WINDOWS_RESERVED_FILE_STEM.test(projectId)
-      ? projectId
-      : `~${createHash("sha256").update(projectId, "utf8").digest("hex")}`;
-  return `${stem}.json`;
-}
-
 function projectSnapshotArtifact(projectId: string): string {
-  return `snapshots/projects/${projectSnapshotFileName(projectId)}`;
+  return `snapshots/projects/${projectArtifactFileName(projectId)}`;
 }
 
 async function writeJson(path: string, value: unknown): Promise<void> {
@@ -177,7 +166,7 @@ async function rebuildDerivedViewsUnlocked(storePath: string): Promise<RebuildRe
   ].sort();
   for (const projectId of projectIds) {
     const projectRecords = trusted.filter((record) => record.scope === "project" && record.project_id === projectId);
-    await writeJson(join(snapshotPath, "projects", projectSnapshotFileName(projectId)), {
+    await writeJson(join(snapshotPath, "projects", projectArtifactFileName(projectId)), {
       project_id: projectId,
       generated_from_cursor: generatedFromCursor,
       summary: projectSummary(projectRecords),

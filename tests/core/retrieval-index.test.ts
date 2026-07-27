@@ -72,7 +72,39 @@ describe("retrieval index", () => {
     expect(index.global.records.map((item) => item.id)).toEqual(["global"]);
     expect(index.projects.alpha?.records.map((item) => item.id)).toEqual(["alpha"]);
     expect(index.projects.beta?.records.map((item) => item.id)).toEqual(["beta"]);
-    expect(retrievalProjectShardName("a/b c")).toBe("YS9iIGM.json");
+    expect(retrievalProjectShardName("a/b c")).toMatch(/^~[a-f0-9]{64}\.json$/);
+  });
+
+  it("uses bounded deterministic shard names for unsafe and oversized project ids", async () => {
+    const projectIds = ["alpha", "a/b c", "con", `oversized-${"p".repeat(300)}`];
+    const shardNames = projectIds.map(retrievalProjectShardName);
+
+    expect(shardNames[0]).toBe("alpha.json");
+    for (const shardName of shardNames.slice(1)) {
+      expect(shardName).toMatch(/^~[a-f0-9]{64}\.json$/);
+      expect(shardName.length).toBeLessThan(80);
+    }
+    expect(new Set(shardNames).size).toBe(projectIds.length);
+
+    await withTempStore(async (storePath) => {
+      const records = projectIds.map((projectId, index) => record(`bounded-${index}`, "project", projectId));
+      const index = buildRetrievalIndex(records, manifest);
+      await writeRetrievalIndex(storePath, index);
+
+      expect((await readdir(join(storePath, "snapshots", "retrieval", "projects"))).sort()).toEqual(
+        [...shardNames].sort()
+      );
+      for (const [index, projectId] of projectIds.entries()) {
+        const result = await readRetrievalCandidates(storePath, {
+          project_id: projectId,
+          read_event_manifest: async () => manifest,
+          read_current_records: async () => {
+            throw new Error("unexpected complete read");
+          }
+        });
+        expect(result.records.map((item) => item.id)).toEqual([`bounded-${index}`]);
+      }
+    });
   });
 
   it("preserves prototype-shaped project ids in memory and across JSON persistence", async () => {

@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promise
 import { dirname, join } from "node:path";
 import { buildActiveLogicalMemoryView } from "./logical-memory.js";
 import { MEMORY_LAYERS, type MemoryLayer } from "./memory-retention.js";
+import { projectArtifactFileName } from "./project-artifact.js";
 import {
   type CurrentRecordReadResult,
   type EventManifest,
@@ -73,7 +74,7 @@ function sameManifest(left: EventManifest, right: EventManifest): boolean {
 }
 
 export function retrievalProjectShardName(projectId: string): string {
-  return `${Buffer.from(projectId, "utf8").toString("base64url")}.json`;
+  return projectArtifactFileName(projectId);
 }
 
 function normalizedLayerLimits(

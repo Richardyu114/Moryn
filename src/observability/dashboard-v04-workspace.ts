@@ -402,7 +402,7 @@ function profileRows(profiles: DashboardSoulProfile[]): string {
       return `<tr>
         <td><strong>${escapeHtml(subjectLabel(profile))}</strong><small title="${escapeHtml(profile.profile_id)}">${escapeHtml(shortId(profile.profile_id))}</small></td>
         <td><span class="v04-status v04-status-${state.css}" data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}">${escapeHtml(state.en)}</span><small title="${escapeHtml(head)}">${escapeHtml(shortId(head))}</small></td>
-        <td><span>${profile.revision_count}</span><small>${profile.states.draft} draft · ${profile.states.active} active · ${profile.states.conflicted} conflict</small></td>
+        <td><span>${profile.revision_count}</span><small>${i18n(`${profile.states.draft} draft · ${profile.states.active} active · ${profile.states.conflicted} conflict`, `${profile.states.draft} 个草稿 · ${profile.states.active} 个使用中版本 · ${profile.states.conflicted} 个冲突版本`)}</small></td>
         <td><span data-i18n-en="${escapeHtml(persistence.en)}" data-i18n-zh="${escapeHtml(persistence.zh)}">${escapeHtml(persistence.en)}</span></td>
         <td><span>${profile.rollback.available ? i18n("Available", "可回到旧版本") : "—"}</span><small>${i18n("confirmation required", "需要确认")}</small></td>
       </tr>`;
@@ -461,6 +461,16 @@ function renderSoulItems(items: readonly DashboardSoulItem[]): string {
 }
 
 function soulSummary(data: DashboardSoulStudio): { titleEn: string; titleZh: string; bodyEn: string; bodyZh: string } {
+  if (data.compilation.conflicts > 0) {
+    const conflicts = data.compilation.conflicts;
+    return {
+      titleEn: `${conflicts} current collaboration ${conflicts === 1 ? "conflict needs" : "conflicts need"} review`,
+      titleZh: `当前协作偏好有 ${conflicts} 个冲突需要查看`,
+      bodyEn:
+        "Moryn does not apply an unsafe combination, keeps using the last safe version where possible, and does not expose private preference text here.",
+      bodyZh: "Moryn 不会应用不安全的组合，会尽量继续使用上一个安全版本，也不会在这里显示私密偏好正文。"
+    };
+  }
   if (data.summary.profiles === 0) {
     return {
       titleEn: "No collaboration preferences have been set",
@@ -469,24 +479,24 @@ function soulSummary(data: DashboardSoulStudio): { titleEn: string; titleZh: str
       bodyZh: "Moryn 目前没有可应用的语气、工作方式或身份偏好。"
     };
   }
-  if (data.summary.conflicted > 0) {
-    return {
-      titleEn: `${data.summary.conflicted} collaboration ${data.summary.conflicted === 1 ? "profile needs" : "profiles need"} review`,
-      titleZh: `${data.summary.conflicted} 个协作偏好存在不同版本`,
-      bodyEn:
-        "Moryn keeps using the last safe version where possible and does not expose private preference text here.",
-      bodyZh: "Moryn 会尽量继续使用上一个安全版本，也不会在这里显示私密偏好正文。"
-    };
-  }
   const omissionEn = data.compilation.omissions
     ? ` ${data.compilation.omissions} optional ${data.compilation.omissions === 1 ? "preference was" : "preferences were"} left out of the current context; the active settings remain usable.`
     : " Approved preferences are ready when an assistant asks for them.";
   const omissionZh = data.compilation.omissions
     ? `有 ${data.compilation.omissions} 条可选偏好未放入本次上下文，当前设置仍可正常使用。`
     : "已批准的偏好会在助手需要时提供。";
+  const selected = data.compilation.selected_revision_ids.length;
+  if (selected === 0) {
+    return {
+      titleEn: "No preference version is selected for this view",
+      titleZh: "当前视图尚未选中协作偏好版本",
+      bodyEn: "Saved profiles remain available, but none is currently bound to this project and assistant.",
+      bodyZh: "已保存的偏好配置仍然保留，但当前项目与助手尚未绑定其中任何版本。"
+    };
+  }
   return {
-    titleEn: `${data.summary.active} approved preference ${data.summary.active === 1 ? "version is" : "versions are"} in use`,
-    titleZh: `${data.summary.active} 个已批准的偏好版本正在生效`,
+    titleEn: `${selected} approved preference ${selected === 1 ? "version is" : "versions are"} in use`,
+    titleZh: `${selected} 个已批准的偏好版本正在生效`,
     bodyEn: `There are no version conflicts.${omissionEn}`,
     bodyZh: `当前没有版本冲突。${omissionZh}`
   };
@@ -494,14 +504,17 @@ function soulSummary(data: DashboardSoulStudio): { titleEn: string; titleZh: str
 
 export function renderSoulStudio(data: DashboardSoulStudio): string {
   const summary = soulSummary(data);
-  const compilation = data.compilation.deliverable
-    ? { en: "Preferences are usable", zh: "偏好可以使用", css: "ready" }
-    : data.compilation.status === "not_configured"
-      ? { en: "No preferences yet", zh: "尚未设置偏好", css: "neutral" }
-      : { en: "Using a safe fallback", zh: "使用安全备用版本", css: "deferred" };
+  const compilation =
+    data.compilation.conflicts > 0
+      ? { en: "Preferences need review", zh: "偏好需要查看", css: "deferred" }
+      : data.compilation.deliverable
+        ? { en: "Preferences are usable", zh: "偏好可以使用", css: "ready" }
+        : data.compilation.status === "not_configured"
+          ? { en: "No preferences yet", zh: "尚未设置偏好", css: "neutral" }
+          : { en: "Using a safe fallback", zh: "使用安全备用版本", css: "deferred" };
   const delivery = data.delivery.host_context_prepared
     ? { en: "Prepared for the assistant", zh: "已为助手准备", css: "ready" }
-    : data.summary.active > 0
+    : data.compilation.selected_revision_ids.length > 0
       ? { en: "Prepared when needed", zh: "需要时再准备", css: "neutral" }
       : { en: "Waiting for an active preference", zh: "等待生效的偏好", css: "neutral" };
   const profiles = data.profiles.length
@@ -525,8 +538,8 @@ export function renderSoulStudio(data: DashboardSoulStudio): string {
           <div class="v04-metrics v04-soul-metrics">
             <div><span>${i18n("Preference profiles", "偏好配置")}</span><strong>${data.summary.profiles}</strong></div>
             <div><span>${i18n("Draft versions", "草稿版本")}</span><strong>${data.summary.draft}</strong></div>
-            <div><span>${i18n("Active versions", "生效版本")}</span><strong>${data.summary.active}</strong></div>
-            <div><span>${i18n("Version conflicts", "版本冲突")}</span><strong>${data.summary.conflicted}</strong></div>
+            <div><span>${i18n("Approved versions saved", "已保存的批准版本")}</span><strong>${data.summary.active}</strong></div>
+            <div><span>${i18n("Saved profiles with conflicts", "有冲突的已保存配置")}</span><strong>${data.summary.conflicted}</strong></div>
           </div>
           <div class="v04-delivery-grid">
             <article class="v04-card"><div class="v04-card-head"><div><h3>${i18n("Effective Soul", "有效 Soul")}</h3><p>${i18n("Internal compilation metadata only.", "仅显示内部编译元数据。")}</p></div></div><dl class="v04-details"><div><dt>${i18n("Raw status", "原始状态")}</dt><dd>${escapeHtml(data.compilation.status)}</dd></div><div><dt>${i18n("Selected revisions", "选中版本")}</dt><dd>${data.compilation.selected_revision_ids.length}</dd></div><div><dt>${i18n("Omissions / conflicts", "省略 / 冲突")}</dt><dd>${data.compilation.omissions} / ${data.compilation.conflicts}</dd></div></dl></article>

@@ -88,7 +88,7 @@ describe("automatic semantic maintenance drafting", () => {
     expect(conflict).not.toHaveProperty("proposal");
   });
 
-  it("keeps protected memory types and third-record conflicts out of unattended apply", () => {
+  it("keeps protected memory types and every unresolved conflict out of unattended apply", () => {
     const shared = `A complete preference statement ${"shared ".repeat(600)}.`;
     const old = record("old", `${shared} Old detail.`, { type: "user_preference" });
     const next = record("new", `${shared} New detail.`, { type: "user_preference" });
@@ -104,5 +104,20 @@ describe("automatic semantic maintenance drafting", () => {
       { project_id: "moryn" }
     );
     expect(conflictDraft.blocker_codes).toContain("automatic_scope_not_allowed");
+
+    const internalConflictDraft = authorSemanticMaintenanceMergeDraft(
+      [
+        record("old", `${shared} Old detail.`, {
+          conflict: { kind: "semantic", with: ["new"], resolution: "needs_review" }
+        }),
+        record("new", `${shared} New detail.`, {
+          conflict: { kind: "semantic", with: ["old"], resolution: "needs_review" }
+        })
+      ],
+      candidate,
+      { project_id: "moryn" }
+    );
+    expect(internalConflictDraft.blocker_codes).toContain("automatic_scope_not_allowed");
+    expect(internalConflictDraft).not.toHaveProperty("proposal");
   });
 });

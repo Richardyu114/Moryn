@@ -15,8 +15,8 @@ describe("automatic semantic maintenance", () => {
       });
       const shared = `The verified maintenance procedure retains this complete evidence ${"shared ".repeat(600)}.`;
       const base = {
-        kind: "memory" as const,
-        type: "decision",
+        kind: "skill" as const,
+        type: "procedure",
         scope: "project" as const,
         project_id: "moryn",
         tags: ["maintenance"],

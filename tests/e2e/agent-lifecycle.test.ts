@@ -137,12 +137,42 @@ async function createSyncConflict(input: {
   storeB: string;
   conflictFile: string;
 }): Promise<void> {
+  const conflictEvent = (deviceId: string, text: string) => ({
+    event_id: "evt_conflict",
+    op: "upsert_record",
+    record: {
+      id: "rec_conflict",
+      kind: "memory",
+      type: "fact",
+      scope: "project",
+      project_id: "moryn",
+      tags: [],
+      content: { text, format: "text" },
+      state: "canonical",
+      confidence: 1,
+      priority: "normal",
+      visibility: "active",
+      created_at: "2026-05-27T00:01:00.000Z",
+      updated_at: "2026-05-27T00:01:00.000Z",
+      source: { client: "test", device_id: deviceId }
+    },
+    created_at: "2026-05-27T00:01:00.000Z",
+    source: { client: "test", device_id: deviceId }
+  });
   await initializeGitSync(input.storeA, input.remote);
   await initializeGitSync(input.storeB, input.remote);
   await mkdir(join(input.storeA, "events", "shared-device", "2026-05"), { recursive: true });
   await mkdir(join(input.storeB, "events", "shared-device", "2026-05"), { recursive: true });
-  await writeFile(join(input.storeA, input.conflictFile), '{"from":"a"}\n', "utf8");
-  await writeFile(join(input.storeB, input.conflictFile), '{"from":"b"}\n', "utf8");
+  await writeFile(
+    join(input.storeA, input.conflictFile),
+    `${JSON.stringify(conflictEvent("device_a", "conflicting event from device a"), null, 2)}\n`,
+    "utf8"
+  );
+  await writeFile(
+    join(input.storeB, input.conflictFile),
+    `${JSON.stringify(conflictEvent("device_b", "conflicting event from device b"), null, 2)}\n`,
+    "utf8"
+  );
   await exec("git", ["add", input.conflictFile], { cwd: input.storeA });
   await exec("git", ["commit", "-m", "device a conflicting event"], { cwd: input.storeA });
   await exec("git", ["push", "-u", "origin", "main"], { cwd: input.storeA });

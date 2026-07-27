@@ -65,6 +65,7 @@ export type { FinalizationAssuranceSelection, IncomingSessionIdentity } from "./
 export { selectPriorSessionForFinalization } from "./core/finalization-assurance.js";
 export type { WorkingSetReportOptions, WorkingSetSummaryOptions } from "./core/working-set-report.js";
 export { buildWorkingSetReport, summarizeWorkingSet } from "./core/working-set-report.js";
+export type { OperationContractsResponse } from "./operation-contracts.js";
 
 import { CHECKPOINT_SELECTION_SOURCES } from "./core/checkpoint.js";
 
@@ -165,6 +166,15 @@ export {
   logicalMemoryFingerprint,
   validateLogicalRelationship
 } from "./core/logical-memory.js";
+export type {
+  MaintenanceRunBlockCode,
+  MaintenanceRunDependencies,
+  MaintenanceRunEngine,
+  MaintenanceRunInput,
+  MaintenanceRunReceipt,
+  MaintenanceRunSyncPreflight
+} from "./core/maintenance-runner.js";
+export { MaintenanceRunBlockedError, runMaintenanceOnce } from "./core/maintenance-runner.js";
 export type {
   EpisodeRollupCompactionEntry,
   MemoryCompactionArtifactBody,

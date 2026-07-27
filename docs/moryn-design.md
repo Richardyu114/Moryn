@@ -552,11 +552,11 @@ value-path required-input hint, and `full_contract_lookup`; package users can im
 The full response lists `operations`, keyed `operations_by_id`, grouped
 `operations_by_category`, reverse indexes `operations_by_mcp_tool` and
 `operations_by_cli_command`, and selection sources for those keyed paths. The
-ordered `operations` list and `operations_by_id` carry full contracts; grouped
-and reverse indexes carry lightweight `{ operation, operation_source }`
-references so MCP hosts can resolve the canonical
-`operations_by_id.<operation>` contract without receiving the same large object
-several times. Each full operation carries CLI/MCP interfaces, action-local
+ordered, grouped, and reverse indexes carry lightweight
+`{ operation, operation_source }` references; `operations_by_id` carries each
+full contract once. This keeps the complete registry within MCP response limits
+while preserving deterministic ordered discovery and canonical
+`operations_by_id.<operation>` lookups. Each full operation carries CLI/MCP interfaces, action-local
 `selection_sources`, `safe_to_run`, `safety`, `required_when`, `execution`,
 `required_fields`, `required_fields_by_name`, `arguments_by_name`, and
 `argument_sources`.

@@ -62,6 +62,47 @@ write path to Overview, Memory, History, or the reading drawer. Existing
 privacy filtering, static snapshots, live server behavior, localization, and
 action endpoints remain compatible.
 
+## Sync Assurance
+
+The Overview distinguishes a local save from a remotely durable copy. When Git
+has pending store changes, the first screen says that the newer content is
+currently confirmed only on this device. It may also say that the shared copy
+contains the previous committed version, but it never presents that older
+remote proof as proof for the pending files. `/api/dashboard.sync_assurance`
+exposes the same distinction through `remote_copy.durable`,
+`remote_copy.covers_all_local_content`, and `local_pending`.
+Even with a clean worktree, a failed remote check renders `remote_unverified`
+instead of `Healthy`; the first screen keeps that uncertainty visible without
+claiming that the shared copy is current. Dashboard remote observation is
+fail-closed and capped at 1.5 seconds, so a stalled remote becomes an
+unverified status instead of blocking every Dashboard request indefinitely.
+
+For pending event history, Moryn reports the number of event files and, where
+available, separates untracked, staged additions, modified files, and event
+files hidden by Git ignore rules. Ignored events still make the store locally
+pending; they can never make the shared-copy proof appear complete. A file age
+is shown only when every pending event path is a regular file that can be
+inspected without following symbolic links and the batch contains at most 500
+files. It means “time since the oldest pending file was last modified,” not
+“proven time spent waiting to sync.” Moryn never derives it from the event's
+authored `created_at`, because imported events can preserve an old authored
+time. If file timing is incomplete or ambiguous, the Dashboard omits the age
+instead of guessing.
+
+Only changes under Moryn's published paths (`events/**` and `.gitignore`) count
+as pending memory changes. Other files in the same Git worktree remain visible
+as `pending_changes.unmanaged_files` technical context, but they do not produce
+a user-facing sync warning or make a verified shared copy appear incomplete.
+
+Ordinary recent pending work remains a status, not a user task. It enters the
+exceptional-attention model only when the oldest pending regular file was last
+modified at least 24 hours ago or at least 25 event files are pending. The
+highlighted top status owns the visible message, so the same sync warning is not
+repeated in a second Attention card. Git position, event-file categories, and
+the diagnostic command stay inside the closed `Technical details` disclosure.
+Raw pending paths are not included in Dashboard JSON or HTML; explicit sync
+diagnostics own path-level investigation.
+
 ## Quick Start
 
 Serve the dashboard for the current machine:
@@ -1282,8 +1323,8 @@ removing audit data from the page or from `/api/dashboard`.
 Health badge states:
 
 - `Healthy`: everything is synced and no action is waiting.
-- `Sync Pending`: configured sync has local changes or ahead/behind remote
-  state; push or pull before cross-device handoff.
+- `Sync Pending`: configured sync has Moryn-managed local changes or
+  ahead/behind remote state; push or pull before cross-device handoff.
 - `Needs Review`: unresolved safety signals such as quarantined content need a
   look before relying on the snapshot.
 - `Conflict`: sync reports a conflict.
@@ -1626,14 +1667,17 @@ explicit project it is store-wide. The projection publishes this contract as
 and `includes_global: true`.
 
 The live page embeds the newest 600 visible records for immediate browsing and
-uses the read-only, paginated `GET /api/memory/search` route when the user types
-a query or chooses a content type. Server-side search scans the complete
-privacy-filtered Memory scope, so older visible records remain searchable
-without asking the user to run a CLI command. The route accepts `q`, `kind`,
-`offset`, and `limit` (capped at 50), and returns the selected `scope`, the
-complete visible `breakdown` (`usable`, `history`, and `quarantined`),
-`total_visible`, `total_matches`, page-local `returned`, `has_more`, and record
-summaries. The Memory heading uses the same current-project-plus-global scope
+uses the read-only, paginated `GET /api/memory/search` route when the user shows
+more, types a query, or chooses a content type. Server-side search scans the
+complete privacy-filtered Memory scope, so older visible records remain
+searchable without asking the user to run a CLI command. The route accepts `q`,
+`kind`, `offset`, and `limit` (capped at 50), and returns the selected `scope`,
+the complete visible `breakdown` (`current`, `older_versions`, `history`, and
+`set_aside`), `total_visible`, `total_matches`, page-local `returned`,
+`has_more`, and record summaries. `current` uses the same logical active-memory
+view as Overview; an older duplicate, revision, or superseded conclusion is
+reported under `older_versions`, not counted as current. The Memory heading uses
+the same current-project-plus-global scope
 as Overview and spells out current, organized-old-version, history, and
 set-aside counts, so the library total is no longer confused with the current
 working set. A static snapshot explains that its embedded results are bounded

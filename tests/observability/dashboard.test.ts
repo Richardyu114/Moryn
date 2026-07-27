@@ -166,7 +166,7 @@ describe("observability dashboard", () => {
         expect.arrayContaining([
           expect.objectContaining({
             severity: "info",
-            title: "Sync is not configured"
+            title: "Memory is saved on this device only"
           })
         ])
       );
@@ -349,54 +349,68 @@ describe("observability dashboard", () => {
       expect(data.health).toMatchObject({
         status: "sync_pending",
         label: "Sync Pending",
-        explanation: "Local sync changes are waiting to be pushed or pulled; memory data remains usable on this device."
+        explanation: "Memory remains usable on this device, but newer changes do not yet have proof in the shared copy."
+      });
+      expect(data.sync_assurance).toMatchObject({
+        state: "local_pending",
+        remote_copy: {
+          proof: "verified_committed_version",
+          durable: true,
+          covers_all_local_content: false
+        },
+        local_pending: {
+          present: true,
+          event_files: 1,
+          untracked_event_files: 1,
+          modified_event_files: 0
+        },
+        attention_required: false
       });
       expect(data.attention_items).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            severity: "warning",
-            title: "Sync changes not pushed",
-            description: "Local event history has changes that are not committed or pushed yet.",
-            action_label: "Push sync",
+            severity: "info",
+            category: "sync",
+            title: "Saved changes are still only confirmed on this device",
+            description: "1 saved change is waiting for shared-copy proof.",
+            action_label: "Shared-copy technical details",
             action_command: "moryn sync --push"
           })
         ])
       );
       expect(data.action_board.items_by_id.sync).toMatchObject({
         label: "Sync",
-        value: 1,
+        value: 0,
+        severity: "info",
         summary: "Sync Pending",
-        hint: "Local changes",
-        detail: "Local changes"
+        hint: "1 saved change is waiting for the shared copy",
+        detail:
+          "The shared copy still has the previous committed version; these newer changes do not have remote proof yet."
       });
       expect(data.action_board.items_by_id.review).toMatchObject({
         label: "Review",
         value: 0,
         summary: "No urgent review",
-        hint: "Sync handled separately",
-        detail: "Sync pending is shown in the Sync lane and Shared copy details.",
+        hint: "No check needed",
+        detail: "Important checks stay visible in Needs a look.",
         next_action_label: "Open checks",
         target: "needs-attention"
       });
       expect(data.dashboard_overview).toMatchObject({
-        headline: "Inspect sync",
-        detail: "Local changes",
-        primary_action: {
-          label: "Inspect sync",
-          target: "store-signals",
-          source: "action_board.items_by_id.sync"
-        }
+        status: "good",
+        headline: "All clear"
       });
-      expect(data.dashboard_overview.cards_by_id.health.summary).toContain(
-        "Local sync changes are waiting to be pushed or pulled"
-      );
+      expect(data.dashboard_overview.primary_action.source).not.toBe("action_board.items_by_id.sync");
+      expect(data.dashboard_overview.cards_by_id.health.summary).toContain("newer changes do not yet have proof");
       expect(data.dashboard_overview.cards.map((card) => card.id)).toEqual(["health", "action", "context", "sync"]);
-      expect(data.quiet_dashboard.attention_needed.map((item) => item.title)).not.toContain("Sync changes not pushed");
+      expect(data.quiet_dashboard.attention_needed.map((item) => item.title)).not.toContain(
+        "Saved changes are still only confirmed on this device"
+      );
       expect(data.attention_items).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            severity: "warning",
-            title: "Sync changes not pushed"
+            severity: "info",
+            title: "Saved changes are still only confirmed on this device"
           })
         ])
       );
@@ -404,6 +418,11 @@ describe("observability dashboard", () => {
       expect(data.charts.memory_states.length).toBeGreaterThan(0);
       expect(data.charts.record_types.length).toBeGreaterThan(0);
       expect(html).toContain("data-dashboard-editorial-shell");
+      expect(html).toContain('data-sync-assurance="local_pending"');
+      expect(html).toContain("1 saved change is waiting for the shared copy");
+      expect(html).toContain('data-i18n-en="Technical details" data-i18n-zh="技术详情"');
+      expect(html).toContain("Remote proof covers the previous committed version only");
+      expect(html).not.toContain("Local changes are protected");
       expect(html).not.toContain("data-dashboard-work-lanes");
       expect(html).not.toContain(
         '<section id="needs-attention" class="needs-attention-quiet-line" data-dashboard-section="needs-attention" data-dashboard-detail="needs-attention">'
@@ -1499,19 +1518,19 @@ describe("observability dashboard", () => {
       expect(data.health_check.setup_readiness).toMatchObject({
         host: "codex",
         host_adapter: "Codex",
-        sync_remote: "git@github.com:user/moryn-store.git",
-        install_command: "moryn install --host codex --sync-remote git@github.com:user/moryn-store.git",
+        sync_remote: "github.com:user/moryn-store.git",
+        install_command: "moryn install --host codex --sync-remote github.com:user/moryn-store.git",
         context_pack_command:
-          "moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task '<current task>' --agent codex",
+          "moryn context pack --project-id moryn --sync-remote github.com:user/moryn-store.git --current-task '<current task>' --agent codex",
         capture_command:
-          "moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary '<summary>'"
+          "moryn capture session --project-id moryn --sync-remote github.com:user/moryn-store.git --agent codex --summary '<summary>'"
       });
       expect(html).toContain("data-dashboard-editorial-shell");
       expect(data.health_check.suggested_actions.map((action) => action.command)).toEqual(
         expect.arrayContaining([
           "moryn dashboard --serve --project-id moryn",
-          "moryn install --host codex --sync-remote git@github.com:user/moryn-store.git",
-          "moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task '<current task>' --agent codex"
+          "moryn install --host codex --sync-remote github.com:user/moryn-store.git",
+          "moryn context pack --project-id moryn --sync-remote github.com:user/moryn-store.git --current-task '<current task>' --agent codex"
         ])
       );
       expect(JSON.stringify(data.health_check)).not.toContain("Private dashboard health check detail");
@@ -3114,7 +3133,7 @@ describe("observability dashboard", () => {
         value: 1,
         severity: "info",
         summary: "Local Only",
-        hint: "Local only",
+        hint: "Memory is saved on this device only",
         next_action_label: "Inspect sync"
       });
       expect(data.action_board.items_by_id.inspect).toMatchObject({
@@ -5000,7 +5019,7 @@ describe("observability dashboard", () => {
     });
   });
 
-  it("keeps pending decisions ahead of sync warnings in the overview", async () => {
+  it("keeps pending decisions primary while recent sync remains a status", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-dashboard-decision-sync-"));
     const storePath = join(root, "store");
     const remote = join(root, "remote.git");
@@ -5063,7 +5082,8 @@ describe("observability dashboard", () => {
         target: "needs-attention"
       });
       expect(data.action_board.items_by_id.sync).toMatchObject({
-        value: 1,
+        value: 0,
+        severity: "info",
         next_action_label: "Inspect sync",
         target: "store-signals"
       });
@@ -6435,10 +6455,10 @@ describe("observability dashboard", () => {
         expect(initialApi.recent_value[0]?.citation.event_id).toMatch(/^evt_live_\d+$/);
         expect(initialApi.health_check.setup_readiness).toMatchObject({
           host: "codex",
-          sync_remote: "git@github.com:user/moryn-store.git",
-          install_command: "moryn install --host codex --sync-remote git@github.com:user/moryn-store.git",
+          sync_remote: "github.com:user/moryn-store.git",
+          install_command: "moryn install --host codex --sync-remote github.com:user/moryn-store.git",
           context_pack_command:
-            "moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task '<current task>' --agent codex"
+            "moryn context pack --project-id moryn --sync-remote github.com:user/moryn-store.git --current-task '<current task>' --agent codex"
         });
 
         await engine.write({
@@ -7784,7 +7804,8 @@ describe("quiet dashboard first screen", () => {
       expect(html).toContain("Redesign the Moryn dashboard");
       expect(html).toContain("The latest progress is saved, so this task is ready to continue.");
       expect(html).toContain("Recent saves and updates, in plain language");
-      expect(html).toContain("Moryn has saved the latest work and is taking care of routine organization.");
+      expect(html).toContain("Memory is saved on this device only");
+      expect(html).toContain('data-sync-assurance="local_only"');
       expect(html).not.toContain('class="editorial-context-meta"');
       expect(html).not.toContain("color-scheme: dark");
     });
@@ -7838,7 +7859,7 @@ describe("quiet dashboard first screen", () => {
     });
   });
 
-  it("omits editorial attention when no intervention is required", async () => {
+  it("keeps routine attention empty while explaining a device-only store", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device-test" });
       const html = renderDashboardHtml(
@@ -7849,7 +7870,8 @@ describe("quiet dashboard first screen", () => {
       );
 
       expect(html).not.toContain('data-editorial-section="attention"');
-      expect(html).toContain('data-editorial-conclusion="no-action-required"');
+      expect(html).toContain('data-sync-assurance="local_only"');
+      expect(html).not.toContain('data-editorial-conclusion="no-action-required"');
     });
   });
 
@@ -7909,9 +7931,12 @@ describe("quiet dashboard first screen", () => {
       expect(html).toContain('data-i18n-en="Memory" data-i18n-zh="记忆"');
       expect(html).toContain('data-i18n-en="Preferences" data-i18n-zh="协作偏好"');
       expect(html).toContain('data-i18n-en="History" data-i18n-zh="历史"');
-      expect(html).toContain('data-i18n-en="No action required" data-i18n-zh="无需操作"');
+      expect(html).toContain(
+        'data-i18n-en="Memory is saved on this device only" data-i18n-zh="记忆仅保存在这台设备上"'
+      );
+      expect(html).toContain('data-i18n-en="Setup or diagnostic command" data-i18n-zh="设置或诊断命令"');
       expect(html).toContain('data-i18n-en="Close details" data-i18n-zh="关闭详情"');
-      expect(html).toContain('data-i18n-en="Local only" data-i18n-zh="仅保存在本机"');
+      expect(html).toContain('data-i18n-en="Saved on this device only" data-i18n-zh="仅保存在本机"');
       expect(html).toContain('data-i18n-en="Current usable content" data-i18n-zh="当前可用内容"');
       expect(html).toContain('data-i18n-en="What is usable now" data-i18n-zh="当前可用的具体内容"');
       expect(html).toContain('data-i18n-en="Current work" data-i18n-zh="当前工作"');

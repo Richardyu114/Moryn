@@ -26,7 +26,8 @@ import {
 import type { HostRuntimeDescriptor } from "../core/host-integration-artifacts.js";
 import { queueLearning } from "../core/learning-inbox.js";
 import { LOGICAL_RELATIONSHIP_TYPES } from "../core/logical-memory.js";
-import { initializeProjectConfig, resolveProjectContext, type SyncMode } from "../core/project.js";
+import { runMaintenanceOnce } from "../core/maintenance-runner.js";
+import { initializeProjectConfig, type ProjectConfig, resolveProjectContext, type SyncMode } from "../core/project.js";
 import type {
   RecordKind,
   RecordPriority,
@@ -53,7 +54,7 @@ import {
   version,
   writeHostIntegrationArtifact
 } from "../index.js";
-import { openDashboard, writeDashboardSnapshot } from "../observability/dashboard.js";
+import { type DashboardOptions, openDashboard, writeDashboardSnapshot } from "../observability/dashboard.js";
 import {
   type OperationArgumentMetadata,
   OperationContractLookupConflictError,
@@ -526,6 +527,7 @@ type McpProjectContextOperation =
   | "refresh"
   | "memory_doctor"
   | "memory_maintenance_shadow"
+  | "maintenance_run"
   | "memory_lifecycle"
   | "capture_policy"
   | "dogfood_report"
@@ -656,7 +658,13 @@ function lifecycleSoulBindingInput(input: Record<string, unknown>): {
 async function resolveProjectInput(
   operation: McpProjectContextOperation,
   input: { project_id?: unknown; project_path?: unknown }
-): Promise<{ project_id?: string; project_path?: string; tags: string[]; default_skills: string[] }> {
+): Promise<{
+  project_id?: string;
+  project_path?: string;
+  tags: string[];
+  default_skills: string[];
+  soul?: ProjectConfig["soul"];
+}> {
   const projectInput = validateProjectContextInput(operation, input);
   if (projectInput.project_id === undefined && projectInput.project_path === undefined) {
     return { tags: [], default_skills: [] };
@@ -669,7 +677,19 @@ async function resolveProjectInput(
     project_id: project.project_id,
     project_path: project.project_path,
     tags: project.config?.tags ?? [],
-    default_skills: project.config?.default_skills ?? []
+    default_skills: project.config?.default_skills ?? [],
+    ...(project.config?.soul ? { soul: project.config.soul } : {})
+  };
+}
+
+async function mcpDashboardProjectOptions(
+  operation: McpProjectContextOperation,
+  input: { project_id?: unknown; project_path?: unknown }
+): Promise<DashboardOptions> {
+  const project = await resolveProjectInput(operation, input);
+  return {
+    project_id: project.project_id,
+    ...project.soul
   };
 }
 
@@ -719,9 +739,13 @@ function validateMcpDashboardOpen(value: unknown): asserts value is boolean | un
   }
 }
 
-async function mcpDashboardMetadata(storePath: string, open: boolean): Promise<McpDashboardMetadata> {
+async function mcpDashboardMetadata(
+  storePath: string,
+  open: boolean,
+  options: DashboardOptions = {}
+): Promise<McpDashboardMetadata> {
   try {
-    const snapshot = await writeDashboardSnapshot(storePath);
+    const snapshot = await writeDashboardSnapshot(storePath, options);
     if (!open) return snapshot;
     await openDashboard(snapshot.url);
     return { ...snapshot, opened: true };
@@ -737,13 +761,14 @@ async function mcpDashboardMetadata(storePath: string, open: boolean): Promise<M
 async function withOptionalMcpDashboard<T extends object>(
   storePath: string,
   result: T,
-  open: unknown
+  open: unknown,
+  options: DashboardOptions = {}
 ): Promise<T & { dashboard?: McpDashboardMetadata }> {
   validateMcpDashboardOpen(open);
   if (open === undefined) return result;
   return {
     ...result,
-    dashboard: await mcpDashboardMetadata(storePath, open)
+    dashboard: await mcpDashboardMetadata(storePath, open, options)
   };
 }
 
@@ -2362,6 +2387,36 @@ export async function runMcpServer(
   );
 
   server.registerTool(
+    "maintenance_run",
+    {
+      title: "Run One Moryn Maintenance Pass",
+      description: "Run one local proof-gated public-project maintenance pass and audit event integrity.",
+      inputSchema: mcpInputSchema({
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
+        source: coreValidatedSourceSchema.optional(),
+        ...sourceAliasInputSchema,
+        ...camelCaseAliasInputSchema("maintenance_run")
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("maintenance_run", input, async (normalizedInput) => {
+        const selectedProject = await resolveProjectInput("maintenance_run", {
+          project_id: normalizedInput.project_id,
+          project_path: normalizedInput.project_path
+        });
+        if (!selectedProject.project_id) {
+          throw new Error("Invalid argument: maintenance_run requires project_id or project_path");
+        }
+        return runMaintenanceOnce({
+          store_path: options.storePath,
+          project_id: selectedProject.project_id,
+          source: withDefaultSource(normalizedInput.source) as RecordSource
+        });
+      })
+  );
+
+  server.registerTool(
     "memory_lifecycle",
     {
       title: "Report Moryn Memory Lifecycle",
@@ -2594,7 +2649,23 @@ export async function runMcpServer(
           return withOptionalMcpDashboard(
             options.storePath,
             withMcpRuntime(result, options.hostRuntime),
-            normalizedInput.open
+            normalizedInput.open,
+            {
+              ...(await mcpDashboardProjectOptions("agent_enter", {
+                project_id: normalizedInput.project_id,
+                project_path: normalizedInput.project_path
+              })),
+              ...(normalizedInput.user_profile_id
+                ? { user_profile_id: normalizedInput.user_profile_id as string }
+                : {}),
+              ...(normalizedInput.agent_profile_id
+                ? { agent_profile_id: normalizedInput.agent_profile_id as string }
+                : {}),
+              ...(normalizedInput.soul_char_budget ? { char_budget: normalizedInput.soul_char_budget as number } : {}),
+              ...(normalizedInput.soul_token_budget
+                ? { token_budget: normalizedInput.soul_token_budget as number }
+                : {})
+            }
           );
         },
         (normalizedInput) => {
@@ -2707,7 +2778,23 @@ export async function runMcpServer(
           return withOptionalMcpDashboard(
             options.storePath,
             withMcpRuntime(result, options.hostRuntime),
-            normalizedInput.open
+            normalizedInput.open,
+            {
+              ...(await mcpDashboardProjectOptions("agent_start", {
+                project_id: normalizedInput.project_id,
+                project_path: normalizedInput.project_path
+              })),
+              ...(normalizedInput.user_profile_id
+                ? { user_profile_id: normalizedInput.user_profile_id as string }
+                : {}),
+              ...(normalizedInput.agent_profile_id
+                ? { agent_profile_id: normalizedInput.agent_profile_id as string }
+                : {}),
+              ...(normalizedInput.soul_char_budget ? { char_budget: normalizedInput.soul_char_budget as number } : {}),
+              ...(normalizedInput.soul_token_budget
+                ? { token_budget: normalizedInput.soul_token_budget as number }
+                : {})
+            }
           );
         },
         (normalizedInput) => {
@@ -2809,7 +2896,11 @@ export async function runMcpServer(
           return withOptionalMcpDashboard(
             options.storePath,
             withMcpRuntime(result, options.hostRuntime),
-            normalizedInput.open
+            normalizedInput.open,
+            await mcpDashboardProjectOptions("agent_finish", {
+              project_id: normalizedInput.project_id,
+              project_path: normalizedInput.project_path
+            })
           );
         },
         (normalizedInput) => {
@@ -2969,7 +3060,11 @@ export async function runMcpServer(
           return withOptionalMcpDashboard(
             options.storePath,
             withMcpRuntime(result, options.hostRuntime),
-            normalizedInput.open
+            normalizedInput.open,
+            await mcpDashboardProjectOptions("agent_status", {
+              project_id: normalizedInput.project_id,
+              project_path: normalizedInput.project_path
+            })
           );
         },
         (normalizedInput) => {
@@ -3028,7 +3123,8 @@ export async function runMcpServer(
         const snapshot = await writeDashboardSnapshot(options.storePath, {
           limit: normalizedInput.limit as number | undefined,
           include_private: normalizedInput.include_private as boolean | undefined,
-          project_id: project.project_id
+          project_id: project.project_id,
+          ...project.soul
         });
         if (normalizedInput.open === true) {
           await openDashboard(snapshot.url);

@@ -197,11 +197,69 @@ function recentEventLine(event: DashboardEventSummary): { en: string; zh: string
 }
 
 function syncLabel(data: DashboardData): { en: string; zh: string } {
-  if (!data.sync.configured) return { en: "Local only", zh: "仅保存在本机" };
-  if (data.sync.sync_state === "clean") return { en: "Shared copy is current", zh: "共享副本已同步" };
-  if (data.sync.sync_state === "conflict") return { en: "Shared copy needs review", zh: "共享副本需要检查" };
-  if (data.sync.sync_state === "dirty") return { en: "Local changes are protected", zh: "本地变更已保护" };
-  return { en: "Shared copy configured", zh: "共享副本已配置" };
+  const assurance = data.sync_assurance;
+  if (assurance.state === "local_pending") {
+    const count = assurance.local_pending.event_files;
+    return count > 0
+      ? { en: `${count} saved changes waiting to sync`, zh: `${count} 项保存变更等待同步` }
+      : { en: "Saved changes waiting to sync", zh: "保存变更等待同步" };
+  }
+  if (assurance.state === "remote_current") return { en: "Shared copy is current", zh: "共享副本已同步" };
+  if (assurance.state === "conflict") return { en: "Shared copy needs repair", zh: "共享副本需要修复" };
+  if (assurance.state === "local_only") return { en: "Saved on this device only", zh: "仅保存在本机" };
+  if (assurance.state === "remote_updates_pending")
+    return { en: "New shared updates are waiting", zh: "共享副本有新更新待接收" };
+  return { en: "Shared copy not verified", zh: "共享副本尚未验证" };
+}
+
+function renderSyncAssurance(data: DashboardData): string {
+  const assurance = data.sync_assurance;
+  if (assurance.state === "remote_current") return "";
+  const pending = assurance.local_pending;
+  const proof =
+    assurance.state === "local_only"
+      ? { en: "No shared copy is connected", zh: "尚未连接共享副本" }
+      : assurance.remote_copy.durable
+        ? {
+            en: assurance.remote_copy.covers_all_local_content
+              ? "Remote proof covers all local content"
+              : "Remote proof covers the previous committed version only",
+            zh: assurance.remote_copy.covers_all_local_content
+              ? "远端保存证明覆盖本机全部内容"
+              : "远端保存证明仅覆盖上一次已提交版本"
+          }
+        : { en: "No current remote durability proof", zh: "当前没有远端保存证明" };
+  const age = pending.age_label
+    ? `<div><dt>${i18n("Oldest pending file change", "最早待同步文件变更")}</dt><dd>${i18n(`${pending.age_label} ago`, `${pending.age_label_zh ?? pending.age_label}前`)}</dd></div>`
+    : "";
+  const suggestedCommand =
+    assurance.technical.suggested_command ??
+    (assurance.state === "local_only" ? "moryn sync init <remote>" : undefined);
+  const command = suggestedCommand
+    ? `<div><dt>${i18n("Setup or diagnostic command", "设置或诊断命令")}</dt><dd><code>${escapeHtml(suggestedCommand)}</code></dd></div>`
+    : "";
+  const position = {
+    en: `${assurance.technical.ahead} local updates ahead · ${assurance.technical.behind} shared updates waiting`,
+    zh: `本机领先 ${assurance.technical.ahead} 个更新 · 共享副本有 ${assurance.technical.behind} 个更新待接收`
+  };
+  return `<section class="editorial-sync-assurance${assurance.attention_required ? " attention" : ""}" data-sync-assurance="${escapeHtml(assurance.state)}">
+    <div class="editorial-sync-assurance-mark" aria-hidden="true">${assurance.attention_required ? "!" : assurance.state === "remote_unverified" ? "?" : "↑"}</div>
+    <div class="editorial-sync-assurance-copy">
+      <strong>${i18n(assurance.headline, assurance.headline_zh)}</strong>
+      <p>${i18n(assurance.detail, assurance.detail_zh)}</p>
+      <details class="editorial-sync-technical">
+        <summary>${i18n("Technical details", "技术详情")}</summary>
+        <dl>
+          <div><dt>${i18n("Remote durability", "远端保存状态")}</dt><dd>${i18n(proof.en, proof.zh)}</dd></div>
+          <div><dt>${i18n("Memory event files", "记忆事件文件")}</dt><dd>${pending.event_files}</dd></div>
+          <div><dt>${i18n("Untracked / added / modified / ignored", "未跟踪 / 新增 / 已修改 / 已忽略")}</dt><dd>${pending.untracked_event_files} / ${pending.added_event_files} / ${pending.modified_event_files} / ${pending.ignored_event_files}</dd></div>
+          ${age}
+          <div><dt>${i18n("Local / shared position", "本机 / 共享位置")}</dt><dd>${i18n(position.en, position.zh)}</dd></div>
+          ${command}
+        </dl>
+      </details>
+    </div>
+  </section>`;
 }
 
 function contextSummary(data: DashboardData): { en: string; zh: string } {
@@ -716,7 +774,8 @@ export function buildDashboardWorkspaceModel(
     agent,
     device,
     generated_at: data.generated_at,
-    no_action_required: data.quiet_dashboard.attention_needed.length === 0,
+    no_action_required:
+      data.quiet_dashboard.attention_needed.length === 0 && data.action_board.items_by_id.sync.value === 0,
     sync_label_en: sync.en,
     sync_label_zh: sync.zh,
     memory: {
@@ -923,16 +982,30 @@ function renderAttention(
     .map((item) => renderDecisionCard(item, actionsById, maintenancePlanForItem(item, actionsById, maintenance)))
     .filter((html) => html !== "");
   const decisionTitles = new Set(decisionItems.map((item) => item.title));
-  const notices = items.filter((item) => !isDecisionAttentionItem(item, decisionTitles));
+  const notices = items.filter((item) => item.category !== "sync" && !isDecisionAttentionItem(item, decisionTitles));
   if (cards.length === 0 && notices.length === 0) return "";
   const noticesHtml = notices
     .map(
       (item) =>
-        `<article class="editorial-decision-notice"><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.description)}</p></article>`
+        `<article class="editorial-decision-notice"><strong data-i18n-en="${escapeHtml(item.title)}" data-i18n-zh="${escapeHtml(item.title_zh ?? item.title)}">${escapeHtml(item.title)}</strong><p data-i18n-en="${escapeHtml(item.description)}" data-i18n-zh="${escapeHtml(item.description_zh ?? item.description)}">${escapeHtml(item.description)}</p></article>`
     )
     .join("");
+  const heading =
+    cards.length > 0
+      ? {
+          title_en: "Decision required",
+          title_zh: "需要你决定",
+          detail_en: "Review the proposed records and exact outcome before choosing.",
+          detail_zh: "请先查看涉及的记录和具体结果，再做决定。"
+        }
+      : {
+          title_en: "Needs attention",
+          title_zh: "需要关注",
+          detail_en: "Routine work remains automatic; this item has waited unusually long or needs a closer look.",
+          detail_zh: "日常工作仍会自动处理；这里仅显示等待异常过久或确实需要查看的事项。"
+        };
   return `<section class="editorial-section editorial-attention" data-editorial-section="attention">
-    <div class="editorial-section-heading"><div class="editorial-section-title">${i18n("Decision required", "需要你决定")}</div><p>${i18n("Review the proposed records and exact outcome before choosing.", "请先查看涉及的记录和具体结果，再做决定。")}</p></div>
+    <div class="editorial-section-heading"><div class="editorial-section-title">${i18n(heading.title_en, heading.title_zh)}</div><p>${i18n(heading.detail_en, heading.detail_zh)}</p></div>
     ${cards.join("")}
     ${noticesHtml}
   </section>`;
@@ -1090,7 +1163,8 @@ export function renderMemorySearch(
   records: readonly DashboardRecordSummary[] = data.all_records,
   options: DashboardMemorySearchOptions = {}
 ): string {
-  const allEntries = buildMemorySearchEntries(records);
+  const genericMemoryRecords = records.filter((record) => record.kind !== "soul");
+  const allEntries = buildMemorySearchEntries(genericMemoryRecords);
   if (allEntries.length === 0) {
     return `<div class="memory-search" id="saved-memory-library"><div class="memory-search-heading"><div class="editorial-eyebrow">${i18n("Saved content", "已保存内容")}</div><h2>${i18n("What Moryn remembers", "Moryn 记住了什么")}</h2><p>${i18n("These are the actual saved items. Open any one to read its content and recent changes.", "下面都是实际保存的内容。点开任意一条，即可查看正文和近期变更。")}</p></div><p class="memory-search-empty" data-i18n-en="Nothing has been saved yet. Saved memories will be searchable here." data-i18n-zh="还没有保存任何内容。保存的记忆会在这里可搜索。">Nothing has been saved yet. Saved memories will be searchable here.</p></div>`;
   }
@@ -1110,7 +1184,7 @@ export function renderMemorySearch(
     : countLabel(entries.length);
   const cappedNotice = capped
     ? options.endpoint
-      ? `<p class="memory-search-capped" data-memory-search-scope-note data-i18n-en="The newest ${MEMORY_SEARCH_RENDER_LIMIT} memories are ready to browse. Type a search to look across every visible saved memory." data-i18n-zh="可直接浏览最近 ${MEMORY_SEARCH_RENDER_LIMIT} 条记忆。输入搜索内容即可查找全部可见的已保存记忆。">The newest ${MEMORY_SEARCH_RENDER_LIMIT} memories are ready to browse. Type a search to look across every visible saved memory.</p>`
+      ? `<p class="memory-search-capped" data-memory-search-scope-note data-i18n-en="The newest ${MEMORY_SEARCH_RENDER_LIMIT} memories are ready to browse. Show more to continue, or type a search to look across every visible saved memory." data-i18n-zh="可直接浏览最近 ${MEMORY_SEARCH_RENDER_LIMIT} 条记忆。点击显示更多可继续浏览，也可输入内容搜索全部可见记忆。">The newest ${MEMORY_SEARCH_RENDER_LIMIT} memories are ready to browse. Show more to continue, or type a search to look across every visible saved memory.</p>`
       : `<p class="memory-search-capped" data-memory-search-scope-note data-i18n-en="This saved dashboard contains the ${MEMORY_SEARCH_RENDER_LIMIT} most recent memories. Open the live Dashboard to search older saved memories here." data-i18n-zh="这份 Dashboard 快照包含最近 ${MEMORY_SEARCH_RENDER_LIMIT} 条记忆。打开实时 Dashboard 后，可在此搜索更早的已保存记忆。">This saved dashboard contains the ${MEMORY_SEARCH_RENDER_LIMIT} most recent memories. Open the live Dashboard to search older saved memories here.</p>`
     : "";
   const results = entries
@@ -1125,7 +1199,7 @@ export function renderMemorySearch(
         </button>`
     )
     .join("");
-  const kindOrder: DashboardRecordSummary["kind"][] = ["memory", "skill", "soul", "session_summary", "agent_note"];
+  const kindOrder: DashboardRecordSummary["kind"][] = ["memory", "skill", "session_summary", "agent_note"];
   const kindCounts = new Map<string, number>();
   for (const entry of entries) kindCounts.set(entry.kind, (kindCounts.get(entry.kind) ?? 0) + 1);
   const presentKinds = kindOrder.filter((kind) => (kindCounts.get(kind) ?? 0) > 0);
@@ -1143,11 +1217,11 @@ export function renderMemorySearch(
         <input type="search" data-memory-search-input placeholder="Search saved memories" aria-label="Search saved memories" data-i18n-placeholder-en="Search saved memories" data-i18n-placeholder-zh="搜索已保存的记忆" data-i18n-aria-label-en="Search saved memories" data-i18n-aria-label-zh="搜索已保存的记忆">
       </div>
       <div class="memory-chips" data-memory-chips>${allChip}${kindChips}</div>
-      <p class="memory-search-count" data-memory-search-count role="status" aria-live="polite" data-total="${entries.length}" data-i18n-en="${escapeHtml(total.en)}" data-i18n-zh="${escapeHtml(total.zh)}">${escapeHtml(total.en)}</p>
-      <p class="memory-search-breakdown" data-i18n-en="${escapeHtml(`${records.length} saved here: ${stateBreakdown.current_total} current · ${stateBreakdown.history_total} history · ${organizedEn} · ${stateBreakdown.quarantined_total} set aside`)}" data-i18n-zh="${escapeHtml(`这里共保存 ${records.length} 条：${stateBreakdown.current_total} 条当前可用 · ${stateBreakdown.history_total} 条历史 · ${stateBreakdown.organized_total} 条旧版本已收起 · ${stateBreakdown.quarantined_total} 条待查`)}"><strong>${records.length}</strong> saved here: ${stateBreakdown.current_total} current · ${stateBreakdown.history_total} history · ${organizedEn} · ${stateBreakdown.quarantined_total} set aside</p>
+      <p class="memory-search-count" data-memory-search-count role="status" aria-live="polite" data-total="${entries.length}" data-visible-total="${allEntries.length}" data-i18n-en="${escapeHtml(total.en)}" data-i18n-zh="${escapeHtml(total.zh)}">${escapeHtml(total.en)}</p>
+      <p class="memory-search-breakdown" data-i18n-en="${escapeHtml(`${genericMemoryRecords.length} saved here: ${stateBreakdown.current_total} current · ${stateBreakdown.history_total} history · ${organizedEn} · ${stateBreakdown.quarantined_total} set aside`)}" data-i18n-zh="${escapeHtml(`这里共保存 ${genericMemoryRecords.length} 条：${stateBreakdown.current_total} 条当前可用 · ${stateBreakdown.history_total} 条历史 · ${stateBreakdown.organized_total} 条旧版本已收起 · ${stateBreakdown.quarantined_total} 条待查`)}"><strong>${genericMemoryRecords.length}</strong> saved here: ${stateBreakdown.current_total} current · ${stateBreakdown.history_total} history · ${organizedEn} · ${stateBreakdown.quarantined_total} set aside</p>
       ${cappedNotice}
       <div class="ms-results" data-memory-search-results>${results}</div>
-      <button type="button" class="memory-search-more" data-memory-search-more hidden data-i18n-en="Show more matches" data-i18n-zh="显示更多匹配项">Show more matches</button>
+      <button type="button" class="memory-search-more" data-memory-search-more${capped && options.endpoint ? "" : " hidden"} data-i18n-en="Show more saved memories" data-i18n-zh="显示更多已保存记忆">Show more saved memories</button>
       <p class="memory-search-empty" data-memory-search-noresults hidden role="status" aria-live="polite" data-i18n-en="No memories match your search." data-i18n-zh="没有匹配的记忆。">No memories match your search.</p>
     </div>`;
 }
@@ -1238,6 +1312,7 @@ export function renderDashboardWorkspace(data: DashboardData, fragments: Dashboa
               <div class="editorial-eyebrow">${i18n("Current work", "当前工作")}</div>
               <button type="button" class="editorial-task-button" data-drawer-target="context-current" aria-haspopup="dialog"><h1 class="editorial-task">${escapeHtml(model.task)}</h1></button>
               <p class="editorial-lead">${i18n(contextSummary(data).en, contextSummary(data).zh)}</p>
+              ${renderSyncAssurance(data)}
               ${model.no_action_required ? `<div class="editorial-conclusion" data-editorial-conclusion="no-action-required"><div class="editorial-conclusion-mark">✓</div><div><strong>${i18n("No action required", "无需操作")}</strong><span>${i18n("Moryn has saved the latest work and is taking care of routine organization.", "Moryn 已保存最新进度，并在后台处理日常整理。")}</span></div></div>` : ""}
             </section>
             ${renderAttention(data.quiet_dashboard.attention_needed, data.decision_summary.items, data.actions_by_id, data.maintenance)}

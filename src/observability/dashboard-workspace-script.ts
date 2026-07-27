@@ -266,10 +266,15 @@ export function dashboardWorkspaceScript(): string {
           if (!(input instanceof HTMLInputElement) || !(resultsContainer instanceof HTMLElement)) return;
           const endpoint = container.dataset.memorySearchEndpoint || '';
           const initialResultsHtml = resultsContainer.innerHTML;
-          const initialTotal = Number(countEl?.dataset.total || container.querySelectorAll('[data-memory-result]').length);
+          const initialRenderedTotal = Number(countEl?.dataset.total || container.querySelectorAll('[data-memory-result]').length);
+          const visibleTotalValue = Number(countEl?.dataset.visibleTotal || initialRenderedTotal);
+          const initialVisibleTotal = Number.isFinite(visibleTotalValue)
+            ? Math.max(initialRenderedTotal, visibleTotalValue)
+            : initialRenderedTotal;
+          const canPageInitialResults = endpoint !== '' && initialRenderedTotal < initialVisibleTotal;
           let activeKind = 'all';
           let searchSequence = 0;
-          let remoteOffset = 0;
+          let remoteOffset = initialRenderedTotal;
           let remoteDrawerSequence = 0;
           let debounceTimer = null;
           const remoteDrawerIds = new Map();
@@ -285,7 +290,6 @@ export function dashboardWorkspaceScript(): string {
           const kindCopy = (kind) => ({
             memory: { en: 'Memory', zh: '记忆' },
             skill: { en: 'Skill', zh: '技能' },
-            soul: { en: 'Profile', zh: '个人设定' },
             session_summary: { en: 'Session note', zh: '会话记录' },
             agent_note: { en: 'Agent note', zh: 'Agent 记录' }
           })[kind] || { en: 'Saved item', zh: '已保存内容' };
@@ -421,6 +425,7 @@ export function dashboardWorkspaceScript(): string {
           };
           const applyLocal = () => {
             searchSequence += 1;
+            remoteOffset = initialRenderedTotal;
             resultsContainer.innerHTML = initialResultsHtml;
             const results = Array.from(resultsContainer.querySelectorAll('[data-memory-result]'));
             const query = input.value.trim().toLowerCase();
@@ -434,11 +439,19 @@ export function dashboardWorkspaceScript(): string {
               if (match) shown += 1;
             });
             if (noResults instanceof HTMLElement) noResults.hidden = shown !== 0;
-            if (moreButton instanceof HTMLElement) moreButton.hidden = true;
+            if (moreButton instanceof HTMLElement) moreButton.hidden = !canPageInitialResults;
             if (countEl instanceof HTMLElement) {
               const filtered = query !== '' || activeKind !== 'all';
-              const en = filtered ? shown + ' of ' + initialTotal : initialTotal + (initialTotal === 1 ? ' memory' : ' memories');
-              const zh = filtered ? initialTotal + ' 条中的 ' + shown + ' 条' : initialTotal + ' 条记忆';
+              const en = filtered
+                ? shown + ' of ' + initialRenderedTotal
+                : canPageInitialResults
+                  ? initialRenderedTotal + ' of ' + initialVisibleTotal + ' memories'
+                  : initialRenderedTotal + (initialRenderedTotal === 1 ? ' memory' : ' memories');
+              const zh = filtered
+                ? initialRenderedTotal + ' 条中的 ' + shown + ' 条'
+                : canPageInitialResults
+                  ? initialVisibleTotal + ' 条记忆中的 ' + initialRenderedTotal + ' 条'
+                  : initialRenderedTotal + ' 条记忆';
               countEl.dataset.i18nEn = en;
               countEl.dataset.i18nZh = zh;
               countEl.textContent = en;

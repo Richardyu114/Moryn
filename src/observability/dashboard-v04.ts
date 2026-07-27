@@ -256,10 +256,19 @@ export interface DashboardV04Data {
 
 export interface BuildDashboardV04Options {
   project_id?: string;
+  user_profile_id?: string;
+  agent_profile_id?: string;
+  char_budget?: number;
+  token_budget?: number;
   now: string;
   /** IDs already authorized by the enclosing Dashboard privacy boundary. */
   visible_record_ids: ReadonlySet<string>;
 }
+
+type DashboardSoulCompilationOptions = Pick<
+  BuildDashboardV04Options,
+  "project_id" | "user_profile_id" | "agent_profile_id" | "char_budget" | "token_budget"
+>;
 
 const COMPILATION_RECEIPT_PATTERN = /^[a-f0-9]{64}\.json$/u;
 const RELATED_RECORD_REFERENCE_LIMIT = 12;
@@ -613,7 +622,7 @@ function isLegacyPortableRevision(revision: SoulProfileRevision, loaded: ReadSou
 function soulItems(
   status: SoulProfileStatus,
   loaded: ReadSoulProfileRevisionsResult,
-  projectId: string | undefined
+  options: DashboardSoulCompilationOptions
 ): DashboardSoulItem[] {
   const selectedRevisionIds = new Set(status.compilation.selected_revision_ids);
   if (selectedRevisionIds.size === 0) return [];
@@ -633,7 +642,7 @@ function soulItems(
   );
   const effective = compileEffectiveSoul({
     revisions: portableRevisions,
-    project_id: projectId,
+    ...options,
     allowed_distributions: ["personal_sync"]
   });
 
@@ -643,7 +652,8 @@ function soulItems(
         clause.distribution === "personal_sync" &&
         selectedRevisionIds.has(clause.revision_id) &&
         portableRevisionIds.has(clause.revision_id) &&
-        (clause.scope.kind === "global" || (projectId !== undefined && clause.scope.project_id === projectId))
+        (clause.scope.kind === "global" ||
+          (options.project_id !== undefined && clause.scope.project_id === options.project_id))
     )
     .map((clause) => {
       const selection = profileSelectionByRevisionId.get(clause.revision_id);
@@ -661,10 +671,10 @@ function soulItems(
 
 export async function buildDashboardSoulStudio(
   storePath: string,
-  options: Pick<BuildDashboardV04Options, "project_id">
+  options: DashboardSoulCompilationOptions
 ): Promise<DashboardSoulStudio> {
   const [status, compilationReceipts, current] = await Promise.all([
-    readSoulProfileStatus(storePath, { project_id: options.project_id }),
+    readSoulProfileStatus(storePath, options),
     listCompilationReceipts(storePath),
     readCurrentRecords(storePath)
   ]);
@@ -694,7 +704,7 @@ export async function buildDashboardSoulStudio(
       local_saved: revisions.filter((revision) => revision.local_saved).length,
       personal_sync_saved: revisions.filter((revision) => revision.personal_sync_saved).length
     },
-    items: soulItems(status, portable, options.project_id),
+    items: soulItems(status, portable, options),
     profiles,
     compilation: {
       status: status.compilation.status,

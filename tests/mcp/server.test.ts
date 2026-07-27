@@ -171,6 +171,8 @@ const SYNC_STATUS_SELECTION_SOURCES = {
   behind: "behind",
   last_sync: "last_sync",
   last_commit: "last_commit",
+  pending_changes: "pending_changes",
+  remote_observation: "remote_observation",
   error: "error"
 };
 const SYNC_RESULT_SELECTION_SOURCES = {
@@ -1185,8 +1187,8 @@ async function createMcpSyncConflict(input: {
   });
   await mkdir(join(input.storeA, "events", "shared-device", "2026-05"), { recursive: true });
   await mkdir(join(input.storeB, "events", "shared-device", "2026-05"), { recursive: true });
-  await writeFile(join(input.storeA, input.conflictFile), '{"from":"a"}\n', "utf8");
-  await writeFile(join(input.storeB, input.conflictFile), '{"from":"b"}\n', "utf8");
+  await writeFile(join(input.storeA, input.conflictFile), syntheticConflictEvent("a"), "utf8");
+  await writeFile(join(input.storeB, input.conflictFile), syntheticConflictEvent("b"), "utf8");
   await exec("git", ["add", input.conflictFile], { cwd: input.storeA });
   await exec("git", ["commit", "-m", "device a conflicting event"], { cwd: input.storeA });
   await exec("git", ["push", "-u", "origin", "main"], { cwd: input.storeA });
@@ -1197,6 +1199,36 @@ async function createMcpSyncConflict(input: {
     expect("isError" in response ? response.isError : false).toBe(true);
     expect((parseTextContent(response) as { error: { code: string } }).error.code).toBe("SYNC_CONFLICT");
   });
+}
+
+function syntheticConflictEvent(side: "a" | "b"): string {
+  const createdAt = "2026-05-01T00:00:00.000Z";
+  return `${JSON.stringify(
+    {
+      event_id: `evt_conflict_${side}`,
+      op: "upsert_record",
+      record: {
+        id: `rec_conflict_${side}`,
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        tags: [],
+        content: { text: `Conflict fixture from ${side}.` },
+        state: "raw",
+        confidence: 0.5,
+        priority: "normal",
+        visibility: "active",
+        created_at: createdAt,
+        updated_at: createdAt,
+        source: { client: "test", device_id: `device-${side}` }
+      },
+      created_at: createdAt,
+      source: { client: "test", device_id: `device-${side}` }
+    },
+    null,
+    2
+  )}\n`;
 }
 
 function parseTextContent(result: Awaited<ReturnType<Client["callTool"]>>): unknown {
@@ -1794,7 +1826,7 @@ describe("MCP stdio server", () => {
         expect(Buffer.byteLength(first.text, "utf8")).toBeLessThan(1024 * 1024);
         const parsed = JSON.parse(first.text) as {
           recommended_entrypoint: string;
-          operations: Array<{ operation: string }>;
+          operations: Array<{ operation: string; operation_source: string }>;
           operations_by_id: Record<
             string,
             {
@@ -2580,6 +2612,10 @@ describe("MCP stdio server", () => {
         expect(parsed.operations_by_id.agent_enter.selection_sources.ordered_operation).toBeUndefined();
         expect(parsed.operations_by_id.write.selection_sources.required_input_path_by_value_path).toBeUndefined();
         expect(parsed.operations.map((operation) => operation.operation)).toContain("operation_contracts");
+        expect(parsed.operations.find((operation) => operation.operation === "operation_contracts")).toEqual({
+          operation: "operation_contracts",
+          operation_source: "operations_by_id.operation_contracts"
+        });
       });
     } finally {
       await rm(store, { recursive: true, force: true });
@@ -3882,6 +3918,7 @@ describe("MCP stdio server", () => {
           "link",
           "list_recent",
           "logical_link",
+          "maintenance_run",
           "memory_compaction_apply",
           "memory_compaction_plan",
           "memory_compaction_preview",
@@ -4040,6 +4077,20 @@ describe("MCP stdio server", () => {
             "include_private"
           ])
         );
+        const maintenanceRunTool = tools.tools.find((tool) => tool.name === "maintenance_run");
+        const maintenanceRunProperties = Object.keys(maintenanceRunTool?.inputSchema.properties ?? {});
+        expect(maintenanceRunProperties).toEqual(
+          expect.arrayContaining([
+            "projectPath",
+            "project_path",
+            "projectId",
+            "project_id",
+            "source",
+            "sourceClient",
+            "source_client"
+          ])
+        );
+        expect(maintenanceRunProperties).not.toContain("push");
 
         expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(
           true
@@ -4047,6 +4098,32 @@ describe("MCP stdio server", () => {
 
         const projectPath = join(store, "host-project");
         await mkdir(projectPath, { recursive: true });
+        const missingMaintenanceProject = await client.callTool({ name: "maintenance_run", arguments: {} });
+        expect("isError" in missingMaintenanceProject ? missingMaintenanceProject.isError : false).toBe(true);
+        expect(parseTextContent(missingMaintenanceProject)).toMatchObject({
+          ok: false,
+          error: { code: "INVALID_ARGUMENT" }
+        });
+        const maintenanceRun = parseTextContent(
+          await client.callTool({
+            name: "maintenance_run",
+            arguments: { project_path: projectPath }
+          })
+        ) as {
+          status: string;
+          sync_preflight: { status: string; configured: boolean };
+          maintenance: { status: string };
+          preflight_event_audit: { status: string };
+          event_audit: { status: string };
+        };
+        expect(maintenanceRun).toMatchObject({
+          status: "completed",
+          sync_preflight: { status: "clear", configured: false },
+          maintenance: { status: "skipped" },
+          preflight_event_audit: { status: "completed" },
+          event_audit: { status: "completed" }
+        });
+        expect(maintenanceRun).not.toHaveProperty("sync");
         const installPlan = parseTextContent(
           await client.callTool({
             name: "install",
@@ -4768,6 +4845,33 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("returns a recoverable maintenance block when sync status is unavailable over MCP", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-maintenance-sync-status-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        await client.callTool({ name: "init", arguments: {} });
+        await exec("git", ["init"], { cwd: store });
+        await writeFile(join(store, ".git", "index"), "broken-index", "utf8");
+
+        const response = await client.callTool({
+          name: "maintenance_run",
+          arguments: { project_id: "moryn" }
+        });
+        expect("isError" in response ? response.isError : false).toBe(true);
+        expect(parseTextContent(response)).toMatchObject({
+          ok: false,
+          error: {
+            code: "SYNC_STATUS_UNAVAILABLE",
+            recoverable: true,
+            recommended_action: "inspect sync status and retry maintenance after the store state is readable"
+          }
+        });
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("exposes rebuild and Git sync operations over MCP", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-mcp-sync-"));
     const remote = join(root, "remote.git");
@@ -4980,8 +5084,8 @@ describe("MCP stdio server", () => {
 
           await mkdir(join(storeA, "events", "shared-device", "2026-05"), { recursive: true });
           await mkdir(join(storeB, "events", "shared-device", "2026-05"), { recursive: true });
-          await writeFile(join(storeA, conflictFile), '{"from":"a"}\n', "utf8");
-          await writeFile(join(storeB, conflictFile), '{"from":"b"}\n', "utf8");
+          await writeFile(join(storeA, conflictFile), syntheticConflictEvent("a"), "utf8");
+          await writeFile(join(storeB, conflictFile), syntheticConflictEvent("b"), "utf8");
           await exec("git", ["add", conflictFile], { cwd: storeA });
           await exec("git", ["commit", "-m", "device a conflicting event"], { cwd: storeA });
           await exec("git", ["push", "-u", "origin", "main"], { cwd: storeA });

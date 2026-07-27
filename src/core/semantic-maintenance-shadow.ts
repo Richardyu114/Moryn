@@ -215,17 +215,6 @@ function hasConflict(record: MorynRecord): boolean {
   return record.conflict?.resolution === "needs_review";
 }
 
-function hasExternalConflict(records: readonly MorynRecord[]): boolean {
-  const sourceIds = new Set(records.map((record) => record.id));
-  return records.some(
-    (record) =>
-      hasConflict(record) &&
-      (record.conflict?.kind !== "semantic" ||
-        record.conflict.with.length === 0 ||
-        record.conflict.with.some((recordId) => recordId === record.id || !sourceIds.has(recordId)))
-  );
-}
-
 function exactAutoBlockers(
   records: readonly MorynRecord[],
   projectId: string | undefined
@@ -247,7 +236,7 @@ function semanticBlockers(records: readonly MorynRecord[]): SemanticMaintenanceS
   ]);
   if (records.some((record) => !SEMANTIC_REVIEW_KINDS.has(record.kind))) blockers.add("protected_record_kind");
   if (records.some(isPrivateMemoryBoundary)) blockers.add("private_boundary_requires_explicit_authorization");
-  if (hasExternalConflict(records)) blockers.add("conflict_requires_review");
+  if (records.some(hasConflict)) blockers.add("conflict_requires_review");
   if (records.some((record) => record.scope === "global")) blockers.add("global_scope_requires_review");
   if (records.some((record) => record.priority === "high")) blockers.add("high_priority_requires_review");
   return [...blockers].sort(compareCodeUnits);

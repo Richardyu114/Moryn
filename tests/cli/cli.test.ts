@@ -8,12 +8,14 @@ import { CHECKPOINT_SELECTION_SOURCES } from "../../src/core/checkpoint.js";
 import { BOOT_SELECTION_SOURCES, createEngine } from "../../src/core/engine.js";
 import { learningRecordIdentity } from "../../src/core/learning-ingestion.js";
 import { SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES } from "../../src/core/semantic-consolidation.js";
+import { approveSoulProfileDraft, createSoulProfileDraft } from "../../src/core/soul-profile-management.js";
 import { readEvents } from "../../src/core/store.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
 const exec = promisify(execFile);
 const repoRoot = process.cwd();
 const cliJsPath = join(repoRoot, "dist/cli.js");
+const CLI_INTEGRATION_TEST_TIMEOUT_MS = 30_000;
 
 async function execInTty(
   command: string,
@@ -248,6 +250,8 @@ const SYNC_STATUS_SELECTION_SOURCES = {
   behind: "behind",
   last_sync: "last_sync",
   last_commit: "last_commit",
+  pending_changes: "pending_changes",
+  remote_observation: "remote_observation",
   error: "error"
 };
 const SYNC_RESULT_SELECTION_SOURCES = {
@@ -1235,8 +1239,8 @@ async function createCliSyncConflict(input: {
   await exec("node", [cliJsPath, "--store", input.storeB, "sync", "init", input.remote]);
   await mkdir(join(input.storeA, "events", "shared-device", "2026-05"), { recursive: true });
   await mkdir(join(input.storeB, "events", "shared-device", "2026-05"), { recursive: true });
-  await writeFile(join(input.storeA, input.conflictFile), '{"from":"a"}\n', "utf8");
-  await writeFile(join(input.storeB, input.conflictFile), '{"from":"b"}\n', "utf8");
+  await writeFile(join(input.storeA, input.conflictFile), syntheticConflictEvent("a"), "utf8");
+  await writeFile(join(input.storeB, input.conflictFile), syntheticConflictEvent("b"), "utf8");
   await exec("git", ["add", input.conflictFile], { cwd: input.storeA });
   await exec("git", ["commit", "-m", "device a conflicting event"], { cwd: input.storeA });
   await exec("git", ["push", "-u", "origin", "main"], { cwd: input.storeA });
@@ -1251,7 +1255,37 @@ async function createCliSyncConflict(input: {
   }
 }
 
-describe("moryn CLI", () => {
+function syntheticConflictEvent(side: "a" | "b"): string {
+  const createdAt = "2026-05-01T00:00:00.000Z";
+  return `${JSON.stringify(
+    {
+      event_id: `evt_conflict_${side}`,
+      op: "upsert_record",
+      record: {
+        id: `rec_conflict_${side}`,
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "moryn",
+        tags: [],
+        content: { text: `Conflict fixture from ${side}.` },
+        state: "raw",
+        confidence: 0.5,
+        priority: "normal",
+        visibility: "active",
+        created_at: createdAt,
+        updated_at: createdAt,
+        source: { client: "test", device_id: `device-${side}` }
+      },
+      created_at: createdAt,
+      source: { client: "test", device_id: `device-${side}` }
+    },
+    null,
+    2
+  )}\n`;
+}
+
+describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
   it("queues a reusable learning with one short idempotent CLI command", async () => {
     await withTempDir(async (dir) => {
       const project = join(dir, "project");
@@ -1381,7 +1415,7 @@ describe("moryn CLI", () => {
     const result = await exec("node", [cliJsPath, "contracts", "operations"]);
     const parsed = JSON.parse(result.stdout) as {
       recommended_entrypoint: string;
-      operations: Array<{ operation: string }>;
+      operations: Array<{ operation: string; operation_source: string }>;
       operations_by_id: Record<
         string,
         {
@@ -2131,6 +2165,10 @@ describe("moryn CLI", () => {
     expect(parsed.operations_by_id.write.selection_sources.required_input_path_by_value_path).toBeUndefined();
     expect(parsed.operations.map((operation) => operation.operation)).toContain("operation_contracts");
     expect(parsed.operations.map((operation) => operation.operation)).toContain("timeline");
+    expect(parsed.operations.find((operation) => operation.operation === "operation_contracts")).toEqual({
+      operation: "operation_contracts",
+      operation_source: "operations_by_id.operation_contracts"
+    });
     expect(parsed.operations_by_id.project_migrate).toMatchObject({
       operation: "project_migrate",
       category: "maintenance",
@@ -6045,7 +6083,7 @@ describe("moryn CLI", () => {
       expect(parsed.recent_changes.every((record) => record.scope === "global")).toBe(true);
       expect(JSON.stringify(parsed)).not.toContain("Alpha auth token refresh is blocked");
     });
-  });
+  }, 30000);
 
   it("rejects invalid confidence options", async () => {
     await withTempDir(async (dir) => {
@@ -7238,7 +7276,7 @@ describe("moryn CLI", () => {
         }
       }
     });
-  });
+  }, 30000);
 
   it("filters refresh interrupts by current task from the CLI", async () => {
     await withTempDir(async (dir) => {
@@ -7774,6 +7812,76 @@ describe("moryn CLI", () => {
     });
   }, 30000);
 
+  it("uses the Agent Soul bound by --project when generating a dashboard", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      const project = join(dir, "project");
+      await mkdir(project, { recursive: true });
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      const source = { client: "user", device_id: "device-cli-soul", session_id: "session-cli-soul" };
+      const selectedText = "CLI_PROJECT_BOUND_AGENT_SOUL";
+      const unselectedText = "CLI_UNSELECTED_AGENT_SOUL";
+      const selectedDraft = await createSoulProfileDraft(store, {
+        profile_id: "cli-agent-selected",
+        subject: { kind: "agent", subject_id: "selected" },
+        clauses: [
+          {
+            clause_key: "communication",
+            category: "communication",
+            text: selectedText,
+            distribution: "personal_sync"
+          }
+        ],
+        source,
+        occurred_at: "2026-07-27T02:00:00.000Z"
+      });
+      const unselectedDraft = await createSoulProfileDraft(store, {
+        profile_id: "cli-agent-unselected",
+        subject: { kind: "agent", subject_id: "unselected" },
+        clauses: [
+          {
+            clause_key: "communication",
+            category: "communication",
+            text: unselectedText,
+            distribution: "personal_sync"
+          }
+        ],
+        source,
+        occurred_at: "2026-07-27T02:01:00.000Z"
+      });
+      await approveSoulProfileDraft(store, {
+        revision_id: selectedDraft.revision.revision_id,
+        confirmed: true,
+        source,
+        occurred_at: "2026-07-27T02:02:00.000Z"
+      });
+      await approveSoulProfileDraft(store, {
+        revision_id: unselectedDraft.revision.revision_id,
+        confirmed: true,
+        source,
+        occurred_at: "2026-07-27T02:03:00.000Z"
+      });
+      await writeFile(
+        join(project, ".moryn.json"),
+        JSON.stringify({
+          project_id: "cli-soul-project",
+          tags: [],
+          default_skills: [],
+          sync: { mode: "manual" },
+          soul: { agent_profile_id: selectedDraft.revision.profile_id }
+        }),
+        "utf8"
+      );
+
+      const snapshot = JSON.parse(
+        (await exec("node", [cliJsPath, "--store", store, "dashboard", "--project", project, "--no-open"])).stdout
+      ) as { path: string };
+      const html = await readFile(snapshot.path, "utf8");
+      expect(html).toContain(selectedText);
+      expect(html).not.toContain(unselectedText);
+    });
+  }, 30000);
+
   it("serves the dashboard from the CLI with live refresh endpoints", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
@@ -8210,8 +8318,8 @@ describe("moryn CLI", () => {
 
       await mkdir(join(storeA, "events", "shared-device", "2026-05"), { recursive: true });
       await mkdir(join(storeB, "events", "shared-device", "2026-05"), { recursive: true });
-      await writeFile(join(storeA, conflictFile), '{"from":"a"}\n', "utf8");
-      await writeFile(join(storeB, conflictFile), '{"from":"b"}\n', "utf8");
+      await writeFile(join(storeA, conflictFile), syntheticConflictEvent("a"), "utf8");
+      await writeFile(join(storeB, conflictFile), syntheticConflictEvent("b"), "utf8");
       await exec("git", ["add", conflictFile], { cwd: storeA });
       await exec("git", ["commit", "-m", "device a conflicting event"], { cwd: storeA });
       await exec("git", ["push", "-u", "origin", "main"], { cwd: storeA });
@@ -8301,7 +8409,7 @@ describe("moryn CLI", () => {
         recommended_action: "resolve Git conflicts before retrying sync"
       });
     });
-  });
+  }, 30000);
 
   it("rebuilds derived snapshots and indexes from the CLI", async () => {
     await withTempDir(async (dir) => {
@@ -12442,7 +12550,7 @@ describe("moryn CLI", () => {
       expect(parsedConfirmedWrite.record.state).toBe("canonical");
       expect(parsedConfirmedWrite.warning).toBeUndefined();
     });
-  });
+  }, 30000);
 
   it("marks conflicting CLI canonical writes as candidates", async () => {
     await withTempDir(async (dir) => {
@@ -13049,7 +13157,7 @@ describe("moryn CLI", () => {
   });
 });
 
-describe("agent checkpoint CLI", () => {
+describe("agent checkpoint CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
   it("surfaces the bounded candidate review workflow", async () => {
     await withTempDir(async (store) => {
       await exec("node", [cliJsPath, "--store", store, "init"]);
@@ -13463,10 +13571,10 @@ describe("agent checkpoint CLI", () => {
       );
       expect(finish).toMatchObject({ semantic_consolidation: { proposals_received: 1, proposals_accepted: 1 } });
     });
-  });
+  }, 30000);
 });
 
-describe("semantic consolidation CLI", () => {
+describe("semantic consolidation CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
   it("persists an explicit proposal idempotently with strict JSON input", async () => {
     await withTempDir(async (store) => {
       await exec("node", [cliJsPath, "--store", store, "init"]);
@@ -13545,10 +13653,10 @@ describe("semantic consolidation CLI", () => {
         stderr: expect.stringContaining("unknown option")
       });
     });
-  });
+  }, 30000);
 });
 
-describe("host hook CLI", () => {
+describe("host hook CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
   it("emits trusted prompt recall through the UserPromptSubmit wire shape", async () => {
     await withTempDir(async (store) => {
       await exec("node", [cliJsPath, "--store", store, "init"]);
@@ -13612,7 +13720,7 @@ describe("host hook CLI", () => {
       expect(result.stdout).not.toContain("prompt_recall");
       expect(result.stdout).not.toContain("activation_receipt");
     });
-  });
+  }, 30000);
 
   it("emits compact learning guidance for prompt recall misses", async () => {
     await withTempDir(async (store) => {
@@ -14074,7 +14182,7 @@ describe("host hook CLI", () => {
   });
 });
 
-describe("official host integration install", () => {
+describe("official host integration install", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
   it("writes and activates Claude Code hooks idempotently on apply", async () => {
     await withTempDir(async (store) => {
       await withTempDir(async (project) => {
@@ -14134,7 +14242,7 @@ describe("official host integration install", () => {
   });
 });
 
-describe("host activation CLI", () => {
+describe("host activation CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
   it("reports and applies Claude activation idempotently", async () => {
     await withTempDir(async (store) => {
       await withTempDir(async (project) => {

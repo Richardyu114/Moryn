@@ -152,7 +152,6 @@ function topicProof(candidate: SemanticMaintenanceDraftCandidate, records: reado
 }
 
 function allowedAutomaticScope(records: readonly MorynRecord[], projectId: string): boolean {
-  const sourceIds = new Set(records.map((record) => record.id));
   return records.every(
     (record) =>
       (record.kind === "memory" || record.kind === "skill") &&
@@ -161,11 +160,7 @@ function allowedAutomaticScope(records: readonly MorynRecord[], projectId: strin
       record.priority !== "high" &&
       !protectedType(record.type) &&
       !isPrivateMemoryBoundary(record) &&
-      (!record.conflict ||
-        record.conflict.resolution === "resolved" ||
-        (record.conflict.kind === "semantic" &&
-          record.conflict.with.length > 0 &&
-          record.conflict.with.every((recordId) => recordId !== record.id && sourceIds.has(recordId))))
+      (!record.conflict || record.conflict.resolution === "resolved")
   );
 }
 

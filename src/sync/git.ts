@@ -1,11 +1,12 @@
 import { execFile, spawn } from "node:child_process";
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, lstat, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { type AutomaticEventAuditReceipt, runAutomaticEventAudit } from "../core/automatic-event-audit.js";
 import { readStoreConfig } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
 import { removeEventAuditProof } from "../core/event-audit-proof.js";
+import { replayEvents } from "../core/replay.js";
 import { parseEvent } from "../core/schema.js";
 import { withStoreStateLease } from "../core/state-lease.js";
 import type { MorynEvent } from "../core/types.js";
@@ -22,6 +23,13 @@ const LOCAL_ONLY_GIT_HISTORY_PATHS = LOCAL_ONLY_GIT_PATHS.map((path) => `:(top,i
 const LOCAL_ONLY_GIT_PATHS_DESCRIPTION = LOCAL_ONLY_GIT_PATHS.join(", ");
 const MORYN_SYNC_REMOTE_REF = "refs/moryn/sync/main";
 const GIT_ERROR_BUFFER_LIMIT = 64 * 1024;
+const GIT_EVENT_BLOB_SIZE_LIMIT = 64 * 1024 * 1024;
+const SYNC_STATUS_PENDING_TIME_FILE_LIMIT = 500;
+const DEFAULT_REMOTE_OBSERVATION_TIMEOUT_MS = 5_000;
+const EVENT_HISTORY_MUTATION_MESSAGE =
+  "Git sync refused because append-only event history could not be verified safely. Existing events must remain byte-for-byte unchanged, and only new regular .json event files may be added.";
+const EVENT_HISTORY_MUTATION_RECOMMENDED_ACTION =
+  "restore existing event files, clear event ignore or hidden-index rules, and append a corrective event before retrying sync";
 
 export const SYNC_STATUS_SELECTION_SOURCES = {
   configured: "configured",
@@ -37,6 +45,8 @@ export const SYNC_STATUS_SELECTION_SOURCES = {
   behind: "behind",
   last_sync: "last_sync",
   last_commit: "last_commit",
+  pending_changes: "pending_changes",
+  remote_observation: "remote_observation",
   error: "error"
 } as const;
 
@@ -59,8 +69,36 @@ export interface GitSyncStatus {
   behind?: number;
   last_sync?: GitLastSync;
   last_commit?: string;
+  pending_changes?: GitPendingChangesStatus;
+  remote_observation?: GitRemoteObservation;
   error?: string;
   selection_sources: typeof SYNC_STATUS_SELECTION_SOURCES;
+}
+
+export interface GitSyncStatusOptions {
+  remote_timeout_ms?: number;
+}
+
+export interface GitPendingChangesStatus {
+  total_files: number;
+  /** Changes under paths Moryn publishes (`events/**` and `.gitignore`). */
+  managed_files: number;
+  /** Other worktree changes, retained for technical diagnostics only. */
+  unmanaged_files: number;
+  event_files: number;
+  untracked_event_files: number;
+  added_event_files: number;
+  modified_event_files: number;
+  ignored_event_files: number;
+  oldest_pending_file_mtime?: string;
+  pending_time_complete: boolean;
+}
+
+export interface GitRemoteObservation {
+  checked: true;
+  reachable: boolean;
+  remote_commit?: string;
+  contains_local_head?: boolean;
 }
 
 export interface PendingSyncEvidence {
@@ -75,21 +113,119 @@ function gitPathLines(output: string): string[] {
     .filter(Boolean);
 }
 
-function porcelainPaths(output: string): string[] {
+interface GitPorcelainEntry {
+  index_status: string;
+  worktree_status: string;
+  path: string;
+  original_path?: string;
+}
+
+function porcelainEntries(output: string): GitPorcelainEntry[] {
   const entries = output.split("\0").filter(Boolean);
-  const paths: string[] = [];
+  const parsed: GitPorcelainEntry[] = [];
   for (let index = 0; index < entries.length; index += 1) {
     const entry = entries[index]!;
     const status = entry.slice(0, 2);
     const path = entry.slice(3);
     if (status.includes("R") || status.includes("C")) {
-      paths.push(entries[index + 1] ?? path);
+      parsed.push({
+        index_status: status[0] ?? " ",
+        worktree_status: status[1] ?? " ",
+        path,
+        original_path: entries[index + 1]
+      });
       index += 1;
     } else {
-      paths.push(path);
+      parsed.push({ index_status: status[0] ?? " ", worktree_status: status[1] ?? " ", path });
     }
   }
-  return paths;
+  return parsed;
+}
+
+function porcelainPaths(output: string): string[] {
+  return porcelainEntries(output).map((entry) => entry.path);
+}
+
+function isEventPath(path: string): boolean {
+  return path.startsWith("events/") && path.endsWith(".json");
+}
+
+function isManagedSyncPath(path: string): boolean {
+  return isEventTreePath(path) || path === ".gitignore";
+}
+
+function isManagedSyncEntry(entry: GitPorcelainEntry): boolean {
+  return isManagedSyncPath(entry.path) || (entry.original_path !== undefined && isManagedSyncPath(entry.original_path));
+}
+
+function isUntrackedEntry(entry: GitPorcelainEntry): boolean {
+  return entry.index_status === "?" && entry.worktree_status === "?";
+}
+
+function isAddedEntry(entry: GitPorcelainEntry): boolean {
+  return (
+    !isUntrackedEntry(entry) && !isIgnoredEntry(entry) && (entry.index_status === "A" || entry.worktree_status === "A")
+  );
+}
+
+function isIgnoredEntry(entry: GitPorcelainEntry): boolean {
+  return entry.index_status === "!" && entry.worktree_status === "!";
+}
+
+async function pendingRegularFileMtime(storePath: string, eventPath: string): Promise<string | undefined> {
+  const segments = eventPath.split("/");
+  if (
+    eventPath.startsWith("/") ||
+    segments.length === 0 ||
+    segments.some((segment) => segment === "" || segment === "." || segment === "..")
+  ) {
+    return undefined;
+  }
+  let current = storePath;
+  try {
+    for (let index = 0; index < segments.length; index += 1) {
+      current = join(current, segments[index]!);
+      const file = await lstat(current);
+      const isLast = index === segments.length - 1;
+      if (isLast) return file.isFile() && !file.isSymbolicLink() ? file.mtime.toISOString() : undefined;
+      if (!file.isDirectory() || file.isSymbolicLink()) return undefined;
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
+async function summarizePendingChanges(
+  storePath: string,
+  entries: GitPorcelainEntry[]
+): Promise<GitPendingChangesStatus> {
+  const uniqueEntries = [...new Map(entries.map((entry) => [entry.path, entry])).values()];
+  const managedEntries = uniqueEntries.filter(isManagedSyncEntry);
+  const eventEntries = uniqueEntries.filter((entry) => isEventPath(entry.path));
+  const canInspectPendingTime = eventEntries.length > 0 && eventEntries.length <= SYNC_STATUS_PENDING_TIME_FILE_LIMIT;
+  const pendingFileTimes = canInspectPendingTime
+    ? await Promise.all(eventEntries.map((entry) => pendingRegularFileMtime(storePath, entry.path)))
+    : [];
+  const pendingTimeComplete =
+    canInspectPendingTime && pendingFileTimes.length === eventEntries.length && pendingFileTimes.every(Boolean);
+  const oldestPendingFileMtime = pendingTimeComplete
+    ? (pendingFileTimes as string[]).sort((left, right) => left.localeCompare(right))[0]
+    : undefined;
+  return {
+    total_files: uniqueEntries.length,
+    managed_files: managedEntries.length,
+    unmanaged_files: uniqueEntries.length - managedEntries.length,
+    event_files: eventEntries.length,
+    untracked_event_files: eventEntries.filter(isUntrackedEntry).length,
+    added_event_files: eventEntries.filter(isAddedEntry).length,
+    modified_event_files: eventEntries.filter(
+      (entry) => !isUntrackedEntry(entry) && !isAddedEntry(entry) && !isIgnoredEntry(entry)
+    ).length,
+    ignored_event_files: eventEntries.filter(isIgnoredEntry).length,
+    ...(oldestPendingFileMtime ? { oldest_pending_file_mtime: oldestPendingFileMtime } : {}),
+    pending_time_complete: pendingTimeComplete
+  };
 }
 
 export async function getPendingSyncEvidence(storePath: string): Promise<PendingSyncEvidence> {
@@ -187,6 +323,20 @@ class SyncArgumentError extends Error {
   }
 }
 
+class EventHistoryMutationError extends Error {
+  readonly code = "EVENT_HISTORY_MUTATION";
+  readonly recommended_action = EVENT_HISTORY_MUTATION_RECOMMENDED_ACTION;
+
+  constructor() {
+    super(EVENT_HISTORY_MUTATION_MESSAGE);
+    this.name = "EventHistoryMutationError";
+  }
+}
+
+function eventHistoryMutationError(): EventHistoryMutationError {
+  return new EventHistoryMutationError();
+}
+
 function invalidSyncStringError(name: "storePath" | "remoteUrl" | "message", value: unknown): SyncArgumentError {
   if (name === "remoteUrl") {
     return new SyncArgumentError("Invalid argument: Invalid remoteUrl", "retry sync with a non-empty remoteUrl", {
@@ -269,6 +419,11 @@ async function gitRaw(cwd: string, args: string[]): Promise<string> {
   return stdout;
 }
 
+async function gitWithTimeout(cwd: string, args: string[], timeoutMs: number): Promise<string> {
+  const { stdout } = await exec("git", args, { cwd, timeout: timeoutMs });
+  return stdout.trim();
+}
+
 async function gitOk(cwd: string, args: string[]): Promise<boolean> {
   try {
     await git(cwd, args);
@@ -276,6 +431,362 @@ async function gitOk(cwd: string, args: string[]): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+function isEventTreePath(path: string): boolean {
+  return path === "events" || path.startsWith("events/");
+}
+
+function isExpectedEventTreeFile(path: string): boolean {
+  return isEventPath(path) || path === "events/.gitkeep";
+}
+
+function isAllowedNewEventStatus(entry: GitPorcelainEntry): boolean {
+  const status = `${entry.index_status}${entry.worktree_status}`;
+  return status === "??" || status === "A " || status === "AM" || status === " A";
+}
+
+/**
+ * Verifies that the workspace can only contribute new, visible, regular JSON
+ * event files. Existing event changes fail before sync mutates the index.
+ */
+async function assertEventWorkspaceAppendOnly(storePath: string): Promise<void> {
+  try {
+    const [porcelain, tracked] = await Promise.all([
+      gitRaw(storePath, ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--ignored=matching"]),
+      gitRaw(storePath, ["ls-files", "-v", "-z", "--", "events"])
+    ]);
+
+    for (const item of tracked.split("\0").filter(Boolean)) {
+      const marker = item[0];
+      const path = item.slice(2);
+      if (marker !== "H" || !isExpectedEventTreeFile(path)) throw eventHistoryMutationError();
+    }
+
+    const newEventPaths: string[] = [];
+    for (const entry of porcelainEntries(porcelain)) {
+      const touchesEvents = [entry.path, entry.original_path]
+        .filter((path): path is string => typeof path === "string")
+        .some(isEventTreePath);
+      if (!touchesEvents) continue;
+      if (
+        isIgnoredEntry(entry) ||
+        entry.original_path ||
+        !isAllowedNewEventStatus(entry) ||
+        !isExpectedEventTreeFile(entry.path)
+      ) {
+        throw eventHistoryMutationError();
+      }
+      newEventPaths.push(entry.path);
+    }
+
+    for (const path of newEventPaths) {
+      if (!(await pendingRegularFileMtime(storePath, path))) throw eventHistoryMutationError();
+      const text = await readFile(join(storePath, path), "utf8");
+      if (path === "events/.gitkeep") {
+        if (text !== "") throw eventHistoryMutationError();
+      } else {
+        parseEvent(JSON.parse(text));
+      }
+    }
+  } catch (error) {
+    if (error instanceof EventHistoryMutationError) throw error;
+    throw eventHistoryMutationError();
+  }
+}
+
+function historyNameStatusTouchesEvents(output: string): boolean {
+  const fields = output.split("\0").filter(Boolean);
+  for (let index = 0; index < fields.length; ) {
+    const status = fields[index++]!.trim();
+    const path = fields[index++];
+    if (!status || !path) throw eventHistoryMutationError();
+    if (status.startsWith("R") || status.startsWith("C")) {
+      const destination = fields[index++];
+      if (!destination) throw eventHistoryMutationError();
+      if (isEventTreePath(path) || isEventTreePath(destination)) return true;
+    } else if (isEventTreePath(path)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function assertEventHistoryAppendOnly(storePath: string, revision: string): Promise<void> {
+  try {
+    const offendingChanges = await gitRaw(storePath, [
+      "log",
+      "--root",
+      "-m",
+      "--format=",
+      "--name-status",
+      "-z",
+      "--no-ext-diff",
+      "--no-textconv",
+      "--diff-filter=MDRCTUXB",
+      "--find-renames",
+      revision
+    ]);
+    if (historyNameStatusTouchesEvents(offendingChanges)) throw eventHistoryMutationError();
+  } catch (error) {
+    if (error instanceof EventHistoryMutationError) throw error;
+    throw eventHistoryMutationError();
+  }
+}
+
+interface InspectedEventTreeEntry {
+  invalid: boolean;
+  blob?: {
+    object_id: string;
+    payload: "event" | "gitkeep";
+  };
+}
+
+function inspectEventTreeEntry(entry: Buffer): InspectedEventTreeEntry {
+  const tab = entry.indexOf(0x09);
+  if (tab < 0) return { invalid: true };
+  const header = entry.subarray(0, tab).toString("ascii").split(" ");
+  const mode = header[0];
+  const type = header[1];
+  const objectId = header[2];
+  const path = entry.subarray(tab + 1).toString("utf8");
+  const invalid =
+    type !== "blob" ||
+    (mode !== "100644" && mode !== "100755") ||
+    !isExpectedEventTreeFile(path) ||
+    !objectId ||
+    !/^[a-f0-9]{40,64}$/u.test(objectId);
+  return {
+    invalid,
+    ...(!invalid
+      ? {
+          blob: {
+            object_id: objectId,
+            payload: isEventPath(path) ? ("event" as const) : ("gitkeep" as const)
+          }
+        }
+      : {})
+  };
+}
+
+async function inspectCommitEventTree(
+  storePath: string,
+  commit: string
+): Promise<{ invalid: boolean; blobs: Array<NonNullable<InspectedEventTreeEntry["blob"]>> }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("git", ["ls-tree", "-r", "-z", commit, "--", "events"], {
+      cwd: storePath,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    let pending = Buffer.alloc(0);
+    let invalid = false;
+    const blobs: Array<NonNullable<InspectedEventTreeEntry["blob"]>> = [];
+
+    child.stdout.on("data", (chunk: Buffer) => {
+      const output = pending.length === 0 ? chunk : Buffer.concat([pending, chunk]);
+      let start = 0;
+      for (let separator = output.indexOf(0, start); separator >= 0; separator = output.indexOf(0, start)) {
+        const inspected = inspectEventTreeEntry(output.subarray(start, separator));
+        invalid ||= inspected.invalid;
+        if (inspected.blob) blobs.push(inspected.blob);
+        start = separator + 1;
+      }
+      pending = Buffer.from(output.subarray(start));
+    });
+    child.stderr.resume();
+    child.once("error", reject);
+    child.once("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(`git ls-tree failed with exit code ${code ?? "unknown"}`));
+        return;
+      }
+      if (pending.length !== 0) {
+        reject(new Error("git ls-tree returned an unterminated entry"));
+        return;
+      }
+      resolve({ invalid, blobs });
+    });
+  });
+}
+
+class GitBatchBuffer {
+  private chunks: Buffer[] = [];
+  private head = 0;
+  private headOffset = 0;
+  length = 0;
+
+  push(chunk: Buffer): void {
+    if (chunk.length === 0) return;
+    this.chunks.push(chunk);
+    this.length += chunk.length;
+  }
+
+  indexOf(byte: number): number {
+    let relativeOffset = 0;
+    for (let index = this.head; index < this.chunks.length; index += 1) {
+      const chunk = this.chunks[index]!;
+      const start = index === this.head ? this.headOffset : 0;
+      const found = chunk.indexOf(byte, start);
+      if (found >= 0) return relativeOffset + found - start;
+      relativeOffset += chunk.length - start;
+    }
+    return -1;
+  }
+
+  take(size: number): Buffer {
+    if (!Number.isSafeInteger(size) || size < 0 || size > this.length) throw eventHistoryMutationError();
+    if (size === 0) return Buffer.alloc(0);
+    const first = this.chunks[this.head]!;
+    if (this.headOffset + size <= first.length) {
+      const output = first.subarray(this.headOffset, this.headOffset + size);
+      this.consume(size);
+      return output;
+    }
+    const output = Buffer.allocUnsafe(size);
+    let written = 0;
+    while (written < size) {
+      const chunk = this.chunks[this.head]!;
+      const available = Math.min(size - written, chunk.length - this.headOffset);
+      chunk.copy(output, written, this.headOffset, this.headOffset + available);
+      this.consume(available);
+      written += available;
+    }
+    return output;
+  }
+
+  private consume(size: number): void {
+    this.length -= size;
+    this.headOffset += size;
+    while (this.head < this.chunks.length && this.headOffset === this.chunks[this.head]!.length) {
+      this.head += 1;
+      this.headOffset = 0;
+    }
+    if (this.head > 64 && this.head * 2 >= this.chunks.length) {
+      this.chunks = this.chunks.slice(this.head);
+      this.head = 0;
+    }
+  }
+}
+
+async function assertEventBlobsParse(
+  storePath: string,
+  blobs: ReadonlyArray<NonNullable<InspectedEventTreeEntry["blob"]>>
+): Promise<void> {
+  if (blobs.length === 0) return;
+  const child = spawn("git", ["cat-file", "--batch"], {
+    cwd: storePath,
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+  child.stderr.resume();
+  child.stdin.on("error", () => {
+    // The close/error result below owns the stable fail-closed outcome.
+  });
+  const closed = new Promise<number>((resolve, reject) => {
+    child.once("error", reject);
+    child.once("close", (code) => resolve(code ?? -1));
+  });
+  child.stdin.end(`${blobs.map((blob) => blob.object_id).join("\n")}\n`);
+
+  const pending = new GitBatchBuffer();
+  let expectedSize: number | undefined;
+  let blobIndex = 0;
+  const events: MorynEvent[] = [];
+  try {
+    for await (const chunk of child.stdout) {
+      pending.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      while (blobIndex < blobs.length) {
+        if (expectedSize === undefined) {
+          const newline = pending.indexOf(0x0a);
+          if (newline < 0) break;
+          const header = pending
+            .take(newline + 1)
+            .subarray(0, newline)
+            .toString("ascii");
+          const [objectId, type, sizeText, extra] = header.split(" ");
+          const size = Number(sizeText);
+          if (
+            extra !== undefined ||
+            objectId !== blobs[blobIndex]?.object_id ||
+            type !== "blob" ||
+            !Number.isSafeInteger(size) ||
+            size < 0 ||
+            size > GIT_EVENT_BLOB_SIZE_LIMIT
+          ) {
+            throw eventHistoryMutationError();
+          }
+          expectedSize = size;
+        }
+        if (pending.length < expectedSize + 1) break;
+        const body = pending.take(expectedSize);
+        if (pending.take(1)[0] !== 0x0a) throw eventHistoryMutationError();
+        if (blobs[blobIndex]?.payload === "gitkeep") {
+          if (body.length !== 0) throw eventHistoryMutationError();
+        } else {
+          events.push(parseEvent(JSON.parse(body.toString("utf8"))));
+        }
+        expectedSize = undefined;
+        blobIndex += 1;
+      }
+    }
+    const exitCode = await closed;
+    if (exitCode !== 0 || blobIndex !== blobs.length || expectedSize !== undefined || pending.length !== 0) {
+      throw eventHistoryMutationError();
+    }
+    events.sort(
+      (left, right) => left.created_at.localeCompare(right.created_at) || left.event_id.localeCompare(right.event_id)
+    );
+    if (new Set(events.map((event) => event.event_id)).size !== events.length) throw eventHistoryMutationError();
+    replayEvents(events);
+  } catch (error) {
+    child.kill();
+    await closed.catch(() => undefined);
+    throw error;
+  }
+}
+
+async function assertEventCommitTreeShape(storePath: string, commit: string): Promise<void> {
+  try {
+    const inspected = await inspectCommitEventTree(storePath, commit);
+    if (inspected.invalid) throw eventHistoryMutationError();
+    await assertEventBlobsParse(storePath, inspected.blobs);
+  } catch (error) {
+    if (error instanceof EventHistoryMutationError) throw error;
+    throw eventHistoryMutationError();
+  }
+}
+
+async function assertEventTreePreserved(storePath: string, baseline: string, candidate: string): Promise<void> {
+  const preserved = await gitOk(storePath, [
+    "diff",
+    "--quiet",
+    "--no-ext-diff",
+    "--no-textconv",
+    "--no-renames",
+    "--diff-filter=MDT",
+    baseline,
+    candidate,
+    "--",
+    "events"
+  ]);
+  if (!preserved) throw eventHistoryMutationError();
+}
+
+async function assertEventPublicationCandidate(
+  storePath: string,
+  commit: string,
+  baselines: readonly string[] = []
+): Promise<void> {
+  await assertEventHistoryAppendOnly(storePath, commit);
+  await assertEventPublicationTree(storePath, commit, baselines);
+}
+
+async function assertEventPublicationTree(
+  storePath: string,
+  commit: string,
+  baselines: readonly string[] = []
+): Promise<void> {
+  await assertEventCommitTreeShape(storePath, commit);
+  for (const baseline of new Set(baselines)) await assertEventTreePreserved(storePath, baseline, commit);
 }
 
 async function pathExists(path: string): Promise<boolean> {
@@ -393,6 +904,7 @@ async function fetchVerifiedRemoteMainCommit(storePath: string): Promise<string>
   await git(storePath, ["fetch", "--no-tags", "origin", `+refs/heads/main:${MORYN_SYNC_REMOTE_REF}`]);
   const commit = await git(storePath, ["rev-parse", "--verify", `${MORYN_SYNC_REMOTE_REF}^{commit}`]);
   await assertHistoryExcludesLocalOnlyPaths(storePath, [commit], "remote main history");
+  await assertEventPublicationCandidate(storePath, commit);
   await assertCommitTreeExcludesUnsafeEntryModes(storePath, commit, "remote main commit");
   return commit;
 }
@@ -470,6 +982,20 @@ export async function isGitSyncConfigured(storePath: string): Promise<boolean> {
   return Boolean(await git(storePath, ["remote", "get-url", "origin"]).catch(() => ""));
 }
 
+/**
+ * Read-only preflight for local automation that may append events. It accepts a
+ * non-Git store, but a Git-backed store must preserve every existing event and
+ * contain only schema-valid, replayable append-only history.
+ */
+export async function assertGitEventHistoryAppendOnly(storePath: string): Promise<void> {
+  validateRequiredString(storePath, "storePath");
+  if (!(await gitOk(storePath, ["rev-parse", "--git-dir"]))) return;
+  await assertEventWorkspaceAppendOnly(storePath);
+  if (!(await hasCommits(storePath))) return;
+  const head = await git(storePath, ["rev-parse", "HEAD"]);
+  await assertEventPublicationCandidate(storePath, head);
+}
+
 async function ensureRemote(storePath: string, remoteUrl: string): Promise<void> {
   const current = await git(storePath, ["remote", "get-url", "origin"]).catch(() => "");
   if (!current) {
@@ -528,12 +1054,14 @@ export async function initializeGitSync(storePath: string, remoteUrl: string): P
     if (!(await gitOk(storePath, ["rev-parse", "--git-dir"]))) {
       await git(storePath, ["init"]);
     }
+    const localBaselineCommit = (await hasCommits(storePath)) ? await git(storePath, ["rev-parse", "HEAD"]) : undefined;
+    await assertEventWorkspaceAppendOnly(storePath);
     await ensureGitIdentity(storePath);
-    const hasLocalCommits = await hasCommits(storePath);
-    if (hasLocalCommits) {
+    const hasLocalCommits = Boolean(localBaselineCommit);
+    if (localBaselineCommit) {
       await assertHistoryExcludesLocalOnlyPaths(storePath, ["HEAD"], "local history");
-      const localCommit = await git(storePath, ["rev-parse", "HEAD"]);
-      await assertCommitTreeExcludesUnsafeEntryModes(storePath, localCommit, "local commit");
+      await assertEventPublicationCandidate(storePath, localBaselineCommit);
+      await assertCommitTreeExcludesUnsafeEntryModes(storePath, localBaselineCommit, "local commit");
     }
     await ensureMainBranch(storePath);
     await ensureGitIgnore(storePath);
@@ -566,8 +1094,15 @@ export async function initializeGitSync(storePath: string, remoteUrl: string): P
       await git(storePath, ["commit", "-m", "Initialize Moryn store"]);
       committed = true;
     }
+    const finalCommit = (await hasCommits(storePath)) ? await git(storePath, ["rev-parse", "HEAD"]) : undefined;
+    if (finalCommit) {
+      await assertEventPublicationTree(storePath, finalCommit, [
+        ...(localBaselineCommit ? [localBaselineCommit] : []),
+        ...(importedRemoteCommit ? [importedRemoteCommit] : [])
+      ]);
+    }
     let automaticEventAudit: AutomaticEventAuditReceipt | undefined;
-    if (shouldPushInitialCommit && (await hasCommits(storePath))) {
+    if (shouldPushInitialCommit && finalCommit) {
       automaticEventAudit = await runAutomaticEventAudit(storePath);
       if (automaticEventAudit.status === "failed") {
         return withSyncResultSelectionSources({
@@ -579,11 +1114,10 @@ export async function initializeGitSync(storePath: string, remoteUrl: string): P
         });
       }
       await assertHistoryExcludesLocalOnlyPaths(storePath, ["HEAD"], "history selected for initial push");
-      const pushedCommit = await git(storePath, ["rev-parse", "HEAD"]);
-      await assertCommitTreeExcludesUnsafeEntryModes(storePath, pushedCommit, "commit selected for initial push");
+      await assertCommitTreeExcludesUnsafeEntryModes(storePath, finalCommit, "commit selected for initial push");
       const remoteIdentityDigest = await captureSoulGitPushRemoteIdentityDigest(storePath);
       await git(storePath, ["push", "-u", "origin", "main"]);
-      await recordPushedSoulSyncReceipts(storePath, remoteIdentityDigest, pushedCommit);
+      await recordPushedSoulSyncReceipts(storePath, remoteIdentityDigest, finalCommit);
     }
     if (importedRemoteIdentityDigest && importedRemoteCommit) {
       await recordPulledAndVerifiedSoulSyncReceipts(
@@ -602,20 +1136,40 @@ export async function initializeGitSync(storePath: string, remoteUrl: string): P
   });
 }
 
-export async function getGitSyncStatus(storePath: string): Promise<GitSyncStatus> {
+export async function getGitSyncStatus(storePath: string, options: GitSyncStatusOptions = {}): Promise<GitSyncStatus> {
   validateRequiredString(storePath, "storePath");
+  const remoteTimeoutMs =
+    typeof options.remote_timeout_ms === "number" && Number.isFinite(options.remote_timeout_ms)
+      ? Math.max(1, options.remote_timeout_ms)
+      : DEFAULT_REMOTE_OBSERVATION_TIMEOUT_MS;
+  let configured = false;
+  let branch: string | undefined;
+  let remote: string | undefined;
   try {
-    const configured = await gitOk(storePath, ["rev-parse", "--git-dir"]);
+    configured = await gitOk(storePath, ["rev-parse", "--git-dir"]);
     if (!configured) return withSyncStatusSelectionSources({ configured: false, error: "Not a git repository" });
 
-    const branch = await git(storePath, ["branch", "--show-current"]);
-    const remote = await git(storePath, ["remote", "get-url", "origin"]).catch(() => undefined);
+    branch = await git(storePath, ["branch", "--show-current"]);
+    remote = await git(storePath, ["remote", "get-url", "origin"]).catch(() => undefined);
     let remoteCommit: string | undefined;
+    let remoteReachable = false;
     if (remote) {
-      await git(storePath, ["fetch", "origin", "main"]).catch(() => undefined);
+      remoteReachable = await gitWithTimeout(storePath, ["fetch", "origin", "main"], remoteTimeoutMs)
+        .then(() => true)
+        .catch(() => false);
       remoteCommit = await git(storePath, ["rev-parse", "--verify", "origin/main^{commit}"]).catch(() => undefined);
     }
-    const porcelain = await git(storePath, ["status", "--porcelain"]);
+    const porcelain = await gitRaw(storePath, ["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
+    const ignoredEventPaths = (
+      await gitRaw(storePath, ["ls-files", "--others", "--ignored", "--exclude-standard", "-z", "--", "events"])
+    )
+      .split("\0")
+      .filter(Boolean);
+    const pendingEntries = [
+      ...porcelainEntries(porcelain),
+      ...ignoredEventPaths.map((path): GitPorcelainEntry => ({ index_status: "!", worktree_status: "!", path }))
+    ];
+    const pendingChanges = await summarizePendingChanges(storePath, pendingEntries);
     const conflict = await gitConflictStatus(storePath);
     const lastCommit = await git(storePath, ["rev-parse", "--short", "HEAD"]).catch(() => undefined);
     const lastSync = await readLastSync(storePath);
@@ -627,21 +1181,41 @@ export async function getGitSyncStatus(storePath: string): Promise<GitSyncStatus
       ahead = left ?? 0;
       behind = right ?? 0;
     }
+    const remoteContainsLocalHead =
+      remoteReachable && remoteCommit
+        ? await gitOk(storePath, ["merge-base", "--is-ancestor", "HEAD", remoteCommit])
+        : false;
     return withSyncStatusSelectionSources({
       configured: true,
       branch,
       remote,
-      dirty: porcelain.length > 0,
-      sync_state: conflict ? "conflict" : porcelain.length > 0 ? "dirty" : "clean",
+      dirty: pendingEntries.length > 0,
+      sync_state: conflict ? "conflict" : pendingEntries.length > 0 ? "dirty" : "clean",
       ...(conflict ? { conflict } : {}),
       ahead,
       behind,
       last_sync: lastSync,
-      last_commit: lastCommit
+      last_commit: lastCommit,
+      pending_changes: pendingChanges,
+      ...(remote
+        ? {
+            remote_observation: {
+              checked: true,
+              reachable: remoteReachable,
+              ...(remoteCommit ? { remote_commit: remoteCommit } : {}),
+              ...(remoteReachable && remoteCommit ? { contains_local_head: remoteContainsLocalHead } : {})
+            }
+          }
+        : {})
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return withSyncStatusSelectionSources({ configured: false, error: message });
+    return withSyncStatusSelectionSources({
+      configured,
+      ...(branch ? { branch } : {}),
+      ...(remote ? { remote } : {}),
+      error: message
+    });
   }
 }
 
@@ -650,6 +1224,7 @@ export async function pullGitSync(storePath: string): Promise<GitSyncResult> {
   return withStoreStateLease(storePath, async () => {
     await ensureGitSyncConfigured(storePath);
     await readStoreConfig(storePath);
+    await assertEventWorkspaceAppendOnly(storePath);
     if (!(await hasRemoteHead(storePath))) {
       return withSyncResultSelectionSources({
         ok: true,
@@ -657,18 +1232,24 @@ export async function pullGitSync(storePath: string): Promise<GitSyncResult> {
         message: "Remote branch main does not exist yet"
       });
     }
+    const localBaselineCommit = (await hasCommits(storePath)) ? await git(storePath, ["rev-parse", "HEAD"]) : undefined;
+    if (localBaselineCommit) {
+      await assertHistoryExcludesLocalOnlyPaths(storePath, ["HEAD"], "local history selected for rebase");
+      await assertEventPublicationCandidate(storePath, localBaselineCommit);
+      await assertCommitTreeExcludesUnsafeEntryModes(
+        storePath,
+        localBaselineCommit,
+        "local commit selected for rebase"
+      );
+    }
     const remoteIdentityDigest = await captureSoulGitFetchRemoteIdentityDigest(storePath);
     const remoteCommit = await fetchVerifiedRemoteMainCommit(storePath);
-    const hasLocal = await hasCommits(storePath);
-    if (hasLocal) {
-      await assertHistoryExcludesLocalOnlyPaths(storePath, ["HEAD"], "local history selected for rebase");
-      const localCommit = await git(storePath, ["rev-parse", "HEAD"]);
-      await assertCommitTreeExcludesUnsafeEntryModes(storePath, localCommit, "local commit selected for rebase");
-    }
-    if (!hasLocal) {
+    if (!localBaselineCommit) {
       await removeEventAuditProof(storePath);
       await git(storePath, ["checkout", "-B", "main", remoteCommit]);
       await rebuildLocalStateAfterGitUpdate(storePath);
+      const checkedOutCommit = await git(storePath, ["rev-parse", "HEAD"]);
+      await assertEventPublicationTree(storePath, checkedOutCommit, [remoteCommit]);
       await recordPulledAndVerifiedSoulSyncReceipts(storePath, "pull", remoteIdentityDigest, remoteCommit);
       await writeLastSync(storePath, "pull");
       return withSyncResultSelectionSources({ ok: true, pulled: true });
@@ -676,6 +1257,8 @@ export async function pullGitSync(storePath: string): Promise<GitSyncResult> {
     await removeEventAuditProof(storePath);
     await git(storePath, ["rebase", remoteCommit]);
     await rebuildLocalStateAfterGitUpdate(storePath);
+    const pulledCommit = await git(storePath, ["rev-parse", "HEAD"]);
+    await assertEventPublicationTree(storePath, pulledCommit, [localBaselineCommit, remoteCommit]);
     await recordPulledAndVerifiedSoulSyncReceipts(storePath, "pull", remoteIdentityDigest, remoteCommit);
     await writeLastSync(storePath, "pull");
     return withSyncResultSelectionSources({ ok: true, pulled: true });
@@ -692,17 +1275,13 @@ export async function pushGitSync(
   return withStoreStateLease(storePath, async () => {
     await ensureGitSyncConfigured(storePath);
     await readStoreConfig(storePath);
-    await ensureGitIdentity(storePath);
-    const hasLocalCommits = await hasCommits(storePath);
-    if (hasLocalCommits) {
+    const localBaselineCommit = (await hasCommits(storePath)) ? await git(storePath, ["rev-parse", "HEAD"]) : undefined;
+    await assertEventWorkspaceAppendOnly(storePath);
+    if (localBaselineCommit) {
       await assertHistoryExcludesLocalOnlyPaths(storePath, ["HEAD"], "local history selected for push");
-      const localCommit = await git(storePath, ["rev-parse", "HEAD"]);
-      await assertCommitTreeExcludesUnsafeEntryModes(storePath, localCommit, "local commit selected for push");
+      await assertEventPublicationCandidate(storePath, localBaselineCommit);
+      await assertCommitTreeExcludesUnsafeEntryModes(storePath, localBaselineCommit, "local commit selected for push");
     }
-    await ensureMainBranch(storePath);
-    await ensureGitIgnore(storePath);
-    await untrackLocalOnlyPaths(storePath);
-    await git(storePath, ["add", "events", ".gitignore"]);
 
     let pulledRemoteIdentityDigest: string | undefined;
     let remoteCommit: string | undefined;
@@ -710,6 +1289,12 @@ export async function pushGitSync(
       pulledRemoteIdentityDigest = await captureSoulGitFetchRemoteIdentityDigest(storePath);
       remoteCommit = await fetchVerifiedRemoteMainCommit(storePath);
     }
+
+    await ensureGitIdentity(storePath);
+    await ensureMainBranch(storePath);
+    await ensureGitIgnore(storePath);
+    await untrackLocalOnlyPaths(storePath);
+    await git(storePath, ["add", "events", ".gitignore"]);
 
     let committed = false;
     if (await hasStagedChanges(storePath)) {
@@ -744,6 +1329,11 @@ export async function pushGitSync(
       }
       await recordPulledAndVerifiedSoulSyncReceipts(storePath, "pull", pulledRemoteIdentityDigest, remoteCommit);
     }
+    const publicationCommit = await git(storePath, ["rev-parse", "HEAD"]);
+    await assertEventPublicationTree(storePath, publicationCommit, [
+      ...(localBaselineCommit ? [localBaselineCommit] : []),
+      ...(remoteCommit ? [remoteCommit] : [])
+    ]);
     automaticEventAudit ??= await (dependencies.run_automatic_event_audit ?? runAutomaticEventAudit)(storePath);
     if (automaticEventAudit.status === "failed") {
       return withSyncResultSelectionSources({
@@ -755,11 +1345,10 @@ export async function pushGitSync(
       });
     }
     await assertHistoryExcludesLocalOnlyPaths(storePath, ["HEAD"], "history selected for push");
-    const pushedCommit = await git(storePath, ["rev-parse", "HEAD"]);
-    await assertCommitTreeExcludesUnsafeEntryModes(storePath, pushedCommit, "commit selected for push");
+    await assertCommitTreeExcludesUnsafeEntryModes(storePath, publicationCommit, "commit selected for push");
     const remoteIdentityDigest = await captureSoulGitPushRemoteIdentityDigest(storePath);
     await git(storePath, ["push", "-u", "origin", "main"]);
-    await recordPushedSoulSyncReceipts(storePath, remoteIdentityDigest, pushedCommit);
+    await recordPushedSoulSyncReceipts(storePath, remoteIdentityDigest, publicationCommit);
     await writeLastSync(storePath, "push");
     return withSyncResultSelectionSources({
       ok: true,

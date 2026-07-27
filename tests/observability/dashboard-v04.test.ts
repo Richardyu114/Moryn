@@ -794,6 +794,55 @@ describe("v0.4 dashboard projections", () => {
     });
   });
 
+  it("surfaces a current binding conflict even when saved profiles have no revision conflict", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-07-20T00:00:00.000Z",
+        id: () => "device_dashboard_binding_conflict"
+      });
+      const source = { client: "user", device_id: "device_dashboard_binding_conflict" };
+      for (const profileId of ["agent-binding-a", "agent-binding-b"]) {
+        const draft = await createSoulProfileDraft(storePath, {
+          profile_id: profileId,
+          subject: { kind: "agent", subject_id: profileId },
+          clauses: [
+            {
+              clause_key: `communication-${profileId}`,
+              category: "communication",
+              text: `Use the approved style for ${profileId}.`,
+              distribution: "personal_sync"
+            }
+          ],
+          source,
+          occurred_at: profileId.endsWith("a") ? "2026-07-20T00:01:00.000Z" : "2026-07-20T00:03:00.000Z"
+        });
+        await approveSoulProfileDraft(storePath, {
+          revision_id: draft.revision.revision_id,
+          confirmed: true,
+          source,
+          occurred_at: profileId.endsWith("a") ? "2026-07-20T00:02:00.000Z" : "2026-07-20T00:04:00.000Z"
+        });
+      }
+
+      const studio = await buildDashboardSoulStudio(storePath, { project_id: "moryn" });
+      expect(studio.summary).toMatchObject({ profiles: 2, conflicted: 0 });
+      expect(studio.compilation).toMatchObject({
+        status: "not_configured",
+        deliverable: false,
+        selected_revision_ids: [],
+        conflicts: 1
+      });
+
+      const html = renderSoulStudio(studio);
+      expect(html).toContain("1 current collaboration conflict needs review");
+      expect(html).toContain('data-i18n-zh="当前协作偏好有 1 个冲突需要查看"');
+      expect(html).toContain('data-i18n-en="Preferences need review"');
+      expect(html).not.toContain("No preference version is selected for this view");
+      expect(html).not.toContain('data-i18n-en="No preferences yet"');
+      expect(html).toContain("Saved profiles with conflicts");
+    });
+  });
+
   it("counts derived multi-head profile conflicts and exposes every verified rollback target", async () => {
     await withTempStore(async (leftStorePath) => {
       await withTempStore(async (rightStorePath) => {
@@ -877,6 +926,42 @@ describe("v0.4 dashboard projections", () => {
           })
         ]);
         expect(renderSoulStudio(studio)).toContain('data-i18n-zh="使用上一个安全版本"');
+
+        const cleanDraft = await createSoulProfileDraft(leftStorePath, {
+          profile_id: "dashboard-clean-agent",
+          subject: { kind: "agent", subject_id: "dashboard-clean-agent" },
+          clauses: [
+            {
+              clause_key: "clean-bound-tone",
+              category: "communication",
+              text: "Use the clean project-bound tone.",
+              distribution: "personal_sync"
+            }
+          ],
+          source: leftSource,
+          occurred_at: "2026-07-20T01:05:00.000Z"
+        });
+        const clean = await approveSoulProfileDraft(leftStorePath, {
+          revision_id: cleanDraft.revision.revision_id,
+          confirmed: true,
+          source: leftSource,
+          occurred_at: "2026-07-20T01:06:00.000Z"
+        });
+        const boundStudio = await buildDashboardSoulStudio(leftStorePath, {
+          project_id: "moryn",
+          agent_profile_id: clean.revision.profile_id
+        });
+        expect(boundStudio.summary.conflicted).toBe(1);
+        expect(boundStudio.compilation).toMatchObject({
+          status: "ready",
+          deliverable: true,
+          selected_revision_ids: [clean.revision.revision_id],
+          conflicts: 0
+        });
+        const boundHtml = renderSoulStudio(boundStudio);
+        expect(boundHtml).toContain("1 approved preference version is in use");
+        expect(boundHtml).not.toContain("current collaboration conflict needs review");
+        expect(boundHtml).toContain("Saved profiles with conflicts");
       });
     });
   });

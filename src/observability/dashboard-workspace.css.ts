@@ -139,6 +139,25 @@ export function dashboardWorkspaceCss(): string {
     }
     .editorial-task-button:hover .editorial-task { color: var(--ink-2); }
     .editorial-lead { max-width: 760px; margin: 0; color: var(--ink-2); font-size: 21px; line-height: 1.6; }
+    .editorial-sync-assurance {
+      display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; max-width: 820px;
+      margin-top: 28px; padding: 18px 20px; border: 1px solid var(--amber); border-radius: 6px; background: var(--amber-soft);
+    }
+    .editorial-sync-assurance.attention { border-color: var(--red); background: var(--red-soft); }
+    .editorial-sync-assurance-mark {
+      display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+      background: var(--surface); color: var(--amber); font-size: 15px; font-weight: 700;
+    }
+    .editorial-sync-assurance.attention .editorial-sync-assurance-mark { color: var(--red); }
+    .editorial-sync-assurance-copy > strong { display: block; color: var(--ink); font-size: 17px; font-weight: 600; line-height: 1.45; }
+    .editorial-sync-assurance-copy > p { margin: 5px 0 0; color: var(--ink-2); font-size: 14px; line-height: 1.6; }
+    .editorial-sync-technical { margin-top: 10px; border-top: 1px solid rgba(147, 103, 47, 0.22); }
+    .editorial-sync-technical > summary { padding-top: 10px; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 600; }
+    .editorial-sync-technical dl { margin: 10px 0 0; }
+    .editorial-sync-technical dl > div { display: grid; grid-template-columns: minmax(130px, .45fr) 1fr; gap: 14px; padding: 7px 0; border-top: 1px solid rgba(147, 103, 47, 0.15); }
+    .editorial-sync-technical dt { color: var(--muted); font-size: 12px; }
+    .editorial-sync-technical dd { margin: 0; color: var(--ink-2); font-size: 12px; overflow-wrap: anywhere; }
+    .editorial-sync-technical code { font-family: var(--mono); font-size: 11px; }
     .editorial-conclusion {
       display: flex; gap: 15px; align-items: center; margin-top: 36px; padding: 22px 0;
       border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
@@ -553,6 +572,8 @@ export function dashboardWorkspaceCss(): string {
       .editorial-nav-button { font-size: 14px; }
       .editorial-reading-column, .editorial-sidebar, .editorial-view-page { padding: 34px 22px; }
       .editorial-task { font-size: 34px; }
+      .editorial-sync-assurance { grid-template-columns: 1fr; padding: 16px; }
+      .editorial-sync-technical dl > div { grid-template-columns: 1fr; gap: 3px; }
       .editorial-memory-grid { grid-template-columns: 1fr 1fr; }
       .glance-grid { grid-template-columns: 1fr; }
       .v04-outcome { padding-right: 0; }

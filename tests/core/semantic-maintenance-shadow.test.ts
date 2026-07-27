@@ -105,6 +105,32 @@ describe("buildSemanticMaintenanceShadowReport", () => {
     expect(JSON.stringify(report.authored_merge_drafts)).not.toContain(shared);
   });
 
+  it("keeps a pair-internal unresolved conflict out of the automatic semantic path", () => {
+    const shared = `Moryn preserves unresolved alternatives for review ${"shared ".repeat(600)}.`;
+    const records = [
+      record({
+        id: "old",
+        content: { text: `${shared} Keep the old endpoint.` },
+        conflict: { kind: "semantic", with: ["new"], resolution: "needs_review" }
+      }),
+      record({
+        id: "new",
+        content: { text: `${shared} Use the new endpoint.` },
+        conflict: { kind: "semantic", with: ["old"], resolution: "needs_review" }
+      })
+    ];
+
+    const report = buildSemanticMaintenanceShadowReport(records, {
+      project_id: "moryn",
+      minimum_token_overlap: 0.2
+    });
+
+    expect(report.summary).toMatchObject({ authored_drafts_ready: 0, auto_safe_candidates: 0 });
+    expect(report.candidates[0]).toMatchObject({ action: "blocked", auto_apply_safe: false });
+    expect(report.candidates[0]?.blocker_codes).toContain("conflict_requires_review");
+    expect(report.authored_merge_drafts).toEqual([]);
+  });
+
   it("does not count blocked global or private exact records as a possible reduction", () => {
     const global = [
       record({ id: "global-a", scope: "global", project_id: undefined }),

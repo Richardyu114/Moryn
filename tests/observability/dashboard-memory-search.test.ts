@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { createEngine } from "../../src/core/engine.js";
-import { startDashboardServer } from "../../src/observability/dashboard.js";
+import {
+  buildDashboardData,
+  type DashboardRecordSummary,
+  startDashboardServer
+} from "../../src/observability/dashboard.js";
+import { renderMemorySearch } from "../../src/observability/dashboard-workspace.js";
+import { dashboardWorkspaceScript } from "../../src/observability/dashboard-workspace-script.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
 interface MemorySearchResponse {
@@ -11,9 +17,10 @@ interface MemorySearchResponse {
     includes_global: boolean;
   };
   breakdown: {
-    usable: number;
+    current: number;
+    older_versions: number;
     history: number;
-    quarantined: number;
+    set_aside: number;
   };
   total_visible: number;
   total_matches: number;
@@ -36,13 +43,17 @@ describe("dashboard memory search API scope", () => {
         source: { client: "codex" }
       } as const;
 
-      await engine.write({
+      const currentCanonical = await engine.write({
         ...base,
         content: { text: "Current canonical" },
         state: "canonical",
         confirmed: true
       });
-      await engine.write({ ...base, content: { text: "Current candidate" }, state: "candidate" });
+      const currentCandidate = await engine.write({
+        ...base,
+        content: { text: "Current candidate" },
+        state: "candidate"
+      });
       await engine.write({ ...base, content: { text: "Current raw" }, state: "raw" });
       await engine.write({ ...base, content: { text: "Current history" }, state: "archived" });
       const toQuarantine = await engine.write({
@@ -59,6 +70,12 @@ describe("dashboard memory search API scope", () => {
         state: "canonical",
         confirmed: true,
         source: { client: "codex" }
+      });
+      await engine.logicalLink({
+        record_id: currentCanonical.record.id,
+        linked_record_id: currentCandidate.record.id,
+        relationship: "supersedes",
+        reason: "The canonical conclusion replaced the earlier candidate."
       });
       await engine.write({
         ...base,
@@ -93,9 +110,10 @@ describe("dashboard memory search API scope", () => {
             includes_global: true
           },
           breakdown: {
-            usable: 4,
+            current: 3,
+            older_versions: 1,
             history: 1,
-            quarantined: 1
+            set_aside: 1
           },
           total_visible: 6,
           total_matches: 6,
@@ -104,9 +122,12 @@ describe("dashboard memory search API scope", () => {
           returned: 2,
           has_more: true
         });
-        expect(response.breakdown.usable + response.breakdown.history + response.breakdown.quarantined).toBe(
-          response.total_visible
-        );
+        expect(
+          response.breakdown.current +
+            response.breakdown.older_versions +
+            response.breakdown.history +
+            response.breakdown.set_aside
+        ).toBe(response.total_visible);
         expect(JSON.stringify(response)).not.toContain("Other project canonical");
         expect(JSON.stringify(response)).not.toContain("Private current canonical");
       } finally {
@@ -154,7 +175,7 @@ describe("dashboard memory search API scope", () => {
 
         expect(response).toMatchObject({
           scope: { mode: "store", includes_global: true },
-          breakdown: { usable: 2, history: 1, quarantined: 0 },
+          breakdown: { current: 2, older_versions: 0, history: 1, set_aside: 0 },
           total_visible: 3,
           total_matches: 2,
           returned: 1,
@@ -164,6 +185,119 @@ describe("dashboard memory search API scope", () => {
       } finally {
         await server.close();
       }
+    });
+  });
+
+  it("keeps Soul in the dedicated preferences projection instead of generic search", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath });
+      await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "global",
+        content: { text: "Ordinary searchable memory" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex" }
+      });
+      await engine.write({
+        kind: "soul",
+        type: "working_principle",
+        scope: "global",
+        content: { text: "Portable preference shown only in Preferences" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+
+      const server = await startDashboardServer(storePath, { host: "127.0.0.1", port: 0 });
+      try {
+        const page = await (await fetch(server.url)).text();
+        const response = (await (
+          await fetch(new URL("/api/memory/search?kind=soul", server.url))
+        ).json()) as MemorySearchResponse & { kind?: string };
+        const textSearch = (await (
+          await fetch(new URL("/api/memory/search?q=portable%20preference", server.url))
+        ).json()) as MemorySearchResponse;
+        const data = await buildDashboardData(storePath);
+        const ordinaryRecord = data.all_records[0]!;
+        const genericSearchHtml = renderMemorySearch(data, [
+          ordinaryRecord,
+          {
+            ...ordinaryRecord,
+            id: "rec_defensive_soul_filter",
+            kind: "soul",
+            text: "Portable preference shown only in Preferences"
+          }
+        ]);
+
+        expect(page).not.toContain('data-chip-kind="soul"');
+        expect(page).toContain("Portable preference shown only in Preferences");
+        expect(genericSearchHtml).toContain("Ordinary searchable memory");
+        expect(genericSearchHtml).not.toContain("Portable preference shown only in Preferences");
+        expect(response).not.toHaveProperty("kind");
+        expect(response.total_visible).toBe(1);
+        expect(
+          response.breakdown.current +
+            response.breakdown.older_versions +
+            response.breakdown.history +
+            response.breakdown.set_aside
+        ).toBe(response.total_visible);
+        expect(
+          response.records.every((record) => record.text !== "Portable preference shown only in Preferences")
+        ).toBe(true);
+        expect(textSearch).toMatchObject({ total_visible: 1, total_matches: 0, records: [] });
+      } finally {
+        await server.close();
+      }
+    });
+  });
+
+  it("offers API-backed continuation after the 600 embedded results", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const data = await buildDashboardData(storePath);
+      const records: DashboardRecordSummary[] = Array.from({ length: 601 }, (_, index) => {
+        const id = `rec_memory_page_${String(index + 1).padStart(3, "0")}`;
+        return {
+          id,
+          kind: "memory",
+          type: "fact",
+          scope: "global",
+          state: "canonical",
+          priority: "normal",
+          source: { client: "codex" },
+          created_at: "2026-05-27T00:00:00.000Z",
+          updated_at: "2026-05-27T00:00:00.000Z",
+          text: `Searchable memory ${index + 1}`,
+          citation: {
+            record_id: id,
+            timeline_command: `moryn timeline --record-id ${id}`,
+            recall_command: `moryn recall --record-id ${id}`
+          }
+        };
+      });
+      const fixture = {
+        ...data,
+        memory_status: {
+          ...data.memory_status,
+          summary: {
+            ...data.memory_status.summary,
+            saved_total: records.length,
+            current_total: records.length
+          }
+        }
+      };
+
+      const html = renderMemorySearch(fixture, records, { endpoint: "api/memory/search" });
+      const script = dashboardWorkspaceScript();
+
+      expect(html.match(/data-memory-result /g)).toHaveLength(600);
+      expect(html).toContain('data-total="600" data-visible-total="601"');
+      expect(html).toContain('data-memory-search-more data-i18n-en="Show more saved memories"');
+      expect(html).not.toContain("data-memory-search-more hidden");
+      expect(script).toContain("let remoteOffset = initialRenderedTotal");
+      expect(script).toContain("url.searchParams.set('offset', String(remoteOffset))");
+      expect(script).toContain("moreButton.addEventListener('click', () => { void runRemote(true); })");
     });
   });
 });

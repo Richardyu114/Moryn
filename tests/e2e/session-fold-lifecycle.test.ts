@@ -62,8 +62,8 @@ describe("agentFinish Session Fold", () => {
       });
       const shared = `The verified lifecycle procedure retains this complete evidence ${"shared ".repeat(600)}.`;
       const base = {
-        kind: "memory" as const,
-        type: "decision",
+        kind: "skill" as const,
+        type: "procedure",
         scope: "project" as const,
         project_id: "moryn",
         tags: ["maintenance"],

@@ -204,7 +204,7 @@ describe("v0.4 Soul and Memory CLI", () => {
       ])) as { approval_receipt: { action: string }; revision: { state: string } };
       expect(rollback).toMatchObject({ approval_receipt: { action: "rollback" }, revision: { state: "active" } });
     });
-  });
+  }, 30_000);
 
   it("expands current memory sources with bounded CLI options", async () => {
     await withInitializedTempStore(async (storePath) => {

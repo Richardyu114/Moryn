@@ -43,6 +43,7 @@ import {
   type DashboardMaintenancePlan
 } from "./dashboard-maintenance.js";
 import { buildDashboardMemoryStatus } from "./dashboard-memory-status.js";
+import { buildDashboardSyncAssurance, type DashboardSyncAssurance } from "./dashboard-sync-assurance.js";
 import { buildDashboardV04Data, type DashboardMemoryMaintenance, type DashboardSoulStudio } from "./dashboard-v04.js";
 import { dashboardWorkspaceCss } from "./dashboard-workspace.css.js";
 import { renderDashboardWorkspace, renderMemorySearch } from "./dashboard-workspace.js";
@@ -52,6 +53,7 @@ const exec = promisify(execFile);
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 const RECENT_VALUE_LIMIT = 8;
+const DASHBOARD_REMOTE_OBSERVATION_TIMEOUT_MS = 1_500;
 const CAPTURE_NOISE_RULES: DashboardCaptureNoiseRule[] = [
   {
     id: "smoke_test_marker",
@@ -145,6 +147,7 @@ export interface DashboardAction {
 export const DASHBOARD_SELECTION_SOURCES = {
   store: "store",
   sync: "sync",
+  sync_assurance: "sync_assurance",
   health: "health",
   attention_item: "attention_items[]",
   dashboard_overview: "dashboard_overview",
@@ -190,6 +193,10 @@ export interface DashboardOptions {
   limit?: number;
   include_private?: boolean;
   project_id?: string;
+  user_profile_id?: string;
+  agent_profile_id?: string;
+  char_budget?: number;
+  token_budget?: number;
   readiness_host?: string;
   sync_remote?: string;
   now?: string;
@@ -311,9 +318,13 @@ export interface DashboardHealth {
 
 export interface DashboardAttentionItem {
   severity: DashboardAttentionSeverity;
+  category?: "sync" | "memory" | "decision";
   title: string;
+  title_zh?: string;
   description: string;
+  description_zh?: string;
   action_label?: string;
+  action_label_zh?: string;
   action_command?: string;
 }
 
@@ -904,6 +915,7 @@ export interface DashboardData {
     path: string;
   };
   sync: GitSyncStatus;
+  sync_assurance: DashboardSyncAssurance;
   health: DashboardHealth;
   attention_items: DashboardAttentionItem[];
   dashboard_overview: DashboardOverview;
@@ -1056,6 +1068,37 @@ function dashboardLimit(limit: number | undefined): number {
   return limit;
 }
 
+function publicGitRemote(remote: string | undefined): string | undefined {
+  const hasUnsafeCharacter = [...(remote ?? "")].some((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return codePoint <= 0x1f || codePoint === 0x7f || character.trim() === "";
+  });
+  if (!remote || remote.includes("::") || hasUnsafeCharacter) return undefined;
+  try {
+    const parsed = new URL(remote);
+    if (!["http:", "https:", "ssh:", "git:"].includes(parsed.protocol)) return undefined;
+    parsed.username = "";
+    parsed.password = "";
+    parsed.search = "";
+    parsed.hash = "";
+    return parsed.toString();
+  } catch {
+    const scpLike = remote.match(/^(?:[^@/:]+@)?([^/:]+):([^?#]+)$/u);
+    if (!scpLike) return undefined;
+    return `${scpLike[1]}:${scpLike[2]}`;
+  }
+}
+
+function publicGitSyncStatus(sync: GitSyncStatus): GitSyncStatus {
+  const { remote, error, ...safe } = sync;
+  const sanitizedRemote = publicGitRemote(remote);
+  return {
+    ...safe,
+    ...(sanitizedRemote ? { remote: sanitizedRemote } : {}),
+    ...(error ? { error: "Sync status unavailable" } : {})
+  };
+}
+
 function recordText(record: MorynRecord): string {
   return record.state === "quarantined" || record.visibility === "quarantined"
     ? "[quarantined]"
@@ -1064,8 +1107,8 @@ function recordText(record: MorynRecord): string {
 
 function isVisibleForDashboard(record: MorynRecord, includePrivate: boolean | undefined): boolean {
   // Soul/profile bodies are never part of the generic Dashboard content lane,
-  // even when private records were explicitly requested. Soul Studio exposes
-  // status metadata without rendering collaboration-clause text.
+  // even when private records were explicitly requested. Soul Studio uses a
+  // separate allowlisted projection for selected personal-sync clause text.
   if (record.kind === "soul") return false;
   return includePrivate === true || !isPrivateMemoryBoundary(record);
 }
@@ -1538,9 +1581,13 @@ function supersededQuarantinedCount(records: MorynRecord[]): number {
   return records.filter((record) => isQuarantined(record) && superseded.has(record.id)).length;
 }
 
-function buildHealth(sync: GitSyncStatus, records: MorynRecord[], generatedAt: string): DashboardHealth {
+function buildHealth(
+  syncAssurance: DashboardSyncAssurance,
+  records: MorynRecord[],
+  generatedAt: string
+): DashboardHealth {
   const hidden = unresolvedQuarantinedRecords(records).length;
-  if (sync.sync_state === "conflict") {
+  if (syncAssurance.state === "conflict") {
     return {
       status: "conflict",
       label: "Conflict",
@@ -1548,7 +1595,7 @@ function buildHealth(sync: GitSyncStatus, records: MorynRecord[], generatedAt: s
       generated_at: generatedAt
     };
   }
-  if (!sync.configured) {
+  if (syncAssurance.state === "local_only") {
     return {
       status: "local_only",
       label: "Local Only",
@@ -1565,11 +1612,20 @@ function buildHealth(sync: GitSyncStatus, records: MorynRecord[], generatedAt: s
       generated_at: generatedAt
     };
   }
-  if (sync.sync_state === "dirty" || (sync.ahead ?? 0) > 0 || (sync.behind ?? 0) > 0) {
+  if (syncAssurance.state === "remote_unverified") {
+    return {
+      status: "sync_pending",
+      label: "Shared Copy Unverified",
+      explanation:
+        "Local memory remains available, but Moryn could not verify that the shared copy contains the current committed version.",
+      generated_at: generatedAt
+    };
+  }
+  if (syncAssurance.state === "local_pending" || syncAssurance.state === "remote_updates_pending") {
     return {
       status: "sync_pending",
       label: "Sync Pending",
-      explanation: "Local sync changes are waiting to be pushed or pulled; memory data remains usable on this device.",
+      explanation: "Memory remains usable on this device, but newer changes do not yet have proof in the shared copy.",
       generated_at: generatedAt
     };
   }
@@ -1581,7 +1637,11 @@ function buildHealth(sync: GitSyncStatus, records: MorynRecord[], generatedAt: s
   };
 }
 
-function buildAttentionItems(sync: GitSyncStatus, records: MorynRecord[]): DashboardAttentionItem[] {
+function buildAttentionItems(
+  sync: GitSyncStatus,
+  records: MorynRecord[],
+  syncAssurance: DashboardSyncAssurance
+): DashboardAttentionItem[] {
   const items: DashboardAttentionItem[] = [];
   const ahead = sync.ahead ?? 0;
   const behind = sync.behind ?? 0;
@@ -1591,39 +1651,68 @@ function buildAttentionItems(sync: GitSyncStatus, records: MorynRecord[]): Dashb
   const candidates = records.filter((record) => record.state === "candidate").length;
   const canonical = records.filter((record) => record.state === "canonical").length;
 
-  if (!sync.configured) {
+  if (!sync.remote) {
     items.push({
       severity: "info",
-      title: "Sync is not configured",
-      description: "This store is local-only until a private Git remote is configured.",
-      action_label: "Configure sync",
+      category: "sync",
+      title: "Memory is saved on this device only",
+      title_zh: "记忆仅保存在这台设备上",
+      description: "No shared copy is connected, so another device cannot recover these memories from Moryn yet.",
+      description_zh: "尚未连接共享副本，因此其他设备暂时无法通过 Moryn 恢复这些记忆。",
+      action_label: "Shared-copy setup details",
+      action_label_zh: "共享副本设置详情",
       action_command: "moryn sync init <remote>"
     });
   }
   if (sync.sync_state === "conflict") {
     items.push({
       severity: "critical",
-      title: "Sync conflict",
-      description: "Git sync reports a conflict. Resolve it before relying on cross-device handoff.",
-      action_label: "Check sync",
+      category: "sync",
+      title: "The shared copy needs repair",
+      title_zh: "共享副本需要修复",
+      description:
+        "Saved content on this device remains available, but cross-device updates are paused until the conflict is resolved.",
+      description_zh: "本机已保存内容仍可使用，但在冲突解决前，跨设备更新会暂停。",
+      action_label: "Shared-copy technical details",
+      action_label_zh: "共享副本技术详情",
       action_command: "moryn sync --status"
     });
   }
-  if (sync.sync_state === "dirty") {
+  if (syncAssurance.local_pending.dirty_files > 0) {
+    const pending = syncAssurance.local_pending;
+    const count = pending.event_files;
+    const waiting = pending.age_label ? ` The oldest pending file was last changed ${pending.age_label} ago.` : "";
+    const waitingZh = pending.age_label_zh ? `最早的待同步文件变更发生在 ${pending.age_label_zh}前。` : "";
     items.push({
-      severity: "warning",
-      title: "Sync changes not pushed",
-      description: "Local event history has changes that are not committed or pushed yet.",
-      action_label: "Push sync",
+      severity: syncAssurance.attention_required ? "warning" : "info",
+      category: "sync",
+      title: count > 0 ? "Saved changes are still only confirmed on this device" : "Local changes are waiting to sync",
+      title_zh: count > 0 ? "保存变更目前仍只确认在本机" : "本机变更正在等待同步",
+      description:
+        count > 0
+          ? `${count} ${count === 1 ? "saved change is" : "saved changes are"} waiting for shared-copy proof.${waiting}`
+          : syncAssurance.detail,
+      description_zh:
+        count > 0 ? `${count} 项保存变更正在等待共享副本的保存证明。${waitingZh}` : syncAssurance.detail_zh,
+      action_label: "Shared-copy technical details",
+      action_label_zh: "共享副本技术详情",
       action_command: "moryn sync --push"
     });
   }
   if (ahead > 0 || behind > 0) {
     items.push({
       severity: behind > 0 ? "warning" : "info",
-      title: "Remote position changed",
-      description: `This store is ${ahead} commit(s) ahead and ${behind} commit(s) behind the configured remote.`,
-      action_label: behind > 0 ? "Pull sync" : "Push sync",
+      category: "sync",
+      title: behind > 0 ? "This device is missing newer shared changes" : "Committed local updates are waiting to sync",
+      title_zh: behind > 0 ? "本机尚未收到共享副本中的新变化" : "本机已提交更新正在等待同步",
+      description:
+        behind > 0
+          ? `${behind} newer shared ${behind === 1 ? "update has" : "updates have"} not arrived on this device yet.`
+          : `${ahead} local ${ahead === 1 ? "update has" : "updates have"} not been verified in the shared copy yet.`,
+      description_zh:
+        behind > 0 ? `共享副本中的 ${behind} 个新更新尚未到达本机。` : `${ahead} 个本机更新尚未在共享副本中得到验证。`,
+      action_label: "Shared-copy technical details",
+      action_label_zh: "共享副本技术详情",
       action_command: behind > 0 ? "moryn sync --pull" : "moryn sync --push"
     });
   }
@@ -2688,7 +2777,7 @@ function actionBoardSeverity(
 }
 
 function isSyncAttentionItem(item: DashboardAttentionItem): boolean {
-  return item.action_command?.startsWith("moryn sync ") === true;
+  return item.category === "sync" || item.action_command?.startsWith("moryn sync ") === true;
 }
 
 function isReviewAttentionItem(item: DashboardAttentionItem): boolean {
@@ -2721,6 +2810,7 @@ function buildActionBoard(input: {
   attentionItems: DashboardAttentionItem[];
   governance: DashboardGovernance;
   sync: GitSyncStatus;
+  syncAssurance: DashboardSyncAssurance;
   health: DashboardHealth;
 }): DashboardActionBoard {
   const confirmCount = input.decisionSummary.total_decisions;
@@ -2728,17 +2818,20 @@ function buildActionBoard(input: {
   const reviewCopy = reviewActionCopy(input.attentionItems);
   const inspectCount = input.governance.summary.safe_inspections;
   const syncNeedsAction =
-    input.health.status === "sync_pending" ||
-    input.health.status === "conflict" ||
-    input.health.status === "local_only";
+    input.syncAssurance.state === "conflict" ||
+    input.syncAssurance.state === "remote_updates_pending" ||
+    input.syncAssurance.state === "local_only" ||
+    input.syncAssurance.attention_required;
   const syncSeverity: DashboardActionBoardSeverity =
-    input.health.status === "conflict"
+    input.syncAssurance.state === "conflict"
       ? "critical"
-      : input.health.status === "sync_pending"
+      : input.syncAssurance.attention_required || input.syncAssurance.state === "remote_updates_pending"
         ? "warning"
-        : input.health.status === "local_only"
+        : input.syncAssurance.state === "local_only" || input.syncAssurance.state === "remote_unverified"
           ? "info"
-          : "good";
+          : input.syncAssurance.state === "local_pending"
+            ? "info"
+            : "good";
   const items: DashboardActionBoardItem[] = [
     {
       id: "confirm",
@@ -2779,8 +2872,8 @@ function buildActionBoard(input: {
       value: syncNeedsAction ? 1 : 0,
       severity: syncSeverity,
       summary: input.health.label,
-      hint: input.sync.remote ? syncLabel(input.sync) : "Local only",
-      detail: input.sync.remote ? syncLabel(input.sync) : "Local memory is usable; remote sync is not configured.",
+      hint: input.syncAssurance.headline,
+      detail: input.syncAssurance.detail,
       next_action_label: "Inspect sync",
       target: "store-signals"
     }
@@ -3676,7 +3769,10 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
   }
   const knowledgeInvestigations = [...investigationsById.values()];
   const learnedRecords = memoryStatusProjection.absorbed_learning_records;
-  const sync = await getGitSyncStatus(storePath);
+  const sync = await getGitSyncStatus(storePath, {
+    remote_timeout_ms: DASHBOARD_REMOTE_OBSERVATION_TIMEOUT_MS
+  });
+  const syncAssurance = buildDashboardSyncAssurance(sync, generatedAt);
   const agentActivity = summarizeAgentActivity(
     scopedVisibleEvents,
     memoryStatusProjection.scoped_records,
@@ -3758,7 +3854,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     events: healthCheckEvents,
     project_id: options.project_id,
     host: options.readiness_host,
-    sync_remote: options.sync_remote,
+    sync_remote: publicGitRemote(options.sync_remote),
     limit,
     include_private: options.include_private === true,
     excluded_private_records: healthCheckAllRecords.length - healthCheckRecords.length,
@@ -3776,6 +3872,10 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
   const recallEvalData = await buildDashboardRecallEval(storePath, records, options);
   const dashboardV04Data = await buildDashboardV04Data(storePath, allRecords, {
     project_id: options.project_id,
+    user_profile_id: options.user_profile_id,
+    agent_profile_id: options.agent_profile_id,
+    char_budget: options.char_budget,
+    token_budget: options.token_budget,
     now: generatedAt,
     visible_record_ids: memoryMaintenanceVisibleRecordIds
   });
@@ -3791,8 +3891,8 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     maintenance: maintenanceData,
     candidateTriage: candidateTriageData
   });
-  const health = buildHealth(sync, records, generatedAt);
-  const attentionItems = buildAttentionItems(sync, records);
+  const health = buildHealth(syncAssurance, records, generatedAt);
+  const attentionItems = buildAttentionItems(sync, records, syncAssurance);
   const governance = buildDashboardGovernance({
     capturePolicy: capturePolicyData,
     memoryDoctor: memoryDoctorData,
@@ -3807,6 +3907,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     attentionItems,
     governance,
     sync,
+    syncAssurance,
     health
   });
   const memoryInventory = buildMemoryInventory(memoryStatusProjection.scoped_records);
@@ -3894,10 +3995,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
       .map((plan) => `maintenance_review:${plan.plan_hash.replace(/^sha256:/, "")}`)
   );
   const exceptionalAttention: DashboardAttentionItem[] = [
-    ...attentionItems.filter(
-      (item) =>
-        (item.severity === "warning" || item.severity === "critical") && item.title !== "Sync changes not pushed"
-    ),
+    ...attentionItems.filter((item) => item.severity === "warning" || item.severity === "critical"),
     ...decisionSummaryData.items
       .filter((item) => !routineMaintenanceDecisionIds.has(item.id))
       .map((item) => ({
@@ -3935,7 +4033,8 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     store: {
       path: storePath
     },
-    sync,
+    sync: publicGitSyncStatus(sync),
+    sync_assurance: syncAssurance,
     health,
     attention_items: attentionItems,
     dashboard_overview: dashboardOverviewData,
@@ -4121,12 +4220,6 @@ function dashboardDisplayHealth(data: DashboardData): { label: string; status: D
   if (data.quiet_dashboard.attention_needed.length > 0) return { label: "Needs Review", status: "needs_review" };
   if (data.health.status === "sync_pending") return { label: "Local Ready", status: "local_ready" };
   return { label: data.health.label, status: data.health.status };
-}
-
-function syncLabel(sync: GitSyncStatus): string {
-  if (sync.sync_state === "dirty") return "Local changes";
-  if (sync.sync_state) return titleCase(sync.sync_state);
-  return sync.configured ? "Configured" : "Not configured";
 }
 
 function recordLabel(recordId: string): string {
@@ -4410,16 +4503,17 @@ function plainHistoryTimeline(data: DashboardData): string {
 
 function memoryViewRecords(data: DashboardData): DashboardRecordSummary[] {
   const projectId = data.memory_maintenance.scope.project_id;
-  if (data.memory_maintenance.scope.mode === "store" || !projectId) return data.all_records;
-  return data.all_records.filter((record) => record.scope === "global" || record.project_id === projectId);
+  const genericMemoryRecords = data.all_records.filter((record) => record.kind !== "soul");
+  if (data.memory_maintenance.scope.mode === "store" || !projectId) return genericMemoryRecords;
+  return genericMemoryRecords.filter((record) => record.scope === "global" || record.project_id === projectId);
 }
 
 const DASHBOARD_MEMORY_SEARCH_PAGE_SIZE = 20;
 const DASHBOARD_MEMORY_SEARCH_MAX_PAGE_SIZE = 50;
-const DASHBOARD_MEMORY_SEARCH_KINDS = new Set<MorynRecord["kind"]>([
+type DashboardMemorySearchKind = Exclude<MorynRecord["kind"], "soul">;
+const DASHBOARD_MEMORY_SEARCH_KINDS = new Set<DashboardMemorySearchKind>([
   "memory",
   "skill",
-  "soul",
   "session_summary",
   "agent_note"
 ]);
@@ -4436,8 +4530,8 @@ function dashboardMemorySearch(data: DashboardData, searchParams: URLSearchParam
   const normalizedQuery = query.toLocaleLowerCase();
   const requestedKind = searchParams.get("kind");
   const kind =
-    requestedKind && DASHBOARD_MEMORY_SEARCH_KINDS.has(requestedKind as MorynRecord["kind"])
-      ? (requestedKind as MorynRecord["kind"])
+    requestedKind && DASHBOARD_MEMORY_SEARCH_KINDS.has(requestedKind as DashboardMemorySearchKind)
+      ? (requestedKind as DashboardMemorySearchKind)
       : undefined;
   const offset = boundedSearchInteger(searchParams.get("offset"), 0, Number.MAX_SAFE_INTEGER);
   const limit = Math.max(
@@ -4449,19 +4543,12 @@ function dashboardMemorySearch(data: DashboardData, searchParams: URLSearchParam
     )
   );
   const visibleRecords = memoryViewRecords(data);
-  const breakdown = visibleRecords.reduce(
-    (counts, record) => {
-      if (record.state === "canonical" || record.state === "candidate" || record.state === "raw") {
-        counts.usable += 1;
-      } else if (record.state === "archived") {
-        counts.history += 1;
-      } else {
-        counts.quarantined += 1;
-      }
-      return counts;
-    },
-    { usable: 0, history: 0, quarantined: 0 }
-  );
+  const breakdown = {
+    current: data.memory_status.summary.current_total,
+    older_versions: data.memory_status.summary.organized_total,
+    history: data.memory_status.summary.history_total,
+    set_aside: data.memory_status.summary.quarantined_total
+  };
   const matches = visibleRecords.filter((record) => {
     if (kind && record.kind !== kind) return false;
     if (!normalizedQuery) return true;
@@ -10571,6 +10658,10 @@ export async function startDashboardServer(
       limit,
       include_private: includePrivate,
       project_id: options.project_id,
+      user_profile_id: options.user_profile_id,
+      agent_profile_id: options.agent_profile_id,
+      char_budget: options.char_budget,
+      token_budget: options.token_budget,
       readiness_host: options.readiness_host,
       sync_remote: options.sync_remote
     })
@@ -10777,9 +10868,14 @@ export async function startDashboardServer(
         return;
       }
       sendResponse(response, 404, "Not found", "text/plain; charset=utf-8", includeBody);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      sendResponse(response, 500, JSON.stringify({ error: message }), "application/json; charset=utf-8", includeBody);
+    } catch {
+      sendResponse(
+        response,
+        500,
+        JSON.stringify({ error: "Dashboard unavailable" }),
+        "application/json; charset=utf-8",
+        includeBody
+      );
     }
   });
 

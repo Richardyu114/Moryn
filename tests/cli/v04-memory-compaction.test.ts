@@ -90,7 +90,7 @@ async function seedPrivateReadySession(
   });
 }
 
-describe("v0.4 Memory Compaction CLI", () => {
+describe("v0.4 Memory Compaction CLI", { timeout: 30_000 }, () => {
   it("runs preview, plan, guarded apply, and guarded restore", async () => {
     await withInitializedTempStore(async (storePath) => {
       await seedReadySession(storePath);

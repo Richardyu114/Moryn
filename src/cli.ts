@@ -38,6 +38,7 @@ import { runHostHook } from "./core/host-hook-runner.js";
 import { normalizeHostHookEvent } from "./core/host-hooks.js";
 import { queueLearning } from "./core/learning-inbox.js";
 import { LOGICAL_RELATIONSHIP_TYPES, type LogicalRelationshipType } from "./core/logical-memory.js";
+import { runMaintenanceOnce } from "./core/maintenance-runner.js";
 import {
   initializeProjectConfig,
   PROJECT_SYNC_MODE_INPUTS,
@@ -60,6 +61,7 @@ import {
   getOperationContracts,
   getSelectionSourceContracts,
   inspectHostActivation,
+  OPERATION_CONTRACTS,
   planInstall,
   setupWizard,
   version,
@@ -67,6 +69,7 @@ import {
 } from "./index.js";
 import { runMcpServer } from "./mcp/server.js";
 import {
+  type DashboardOptions,
   type DashboardServerHandle,
   type DashboardSnapshot,
   openDashboard,
@@ -187,6 +190,7 @@ type CliParserOperation =
   | "refresh"
   | "memory_doctor"
   | "memory_maintenance_shadow"
+  | "maintenance_run"
   | "memory_lifecycle"
   | "memory_expand"
   | "memory_compaction_preview"
@@ -1236,7 +1240,7 @@ function cliCommandGroupTokens(): Set<string> {
 }
 
 function cliOperationContracts(): readonly OperationContract[] {
-  return getOperationContracts().operations;
+  return OPERATION_CONTRACTS;
 }
 
 function cliCommandTokens(operation: OperationContract): string[] {
@@ -1689,6 +1693,12 @@ function cliParserArgumentSource(option: string): CliParserSource | undefined {
       return { operation: "memory_maintenance_shadow", argument: "minimum_token_overlap" };
     }
   }
+  if (commandPath[0] === "maintenance" && commandPath[1] === "run") {
+    if (option === "--project") return { operation: "maintenance_run", argument: "project_path" };
+    if (option === "--project-id") return { operation: "maintenance_run", argument: "project_id" };
+    if (option === "--source-client") return { operation: "maintenance_run", argument: "source_client" };
+    if (option === "--session-id") return { operation: "maintenance_run", argument: "source_session_id" };
+  }
   if (commandPath[0] === "memory" && commandPath[1] === "lifecycle") {
     if (option === "--project") return { operation: "memory_lifecycle", argument: "project_path" };
     if (option === "--project-id") return { operation: "memory_lifecycle", argument: "project_id" };
@@ -1887,6 +1897,28 @@ async function resolveOptionalProject(
   const projectId = parseNonEmptyCliString(options.projectId, "--project-id", { operation, argument: "project_id" });
   if (!projectPath && !projectId) return undefined;
   return (await resolveProjectContext({ projectPath, projectId })).project_id;
+}
+
+async function resolveDashboardProject(options: {
+  project?: string;
+  projectId?: string;
+}): Promise<
+  Pick<DashboardOptions, "project_id" | "user_profile_id" | "agent_profile_id" | "char_budget" | "token_budget">
+> {
+  const projectPath = parseNonEmptyCliString(options.project, "--project", {
+    operation: "dashboard",
+    argument: "project_path"
+  });
+  const projectId = parseNonEmptyCliString(options.projectId, "--project-id", {
+    operation: "dashboard",
+    argument: "project_id"
+  });
+  if (!projectPath && !projectId) return {};
+  const project = await resolveProjectContext({ projectPath, projectId });
+  return {
+    project_id: project.project_id,
+    ...project.config?.soul
+  };
 }
 
 async function resolveProjectOptions(
@@ -2285,6 +2317,10 @@ type DashboardCliOptions = {
   includePrivate?: boolean;
   project?: string;
   projectId?: string;
+  userProfileId?: string;
+  agentProfileId?: string;
+  soulCharBudget?: number;
+  soulTokenBudget?: number;
 };
 
 type DashboardCliMetadata =
@@ -2324,7 +2360,13 @@ function parseDashboardInterval(value: string | undefined): number | undefined {
 async function dashboardMetadata(options: DashboardCliOptions = {}): Promise<DashboardCliMetadata> {
   try {
     const limit = options.limit === undefined ? undefined : parseLimit(options.limit, "dashboard");
-    const projectId = await resolveOptionalProject(options, "dashboard");
+    const project = {
+      ...(await resolveDashboardProject(options)),
+      ...(options.userProfileId ? { user_profile_id: options.userProfileId } : {}),
+      ...(options.agentProfileId ? { agent_profile_id: options.agentProfileId } : {}),
+      ...(options.soulCharBudget ? { char_budget: options.soulCharBudget } : {}),
+      ...(options.soulTokenBudget ? { token_budget: options.soulTokenBudget } : {})
+    };
     if (options.serve) {
       const server = await startDashboardServer(storePath(), {
         host: options.host,
@@ -2332,7 +2374,7 @@ async function dashboardMetadata(options: DashboardCliOptions = {}): Promise<Das
         refreshIntervalMs: parseDashboardInterval(options.interval),
         limit,
         include_private: options.includePrivate,
-        project_id: projectId,
+        ...project,
         readiness_host: parseNonEmptyString(options.readinessHost, "--readiness-host"),
         sync_remote: parseNonEmptyString(options.syncRemote, "--sync-remote")
       });
@@ -2350,7 +2392,7 @@ async function dashboardMetadata(options: DashboardCliOptions = {}): Promise<Das
     const snapshot = await writeDashboardSnapshot(storePath(), {
       limit,
       include_private: options.includePrivate,
-      project_id: projectId,
+      ...project,
       readiness_host: parseNonEmptyString(options.readinessHost, "--readiness-host"),
       sync_remote: parseNonEmptyString(options.syncRemote, "--sync-remote")
     });
@@ -3532,6 +3574,47 @@ memory
     );
   });
 
+const maintenance = program.command("maintenance");
+
+maintenance
+  .command("run")
+  .description("Run one bounded public-project maintenance pass")
+  .option("--project-id <id>")
+  .option("--project <path>")
+  .option("--source-client <client>", "Authored source client", "cli")
+  .option("--session-id <id>")
+  .action(async (options) => {
+    const projectPath = parseNonEmptyCliString(options.project, "--project", {
+      operation: "maintenance_run",
+      argument: "project_path"
+    });
+    const projectId = parseNonEmptyCliString(options.projectId, "--project-id", {
+      operation: "maintenance_run",
+      argument: "project_id"
+    });
+    if (!projectPath && !projectId) {
+      throw new Error("Invalid argument: maintenance run requires --project or --project-id");
+    }
+    const project = await resolveProjectContext({ projectPath, projectId });
+    printJson(
+      await runMaintenanceOnce({
+        store_path: storePath(),
+        project_id: project.project_id,
+        source: {
+          client:
+            parseNonEmptyCliString(options.sourceClient, "--source-client", {
+              operation: "maintenance_run",
+              argument: "source_client"
+            }) ?? "cli",
+          session_id: parseNonEmptyCliString(options.sessionId, "--session-id", {
+            operation: "maintenance_run",
+            argument: "source_session_id"
+          })
+        }
+      })
+    );
+  });
+
 const dogfood = program.command("dogfood");
 
 dogfood
@@ -4059,7 +4142,17 @@ agent
         ...soulBinding.lifecycle,
         hostRuntime
       });
-      printJson(await withDashboard(result, { open: options.open }));
+      printJson(
+        await withDashboard(result, {
+          open: options.open,
+          project: options.project,
+          projectId: options.projectId,
+          userProfileId: soulBinding.lifecycle.userSoulProfileId,
+          agentProfileId: soulBinding.lifecycle.agentSoulProfileId,
+          soulCharBudget: soulBinding.lifecycle.soulCharBudget,
+          soulTokenBudget: soulBinding.lifecycle.soulTokenBudget
+        })
+      );
     } catch (error) {
       printError(error, context);
       process.exitCode = 1;
@@ -4191,7 +4284,17 @@ agent
         agent: agentOptions,
         ...soulBinding.lifecycle
       });
-      printJson(await withDashboard(result, { open: options.open }));
+      printJson(
+        await withDashboard(result, {
+          open: options.open,
+          project: options.project,
+          projectId: options.projectId,
+          userProfileId: soulBinding.lifecycle.userSoulProfileId,
+          agentProfileId: soulBinding.lifecycle.agentSoulProfileId,
+          soulCharBudget: soulBinding.lifecycle.soulCharBudget,
+          soulTokenBudget: soulBinding.lifecycle.soulTokenBudget
+        })
+      );
     } catch (error) {
       printError(error, context);
       process.exitCode = 1;
@@ -4267,7 +4370,13 @@ agent
         push,
         agent: agentOptions
       });
-      printJson(await withDashboard(result, { open: options.open }));
+      printJson(
+        await withDashboard(result, {
+          open: options.open,
+          project: options.project,
+          projectId: options.projectId
+        })
+      );
     } catch (error) {
       printError(error, context);
       process.exitCode = 1;
@@ -4362,7 +4471,13 @@ agent
         learnings,
         semanticConsolidationProposals
       });
-      printJson(await withDashboard(result, { open: options.open }));
+      printJson(
+        await withDashboard(result, {
+          open: options.open,
+          project: options.project,
+          projectId: options.projectId
+        })
+      );
     } catch (error) {
       printError(error, context);
       process.exitCode = 1;

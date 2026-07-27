@@ -50,6 +50,11 @@ Each operation contract includes:
 - MCP interface
 - execution guidance for required inputs
 
+The full registry stores each complete contract once in
+`operations_by_id.<operation>`. Its ordered `operations` list and grouped or
+interface indexes contain lightweight `{ operation, operation_source }`
+references to that canonical map, keeping the response compact enough for MCP.
+
 The compact index is intended as the first lookup. It gives operation ids,
 categories, summaries, readiness, CLI commands, MCP tools, and exact lookup
 recipes for the full contract.
@@ -224,6 +229,47 @@ Private records stay excluded unless explicitly authorized. Global, private,
 conflicting, high-priority, and protected records expose blockers and do not
 contribute to an automatic reduction. Shadow mode never writes, archives, links,
 or physically deletes records.
+
+### One-shot automatic maintenance
+
+Agents can run one bounded maintenance pass outside the normal `agent_finish`
+lifecycle:
+
+```bash
+moryn contracts operations --operation maintenance_run
+moryn maintenance run --project .
+```
+
+The command applies at most one proof-gated semantic merge for active,
+canonical, public `memory` or `skill` records owned by the resolved project. It
+does not process private, global, high-priority, Soul, protected, conflicted, or
+confirmation-required content, and it never physically deletes source history.
+Session Fold, Episode Rollup, and general exact-duplicate consolidation are not
+part of this one-shot pass.
+
+Every run performs Event Audit both before and after the maintenance attempt,
+including when no merge is ready. Before any maintenance write, the runner also
+verifies that Git event history is append-only and checks sync state. It fails
+closed when an existing event was changed, deleted, renamed, hidden, or ignored;
+when a new event is invalid; when an unresolved conflict exists; when a
+configured shared copy cannot be reached; when newer shared changes have not
+been pulled; or when sync status cannot otherwise be verified safely.
+`--project` or `--project-id` is required; the command never derives writable
+project context silently from the process working directory.
+
+`maintenance run` is local-only and has no push option. Remote publication
+remains the separate, unsafe `sync_push` operation and requires its own explicit
+authority after reviewing the maintenance and Event Audit receipts:
+
+```bash
+moryn sync --push
+```
+
+The JSON receipt keeps `sync_preflight`, `preflight_event_audit`, `maintenance`,
+and post-write `event_audit` outcomes separate and records
+`remote_publish: false` in the one-shot safety policy. A failed preflight audit
+does not create the maintenance engine or attempt a merge. A run is never a
+daemon and does not retry in an unbounded loop.
 
 The read-only memory lifecycle report is available through the same registry:
 
@@ -886,6 +932,12 @@ and returns
 `automatic_event_audit_failed` instead of automatically pushing an unverified
 store. This is not a timer or daemon, does not change memory records, and writes
 only derived snapshots and local integrity-proof state.
+
+`sync_init`, `sync_pull`, and `sync_push` also enforce append-only Git history
+before staging, checkout/rebase, or publication. They fail closed on rewritten
+or removed events, ignored or hidden-index events, malformed additions, and
+non-regular/non-JSON event-tree entries. `EVENT_HISTORY_MUTATION` uses a fixed
+recoverable error and never returns an event path, id, or body.
 
 Supported Moryn writers and Git updates invalidate the proof before changing
 events. The metadata manifest also detects ordinary out-of-band changes. This

@@ -731,6 +731,10 @@ export function recommendedAction(code: string): string {
       return "run moryn sync init <remote>";
     case "SYNC_CONFLICT":
       return "inspect Git sync state before retrying";
+    case "SYNC_STATUS_UNAVAILABLE":
+      return "inspect sync status and retry after the store state is readable";
+    case "EVENT_HISTORY_MUTATION":
+      return "restore existing event files and append a corrective event before retrying sync";
     case "SYNC_REMOTE_UNAVAILABLE":
       return "continue locally and retry sync later";
     default:
@@ -1447,9 +1451,15 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
 
 export function toErrorEnvelope(error: unknown, context?: MorynErrorContext): MorynErrorEnvelope {
   const message = error instanceof Error ? error.message : String(error);
-  const code = errorCode(message);
-  const action = nextAction(code, message, context);
   const errorRecord = typeof error === "object" && error !== null ? (error as Record<string, unknown>) : {};
+  const explicitCode =
+    errorRecord.code === "SYNC_CONFLICT" ||
+    errorRecord.code === "SYNC_STATUS_UNAVAILABLE" ||
+    errorRecord.code === "EVENT_HISTORY_MUTATION"
+      ? errorRecord.code
+      : undefined;
+  const code = explicitCode ?? errorCode(message);
+  const action = nextAction(code, message, context);
   const overrideRecommendedAction =
     typeof errorRecord.recommended_action === "string" ? errorRecord.recommended_action : undefined;
   const baseRecoveryHint =
