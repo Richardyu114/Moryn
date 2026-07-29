@@ -5213,9 +5213,8 @@ export function createEngine(deps: EngineDeps) {
       validateRefreshInput(input);
       const refreshInput = { ...input, include_private: input.include_private === true } as ValidatedRefreshInput;
       const limit = validateLimit(input.limit, 20, "refresh");
-      const records = (await currentRecords())
-        .filter(isVisibleByDefault)
-        .filter((record) => isAllowedByPrivateBoundary(record, refreshInput.include_private))
+      const records = buildActiveLogicalMemoryView((await currentRecords()).filter(isVisibleByDefault))
+        .active_records.filter((record) => isAllowedByPrivateBoundary(record, refreshInput.include_private))
         .filter((record) => recordBootContextMatches(record, input.project_id))
         .filter((record) => !refreshInput.cursor || record.updated_at > refreshInput.cursor)
         .sort((a, b) => a.updated_at.localeCompare(b.updated_at));
@@ -5259,8 +5258,8 @@ export function createEngine(deps: EngineDeps) {
         include_private: listRecentInput.include_private === true
       } as ValidatedListRecentInput;
       const records = compactRecords(
-        (await currentRecords())
-          .filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private))
+        buildActiveLogicalMemoryView((await currentRecords()).filter(isVisibleByDefault))
+          .active_records.filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private))
           .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
           .slice(0, validateLimit(resolvedInput.limit, 20, "list_recent"))
       );

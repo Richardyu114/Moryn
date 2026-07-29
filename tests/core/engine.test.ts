@@ -2365,6 +2365,8 @@ describe("core engine", () => {
       } as const;
       const old = await engine.write({ ...base, content: { text: "Use manual sync" } });
       const current = await engine.write({ ...base, content: { text: "Use autonomous sync" } });
+      const historical = await engine.write({ ...base, content: { text: "Use ad hoc file copies" } });
+      await engine.archive({ record_id: historical.record.id, reason: "Retained only for audit" });
       await engine.logicalLink({
         record_id: current.record.id,
         linked_record_id: old.record.id,
@@ -2375,12 +2377,16 @@ describe("core engine", () => {
       const defaultRecall = await engine.recall({ project_id: "moryn" });
       const directRecall = await engine.recall({ record_ids: [old.record.id] });
       const boot = await engine.boot({ project_id: "moryn" });
+      const recent = await engine.listRecent({ limit: 10 });
+      const refresh = await engine.refresh({ project_id: "moryn", cursor: "1970-01-01T00:00:00.000Z" });
 
       expect(defaultRecall.results.map((result) => result.record.id)).toContain(current.record.id);
       expect(defaultRecall.results.map((result) => result.record.id)).not.toContain(old.record.id);
       expect(directRecall.results[0]?.record.id).toBe(old.record.id);
       expect(boot.project.important_decisions.map((record: { id: string }) => record.id)).toContain(current.record.id);
       expect(boot.project.important_decisions.map((record: { id: string }) => record.id)).not.toContain(old.record.id);
+      expect(recent.records.map((record) => record.id)).toEqual([current.record.id]);
+      expect(refresh.changes.map((change) => change.record_id)).toEqual([current.record.id]);
     });
   });
 

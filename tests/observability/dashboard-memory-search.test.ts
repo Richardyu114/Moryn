@@ -115,21 +115,24 @@ describe("dashboard memory search API scope", () => {
             history: 1,
             set_aside: 1
           },
-          total_visible: 6,
-          total_matches: 6,
+          total_visible: 3,
+          total_matches: 3,
           offset: 0,
           limit: 2,
           returned: 2,
           has_more: true
         });
-        expect(
-          response.breakdown.current +
-            response.breakdown.older_versions +
-            response.breakdown.history +
-            response.breakdown.set_aside
-        ).toBe(response.total_visible);
+        expect(response.total_visible).toBe(response.breakdown.current);
+        expect(JSON.stringify(response)).not.toContain("Current candidate");
+        expect(JSON.stringify(response)).not.toContain("Current history");
+        expect(JSON.stringify(response)).not.toContain("Current quarantine");
         expect(JSON.stringify(response)).not.toContain("Other project canonical");
         expect(JSON.stringify(response)).not.toContain("Private current canonical");
+
+        const oldSourceSearch = (await (
+          await fetch(new URL("/api/memory/search?q=current%20candidate", server.url))
+        ).json()) as MemorySearchResponse;
+        expect(oldSourceSearch).toMatchObject({ total_visible: 3, total_matches: 0, records: [] });
       } finally {
         await server.close();
       }
@@ -176,10 +179,10 @@ describe("dashboard memory search API scope", () => {
         expect(response).toMatchObject({
           scope: { mode: "store", includes_global: true },
           breakdown: { current: 2, older_versions: 0, history: 1, set_aside: 0 },
-          total_visible: 3,
-          total_matches: 2,
+          total_visible: 2,
+          total_matches: 1,
           returned: 1,
-          has_more: true
+          has_more: false
         });
         expect(response.scope).not.toHaveProperty("project_id");
       } finally {
@@ -237,12 +240,7 @@ describe("dashboard memory search API scope", () => {
         expect(genericSearchHtml).not.toContain("Portable preference shown only in Preferences");
         expect(response).not.toHaveProperty("kind");
         expect(response.total_visible).toBe(1);
-        expect(
-          response.breakdown.current +
-            response.breakdown.older_versions +
-            response.breakdown.history +
-            response.breakdown.set_aside
-        ).toBe(response.total_visible);
+        expect(response.total_visible).toBe(response.breakdown.current);
         expect(
           response.records.every((record) => record.text !== "Portable preference shown only in Preferences")
         ).toBe(true);

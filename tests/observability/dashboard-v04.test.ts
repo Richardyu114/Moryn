@@ -353,6 +353,10 @@ describe("v0.4 dashboard projections", () => {
       const fixture = {
         ...data,
         all_records: [...searchFillers, ...planSources.flat()],
+        memory_status: {
+          ...data.memory_status,
+          current_record_ids: [...searchFillers, ...planSources.flat()].map((record) => record.id)
+        },
         memory_maintenance: {
           ...data.memory_maintenance,
           inventory: {

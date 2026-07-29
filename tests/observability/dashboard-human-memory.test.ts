@@ -106,8 +106,21 @@ describe("human-facing dashboard memory status", () => {
       expect(html).toContain("3 items remain outside current use as older-version, history, or review material");
       expect(html).toContain(absorbedText);
       expect(html).toContain(pendingText);
-      expect(html).toContain(currentText);
-      expect(html).toContain(olderText);
+      const memoryLibraryStart = html.indexOf('id="saved-memory-library" data-memory-search');
+      const memoryLibraryEnd = html.indexOf("data-v04-summary", memoryLibraryStart);
+      const memoryLibrary = html.slice(memoryLibraryStart, memoryLibraryEnd);
+      expect(memoryLibrary).toContain(currentText);
+      expect(memoryLibrary).not.toContain(olderText);
+
+      const compactionDrawerStart = html.indexOf('<section data-drawer-payload="memory-compaction"');
+      const compactionDrawerEnd = html.indexOf("<section data-drawer-payload=", compactionDrawerStart + 1);
+      const compactionDrawer = html.slice(compactionDrawerStart, compactionDrawerEnd);
+      expect(compactionDrawer).toContain(currentText);
+      expect(compactionDrawer).not.toContain(olderText);
+      expect(compactionDrawer).toContain("Only the merged current conclusions are shown below");
+      expect(data.memory_status.current_record_ids).toContain(current.record.id);
+      expect(data.memory_status.current_record_ids).not.toContain(older.record.id);
+      expect(data.recent_value.map((record) => record.id)).not.toContain(older.record.id);
       expect(html).not.toContain(foreignText);
       expect(html).not.toContain("Organized</span><strong>1%");
     });

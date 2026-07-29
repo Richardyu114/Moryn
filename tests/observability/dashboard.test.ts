@@ -707,7 +707,7 @@ describe("observability dashboard", () => {
     });
   });
 
-  it("keeps first-screen stored content representative across memory states", async () => {
+  it("keeps first-screen stored content focused on the current logical memory view", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
         now: () => "2026-06-01T00:00:00.000Z",
@@ -774,18 +774,8 @@ describe("observability dashboard", () => {
       });
       const html = renderDashboardHtml(data, { showStoredContent: true });
 
-      expect(data.recent_value.slice(0, 4).map((item) => item.state)).toEqual([
-        "archived",
-        "archived",
-        "archived",
-        "archived"
-      ]);
-      expect(data.stored_content_preview.map((item) => item.state)).toEqual([
-        "candidate",
-        "canonical",
-        "raw",
-        "archived"
-      ]);
+      expect(data.recent_value.map((item) => item.state)).toEqual(["raw", "candidate", "canonical"]);
+      expect(data.stored_content_preview.map((item) => item.state)).toEqual(["candidate", "canonical", "raw"]);
       expect(html).toContain("data-dashboard-editorial-shell");
     });
   });
@@ -3197,7 +3187,7 @@ describe("observability dashboard", () => {
           governance: "governance"
         }
       });
-      expect(data.recent_value.find((record) => record.state === "quarantined")?.summary).toBe("[quarantined]");
+      expect(data.recent_value.find((record) => record.state === "quarantined")).toBeUndefined();
       expect(data.recent_value.map((record) => record.summary)).toContain("<script>alert('x')</script> visible text");
 
       const html = renderDashboardHtml(data);

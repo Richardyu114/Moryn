@@ -250,6 +250,7 @@ export interface DashboardMemoryStatusView {
       }>;
     }>;
   };
+  current_record_ids: string[];
   recent_current_records: DashboardRecordSummary[];
   conflict_records: DashboardRecordSummary[];
 }
@@ -3915,6 +3916,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     [...statusRecords]
       .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id))
       .map((record) => summarizeRecord(record, eventsByRecord));
+  const currentMemoryRecords = summarizeMemoryStatusRecords(memoryStatusProjection.logical_active_records);
   const memoryStatus: DashboardMemoryStatusView = {
     scope: {
       mode: options.project_id ? "project" : "store",
@@ -3950,7 +3952,8 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
         }))
       }))
     },
-    recent_current_records: summarizeMemoryStatusRecords(memoryStatusProjection.logical_active_records).slice(0, 12),
+    current_record_ids: currentMemoryRecords.map((record) => record.id),
+    recent_current_records: currentMemoryRecords.slice(0, 12),
     conflict_records: summarizeMemoryStatusRecords(
       memoryStatusProjection.scoped_records.filter((record) =>
         memoryStatusProjection.logical_conflict_record_ids.includes(record.id)
@@ -4168,13 +4171,13 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     soul_studio: dashboardV04Data.soul_studio,
     dogfood_report: dogfoodReportData,
     stored_content_preview: buildStoredContentPreview(
-      memoryStatusProjection.scoped_records,
+      memoryStatusProjection.logical_active_records,
       generatedAt,
       4,
       eventsByRecord
     ),
     recent_value: buildRecentValue(
-      memoryStatusProjection.scoped_records,
+      memoryStatusProjection.logical_active_records,
       generatedAt,
       Math.min(limit, RECENT_VALUE_LIMIT),
       eventsByRecord
@@ -4503,7 +4506,10 @@ function plainHistoryTimeline(data: DashboardData): string {
 
 function memoryViewRecords(data: DashboardData): DashboardRecordSummary[] {
   const projectId = data.memory_maintenance.scope.project_id;
-  const genericMemoryRecords = data.all_records.filter((record) => record.kind !== "soul");
+  const currentRecordIds = new Set(data.memory_status.current_record_ids);
+  const genericMemoryRecords = data.all_records.filter(
+    (record) => record.kind !== "soul" && currentRecordIds.has(record.id)
+  );
   if (data.memory_maintenance.scope.mode === "store" || !projectId) return genericMemoryRecords;
   return genericMemoryRecords.filter((record) => record.scope === "global" || record.project_id === projectId);
 }

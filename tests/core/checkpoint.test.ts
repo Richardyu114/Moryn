@@ -537,13 +537,22 @@ describe("engine.checkpoint", () => {
       ).toBe(false);
       expect(events.some((event) => event.op === "archive_record")).toBe(false);
       const records = (await engine.listRecent({ limit: 100, include_private: true })).records;
+      const duplicateAudit = await engine.recall({
+        record_ids: [duplicate.record.id],
+        include_private: true
+      });
       for (const record of [...privateRecords, ...globalRecords, ...operationalRecords].map(
         (result) => result.record
       )) {
         expect(records.find((candidate) => candidate.id === record.id)?.links).toBeUndefined();
       }
-      expect(records.map((record) => record.id)).toEqual(
-        expect.arrayContaining([canonical.record.id, duplicate.record.id])
+      expect(records.map((record) => record.id)).toContain(canonical.record.id);
+      expect(records.map((record) => record.id)).not.toContain(duplicate.record.id);
+      expect(duplicateAudit.results[0]?.record.links).toContainEqual(
+        expect.objectContaining({
+          record_id: canonical.record.id,
+          link_type: "duplicate_of"
+        })
       );
     });
   });

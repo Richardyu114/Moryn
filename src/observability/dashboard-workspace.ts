@@ -409,31 +409,15 @@ function buildDrawerItems(
       truncated: record.text.length > BODY_LIMIT
     })
   );
-  const organizationSections: NonNullable<DashboardDrawerItem["sections"]> =
-    data.memory_status.organization.groups.flatMap((group) => [
-      {
-        label_en: "Current conclusion",
-        label_zh: "当前结论",
-        body_en: clip(group.current.text, BODY_LIMIT),
-        body_zh: clip(group.current.text, BODY_LIMIT),
-        truncated: group.current.text.length > BODY_LIMIT
-      },
-      ...group.older.map(({ record, relationship }) => {
-        const relation =
-          relationship === "duplicate_of"
-            ? { en: "Matching older copy · kept in history", zh: "内容相同的旧副本 · 原文保留在历史中" }
-            : relationship === "supersedes"
-              ? { en: "Older conclusion · replaced by the current one", zh: "较早结论 · 已由当前结论替代" }
-              : { en: "Older wording · corrected by the current one", zh: "较早表述 · 已由当前结论修正" };
-        return {
-          label_en: relation.en,
-          label_zh: relation.zh,
-          body_en: clip(record.text, BODY_LIMIT),
-          body_zh: clip(record.text, BODY_LIMIT),
-          truncated: record.text.length > BODY_LIMIT
-        };
-      })
-    ]);
+  const organizationSections: NonNullable<DashboardDrawerItem["sections"]> = data.memory_status.organization.groups.map(
+    (group) => ({
+      label_en: "Merged current conclusion",
+      label_zh: "合并后的当前结论",
+      body_en: clip(group.current.text, BODY_LIMIT),
+      body_zh: clip(group.current.text, BODY_LIMIT),
+      truncated: group.current.text.length > BODY_LIMIT
+    })
+  );
 
   items.push(
     metricDrawer(
@@ -503,17 +487,17 @@ function buildDrawerItems(
       "Older versions tucked away",
       "已收起旧版本",
       data.memory_status.organization.hidden_total,
-      `${data.memory_status.organization.hidden_total} older or matching versions were grouped under ${data.memory_status.organization.group_total} current conclusions. Original text is retained.`,
-      `已将 ${data.memory_status.organization.hidden_total} 条较旧或相同版本归入 ${data.memory_status.organization.group_total} 条当前结论，所有原文仍然保留。`,
+      `${data.memory_status.organization.hidden_total} older or matching versions were merged into ${data.memory_status.organization.group_total} current conclusions. Source versions remain available in history.`,
+      `已将 ${data.memory_status.organization.hidden_total} 条较旧或相同版本合并为 ${data.memory_status.organization.group_total} 条当前结论；来源版本仅保留在历史记录中。`,
       data,
       {
-        body_label_en: "What was organized",
-        body_label_zh: "具体整理了什么",
+        body_label_en: "Merged result",
+        body_label_zh: "合并结果",
         body_en: organizationSections.length
-          ? "Current conclusions and their retained older versions are shown together below."
+          ? "Only the merged current conclusions are shown below. Source versions are omitted from this view."
           : "No older or matching versions have been tucked away in this project.",
         body_zh: organizationSections.length
-          ? "下面将当前结论与保留的旧版本放在一起展示。"
+          ? "下面仅展示合并后的当前结论，不再重复铺开来源版本。"
           : "当前项目还没有需要收起的旧版本或相同内容。",
         sections: organizationSections
       }
@@ -1212,13 +1196,13 @@ export function renderMemorySearch(
     .join("");
   return `
     <div class="memory-search" id="saved-memory-library" data-memory-search${options.endpoint ? ` data-memory-search-endpoint="${escapeHtml(options.endpoint)}"` : ""}>
-      <div class="memory-search-heading"><div class="editorial-eyebrow">${i18n("Saved content", "已保存内容")}</div><h2>${i18n("What Moryn remembers", "Moryn 记住了什么")}</h2><p>${i18n("These are the actual saved items. Open any one to read its content and recent changes.", "下面都是实际保存的内容。点开任意一条，即可查看正文和近期变更。")}</p></div>
+      <div class="memory-search-heading"><div class="editorial-eyebrow">${i18n("Current memory", "当前记忆")}</div><h2>${i18n("What Moryn remembers", "Moryn 记住了什么")}</h2><p>${i18n("These are the current conclusions after organization and merging. Open any one to read its content and recent changes.", "下面仅展示整理、合并后的当前结论。点开任意一条，即可查看正文和近期变更。")}</p></div>
       <div class="memory-search-field">
         <input type="search" data-memory-search-input placeholder="Search saved memories" aria-label="Search saved memories" data-i18n-placeholder-en="Search saved memories" data-i18n-placeholder-zh="搜索已保存的记忆" data-i18n-aria-label-en="Search saved memories" data-i18n-aria-label-zh="搜索已保存的记忆">
       </div>
       <div class="memory-chips" data-memory-chips>${allChip}${kindChips}</div>
       <p class="memory-search-count" data-memory-search-count role="status" aria-live="polite" data-total="${entries.length}" data-visible-total="${allEntries.length}" data-i18n-en="${escapeHtml(total.en)}" data-i18n-zh="${escapeHtml(total.zh)}">${escapeHtml(total.en)}</p>
-      <p class="memory-search-breakdown" data-i18n-en="${escapeHtml(`${genericMemoryRecords.length} saved here: ${stateBreakdown.current_total} current · ${stateBreakdown.history_total} history · ${organizedEn} · ${stateBreakdown.quarantined_total} set aside`)}" data-i18n-zh="${escapeHtml(`这里共保存 ${genericMemoryRecords.length} 条：${stateBreakdown.current_total} 条当前可用 · ${stateBreakdown.history_total} 条历史 · ${stateBreakdown.organized_total} 条旧版本已收起 · ${stateBreakdown.quarantined_total} 条待查`)}"><strong>${genericMemoryRecords.length}</strong> saved here: ${stateBreakdown.current_total} current · ${stateBreakdown.history_total} history · ${organizedEn} · ${stateBreakdown.quarantined_total} set aside</p>
+      <p class="memory-search-breakdown" data-i18n-en="${escapeHtml(`${genericMemoryRecords.length} current memories shown · ${organizedEn}; history and set-aside records are omitted from this view`)}" data-i18n-zh="${escapeHtml(`当前展示 ${genericMemoryRecords.length} 条有效记忆 · ${stateBreakdown.organized_total} 条旧版本已收起；历史与待查内容不在此处重复展示`)}"><strong>${genericMemoryRecords.length}</strong> current memories shown · ${organizedEn}; history and set-aside records are omitted from this view</p>
       ${cappedNotice}
       <div class="ms-results" data-memory-search-results>${results}</div>
       <button type="button" class="memory-search-more" data-memory-search-more${capped && options.endpoint ? "" : " hidden"} data-i18n-en="Show more saved memories" data-i18n-zh="显示更多已保存记忆">Show more saved memories</button>
@@ -1286,12 +1270,12 @@ export function renderDashboardWorkspace(data: DashboardData, fragments: Dashboa
   const memoryScope =
     data.memory_maintenance.scope.mode === "project"
       ? {
-          en: "Search memories saved for this project together with shared memories. Open any item to read its content and recent changes. Nothing is written here.",
-          zh: "搜索为当前项目保存的记忆以及共享记忆。点开任意一条即可查看正文和近期变更；此处不会写入。"
+          en: "Search current memories for this project together with shared memories. Merged source versions stay in History instead of appearing here again.",
+          zh: "搜索当前项目及共享范围内的有效记忆。合并前的来源版本保留在历史中，不会在这里重复出现。"
         }
       : {
-          en: "Search all visible memories in this store. Open any item to read its content and recent changes. Nothing is written here.",
-          zh: "搜索当前存储中的全部可见记忆。点开任意一条即可查看正文和近期变更；此处不会写入。"
+          en: "Search current memories in this store. Merged source versions stay in History instead of appearing here again.",
+          zh: "搜索当前存储中的有效记忆。合并前的来源版本保留在历史中，不会在这里重复出现。"
         };
   return `<div data-dashboard-editorial-shell>
     <header class="editorial-header">
