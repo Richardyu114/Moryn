@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { toErrorEnvelope } from "../../src/core/errors.js";
+import { OperationDeadlineExceededError } from "../../src/core/operation-deadline.js";
 
 const NEXT_ACTION_SELECTION_SOURCES = {
   error_next_action: "error.next_action",
@@ -262,6 +263,21 @@ function expectNextActionExecution(action: {
 }
 
 describe("error envelopes", () => {
+  it("preserves the operation deadline code and a local-first retry action", () => {
+    const envelope = toErrorEnvelope(new OperationDeadlineExceededError());
+
+    expect(envelope).toMatchObject({
+      ok: false,
+      error: {
+        code: "OPERATION_DEADLINE_EXCEEDED",
+        message: "Operation deadline exceeded",
+        recoverable: true,
+        recommended_action:
+          "continue locally; retry the operation, and retry sync later if local data was already saved"
+      }
+    });
+  });
+
   it("classifies sensitive content failures with the documented error code", () => {
     const envelope = toErrorEnvelope(new Error("Sensitive content detected: event must be redacted before append"));
 

@@ -138,6 +138,21 @@ http://<machine-ip>:8765/
 `127.0.0.1` is local-only. `0.0.0.0` listens on external network interfaces, but
 firewalls and network policy still need to allow the selected port.
 
+### Opt-in Container Supervisor
+
+External Docker-style deployments can explicitly select
+[`deploy/container/moryn-dashboard-entrypoint.mjs`](../deploy/container/README.md)
+to keep the Dashboard alive beside one foreground command. The foreground
+command owns the container exit status; the entrypoint restarts only a crashed
+Dashboard with capped backoff, forwards `SIGTERM` and `SIGINT` to both process
+groups, and gives the Dashboard a bounded graceful-stop window.
+
+The entrypoint is not enabled by package scripts or normal Moryn commands. It
+does not manage a reverse proxy, tunnel connector, VS Code `forward-internal`,
+access tokens, or the Docker/Compose restart policy. See the linked container
+guide for the lifecycle contract, explicit Dockerfile example, configuration,
+and network-safety boundary.
+
 ## Modes
 
 ### Live Server

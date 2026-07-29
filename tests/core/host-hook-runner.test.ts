@@ -102,6 +102,132 @@ describe("host hook runner", () => {
     });
   });
 
+  it("replaces a sensitive PreCompact compact summary with generic checkpoint evidence", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const secret = "precompact-secret-abcdefghijklmnop";
+      const result = await runHostHook({
+        storePath,
+        project_id: "moryn",
+        current_task: "Protect compact summaries",
+        hook: {
+          ...base,
+          event: "pre_compact",
+          trigger: "auto",
+          compact_summary: `Use api_key=${secret} for deployment.`,
+          last_assistant_message: "Safe alternate text must not replace protected compact evidence."
+        }
+      });
+
+      expect(result).toMatchObject({
+        action: "checkpoint_before_compaction",
+        checkpoint: { recovery_pack: { progress: ["Checkpoint before auto"] } },
+        transcript_evidence: {
+          status: "protected",
+          reason: "sensitive_content",
+          source: "hook_payload"
+        }
+      });
+      expect(JSON.stringify(result)).not.toContain(secret);
+      expect(JSON.stringify(result)).not.toContain("Safe alternate text");
+      expect(
+        JSON.stringify(await createEngine({ storePath }).listRecent({ project_id: "moryn", limit: 20 }))
+      ).not.toContain(secret);
+    });
+  });
+
+  it("synthesizes Stop status from recovery instead of a sensitive compact summary", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      await runHostHook({
+        storePath,
+        project_id: "moryn",
+        current_task: "Protect stop summaries",
+        hook: {
+          ...base,
+          event: "pre_compact",
+          trigger: "auto",
+          compact_summary: "Verified safe checkpoint recovery."
+        }
+      });
+      const secret = "stop-secret-abcdefghijklmnop";
+      const result = await runHostHook({
+        storePath,
+        project_id: "moryn",
+        current_task: "Protect stop summaries",
+        hook: {
+          ...base,
+          event: "stop",
+          occurred_at: "2026-07-11T00:05:00.000Z",
+          compact_summary: `Use api_key=${secret} for deployment.`,
+          last_assistant_message: "Safe alternate Stop text must not replace protected compact evidence."
+        },
+        push: false
+      });
+
+      expect(result).toMatchObject({
+        action: "agent_status",
+        details: {
+          record: {
+            content: {
+              synthesis_mode: "evidence_synthesized",
+              synthesis_progress: ["Verified safe checkpoint recovery."]
+            }
+          }
+        },
+        transcript_evidence: {
+          status: "protected",
+          reason: "sensitive_content",
+          source: "hook_payload"
+        }
+      });
+      expect(JSON.stringify(result)).not.toContain(secret);
+      expect(JSON.stringify(result)).not.toContain("Safe alternate Stop text");
+      expect(
+        JSON.stringify(await createEngine({ storePath }).listRecent({ project_id: "moryn", limit: 20 }))
+      ).not.toContain(secret);
+    });
+  });
+
+  it("persists only minimal SessionEnd fallback when its compact summary is sensitive", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const secret = "session-end-secret-abcdefghijklmnop";
+      const result = await runHostHook({
+        storePath,
+        project_id: "moryn",
+        current_task: "Protect session-end summaries",
+        hook: {
+          ...base,
+          host: "claude",
+          event: "session_end",
+          compact_summary: `Use api_key=${secret} for deployment.`,
+          last_assistant_message: "Safe alternate SessionEnd text must not replace protected compact evidence."
+        },
+        push: false
+      });
+
+      expect(result).toMatchObject({
+        action: "agent_finish",
+        details: {
+          record: {
+            content: {
+              text: "Session ended for task: Protect session-end summaries.",
+              synthesis_mode: "minimal_fallback"
+            }
+          }
+        },
+        transcript_evidence: {
+          status: "protected",
+          reason: "sensitive_content",
+          source: "hook_payload"
+        }
+      });
+      expect(JSON.stringify(result)).not.toContain(secret);
+      expect(JSON.stringify(result)).not.toContain("Safe alternate SessionEnd text");
+      expect(
+        JSON.stringify(await createEngine({ storePath }).listRecent({ project_id: "moryn", limit: 20 }))
+      ).not.toContain(secret);
+    });
+  });
+
   it("keeps durable checkpoint synthesis ahead of a weaker SessionEnd assistant message", async () => {
     await withInitializedTempStore(async (storePath) => {
       await runHostHook({

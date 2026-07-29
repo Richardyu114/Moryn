@@ -1450,14 +1450,41 @@ describe("MCP stdio server", () => {
         const before = parseTextContent(
           await client.callTool({ name: "activation_status", arguments: { host: "claude", project_path: project } })
         ) as any;
+        const beforeHealth = parseTextContent(
+          await client.callTool({ name: "health_check", arguments: { host: "claude", project_path: project } })
+        ) as any;
         const applied = parseTextContent(
           await client.callTool({ name: "activation_apply", arguments: { host: "claude", project_path: project } })
         ) as any;
         const codex = parseTextContent(
           await client.callTool({ name: "activation_apply", arguments: { host: "codex", project_path: project } })
         ) as any;
+        const health = parseTextContent(
+          await client.callTool({ name: "health_check", arguments: { host: "codex", project_path: project } })
+        ) as any;
+        const setupAfterActivation = parseTextContent(
+          await client.callTool({ name: "setup", arguments: { host: "codex", project_path: project } })
+        ) as any;
+        const contextAfterActivation = parseTextContent(
+          await client.callTool({
+            name: "context_pack",
+            arguments: { project_path: project, pull: false, agent: { client: "codex" } }
+          })
+        ) as any;
 
         expect(before).toMatchObject({ status: "not_installed" });
+        expect(beforeHealth).toMatchObject({
+          status: "needs_attention",
+          activation_status: { host: "claude", status: "not_installed" },
+          summary: { status: "needs_attention", warning_checks: 1 },
+          checks_by_id: {
+            host_activation: {
+              status: "warning",
+              category: "host",
+              summary: "Claude hooks need attention (not_installed)."
+            }
+          }
+        });
         expect(applied).toMatchObject({
           ok: true,
           activation: { changed: true },
@@ -1467,6 +1494,32 @@ describe("MCP stdio server", () => {
           ok: true,
           activation: { changed: true },
           status: { status: "configured_unverified" }
+        });
+        expect(health.activation_status).toMatchObject({
+          host: "codex",
+          status: "configured_unverified",
+          stale_entries: 0
+        });
+        expect(health).toMatchObject({
+          status: "healthy",
+          summary: { status: "healthy", warning_checks: 0 },
+          checks_by_id: {
+            host_activation: {
+              status: "pass",
+              category: "host",
+              summary: "Codex hooks are configured for the current Moryn runtime."
+            }
+          }
+        });
+        expect(setupAfterActivation.activation_status).toMatchObject({
+          status: "configured_unverified",
+          runtime_binding_status: "current",
+          stale_entries: 0
+        });
+        expect(contextAfterActivation.activation_status).toMatchObject({
+          status: "configured_unverified",
+          runtime_binding_status: "current",
+          stale_entries: 0
         });
       });
     } finally {

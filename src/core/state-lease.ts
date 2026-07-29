@@ -6,6 +6,7 @@ import {
   open,
   readdir,
   readFile,
+  readlink,
   realpath,
   rename,
   rm,
@@ -15,6 +16,13 @@ import {
 } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
+import {
+  currentOperationDeadlineSignal,
+  isOperationDeadlineExceeded,
+  OperationDeadlineExceededError,
+  throwIfOperationDeadlineExceeded,
+  withoutOperationDeadline
+} from "./operation-deadline.js";
 
 const LEASE_TIMEOUT_MS = 60_000;
 // Keep this below the acquisition timeout so a crashed owner can be recovered
@@ -22,6 +30,7 @@ const LEASE_TIMEOUT_MS = 60_000;
 const LEASE_STALE_MS = 30_000;
 const OWNERLESS_STATE_STALE_MS = 5_000;
 const LEASE_POLL_MS = 25;
+const LEASE_RELEASE_GATE_TIMEOUT_MS = 500;
 const RECOVERY_OWNER_NAME = "owner.json";
 const RECOVERY_CLAIM_PREFIX = "owner.recover-";
 
@@ -34,13 +43,23 @@ interface HeldStateLease {
 interface StateLeaseOwner {
   token: string;
   pid: number;
+  process_instance_id?: string;
+  process_start_identity?: string;
 }
 
 interface RecoveryGate {
   release: () => Promise<void>;
 }
 
+class RecoveryGateTimeoutError extends Error {
+  constructor() {
+    super("Store state recovery gate timed out");
+    this.name = "RecoveryGateTimeoutError";
+  }
+}
+
 const heldStateLeases = new AsyncLocalStorage<ReadonlyMap<string, HeldStateLease>>();
+const PROCESS_INSTANCE_ID = `${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
 function hasErrorCode(error: unknown, code: string): boolean {
   return error instanceof Error && "code" in error && (error as { code?: unknown }).code === code;
@@ -60,14 +79,16 @@ async function canonicalStorePath(storePath: string): Promise<string> {
   }
 }
 
-function ownerPayload(token: string, acquiredAt: string): Buffer {
+function ownerPayload(token: string, acquiredAt: string, processStartIdentity: string | undefined): Buffer {
   return Buffer.from(
     `${JSON.stringify(
       {
         version: 1,
         token,
         pid: process.pid,
-        acquired_at: acquiredAt
+        acquired_at: acquiredAt,
+        process_instance_id: PROCESS_INSTANCE_ID,
+        ...(processStartIdentity ? { process_start_identity: processStartIdentity } : {})
       },
       null,
       2
@@ -77,7 +98,7 @@ function ownerPayload(token: string, acquiredAt: string): Buffer {
 }
 
 async function writeOwner(handle: FileHandle, token: string, acquiredAt: string): Promise<void> {
-  const payload = ownerPayload(token, acquiredAt);
+  const payload = ownerPayload(token, acquiredAt, (await linuxProcessIdentity(process.pid))?.identity);
   let offset = 0;
   while (offset < payload.length) {
     const { bytesWritten } = await handle.write(payload, offset, payload.length - offset, offset);
@@ -90,11 +111,23 @@ async function writeOwner(handle: FileHandle, token: string, acquiredAt: string)
 
 async function readOwner(ownerPath: string): Promise<StateLeaseOwner | undefined> {
   try {
-    const owner = JSON.parse(await readFile(ownerPath, "utf8")) as { token?: unknown; pid?: unknown };
+    const owner = JSON.parse(await readFile(ownerPath, "utf8")) as {
+      token?: unknown;
+      pid?: unknown;
+      process_instance_id?: unknown;
+      process_start_identity?: unknown;
+    };
     if (typeof owner.token !== "string" || !Number.isSafeInteger(owner.pid) || Number(owner.pid) <= 0) {
       return undefined;
     }
-    return { token: owner.token, pid: Number(owner.pid) };
+    return {
+      token: owner.token,
+      pid: Number(owner.pid),
+      ...(typeof owner.process_instance_id === "string" ? { process_instance_id: owner.process_instance_id } : {}),
+      ...(typeof owner.process_start_identity === "string"
+        ? { process_start_identity: owner.process_start_identity }
+        : {})
+    };
   } catch {
     return undefined;
   }
@@ -111,6 +144,50 @@ function processIsAlive(pid: number): boolean {
   } catch (error) {
     return !hasErrorCode(error, "ESRCH");
   }
+}
+
+async function linuxProcessIdentity(pid: number): Promise<{ identity: string; state: string } | undefined> {
+  if (process.platform !== "linux") return undefined;
+  try {
+    const [statText, bootId, pidNamespace] = await Promise.all([
+      readFile(`/proc/${pid}/stat`, "utf8"),
+      readFile("/proc/sys/kernel/random/boot_id", "utf8"),
+      readlink(`/proc/${pid}/ns/pid`)
+    ]);
+    const commandEnd = statText.lastIndexOf(")");
+    if (commandEnd < 0) return undefined;
+    // /proc/<pid>/stat field 3 begins after the parenthesized command. The
+    // process start time is field 22, hence index 19 in this remainder.
+    const fields = statText
+      .slice(commandEnd + 1)
+      .trim()
+      .split(/\s+/u);
+    const state = fields[0];
+    const startTicks = fields[19];
+    const normalizedBootId = bootId.trim();
+    if (!state || !startTicks || !/^\d+$/u.test(startTicks) || !normalizedBootId || !pidNamespace) return undefined;
+    return { identity: `${normalizedBootId}:${pidNamespace}:${startTicks}`, state };
+  } catch {
+    return undefined;
+  }
+}
+
+async function ownerIsDefinitelyLive(owner: StateLeaseOwner): Promise<boolean> {
+  if (!processIsAlive(owner.pid)) return false;
+  if (owner.pid === process.pid && owner.process_instance_id === PROCESS_INSTANCE_ID) return true;
+  // Native Windows/macOS do not expose Linux PID namespace/start-tick
+  // identity. Preserve the conservative live-PID behavior there rather than
+  // stealing a genuinely live cross-process lease after a delayed heartbeat.
+  if (process.platform !== "linux") return true;
+  const currentProcess = await linuxProcessIdentity(owner.pid);
+  if (currentProcess === undefined) return true;
+  if (currentProcess.state === "Z" || currentProcess.state === "X") return false;
+  // Missing identity is ambiguous, including during a rolling upgrade while
+  // an older Moryn process still owns the lease. Preserve mutual exclusion;
+  // new owners carry namespace-aware identity so a stale cross-container PID
+  // collision is recoverable without making this unsafe guess.
+  if (!owner.process_start_identity) return true;
+  return owner.process_start_identity === currentProcess.identity;
 }
 
 async function pathUpdatedAt(path: string): Promise<number | undefined> {
@@ -134,11 +211,15 @@ async function restoreRecoveryOwner(claimPath: string, ownerPath: string): Promi
   }
 }
 
-function recoveryClaimPid(name: string): number | undefined {
-  const match = /^owner\.recover-(\d+)-/.exec(name);
-  if (!match?.[1]) return undefined;
+function recoveryClaimIdentity(name: string): { pid: number; claimed_at_ms: number } | undefined {
+  const match = /^owner\.recover-(\d+)-(\d+)-[a-f0-9]+\.json$/u.exec(name);
+  if (!match?.[1] || !match[2]) return undefined;
   const pid = Number(match[1]);
-  return Number.isSafeInteger(pid) && pid > 0 ? pid : undefined;
+  const claimedAtMs = Number(match[2]);
+  if (!Number.isSafeInteger(pid) || pid <= 0 || !Number.isSafeInteger(claimedAtMs) || claimedAtMs <= 0) {
+    return undefined;
+  }
+  return { pid, claimed_at_ms: claimedAtMs };
 }
 
 async function removeEmptyRecoveryGate(recoveryPath: string): Promise<boolean> {
@@ -153,12 +234,18 @@ async function removeEmptyRecoveryGate(recoveryPath: string): Promise<boolean> {
 }
 
 async function recoverAbandonedGateClaim(recoveryPath: string, ownerPath: string, claimName: string): Promise<boolean> {
-  const recovererPid = recoveryClaimPid(claimName);
-  if (recovererPid === undefined || processIsAlive(recovererPid)) return false;
-
+  const claim = recoveryClaimIdentity(claimName);
   const claimPath = join(recoveryPath, claimName);
+  if (claim === undefined) return false;
+  const claimUpdatedAt = await pathUpdatedAt(claimPath);
+  // rename preserves the stale owner's mtime, so the timestamp embedded in
+  // the unique claim name protects the new recoverer during the handoff race.
+  // A resumed original owner can also refresh the renamed inode's mtime.
+  const latestActivityAt = Math.max(claim.claimed_at_ms, claimUpdatedAt ?? 0);
+  if (Date.now() - latestActivityAt <= OWNERLESS_STATE_STALE_MS) return false;
+
   const movedOwner = await readOwner(claimPath);
-  if (movedOwner && processIsAlive(movedOwner.pid)) {
+  if (movedOwner && (await ownerIsDefinitelyLive(movedOwner))) {
     await restoreRecoveryOwner(claimPath, ownerPath);
     return false;
   }
@@ -171,10 +258,10 @@ async function recoverRecoveryGate(recoveryPath: string, recoveryToken: string):
   const observedOwner = await readOwner(ownerPath);
   const observedOwnerUpdatedAt = await pathUpdatedAt(ownerPath);
 
-  if (observedOwner && processIsAlive(observedOwner.pid)) return false;
   if (observedOwnerUpdatedAt !== undefined && Date.now() - observedOwnerUpdatedAt <= OWNERLESS_STATE_STALE_MS) {
     return false;
   }
+  if (observedOwner && (await ownerIsDefinitelyLive(observedOwner))) return false;
 
   if (observedOwnerUpdatedAt !== undefined) {
     const claimPath = join(recoveryPath, `${RECOVERY_CLAIM_PREFIX}${recoveryToken}.json`);
@@ -189,7 +276,7 @@ async function recoverRecoveryGate(recoveryPath: string, recoveryToken: string):
       const movedOwner = await readOwner(claimPath);
       if (
         (observedOwner && movedOwner?.token !== observedOwner.token) ||
-        (movedOwner && processIsAlive(movedOwner.pid))
+        (movedOwner && (await ownerIsDefinitelyLive(movedOwner)))
       ) {
         await restoreRecoveryOwner(claimPath, ownerPath);
         return false;
@@ -284,11 +371,54 @@ async function runWithRecoveryGate<T>(recoveryPath: string, work: () => Promise<
   while (true) {
     const gated = await withRecoveryGate(recoveryPath, work);
     if (gated.acquired) return gated.value;
-    if (Date.now() - startedAt > LEASE_TIMEOUT_MS) {
-      throw new Error("Store state recovery gate timed out");
+    if (Date.now() - startedAt >= LEASE_RELEASE_GATE_TIMEOUT_MS) {
+      throw new RecoveryGateTimeoutError();
     }
     await delay(LEASE_POLL_MS);
   }
+}
+
+async function operationAwarePollDelay(): Promise<void> {
+  const signal = currentOperationDeadlineSignal();
+  try {
+    await delay(LEASE_POLL_MS, undefined, signal ? { signal } : undefined);
+  } catch (error) {
+    if (signal?.aborted) {
+      throw isOperationDeadlineExceeded(signal.reason) ? signal.reason : new OperationDeadlineExceededError();
+    }
+    throw error;
+  }
+}
+
+function assertLeaseAcquisitionBudget(startedAt: number): void {
+  throwIfOperationDeadlineExceeded();
+  if (Date.now() - startedAt >= LEASE_TIMEOUT_MS) throw new Error("Store state lease timed out");
+}
+
+async function releaseOwnedLeaseWithoutRecoveryGate(
+  leasePath: string,
+  ownerPath: string,
+  token: string
+): Promise<void> {
+  if ((await readOwnerToken(ownerPath)) !== token) return;
+  const releasedPath = `${leasePath}.released-${token}`;
+  try {
+    await rename(leasePath, releasedPath);
+  } catch (error) {
+    if (hasErrorCode(error, "ENOENT")) return;
+    throw error;
+  }
+
+  const movedOwnerPath = join(releasedPath, "owner.json");
+  if ((await readOwnerToken(movedOwnerPath)) !== token) {
+    try {
+      await rename(releasedPath, leasePath);
+    } catch (error) {
+      if (!hasErrorCode(error, "EEXIST")) throw error;
+    }
+    throw new Error("Store state lease ownership changed during release");
+  }
+  await rm(releasedPath, { recursive: true, force: true });
 }
 
 async function recoverStaleLease(leasePath: string, ownerPath: string, token: string): Promise<boolean> {
@@ -296,11 +426,11 @@ async function recoverStaleLease(leasePath: string, ownerPath: string, token: st
   const observedUpdatedAt = observedOwnerUpdatedAt ?? (await pathUpdatedAt(leasePath));
   if (observedUpdatedAt === undefined) return false;
   const observedOwner = await readOwner(ownerPath);
-  if (observedOwner && processIsAlive(observedOwner.pid)) return false;
   const staleAfter = observedOwnerUpdatedAt === undefined ? OWNERLESS_STATE_STALE_MS : LEASE_STALE_MS;
   if (Date.now() - observedUpdatedAt <= staleAfter) {
     return false;
   }
+  if (observedOwner && (await ownerIsDefinitelyLive(observedOwner))) return false;
 
   const stalePath = `${leasePath}.stale-${token}`;
   try {
@@ -316,7 +446,7 @@ async function recoverStaleLease(leasePath: string, ownerPath: string, token: st
   if (
     movedUpdatedAt !== observedUpdatedAt ||
     movedOwner?.token !== observedOwner?.token ||
-    (movedOwner !== undefined && processIsAlive(movedOwner.pid))
+    (movedOwner !== undefined && (await ownerIsDefinitelyLive(movedOwner)))
   ) {
     await rename(stalePath, leasePath);
     return false;
@@ -338,9 +468,7 @@ async function acquireStateLease(storePath: string): Promise<() => Promise<void>
   await mkdir(statePath, { recursive: true, mode: 0o700 });
   await chmod(statePath, 0o700);
   while (!ownerHandle) {
-    if (Date.now() - startedAt > LEASE_TIMEOUT_MS) {
-      throw new Error("Store state lease timed out");
-    }
+    assertLeaseAcquisitionBudget(startedAt);
     const gated = await withRecoveryGate(recoveryPath, async () => {
       try {
         await mkdir(leasePath, { mode: 0o700 });
@@ -375,7 +503,8 @@ async function acquireStateLease(storePath: string): Promise<() => Promise<void>
       ownerHandle = gated.value;
       break;
     }
-    await delay(LEASE_POLL_MS);
+    assertLeaseAcquisitionBudget(startedAt);
+    await operationAwarePollDelay();
   }
 
   let pendingHeartbeat: Promise<void> | undefined;
@@ -391,16 +520,49 @@ async function acquireStateLease(storePath: string): Promise<() => Promise<void>
   }, LEASE_STALE_MS / 4);
   heartbeat.unref();
 
-  return async () => {
+  let released = false;
+  let releaseInFlight: Promise<void> | undefined;
+  const performRelease = async () => {
     clearInterval(heartbeat);
     await pendingHeartbeat;
-    await runWithRecoveryGate(recoveryPath, async () => {
+    let closeError: unknown;
+    try {
       await ownerHandle.close();
-      if ((await readOwnerToken(ownerPath)) === token) {
-        await rm(leasePath, { recursive: true, force: true });
-      }
-    });
+    } catch (error) {
+      closeError = error;
+    }
+    try {
+      await runWithRecoveryGate(recoveryPath, async () => {
+        if ((await readOwnerToken(ownerPath)) === token) {
+          await rm(leasePath, { recursive: true, force: true });
+        }
+      });
+    } catch {
+      // A wedged recovery-gate owner must not make us abandon our own lease.
+      // The token-checked rename is atomic and leaves the canonical lease path
+      // immediately available to the next owner.
+      await releaseOwnedLeaseWithoutRecoveryGate(leasePath, ownerPath, token);
+    }
+    released = true;
+    if (closeError) throw closeError;
   };
+  const release = async () => {
+    if (released) return;
+    releaseInFlight ??= performRelease().finally(() => {
+      releaseInFlight = undefined;
+    });
+    await releaseInFlight;
+  };
+
+  try {
+    // Acquisition can complete in the same millisecond that the inherited
+    // operation expires. Never enter protected work without rechecking it.
+    throwIfOperationDeadlineExceeded();
+    return release;
+  } catch (error) {
+    await withoutOperationDeadline(release);
+    throw error;
+  }
 }
 
 async function runNestedWithLease<T>(lease: HeldStateLease, work: () => Promise<T>): Promise<T> {
@@ -437,16 +599,46 @@ export async function withStoreStateLease<T>(storePath: string, work: () => Prom
   const canonicalPath = await canonicalStorePath(storePath);
   const currentLeases = heldStateLeases.getStore();
   const currentLease = currentLeases?.get(canonicalPath);
-  if (currentLease?.active) return runNestedWithLease(currentLease, work);
+  if (currentLease?.active) {
+    throwIfOperationDeadlineExceeded();
+    return runNestedWithLease(currentLease, work);
+  }
 
   const release = await acquireStateLease(canonicalPath);
   const lease: HeldStateLease = { active: true, nestedOperations: 0 };
   const nextLeases = new Map(currentLeases);
   nextLeases.set(canonicalPath, lease);
+  let workOutcome: { ok: true; value: T } | { ok: false; error: unknown };
   try {
-    return await heldStateLeases.run(nextLeases, work);
-  } finally {
-    await drainNestedOperationsAndDeactivate(lease);
-    await release();
+    throwIfOperationDeadlineExceeded();
+    workOutcome = { ok: true, value: await heldStateLeases.run(nextLeases, work) };
+  } catch (error) {
+    workOutcome = { ok: false, error };
   }
+
+  const cleanupErrors: unknown[] = [];
+  try {
+    await drainNestedOperationsAndDeactivate(lease);
+  } catch (error) {
+    cleanupErrors.push(error);
+  }
+  try {
+    await withoutOperationDeadline(release);
+  } catch (error) {
+    cleanupErrors.push(error);
+  }
+
+  if (!workOutcome.ok) {
+    if (cleanupErrors.length > 0) {
+      throw new AggregateError(
+        [workOutcome.error, ...cleanupErrors],
+        "Store state lease work and cleanup both failed",
+        { cause: workOutcome.error }
+      );
+    }
+    throw workOutcome.error;
+  }
+  if (cleanupErrors.length === 1) throw cleanupErrors[0];
+  if (cleanupErrors.length > 1) throw new AggregateError(cleanupErrors, "Store state lease cleanup failed");
+  return workOutcome.value;
 }

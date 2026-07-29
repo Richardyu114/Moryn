@@ -1,11 +1,16 @@
-import { execFile, spawn } from "node:child_process";
 import { access, lstat, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import { type AutomaticEventAuditReceipt, runAutomaticEventAudit } from "../core/automatic-event-audit.js";
 import { readStoreConfig } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
 import { removeEventAuditProof } from "../core/event-audit-proof.js";
+import {
+  execOperationChildProcess,
+  isOperationDeadlineExceeded,
+  type OperationChildProcessResult,
+  rethrowIfOperationDeadlineExceeded,
+  spawnOperationChildProcess
+} from "../core/operation-deadline.js";
 import { replayEvents } from "../core/replay.js";
 import { parseEvent } from "../core/schema.js";
 import { withStoreStateLease } from "../core/state-lease.js";
@@ -17,7 +22,6 @@ import {
   recordPushedSoulSyncReceipts
 } from "./soul-git-receipts.js";
 
-const exec = promisify(execFile);
 const LOCAL_ONLY_GIT_PATHS = ["config.json", "snapshots", "indexes", "state", ".moryn"] as const;
 const LOCAL_ONLY_GIT_HISTORY_PATHS = LOCAL_ONLY_GIT_PATHS.map((path) => `:(top,icase,literal)${path}`);
 const LOCAL_ONLY_GIT_PATHS_DESCRIPTION = LOCAL_ONLY_GIT_PATHS.join(", ");
@@ -190,7 +194,8 @@ async function pendingRegularFileMtime(storePath: string, eventPath: string): Pr
       if (isLast) return file.isFile() && !file.isSymbolicLink() ? file.mtime.toISOString() : undefined;
       if (!file.isDirectory() || file.isSymbolicLink()) return undefined;
     }
-  } catch {
+  } catch (error) {
+    rethrowIfOperationDeadlineExceeded(error);
     return undefined;
   }
   return undefined;
@@ -409,27 +414,51 @@ function withSyncResultSelectionSources(result: Omit<GitSyncResult, "selection_s
   };
 }
 
+async function runGit(cwd: string, args: string[], timeoutCapMs?: number): Promise<string> {
+  return (await execOperationChildProcess("git", args, { cwd, timeoutMs: timeoutCapMs })).stdout;
+}
+
 async function git(cwd: string, args: string[]): Promise<string> {
-  const { stdout } = await exec("git", args, { cwd });
-  return stdout.trim();
+  return (await runGit(cwd, args)).trim();
 }
 
 async function gitRaw(cwd: string, args: string[]): Promise<string> {
-  const { stdout } = await exec("git", args, { cwd });
-  return stdout;
+  return runGit(cwd, args);
 }
 
 async function gitWithTimeout(cwd: string, args: string[], timeoutMs: number): Promise<string> {
-  const { stdout } = await exec("git", args, { cwd, timeout: timeoutMs });
-  return stdout.trim();
+  return (await runGit(cwd, args, timeoutMs)).trim();
 }
 
 async function gitOk(cwd: string, args: string[]): Promise<boolean> {
   try {
     await git(cwd, args);
     return true;
-  } catch {
+  } catch (error) {
+    if (isOperationDeadlineExceeded(error)) throw error;
     return false;
+  }
+}
+
+function spawnGit(cwd: string, args: string[]) {
+  return spawnOperationChildProcess("git", args, { cwd });
+}
+
+function gitChildError(result: OperationChildProcessResult, args: readonly string[], detail = ""): Error | undefined {
+  if (result.termination_error) return result.termination_error;
+  if (result.spawn_error) return result.spawn_error;
+  if (result.code === 0) return undefined;
+  return new Error(
+    `git ${args.join(" ")} failed with exit code ${result.code ?? "unknown"}${detail ? `: ${detail}` : ""}`
+  );
+}
+
+async function fallbackUnlessDeadline<T>(work: Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await work;
+  } catch (error) {
+    rethrowIfOperationDeadlineExceeded(error);
+    return fallback;
   }
 }
 
@@ -490,6 +519,7 @@ async function assertEventWorkspaceAppendOnly(storePath: string): Promise<void> 
       }
     }
   } catch (error) {
+    if (isOperationDeadlineExceeded(error)) throw error;
     if (error instanceof EventHistoryMutationError) throw error;
     throw eventHistoryMutationError();
   }
@@ -529,6 +559,7 @@ async function assertEventHistoryAppendOnly(storePath: string, revision: string)
     ]);
     if (historyNameStatusTouchesEvents(offendingChanges)) throw eventHistoryMutationError();
   } catch (error) {
+    if (isOperationDeadlineExceeded(error)) throw error;
     if (error instanceof EventHistoryMutationError) throw error;
     throw eventHistoryMutationError();
   }
@@ -574,10 +605,10 @@ async function inspectCommitEventTree(
   commit: string
 ): Promise<{ invalid: boolean; blobs: Array<NonNullable<InspectedEventTreeEntry["blob"]>> }> {
   return new Promise((resolve, reject) => {
-    const child = spawn("git", ["ls-tree", "-r", "-z", commit, "--", "events"], {
-      cwd: storePath,
-      stdio: ["ignore", "pipe", "pipe"]
-    });
+    const args = ["ls-tree", "-r", "-z", commit, "--", "events"];
+    const spawned = spawnGit(storePath, args);
+    const { child } = spawned;
+    child.stdin.end();
     let pending = Buffer.alloc(0);
     let invalid = false;
     const blobs: Array<NonNullable<InspectedEventTreeEntry["blob"]>> = [];
@@ -594,10 +625,10 @@ async function inspectCommitEventTree(
       pending = Buffer.from(output.subarray(start));
     });
     child.stderr.resume();
-    child.once("error", reject);
-    child.once("close", (code) => {
-      if (code !== 0) {
-        reject(new Error(`git ls-tree failed with exit code ${code ?? "unknown"}`));
+    void spawned.completed.then((result) => {
+      const error = gitChildError(result, args);
+      if (error) {
+        reject(error);
         return;
       }
       if (pending.length !== 0) {
@@ -673,17 +704,11 @@ async function assertEventBlobsParse(
   blobs: ReadonlyArray<NonNullable<InspectedEventTreeEntry["blob"]>>
 ): Promise<void> {
   if (blobs.length === 0) return;
-  const child = spawn("git", ["cat-file", "--batch"], {
-    cwd: storePath,
-    stdio: ["pipe", "pipe", "pipe"]
-  });
+  const spawned = spawnGit(storePath, ["cat-file", "--batch"]);
+  const { child } = spawned;
   child.stderr.resume();
   child.stdin.on("error", () => {
     // The close/error result below owns the stable fail-closed outcome.
-  });
-  const closed = new Promise<number>((resolve, reject) => {
-    child.once("error", reject);
-    child.once("close", (code) => resolve(code ?? -1));
   });
   child.stdin.end(`${blobs.map((blob) => blob.object_id).join("\n")}\n`);
 
@@ -728,8 +753,10 @@ async function assertEventBlobsParse(
         blobIndex += 1;
       }
     }
-    const exitCode = await closed;
-    if (exitCode !== 0 || blobIndex !== blobs.length || expectedSize !== undefined || pending.length !== 0) {
+    const result = await spawned.completed;
+    const childError = gitChildError(result, ["cat-file", "--batch"]);
+    if (childError) throw childError;
+    if (blobIndex !== blobs.length || expectedSize !== undefined || pending.length !== 0) {
       throw eventHistoryMutationError();
     }
     events.sort(
@@ -738,8 +765,9 @@ async function assertEventBlobsParse(
     if (new Set(events.map((event) => event.event_id)).size !== events.length) throw eventHistoryMutationError();
     replayEvents(events);
   } catch (error) {
-    child.kill();
-    await closed.catch(() => undefined);
+    spawned.terminate();
+    const result = await spawned.completed;
+    if (result.termination_error) throw result.termination_error;
     throw error;
   }
 }
@@ -750,6 +778,7 @@ async function assertEventCommitTreeShape(storePath: string, commit: string): Pr
     if (inspected.invalid) throw eventHistoryMutationError();
     await assertEventBlobsParse(storePath, inspected.blobs);
   } catch (error) {
+    if (isOperationDeadlineExceeded(error)) throw error;
     if (error instanceof EventHistoryMutationError) throw error;
     throw eventHistoryMutationError();
   }
@@ -849,10 +878,10 @@ function parseUnsafeGitTreeEntry(entry: Buffer): UnsafeGitTreeEntry | undefined 
 
 async function findUnsafeGitTreeEntry(storePath: string, commit: string): Promise<UnsafeGitTreeEntry | undefined> {
   return new Promise((resolve, reject) => {
-    const child = spawn("git", ["ls-tree", "-r", "-z", commit], {
-      cwd: storePath,
-      stdio: ["ignore", "pipe", "pipe"]
-    });
+    const args = ["ls-tree", "-r", "-z", commit];
+    const spawned = spawnGit(storePath, args);
+    const { child } = spawned;
+    child.stdin.end();
     let pending = Buffer.alloc(0);
     let unsafeEntry: UnsafeGitTreeEntry | undefined;
     let errorOutput = Buffer.alloc(0);
@@ -870,12 +899,10 @@ async function findUnsafeGitTreeEntry(storePath: string, commit: string): Promis
       if (errorOutput.length >= GIT_ERROR_BUFFER_LIMIT) return;
       errorOutput = Buffer.concat([errorOutput, chunk.subarray(0, GIT_ERROR_BUFFER_LIMIT - errorOutput.length)]);
     });
-    child.once("error", reject);
-    child.once("close", (code) => {
-      if (code !== 0) {
-        reject(
-          new Error(`git ls-tree failed with exit code ${code ?? "unknown"}: ${errorOutput.toString("utf8").trim()}`)
-        );
+    void spawned.completed.then((result) => {
+      const error = gitChildError(result, args, errorOutput.toString("utf8").trim());
+      if (error) {
+        reject(error);
         return;
       }
       if (pending.length !== 0) {
@@ -927,7 +954,7 @@ async function readLastSync(storePath: string): Promise<GitLastSync | undefined>
 
 async function writeLastSync(storePath: string, operation: GitLastSync["operation"]): Promise<void> {
   await mkdir(join(storePath, "state"), { recursive: true });
-  const commit = await git(storePath, ["rev-parse", "--short", "HEAD"]).catch(() => undefined);
+  const commit = await fallbackUnlessDeadline(git(storePath, ["rev-parse", "--short", "HEAD"]), undefined);
   const status: GitLastSync = {
     operation,
     at: new Date().toISOString(),
@@ -937,7 +964,7 @@ async function writeLastSync(storePath: string, operation: GitLastSync["operatio
 }
 
 async function ensureMainBranch(storePath: string): Promise<void> {
-  const branch = await git(storePath, ["branch", "--show-current"]).catch(() => "");
+  const branch = await fallbackUnlessDeadline(git(storePath, ["branch", "--show-current"]), "");
   if (branch !== "main") {
     await removeEventAuditProof(storePath);
     await git(storePath, ["checkout", "-B", "main"]);
@@ -971,7 +998,7 @@ async function ensureGitSyncConfigured(storePath: string): Promise<void> {
   if (!(await gitOk(storePath, ["rev-parse", "--git-dir"]))) {
     throw new Error("Sync not configured: run moryn sync init <remote>");
   }
-  if (!(await git(storePath, ["remote", "get-url", "origin"]).catch(() => ""))) {
+  if (!(await fallbackUnlessDeadline(git(storePath, ["remote", "get-url", "origin"]), ""))) {
     throw new Error("Sync not configured: run moryn sync init <remote>");
   }
 }
@@ -979,7 +1006,7 @@ async function ensureGitSyncConfigured(storePath: string): Promise<void> {
 export async function isGitSyncConfigured(storePath: string): Promise<boolean> {
   validateRequiredString(storePath, "storePath");
   if (!(await gitOk(storePath, ["rev-parse", "--git-dir"]))) return false;
-  return Boolean(await git(storePath, ["remote", "get-url", "origin"]).catch(() => ""));
+  return Boolean(await fallbackUnlessDeadline(git(storePath, ["remote", "get-url", "origin"]), ""));
 }
 
 /**
@@ -997,7 +1024,7 @@ export async function assertGitEventHistoryAppendOnly(storePath: string): Promis
 }
 
 async function ensureRemote(storePath: string, remoteUrl: string): Promise<void> {
-  const current = await git(storePath, ["remote", "get-url", "origin"]).catch(() => "");
+  const current = await fallbackUnlessDeadline(git(storePath, ["remote", "get-url", "origin"]), "");
   if (!current) {
     await git(storePath, ["remote", "add", "origin", remoteUrl]);
     return;
@@ -1150,14 +1177,18 @@ export async function getGitSyncStatus(storePath: string, options: GitSyncStatus
     if (!configured) return withSyncStatusSelectionSources({ configured: false, error: "Not a git repository" });
 
     branch = await git(storePath, ["branch", "--show-current"]);
-    remote = await git(storePath, ["remote", "get-url", "origin"]).catch(() => undefined);
+    remote = await fallbackUnlessDeadline(git(storePath, ["remote", "get-url", "origin"]), undefined);
     let remoteCommit: string | undefined;
     let remoteReachable = false;
     if (remote) {
-      remoteReachable = await gitWithTimeout(storePath, ["fetch", "origin", "main"], remoteTimeoutMs)
-        .then(() => true)
-        .catch(() => false);
-      remoteCommit = await git(storePath, ["rev-parse", "--verify", "origin/main^{commit}"]).catch(() => undefined);
+      remoteReachable = await fallbackUnlessDeadline(
+        gitWithTimeout(storePath, ["fetch", "origin", "main"], remoteTimeoutMs).then(() => true),
+        false
+      );
+      remoteCommit = await fallbackUnlessDeadline(
+        git(storePath, ["rev-parse", "--verify", "origin/main^{commit}"]),
+        undefined
+      );
     }
     const porcelain = await gitRaw(storePath, ["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
     const ignoredEventPaths = (
@@ -1171,7 +1202,7 @@ export async function getGitSyncStatus(storePath: string, options: GitSyncStatus
     ];
     const pendingChanges = await summarizePendingChanges(storePath, pendingEntries);
     const conflict = await gitConflictStatus(storePath);
-    const lastCommit = await git(storePath, ["rev-parse", "--short", "HEAD"]).catch(() => undefined);
+    const lastCommit = await fallbackUnlessDeadline(git(storePath, ["rev-parse", "--short", "HEAD"]), undefined);
     const lastSync = await readLastSync(storePath);
     let ahead = 0;
     let behind = 0;
@@ -1209,6 +1240,7 @@ export async function getGitSyncStatus(storePath: string, options: GitSyncStatus
         : {})
     });
   } catch (error) {
+    rethrowIfOperationDeadlineExceeded(error);
     const message = error instanceof Error ? error.message : String(error);
     return withSyncStatusSelectionSources({
       configured,
@@ -1308,7 +1340,8 @@ export async function pushGitSync(
       await git(storePath, ["rebase", remoteCommit]);
       try {
         await rebuildLocalStateAfterGitUpdate(storePath);
-      } catch {
+      } catch (error) {
+        rethrowIfOperationDeadlineExceeded(error);
         automaticEventAudit = await (dependencies.run_automatic_event_audit ?? runAutomaticEventAudit)(storePath);
         if (automaticEventAudit.status === "failed") {
           return withSyncResultSelectionSources({

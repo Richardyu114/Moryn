@@ -16,7 +16,7 @@ import { initializeStore } from "../../src/core/config.js";
 import { createEngine } from "../../src/core/engine.js";
 import { toErrorEnvelope } from "../../src/core/errors.js";
 import { runHostHook } from "../../src/core/host-hook-runner.js";
-import { buildHostIntegrationArtifact } from "../../src/core/host-integration-artifacts.js";
+import { activationId, buildHostIntegrationArtifact } from "../../src/core/host-integration-artifacts.js";
 import { pendingLearningInbox, queueLearning } from "../../src/core/learning-inbox.js";
 import { learningRecordIdentity } from "../../src/core/learning-ingestion.js";
 import { initializeProjectConfig } from "../../src/core/project.js";
@@ -4494,10 +4494,11 @@ describe("agent lifecycle", () => {
     try {
       await initializeProjectConfig(project, { project_id: "moryn" });
       await initializeStore(store, { id: () => "device-claude" });
+      const activation_id = activationId("moryn", "claude");
       const input = {
         storePath: store,
         project_path: project,
-        activation_id: "moryn-v03-moryn-claude",
+        activation_id,
         command_digest: "b".repeat(64),
         hook: {
           host: "claude" as const,
@@ -4516,7 +4517,7 @@ describe("agent lifecycle", () => {
 
       expect(first.activation_receipt).toMatchObject({
         created: true,
-        receipt: { activation_id: "moryn-v03-moryn-claude", event: "pre_compact" }
+        receipt: { activation_id, event: "pre_compact" }
       });
       expect(replay.activation_receipt).toMatchObject({
         created: false,
@@ -5039,7 +5040,7 @@ describe("agent lifecycle", () => {
   it.each([
     ["claude-code", "claude", ".claude/settings.local.json"],
     ["codex", "codex", ".codex/hooks.json"]
-  ])("self-heals %s activation once during agent enter", async (client, host, target) => {
+  ])("self-heals %s activation and later runtime moves during agent enter", async (client, host, target) => {
     const root = await mkdtemp(join(tmpdir(), "moryn-agent-enter-activation-"));
     const store = join(root, "store");
     const project = join(root, "project");
@@ -5049,7 +5050,8 @@ describe("agent lifecycle", () => {
       const hostRuntime = {
         exec_file: "/runtime/node",
         cli_entry: "/runtime/moryn/dist/cli.js",
-        package_version: "0.3.0"
+        package_version: "0.3.0",
+        runtime_binding_root: join(root, "runtime-bindings")
       };
       const entered = await agentEnter({
         storePath: store,
@@ -5070,9 +5072,15 @@ describe("agent lifecycle", () => {
       expect(entered.start.activation_status).toMatchObject({ status: "configured_unverified", host });
       const configured = JSON.parse(await readFile(join(project, target), "utf8"));
       expect(configured.hooks.PreCompact).toBeDefined();
-      expect(configured.hooks.PreCompact[0].hooks[0].command).toMatch(
-        /^'\/runtime\/node' '\/runtime\/moryn\/dist\/cli\.js' --store/
-      );
+      const configuredCommand = configured.hooks.PreCompact[0].hooks[0].command;
+      const expectedArtifact = buildHostIntegrationArtifact({
+        host,
+        project_id: "moryn",
+        project_path: project,
+        store_path: store,
+        runtime: hostRuntime
+      });
+      expect(configuredCommand).toBe(expectedArtifact.command);
       const repeated = await agentEnter({
         storePath: store,
         projectPath: project,
@@ -5087,6 +5095,30 @@ describe("agent lifecycle", () => {
         before: { status: "configured_unverified" },
         after: { status: "configured_unverified" }
       });
+      const movedRuntime = {
+        exec_file: "/runtime-next/node",
+        cli_entry: "/runtime-next/moryn/dist/cli.js",
+        package_version: "0.4.0",
+        runtime_binding_root: join(root, "runtime-bindings")
+      };
+      const moved = await agentEnter({
+        storePath: store,
+        projectPath: project,
+        currentTask: "Continue after a runtime move",
+        agent: { client, session_id: `${host}-enter-3`, device_id: "device-1" },
+        pull: false,
+        hostRuntime: movedRuntime
+      });
+      expect(moved.activation).toMatchObject({
+        attempted_repair: true,
+        repair_succeeded: true,
+        before: { status: "stale_moryn_config", runtime_binding_status: "stale", stale_entries: 0 },
+        after: { status: "configured_unverified", runtime_binding_status: "current" }
+      });
+      const movedConfig = JSON.parse(await readFile(join(project, target), "utf8"));
+      expect(movedConfig.hooks.PreCompact[0].hooks[0].command).toBe(configuredCommand);
+      const launcher = expectedArtifact.runtime_binding!.path;
+      expect(await readFile(launcher, "utf8")).toContain("/runtime-next/moryn/dist/cli.js");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

@@ -40,6 +40,7 @@ import { type KnowledgeProtocol, knowledgeProtocolForHost } from "./knowledge-pr
 import { buildLearningCandidateReviewWorkflow, unresolvedLearningCandidates } from "./learning-candidate-review.js";
 import { consumeLearningInbox, learningInboxForLifecycle } from "./learning-inbox.js";
 import { learningRecordIdentity } from "./learning-ingestion.js";
+import { rethrowIfOperationDeadlineExceeded } from "./operation-deadline.js";
 import { type ProjectContext, resolveProjectContext, type SyncMode } from "./project.js";
 import { readCurrentRecords } from "./record-read-model.js";
 import type { SessionFoldPlan } from "./session-fold.js";
@@ -987,7 +988,8 @@ async function lifecycleActivationStatus(
       host,
       runtime: input.hostRuntime
     });
-  } catch {
+  } catch (error) {
+    rethrowIfOperationDeadlineExceeded(error);
     return undefined;
   }
 }
@@ -1025,10 +1027,13 @@ async function prepareAgentEnterActivation(input: AgentEnterInput): Promise<Agen
       after
     };
   } catch (error) {
+    rethrowIfOperationDeadlineExceeded(error);
     let after = before;
     try {
       after = await inspectHostActivation(activationInput);
-    } catch {}
+    } catch (inspectionError) {
+      rethrowIfOperationDeadlineExceeded(inspectionError);
+    }
     return {
       attempted_repair: true,
       repair_succeeded: false,
@@ -1287,6 +1292,7 @@ async function trySync<T>(
   try {
     return { ok: true, result: await fn() };
   } catch (error) {
+    rethrowIfOperationDeadlineExceeded(error);
     return { ok: false, error: error instanceof Error ? error.message : String(error), cause: error };
   }
 }
@@ -3132,7 +3138,9 @@ export async function agentEnter(input: AgentEnterInput, deps: AgentLifecycleDep
     let activation: AgentEnterActivation | undefined;
     try {
       activation = await prepareAgentEnterActivation(input);
-    } catch {}
+    } catch (error) {
+      rethrowIfOperationDeadlineExceeded(error);
+    }
     const start = await agentStart(input, deps);
     const actions = start.next.actions;
     return {
@@ -3188,7 +3196,9 @@ export async function agentGuide(input: AgentGuideInput) {
     try {
       const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
       activationStatus = await lifecycleActivationStatus(input, project);
-    } catch {}
+    } catch (error) {
+      rethrowIfOperationDeadlineExceeded(error);
+    }
   }
   return {
     ok: true,
@@ -3322,6 +3332,7 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
         sync.compensation = { ...assessment, decision: assessment.decision };
       }
     } catch (error) {
+      rethrowIfOperationDeadlineExceeded(error);
       sync.compensation = {
         decision: "failed",
         reason: "evidence_unavailable",
@@ -3337,7 +3348,10 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
         occurred_at: nowIso,
         project_id: project.project_id,
         ...receipt
-      }).catch(() => undefined);
+      }).catch((error) => {
+        rethrowIfOperationDeadlineExceeded(error);
+        return undefined;
+      });
     }
     const pulled = await trySync(() => pullGitSync(input.storePath));
     if (pulled.ok) {
@@ -3446,6 +3460,7 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
         })
       ).coverage;
     } catch (error) {
+      rethrowIfOperationDeadlineExceeded(error);
       foldPreviewWarning = sessionFoldWarning("preview", error);
     }
   }
@@ -3533,6 +3548,7 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     try {
       plan = await engine.planSessionFold({ project_id: project.project_id, session_id: sessionId });
     } catch (error) {
+      rethrowIfOperationDeadlineExceeded(error);
       return { status: "failed", warning: sessionFoldWarning("plan", error) };
     }
     if (!plan) return { status: "skipped", reason: "no_plan" };
@@ -3540,6 +3556,7 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     try {
       return { status: "committed", plan, result: await engine.applySessionFold({ plan }) };
     } catch (error) {
+      rethrowIfOperationDeadlineExceeded(error);
       return { status: "failed", plan, warning: sessionFoldWarning("apply", error) };
     }
   })();

@@ -9,6 +9,7 @@ import {
   type HostAdapterId,
   normalizeHostId
 } from "./host-adapter-registry.js";
+import type { HostRuntimeDescriptor } from "./host-integration-artifacts.js";
 import { resolveProjectContext } from "./project.js";
 import type { EffectiveSoul } from "./soul-profile.js";
 import type { MorynRecord, RecordSource } from "./types.js";
@@ -93,6 +94,7 @@ export type ContextPackInput = {
   agentSoulProfileId?: string;
   soulCharBudget?: number;
   soulTokenBudget?: number;
+  hostRuntime?: HostRuntimeDescriptor;
 };
 
 export type ContextPackResult = {
@@ -483,6 +485,7 @@ export async function contextPack(input: ContextPackInput): Promise<ContextPackR
     agentSoulProfileId: input.agentSoulProfileId,
     soulCharBudget: input.soulCharBudget,
     soulTokenBudget: input.soulTokenBudget,
+    hostRuntime: input.hostRuntime,
     agent
   });
   const projectArg = input.projectId

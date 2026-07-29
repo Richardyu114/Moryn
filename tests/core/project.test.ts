@@ -1,9 +1,10 @@
 import { execFile } from "node:child_process";
-import { access, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { toErrorEnvelope } from "../../src/core/errors.js";
+import { OperationDeadlineExceededError, withOperationDeadline } from "../../src/core/operation-deadline.js";
 import { initializeProjectConfig, readProjectConfig, resolveProjectContext } from "../../src/core/project.js";
 import { withTempStore } from "../helpers/temp-store.js";
 
@@ -70,6 +71,28 @@ async function withCwd<T>(directory: string, action: () => Promise<T>): Promise<
 }
 
 describe("project config", () => {
+  it("bounds Git-based project detection with the inherited operation deadline", async () => {
+    await withTempStore(async (projectPath) => {
+      const fakeBin = join(projectPath, "fake-bin");
+      const fakeGit = join(fakeBin, "git");
+      await mkdir(fakeBin);
+      await writeFile(fakeGit, "#!/bin/sh\ntrap '' TERM\nwhile :; do sleep 1; done\n", "utf8");
+      await chmod(fakeGit, 0o755);
+      const previousPath = process.env.PATH;
+      process.env.PATH = `${fakeBin}:${previousPath ?? ""}`;
+      const startedAt = Date.now();
+      try {
+        await expect(withOperationDeadline(300, () => resolveProjectContext({ projectPath }))).rejects.toBeInstanceOf(
+          OperationDeadlineExceededError
+        );
+        expect(Date.now() - startedAt).toBeLessThan(2_000);
+      } finally {
+        if (previousPath === undefined) delete process.env.PATH;
+        else process.env.PATH = previousPath;
+      }
+    });
+  });
+
   it("initializes .moryn.json with project defaults", async () => {
     await withTempStore(async (projectPath) => {
       const result = await initializeProjectConfig(projectPath, {

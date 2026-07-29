@@ -10,6 +10,7 @@ import { initializeStore } from "../../src/core/config.js";
 import { rebuildDerivedViews } from "../../src/core/derived.js";
 import { createEngine } from "../../src/core/engine.js";
 import { toErrorEnvelope } from "../../src/core/errors.js";
+import { OperationDeadlineExceededError, withOperationDeadline } from "../../src/core/operation-deadline.js";
 import { retrievalProjectShardName } from "../../src/core/retrieval-index.js";
 import {
   SYNC_RESULT_SELECTION_SOURCES as EXPORTED_SYNC_RESULT_SELECTION_SOURCES,
@@ -399,7 +400,7 @@ describe("git sync adapter", () => {
       });
 
       const startedAt = Date.now();
-      const status = await getGitSyncStatus(store, { remote_timeout_ms: 100 });
+      const status = await withOperationDeadline(1_000, () => getGitSyncStatus(store, { remote_timeout_ms: 100 }));
       expect(Date.now() - startedAt).toBeLessThan(2_000);
       expect(status).toMatchObject({
         configured: true,
@@ -411,6 +412,38 @@ describe("git sync adapter", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it.each(["pull", "push"] as const)(
+    "bounds a hanging remote during %s under an inherited hook deadline",
+    async (operation) => {
+      const root = await mkdtemp(join(tmpdir(), `moryn-sync-${operation}-deadline-`));
+      const store = join(root, "store");
+      const server = createServer(() => {
+        // Keep the smart-HTTP request open. The inherited host-operation budget
+        // must terminate Git before the host's outer hook timeout fires.
+      });
+      try {
+        await new Promise<void>((resolve, reject) => {
+          server.once("error", reject);
+          server.listen(0, "127.0.0.1", resolve);
+        });
+        const address = server.address() as AddressInfo;
+        await initializeStore(store, { id: () => `device_${operation}_deadline` });
+        await exec("git", ["init"], { cwd: store });
+        await exec("git", ["branch", "-M", "main"], { cwd: store });
+        await exec("git", ["remote", "add", "origin", `http://127.0.0.1:${address.port}/memory.git`], { cwd: store });
+
+        const startedAt = Date.now();
+        const sync = () => (operation === "pull" ? pullGitSync(store) : pushGitSync(store));
+        await expect(withOperationDeadline(100, sync)).rejects.toBeInstanceOf(OperationDeadlineExceededError);
+        expect(Date.now() - startedAt).toBeLessThan(2_000);
+      } finally {
+        server.closeAllConnections();
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+  );
 
   it("keeps configured true when a later local status projection fails", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-sync-status-error-"));

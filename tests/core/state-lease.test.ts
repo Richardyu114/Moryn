@@ -1,10 +1,11 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { once } from "node:events";
-import { chmod, mkdir, readdir, stat, utimes, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readdir, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
+import { OperationDeadlineExceededError, withOperationDeadline } from "../../src/core/operation-deadline.js";
 import { withStoreStateLease } from "../../src/core/state-lease.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
@@ -46,6 +47,84 @@ async function killChild(child: ChildProcessWithoutNullStreams): Promise<void> {
 }
 
 describe("store state lease", () => {
+  it("honors a tighter inherited operation deadline while another owner is live", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let releaseOwner!: () => void;
+      const ownerGate = new Promise<void>((resolve) => {
+        releaseOwner = resolve;
+      });
+      let ownerStarted!: () => void;
+      const ownerStartedPromise = new Promise<void>((resolve) => {
+        ownerStarted = resolve;
+      });
+      const owner = withStoreStateLease(storePath, async () => {
+        ownerStarted();
+        await ownerGate;
+      });
+      await ownerStartedPromise;
+      let competitorEntered = false;
+
+      try {
+        const startedAt = Date.now();
+        await expect(
+          withOperationDeadline(100, () =>
+            withStoreStateLease(storePath, async () => {
+              competitorEntered = true;
+              return "must not enter";
+            })
+          )
+        ).rejects.toBeInstanceOf(OperationDeadlineExceededError);
+        expect(Date.now() - startedAt).toBeLessThan(2_000);
+        expect(competitorEntered).toBe(false);
+      } finally {
+        releaseOwner();
+        await owner;
+      }
+      await expect(withStoreStateLease(storePath, async () => "recovered")).resolves.toBe("recovered");
+    });
+  });
+
+  it("finishes expired-operation cleanup before exposing the deadline", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const leasePath = join(storePath, "state", "store-state.lease");
+      let workFinished = false;
+
+      await expect(
+        withOperationDeadline(20, () =>
+          withStoreStateLease(storePath, async () => {
+            await delay(60);
+            workFinished = true;
+          })
+        )
+      ).rejects.toBeInstanceOf(OperationDeadlineExceededError);
+
+      expect(workFinished).toBe(true);
+      await expect(stat(leasePath)).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(withStoreStateLease(storePath, async () => "next owner")).resolves.toBe("next owner");
+    });
+  });
+
+  it("releases its lease when a live recovery gate exceeds the cleanup budget", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const statePath = join(storePath, "state");
+      const leasePath = join(statePath, "store-state.lease");
+      const recoveryPath = join(statePath, "store-state.recovery");
+
+      await withStoreStateLease(storePath, async () => {
+        await mkdir(recoveryPath, { mode: 0o700 });
+        await writeFile(
+          join(recoveryPath, "owner.json"),
+          `${JSON.stringify({ version: 1, token: "live-test-gate", pid: process.pid })}\n`,
+          { mode: 0o600 }
+        );
+      });
+
+      await expect(stat(leasePath)).rejects.toMatchObject({ code: "ENOENT" });
+      await rm(recoveryPath, { recursive: true, force: true });
+      await expect(withStoreStateLease(storePath, async () => "reacquired")).resolves.toBe("reacquired");
+    });
+  });
+
   it("releases the lease after exceptional work and permits the next owner", async () => {
     await withInitializedTempStore(async (storePath) => {
       const leasePath = join(storePath, "state", "store-state.lease");
@@ -62,6 +141,41 @@ describe("store state lease", () => {
         withStoreStateLease(storePath, async () => withStoreStateLease(storePath, async () => "nested lease completed"))
       ).resolves.toBe("nested lease completed");
       await expect(stat(leasePath)).rejects.toMatchObject({ code: "ENOENT" });
+    });
+  });
+
+  it("preserves the work error when lease cleanup also fails", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const statePath = join(storePath, "state");
+      const leasePath = join(statePath, "store-state.lease");
+      const ownerPath = join(leasePath, "owner.json");
+      const recoveryPath = join(statePath, "store-state.recovery");
+      const workError = new Error("injected work failure before cleanup");
+
+      let caught: unknown;
+      try {
+        await withStoreStateLease(storePath, async () => {
+          const owner = JSON.parse(await readFile(ownerPath, "utf8")) as { token: string };
+          const conflictingReleasedPath = `${leasePath}.released-${owner.token}`;
+          await mkdir(conflictingReleasedPath);
+          await writeFile(join(conflictingReleasedPath, "blocker"), "keep destination non-empty\n", "utf8");
+          // A non-directory recovery path makes the normal gate cleanup fail;
+          // the pre-created non-empty release target then makes the atomic
+          // fallback fail as well.
+          await writeFile(recoveryPath, "injected recovery gate failure\n", "utf8");
+          throw workError;
+        });
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(AggregateError);
+      const aggregate = caught as AggregateError;
+      expect(aggregate.message).toBe("Store state lease work and cleanup both failed");
+      expect(aggregate.cause).toBe(workError);
+      expect(aggregate.errors).toHaveLength(2);
+      expect(aggregate.errors[0]).toBe(workError);
+      expect(aggregate.errors[1]).toBeInstanceOf(Error);
     });
   });
 
@@ -206,6 +320,61 @@ describe("store state lease", () => {
       await utimes(ownerPath, staleAt, staleAt);
       await competitor;
       expect(competitorEntered).toBe(true);
+    });
+  });
+
+  it.each(["lease", "recovery gate"] as const)(
+    "recovers a stale %s despite a colliding live pid from another namespace",
+    async (kind) => {
+      await withInitializedTempStore(async (storePath) => {
+        const statePath = join(storePath, "state");
+        const ownerDirectory = join(statePath, kind === "lease" ? "store-state.lease" : "store-state.recovery");
+        await mkdir(ownerDirectory, { recursive: true, mode: 0o700 });
+        const ownerPath = join(ownerDirectory, "owner.json");
+        await writeFile(
+          ownerPath,
+          `${JSON.stringify({
+            version: 1,
+            token: "other-namespace-owner",
+            pid: process.pid,
+            process_instance_id: "foreign-process-instance",
+            process_start_identity: "foreign-boot:pid:[999999]:1"
+          })}\n`,
+          { encoding: "utf8", mode: 0o600 }
+        );
+        const staleAt = new Date("2000-01-01T00:00:00.000Z");
+        await utimes(ownerPath, staleAt, staleAt);
+
+        await expect(
+          withOperationDeadline(500, () => withStoreStateLease(storePath, async () => "recovered"))
+        ).resolves.toBe("recovered");
+        await expect(stat(ownerDirectory)).rejects.toMatchObject({ code: "ENOENT" });
+      });
+    }
+  );
+
+  it("does not steal an identity-less legacy lease from an ambiguous live pid", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const leasePath = join(storePath, "state", "store-state.lease");
+      const ownerPath = join(leasePath, "owner.json");
+      await mkdir(leasePath, { recursive: true, mode: 0o700 });
+      await writeFile(ownerPath, `${JSON.stringify({ version: 1, token: "legacy-live-owner", pid: process.pid })}\n`, {
+        encoding: "utf8",
+        mode: 0o600
+      });
+      const staleAt = new Date("2000-01-01T00:00:00.000Z");
+      await utimes(ownerPath, staleAt, staleAt);
+      let competitorEntered = false;
+
+      await expect(
+        withOperationDeadline(100, () =>
+          withStoreStateLease(storePath, async () => {
+            competitorEntered = true;
+          })
+        )
+      ).rejects.toBeInstanceOf(OperationDeadlineExceededError);
+      expect(competitorEntered).toBe(false);
+      await rm(leasePath, { recursive: true, force: true });
     });
   });
 

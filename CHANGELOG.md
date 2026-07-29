@@ -47,6 +47,12 @@ memory.
 - Cross-process store-state leases around append, derived-view, compaction, and
   Git transactions. Soul Git receipts bind exact pushed/pulled commits, event
   blobs, projection digests, and the effective fetch or push remote identity.
+- Stable device-local launchers for official Codex and Claude Code hooks, with
+  bounded stdin, absolute operation deadlines, process-group termination, and
+  a final host-safe watchdog so missing runtimes or stuck remote helpers do not
+  become recurring user-visible Hook failures. Native Windows retains the
+  prior direct absolute runtime command instead of receiving an unusable POSIX
+  launcher.
 
 ### Changed
 
@@ -61,6 +67,14 @@ memory.
 - Memory Shadow now distinguishes authored merge proofs from similarity-only
   candidates and reports observed record/token decreases without exposing the
   synthesized text in CLI, MCP, or Dashboard receipts.
+- Host activation now treats missing, stale, unsafe, or unavailable runtime
+  launchers as actionable health failures. Applying activation also replaces
+  historical or mis-scoped official Moryn Hook identities in the same
+  project-local host file while preserving non-Moryn user hooks in a
+  content-addressed, device-private backup outside Git worktrees. Runtime
+  launcher identities now include a collision-resistant project digest and a
+  full canonical project/Store scope, while remaining stable across runtime
+  upgrades.
 
 ### Safety and compatibility
 
@@ -85,7 +99,15 @@ memory.
   paths.
 - Project config and Codex/Claude activation writes reject path escapes,
   symlinked targets, and symlinked parent or backup directories; generated
-  files are replaced atomically inside the real project root.
+  files are replaced atomically inside the real project root. New host-config
+  backups live outside checkouts with `0700` directories and `0600` files;
+  legacy project-local backup directories are permission-hardened and
+  Git-ignored on activation. Already tracked legacy backups still require
+  explicit index and, if secret-bearing, history remediation.
+- Sensitive host compact summaries and assistant fallbacks are never persisted
+  as plain session evidence. Deadline-aware Git helpers terminate their full
+  POSIX process group, and lease cleanup runs outside an expired operation
+  budget without hiding a simultaneous work failure.
 - Production dependency resolutions include the current `body-parser`, Hono,
   and `fast-uri` security fixes. Until the MCP SDK accepts Hono's safe 2.x
   adapter range directly, the root development install applies a scoped

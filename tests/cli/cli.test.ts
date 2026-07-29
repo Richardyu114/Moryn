@@ -1,5 +1,5 @@
 import { execFile, spawn } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -5224,10 +5224,218 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
         "--host",
         "claude"
       ]);
-      expect(JSON.parse(result.stdout).activation_status).toMatchObject({
+      const notInstalled = JSON.parse(result.stdout);
+      expect(notInstalled).toMatchObject({
+        status: "needs_attention",
+        summary: {
+          status: "needs_attention",
+          warning_checks: 1,
+          next_step: expect.stringContaining("activation apply --host claude")
+        }
+      });
+      expect(notInstalled.activation_status).toMatchObject({
         host: "claude",
         status: "not_installed",
         repairable_automatically: true
+      });
+      expect(notInstalled.checks_by_id.host_activation).toMatchObject({
+        status: "warning",
+        category: "host",
+        summary: "Claude hooks need attention (not_installed)."
+      });
+
+      const withoutHost = await exec("node", [cliJsPath, "--store", store, "health", "check", "--project", project]);
+      const withoutHostHealth = JSON.parse(withoutHost.stdout);
+      expect(withoutHostHealth.status).toBe("healthy");
+      expect(withoutHostHealth.activation_status).toBeUndefined();
+      expect(withoutHostHealth.checks_by_id.host_activation).toBeUndefined();
+
+      const applied = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "activation",
+        "apply",
+        "--host",
+        "codex",
+        "--project",
+        project
+      ]);
+      const appliedResult = JSON.parse(applied.stdout);
+      expect(appliedResult.status).toMatchObject({
+        host: "codex",
+        status: "configured_unverified",
+        stale_entries: 0
+      });
+
+      const configured = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "health",
+        "check",
+        "--project",
+        project,
+        "--host",
+        "codex"
+      ]);
+      const configuredHealth = JSON.parse(configured.stdout);
+      expect(configuredHealth).toMatchObject({
+        status: "healthy",
+        summary: { status: "healthy", warning_checks: 0 }
+      });
+      expect(configuredHealth.activation_status).toMatchObject({
+        host: "codex",
+        status: "configured_unverified",
+        stale_entries: 0
+      });
+      expect(configuredHealth.checks_by_id.host_activation).toMatchObject({
+        status: "pass",
+        category: "host",
+        summary: "Codex hooks are configured for the current Moryn runtime."
+      });
+
+      const setupAfterActivation = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "setup",
+        "--host",
+        "codex",
+        "--project",
+        project
+      ]);
+      expect(JSON.parse(setupAfterActivation.stdout).activation_status).toMatchObject({
+        status: "configured_unverified",
+        runtime_binding_status: "current",
+        stale_entries: 0
+      });
+
+      const contextAfterActivation = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "context",
+        "pack",
+        "--project",
+        project,
+        "--agent",
+        "codex",
+        "--no-pull"
+      ]);
+      expect(JSON.parse(contextAfterActivation.stdout).activation_status).toMatchObject({
+        status: "configured_unverified",
+        runtime_binding_status: "current",
+        stale_entries: 0
+      });
+
+      await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "host",
+        "hook",
+        "--host",
+        "codex",
+        "--project",
+        project,
+        "--activation-id",
+        appliedResult.fragment.artifact.activation_id,
+        "--command-digest",
+        appliedResult.fragment.artifact.command_digest,
+        "--input-json",
+        JSON.stringify({ hook_event_name: "Stop", session_id: "health-active", cwd: project }),
+        "--no-pull",
+        "--no-push"
+      ]);
+      const active = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "health",
+        "check",
+        "--project",
+        project,
+        "--host",
+        "codex"
+      ]);
+      expect(JSON.parse(active.stdout)).toMatchObject({
+        status: "healthy",
+        activation_status: { status: "active" },
+        checks_by_id: {
+          host_activation: {
+            status: "pass",
+            summary: "Codex hooks are active for the current Moryn runtime."
+          }
+        }
+      });
+
+      const hooksPath = join(project, ".codex", "hooks.json");
+      const staleHooks = JSON.parse(await readFile(hooksPath, "utf8"));
+      for (const entries of Object.values(staleHooks.hooks) as Array<Array<{ hooks: Array<{ timeout: number }> }>>) {
+        entries[0].hooks[0].timeout = 29;
+      }
+      await writeFile(hooksPath, `${JSON.stringify(staleHooks, null, 2)}\n`, "utf8");
+      const stale = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "health",
+        "check",
+        "--project",
+        project,
+        "--host",
+        "codex"
+      ]);
+      expect(JSON.parse(stale.stdout)).toMatchObject({
+        status: "needs_attention",
+        activation_status: { status: "stale_moryn_config", stale_entries: 5 },
+        checks_by_id: { host_activation: { status: "warning", category: "host" } }
+      });
+
+      await writeFile(hooksPath, '{"hooks":', "utf8");
+      const invalid = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "health",
+        "check",
+        "--project",
+        project,
+        "--host",
+        "codex"
+      ]);
+      expect(JSON.parse(invalid.stdout)).toMatchObject({
+        status: "needs_attention",
+        activation_status: { status: "invalid_config" },
+        checks_by_id: { host_activation: { status: "warning", category: "host" } }
+      });
+
+      const unsafeHooks = join(project, "unsafe-hooks.json");
+      await writeFile(unsafeHooks, '{"hooks":{}}\n', "utf8");
+      await rm(hooksPath);
+      await symlink(unsafeHooks, hooksPath);
+      const unsafe = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "health",
+        "check",
+        "--project",
+        project,
+        "--host",
+        "codex"
+      ]);
+      expect(JSON.parse(unsafe.stdout)).toMatchObject({
+        status: "needs_attention",
+        checks_by_id: {
+          host_activation: {
+            status: "warning",
+            category: "host",
+            summary: "Codex hook activation could not be inspected safely.",
+            reason: expect.stringMatching(/symbolic link/)
+          }
+        }
       });
     });
   });
@@ -14152,6 +14360,31 @@ describe("host hook CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
           ])
         ).stdout
       );
+      const started = JSON.parse(
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            store,
+            "host",
+            "hook",
+            "--host",
+            "codex",
+            "--project",
+            project,
+            "--activation-id",
+            installed.integration_artifact.artifact.activation_id,
+            "--input-json",
+            JSON.stringify({ hook_event_name: "SessionStart", session_id: "codex-start", cwd: project }),
+            "--no-pull"
+          ])
+        ).stdout
+      );
+      expect(started.details.activation_status).toMatchObject({
+        status: "active",
+        runtime_binding_status: "current",
+        stale_entries: 0
+      });
       const payload = JSON.stringify({ hook_event_name: "Stop", session_id: "codex-empty-stop", cwd: project });
       const parsed = JSON.parse(
         (

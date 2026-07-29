@@ -120,7 +120,12 @@ export { EPISODE_BUCKET_KINDS, planEpisodeRollup, planEpisodeRollups } from "./c
 export type { EpisodeRollupApplyResult, EpisodeRollupReceipt } from "./core/episode-rollup-transaction.js";
 export { applyEpisodeRollupPlan, readEpisodeRollupReceipt } from "./core/episode-rollup-transaction.js";
 export type { EventDurabilityAttestation } from "./core/event-durability-attestation.js";
-export type { ActivationStatus, ActivationSuggestedAction, HostActivationStatus } from "./core/host-activation.js";
+export type {
+  ActivationStatus,
+  ActivationSuggestedAction,
+  HostActivationStatus,
+  RuntimeBindingStatus
+} from "./core/host-activation.js";
 export { inspectHostActivation } from "./core/host-activation.js";
 export {
   captureSession,
@@ -136,7 +141,12 @@ export type { HostHookRunResult, RunHostHookInput } from "./core/host-hook-runne
 export { runHostHook } from "./core/host-hook-runner.js";
 export type { NormalizedHostHookEvent } from "./core/host-hooks.js";
 export { normalizeHostHookEvent } from "./core/host-hooks.js";
-export type { HostIntegrationArtifact, HostRuntimeDescriptor } from "./core/host-integration-artifacts.js";
+export type {
+  HostIntegrationArtifact,
+  HostRuntimeBinding,
+  HostRuntimeBindingWriteResult,
+  HostRuntimeDescriptor
+} from "./core/host-integration-artifacts.js";
 export {
   activationId,
   buildHostIntegrationArtifact,

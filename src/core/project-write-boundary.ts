@@ -1,4 +1,4 @@
-import { lstat, mkdir, realpath } from "node:fs/promises";
+import { chmod, lstat, mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 export interface ProjectWriteTarget {
@@ -99,5 +99,58 @@ export async function ensureProjectWriteDirectory(
 ): Promise<string> {
   const directoryPath = resolve(rootPath, relativePath);
   await inspectDirectoryChain(rootPath, directoryPath, description, true);
+  return directoryPath;
+}
+
+export async function hardenProjectBackupDirectory(input: {
+  root_path: string;
+  relative_path: string;
+  backup_name: RegExp;
+  description: string;
+}): Promise<string | undefined> {
+  const probe = await resolveProjectWriteTarget(
+    input.root_path,
+    join(input.relative_path, ".moryn-permission-probe"),
+    input.description
+  );
+  const directoryPath = dirname(probe.target_path);
+  try {
+    const directory = await lstat(directoryPath);
+    if (directory.isSymbolicLink() || !directory.isDirectory()) {
+      throw new Error(`Invalid ${input.description}: backup path is not a regular directory: ${directoryPath}`);
+    }
+  } catch (error) {
+    if (isNotFoundError(error)) return undefined;
+    throw error;
+  }
+
+  await chmod(directoryPath, 0o700);
+  const ignorePath = join(directoryPath, ".gitignore");
+  try {
+    const ignore = await lstat(ignorePath);
+    if (ignore.isSymbolicLink() || !ignore.isFile()) {
+      throw new Error(`Invalid ${input.description}: backup ignore is not a regular file: ${ignorePath}`);
+    }
+    if ((await readFile(ignorePath, "utf8")) !== "*\n") {
+      throw new Error(`Invalid ${input.description}: backup ignore content is not Moryn-owned: ${ignorePath}`);
+    }
+    await chmod(ignorePath, 0o600);
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      await writeFile(ignorePath, "*\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+      await chmod(ignorePath, 0o600);
+    } else {
+      throw error;
+    }
+  }
+  for (const name of await readdir(directoryPath)) {
+    if (!input.backup_name.test(name)) continue;
+    const backupPath = join(directoryPath, name);
+    const backup = await lstat(backupPath);
+    if (backup.isSymbolicLink() || !backup.isFile()) {
+      throw new Error(`Invalid ${input.description}: backup is not a regular file: ${backupPath}`);
+    }
+    await chmod(backupPath, 0o600);
+  }
   return directoryPath;
 }

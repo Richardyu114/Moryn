@@ -1,12 +1,10 @@
-import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
-import { promisify } from "node:util";
 import { z } from "zod";
+import { execOperationChildProcess, rethrowIfOperationDeadlineExceeded } from "./operation-deadline.js";
 import { ensureProjectWriteParent, projectFileExists, resolveProjectWriteTarget } from "./project-write-boundary.js";
 
-const exec = promisify(execFile);
 export const SYNC_MODES = ["manual", "session", "interval"] as const;
 export const PROJECT_SYNC_MODE_INPUTS = [...SYNC_MODES, "auto"] as const;
 
@@ -387,10 +385,11 @@ function normalizedRemoteIdentity(remote: string): string {
 
 async function git(args: string[], cwd: string): Promise<string | undefined> {
   try {
-    const { stdout } = await exec("git", args, { cwd });
+    const { stdout } = await execOperationChildProcess("git", args, { cwd });
     const trimmed = stdout.trim();
     return trimmed || undefined;
-  } catch {
+  } catch (error) {
+    rethrowIfOperationDeadlineExceeded(error);
     return undefined;
   }
 }

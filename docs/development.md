@@ -67,11 +67,22 @@ and dashboard snapshot evidence.
 temporary store: authored local checkpoint, idempotent replay, bounded boot
 recovery by session id, and the existing cross-store Git handoff flow.
 Host runtime binding smoke places an incompatible `moryn` earlier on `PATH`,
-activates official project hooks through the current CLI, executes the generated
-SessionStart command, and requires a real activation receipt without invoking
-the incompatible binary. Official hooks therefore bind to the runtime that
-activated them instead of silently depending on whichever global binary PATH
-resolves later.
+activates official project hooks through one isolated runtime, deletes its Node
+before any repair, and executes the original trusted SessionStart command
+through a preflighted absolute Node fallback. It requires a real activation
+receipt without invoking the incompatible binary. The smoke then deletes the
+bound CLI too and requires a successful no-op Hook, a metadata-only unavailable
+marker, and `needs_attention` health before a second runtime repairs the binding
+without changing the trusted command. Official hooks use a stable, scoped
+device-local launcher below a private per-user directory outside Git worktrees.
+The launcher never resolves a global `moryn` from `PATH`.
+Deadline regression tests exercise the full 20-second operation context with
+short injected budgets: open stdin cancellation, project-identification Git,
+Soul receipt Git, hanging smart-HTTP remotes, an ignored TERM in a descendant
+helper, and a live Store recovery gate. Official Hook artifacts use a shared
+30-second outer timeout and a 25-second process watchdog. Local Git observation
+caps remain ordinary recoverable status failures; only expiry of the inherited
+absolute budget becomes `OPERATION_DEADLINE_EXCEEDED`.
 Transcript compact safety smoke executes generated Codex and Claude PreCompact
 and PostCompact hooks against official-shape JSONL fixtures. It requires the
 latest public assistant progress to survive compaction, keeps restore context

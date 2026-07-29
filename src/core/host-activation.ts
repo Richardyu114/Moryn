@@ -1,8 +1,13 @@
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { ActivationHost, ActivationReceiptEvent } from "./activation-receipts.js";
 import { shellQuote } from "./cli-command-line.js";
-import { buildHostIntegrationArtifact, type HostRuntimeDescriptor } from "./host-integration-artifacts.js";
+import {
+  buildHostIntegrationArtifact,
+  type HostIntegrationArtifact,
+  type HostRuntimeDescriptor,
+  isMorynHookOwnedByArtifact
+} from "./host-integration-artifacts.js";
 import { projectFileExists, resolveProjectWriteTarget } from "./project-write-boundary.js";
 import { readCurrentRecords } from "./record-read-model.js";
 
@@ -15,6 +20,8 @@ export type ActivationStatus =
   | "blocked_by_policy"
   | "host_schema_unknown"
   | "not_installed";
+
+export type RuntimeBindingStatus = "not_required" | "current" | "missing" | "stale" | "unavailable";
 
 export interface ActivationSuggestedAction {
   id:
@@ -43,6 +50,10 @@ export interface HostActivationStatus {
   observed_events: ActivationReceiptEvent[];
   owned_entries: number;
   stale_entries: number;
+  runtime_binding_status: RuntimeBindingStatus;
+  runtime_binding_path?: string;
+  runtime_binding_unavailable_marker?: string;
+  runtime_binding_error?: string;
   repairable_automatically: boolean;
   last_receipt?: {
     record_id: string;
@@ -54,18 +65,21 @@ export interface HostActivationStatus {
   suggested_actions: ActivationSuggestedAction[];
 }
 
-function commandFromEntry(entry: unknown): string | undefined {
-  if (!entry || typeof entry !== "object" || Array.isArray(entry)) return undefined;
+function ownedCommandsFromEntry(entry: unknown, artifact: HostIntegrationArtifact): string[] {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
   const hooks = (entry as Record<string, unknown>).hooks;
-  if (!Array.isArray(hooks)) return undefined;
-  const hook = hooks.find(
-    (item) =>
+  if (!Array.isArray(hooks)) return [];
+  return hooks.flatMap((item) => {
+    const command =
       item &&
       typeof item === "object" &&
       !Array.isArray(item) &&
+      (item as Record<string, unknown>).type === "command" &&
       typeof (item as Record<string, unknown>).command === "string"
-  ) as Record<string, unknown> | undefined;
-  return typeof hook?.command === "string" ? hook.command : undefined;
+        ? ((item as Record<string, unknown>).command as string)
+        : undefined;
+    return isMorynHookOwnedByArtifact(command, artifact) ? [command!] : [];
+  });
 }
 
 function activationActions(input: {
@@ -155,6 +169,50 @@ export async function inspectHostActivation(input: {
   const fragmentPath = fragmentBoundary.target_path;
   const targetPath = targetBoundary.target_path;
   const fragmentExists = await projectFileExists(fragmentBoundary, `${artifact.host} integration`);
+  let runtimeBindingStatus: RuntimeBindingStatus = "not_required";
+  let runtimeBindingError: string | undefined;
+  if (artifact.runtime_binding) {
+    try {
+      const runtimeBindingBoundary = await resolveProjectWriteTarget(
+        artifact.runtime_binding.root_path,
+        artifact.runtime_binding.relative_path,
+        `${artifact.host} runtime binding`
+      );
+      const runtimeUnavailableBoundary = await resolveProjectWriteTarget(
+        artifact.runtime_binding.root_path,
+        `${artifact.runtime_binding.relative_path}.unavailable`,
+        `${artifact.host} runtime unavailable marker`
+      );
+      const runtimeUnavailable = await projectFileExists(
+        runtimeUnavailableBoundary,
+        `${artifact.host} runtime unavailable marker`
+      );
+      const runtimeBindingExists = await projectFileExists(runtimeBindingBoundary, `${artifact.host} runtime binding`);
+      if (runtimeUnavailable) {
+        runtimeBindingStatus = "unavailable";
+      } else if (!runtimeBindingExists) {
+        runtimeBindingStatus = "missing";
+      } else {
+        const runtimeBindingMode = (await stat(runtimeBindingBoundary.target_path)).mode & 0o777;
+        runtimeBindingStatus =
+          runtimeBindingMode === 0o700 &&
+          (await readFile(runtimeBindingBoundary.target_path, "utf8")) === artifact.runtime_binding.content
+            ? "current"
+            : "stale";
+      }
+    } catch (error) {
+      runtimeBindingStatus = "unavailable";
+      runtimeBindingError = error instanceof Error ? error.message : String(error);
+    }
+  }
+  const runtimeBindingEvidence = artifact.runtime_binding
+    ? {
+        runtime_binding_status: runtimeBindingStatus,
+        runtime_binding_path: artifact.runtime_binding.path,
+        runtime_binding_unavailable_marker: artifact.runtime_binding.unavailable_marker_path,
+        ...(runtimeBindingError ? { runtime_binding_error: runtimeBindingError } : {})
+      }
+    : { runtime_binding_status: runtimeBindingStatus };
   const records = (await readCurrentRecords(input.store_path)).records
     .filter(
       (record) =>
@@ -213,6 +271,7 @@ export async function inspectHostActivation(input: {
         observed_events: observedEvents,
         owned_entries: 0,
         stale_entries: 0,
+        ...runtimeBindingEvidence,
         repairable_automatically: false,
         ...(lastReceipt ? { last_receipt: lastReceipt } : {}),
         suggested_actions: activationActions({ status, host: artifact.host, project_path: input.project_path })
@@ -224,22 +283,37 @@ export async function inspectHostActivation(input: {
   let staleEntries = 0;
   const configuredEvents: string[] = [];
   const hooks = settings?.hooks as Record<string, unknown> | undefined;
+  const generatedHooks = (JSON.parse(artifact.content) as { hooks: Record<string, unknown> }).hooks;
   if (hooks) {
     for (const event of artifact.expected_events) {
       const entries = hooks[event];
       if (!Array.isArray(entries)) continue;
-      let current = false;
+      const expectedEntries = generatedHooks[event];
+      const expectedEntry = Array.isArray(expectedEntries) ? expectedEntries[0] : undefined;
+      let currentEntries = 0;
       for (const entry of entries) {
-        const command = commandFromEntry(entry);
-        if (!command?.split(/\s+/).includes(artifact.activation_id)) continue;
+        const commands = ownedCommandsFromEntry(entry, artifact);
+        if (commands.length === 0) continue;
         ownedEntries += 1;
-        if (command === artifact.command) current = true;
+        if (expectedEntry !== undefined && JSON.stringify(entry) === JSON.stringify(expectedEntry)) currentEntries += 1;
         else staleEntries += 1;
       }
-      if (current) configuredEvents.push(event);
+      if (currentEntries > 0) configuredEvents.push(event);
+      if (currentEntries > 1) staleEntries += currentEntries - 1;
+    }
+    const expectedEvents = new Set(artifact.expected_events);
+    for (const [event, entries] of Object.entries(hooks)) {
+      if (expectedEvents.has(event) || !Array.isArray(entries)) continue;
+      for (const entry of entries) {
+        if (ownedCommandsFromEntry(entry, artifact).length === 0) continue;
+        ownedEntries += 1;
+        staleEntries += 1;
+      }
     }
   }
-  const fullyConfigured = configuredEvents.length === artifact.expected_events.length && staleEntries === 0;
+  const runtimeBindingCurrent = runtimeBindingStatus === "not_required" || runtimeBindingStatus === "current";
+  const fullyConfigured =
+    configuredEvents.length === artifact.expected_events.length && staleEntries === 0 && runtimeBindingCurrent;
   const status: ActivationStatus =
     receiptFresh && fullyConfigured
       ? "active"
@@ -262,6 +336,7 @@ export async function inspectHostActivation(input: {
     observed_events: observedEvents,
     owned_entries: ownedEntries,
     stale_entries: staleEntries,
+    ...runtimeBindingEvidence,
     repairable_automatically:
       status === "not_installed" || status === "generated_not_activated" || status === "stale_moryn_config",
     ...(lastReceipt ? { last_receipt: lastReceipt } : {}),

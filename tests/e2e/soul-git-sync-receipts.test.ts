@@ -1,11 +1,12 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { initializeStore } from "../../src/core/config.js";
+import { OperationDeadlineExceededError, withOperationDeadline } from "../../src/core/operation-deadline.js";
 import type { SoulClauseInput } from "../../src/core/soul-profile.js";
 import {
   approveSoulProfileDraft,
@@ -73,6 +74,42 @@ async function bareGit(repository: string, ...args: string[]): Promise<string> {
 }
 
 describe("portable Soul Git stage receipts", () => {
+  it("bounds Soul receipt Git inspection with the inherited operation deadline", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-soul-receipt-deadline-"));
+    const store = join(root, "store");
+    const fakeBin = join(root, "fake-bin");
+    const fakeGit = join(fakeBin, "git");
+    await mkdir(store);
+    await mkdir(fakeBin);
+    await writeFile(
+      fakeGit,
+      [
+        "#!/bin/sh",
+        'if [ "$1" = "ls-tree" ]; then',
+        "  printf '100644 blob aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\tevents/idempotent/evt_soul_00000000000000000000000000000000.json\\0'",
+        "  exit 0",
+        "fi",
+        "trap '' TERM",
+        "while :; do sleep 1; done"
+      ].join("\n"),
+      "utf8"
+    );
+    await chmod(fakeGit, 0o755);
+    const previousPath = process.env.PATH;
+    process.env.PATH = `${fakeBin}:${previousPath ?? ""}`;
+    const startedAt = Date.now();
+    try {
+      await expect(
+        withOperationDeadline(300, () => recordPushedSoulSyncReceipts(store, "remote-digest", "deadbeef"))
+      ).rejects.toBeInstanceOf(OperationDeadlineExceededError);
+      expect(Date.now() - startedAt).toBeLessThan(2_000);
+    } finally {
+      if (previousPath === undefined) delete process.env.PATH;
+      else process.env.PATH = previousPath;
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("proves exact pushed, pulled, and init-imported projections without leaking local-only clauses", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-soul-sync-evidence-"));
     const remote = join(root, "remote.git");

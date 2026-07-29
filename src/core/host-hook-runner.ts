@@ -12,7 +12,7 @@ import {
 import { createEngine } from "./engine.js";
 import { getHostCapabilities } from "./host-capabilities.js";
 import type { NormalizedHostHookEvent } from "./host-hooks.js";
-import { buildHostIntegrationArtifact } from "./host-integration-artifacts.js";
+import { buildHostIntegrationArtifact, type HostRuntimeDescriptor } from "./host-integration-artifacts.js";
 import { buildPromptRecallContext } from "./host-prompt-recall.js";
 import {
   defaultHostTranscriptRoots,
@@ -20,6 +20,7 @@ import {
   readHostTranscriptEvidence
 } from "./host-transcript-evidence.js";
 import { unresolvedLearningCandidates } from "./learning-candidate-review.js";
+import { rethrowIfOperationDeadlineExceeded } from "./operation-deadline.js";
 import { resolveProjectContext } from "./project.js";
 import { readCurrentRecords } from "./record-read-model.js";
 import { detectSensitiveContent } from "./sensitive.js";
@@ -33,6 +34,7 @@ export interface RunHostHookInput {
   project_id?: string;
   project_path?: string;
   current_task?: string;
+  hostRuntime?: HostRuntimeDescriptor;
   pull?: boolean;
   push?: boolean;
   learnings?: LearningDeltaInput[];
@@ -88,6 +90,12 @@ export type HostTranscriptEvidenceSummary = Pick<
   "status" | "reason" | "lines_considered" | "malformed_lines" | "truncated"
 > & {
   source: "hook_payload" | "transcript" | "none";
+};
+
+type SafeHostLifecycleEvidence = {
+  compactSummary?: string;
+  assistant?: string;
+  summary: HostTranscriptEvidenceSummary;
 };
 
 export interface HostHookRunResult {
@@ -185,6 +193,7 @@ function lifecycleInput(input: RunHostHookInput) {
     projectId: input.project_id,
     projectPath: input.project_path,
     currentTask: input.current_task,
+    hostRuntime: input.hostRuntime,
     agent: { client: input.hook.host, session_id: input.hook.session_id, device_id: input.hook.device_id }
   };
 }
@@ -207,6 +216,17 @@ function evidenceSummary(
   };
 }
 
+function protectedHookPayloadEvidence(): HostTranscriptEvidenceSummary {
+  return {
+    status: "protected",
+    reason: "sensitive_content",
+    lines_considered: 0,
+    malformed_lines: 0,
+    truncated: false,
+    source: "hook_payload"
+  };
+}
+
 async function hookTranscriptEvidence(
   input: RunHostHookInput
 ): Promise<{ assistant?: string; summary: HostTranscriptEvidenceSummary }> {
@@ -214,14 +234,7 @@ async function hookTranscriptEvidence(
   if (payloadAssistant) {
     if (detectSensitiveContent(payloadAssistant).sensitive)
       return {
-        summary: {
-          status: "protected",
-          reason: "sensitive_content",
-          lines_considered: 0,
-          malformed_lines: 0,
-          truncated: false,
-          source: "hook_payload"
-        }
+        summary: protectedHookPayloadEvidence()
       };
     return {
       assistant: payloadAssistant,
@@ -257,9 +270,22 @@ async function hookTranscriptEvidence(
   };
 }
 
+async function safeHostLifecycleEvidence(input: RunHostHookInput): Promise<SafeHostLifecycleEvidence> {
+  const compactSummary = input.hook.compact_summary;
+  if (compactSummary && detectSensitiveContent(compactSummary).sensitive) {
+    return { summary: protectedHookPayloadEvidence() };
+  }
+  const transcriptEvidence = await hookTranscriptEvidence(input);
+  return {
+    ...(compactSummary ? { compactSummary } : {}),
+    ...transcriptEvidence
+  };
+}
+
 async function sessionSynthesis(
   input: RunHostHookInput,
   projectId: string,
+  compactSummary?: string,
   assistantEvidence?: string
 ): Promise<SessionSynthesis> {
   try {
@@ -277,13 +303,14 @@ async function sessionSynthesis(
           recovery.source_record_ids?.length
       );
     return synthesizeSession({
-      host_summary: input.hook.compact_summary ?? (hasRecoveryEvidence ? undefined : assistantEvidence),
+      host_summary: compactSummary ?? (hasRecoveryEvidence ? undefined : assistantEvidence),
       current_task: input.current_task,
       recovery_pack: recovery
     });
-  } catch {
+  } catch (error) {
+    rethrowIfOperationDeadlineExceeded(error);
     return synthesizeSession({
-      host_summary: input.hook.compact_summary ?? assistantEvidence,
+      host_summary: compactSummary ?? assistantEvidence,
       current_task: input.current_task
     });
   }
@@ -319,7 +346,8 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
         host: input.hook.host,
         project_id: project.project_id,
         project_path: project.project_path,
-        store_path: input.storePath
+        store_path: input.storePath,
+        runtime: input.hostRuntime
       });
       if (input.activation_id !== expectedArtifact.activation_id)
         throw new Error(`Activation ID mismatch: expected ${expectedArtifact.activation_id}`);
@@ -334,6 +362,7 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
         command_digest: input.command_digest ?? expectedArtifact.command_digest
       } satisfies ActivationReceiptInput);
     } catch (error) {
+      rethrowIfOperationDeadlineExceeded(error);
       activation_warning = {
         code: "ACTIVATION_RECEIPT_FAILED",
         reason: error instanceof Error ? error.message : String(error)
@@ -435,10 +464,10 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
   }
   if (input.hook.event === "pre_compact") {
     const engine = createEngine({ storePath: input.storePath });
-    const transcriptEvidence = await hookTranscriptEvidence(input);
+    const hostEvidence = await safeHostLifecycleEvidence(input);
     const summary =
-      input.hook.compact_summary ??
-      transcriptEvidence.assistant ??
+      hostEvidence.compactSummary ??
+      hostEvidence.assistant ??
       `Checkpoint before ${input.hook.trigger ?? "compaction"}`;
     const checkpoint = await engine.checkpoint({
       project_id: project.project_id,
@@ -503,14 +532,19 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       checkpoint,
       checkpoint_sync: checkpointSync,
       ...(candidateReview ? { candidate_review: candidateReview } : {}),
-      transcript_evidence: transcriptEvidence.summary,
+      transcript_evidence: hostEvidence.summary,
       hook_output: { additional_context: candidateContext },
       ...activationEvidence
     };
   }
   if (input.hook.event === "session_end") {
-    const transcriptEvidence = await hookTranscriptEvidence(input);
-    const synthesis = await sessionSynthesis(input, project.project_id, transcriptEvidence.assistant);
+    const hostEvidence = await safeHostLifecycleEvidence(input);
+    const synthesis = await sessionSynthesis(
+      input,
+      project.project_id,
+      hostEvidence.compactSummary,
+      hostEvidence.assistant
+    );
     const payloadFingerprint = sessionEndPayloadFingerprint(input, synthesis);
     const push =
       input.push !== undefined
@@ -551,7 +585,7 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
         degradation,
         duplicate_handoff: { prior_record_id: priorSummary.id },
         duplicate_handoff_sync: duplicateSync,
-        transcript_evidence: transcriptEvidence.summary,
+        transcript_evidence: hostEvidence.summary,
         hook_output: { additional_context: `Moryn reused unchanged handoff: ${priorSummary.id}` },
         ...activationEvidence
       };
@@ -573,13 +607,18 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       action: "agent_finish",
       degradation,
       details: result,
-      transcript_evidence: transcriptEvidence.summary,
+      transcript_evidence: hostEvidence.summary,
       hook_output: { additional_context: `Moryn handoff saved: ${result.record.id}` },
       ...activationEvidence
     };
   }
-  const transcriptEvidence = await hookTranscriptEvidence(input);
-  const synthesis = await sessionSynthesis(input, project.project_id, transcriptEvidence.assistant);
+  const hostEvidence = await safeHostLifecycleEvidence(input);
+  const synthesis = await sessionSynthesis(
+    input,
+    project.project_id,
+    hostEvidence.compactSummary,
+    hostEvidence.assistant
+  );
   if (input.hook.event === "stop" && synthesis.mode === "minimal_fallback") {
     return {
       ok: true,
@@ -587,7 +626,7 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       action: "skip_empty_status",
       degradation,
       skipped: { reason: "no_durable_session_evidence" },
-      transcript_evidence: transcriptEvidence.summary,
+      transcript_evidence: hostEvidence.summary,
       hook_output: {
         additional_context: "Moryn skipped an empty turn status because no durable session evidence was available."
       },
@@ -648,7 +687,7 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
         action: "skip_duplicate_status",
         degradation,
         duplicate_status: { prior_record_id: priorStatus.id },
-        transcript_evidence: transcriptEvidence.summary,
+        transcript_evidence: hostEvidence.summary,
         sync_cadence: syncCadence,
         hook_output: { additional_context: `Moryn reused unchanged status: ${priorStatus.id}` },
         ...activationEvidence
@@ -668,7 +707,7 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       action: "agent_status",
       degradation,
       details: result,
-      transcript_evidence: transcriptEvidence.summary,
+      transcript_evidence: hostEvidence.summary,
       sync_cadence: syncCadence,
       hook_output: { additional_context: `Moryn status saved: ${result.record.id}` },
       ...activationEvidence
@@ -684,7 +723,7 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
     action: "agent_status",
     degradation,
     details: result,
-    transcript_evidence: transcriptEvidence.summary,
+    transcript_evidence: hostEvidence.summary,
     hook_output: { additional_context: `Moryn status saved: ${result.record.id}` },
     ...activationEvidence
   };

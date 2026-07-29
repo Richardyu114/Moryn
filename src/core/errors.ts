@@ -667,6 +667,7 @@ export function withNextActionMetadata<
 }
 
 export function errorCode(message: string): string {
+  if (message === "Operation deadline exceeded") return "OPERATION_DEADLINE_EXCEEDED";
   if (message.startsWith("Store not initialized") || message.includes("ENOENT")) return "STORE_NOT_INITIALIZED";
   if (message.startsWith("Confirmation required:")) return "CONFIRMATION_REQUIRED";
   if (message.startsWith("Invalid project config:")) return "INVALID_PROJECT_CONFIG";
@@ -737,6 +738,8 @@ export function recommendedAction(code: string): string {
       return "restore existing event files and append a corrective event before retrying sync";
     case "SYNC_REMOTE_UNAVAILABLE":
       return "continue locally and retry sync later";
+    case "OPERATION_DEADLINE_EXCEEDED":
+      return "continue locally; retry the operation, and retry sync later if local data was already saved";
     default:
       return "inspect logs and retry";
   }
@@ -1455,7 +1458,8 @@ export function toErrorEnvelope(error: unknown, context?: MorynErrorContext): Mo
   const explicitCode =
     errorRecord.code === "SYNC_CONFLICT" ||
     errorRecord.code === "SYNC_STATUS_UNAVAILABLE" ||
-    errorRecord.code === "EVENT_HISTORY_MUTATION"
+    errorRecord.code === "EVENT_HISTORY_MUTATION" ||
+    errorRecord.code === "OPERATION_DEADLINE_EXCEEDED"
       ? errorRecord.code
       : undefined;
   const code = explicitCode ?? errorCode(message);

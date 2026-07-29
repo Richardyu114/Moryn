@@ -2,6 +2,7 @@ import { operationArgumentsByTool } from "../operation-contracts.js";
 import { type ActionInterfaces, actionInterfaces } from "./action-interfaces.js";
 import { actionExecution, actionSafety } from "./action-safety.js";
 import { isCaptureReviewCandidate } from "./capture-review.js";
+import { shellQuote } from "./cli-command-line.js";
 import type { HostActivationStatus } from "./host-activation.js";
 import { getHostAdapter, type HostAdapterId } from "./host-adapter-registry.js";
 import type { CurrentRecordReadResult, RecordReadFallbackReason } from "./record-read-model.js";
@@ -29,6 +30,7 @@ export interface HealthCheckDiagnoseInput extends HealthCheckInput {
   events: MorynEvent[];
   excluded_private_records?: number;
   activation_status?: HostActivationStatus;
+  activation_inspection_error?: string;
   record_read_model?: CurrentRecordReadResult;
   retrieval_index?: RetrievalCandidateReadResult;
   sync_compensation?: SyncCompensationReceipt;
@@ -189,9 +191,11 @@ function healthStatus(checks: HealthCheckItem[]): HealthCheckStatus {
 function healthSummary(
   status: HealthCheckStatus,
   checks: HealthCheckItem[],
-  actions: HealthCheckSuggestedAction[]
+  actions: HealthCheckSuggestedAction[],
+  preferredNextStep?: string
 ): HealthCheckSummary {
   const nextStep =
+    preferredNextStep ??
     actions[0]?.command ??
     (status === "healthy"
       ? "Moryn health check passed; continue with context pack, capture, and recall."
@@ -354,6 +358,64 @@ function hostAdapterCheck(readiness: HealthCheckSetupReadiness): HealthCheckItem
     summary: `${readiness.host_adapter} adapter commands are available.`,
     reason:
       "Moryn can generate host-specific MCP registration, context pack, and capture commands without mutating host configuration."
+  };
+}
+
+function hostActivationCheck(activation: HostActivationStatus): HealthCheckItem {
+  const host = activation.host === "codex" ? "Codex" : "Claude";
+  if (activation.status === "active") {
+    return {
+      id: "host_activation",
+      category: "host",
+      status: "pass",
+      label: `${host} hook activation`,
+      summary: `${host} hooks are active for the current Moryn runtime.`,
+      reason: "All expected hook events are configured and a fresh activation receipt proves runtime execution."
+    };
+  }
+  if (activation.status === "configured_unverified") {
+    return {
+      id: "host_activation",
+      category: "host",
+      status: "pass",
+      label: `${host} hook activation`,
+      summary: `${host} hooks are configured for the current Moryn runtime.`,
+      reason:
+        "All expected hook events use the current command; no fresh activation receipt is required for configuration health."
+    };
+  }
+
+  const reasonByStatus: Partial<Record<HostActivationStatus["status"], string>> = {
+    not_installed: `No Moryn-owned ${host} hooks are installed for this project.`,
+    generated_not_activated: `The generated ${host} hook fragment has not been activated in the host configuration.`,
+    stale_moryn_config:
+      activation.stale_entries > 0
+        ? `${activation.stale_entries} Moryn-owned ${host} hook entr${activation.stale_entries === 1 ? "y uses" : "ies use"} a stale runtime command.`
+        : `Moryn-owned ${host} hooks need their runtime binding repaired.`,
+    invalid_config: `${host} hook configuration cannot be parsed safely.`,
+    blocked_by_policy: `${host} hook activation is blocked by host policy.`,
+    host_schema_unknown: `${host} hook configuration uses an unsupported schema.`
+  };
+  return {
+    id: "host_activation",
+    category: "host",
+    status: "warning",
+    label: `${host} hook activation`,
+    summary: `${host} hooks need attention (${activation.status}).`,
+    reason: reasonByStatus[activation.status] ?? `${host} hooks are not ready for automatic lifecycle execution.`
+  };
+}
+
+function hostActivationInspectionCheck(hostInput: string | undefined, reason: string): HealthCheckItem {
+  const host =
+    hostInput === "codex" ? "Codex" : hostInput === "claude" || hostInput === "claude-code" ? "Claude" : "Host";
+  return {
+    id: "host_activation",
+    category: "host",
+    status: "warning",
+    label: `${host} hook activation`,
+    summary: `${host} hook activation could not be inspected safely.`,
+    reason
   };
 }
 
@@ -581,6 +643,11 @@ export function diagnoseHealthCheck(input: HealthCheckDiagnoseInput): HealthChec
   const reviewCandidates = projectRecords.filter(isCaptureReviewCandidate).slice(0, limit);
   const excludedPrivateRecords = input.excluded_private_records ?? 0;
   const readiness = setupReadiness(input);
+  const activationCheck = input.activation_status
+    ? hostActivationCheck(input.activation_status)
+    : input.activation_inspection_error
+      ? hostActivationInspectionCheck(input.host, input.activation_inspection_error)
+      : undefined;
   const checks = [
     storeReadableCheck(input.records),
     eventLogReplayableCheck(input.events),
@@ -590,7 +657,8 @@ export function diagnoseHealthCheck(input: HealthCheckDiagnoseInput): HealthChec
     privateBoundaryCheck(excludedPrivateRecords),
     dashboardAccessCheck(),
     syncRemoteCheck(input.sync_remote),
-    hostAdapterCheck(readiness)
+    hostAdapterCheck(readiness),
+    ...(activationCheck ? [activationCheck] : [])
   ];
   const actions = [
     ...(reviewCandidates.length > 0 ? [reviewCaptureAction(input.project_id)] : []),
@@ -645,7 +713,16 @@ export function diagnoseHealthCheck(input: HealthCheckDiagnoseInput): HealthChec
     ...(retrievalIndex ? { retrieval_index: retrievalIndex } : {}),
     ...(input.sync_compensation ? { sync_compensation: input.sync_compensation } : {}),
     setup_readiness: readiness,
-    summary: healthSummary(status, checks, actions),
+    summary: healthSummary(
+      status,
+      checks,
+      actions,
+      input.activation_status && !input.activation_status.healthy
+        ? input.activation_status.suggested_actions[0]?.command
+        : input.activation_inspection_error && input.host && input.project_path
+          ? `moryn activation status --host ${input.host} --project ${shellQuote(input.project_path)}`
+          : undefined
+    ),
     stats: stats(input, projectRecords, reviewCandidates),
     checks,
     checks_by_id: Object.fromEntries(checks.map((check) => [check.id, check])),

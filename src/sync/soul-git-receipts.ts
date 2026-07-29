@@ -1,7 +1,10 @@
-import { execFile, spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { promisify } from "node:util";
+import {
+  execOperationChildProcess,
+  rethrowIfOperationDeadlineExceeded,
+  spawnOperationChildProcess
+} from "../core/operation-deadline.js";
 import { parseEvent } from "../core/schema.js";
 import {
   parseSoulProfileProjection,
@@ -18,7 +21,6 @@ import {
 } from "../core/soul-sync-receipts.js";
 import type { MorynEvent } from "../core/types.js";
 
-const exec = promisify(execFile);
 const SOUL_EVENT_PATH_PATTERN = /^events\/idempotent\/evt_soul_[a-f0-9]{32}\.json$/u;
 const GIT_ERROR_BUFFER_LIMIT = 64 * 1024;
 
@@ -34,12 +36,12 @@ function compareCodeUnits(left: string, right: string): number {
 }
 
 async function git(cwd: string, args: string[]): Promise<string> {
-  const { stdout } = await exec("git", args, { cwd });
+  const { stdout } = await execOperationChildProcess("git", args, { cwd });
   return stdout.trim();
 }
 
 async function gitRaw(cwd: string, args: string[]): Promise<string> {
-  const { stdout } = await exec("git", args, { cwd });
+  const { stdout } = await execOperationChildProcess("git", args, { cwd });
   return stdout;
 }
 
@@ -60,10 +62,10 @@ async function streamSoulTreeEntries(
   commit: string
 ): Promise<Array<{ path: string; blob_oid: string }>> {
   return new Promise((resolve, reject) => {
-    const child = spawn("git", ["ls-tree", "-r", "-z", commit, "--", "events/idempotent"], {
-      cwd: storePath,
-      stdio: ["ignore", "pipe", "pipe"]
-    });
+    const args = ["ls-tree", "-r", "-z", commit, "--", "events/idempotent"];
+    const spawned = spawnOperationChildProcess("git", args, { cwd: storePath });
+    const { child } = spawned;
+    child.stdin.end();
     const entries: Array<{ path: string; blob_oid: string }> = [];
     let pending = Buffer.alloc(0);
     let errorOutput = Buffer.alloc(0);
@@ -82,11 +84,17 @@ async function streamSoulTreeEntries(
       if (errorOutput.length >= GIT_ERROR_BUFFER_LIMIT) return;
       errorOutput = Buffer.concat([errorOutput, chunk.subarray(0, GIT_ERROR_BUFFER_LIMIT - errorOutput.length)]);
     });
-    child.once("error", reject);
-    child.once("close", (code) => {
-      if (code !== 0) {
+    void spawned.completed.then((result) => {
+      const childError = result.termination_error ?? result.spawn_error;
+      if (childError) {
+        reject(childError);
+        return;
+      }
+      if (result.code !== 0) {
         reject(
-          new Error(`git ls-tree failed with exit code ${code ?? "unknown"}: ${errorOutput.toString("utf8").trim()}`)
+          new Error(
+            `git ls-tree failed with exit code ${result.code ?? "unknown"}: ${errorOutput.toString("utf8").trim()}`
+          )
         );
         return;
       }
@@ -116,7 +124,8 @@ async function soulProjectionEvidenceAtCommit(storePath: string, commit: string)
       const envelope = parseSoulProfileProjection(event.record.content.soul_profile_projection);
       if (envelope.projection !== "personal_sync") continue;
       evidence.push({ event, envelope, event_path: entry.path, event_blob_oid: entry.blob_oid });
-    } catch {
+    } catch (error) {
+      rethrowIfOperationDeadlineExceeded(error);
       // Invalid projections remain synchronized as ordinary Git data but do not gain proof state.
     }
   }
@@ -150,7 +159,8 @@ async function localEventMatchesEvidence(storePath: string, evidence: GitSoulPro
       localEnvelope.full_revision_id === evidence.envelope.full_revision_id &&
       localEnvelope.integrity_digest === evidence.envelope.integrity_digest
     );
-  } catch {
+  } catch (error) {
+    rethrowIfOperationDeadlineExceeded(error);
     return false;
   }
 }

@@ -1,10 +1,15 @@
 import { createHash } from "node:crypto";
-import { lstat, open, readFile, rename, writeFile } from "node:fs/promises";
+import { open, readFile, rename } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import type { HostIntegrationArtifact } from "./host-integration-artifacts.js";
 import {
-  ensureProjectWriteDirectory,
+  hardenHostConfigBackupStorage,
+  resolveHostConfigBackupStorage,
+  writeHostConfigBackup
+} from "./host-config-backups.js";
+import { type HostIntegrationArtifact, isMorynHookOwnedByArtifact } from "./host-integration-artifacts.js";
+import {
   ensureProjectWriteParent,
+  hardenProjectBackupDirectory,
   projectFileExists,
   resolveProjectWriteTarget
 } from "./project-write-boundary.js";
@@ -36,20 +41,27 @@ function entries(value: unknown, event: string): Record<string, any>[] {
   return value.map((entry, index) => objectValue(entry, `hooks.${event}[${index}]`));
 }
 
-function entryCommand(entry: Record<string, any>): string | undefined {
-  if (!Array.isArray(entry.hooks)) return undefined;
-  const hook = entry.hooks.find(
-    (value: unknown) =>
-      value &&
-      typeof value === "object" &&
-      !Array.isArray(value) &&
-      typeof (value as Record<string, unknown>).command === "string"
-  );
-  return hook ? (hook as Record<string, string>).command : undefined;
-}
-
-function owned(entry: Record<string, any>, activationId: string): boolean {
-  return entryCommand(entry)?.split(/\s+/).includes(activationId) === true;
+function removeOwnedHandlers(
+  entry: Record<string, any>,
+  artifact: HostIntegrationArtifact
+): { entry?: Record<string, any>; owned: boolean } {
+  if (!Array.isArray(entry.hooks)) return { entry, owned: false };
+  let owned = false;
+  const retained = entry.hooks.filter((hook: unknown) => {
+    const command =
+      hook &&
+      typeof hook === "object" &&
+      !Array.isArray(hook) &&
+      (hook as Record<string, unknown>).type === "command" &&
+      typeof (hook as Record<string, unknown>).command === "string"
+        ? ((hook as Record<string, unknown>).command as string)
+        : undefined;
+    const remove = isMorynHookOwnedByArtifact(command, artifact);
+    owned ||= remove;
+    return !remove;
+  });
+  if (!owned) return { entry, owned: false };
+  return retained.length > 0 ? { entry: { ...entry, hooks: retained }, owned: true } : { owned: true };
 }
 
 export function mergeCodexHooks(
@@ -67,19 +79,32 @@ export function mergeCodexHooks(
   const hooks: Record<string, any> = { ...currentHooks };
   const changedEvents: string[] = [];
   let ownedEntriesRemoved = 0;
+
+  const retainUnownedEntries = (event: string, value: unknown): Record<string, any>[] => {
+    const retained: Record<string, any>[] = [];
+    for (const entry of entries(value, event)) {
+      const result = removeOwnedHandlers(entry, artifact);
+      if (result.owned) ownedEntriesRemoved += 1;
+      if (result.entry) retained.push(result.entry);
+    }
+    return retained;
+  };
+
   for (const [event, generatedValue] of Object.entries(generatedHooks)) {
     const generatedEntries = entries(generatedValue, event);
     const currentEntries = currentHooks[event] === undefined ? [] : entries(currentHooks[event], event);
-    const retained = currentEntries.filter((entry) => {
-      const isOwned = owned(entry, artifact.activation_id);
-      if (isOwned) ownedEntriesRemoved += 1;
-      return !isOwned;
-    });
+    const retained = retainUnownedEntries(event, currentEntries);
     const merged = [...retained, ...generatedEntries];
     hooks[event] = merged;
     if (JSON.stringify(currentEntries) !== JSON.stringify(merged)) changedEvents.push(event);
   }
-  for (const [event, value] of Object.entries(currentHooks)) if (!(event in generatedHooks)) entries(value, event);
+  for (const [event, value] of Object.entries(currentHooks)) {
+    if (event in generatedHooks) continue;
+    const currentEntries = entries(value, event);
+    const retained = retainUnownedEntries(event, currentEntries);
+    hooks[event] = retained;
+    if (JSON.stringify(currentEntries) !== JSON.stringify(retained)) changedEvents.push(event);
+  }
   const settings = { ...root, hooks };
   return {
     changed: JSON.stringify(root) !== JSON.stringify(settings),
@@ -96,6 +121,7 @@ function digest(value: string): string {
 export async function activateCodexHooks(input: {
   project_path: string;
   artifact: HostIntegrationArtifact;
+  backup_root?: string;
 }): Promise<CodexActivationResult> {
   if (input.artifact.host !== "codex") throw new Error("Invalid Codex hooks: activation requires a Codex artifact");
   if (input.artifact.path !== ".codex/moryn-hooks.json" || input.artifact.merge_target !== ".codex/hooks.json") {
@@ -118,6 +144,18 @@ export async function activateCodexHooks(input: {
   const merged = mergeCodexHooks(current, input.artifact);
   const newText = `${JSON.stringify(merged.settings, null, 2)}\n`;
   const newDigest = digest(newText);
+  await hardenProjectBackupDirectory({
+    root_path: input.project_path,
+    relative_path: ".codex/.moryn-backups",
+    backup_name: /^hooks\.[a-f0-9]{16}\.json$/u,
+    description: "Codex hooks backup"
+  });
+  const backupStorage = await resolveHostConfigBackupStorage(input);
+  await hardenHostConfigBackupStorage({
+    storage: backupStorage,
+    backup_name: /^hooks\.[a-f0-9]{16}\.json$/u,
+    description: "Codex hooks backup"
+  });
   if (!merged.changed && existingText !== undefined)
     return {
       ...merged,
@@ -131,22 +169,12 @@ export async function activateCodexHooks(input: {
   let backupPath: string | undefined;
   if (existingText !== undefined) {
     const previousDigest = digest(existingText);
-    const backupDir = await ensureProjectWriteDirectory(
-      boundary.root_path,
-      ".codex/.moryn-backups",
-      "Codex hooks backup"
-    );
-    backupPath = join(backupDir, `hooks.${previousDigest.slice(0, 16)}.json`);
-    try {
-      const stat = await lstat(backupPath);
-      if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`Invalid Codex hooks backup: ${backupPath}`);
-      if ((await readFile(backupPath, "utf8")) !== existingText)
-        throw new Error(`Invalid Codex hooks backup content: ${backupPath}`);
-    } catch (error) {
-      if (error && typeof error === "object" && "code" in error && error.code === "ENOENT")
-        await writeFile(backupPath, existingText, { encoding: "utf8", flag: "wx" });
-      else throw error;
-    }
+    backupPath = await writeHostConfigBackup({
+      storage: backupStorage,
+      name: `hooks.${previousDigest.slice(0, 16)}.json`,
+      content: existingText,
+      description: "Codex hooks backup"
+    });
   }
   const temporaryPath = join(dirname(targetPath), `.hooks.moryn-${process.pid}-${newDigest.slice(0, 12)}.tmp`);
   const handle = await open(temporaryPath, "wx", 0o600);

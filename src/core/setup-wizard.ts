@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import { initializeStore, readStoreConfig } from "./config.js";
 import { type HostActivationStatus, inspectHostActivation } from "./host-activation.js";
 import { type HostAdapterId, type InstallPlanAction, normalizeHostId, planInstall } from "./host-adapters.js";
+import type { HostRuntimeDescriptor } from "./host-integration-artifacts.js";
 import { initializeProjectConfig, readProjectConfig } from "./project.js";
 
 export type SetupWizardCheckId = "store" | "project" | "sync" | "host_adapter";
@@ -66,6 +67,7 @@ export type SetupWizardInput = {
   projectPath?: string;
   syncRemote?: string;
   apply?: boolean;
+  hostRuntime?: HostRuntimeDescriptor;
 };
 
 export class SetupWizardArgumentError extends Error {
@@ -309,7 +311,8 @@ export async function setupWizard(input: SetupWizardInput): Promise<SetupWizardP
           store_path: input.storePath,
           project_path: input.projectPath,
           project_id: projectConfig.project_id,
-          host: normalizedHost
+          host: normalizedHost,
+          runtime: input.hostRuntime
         });
       } catch {}
     }

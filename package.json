@@ -42,6 +42,7 @@
     "docs/moryn-design.md",
     "docs/v0.4-migration.md",
     "assets",
+    "deploy/container",
     "scripts/agent-lifecycle-smoke.js",
     "scripts/host-runtime-binding-smoke.js",
     "scripts/transcript-compact-safety-smoke.js",

@@ -1,10 +1,15 @@
 import { createHash } from "node:crypto";
-import { lstat, open, readFile, rename, writeFile } from "node:fs/promises";
+import { open, readFile, rename } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import type { HostIntegrationArtifact } from "./host-integration-artifacts.js";
 import {
-  ensureProjectWriteDirectory,
+  hardenHostConfigBackupStorage,
+  resolveHostConfigBackupStorage,
+  writeHostConfigBackup
+} from "./host-config-backups.js";
+import { type HostIntegrationArtifact, isMorynHookOwnedByArtifact } from "./host-integration-artifacts.js";
+import {
   ensureProjectWriteParent,
+  hardenProjectBackupDirectory,
   projectFileExists,
   resolveProjectWriteTarget
 } from "./project-write-boundary.js";
@@ -36,18 +41,27 @@ function eventEntries(value: unknown, event: string): Record<string, any>[] {
   return value.map((entry, index) => settingsObject(entry, `hooks.${event}[${index}]`));
 }
 
-function entryCommand(entry: Record<string, any>): string | undefined {
-  if (!Array.isArray(entry.hooks)) return undefined;
-  for (const hook of entry.hooks) {
-    if (hook && typeof hook === "object" && !Array.isArray(hook) && typeof hook.command === "string")
-      return hook.command;
-  }
-  return undefined;
-}
-
-function isOwned(entry: Record<string, any>, activationId: string): boolean {
-  const command = entryCommand(entry);
-  return command?.split(/\s+/).includes(activationId) === true;
+function removeOwnedHandlers(
+  entry: Record<string, any>,
+  artifact: HostIntegrationArtifact
+): { entry?: Record<string, any>; owned: boolean } {
+  if (!Array.isArray(entry.hooks)) return { entry, owned: false };
+  let owned = false;
+  const retained = entry.hooks.filter((hook: unknown) => {
+    const command =
+      hook &&
+      typeof hook === "object" &&
+      !Array.isArray(hook) &&
+      (hook as Record<string, unknown>).type === "command" &&
+      typeof (hook as Record<string, unknown>).command === "string"
+        ? ((hook as Record<string, unknown>).command as string)
+        : undefined;
+    const remove = isMorynHookOwnedByArtifact(command, artifact);
+    owned ||= remove;
+    return !remove;
+  });
+  if (!owned) return { entry, owned: false };
+  return retained.length > 0 ? { entry: { ...entry, hooks: retained }, owned: true } : { owned: true };
 }
 
 function semanticJson(value: unknown): string {
@@ -68,14 +82,20 @@ export function mergeClaudeSettings(
   const changedEvents: string[] = [];
   let ownedEntriesRemoved = 0;
 
+  const retainUnownedEntries = (event: string, value: unknown): Record<string, any>[] => {
+    const retained: Record<string, any>[] = [];
+    for (const entry of eventEntries(value, event)) {
+      const result = removeOwnedHandlers(entry, artifact);
+      if (result.owned) ownedEntriesRemoved += 1;
+      if (result.entry) retained.push(result.entry);
+    }
+    return retained;
+  };
+
   for (const [event, rawGeneratedEntries] of Object.entries(generatedHooks)) {
     const generatedEntries = eventEntries(rawGeneratedEntries, event);
     const existingEntries = existingHooks[event] === undefined ? [] : eventEntries(existingHooks[event], event);
-    const retained = existingEntries.filter((entry) => {
-      const owned = isOwned(entry, artifact.activation_id);
-      if (owned) ownedEntriesRemoved += 1;
-      return !owned;
-    });
+    const retained = retainUnownedEntries(event, existingEntries);
     const merged = [...retained, ...generatedEntries];
     hooks[event] = merged;
     if (semanticJson(existingEntries) !== semanticJson(merged)) changedEvents.push(event);
@@ -83,7 +103,10 @@ export function mergeClaudeSettings(
 
   for (const [event, rawEntries] of Object.entries(existingHooks)) {
     if (event in generatedHooks) continue;
-    eventEntries(rawEntries, event);
+    const existingEntries = eventEntries(rawEntries, event);
+    const retained = retainUnownedEntries(event, existingEntries);
+    hooks[event] = retained;
+    if (semanticJson(existingEntries) !== semanticJson(retained)) changedEvents.push(event);
   }
 
   const settings = { ...root, hooks };
@@ -102,6 +125,7 @@ function digest(value: string): string {
 export async function activateClaudeSettings(input: {
   project_path: string;
   artifact: HostIntegrationArtifact;
+  backup_root?: string;
 }): Promise<ClaudeActivationResult> {
   if (input.artifact.host !== "claude")
     throw new Error("Invalid Claude settings: activation requires a Claude artifact");
@@ -128,6 +152,18 @@ export async function activateClaudeSettings(input: {
   const merged = mergeClaudeSettings(current, input.artifact);
   const newText = `${JSON.stringify(merged.settings, null, 2)}\n`;
   const newDigest = digest(newText);
+  await hardenProjectBackupDirectory({
+    root_path: input.project_path,
+    relative_path: ".claude/.moryn-backups",
+    backup_name: /^settings\.local\.[a-f0-9]{16}\.json$/u,
+    description: "Claude settings backup"
+  });
+  const backupStorage = await resolveHostConfigBackupStorage(input);
+  await hardenHostConfigBackupStorage({
+    storage: backupStorage,
+    backup_name: /^settings\.local\.[a-f0-9]{16}\.json$/u,
+    description: "Claude settings backup"
+  });
   if (!merged.changed && existingText !== undefined) {
     return {
       ...merged,
@@ -143,23 +179,12 @@ export async function activateClaudeSettings(input: {
   let backupPath: string | undefined;
   if (existingText !== undefined) {
     const previousDigest = digest(existingText);
-    const backupDir = await ensureProjectWriteDirectory(
-      boundary.root_path,
-      ".claude/.moryn-backups",
-      "Claude settings backup"
-    );
-    backupPath = join(backupDir, `settings.local.${previousDigest.slice(0, 16)}.json`);
-    try {
-      const backupStat = await lstat(backupPath);
-      if (!backupStat.isFile() || backupStat.isSymbolicLink())
-        throw new Error(`Invalid Claude settings backup: ${backupPath}`);
-      if ((await readFile(backupPath, "utf8")) !== existingText)
-        throw new Error(`Invalid Claude settings backup content: ${backupPath}`);
-    } catch (error) {
-      if (error && typeof error === "object" && "code" in error && error.code === "ENOENT")
-        await writeFile(backupPath, existingText, { encoding: "utf8", flag: "wx" });
-      else throw error;
-    }
+    backupPath = await writeHostConfigBackup({
+      storage: backupStorage,
+      name: `settings.local.${previousDigest.slice(0, 16)}.json`,
+      content: existingText,
+      description: "Claude settings backup"
+    });
   }
 
   const temporaryPath = join(dirname(targetPath), `.settings.local.moryn-${process.pid}-${newDigest.slice(0, 12)}.tmp`);

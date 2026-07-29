@@ -33,12 +33,24 @@ import {
   type MorynErrorEnvelope,
   toErrorEnvelope
 } from "./core/errors.js";
+import { assertHostHookInputLimit, readHostHookInput } from "./core/host-hook-io.js";
 import { formatHostHookOutput } from "./core/host-hook-output.js";
 import { runHostHook } from "./core/host-hook-runner.js";
+import {
+  HOST_HOOK_INPUT_LIMIT_BYTES,
+  HOST_HOOK_OPERATION_BUDGET_MS,
+  startHostHookProcessWatchdog
+} from "./core/host-hook-timing.js";
 import { normalizeHostHookEvent } from "./core/host-hooks.js";
 import { queueLearning } from "./core/learning-inbox.js";
 import { LOGICAL_RELATIONSHIP_TYPES, type LogicalRelationshipType } from "./core/logical-memory.js";
 import { runMaintenanceOnce } from "./core/maintenance-runner.js";
+import {
+  currentOperationDeadlineSignal,
+  isOperationDeadlineExceeded,
+  OperationDeadlineExceededError,
+  withOperationDeadline
+} from "./core/operation-deadline.js";
 import {
   initializeProjectConfig,
   PROJECT_SYNC_MODE_INPUTS,
@@ -1885,6 +1897,7 @@ function createCliEngine() {
   const path = storePath();
   return createEngine({
     storePath: path,
+    hostRuntime,
     syncStatus: () => getGitSyncStatus(path)
   });
 }
@@ -2591,12 +2604,6 @@ activation
 
 const host = program.command("host").description("Host lifecycle integration commands");
 
-async function readStdinText(): Promise<string> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of process.stdin) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  return Buffer.concat(chunks).toString("utf8");
-}
-
 host
   .command("hook")
   .requiredOption("--host <host>", "Host name: codex or claude")
@@ -2623,47 +2630,63 @@ host
   .option("--no-pull")
   .option("--no-push")
   .action(async (options) => {
+    const stopWatchdog = startHostHookProcessWatchdog(() => {
+      if (!options.hostOutput) printError(new OperationDeadlineExceededError());
+      process.exit(options.hostOutput ? 0 : 1);
+    });
     try {
-      const raw = options.inputJson ?? (await readStdinText());
-      const payload = JSON.parse(raw);
-      const configuredDeviceId =
-        typeof options.deviceId === "string" && options.deviceId.trim()
-          ? options.deviceId.trim()
-          : (await readStoreConfig(storePath())).device_id;
-      const hookEvent = normalizeHostHookEvent(options.host, payload, {
-        device_id: configuredDeviceId,
-        occurred_at: options.occurredAt ?? new Date().toISOString()
+      await withOperationDeadline(HOST_HOOK_OPERATION_BUDGET_MS, async () => {
+        const raw =
+          options.inputJson ??
+          (await readHostHookInput(process.stdin, currentOperationDeadlineSignal(), HOST_HOOK_INPUT_LIMIT_BYTES));
+        assertHostHookInputLimit(raw, HOST_HOOK_INPUT_LIMIT_BYTES);
+        const payload = JSON.parse(raw);
+        const configuredDeviceId =
+          typeof options.deviceId === "string" && options.deviceId.trim()
+            ? options.deviceId.trim()
+            : (await readStoreConfig(storePath())).device_id;
+        const hookEvent = normalizeHostHookEvent(options.host, payload, {
+          device_id: configuredDeviceId,
+          occurred_at: options.occurredAt ?? new Date().toISOString()
+        });
+        const result = await runHostHook({
+          storePath: storePath(),
+          hook: hookEvent,
+          project_id: options.projectId,
+          project_path: options.project,
+          current_task: options.currentTask,
+          activation_id: options.activationId,
+          command_digest: options.commandDigest,
+          learnings: (options.learning ?? []).map(
+            (value: string) => parseCheckpointJson(value, "--learning") as LearningDeltaInput
+          ),
+          knowledge_investigations: (options.knowledgeInvestigation ?? []).map(
+            (value: string) => parseCheckpointJson(value, "--knowledge-investigation") as KnowledgeInvestigationInput
+          ),
+          semantic_consolidation_proposals: (options.semanticConsolidationProposal ?? []).map(
+            (value: string) =>
+              parseCheckpointJson(value, "--semantic-consolidation-proposal") as SemanticConsolidationProposalInput
+          ),
+          hostRuntime,
+          pull: options.pull,
+          push: options.push
+        });
+        if (options.hostOutput) {
+          const output = formatHostHookOutput(result);
+          if (output !== undefined) printJson(output, { pretty: false });
+        } else {
+          printJson(result);
+        }
       });
-      const result = await runHostHook({
-        storePath: storePath(),
-        hook: hookEvent,
-        project_id: options.projectId,
-        project_path: options.project,
-        current_task: options.currentTask,
-        activation_id: options.activationId,
-        command_digest: options.commandDigest,
-        learnings: (options.learning ?? []).map(
-          (value: string) => parseCheckpointJson(value, "--learning") as LearningDeltaInput
-        ),
-        knowledge_investigations: (options.knowledgeInvestigation ?? []).map(
-          (value: string) => parseCheckpointJson(value, "--knowledge-investigation") as KnowledgeInvestigationInput
-        ),
-        semantic_consolidation_proposals: (options.semanticConsolidationProposal ?? []).map(
-          (value: string) =>
-            parseCheckpointJson(value, "--semantic-consolidation-proposal") as SemanticConsolidationProposalInput
-        ),
-        pull: options.pull,
-        push: options.push
-      });
-      if (options.hostOutput) {
-        const output = formatHostHookOutput(result);
-        if (output !== undefined) printJson(output, { pretty: false });
-      } else {
-        printJson(result);
-      }
     } catch (error) {
+      if (options.hostOutput && isOperationDeadlineExceeded(error)) {
+        process.exitCode = 0;
+        return;
+      }
       printError(error);
       process.exitCode = 1;
+    } finally {
+      stopWatchdog();
     }
   });
 
@@ -2701,7 +2724,8 @@ program
           host,
           projectPath,
           syncRemote,
-          apply: Boolean(options.apply)
+          apply: Boolean(options.apply),
+          hostRuntime
         })
       );
     } catch (error) {
@@ -2788,6 +2812,7 @@ context
       limit: parseLimit(options.limit, "context_pack"),
       includePrivate: Boolean(options.includePrivate),
       pull,
+      hostRuntime,
       agent: parseAgentOptions(options)
     });
     printJson(result);
@@ -3836,6 +3861,7 @@ program.command("mcp").action(async () => {
   const path = storePath();
   const engine = createEngine({
     storePath: path,
+    hostRuntime,
     syncStatus: () => getGitSyncStatus(path)
   });
   await runMcpServer(engine, { storePath: path, hostRuntime });
@@ -4051,6 +4077,7 @@ agent
           "--current-task",
           lifecycleStringSource(operation, "current_task")
         ),
+        hostRuntime,
         agent: parseAgentOptions(options, operation)
       })
     );
@@ -4282,7 +4309,8 @@ agent
         limit: parseLimit(options.limit, "agent_start"),
         pull,
         agent: agentOptions,
-        ...soulBinding.lifecycle
+        ...soulBinding.lifecycle,
+        hostRuntime
       });
       printJson(
         await withDashboard(result, {

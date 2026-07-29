@@ -1412,7 +1412,8 @@ export async function runMcpServer(
             host: normalizedInput.host as string | undefined,
             projectPath,
             syncRemote: normalizedInput.sync_remote as string | undefined,
-            apply: normalizedInput.apply as boolean | undefined
+            apply: normalizedInput.apply as boolean | undefined,
+            hostRuntime: options.hostRuntime
           });
         },
         (normalizedInput) => {
@@ -1497,6 +1498,7 @@ export async function runMcpServer(
           limit: normalizedInput.limit as number | undefined,
           includePrivate: normalizedInput.include_private as boolean | undefined,
           pull: normalizedInput.pull as boolean | undefined,
+          hostRuntime: options.hostRuntime,
           agent: lifecycleAgentInput(normalizedInput.agent)
         });
       })
@@ -2592,6 +2594,7 @@ export async function runMcpServer(
             }),
             syncRemote: normalizedInput.sync_remote as string | undefined,
             currentTask: normalizedInput.current_task as string | undefined,
+            hostRuntime: options.hostRuntime,
             agent: lifecycleAgent
           }),
           options.hostRuntime
@@ -2722,6 +2725,7 @@ export async function runMcpServer(
             }),
             syncRemote: normalizedInput.sync_remote as string | undefined,
             currentTask: normalizedInput.current_task as string | undefined,
+            hostRuntime: options.hostRuntime,
             agent: lifecycleAgent
           }),
           options.hostRuntime
@@ -2773,7 +2777,8 @@ export async function runMcpServer(
             refreshSince: normalizedInput.refresh_since,
             limit: normalizedInput.limit,
             pull: coreValidatedPull,
-            agent: lifecycleAgent
+            agent: lifecycleAgent,
+            hostRuntime: options.hostRuntime
           });
           return withOptionalMcpDashboard(
             options.storePath,

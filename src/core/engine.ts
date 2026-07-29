@@ -47,6 +47,7 @@ import {
 import { diagnoseHealthCheck, HEALTH_CHECK_SELECTION_SOURCES, type HealthCheckInput } from "./health-check.js";
 import { inspectHostActivation } from "./host-activation.js";
 import { normalizeHostId } from "./host-adapter-registry.js";
+import type { HostRuntimeDescriptor } from "./host-integration-artifacts.js";
 import { createId } from "./id.js";
 import { buildLearningCandidateReviewWorkflow, unresolvedLearningCandidates } from "./learning-candidate-review.js";
 import { consumeLearningInbox, learningInboxForLifecycle } from "./learning-inbox.js";
@@ -190,6 +191,7 @@ import { type RequiredFieldMetadata, withPhasesByName, withRequiredFieldsByName 
 
 interface EngineDeps {
   storePath: string;
+  hostRuntime?: HostRuntimeDescriptor;
   now?: () => string;
   id?: (prefix: string) => string;
   syncStatus?: () => Promise<{ behind?: number; remote_has_updates?: boolean }>;
@@ -5482,17 +5484,25 @@ export function createEngine(deps: EngineDeps) {
         isAllowedByPrivateBoundary(record, resolvedInput.include_private)
       );
       const normalizedHost = resolvedInput.host ? normalizeHostId(resolvedInput.host) : undefined;
-      const activationStatus =
+      let activationStatus: Awaited<ReturnType<typeof inspectHostActivation>> | undefined;
+      let activationInspectionError: string | undefined;
+      if (
         resolvedInput.project_id &&
         resolvedInput.project_path &&
         (normalizedHost === "codex" || normalizedHost === "claude")
-          ? await inspectHostActivation({
-              store_path: deps.storePath,
-              project_path: resolvedInput.project_path,
-              project_id: resolvedInput.project_id,
-              host: normalizedHost
-            }).catch(() => undefined)
-          : undefined;
+      ) {
+        try {
+          activationStatus = await inspectHostActivation({
+            store_path: deps.storePath,
+            project_path: resolvedInput.project_path,
+            project_id: resolvedInput.project_id,
+            host: normalizedHost,
+            runtime: deps.hostRuntime
+          });
+        } catch (error) {
+          activationInspectionError = error instanceof Error ? error.message : String(error);
+        }
+      }
       const latestSyncCompensation = await readSyncCompensationReceipt(deps.storePath);
       const syncCompensation =
         latestSyncCompensation &&
@@ -5512,7 +5522,8 @@ export function createEngine(deps: EngineDeps) {
         record_read_model: recordReadModel,
         ...(retrievalIndex ? { retrieval_index: retrievalIndex } : {}),
         ...(syncCompensation ? { sync_compensation: syncCompensation } : {}),
-        ...(activationStatus ? { activation_status: activationStatus } : {})
+        ...(activationStatus ? { activation_status: activationStatus } : {}),
+        ...(activationInspectionError ? { activation_inspection_error: activationInspectionError } : {})
       });
     },
 
