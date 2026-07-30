@@ -35,6 +35,7 @@ For unsupported hosts or an explicit manual transfer, the compatibility path is:
 moryn setup --host codex --project .
 moryn setup --host codex --project . --apply
 moryn install --host codex --project . --apply
+moryn install --host codex --project . --apply --activate-host
 moryn context pack --project . --agent codex --current-task "current task"
 moryn capture session --project . --agent codex --summary "handoff summary"
 ```
@@ -89,9 +90,10 @@ without `--apply` first so the agent or user can inspect checks and planned
 local writes before any file changes. Each planned write points back to its
 action source so blocked setup can be recovered without guessing from prose.
 `--apply` initializes the local Moryn store and optional project config only.
-Host activation is handled separately by `moryn install --apply`, or
-automatically once by `agent enter` when the selected host is safely
-repairable. The host configuration files are changed only under the documented
+`moryn install --apply` remains local-only. Host activation requires the
+additional `--activate-host` flag, or happens automatically once by `agent
+enter` when the selected host is safely repairable. The host configuration files
+are changed only under the documented
 host-specific safety rules. Claude Code hooks are merged into
 `.claude/settings.local.json`.
 Codex hooks are merged automatically with Moryn-owned entries into
@@ -338,6 +340,10 @@ moryn refresh \
 
 Changes are classified as `silent`, `notice`, or `interrupt`. Reportable
 changes include safe `recall` next actions for retrieving full records.
+The returned cursor is an opaque `moryn-refresh:v1:` position containing both
+the update timestamp and record id, so equal-timestamp pages do not duplicate
+or skip records. Pass it back unchanged. Legacy ISO cursors remain accepted and
+replay their timestamp boundary once before returning an opaque cursor.
 
 Normal refresh reads exclude the shared private boundary: records tagged
 `private`, `secret`, or `sensitive`, plus legacy records marked by

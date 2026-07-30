@@ -534,6 +534,20 @@ async function ensurePrivateRuntimeBindingDirectory(binding: HostRuntimeBinding)
   }
 }
 
+export class HostIntegrationArtifactPartialCommitError extends Error {
+  readonly code = "HOST_INTEGRATION_ARTIFACT_PARTIALLY_COMMITTED";
+  readonly committed = true;
+  readonly recommended_action = "inspect host integration status before retrying artifact generation";
+  readonly recovery_hint: { applied_steps: string[]; applied_paths: string[] };
+
+  constructor(appliedSteps: string[], appliedPaths: string[], cause: unknown) {
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    super(`Host integration artifact partially committed: ${reason}`);
+    this.name = "HostIntegrationArtifactPartialCommitError";
+    this.recovery_hint = { applied_steps: appliedSteps, applied_paths: appliedPaths };
+  }
+}
+
 export async function writeHostIntegrationArtifact(input: {
   host: string;
   project_id: string;
@@ -543,6 +557,7 @@ export async function writeHostIntegrationArtifact(input: {
 }) {
   const artifact = buildHostIntegrationArtifact(input);
   let runtimeBindingWrite: HostRuntimeBindingWriteResult | undefined;
+  let unavailableMarkerRemoved = false;
   if (artifact.runtime_binding) {
     await ensurePrivateRuntimeBindingDirectory(artifact.runtime_binding);
     const written = await writeAtomicProjectFile({
@@ -559,15 +574,37 @@ export async function writeHostIntegrationArtifact(input: {
     );
     if (await projectFileExists(markerBoundary, `${artifact.host} runtime unavailable marker`)) {
       await rm(markerBoundary.target_path);
+      unavailableMarkerRemoved = true;
     }
     runtimeBindingWrite = { ...written, digest: artifact.runtime_binding.digest };
   }
-  const written = await writeAtomicProjectFile({
-    root_path: input.project_path,
-    relative_path: artifact.path,
-    description: `${artifact.host} integration`,
-    content: artifact.content
-  });
+  let written: Awaited<ReturnType<typeof writeAtomicProjectFile>>;
+  try {
+    written = await writeAtomicProjectFile({
+      root_path: input.project_path,
+      relative_path: artifact.path,
+      description: `${artifact.host} integration`,
+      content: artifact.content
+    });
+  } catch (error) {
+    const runtimeBindingChanged = runtimeBindingWrite?.created === true || runtimeBindingWrite?.updated === true;
+    if (runtimeBindingChanged || unavailableMarkerRemoved) {
+      throw new HostIntegrationArtifactPartialCommitError(
+        [
+          ...(runtimeBindingChanged ? ["runtime_binding"] : []),
+          ...(unavailableMarkerRemoved ? ["runtime_unavailable_marker_removed"] : [])
+        ],
+        [
+          ...(runtimeBindingChanged && artifact.runtime_binding ? [artifact.runtime_binding.path] : []),
+          ...(unavailableMarkerRemoved && artifact.runtime_binding
+            ? [`${artifact.runtime_binding.path}.unavailable`]
+            : [])
+        ],
+        error
+      );
+    }
+    throw error;
+  }
   return {
     ...written,
     artifact,

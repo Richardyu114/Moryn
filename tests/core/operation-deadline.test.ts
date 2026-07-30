@@ -6,12 +6,22 @@ import { describe, expect, it } from "vitest";
 import {
   currentOperationDeadlineSignal,
   execOperationChildProcess,
+  OperationCancelledError,
   OperationChildProcessTimeoutError,
   OperationDeadlineExceededError,
   withOperationDeadline
 } from "../../src/core/operation-deadline.js";
 
 describe("operation deadline", () => {
+  it("normalizes external abort reasons into a stable cancellation error", async () => {
+    const controller = new AbortController();
+    controller.abort(new Error("SDK transport closed"));
+
+    await expect(withOperationDeadline(1_000, async () => undefined, controller.signal)).rejects.toBeInstanceOf(
+      OperationCancelledError
+    );
+  });
+
   it("requests cancellation but awaits started work before rejecting", async () => {
     let observedAbort = false;
     let workFinished = false;
@@ -33,6 +43,37 @@ describe("operation deadline", () => {
     expect(observedAbort).toBe(true);
     expect(workFinished).toBe(true);
     expect(Date.now() - startedAt).toBeGreaterThanOrEqual(50);
+  });
+
+  it("preserves a committed result when the deadline is observed after the write", async () => {
+    await expect(
+      withOperationDeadline(20, async () => {
+        await delay(40);
+        return { committed: true, event_id: "evt_committed" };
+      })
+    ).rejects.toMatchObject({
+      code: "OPERATION_DEADLINE_EXCEEDED",
+      committed: true,
+      recovery_hint: {
+        deadline_observed_after_commit: true,
+        committed_result: { committed: true, event_id: "evt_committed" }
+      }
+    });
+  });
+
+  it("does not replace a partial-commit error after cancellation", async () => {
+    const partial = Object.assign(new Error("mutation partially committed"), {
+      code: "MUTATION_PARTIALLY_COMMITTED",
+      committed: true,
+      recovery_hint: { committed_event_ids: ["evt_partial"] }
+    });
+
+    await expect(
+      withOperationDeadline(20, async () => {
+        await delay(40);
+        throw partial;
+      })
+    ).rejects.toBe(partial);
   });
 
   it("keeps a local child timeout distinct from an inherited operation deadline", async () => {

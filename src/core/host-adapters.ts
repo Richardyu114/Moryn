@@ -27,7 +27,7 @@ export type InstallPlanAction = {
   title: string;
   command: string;
   safe_to_auto_run: boolean;
-  writes: "none" | "moryn_store" | "project_config";
+  writes: "none" | "moryn_store" | "project_config" | "host_config";
   adapter?: HostAdapterId;
 };
 
@@ -53,6 +53,7 @@ export type InstallPlanInput = {
   projectPath?: string;
   syncRemote?: string;
   apply?: boolean;
+  activateHost?: boolean;
 };
 
 export type CaptureSessionInput = {
@@ -309,10 +310,10 @@ export function planInstall(input: InstallPlanInput = {}): InstallPlan {
       title: `Generate Moryn lifecycle hooks for ${adapter.display_name}`,
       command:
         projectPath && (adapter.id === "codex" || adapter.id === "claude")
-          ? `moryn install --host ${adapter.id} --project ${quoteCli(projectPath)} --apply`
+          ? `moryn activation apply --host ${adapter.id} --project ${quoteCli(projectPath)}`
           : adapter.lifecycle_prompt,
-      safe_to_auto_run: Boolean(projectPath && (adapter.id === "codex" || adapter.id === "claude")),
-      writes: projectPath && (adapter.id === "codex" || adapter.id === "claude") ? "project_config" : "none",
+      safe_to_auto_run: false,
+      writes: projectPath && (adapter.id === "codex" || adapter.id === "claude") ? "host_config" : "none",
       adapter: adapter.id
     });
     actions.push({
@@ -335,7 +336,9 @@ export function planInstall(input: InstallPlanInput = {}): InstallPlan {
 
   const actionsById = Object.fromEntries(actions.map((action) => [action.action, action]));
   const warnings = [
-    "Moryn writes only project-local Moryn-owned hook fragments; merge into the host main configuration explicitly.",
+    input.activateHost
+      ? "Explicit host activation may update the selected host configuration after creating a recoverable backup."
+      : "Install apply writes only Moryn store and project files; use activation apply or activate_host explicitly for host hooks.",
     "Git sync is configured only when a sync remote is supplied by the user."
   ];
   const nextCommand = `moryn context pack${projectArgs}${syncArgs} --current-task ${quoteCli(currentTask)} --agent ${agent}`;

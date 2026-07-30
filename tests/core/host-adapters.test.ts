@@ -68,8 +68,9 @@ describe("host adapters", () => {
       expect.objectContaining({
         action: "configure_lifecycle_hooks",
         adapter: "codex",
-        safe_to_auto_run: true,
-        writes: "project_config"
+        command: "moryn activation apply --host codex --project /workspace/project",
+        safe_to_auto_run: false,
+        writes: "host_config"
       })
     );
     expect(plan.actions.map((action) => action.action)).toContain("capture_session");

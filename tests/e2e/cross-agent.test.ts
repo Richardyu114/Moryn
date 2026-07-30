@@ -132,7 +132,7 @@ describe("cross-agent workflow", () => {
       });
 
       expect(refresh.should_interrupt).toBe(false);
-      expect(refresh.cursor).toBe(summary.record.updated_at);
+      expect(refresh.cursor).toMatch(/^moryn-refresh:v1:/);
       expect(refresh.changes).toEqual([
         expect.objectContaining({
           record_id: summary.record.id,

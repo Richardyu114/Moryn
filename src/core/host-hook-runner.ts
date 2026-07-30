@@ -11,6 +11,7 @@ import {
 } from "./context-delta.js";
 import { createEngine } from "./engine.js";
 import { getHostCapabilities } from "./host-capabilities.js";
+import { type HostHookExecutionStage, recordHostHookExecutionReceipt } from "./host-hook-receipts.js";
 import type { NormalizedHostHookEvent } from "./host-hooks.js";
 import { buildHostIntegrationArtifact, type HostRuntimeDescriptor } from "./host-integration-artifacts.js";
 import { buildPromptRecallContext } from "./host-prompt-recall.js";
@@ -20,8 +21,15 @@ import {
   readHostTranscriptEvidence
 } from "./host-transcript-evidence.js";
 import { unresolvedLearningCandidates } from "./learning-candidate-review.js";
-import { rethrowIfOperationDeadlineExceeded } from "./operation-deadline.js";
-import { resolveProjectContext } from "./project.js";
+import {
+  isOperationCancelled,
+  isOperationDeadlineExceeded,
+  remainingOperationTimeMs,
+  rethrowIfOperationDeadlineExceeded,
+  throwIfOperationDeadlineExceeded,
+  withoutOperationDeadline
+} from "./operation-deadline.js";
+import { type ProjectContext, resolveProjectContext } from "./project.js";
 import { readCurrentRecords } from "./record-read-model.js";
 import { detectSensitiveContent } from "./sensitive.js";
 import { type SessionSynthesis, synthesizeSession } from "./session-synthesis.js";
@@ -62,6 +70,7 @@ export type HostHookSyncCadence = {
   last_success_at?: string;
   push_requested: boolean;
   push_succeeded?: boolean;
+  deferred?: HostHookDeferredWork;
 };
 
 export type HostHookCheckpointSync = {
@@ -74,6 +83,7 @@ export type HostHookCheckpointSync = {
     | "new_checkpoint"
     | "idempotent_replay";
   succeeded?: boolean;
+  deferred?: HostHookDeferredWork;
   push?: GitSyncResult;
   error?: string;
 };
@@ -81,9 +91,17 @@ export type HostHookCheckpointSync = {
 export type HostHookDuplicateHandoffSync = {
   requested: boolean;
   succeeded?: boolean;
+  deferred?: HostHookDeferredWork;
   push?: GitSyncResult;
   error?: string;
 };
+
+export interface HostHookDeferredWork {
+  work: "pull" | "checkpoint_sync" | "handoff_sync" | "status_sync";
+  reason: "operation_deadline_budget";
+  remaining_ms: number;
+  minimum_remaining_ms: number;
+}
 
 export type HostTranscriptEvidenceSummary = Pick<
   HostTranscriptEvidence,
@@ -130,6 +148,25 @@ export interface HostHookRunResult {
   };
   sync_cadence?: HostHookSyncCadence;
   transcript_evidence?: HostTranscriptEvidenceSummary;
+  deferred_work?: HostHookDeferredWork[];
+}
+
+const HOST_HOOK_SLOW_WORK_MIN_REMAINING_MS = 5_000;
+
+function slowWorkBudget(
+  work: HostHookDeferredWork["work"]
+): { allowed: true } | { allowed: false; deferred: HostHookDeferredWork } {
+  const remaining = remainingOperationTimeMs();
+  if (remaining === undefined || remaining >= HOST_HOOK_SLOW_WORK_MIN_REMAINING_MS) return { allowed: true };
+  return {
+    allowed: false,
+    deferred: {
+      work,
+      reason: "operation_deadline_budget",
+      remaining_ms: remaining,
+      minimum_remaining_ms: HOST_HOOK_SLOW_WORK_MIN_REMAINING_MS
+    }
+  };
 }
 
 function synthesisFingerprint(synthesis: SessionSynthesis): string {
@@ -316,11 +353,12 @@ async function sessionSynthesis(
   }
 }
 
-export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps = {}): Promise<HostHookRunResult> {
-  const project = await resolveProjectContext({
-    projectId: input.project_id,
-    projectPath: input.project_path ?? input.hook.cwd
-  });
+async function runResolvedHostHook(
+  input: RunHostHookInput,
+  deps: RunHostHookDeps,
+  project: ProjectContext,
+  setStage: (stage: HostHookExecutionStage) => void
+): Promise<HostHookRunResult> {
   let syncConfigured: boolean | undefined;
   const hasConfiguredSync = async () =>
     (syncConfigured ??= await (deps.isGitSyncConfigured ?? isGitSyncConfigured)(input.storePath));
@@ -341,6 +379,7 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
     input.hook.event !== "user_prompt_submit" &&
     (input.hook.host === "codex" || input.hook.host === "claude")
   ) {
+    setStage("activation_receipt");
     try {
       const expectedArtifact = buildHostIntegrationArtifact({
         host: input.hook.host,
@@ -374,6 +413,7 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
     ...(activation_warning ? { activation_warning } : {})
   };
   if (input.hook.event === "user_prompt_submit") {
+    setStage("recall");
     const engine = createEngine({ storePath: input.storePath });
     const recall = await engine.recall({
       query: input.hook.prompt,
@@ -411,12 +451,15 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
     };
   }
   if (input.hook.event === "session_start" || input.hook.event === "post_compact") {
-    const pull =
+    setStage("start");
+    const requestedPull =
       input.pull !== undefined
         ? input.pull
         : project.config?.sync.mode === "manual"
           ? false
           : await hasConfiguredSync();
+    const pullBudget = requestedPull ? slowWorkBudget("pull") : ({ allowed: true } as const);
+    const pull = requestedPull && pullBudget.allowed;
     const result = await agentStart({ ...common, pull });
     const soulDelivery = await deliverEffectiveSoul({
       store_path: input.storePath,
@@ -459,10 +502,12 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       details: result,
       soul_delivery: soulDelivery,
       hook_output: { additional_context: restoreContext },
+      ...(!pullBudget.allowed ? { deferred_work: [pullBudget.deferred] } : {}),
       ...activationEvidence
     };
   }
   if (input.hook.event === "pre_compact") {
+    setStage("checkpoint");
     const engine = createEngine({ storePath: input.storePath });
     const hostEvidence = await safeHostLifecycleEvidence(input);
     const summary =
@@ -498,16 +543,22 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       checkpointSync = { requested: true, reason: "new_checkpoint" };
     }
     if (checkpointSync.requested) {
-      try {
-        checkpointSync.push = await (deps.pushGitSync ?? pushGitSync)(input.storePath, {
-          message: `precompact checkpoint: ${project.project_id}`
-        });
-        checkpointSync.succeeded = checkpointSync.push.ok;
-        if (!checkpointSync.succeeded)
-          checkpointSync.error = checkpointSync.push.message ?? "remote synchronization failed";
-      } catch (error) {
-        checkpointSync.succeeded = false;
-        checkpointSync.error = error instanceof Error ? error.message : String(error);
+      const syncBudget = slowWorkBudget("checkpoint_sync");
+      if (!syncBudget.allowed) {
+        checkpointSync.deferred = syncBudget.deferred;
+      } else {
+        setStage("checkpoint_sync");
+        try {
+          checkpointSync.push = await (deps.pushGitSync ?? pushGitSync)(input.storePath, {
+            message: `precompact checkpoint: ${project.project_id}`
+          });
+          checkpointSync.succeeded = checkpointSync.push.ok;
+          if (!checkpointSync.succeeded)
+            checkpointSync.error = checkpointSync.push.message ?? "remote synchronization failed";
+        } catch (error) {
+          checkpointSync.succeeded = false;
+          checkpointSync.error = error instanceof Error ? error.message : String(error);
+        }
       }
     }
     const additionalContext =
@@ -534,10 +585,12 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       ...(candidateReview ? { candidate_review: candidateReview } : {}),
       transcript_evidence: hostEvidence.summary,
       hook_output: { additional_context: candidateContext },
+      ...(checkpointSync.deferred ? { deferred_work: [checkpointSync.deferred] } : {}),
       ...activationEvidence
     };
   }
   if (input.hook.event === "session_end") {
+    setStage("synthesis");
     const hostEvidence = await safeHostLifecycleEvidence(input);
     const synthesis = await sessionSynthesis(
       input,
@@ -546,12 +599,14 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       hostEvidence.assistant
     );
     const payloadFingerprint = sessionEndPayloadFingerprint(input, synthesis);
-    const push =
+    const requestedPush =
       input.push !== undefined
         ? input.push
         : project.config?.sync.mode === "manual"
           ? false
           : await hasConfiguredSync();
+    const pushBudget = requestedPush ? slowWorkBudget("handoff_sync") : ({ allowed: true } as const);
+    const push = requestedPush && pushBudget.allowed;
     const current = await readCurrentRecords(input.storePath);
     const priorSummary = current.records
       .filter(
@@ -565,7 +620,9 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id))[0];
     if (priorSummary?.content.handoff_payload_fingerprint === payloadFingerprint) {
       const duplicateSync: HostHookDuplicateHandoffSync = { requested: input.push === true };
-      if (duplicateSync.requested) {
+      if (duplicateSync.requested && !pushBudget.allowed) duplicateSync.deferred = pushBudget.deferred;
+      if (duplicateSync.requested && pushBudget.allowed) {
+        setStage("finish");
         try {
           duplicateSync.push = await (deps.pushGitSync ?? pushGitSync)(input.storePath, {
             message: `agent finish: ${project.project_id}`
@@ -587,9 +644,11 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
         duplicate_handoff_sync: duplicateSync,
         transcript_evidence: hostEvidence.summary,
         hook_output: { additional_context: `Moryn reused unchanged handoff: ${priorSummary.id}` },
+        ...(duplicateSync.deferred ? { deferred_work: [duplicateSync.deferred] } : {}),
         ...activationEvidence
       };
     }
+    setStage("finish");
     const result = await agentFinish(
       {
         ...common,
@@ -609,9 +668,11 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       details: result,
       transcript_evidence: hostEvidence.summary,
       hook_output: { additional_context: `Moryn handoff saved: ${result.record.id}` },
+      ...(!pushBudget.allowed ? { deferred_work: [pushBudget.deferred] } : {}),
       ...activationEvidence
     };
   }
+  setStage("synthesis");
   const hostEvidence = await safeHostLifecycleEvidence(input);
   const synthesis = await sessionSynthesis(
     input,
@@ -658,6 +719,11 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       syncCadence = { ...decision, push_requested: decision.due };
       push = decision.due;
     }
+    const statusSyncBudget = push ? slowWorkBudget("status_sync") : ({ allowed: true } as const);
+    if (!statusSyncBudget.allowed) {
+      push = false;
+      syncCadence.deferred = statusSyncBudget.deferred;
+    }
     const current = await readCurrentRecords(input.storePath);
     const priorStatus = current.records
       .filter(
@@ -670,8 +736,9 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       )
       .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id))[0];
     if (priorStatus && recordSynthesisFingerprint(priorStatus.content) === synthesisFingerprint(synthesis)) {
-      if (syncCadence.push_requested) {
+      if (syncCadence.push_requested && !syncCadence.deferred) {
         try {
+          setStage("status_sync");
           const pushed = await (deps.pushGitSync ?? pushGitSync)(input.storePath, {
             message: `agent status: ${project.project_id}`
           });
@@ -690,14 +757,16 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
         transcript_evidence: hostEvidence.summary,
         sync_cadence: syncCadence,
         hook_output: { additional_context: `Moryn reused unchanged status: ${priorStatus.id}` },
+        ...(syncCadence.deferred ? { deferred_work: [syncCadence.deferred] } : {}),
         ...activationEvidence
       };
     }
+    setStage("status");
     const result = await agentStatus(
       { ...common, status: synthesis.summary, synthesis, push },
       { pushGitSync: deps.pushGitSync }
     );
-    if (syncCadence.push_requested) {
+    if (syncCadence.push_requested && !syncCadence.deferred) {
       syncCadence.push_succeeded = result.sync.push?.ok === true;
       if (syncCadence.push_succeeded) await recordTurnSyncSuccess(input.storePath, identity);
     }
@@ -710,9 +779,11 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
       transcript_evidence: hostEvidence.summary,
       sync_cadence: syncCadence,
       hook_output: { additional_context: `Moryn status saved: ${result.record.id}` },
+      ...(syncCadence.deferred ? { deferred_work: [syncCadence.deferred] } : {}),
       ...activationEvidence
     };
   }
+  setStage("status");
   const result = await agentStatus(
     { ...common, status: synthesis.summary, synthesis, push },
     { pushGitSync: deps.pushGitSync }
@@ -727,4 +798,43 @@ export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps
     hook_output: { additional_context: `Moryn status saved: ${result.record.id}` },
     ...activationEvidence
   };
+}
+
+export async function runHostHook(input: RunHostHookInput, deps: RunHostHookDeps = {}): Promise<HostHookRunResult> {
+  let stage: HostHookExecutionStage = "resolve_project";
+  let project: ProjectContext | undefined;
+  try {
+    project = await resolveProjectContext({
+      projectId: input.project_id,
+      projectPath: input.project_path ?? input.hook.cwd
+    });
+    const result = await runResolvedHostHook(input, deps, project, (nextStage) => {
+      stage = nextStage;
+    });
+    throwIfOperationDeadlineExceeded();
+    return result;
+  } catch (error) {
+    const receiptProjectId = project?.project_id ?? input.project_id;
+    if ((isOperationDeadlineExceeded(error) || isOperationCancelled(error)) && receiptProjectId) {
+      try {
+        await withoutOperationDeadline(() =>
+          recordHostHookExecutionReceipt(input.storePath, {
+            host: input.hook.host,
+            event: input.hook.event,
+            project_id: receiptProjectId,
+            session_id: input.hook.session_id,
+            device_id: input.hook.device_id,
+            occurred_at: input.hook.occurred_at,
+            status: isOperationDeadlineExceeded(error) ? "timed_out" : "cancelled",
+            stage,
+            activation_id: input.activation_id,
+            command_digest: input.command_digest
+          })
+        );
+      } catch {
+        // The original cancellation remains authoritative when its receipt cannot be persisted.
+      }
+    }
+    throw error;
+  }
 }

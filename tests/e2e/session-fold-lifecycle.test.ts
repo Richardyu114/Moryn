@@ -146,6 +146,35 @@ describe("agentFinish Session Fold", () => {
     });
   });
 
+  it("replays the same finish after folding without changing its idempotent request", async () => {
+    await withLifecycleStore(async ({ storePath, projectPath }) => {
+      await writeVerifiedCheckpoint(storePath);
+      const input = {
+        storePath,
+        projectPath,
+        agent: source,
+        summary: "Verified structured work is complete.",
+        push: false
+      };
+      const deps = { now: () => "2026-07-20T02:00:02.000Z" };
+
+      const first = await agentFinish(input, deps);
+      const replay = await agentFinish(input, deps);
+
+      expect(first).toMatchObject({ idempotent_replay: false, session_fold: { status: "committed" } });
+      expect(replay).toMatchObject({
+        idempotent_replay: true,
+        record: { id: first.record.id },
+        durability: "confirmed"
+      });
+      expect(
+        (await readEvents(storePath)).filter(
+          (event) => event.op === "upsert_record" && event.record.id === first.record.id
+        )
+      ).toHaveLength(1);
+    });
+  });
+
   it("automatically rolls up eligible closed days after folding and before push", async () => {
     await withLifecycleStore(async ({ storePath, projectPath }) => {
       const oldSource = { ...source, session_id: "session-old" };
@@ -253,7 +282,7 @@ describe("agentFinish Session Fold", () => {
   it("returns a warning, still pushes, and can resume after a partial fold failure", async () => {
     await withLifecycleStore(async ({ storePath, projectPath }) => {
       await writeVerifiedCheckpoint(storePath);
-      let attempts = 0;
+      let foldAttempts = 0;
       let pushed = false;
       const result = await agentFinish(
         {
@@ -269,8 +298,10 @@ describe("agentFinish Session Fold", () => {
             createEngine({
               ...deps,
               appendEventIfAbsent: async (path, event) => {
-                attempts += 1;
-                if (attempts === 3) throw new Error("injected fold append failure");
+                if (event.event_id.includes("session_fold_")) foldAttempts += 1;
+                if (foldAttempts === 3 && event.event_id.includes("session_fold_")) {
+                  throw new Error("injected fold append failure");
+                }
                 return appendEventIfAbsent(path, event);
               }
             }),
@@ -283,6 +314,8 @@ describe("agentFinish Session Fold", () => {
 
       expect(result).toMatchObject({
         ok: true,
+        committed: true,
+        durability: "confirmed",
         record: { content: { text: "Verified work remains recoverable." } },
         session_fold: {
           status: "failed",
@@ -294,6 +327,7 @@ describe("agentFinish Session Fold", () => {
         },
         sync: { push: { pushed: true } }
       });
+      expect(Object.values(result.durability_by_event_id)).toEqual(["confirmed"]);
       expect(pushed).toBe(true);
       if (result.session_fold.status !== "failed" || !result.session_fold.plan) {
         throw new Error("Expected a resumable failed Session Fold plan");

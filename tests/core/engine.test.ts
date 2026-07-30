@@ -2377,7 +2377,7 @@ describe("core engine", () => {
       const defaultRecall = await engine.recall({ project_id: "moryn" });
       const directRecall = await engine.recall({ record_ids: [old.record.id] });
       const boot = await engine.boot({ project_id: "moryn" });
-      const recent = await engine.listRecent({ limit: 10 });
+      const recent = await engine.listRecent({ limit: 10, project_id: "moryn" });
       const refresh = await engine.refresh({ project_id: "moryn", cursor: "1970-01-01T00:00:00.000Z" });
 
       expect(defaultRecall.results.map((result) => result.record.id)).toContain(current.record.id);
@@ -4943,10 +4943,10 @@ describe("core engine", () => {
         }
       });
 
-      const recent = await engine.listRecent({ limit: 10 });
+      const recent = await engine.listRecent({ limit: 10, project_id: "moryn" });
       expect(recent.records.map((record) => record.id)).toEqual([publicRecord.record.id]);
 
-      const privateRecent = await engine.listRecent({ limit: 10, include_private: true });
+      const privateRecent = await engine.listRecent({ limit: 10, project_id: "moryn", include_private: true });
       expect(privateRecent.records.map((record) => record.id)).toEqual([
         privateRecord.record.id,
         publicRecord.record.id
@@ -5054,10 +5054,10 @@ describe("core engine", () => {
       expect(privateRefresh.changes.map((change) => change.record_id)).toHaveLength(allRecordIds.length);
       expect(privateRefresh.changes.map((change) => change.record_id)).toEqual(expect.arrayContaining(allRecordIds));
 
-      const recent = await engine.listRecent({ limit: 10 });
+      const recent = await engine.listRecent({ limit: 10, project_id: "moryn" });
       expect(recent.records.map((record) => record.id)).toEqual([publicRecord.record.id]);
 
-      const privateRecent = await engine.listRecent({ limit: 10, include_private: true });
+      const privateRecent = await engine.listRecent({ limit: 10, project_id: "moryn", include_private: true });
       expect(privateRecent.records.map((record) => record.id)).toHaveLength(allRecordIds.length);
       expect(privateRecent.records.map((record) => record.id)).toEqual(expect.arrayContaining(allRecordIds));
 
@@ -6345,7 +6345,8 @@ describe("core engine", () => {
 
       const refresh = await engine.refresh({ project_id: "moryn", cursor: "2026-05-27T00:00:00.000Z" });
 
-      expect(refresh.cursor).toBe("2026-05-27T00:06:00.000Z");
+      expect(refresh.cursor).toMatch(/^moryn-refresh:v1:/);
+      expect(refresh.has_more).toBe(false);
       expect(refresh.should_interrupt).toBe(true);
       expect(refresh.selection_sources).toEqual({
         change: "changes_by_record_id.<record_id>",
@@ -6413,12 +6414,14 @@ describe("core engine", () => {
 
       const firstPage = await engine.refresh({ project_id: "moryn", cursor: "2026-05-27T00:00:00.000Z", limit: 2 });
 
-      expect(firstPage.cursor).toBe(second.record.updated_at);
+      expect(firstPage.cursor).toMatch(/^moryn-refresh:v1:/);
+      expect(firstPage.has_more).toBe(true);
       expect(firstPage.changes.map((change) => change.record_id)).toEqual([first.record.id, second.record.id]);
 
       const secondPage = await engine.refresh({ project_id: "moryn", cursor: firstPage.cursor, limit: 2 });
 
-      expect(secondPage.cursor).toBe(third.record.updated_at);
+      expect(secondPage.cursor).toMatch(/^moryn-refresh:v1:/);
+      expect(secondPage.has_more).toBe(false);
       expect(secondPage.changes.map((change) => change.record_id)).toEqual([third.record.id]);
     });
   });
@@ -6443,7 +6446,7 @@ describe("core engine", () => {
         state: "canonical",
         source: { client: "test" }
       });
-      const raw = await engine.write({
+      await engine.write({
         kind: "memory",
         type: "note",
         scope: "project",
@@ -6455,8 +6458,58 @@ describe("core engine", () => {
 
       const refresh = await engine.refresh({ project_id: "moryn", cursor: "2026-05-27T00:00:00.000Z", limit: 2 });
 
-      expect(refresh.cursor).toBe(raw.record.updated_at);
+      expect(refresh.cursor).toMatch(/^moryn-refresh:v1:/);
+      expect(refresh.has_more).toBe(false);
       expect(refresh.changes.map((change) => change.record_id)).toEqual([decision.record.id]);
+
+      const nextPage = await engine.refresh({ project_id: "moryn", cursor: refresh.cursor, limit: 2 });
+      expect(nextPage.cursor).toBe(refresh.cursor);
+      expect(nextPage.has_more).toBe(false);
+      expect(nextPage.changes).toEqual([]);
+    });
+  });
+
+  it("paginates equal-timestamp refresh changes without duplicates and replays a legacy ISO boundary", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const updatedAt = "2026-05-27T00:01:00.000Z";
+      const engine = createEngine({
+        storePath,
+        now: () => updatedAt,
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
+
+      const writeDecision = (label: string) =>
+        engine.write({
+          kind: "memory" as const,
+          type: "decision",
+          scope: "project" as const,
+          project_id: "moryn",
+          content: { text: `Equal timestamp ${label} decision.`, format: "text" as const },
+          state: "canonical" as const,
+          confidence: 0.9,
+          source: { client: "test" }
+        });
+      const records = [await writeDecision("first"), await writeDecision("second"), await writeDecision("third")];
+      const recordIds = records.map((result) => result.record.id).sort();
+
+      const firstPage = await engine.refresh({ project_id: "moryn", cursor: updatedAt, limit: 2 });
+      expect(firstPage.cursor).toMatch(/^moryn-refresh:v1:/);
+      expect(firstPage.has_more).toBe(true);
+      expect(firstPage.changes.map((change) => change.record_id)).toEqual(recordIds.slice(0, 2));
+
+      const secondPage = await engine.refresh({ project_id: "moryn", cursor: firstPage.cursor, limit: 2 });
+      expect(secondPage.cursor).toMatch(/^moryn-refresh:v1:/);
+      expect(secondPage.has_more).toBe(false);
+      expect(secondPage.changes.map((change) => change.record_id)).toEqual(recordIds.slice(2));
+
+      const returnedIds = [...firstPage.changes, ...secondPage.changes].map((change) => change.record_id);
+      expect(returnedIds).toEqual(recordIds);
+      expect(new Set(returnedIds).size).toBe(recordIds.length);
+
+      const exhausted = await engine.refresh({ project_id: "moryn", cursor: secondPage.cursor, limit: 2 });
+      expect(exhausted.has_more).toBe(false);
+      expect(exhausted.changes).toEqual([]);
     });
   });
 
@@ -6746,6 +6799,65 @@ describe("core engine", () => {
       });
       expect(recent.records_by_id[second.record.id]).toEqual(recent.records[0]);
       expect(recent.records_by_id[first.record.id]).toEqual(recent.records[1]);
+    });
+  });
+
+  it("scopes recent records to one project unless all_projects is explicit", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:01:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
+      const global = await engine.write({
+        kind: "memory",
+        type: "preference",
+        scope: "global",
+        content: { text: "Global recent preference.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      const alpha = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "alpha",
+        content: { text: "Alpha recent decision.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      const beta = await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "beta",
+        content: { text: "Beta recent warning.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      const projectRecent = await engine.listRecent({ limit: 10, project_id: "alpha" });
+      expect(projectRecent.records.map((record) => record.id).sort()).toEqual(
+        [global.record.id, alpha.record.id].sort()
+      );
+
+      const globalRecent = await engine.listRecent({ limit: 10 });
+      expect(globalRecent.records.map((record) => record.id)).toEqual([global.record.id]);
+
+      const allRecent = await engine.listRecent({ limit: 10, all_projects: true });
+      expect(allRecent.records.map((record) => record.id).sort()).toEqual(
+        [global.record.id, alpha.record.id, beta.record.id].sort()
+      );
+
+      const legacyRecent = await engine.listRecent(10);
+      expect(legacyRecent.records.map((record) => record.id).sort()).toEqual(
+        [global.record.id, alpha.record.id, beta.record.id].sort()
+      );
+
+      await expect(engine.listRecent({ limit: 10, project_id: "alpha", all_projects: true })).rejects.toThrow(
+        "project_id cannot be combined with all_projects=true"
+      );
     });
   });
 
@@ -7106,8 +7218,8 @@ describe("core engine", () => {
           operation_contract: "operations_by_id.refresh",
           rejected_argument: { argument: "cursor", value: "not-a-date" },
           expected: {
-            kind: "iso_datetime",
-            format: "RFC3339 timestamp with timezone",
+            kind: "moryn_refresh_cursor_or_legacy_iso_datetime",
+            format: "versioned opaque Moryn refresh cursor or RFC3339 timestamp with timezone",
             source: "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor"
           },
           argument_sources: {
@@ -7116,10 +7228,11 @@ describe("core engine", () => {
           retry_with: {
             argument: "cursor",
             value_source: "previous Moryn response cursor field",
-            value_placeholder: "<refresh cursor ISO datetime>"
+            value_placeholder: "<Moryn refresh cursor>"
           }
         });
       }
+      await expect(engine.refresh({ cursor: "moryn-refresh:v1:not-base64" })).rejects.toThrow("Invalid cursor");
       await expectInvalidReadShapeArgument(
         () => engine.refresh({ current_task: 123 as never }),
         "Invalid current_task",
@@ -7132,6 +7245,35 @@ describe("core engine", () => {
             current_task: "operations_by_id.refresh.arguments_by_name.current_task"
           },
           retry_with: { argument: "current_task", value_placeholder: "<current_task>" }
+        }
+      );
+
+      await expectInvalidReadShapeArgument(
+        () => engine.listRecent({ project_id: "" }),
+        "Invalid project_id",
+        "retry read with a non-empty project_id",
+        {
+          operation_contract: "operations_by_id.list_recent",
+          rejected_argument: { argument: "project_id", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            project_id: "operations_by_id.list_recent.arguments_by_name.project_id"
+          },
+          retry_with: { argument: "project_id", value_placeholder: "<project_id>" }
+        }
+      );
+      await expectInvalidReadShapeArgument(
+        () => engine.listRecent({ all_projects: "yes" as never }),
+        "Invalid all_projects",
+        "retry read with a boolean all_projects value",
+        {
+          operation_contract: "operations_by_id.list_recent",
+          rejected_argument: { argument: "all_projects", value: "yes" },
+          expected: { kind: "boolean" },
+          argument_sources: {
+            all_projects: "operations_by_id.list_recent.arguments_by_name.all_projects"
+          },
+          retry_with: { argument: "all_projects", value_placeholder: true }
         }
       );
 

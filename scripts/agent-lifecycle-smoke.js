@@ -124,7 +124,18 @@ async function main() {
     if (codexEnter.activation?.attempted_repair !== true || codexEnter.activation?.repair_succeeded !== true) throw new Error("Codex agent enter did not self-heal lifecycle activation");
     if (codexEnter.start?.activation_status?.status !== "configured_unverified") throw new Error("Codex agent enter did not report configured lifecycle hooks");
     if (codexEnter.start?.activation_status?.suggested_actions?.[0]?.id !== "trust_codex_hooks") throw new Error("Codex agent enter did not surface the one-time hook trust action");
-    const claudeInstall = await runJson(command, [...argsPrefix, "--store", storeClaude, "install", "--host", "claude", "--project", project, "--apply"]);
+    const claudeInstall = await runJson(command, [
+      ...argsPrefix,
+      "--store",
+      storeClaude,
+      "install",
+      "--host",
+      "claude",
+      "--project",
+      project,
+      "--apply",
+      "--activate-host"
+    ]);
     if (claudeInstall.activation_status?.status !== "configured_unverified") throw new Error("Claude install did not safely activate lifecycle hooks");
     const claudeActivationId = claudeInstall.integration_artifact?.artifact?.activation_id;
     if (typeof claudeActivationId !== "string") throw new Error("Claude install did not return an activation id");

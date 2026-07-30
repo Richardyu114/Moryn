@@ -12,7 +12,7 @@ describe("documentation contracts", () => {
 
     expect(readme).toContain("install -> enter/recover -> work/checkpoint -> compact/resume -> finish/sync");
     expect(readme).toContain("moryn install --host codex --project . --apply");
-    expect(readme).toContain("moryn install --host claude --project . --apply");
+    expect(readme).toContain("moryn install --host claude --project . --apply --activate-host");
     expect(readme).toContain("moryn agent enter --project .");
     expect(readme).toContain("moryn agent finish --project .");
     expectText(readme, "The dashboard is a quiet, read-only monitoring surface on the normal path");

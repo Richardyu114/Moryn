@@ -861,8 +861,52 @@ Important error families:
 - `SYNC_REMOTE_UNAVAILABLE`
 - `PERMISSION_DENIED`
 - `CONFIRMATION_REQUIRED`
+- `IDEMPOTENCY_KEY_REUSED`
+- `MUTATION_PARTIALLY_COMMITTED`
+- `AUTOMATION_RECONCILE_PARTIALLY_COMMITTED`
+- `OPERATION_CANCELLED`
 
 Recovery actions carry the same action-template shape as lifecycle actions.
+
+## Automation Outcomes And Retries
+
+Every MCP tool keeps its legacy JSON text content and also returns
+`structuredContent` with `{ outcome, result }`. `outcome.status` is one of
+`completed`, `completed_with_warnings`, or `failed`; `committed` distinguishes
+a durable local write from a pre-commit failure, `retryable` tells a controller
+whether follow-up is appropriate, and `next_action` is included when known.
+Business failures set MCP `isError`; CLI commands exit nonzero when the same
+normalized outcome is `failed`.
+
+The `write`, `revise`, `promote`, `archive`, `quarantine`, `link`,
+`agent_status`, and `agent_finish` mutation paths accept an idempotency key.
+Reusing a key with the same normalized request replays the prior receipt without
+appending another event. Reusing it for different input fails with
+`IDEMPOTENCY_KEY_REUSED`. Only a SHA-256 digest is stored in event metadata;
+the caller's raw key is never persisted. Receipts expose `committed`,
+`idempotent_replay`, event identity, durability, derived-view status, and
+warnings so a caller can distinguish a committed write from follow-up work.
+If a multi-event mutation commits only its first event, the failure outcome
+keeps `committed: true`, lists committed event ids, and instructs the caller to
+retry the same request with the same key so the transaction can resume.
+
+CLI calls accept a global `--timeout-ms <ms>` before the command. MCP tools use
+a bounded default deadline and propagate SDK cancellation. Deadline or
+cancellation after a host hook starts records a payload-free execution receipt
+with the last completed stage. Once the core local write is durable, optional
+pull, fold, consolidation, rollup, semantic maintenance, or push work may be
+returned in `deferred_work` rather than making the write appear to have failed.
+
+`automation_status` is read-only. `automation_reconcile` is dry-run by default,
+requires `apply: true` for Moryn-local store/project writes, and additionally
+requires `activate_host: true` plus an explicit supported host and project for
+host configuration repair. Its `checks`, `changes`, `next`, and `committed`
+fields are compact and keyed for controller use.
+
+Dashboard service supervision is discoverable through operation contracts and
+the `dashboard_service_status|install|restart|repair` MCP tools. Mutating MCP
+service calls require `confirm: true`. Every operation contract includes the
+shared `timeout_ms` argument used by MCP and the global CLI deadline flag.
 
 ## Package API
 
@@ -870,6 +914,8 @@ JavaScript hosts can import the registry and constants:
 
 ```ts
 import {
+  automationOutcome,
+  automationStatus,
   getOperationContracts,
   getOperationContractIndex,
   getSelectionSourceContracts,

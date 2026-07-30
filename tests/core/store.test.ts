@@ -304,13 +304,13 @@ describe("event store", () => {
     });
   });
 
-  it("reports replay durability as best effort", async () => {
+  it("reconfirms replay durability by syncing the published directory", async () => {
     await withInitializedTempStore(async (storePath) => {
       const event = checkpointStoreEvent("evt_checkpoint_replay_durability");
       await appendEventIfAbsent(storePath, event);
       const replay = await appendEventIfAbsent(storePath, event);
 
-      expect(replay).toMatchObject({ created: false, durability: "best_effort" });
+      expect(replay).toMatchObject({ created: false, durability: "confirmed" });
     });
   });
   async function expectInvalidStorePath(action: () => Promise<unknown>, value: unknown): Promise<void> {

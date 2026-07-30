@@ -49,6 +49,13 @@ import { inspectHostActivation } from "./host-activation.js";
 import { normalizeHostId } from "./host-adapter-registry.js";
 import type { HostRuntimeDescriptor } from "./host-integration-artifacts.js";
 import { createId } from "./id.js";
+import {
+  assertIdempotentEventMatch,
+  derivedIdempotencyKey,
+  mutationIdempotency,
+  PartialMutationCommitError,
+  validateIdempotencyKey
+} from "./idempotency.js";
 import { buildLearningCandidateReviewWorkflow, unresolvedLearningCandidates } from "./learning-candidate-review.js";
 import { consumeLearningInbox, learningInboxForLifecycle } from "./learning-inbox.js";
 import { learningRecordIdentity, normalizeLearningRecord } from "./learning-ingestion.js";
@@ -218,6 +225,7 @@ interface WriteInput {
   source: RecordSource;
   confirmed?: boolean;
   provenance?: unknown;
+  idempotency_key?: unknown;
 }
 
 type ValidatedWriteInput = WriteInput & {
@@ -226,6 +234,7 @@ type ValidatedWriteInput = WriteInput & {
   scope: RecordScope;
   state?: RecordState;
   priority?: RecordPriority;
+  idempotency_key?: string;
 };
 
 export interface EngineWarning {
@@ -257,6 +266,16 @@ interface RefreshInput {
 }
 
 type ValidatedRefreshInput = RefreshInput & { cursor?: string; current_task?: string; include_private?: boolean };
+
+interface RefreshCursorPosition {
+  updated_at: string;
+  record_id: string;
+}
+
+interface ParsedRefreshCursor {
+  position: RefreshCursorPosition;
+  legacy_iso: boolean;
+}
 
 interface TimelineInput {
   record_id?: unknown;
@@ -307,10 +326,16 @@ type ValidatedBootInput = BootInput & {
 
 interface ListRecentInput {
   limit?: unknown;
+  project_id?: unknown;
+  all_projects?: unknown;
   include_private?: unknown;
 }
 
-type ValidatedListRecentInput = ListRecentInput & { include_private?: boolean };
+type ValidatedListRecentInput = ListRecentInput & {
+  project_id?: string;
+  all_projects: boolean;
+  include_private?: boolean;
+};
 
 interface ListProjectsInput {
   limit?: unknown;
@@ -376,6 +401,52 @@ type ValidatedMemoryMaintenanceShadowInput = MemoryMaintenanceShadowInput & {
 
 function compareCodeUnits(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
+}
+
+const REFRESH_CURSOR_PREFIX = "moryn-refresh:v1:";
+
+function encodeRefreshCursor(position: RefreshCursorPosition): string {
+  const payload = JSON.stringify({ updated_at: position.updated_at, record_id: position.record_id });
+  return `${REFRESH_CURSOR_PREFIX}${Buffer.from(payload, "utf8").toString("base64url")}`;
+}
+
+function parseRefreshCursor(value: string): ParsedRefreshCursor {
+  if (isoDateTimeSchema.safeParse(value).success) {
+    return { position: { updated_at: value, record_id: "" }, legacy_iso: true };
+  }
+  if (!value.startsWith(REFRESH_CURSOR_PREFIX)) throw new InvalidRefreshCursorError(value);
+  const encoded = value.slice(REFRESH_CURSOR_PREFIX.length);
+  try {
+    if (!encoded || Buffer.from(encoded, "base64url").toString("base64url") !== encoded) {
+      throw new Error("non-canonical refresh cursor encoding");
+    }
+    const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as unknown;
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      throw new Error("invalid refresh cursor payload");
+    }
+    const position = payload as Record<string, unknown>;
+    if (
+      Object.keys(position).length !== 2 ||
+      typeof position.updated_at !== "string" ||
+      !isoDateTimeSchema.safeParse(position.updated_at).success ||
+      typeof position.record_id !== "string"
+    ) {
+      throw new Error("invalid refresh cursor position");
+    }
+    const parsed = { updated_at: position.updated_at, record_id: position.record_id };
+    if (encodeRefreshCursor(parsed) !== value) throw new Error("non-canonical refresh cursor payload");
+    return { position: parsed, legacy_iso: false };
+  } catch {
+    throw new InvalidRefreshCursorError(value);
+  }
+}
+
+function compareRefreshPositions(left: RefreshCursorPosition, right: RefreshCursorPosition): number {
+  return compareCodeUnits(left.updated_at, right.updated_at) || compareCodeUnits(left.record_id, right.record_id);
+}
+
+function refreshPosition(record: MorynRecord): RefreshCursorPosition {
+  return { updated_at: record.updated_at, record_id: record.id };
 }
 
 function duplicateLinkEventId(recordId: string, targetRecordId: string): string {
@@ -968,6 +1039,7 @@ interface StateChangeInput {
   record_id: unknown;
   reason?: unknown;
   source?: RecordSource;
+  idempotency_key?: unknown;
 }
 
 interface RevisionInput {
@@ -976,6 +1048,7 @@ interface RevisionInput {
   reason?: unknown;
   source?: RecordSource;
   confirmed?: boolean;
+  idempotency_key?: unknown;
 }
 
 interface PromoteInput {
@@ -984,6 +1057,7 @@ interface PromoteInput {
   reason?: unknown;
   source?: RecordSource;
   confirmed?: boolean;
+  idempotency_key?: unknown;
 }
 
 interface LinkInput {
@@ -991,6 +1065,7 @@ interface LinkInput {
   linked_record_id: unknown;
   link_type: unknown;
   source?: RecordSource;
+  idempotency_key?: unknown;
 }
 
 interface LogicalLinkInput {
@@ -999,6 +1074,7 @@ interface LogicalLinkInput {
   relationship: unknown;
   reason: unknown;
   source?: RecordSource;
+  idempotency_key?: unknown;
 }
 
 interface ProjectMigrateInput {
@@ -1010,10 +1086,20 @@ interface ProjectMigrateInput {
   source?: RecordSource;
 }
 
-type ValidatedStateChangeInput = StateChangeInput & { record_id: string; reason?: string };
-type ValidatedRevisionInput = RevisionInput & { record_id: string; reason?: string };
-type ValidatedPromoteInput = PromoteInput & { record_id: string; target_state: RecordState; reason?: string };
-type ValidatedLinkInput = LinkInput & { record_id: string; linked_record_id: string; link_type: string };
+type ValidatedStateChangeInput = StateChangeInput & { record_id: string; reason?: string; idempotency_key?: string };
+type ValidatedRevisionInput = RevisionInput & { record_id: string; reason?: string; idempotency_key?: string };
+type ValidatedPromoteInput = PromoteInput & {
+  record_id: string;
+  target_state: RecordState;
+  reason?: string;
+  idempotency_key?: string;
+};
+type ValidatedLinkInput = LinkInput & {
+  record_id: string;
+  linked_record_id: string;
+  link_type: string;
+  idempotency_key?: string;
+};
 type ValidatedProjectMigrateInput = ProjectMigrateInput & {
   from_project_id: string;
   to_project_id: string;
@@ -1568,10 +1654,10 @@ type ReadArgumentRecoveryHint =
     }
   | {
       operation_contract: ReadOperationContractSource;
-      rejected_argument: { argument: "include_private"; value: unknown };
+      rejected_argument: { argument: "include_private" | "all_projects"; value: unknown };
       expected: { kind: "boolean" };
-      argument_sources: { include_private: ReadArgumentSource };
-      retry_with: { argument: "include_private"; value_placeholder: true };
+      argument_sources: Partial<Record<"include_private" | "all_projects", ReadArgumentSource>>;
+      retry_with: { argument: "include_private" | "all_projects"; value_placeholder: true };
     }
   | {
       operation_contract: ReadOperationContractSource;
@@ -1684,7 +1770,7 @@ function invalidReadNumberRangeError(
 
 function invalidReadBooleanError(
   operation: ReadOperation,
-  argument: "include_private",
+  argument: "include_private" | "all_projects",
   value: unknown
 ): ReadArgumentError {
   return new ReadArgumentError(`Invalid argument: Invalid ${argument}`, `retry read with a boolean ${argument} value`, {
@@ -1898,7 +1984,11 @@ function validateOptionalStringArray(operation: ReadOperation, value: unknown, n
   }
 }
 
-function validateOptionalBoolean(operation: ReadOperation, value: unknown, name: "include_private"): void {
+function validateOptionalBoolean(
+  operation: ReadOperation,
+  value: unknown,
+  name: "include_private" | "all_projects"
+): void {
   if (value !== undefined && typeof value !== "boolean") {
     throw invalidReadBooleanError(operation, name, value);
   }
@@ -2533,6 +2623,7 @@ function validateWriteInput(input: WriteInput): void {
       throw invalidWriteProvenancePromotedAtError(provenance.promoted_at);
     }
   }
+  validateIdempotencyKey(input.idempotency_key, "write");
 }
 
 function validateRevisionInput(input: RevisionInput): void {
@@ -2552,6 +2643,7 @@ function validateRevisionInput(input: RevisionInput): void {
   validateOptionalReason("revise", input.reason);
   validateOptionalSource(input.source, "revise", "retry mutation with a valid source client");
   validateOptionalConfirmed("revise", input.confirmed);
+  validateIdempotencyKey(input.idempotency_key, "revise");
 }
 
 function validatePromoteInput(input: PromoteInput): void {
@@ -2563,6 +2655,7 @@ function validatePromoteInput(input: PromoteInput): void {
   validateOptionalReason("promote", input.reason);
   validateOptionalSource(input.source, "promote", "retry mutation with a valid source client");
   validateOptionalConfirmed("promote", input.confirmed);
+  validateIdempotencyKey(input.idempotency_key, "promote");
 }
 
 function validateStateChangeInput(input: StateChangeInput, name: string, operation: "archive" | "quarantine"): void {
@@ -2570,6 +2663,7 @@ function validateStateChangeInput(input: StateChangeInput, name: string, operati
   validateRecordId(operation, input.record_id);
   validateOptionalReason(operation, input.reason);
   validateOptionalSource(input.source, operation, "retry mutation with a valid source client");
+  validateIdempotencyKey(input.idempotency_key, operation);
 }
 
 function validateLinkInput(input: LinkInput): void {
@@ -2580,6 +2674,7 @@ function validateLinkInput(input: LinkInput): void {
     throw invalidMutationStringError("link", "link_type", input.link_type);
   }
   validateOptionalSource(input.source, "link", "retry mutation with a valid source client");
+  validateIdempotencyKey(input.idempotency_key, "link");
 }
 
 function validateRecallInput(input: RecallInput): void {
@@ -2628,9 +2723,7 @@ function validateRefreshInput(input: RefreshInput): void {
   validateOptionalString("refresh", input.project_id, "project_id");
   validateOptionalString("refresh", input.cursor, "cursor");
   const cursor = input.cursor;
-  if (typeof cursor === "string" && !isoDateTimeSchema.safeParse(cursor).success) {
-    throw new InvalidRefreshCursorError(cursor);
-  }
+  if (typeof cursor === "string") parseRefreshCursor(cursor);
   validateOptionalString("refresh", input.current_task, "current_task");
   validateOptionalBoolean("refresh", input.include_private, "include_private");
 }
@@ -2650,7 +2743,12 @@ function validateTimelineInput(input: TimelineInput): void {
 
 function validateListRecentInput(input: ListRecentInput): void {
   assertPlainObject(input, "list_recent input");
+  validateOptionalString("list_recent", input.project_id, "project_id");
+  validateOptionalBoolean("list_recent", input.all_projects, "all_projects");
   validateOptionalBoolean("list_recent", input.include_private, "include_private");
+  if (input.project_id !== undefined && input.all_projects === true) {
+    throw new Error("Invalid argument: list_recent project_id cannot be combined with all_projects=true");
+  }
 }
 
 function validateListProjectsInput(input: ListProjectsInput): void {
@@ -3665,9 +3763,88 @@ export function createEngine(deps: EngineDeps) {
     }
   }
 
-  async function appendEventAndRebuild(event: MorynEvent): Promise<void> {
-    await appendEvent(deps.storePath, event);
-    await rebuildDerivedViews(deps.storePath);
+  async function existingIdempotentMutation(
+    identity: ReturnType<typeof mutationIdempotency>,
+    operation: string,
+    allowedOps: MorynEvent["op"][]
+  ): Promise<MorynEvent | undefined> {
+    if (!identity.event_id || !identity.metadata) return undefined;
+    const existing = (await readEvents(deps.storePath)).find((event) => event.event_id === identity.event_id);
+    if (!existing) return undefined;
+    assertIdempotentEventMatch(existing, { ...existing, idempotency: identity.metadata }, operation);
+    if (!allowedOps.includes(existing.op)) {
+      throw new Error(`Idempotency collision: ${operation} event operation does not match`);
+    }
+    return existing;
+  }
+
+  async function commitMutationEvents(
+    events: MorynEvent[],
+    operation: string,
+    partialRecovery: "same_key" | "same_request" = "same_key"
+  ) {
+    const appendResults: AppendEventIfAbsentResult[] = [];
+    for (const event of events) {
+      let appended: AppendEventIfAbsentResult;
+      try {
+        appended = event.idempotency
+          ? await appendIdempotentEvent(deps.storePath, event)
+          : {
+              created: true,
+              event,
+              path: await appendEvent(deps.storePath, event),
+              durability: "best_effort" as const
+            };
+      } catch (error) {
+        if (appendResults.length > 0) {
+          throw new PartialMutationCommitError(
+            operation,
+            appendResults.map((result) => result.event.event_id),
+            error,
+            partialRecovery
+          );
+        }
+        throw error;
+      }
+      assertIdempotentEventMatch(appended.event, event, operation);
+      if (appended.event.op !== event.op) {
+        throw new Error(`Idempotency collision: ${operation} event operation does not match`);
+      }
+      appendResults.push(appended);
+    }
+    let derivedViewsRefreshed = true;
+    const warnings: Array<{ code: string; reason: string }> = appendResults.flatMap((result) => result.warnings ?? []);
+    try {
+      await checkpointRebuild(deps.storePath);
+    } catch (error) {
+      derivedViewsRefreshed = false;
+      warnings.push({
+        code: "DERIVED_VIEW_REBUILD_FAILED",
+        reason: error instanceof Error ? error.message : String(error)
+      });
+    }
+    const durability = appendResults.some((result) => result.durability === "failed")
+      ? "failed"
+      : appendResults.some((result) => result.durability === "best_effort")
+        ? "best_effort"
+        : "confirmed";
+    return {
+      events: appendResults.map((result) => result.event),
+      committed: true as const,
+      idempotent_replay: appendResults.every((result) => !result.created),
+      replayed_event_ids: appendResults.filter((result) => !result.created).map((result) => result.event.event_id),
+      durability,
+      durability_by_event_id: Object.fromEntries(
+        appendResults.map((result) => [result.event.event_id, result.durability])
+      ),
+      derived_views_refreshed: derivedViewsRefreshed,
+      ...(warnings.length ? { warnings } : {})
+    };
+  }
+
+  async function commitMutationEvent(event: MorynEvent, operation: string) {
+    const receipt = await commitMutationEvents([event], operation);
+    return { ...receipt, event: receipt.events[0] as MorynEvent };
   }
 
   async function persistStructuredSemanticMergeWithLease(
@@ -4371,10 +4548,52 @@ export function createEngine(deps: EngineDeps) {
       const createdAt = now();
       const tags = Array.isArray(writeInput.tags) ? writeInput.tags : [];
       const inputContent = input.content as Record<string, unknown> & { text?: string; format?: "text" | "json" };
+      const identity = mutationIdempotency("write", writeInput.idempotency_key, {
+        kind: writeInput.kind,
+        type: writeInput.type,
+        scope: writeInput.scope,
+        project_id: writeInput.project_id,
+        tags,
+        content: inputContent,
+        state: writeInput.state,
+        confidence: writeInput.confidence,
+        priority: writeInput.priority,
+        source: writeInput.source,
+        confirmed: writeInput.confirmed,
+        provenance: writeInput.provenance
+      });
+      const existingWrite = await existingIdempotentMutation(identity, "write", ["upsert_record"]);
+      if (existingWrite) {
+        const receipt = await commitMutationEvent(existingWrite, "write");
+        if (receipt.event.op !== "upsert_record") throw new Error("Committed write event is not an upsert_record");
+        const replayWarning: EngineWarning | undefined =
+          receipt.event.record.state === "quarantined"
+            ? { code: "SENSITIVE_CONTENT_DETECTED", reason: "sensitive content was redacted" }
+            : writeInput.state === "canonical" && receipt.event.record.state === "candidate"
+              ? {
+                  code: "CONFIRMATION_REQUIRED",
+                  reason: receipt.event.record.conflict
+                    ? "conflicting canonical memory requires explicit user confirmation"
+                    : "canonical state requires explicit user confirmation",
+                  next_action: promoteCandidateNextAction(receipt.event.record.id)
+                }
+              : undefined;
+        return {
+          record: receipt.event.record,
+          ...receipt,
+          selection_sources: WRITE_SELECTION_SOURCES,
+          warning: replayWarning
+        };
+      }
       const sensitive = detectSensitiveContent(sensitiveScanText(inputContent));
       const conflicts = sensitive.sensitive
         ? []
-        : semanticConflicts(await currentRecords(), { ...writeInput, tags, content: inputContent });
+        : semanticConflicts(await currentRecords(), {
+            ...writeInput,
+            id: identity.record_id,
+            tags,
+            content: inputContent
+          });
       const needsConflictConfirmation =
         writeInput.state === "canonical" &&
         conflicts.length > 0 &&
@@ -4392,7 +4611,7 @@ export function createEngine(deps: EngineDeps) {
       const confidence = typeof writeInput.confidence === "number" ? writeInput.confidence : 0.5;
       const provenance = writeInput.provenance as RecordProvenance | undefined;
       const record: MorynRecord = {
-        id: id("rec"),
+        id: identity.record_id ?? id("rec"),
         kind: writeInput.kind,
         type: writeInput.type,
         scope: writeInput.scope,
@@ -4415,13 +4634,15 @@ export function createEngine(deps: EngineDeps) {
           : undefined
       };
       const event: MorynEvent = {
-        event_id: id("evt"),
+        event_id: identity.event_id ?? id("evt"),
         op: "upsert_record",
         record,
         created_at: createdAt,
-        source: writeInput.source
+        source: writeInput.source,
+        ...(identity.metadata ? { idempotency: identity.metadata } : {})
       };
-      await appendEventAndRebuild(event);
+      const receipt = await commitMutationEvent(event, "write");
+      if (receipt.event.op !== "upsert_record") throw new Error("Committed write event is not an upsert_record");
       const warning: EngineWarning | undefined = sensitive.sensitive
         ? { code: "SENSITIVE_CONTENT_DETECTED", reason: sensitive.reason }
         : needsConfirmation
@@ -4434,7 +4655,8 @@ export function createEngine(deps: EngineDeps) {
             }
           : undefined;
       return {
-        record,
+        record: receipt.event.record,
+        ...receipt,
         selection_sources: WRITE_SELECTION_SOURCES,
         warning
       };
@@ -4717,13 +4939,65 @@ export function createEngine(deps: EngineDeps) {
       validateRevisionInput(input);
       const revisionInput = input as ValidatedRevisionInput;
       const patch = input.patch as Record<string, unknown>;
-      const record = await requireRecord(revisionInput.record_id);
       const managedPath = Object.keys(patch).find((path) => managedRevisionFields.has(path.split(".")[0] as string));
       if (managedPath !== undefined) {
         throw managedRevisionFieldError(managedPath, patch[managedPath], revisionInput.record_id);
       }
-      const createdAt = nextMutationTimestamp(record, now());
       const source = input.source ?? { client: "moryn" };
+      const request = {
+        record_id: revisionInput.record_id,
+        patch,
+        reason: revisionInput.reason,
+        confirmed: input.confirmed,
+        source
+      };
+      const sensitiveIdempotencyKey =
+        revisionInput.idempotency_key ?? derivedIdempotencyKey("sensitive_revise", request);
+      let identity = mutationIdempotency("revise", sensitiveIdempotencyKey, request);
+      let quarantineIdentity = mutationIdempotency("revise_quarantine", sensitiveIdempotencyKey, request);
+      const replayCommittedRevision = async () => {
+        const existingRevision = await existingIdempotentMutation(identity, "revise", ["revise_record"]);
+        if (!existingRevision) return undefined;
+        if (existingRevision.op !== "revise_record") throw new Error("Committed revise event is not a revise_record");
+        const existingQuarantine = await existingIdempotentMutation(quarantineIdentity, "revise", [
+          "quarantine_record"
+        ]);
+        const sensitiveReplay =
+          Boolean(existingQuarantine) ||
+          JSON.stringify(existingRevision.patch).includes("[REDACTED") ||
+          detectSensitiveContent(sensitiveScanText(patch)).sensitive;
+        if (!sensitiveReplay) {
+          const receipt = await commitMutationEvent(existingRevision, "revise");
+          return { ...receipt, selection_sources: MUTATION_EVENT_SELECTION_SOURCES };
+        }
+        const quarantineEvent: MorynEvent =
+          existingQuarantine ??
+          ({
+            event_id: quarantineIdentity.event_id!,
+            op: "quarantine_record",
+            record_id: revisionInput.record_id,
+            reason: "SENSITIVE_CONTENT_DETECTED",
+            created_at: new Date(Date.parse(existingRevision.created_at) + 1).toISOString(),
+            source: existingRevision.source,
+            idempotency: quarantineIdentity.metadata!
+          } satisfies MorynEvent);
+        const receipt = await commitMutationEvents(
+          [existingRevision, quarantineEvent],
+          "revise",
+          revisionInput.idempotency_key === undefined ? "same_request" : "same_key"
+        );
+        return {
+          ...receipt,
+          event: receipt.events[0],
+          quarantine_event: receipt.events[1],
+          selection_sources: SENSITIVE_REVISE_SELECTION_SOURCES,
+          warning: { code: "SENSITIVE_CONTENT_DETECTED", reason: "sensitive content was redacted" }
+        };
+      };
+      const existingReceipt = await replayCommittedRevision();
+      if (existingReceipt) return existingReceipt;
+      const record = await requireRecord(revisionInput.record_id);
+      const createdAt = nextMutationTimestamp(record, now());
       const patched = applyRecordPatch(record, patch);
       try {
         parseRecord(patched);
@@ -4732,6 +5006,10 @@ export function createEngine(deps: EngineDeps) {
         throw invalidRevisionRecordPatchError(patch, message);
       }
       const sensitive = detectSensitiveContent(sensitiveScanText(patched.content));
+      if (!sensitive.sensitive && revisionInput.idempotency_key === undefined) {
+        identity = mutationIdempotency("revise", undefined, request);
+        quarantineIdentity = mutationIdempotency("revise_quarantine", undefined, request);
+      }
       const conflicts =
         !sensitive.sensitive && patched.state === "canonical" ? semanticConflicts(await currentRecords(), patched) : [];
       if (conflicts.length > 0 && !isUserConfirmed(source, input.confirmed)) {
@@ -4739,7 +5017,7 @@ export function createEngine(deps: EngineDeps) {
       }
       const eventPatch = sensitive.sensitive ? redactSensitivePatch(patch) : patch;
       const event: MorynEvent = {
-        event_id: id("evt"),
+        event_id: identity.event_id ?? id("evt"),
         op: "revise_record",
         record_id: revisionInput.record_id,
         patch: eventPatch,
@@ -4749,29 +5027,34 @@ export function createEngine(deps: EngineDeps) {
           ? { kind: "semantic", with: conflicts.map((record) => record.id), resolution: "needs_review" }
           : undefined,
         created_at: createdAt,
-        source
+        source,
+        ...(identity.metadata ? { idempotency: identity.metadata } : {})
       };
-      await appendEvent(deps.storePath, event);
       if (!sensitive.sensitive) {
-        await rebuildDerivedViews(deps.storePath);
-        return { event, selection_sources: MUTATION_EVENT_SELECTION_SOURCES };
+        const receipt = await commitMutationEvent(event, "revise");
+        return { ...receipt, selection_sources: MUTATION_EVENT_SELECTION_SOURCES };
       }
 
       const revisedRecord = { ...record, updated_at: createdAt };
       const quarantineCreatedAt = nextMutationTimestamp(revisedRecord, now());
       const quarantineEvent: MorynEvent = {
-        event_id: id("evt"),
+        event_id: quarantineIdentity.event_id ?? id("evt"),
         op: "quarantine_record",
         record_id: revisionInput.record_id,
         reason: "SENSITIVE_CONTENT_DETECTED",
         created_at: quarantineCreatedAt,
-        source
+        source,
+        ...(quarantineIdentity.metadata ? { idempotency: quarantineIdentity.metadata } : {})
       };
-      await appendEvent(deps.storePath, quarantineEvent);
-      await rebuildDerivedViews(deps.storePath);
+      const receipt = await commitMutationEvents(
+        [event, quarantineEvent],
+        "revise",
+        revisionInput.idempotency_key === undefined ? "same_request" : "same_key"
+      );
       return {
-        event,
-        quarantine_event: quarantineEvent,
+        ...receipt,
+        event: receipt.events[0],
+        quarantine_event: receipt.events[1],
         selection_sources: SENSITIVE_REVISE_SELECTION_SOURCES,
         warning: { code: "SENSITIVE_CONTENT_DETECTED", reason: sensitive.reason }
       };
@@ -4780,8 +5063,20 @@ export function createEngine(deps: EngineDeps) {
     async promote(input: PromoteInput) {
       validatePromoteInput(input);
       const promoteInput = input as ValidatedPromoteInput;
-      const record = await requireRecord(promoteInput.record_id);
       const source = input.source ?? { client: "moryn" };
+      const identity = mutationIdempotency("promote", promoteInput.idempotency_key, {
+        record_id: promoteInput.record_id,
+        target_state: promoteInput.target_state,
+        reason: promoteInput.reason,
+        confirmed: input.confirmed,
+        source
+      });
+      const existingPromotion = await existingIdempotentMutation(identity, "promote", ["promote_record"]);
+      if (existingPromotion) {
+        const receipt = await commitMutationEvent(existingPromotion, "promote");
+        return { ...receipt, selection_sources: MUTATION_EVENT_SELECTION_SOURCES };
+      }
+      const record = await requireRecord(promoteInput.record_id);
       const conflicts =
         promoteInput.target_state === "canonical" ? semanticConflicts(await currentRecords(), record) : [];
       if (
@@ -4800,7 +5095,7 @@ export function createEngine(deps: EngineDeps) {
       }
       const createdAt = nextMutationTimestamp(record, now());
       const event: MorynEvent = {
-        event_id: id("evt"),
+        event_id: identity.event_id ?? id("evt"),
         op: "promote_record",
         record_id: promoteInput.record_id,
         target_state: promoteInput.target_state,
@@ -4810,66 +5105,127 @@ export function createEngine(deps: EngineDeps) {
           ? { kind: "semantic", with: conflicts.map((record) => record.id), resolution: "needs_review" }
           : undefined,
         created_at: createdAt,
-        source
+        source,
+        ...(identity.metadata ? { idempotency: identity.metadata } : {})
       };
-      await appendEventAndRebuild(event);
-      return { event, selection_sources: MUTATION_EVENT_SELECTION_SOURCES };
+      const receipt = await commitMutationEvent(event, "promote");
+      return { ...receipt, selection_sources: MUTATION_EVENT_SELECTION_SOURCES };
     },
 
     async archive(input: StateChangeInput) {
       validateStateChangeInput(input, "archive input", "archive");
       const stateInput = input as ValidatedStateChangeInput;
+      const source = input.source ?? { client: "moryn" };
+      const identity = mutationIdempotency("archive", stateInput.idempotency_key, {
+        record_id: stateInput.record_id,
+        reason: stateInput.reason,
+        source
+      });
+      const existingArchive = await existingIdempotentMutation(identity, "archive", ["archive_record"]);
+      if (existingArchive) {
+        const receipt = await commitMutationEvent(existingArchive, "archive");
+        return { ...receipt, selection_sources: MUTATION_EVENT_SELECTION_SOURCES };
+      }
       const record = await requireRecord(stateInput.record_id);
       const createdAt = nextMutationTimestamp(record, now());
       const event: MorynEvent = {
-        event_id: id("evt"),
+        event_id: identity.event_id ?? id("evt"),
         op: "archive_record",
         record_id: stateInput.record_id,
         reason: stateInput.reason,
         created_at: createdAt,
-        source: input.source ?? { client: "moryn" }
+        source,
+        ...(identity.metadata ? { idempotency: identity.metadata } : {})
       };
-      await appendEventAndRebuild(event);
-      return { event, selection_sources: MUTATION_EVENT_SELECTION_SOURCES };
+      const receipt = await commitMutationEvent(event, "archive");
+      return { ...receipt, selection_sources: MUTATION_EVENT_SELECTION_SOURCES };
     },
 
     async quarantine(input: StateChangeInput) {
       validateStateChangeInput(input, "quarantine input", "quarantine");
       const stateInput = input as ValidatedStateChangeInput;
+      const source = input.source ?? { client: "moryn" };
+      const identity = mutationIdempotency("quarantine", stateInput.idempotency_key, {
+        record_id: stateInput.record_id,
+        reason: stateInput.reason,
+        source
+      });
+      const existingQuarantine = await existingIdempotentMutation(identity, "quarantine", ["quarantine_record"]);
+      if (existingQuarantine) {
+        const receipt = await commitMutationEvent(existingQuarantine, "quarantine");
+        return { ...receipt, selection_sources: MUTATION_EVENT_SELECTION_SOURCES };
+      }
       const record = await requireRecord(stateInput.record_id);
       const createdAt = nextMutationTimestamp(record, now());
       const event: MorynEvent = {
-        event_id: id("evt"),
+        event_id: identity.event_id ?? id("evt"),
         op: "quarantine_record",
         record_id: stateInput.record_id,
         reason: stateInput.reason,
         created_at: createdAt,
-        source: input.source ?? { client: "moryn" }
+        source,
+        ...(identity.metadata ? { idempotency: identity.metadata } : {})
       };
-      await appendEventAndRebuild(event);
-      return { event, selection_sources: MUTATION_EVENT_SELECTION_SOURCES };
+      const receipt = await commitMutationEvent(event, "quarantine");
+      return { ...receipt, selection_sources: MUTATION_EVENT_SELECTION_SOURCES };
     },
 
     async link(input: LinkInput) {
       validateLinkInput(input);
       const linkInput = input as ValidatedLinkInput;
+      const source = input.source ?? { client: "moryn" };
+      const identity = mutationIdempotency("link", linkInput.idempotency_key, {
+        record_id: linkInput.record_id,
+        linked_record_id: linkInput.linked_record_id,
+        link_type: linkInput.link_type,
+        source
+      });
+      const existingLink = await existingIdempotentMutation(identity, "link", ["link_records"]);
+      if (existingLink) {
+        const receipt = await commitMutationEvent(existingLink, "link");
+        return { ...receipt, selection_sources: LINK_EVENT_SELECTION_SOURCES };
+      }
       const record = await requireRecord(linkInput.record_id);
       await requireRecord(linkInput.linked_record_id);
       const createdAt = nextMutationTimestamp(record, now());
       const event: MorynEvent = {
-        event_id: id("evt"),
+        event_id: identity.event_id ?? id("evt"),
         op: "link_records",
         record_id: linkInput.record_id,
         linked_record_id: linkInput.linked_record_id,
         link_type: linkInput.link_type,
         created_at: createdAt,
-        source: input.source ?? { client: "moryn" }
+        source,
+        ...(identity.metadata ? { idempotency: identity.metadata } : {})
       };
-      await appendEventAndRebuild(event);
-      return { event, selection_sources: LINK_EVENT_SELECTION_SOURCES };
+      const receipt = await commitMutationEvent(event, "link");
+      return { ...receipt, selection_sources: LINK_EVENT_SELECTION_SOURCES };
     },
 
     async logicalLink(input: LogicalLinkInput) {
+      validateIdempotencyKey(input.idempotency_key, "logical_link");
+      const source = input.source ?? { client: "moryn" };
+      const identity = mutationIdempotency("logical_link", input.idempotency_key as string | undefined, {
+        record_id: input.record_id,
+        linked_record_id: input.linked_record_id,
+        relationship: input.relationship,
+        reason: input.reason,
+        source
+      });
+      const existingLogicalLink = await existingIdempotentMutation(identity, "logical_link", ["link_records"]);
+      if (existingLogicalLink) {
+        if (existingLogicalLink.op !== "link_records") {
+          throw new Error("Committed logical link event is not a link_records event");
+        }
+        const receipt = await commitMutationEvent(existingLogicalLink, "logical_link");
+        return {
+          ...receipt,
+          relationship: existingLogicalLink.link_type as LogicalRelationshipType,
+          direction: existingLogicalLink.link_type === "conflicts_with" ? "symmetric" : "directed",
+          reason: existingLogicalLink.reason,
+          selection_sources: LINK_EVENT_SELECTION_SOURCES
+        };
+      }
       const records = await currentRecords();
       const validated = validateLogicalRelationship(records, {
         record_id: input.record_id as string,
@@ -4879,18 +5235,19 @@ export function createEngine(deps: EngineDeps) {
       });
       const createdAt = nextMutationTimestamp(validated.record, now());
       const event: MorynEvent = {
-        event_id: id("evt"),
+        event_id: identity.event_id ?? id("evt"),
         op: "link_records",
         record_id: validated.record.id,
         linked_record_id: validated.linked_record.id,
         link_type: validated.relationship,
         reason: validated.reason,
         created_at: createdAt,
-        source: input.source ?? { client: "moryn" }
+        source,
+        ...(identity.metadata ? { idempotency: identity.metadata } : {})
       };
-      await appendEventAndRebuild(event);
+      const receipt = await commitMutationEvent(event, "logical_link");
       return {
-        event,
+        ...receipt,
         relationship: validated.relationship,
         direction: validated.direction,
         reason: validated.reason,
@@ -5212,12 +5569,17 @@ export function createEngine(deps: EngineDeps) {
     async refresh(input: RefreshInput) {
       validateRefreshInput(input);
       const refreshInput = { ...input, include_private: input.include_private === true } as ValidatedRefreshInput;
+      const parsedCursor = refreshInput.cursor ? parseRefreshCursor(refreshInput.cursor) : undefined;
       const limit = validateLimit(input.limit, 20, "refresh");
       const records = buildActiveLogicalMemoryView((await currentRecords()).filter(isVisibleByDefault))
         .active_records.filter((record) => isAllowedByPrivateBoundary(record, refreshInput.include_private))
         .filter((record) => recordBootContextMatches(record, input.project_id))
-        .filter((record) => !refreshInput.cursor || record.updated_at > refreshInput.cursor)
-        .sort((a, b) => a.updated_at.localeCompare(b.updated_at));
+        .filter((record) => {
+          if (!parsedCursor) return true;
+          if (parsedCursor.legacy_iso) return record.updated_at >= parsedCursor.position.updated_at;
+          return compareRefreshPositions(refreshPosition(record), parsedCursor.position) > 0;
+        })
+        .sort((left, right) => compareRefreshPositions(refreshPosition(left), refreshPosition(right)));
       const allChanges = records.map((record) => {
         const importance = refreshImportance(record, refreshInput.current_task);
         return {
@@ -5234,12 +5596,15 @@ export function createEngine(deps: EngineDeps) {
       });
       const reportableChanges = allChanges.filter((change) => change.change.importance !== "silent");
       const changes = reportableChanges.slice(0, limit);
-      const latest =
-        (reportableChanges.length > changes.length ? changes.at(-1)?.record.updated_at : records.at(-1)?.updated_at) ??
-        refreshInput.cursor ??
-        new Date().toISOString();
+      const hasMore = reportableChanges.length > changes.length;
+      const cursorRecord = hasMore ? changes.at(-1)?.record : records.at(-1);
+      const cursorPosition =
+        (cursorRecord ? refreshPosition(cursorRecord) : undefined) ??
+        parsedCursor?.position ??
+        ({ updated_at: new Date().toISOString(), record_id: "" } satisfies RefreshCursorPosition);
       return {
-        cursor: latest,
+        cursor: encodeRefreshCursor(cursorPosition),
+        has_more: hasMore,
         changes: changes.map((change) => change.change),
         selection_sources: REFRESH_SELECTION_SOURCES,
         changes_by_record_id: Object.fromEntries(changes.map((change) => [change.change.record_id, change.change])),
@@ -5248,19 +5613,19 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async listRecent(input: unknown = 20) {
-      const listRecentInput =
-        typeof input === "object" && input !== null && !Array.isArray(input)
-          ? (input as ListRecentInput)
-          : { limit: input };
+      const structuredInput = typeof input === "object" && input !== null && !Array.isArray(input);
+      const listRecentInput = structuredInput ? (input as ListRecentInput) : { limit: input, all_projects: true };
       validateListRecentInput(listRecentInput);
       const resolvedInput = {
         ...listRecentInput,
+        all_projects: listRecentInput.all_projects === true,
         include_private: listRecentInput.include_private === true
       } as ValidatedListRecentInput;
       const records = compactRecords(
         buildActiveLogicalMemoryView((await currentRecords()).filter(isVisibleByDefault))
           .active_records.filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private))
-          .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+          .filter((record) => resolvedInput.all_projects || recordBootContextMatches(record, resolvedInput.project_id))
+          .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || compareCodeUnits(left.id, right.id))
           .slice(0, validateLimit(resolvedInput.limit, 20, "list_recent"))
       );
       return {

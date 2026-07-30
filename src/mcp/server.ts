@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, type RegisteredTool, type ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { mcpArgumentsForAction } from "../core/action-interfaces.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "../core/agent-lifecycle.js";
@@ -27,6 +28,8 @@ import type { HostRuntimeDescriptor } from "../core/host-integration-artifacts.j
 import { queueLearning } from "../core/learning-inbox.js";
 import { LOGICAL_RELATIONSHIP_TYPES } from "../core/logical-memory.js";
 import { runMaintenanceOnce } from "../core/maintenance-runner.js";
+import { withOperationDeadline } from "../core/operation-deadline.js";
+import { automationOutcome, failedAutomationOutcome } from "../core/operation-outcome.js";
 import { initializeProjectConfig, type ProjectConfig, resolveProjectContext, type SyncMode } from "../core/project.js";
 import type {
   RecordKind,
@@ -39,17 +42,24 @@ import type {
 import {
   activateClaudeSettings,
   activateCodexHooks,
+  automationReconcile,
+  automationStatus,
   buildHostIntegrationArtifact,
   captureSession,
   contextPack,
+  type DashboardServiceConfig,
   getOperationContract,
   getOperationContractByCliCommand,
   getOperationContractByMcpTool,
   getOperationContractIndex,
   getOperationContracts,
   getSelectionSourceContracts,
+  inspectDashboardService,
   inspectHostActivation,
+  installDashboardService,
   planInstall,
+  repairDashboardService,
+  restartDashboardService,
   setupWizard,
   version,
   writeHostIntegrationArtifact
@@ -68,6 +78,7 @@ import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from ".
 
 type Engine = ReturnType<typeof createEngine>;
 type McpInputShape = Record<string, z.ZodType>;
+type McpTimeoutShape = { timeout_ms: z.ZodOptional<z.ZodUnknown> };
 type McpDashboardMetadata =
   | Awaited<ReturnType<typeof writeDashboardSnapshot>>
   | {
@@ -279,9 +290,13 @@ function mcpCamelCaseAliasTarget(argument: OperationArgumentMetadata): string | 
   return argument.mcp.path ? argument.name : argument.mcp.argument;
 }
 
+function mcpOperationArguments(tool: string): OperationArgumentMetadata[] {
+  return Object.values(operationArgumentsByTool(tool)).filter((argument) => argument.name !== "timeout_ms");
+}
+
 function camelCaseAliasInputSchema(tool: string): Record<string, z.ZodOptional<z.ZodUnknown>> {
   return Object.fromEntries(
-    Object.values(operationArgumentsByTool(tool)).flatMap((argument) => {
+    mcpOperationArguments(tool).flatMap((argument) => {
       const alias = mcpCamelCaseAliasName(argument);
       return alias ? [[alias, z.unknown().optional()] as const] : [];
     })
@@ -300,8 +315,8 @@ function objectPathAliasInputSchema(tool: string): Record<string, z.ZodOptional<
   );
 }
 
-function mcpInputSchema<TShape extends McpInputShape>(shape: TShape): z.ZodObject<TShape> {
-  return z.object(shape).passthrough();
+function mcpInputSchema<TShape extends McpInputShape>(shape: TShape): z.ZodObject<TShape & McpTimeoutShape> {
+  return z.object({ timeout_ms: z.unknown().optional(), ...shape }).passthrough();
 }
 
 const WRITE_CONTENT_RETRY_ARGUMENTS = [
@@ -521,6 +536,7 @@ type McpProjectContextOperation =
   | "boot"
   | "recall"
   | "timeline"
+  | "list_recent"
   | "write"
   | "learn"
   | "dashboard"
@@ -693,23 +709,31 @@ async function mcpDashboardProjectOptions(
   };
 }
 
-function jsonResult(value: unknown, options: { pretty?: boolean } = {}) {
+function jsonResult(
+  value: unknown,
+  options: { pretty?: boolean; outcome?: ReturnType<typeof automationOutcome> } = {}
+) {
+  const outcome = options.outcome ?? automationOutcome(value);
   return {
     content: [
       {
         type: "text" as const,
         text: JSON.stringify(value, null, options.pretty === false ? undefined : 2)
       }
-    ]
+    ],
+    structuredContent: { outcome, result: value ?? null }
   };
 }
 
 async function toolResult(fn: () => Promise<unknown>, context?: MorynErrorContext) {
   try {
-    return jsonResult(await fn());
+    const value = await fn();
+    const result = jsonResult(value);
+    return automationOutcome(value).status === "failed" ? { ...result, isError: true } : result;
   } catch (error) {
+    const envelope = toErrorEnvelope(error, context);
     return {
-      ...jsonResult(toErrorEnvelope(error, context)),
+      ...jsonResult(envelope, { outcome: failedAutomationOutcome(envelope.error.next_action, error) }),
       isError: true
     };
   }
@@ -724,19 +748,90 @@ async function toolResultWithNormalizedInput(
   let normalizedInput: Record<string, unknown> | undefined;
   try {
     normalizedInput = normalizeMcpToolArguments(tool, input);
-    return jsonResult(await fn(normalizedInput));
+    const value = await fn(normalizedInput);
+    const result = jsonResult(value);
+    return automationOutcome(value).status === "failed" ? { ...result, isError: true } : result;
   } catch (error) {
+    const envelope = toErrorEnvelope(error, normalizedInput && context ? context(normalizedInput) : undefined);
     return {
-      ...jsonResult(toErrorEnvelope(error, normalizedInput && context ? context(normalizedInput) : undefined)),
+      ...jsonResult(envelope, { outcome: failedAutomationOutcome(envelope.error.next_action, error) }),
       isError: true
     };
   }
+}
+
+function mcpOperationTimeoutMs(value: unknown): number {
+  if (value === undefined) return 120_000;
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0 || value > 900_000) {
+    throw new Error("Invalid argument: timeout_ms must be a positive integer no greater than 900000");
+  }
+  return value;
+}
+
+function registerMcpTool<TShape extends McpInputShape & McpTimeoutShape>(
+  server: McpServer,
+  name: string,
+  config: {
+    title?: string;
+    description?: string;
+    inputSchema: z.ZodObject<TShape>;
+  },
+  callback: ToolCallback<z.ZodObject<TShape>>
+): RegisteredTool {
+  const register = server.registerTool.bind(server) as unknown as (
+    toolName: string,
+    toolConfig: typeof config,
+    handler: (input: Record<string, unknown>, extra: { signal: AbortSignal }) => Promise<CallToolResult>
+  ) => RegisteredTool;
+  return register(name, config, async (input, extra) => {
+    try {
+      const raw = input as Record<string, unknown>;
+      const timeoutMs = mcpOperationTimeoutMs(raw.timeout_ms);
+      const toolInput = Object.fromEntries(Object.entries(raw).filter(([key]) => key !== "timeout_ms"));
+      return await withOperationDeadline(
+        timeoutMs,
+        async () => await callback(toolInput as never, extra as never),
+        extra.signal
+      );
+    } catch (error) {
+      const envelope = toErrorEnvelope(error);
+      return {
+        ...jsonResult(envelope, { outcome: failedAutomationOutcome(envelope.error.next_action, error) }),
+        isError: true
+      };
+    }
+  });
 }
 
 function validateMcpDashboardOpen(value: unknown): asserts value is boolean | undefined {
   if (value !== undefined && typeof value !== "boolean") {
     throw new Error("Invalid argument: Invalid dashboard open; must be boolean");
   }
+}
+
+function requireMcpConfirmation(value: unknown, operation: string): void {
+  if (value !== true) throw new Error(`Confirmation required: ${operation} requires confirm=true`);
+}
+
+function mcpDashboardServiceConfig(
+  storePath: string,
+  runtime: HostRuntimeDescriptor | undefined,
+  input: Record<string, unknown>
+): DashboardServiceConfig {
+  if (!runtime) throw new Error("Dashboard service runtime metadata is unavailable");
+  return {
+    store_path: storePath,
+    runtime,
+    host: input.host as string | undefined,
+    port: input.port as number | undefined,
+    interval_ms: input.interval_ms as number | undefined,
+    limit: input.limit as number | undefined,
+    project_path: input.project_path as string | undefined,
+    project_id: input.project_id as string | undefined,
+    include_private: input.include_private as boolean | undefined,
+    readiness_host: input.readiness_host as string | undefined,
+    sync_remote: input.sync_remote as string | undefined
+  };
 }
 
 async function mcpDashboardMetadata(
@@ -828,7 +923,7 @@ function assertKnownMcpArguments(tool: string, input: Record<string, unknown>): 
 
 function mcpKnownArguments(tool: string): Set<string> {
   const known = new Set<string>();
-  for (const argument of Object.values(operationArgumentsByTool(tool))) {
+  for (const argument of mcpOperationArguments(tool)) {
     if (argument.mcp) known.add(argument.mcp.argument);
     if (argument.mcp?.path) {
       known.add(argument.name);
@@ -848,7 +943,7 @@ function mcpKnownArguments(tool: string): Set<string> {
 
 function normalizeMcpCamelCaseAliases(tool: string, input: Record<string, unknown>): Record<string, unknown> {
   const normalized = { ...input };
-  for (const argument of Object.values(operationArgumentsByTool(tool))) {
+  for (const argument of mcpOperationArguments(tool)) {
     const alias = mcpCamelCaseAliasName(argument);
     const target = mcpCamelCaseAliasTarget(argument);
     if (!alias || !target || normalized[alias] === undefined) continue;
@@ -883,7 +978,7 @@ function assertNoMcpAliasConflicts(tool: string, input: Record<string, unknown>)
   if (explicitAliasConflict) throw new McpAliasConflictError(tool, explicitAliasConflict);
   const objectPathAliasConflict = mcpObjectPathAliasConflict(tool, input);
   if (objectPathAliasConflict) throw new McpAliasConflictError(tool, objectPathAliasConflict);
-  const operationArguments = Object.values(operationArgumentsByTool(tool));
+  const operationArguments = mcpOperationArguments(tool);
   for (const argument of operationArguments) {
     const conflict = mcpAliasConflict(input, argument);
     if (conflict) throw new McpAliasConflictError(tool, conflict);
@@ -995,7 +1090,7 @@ function displayNameForObjectPathAlias(alias: string): string {
 }
 
 function mcpInputAliasesForTarget(tool: string, target: string): string[] {
-  return Object.values(operationArgumentsByTool(tool)).flatMap((argument) => {
+  return mcpOperationArguments(tool).flatMap((argument) => {
     const alias = mcpCamelCaseAliasName(argument);
     return alias && mcpCamelCaseAliasTarget(argument) === target ? [alias] : [];
   });
@@ -1105,7 +1200,7 @@ function closestMcpKnownArgument(tool: string, argument: string): string | undef
 }
 
 function mcpCanonicalArgumentCandidates(tool: string): string[] {
-  return Object.values(operationArgumentsByTool(tool))
+  return mcpOperationArguments(tool)
     .map((candidate) => candidate.mcp?.path ?? candidate.mcp?.argument ?? candidate.name)
     .filter(
       (candidate, index, candidates): candidate is string =>
@@ -1154,7 +1249,7 @@ function contractArgumentForMcpInput(tool: string, inputArgument: string): strin
   const explicitAlias = (explicitMcpAliasesByTool[tool] ?? []).find((alias) => alias.alias === inputArgument);
   if (explicitAlias) return explicitAlias.contractArgument;
   return (
-    Object.values(operationArgumentsByTool(tool)).find((argument) => {
+    mcpOperationArguments(tool).find((argument) => {
       return (
         argument.name === inputArgument ||
         argument.mcp?.argument === inputArgument ||
@@ -1248,7 +1343,8 @@ export async function runMcpServer(
     version
   });
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "init",
     {
       title: "Initialize Moryn Store",
@@ -1260,11 +1356,13 @@ export async function runMcpServer(
     async (input) =>
       toolResultWithNormalizedInput("init", input, async (normalizedInput) => ({
         ok: true,
+        committed: true,
         ...(await initializeStore(options.storePath, { repair: normalizedInput.repair as boolean | undefined }))
       }))
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "project_init",
     {
       title: "Initialize Moryn Project Config",
@@ -1283,6 +1381,7 @@ export async function runMcpServer(
     async (input) =>
       toolResultWithNormalizedInput("project_init", input, async (normalizedInput) => ({
         ok: true,
+        committed: true,
         ...(await initializeProjectConfig(normalizedInput.path, {
           project_id: normalizedInput.project_id,
           tags: normalizedInput.tags,
@@ -1293,7 +1392,8 @@ export async function runMcpServer(
       }))
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "project_list",
     {
       title: "List Moryn Projects",
@@ -1321,7 +1421,8 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "project_migrate",
     {
       title: "Migrate Moryn Project Identity",
@@ -1348,17 +1449,18 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "install",
     {
       title: "Plan Moryn Host Adapter Setup",
-      description:
-        "Plan and optionally run safe Moryn-local host adapter setup without mutating host configuration files.",
+      description: "Plan or apply Moryn-local setup; host configuration changes require activate_host=true.",
       inputSchema: mcpInputSchema({
         host: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
         sync_remote: z.unknown().optional(),
         apply: coreValidatedBooleanSchema.optional(),
+        activate_host: coreValidatedBooleanSchema.optional(),
         ...objectPathAliasInputSchema("install"),
         ...camelCaseAliasInputSchema("install")
       })
@@ -1368,23 +1470,61 @@ export async function runMcpServer(
         const projectPath = validateProjectContextInput("install", {
           project_path: normalizedInput.project_path
         }).project_path;
+        const activateHost = normalizedInput.activate_host === true;
+        const apply = normalizedInput.apply === true;
+        const host = normalizedInput.host as string | undefined;
+        const normalizedHost = host === "claude-code" ? "claude" : host;
+        if (activateHost && !apply) throw new Error("Invalid argument: activate_host requires apply=true");
+        if (activateHost && (!projectPath || (normalizedHost !== "claude" && normalizedHost !== "codex"))) {
+          throw new Error("Invalid argument: activate_host requires project_path and host claude or codex");
+        }
         const plan = planInstall({
-          host: normalizedInput.host as string | undefined,
+          host,
           projectPath,
           syncRemote: normalizedInput.sync_remote as string | undefined,
-          apply: normalizedInput.apply as boolean | undefined
+          apply,
+          activateHost
         });
-        if (normalizedInput.apply === true) {
+        if (apply) {
           await initializeStore(options.storePath);
           if (projectPath) {
-            await initializeProjectConfig(projectPath, {});
+            const projectConfig = await initializeProjectConfig(projectPath, {});
+            if (activateHost && (normalizedHost === "claude" || normalizedHost === "codex")) {
+              const projectId = projectConfig.config.project_id;
+              if (!projectId) throw new Error("Invalid project config: missing project_id after initialization");
+              const artifact = await writeHostIntegrationArtifact({
+                host: normalizedHost,
+                project_id: projectId,
+                project_path: projectPath,
+                store_path: options.storePath,
+                runtime: options.hostRuntime
+              });
+              const activation =
+                normalizedHost === "claude"
+                  ? await activateClaudeSettings({ project_path: projectPath, artifact: artifact.artifact })
+                  : await activateCodexHooks({ project_path: projectPath, artifact: artifact.artifact });
+              const activationStatus = await inspectHostActivation({
+                store_path: options.storePath,
+                project_path: projectPath,
+                project_id: projectId,
+                host: normalizedHost,
+                runtime: options.hostRuntime
+              });
+              return {
+                ...plan,
+                integration_artifact: artifact,
+                ...(activation ? { activation } : {}),
+                activation_status: activationStatus
+              };
+            }
           }
         }
         return plan;
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "setup",
     {
       title: "Run Moryn Setup Wizard",
@@ -1432,7 +1572,61 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
+    "automation_status",
+    {
+      title: "Inspect Moryn Automation Readiness",
+      description: "Return a compact, read-only view of local and explicitly selected host automation readiness.",
+      inputSchema: mcpInputSchema({
+        host: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
+        ...objectPathAliasInputSchema("automation_status"),
+        ...camelCaseAliasInputSchema("automation_status")
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("automation_status", input, async (normalizedInput) =>
+        automationStatus({
+          storePath: options.storePath,
+          projectPath: normalizedInput.project_path as string | undefined,
+          host: normalizedInput.host as string | undefined,
+          hostRuntime: options.hostRuntime
+        })
+      )
+  );
+
+  registerMcpTool(
+    server,
+    "automation_reconcile",
+    {
+      title: "Reconcile Moryn Automation Readiness",
+      description:
+        "Plan local automation reconciliation by default; apply writes only with apply=true and host writes only with activate_host=true.",
+      inputSchema: mcpInputSchema({
+        host: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
+        apply: coreValidatedBooleanSchema.optional(),
+        activate_host: coreValidatedBooleanSchema.optional(),
+        ...objectPathAliasInputSchema("automation_reconcile"),
+        ...camelCaseAliasInputSchema("automation_reconcile")
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("automation_reconcile", input, async (normalizedInput) =>
+        automationReconcile({
+          storePath: options.storePath,
+          projectPath: normalizedInput.project_path as string | undefined,
+          host: normalizedInput.host as string | undefined,
+          apply: normalizedInput.apply as boolean | undefined,
+          activateHost: normalizedInput.activate_host as boolean | undefined,
+          hostRuntime: options.hostRuntime
+        })
+      )
+  );
+
+  registerMcpTool(
+    server,
     "capture_session",
     {
       title: "Capture Moryn Session Handoff",
@@ -1466,7 +1660,8 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "context_pack",
     {
       title: "Build Moryn Host Context Pack",
@@ -1504,7 +1699,8 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "selection_source_contracts",
     {
       title: "Get Moryn Selection Source Contracts",
@@ -1515,7 +1711,8 @@ export async function runMcpServer(
       toolResultWithNormalizedInput("selection_source_contracts", input, async () => getSelectionSourceContracts())
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "operation_contracts",
     {
       title: "Get Moryn Operation Contracts",
@@ -1598,7 +1795,8 @@ export async function runMcpServer(
     }
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "soul_status",
     {
       title: "Inspect Moryn Soul Status",
@@ -1627,7 +1825,8 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "soul_draft",
     {
       title: "Create Moryn Soul Draft",
@@ -1657,7 +1856,8 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "soul_approve",
     {
       title: "Approve Moryn Soul Draft",
@@ -1682,7 +1882,8 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "soul_rollback",
     {
       title: "Roll Back Moryn Soul Profile",
@@ -1710,7 +1911,8 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "memory_expand",
     {
       title: "Expand Moryn Memory Sources",
@@ -1735,7 +1937,8 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "memory_compaction_preview",
     {
       title: "Preview Moryn Memory Compaction",
@@ -1766,7 +1969,8 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "memory_compaction_plan",
     {
       title: "Seal Moryn Memory Compaction Plan",
@@ -1783,7 +1987,8 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "memory_compaction_apply",
     {
       title: "Apply Moryn Memory Compaction",
@@ -1801,7 +2006,8 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "memory_compaction_restore",
     {
       title: "Restore Moryn Memory Compaction",
@@ -1822,7 +2028,8 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "boot",
     {
       title: "Boot Moryn Context",
@@ -1856,7 +2063,8 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "recall",
     {
       title: "Recall Moryn Records",
@@ -1937,7 +2145,8 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "timeline",
     {
       title: "Timeline Around Moryn Record",
@@ -2001,7 +2210,8 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "write",
     {
       title: "Write Moryn Record",
@@ -2020,6 +2230,7 @@ export async function runMcpServer(
         priority: coreValidatedRecordPrioritySchema.optional(),
         provenance: z.unknown().optional(),
         confirmed: coreValidatedBooleanSchema.optional(),
+        idempotency_key: coreValidatedStringSchema.optional(),
         source: z.unknown().optional(),
         ...writeAliasInputSchema,
         ...camelCaseAliasInputSchema("write")
@@ -2066,12 +2277,14 @@ export async function runMcpServer(
           priority: normalizedInput.priority as RecordPriority | undefined,
           source: withDefaultSource(normalizedInput.source) as RecordSource,
           confirmed: normalizedInput.confirmed as boolean | undefined,
+          idempotency_key: normalizedInput.idempotency_key,
           provenance: normalizedInput.provenance as RecordProvenance | undefined
         });
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "revise",
     {
       title: "Revise Moryn Record",
@@ -2081,6 +2294,7 @@ export async function runMcpServer(
         patch: z.unknown(),
         reason: coreValidatedStringSchema.optional(),
         confirmed: coreValidatedBooleanSchema.optional(),
+        idempotency_key: coreValidatedStringSchema.optional(),
         source: z.unknown().optional(),
         ...sourceAliasInputSchema,
         ...camelCaseAliasInputSchema("revise")
@@ -2096,6 +2310,7 @@ export async function runMcpServer(
             patch: normalizedInput.patch,
             reason: normalizedInput.reason,
             confirmed: normalizedInput.confirmed as boolean | undefined,
+            idempotency_key: normalizedInput.idempotency_key,
             source: withDefaultSource(normalizedInput.source) as RecordSource
           }),
         (normalizedInput) => ({
@@ -2115,7 +2330,8 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "promote",
     {
       title: "Promote Moryn Record",
@@ -2125,6 +2341,7 @@ export async function runMcpServer(
         target_state: coreValidatedRecordStateSchema.optional(),
         reason: coreValidatedStringSchema.optional(),
         confirmed: coreValidatedBooleanSchema.optional(),
+        idempotency_key: coreValidatedStringSchema.optional(),
         source: z.unknown().optional(),
         ...sourceAliasInputSchema,
         ...camelCaseAliasInputSchema("promote")
@@ -2140,7 +2357,8 @@ export async function runMcpServer(
             target_state: normalizedInput.target_state,
             reason: normalizedInput.reason,
             source: withDefaultSource(normalizedInput.source) as RecordSource,
-            confirmed: normalizedInput.confirmed as boolean | undefined
+            confirmed: normalizedInput.confirmed as boolean | undefined,
+            idempotency_key: normalizedInput.idempotency_key
           }),
         (normalizedInput) => ({
           tool: "promote",
@@ -2159,7 +2377,8 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "archive",
     {
       title: "Archive Moryn Record",
@@ -2167,6 +2386,7 @@ export async function runMcpServer(
       inputSchema: mcpInputSchema({
         record_id: z.unknown().optional(),
         reason: coreValidatedStringSchema.optional(),
+        idempotency_key: coreValidatedStringSchema.optional(),
         source: z.unknown().optional(),
         ...sourceAliasInputSchema,
         ...camelCaseAliasInputSchema("archive")
@@ -2180,6 +2400,7 @@ export async function runMcpServer(
           engine.archive({
             record_id: normalizedInput.record_id,
             reason: normalizedInput.reason,
+            idempotency_key: normalizedInput.idempotency_key,
             source: withDefaultSource(normalizedInput.source) as RecordSource
           }),
         (normalizedInput) => ({
@@ -2194,7 +2415,8 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "quarantine",
     {
       title: "Quarantine Moryn Record",
@@ -2202,6 +2424,7 @@ export async function runMcpServer(
       inputSchema: mcpInputSchema({
         record_id: z.unknown().optional(),
         reason: coreValidatedStringSchema.optional(),
+        idempotency_key: coreValidatedStringSchema.optional(),
         source: z.unknown().optional(),
         ...sourceAliasInputSchema,
         ...camelCaseAliasInputSchema("quarantine")
@@ -2215,6 +2438,7 @@ export async function runMcpServer(
           engine.quarantine({
             record_id: normalizedInput.record_id,
             reason: normalizedInput.reason,
+            idempotency_key: normalizedInput.idempotency_key,
             source: withDefaultSource(normalizedInput.source) as RecordSource
           }),
         (normalizedInput) => ({
@@ -2232,7 +2456,8 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "link",
     {
       title: "Link Moryn Records",
@@ -2241,6 +2466,7 @@ export async function runMcpServer(
         record_id: z.unknown().optional(),
         linked_record_id: z.unknown().optional(),
         link_type: coreValidatedStringSchema.optional(),
+        idempotency_key: coreValidatedStringSchema.optional(),
         source: z.unknown().optional(),
         ...sourceAliasInputSchema,
         ...camelCaseAliasInputSchema("link")
@@ -2255,6 +2481,7 @@ export async function runMcpServer(
             record_id: normalizedInput.record_id,
             linked_record_id: normalizedInput.linked_record_id,
             link_type: normalizedInput.link_type,
+            idempotency_key: normalizedInput.idempotency_key,
             source: withDefaultSource(normalizedInput.source) as RecordSource
           }),
         (normalizedInput) => ({
@@ -2274,7 +2501,8 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "logical_link",
     {
       title: "Link Logical Memories",
@@ -2299,7 +2527,8 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "refresh",
     {
       title: "Refresh Moryn Changes",
@@ -2330,7 +2559,8 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "memory_doctor",
     {
       title: "Diagnose Moryn Memory Health",
@@ -2358,7 +2588,8 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "memory_maintenance_shadow",
     {
       title: "Preview Moryn Memory Consolidation",
@@ -2388,7 +2619,8 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "maintenance_run",
     {
       title: "Run One Moryn Maintenance Pass",
@@ -2418,7 +2650,8 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "memory_lifecycle",
     {
       title: "Report Moryn Memory Lifecycle",
@@ -2448,7 +2681,8 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "capture_policy",
     {
       title: "Audit Moryn Capture Policy",
@@ -2476,7 +2710,8 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "dogfood_report",
     {
       title: "Report Moryn Dogfood Friction",
@@ -2504,7 +2739,8 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "health_check",
     {
       title: "Check Moryn Health",
@@ -2537,7 +2773,8 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "recall_eval",
     {
       title: "Evaluate Moryn Recall",
@@ -2565,7 +2802,8 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "agent_doctor",
     {
       title: "Diagnose Moryn Agent Setup",
@@ -2602,7 +2840,8 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "agent_enter",
     {
       title: "Enter Moryn Agent Session",
@@ -2697,7 +2936,8 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "agent_guide",
     {
       title: "Guide Moryn Agent Workflow",
@@ -2733,7 +2973,8 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "agent_start",
     {
       title: "Start Moryn Agent Session",
@@ -2828,7 +3069,8 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "consolidate_semantic",
     {
       title: "Consolidate Semantic Memory",
@@ -2856,7 +3098,8 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "agent_finish",
     {
       title: "Finish Moryn Agent Session",
@@ -2867,6 +3110,7 @@ export async function runMcpServer(
         project_path: coreValidatedStringSchema.optional(),
         sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
+        idempotency_key: coreValidatedStringSchema.optional(),
         push: coreValidatedBooleanSchema.optional(),
         learnings: z.array(z.unknown()).optional(),
         semantic_consolidation_proposals: z.array(z.unknown()).max(24).optional(),
@@ -2893,6 +3137,7 @@ export async function runMcpServer(
             syncRemote: normalizedInput.sync_remote as string | undefined,
             currentTask: normalizedInput.current_task as string | undefined,
             summary: normalizedInput.summary,
+            idempotencyKey: normalizedInput.idempotency_key,
             push: coreValidatedPush,
             agent: lifecycleAgent,
             learnings: normalizedInput.learnings as never[] | undefined,
@@ -2931,7 +3176,8 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "learn",
     {
       title: "Queue Reusable Learning",
@@ -2979,7 +3225,8 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "checkpoint",
     {
       title: "Checkpoint Agent Context",
@@ -3024,7 +3271,8 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "agent_status",
     {
       title: "Publish Moryn Agent Status",
@@ -3035,6 +3283,7 @@ export async function runMcpServer(
         project_path: coreValidatedStringSchema.optional(),
         sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
+        idempotency_key: coreValidatedStringSchema.optional(),
         push: coreValidatedBooleanSchema.optional(),
         open: coreValidatedBooleanSchema.optional(),
         agent: coreValidatedAgentSchema.optional(),
@@ -3059,6 +3308,7 @@ export async function runMcpServer(
             syncRemote: normalizedInput.sync_remote as string | undefined,
             currentTask: normalizedInput.current_task as string | undefined,
             status: normalizedInput.status,
+            idempotencyKey: normalizedInput.idempotency_key,
             push: coreValidatedPush,
             agent: lifecycleAgent
           });
@@ -3094,7 +3344,8 @@ export async function runMcpServer(
       )
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "rebuild",
     {
       title: "Rebuild Moryn Derived Views",
@@ -3104,7 +3355,8 @@ export async function runMcpServer(
     async (input) => toolResultWithNormalizedInput("rebuild", input, async () => rebuildDerivedViews(options.storePath))
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "dashboard",
     {
       title: "Generate Moryn Dashboard",
@@ -3139,7 +3391,80 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
+    "dashboard_service_status",
+    {
+      title: "Inspect Moryn Dashboard Service",
+      description: "Read the supervised Dashboard user-service state without changing it.",
+      inputSchema: mcpInputSchema({})
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("dashboard_service_status", input, async () => inspectDashboardService())
+  );
+
+  registerMcpTool(
+    server,
+    "dashboard_service_install",
+    {
+      title: "Install Moryn Dashboard Service",
+      description: "Install and enable the supervised Dashboard user service after explicit confirmation.",
+      inputSchema: mcpInputSchema({
+        host: coreValidatedStringSchema.optional(),
+        port: coreValidatedNumberSchema.optional(),
+        interval_ms: coreValidatedNumberSchema.optional(),
+        limit: coreValidatedNumberSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
+        project_id: coreValidatedStringSchema.optional(),
+        include_private: coreValidatedBooleanSchema.optional(),
+        readiness_host: coreValidatedStringSchema.optional(),
+        sync_remote: coreValidatedStringSchema.optional(),
+        confirm: coreValidatedBooleanSchema.optional()
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("dashboard_service_install", input, async (normalizedInput) => {
+        requireMcpConfirmation(normalizedInput.confirm, "dashboard_service_install");
+        return installDashboardService(
+          mcpDashboardServiceConfig(options.storePath, options.hostRuntime, normalizedInput)
+        );
+      })
+  );
+
+  registerMcpTool(
+    server,
+    "dashboard_service_restart",
+    {
+      title: "Restart Moryn Dashboard Service",
+      description: "Restart the supervised Dashboard user service after explicit confirmation.",
+      inputSchema: mcpInputSchema({ confirm: coreValidatedBooleanSchema.optional() })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("dashboard_service_restart", input, async (normalizedInput) => {
+        requireMcpConfirmation(normalizedInput.confirm, "dashboard_service_restart");
+        return restartDashboardService();
+      })
+  );
+
+  registerMcpTool(
+    server,
+    "dashboard_service_repair",
+    {
+      title: "Repair Moryn Dashboard Service",
+      description: "Reload and enable the existing supervised Dashboard user service after explicit confirmation.",
+      inputSchema: mcpInputSchema({
+        confirm: coreValidatedBooleanSchema.optional()
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("dashboard_service_repair", input, async (normalizedInput) => {
+        requireMcpConfirmation(normalizedInput.confirm, "dashboard_service_repair");
+        return repairDashboardService();
+      })
+  );
+
+  registerMcpTool(
+    server,
     "activation_status",
     {
       title: "Inspect Host Activation",
@@ -3168,7 +3493,8 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "activation_apply",
     {
       title: "Apply Safe Host Activation",
@@ -3220,7 +3546,8 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "sync_init",
     {
       title: "Initialize Moryn Git Sync",
@@ -3237,7 +3564,8 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "sync_status",
     {
       title: "Get Moryn Git Sync Status",
@@ -3248,7 +3576,8 @@ export async function runMcpServer(
       toolResultWithNormalizedInput("sync_status", input, async () => getGitSyncStatus(options.storePath))
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "sync_pull",
     {
       title: "Pull Moryn Git Sync",
@@ -3264,7 +3593,8 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "sync_push",
     {
       title: "Push Moryn Git Sync",
@@ -3281,23 +3611,40 @@ export async function runMcpServer(
       })
   );
 
-  server.registerTool(
+  registerMcpTool(
+    server,
     "list_recent",
     {
       title: "List Recent Moryn Records",
       description: "Return recently updated records.",
       inputSchema: mcpInputSchema({
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
+        all_projects: coreValidatedBooleanSchema.optional(),
         limit: coreValidatedNumberSchema.optional(),
-        include_private: coreValidatedBooleanSchema.optional()
+        include_private: coreValidatedBooleanSchema.optional(),
+        ...camelCaseAliasInputSchema("list_recent")
       })
     },
     async (input) =>
-      toolResultWithNormalizedInput("list_recent", input, async (normalizedInput) =>
-        engine.listRecent({
+      toolResultWithNormalizedInput("list_recent", input, async (normalizedInput) => {
+        const allProjects = normalizedInput.all_projects === true;
+        if (allProjects && (normalizedInput.project_id !== undefined || normalizedInput.project_path !== undefined)) {
+          throw new Error("Invalid argument: all_projects cannot be combined with project_id or project_path");
+        }
+        const project = allProjects
+          ? { project_id: undefined }
+          : await resolveProjectInput("list_recent", {
+              project_id: normalizedInput.project_id,
+              project_path: normalizedInput.project_path
+            });
+        return engine.listRecent({
+          project_id: project.project_id,
+          all_projects: allProjects,
           limit: normalizedInput.limit,
           include_private: normalizedInput.include_private
-        })
-      )
+        });
+      })
   );
 
   await server.connect(new StdioServerTransport());

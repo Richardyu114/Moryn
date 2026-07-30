@@ -60,6 +60,15 @@ export const recordConflictSchema = z.object({
   resolution: z.enum(CONFLICT_RESOLUTIONS)
 });
 
+const eventIdempotencySchema = z.object({
+  version: z.literal(1),
+  operation: nonEmptyStringSchema,
+  key_digest: z.string().regex(/^[a-f0-9]{64}$/),
+  request_digest: z.string().regex(/^[a-f0-9]{64}$/)
+});
+
+const eventIdempotencyShape = { idempotency: eventIdempotencySchema.optional() };
+
 export const recordSchema = z.object({
   id: z.string().min(1),
   kind: recordKindSchema,
@@ -91,6 +100,7 @@ export type ParsedRecord = z.infer<typeof recordSchema>;
 
 export const eventSchema = z.discriminatedUnion("op", [
   z.object({
+    ...eventIdempotencyShape,
     event_id: z.string().min(1),
     op: z.literal("upsert_record"),
     record: recordSchema,
@@ -98,6 +108,7 @@ export const eventSchema = z.discriminatedUnion("op", [
     source: recordSourceSchema
   }),
   z.object({
+    ...eventIdempotencyShape,
     event_id: z.string().min(1),
     op: z.literal("revise_record"),
     record_id: z.string().min(1),
@@ -109,6 +120,7 @@ export const eventSchema = z.discriminatedUnion("op", [
     source: recordSourceSchema
   }),
   z.object({
+    ...eventIdempotencyShape,
     event_id: z.string().min(1),
     op: z.literal("promote_record"),
     record_id: z.string().min(1),
@@ -120,6 +132,7 @@ export const eventSchema = z.discriminatedUnion("op", [
     source: recordSourceSchema
   }),
   z.object({
+    ...eventIdempotencyShape,
     event_id: z.string().min(1),
     op: z.literal("archive_record"),
     record_id: z.string().min(1),
@@ -131,6 +144,7 @@ export const eventSchema = z.discriminatedUnion("op", [
     source: recordSourceSchema
   }),
   z.object({
+    ...eventIdempotencyShape,
     event_id: z.string().min(1),
     op: z.literal("quarantine_record"),
     record_id: z.string().min(1),
@@ -142,6 +156,7 @@ export const eventSchema = z.discriminatedUnion("op", [
     source: recordSourceSchema
   }),
   z.object({
+    ...eventIdempotencyShape,
     event_id: z.string().min(1),
     op: z.literal("link_records"),
     record_id: z.string().min(1),

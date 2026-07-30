@@ -1254,6 +1254,63 @@ async function _expectInvalidMcpArguments(
 }
 
 describe("MCP stdio server", () => {
+  it("returns a uniform structured outcome for success and failure", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-outcome-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        const initialized = await client.callTool({ name: "init", arguments: {} });
+        expect(initialized.structuredContent).toMatchObject({
+          outcome: { status: "completed", committed: true, retryable: false },
+          result: { ok: true }
+        });
+
+        const failed = await client.callTool({ name: "recall", arguments: { timeout_ms: 0 } });
+        expect(failed).toMatchObject({
+          isError: true,
+          structuredContent: {
+            outcome: { status: "failed", committed: false, retryable: true },
+            result: { ok: false, error: { code: "INVALID_ARGUMENT" } }
+          }
+        });
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
+  it("discovers Dashboard service controls and requires confirmation for MCP mutations", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-dashboard-service-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        const tools = await client.listTools();
+        expect(tools.tools.map((tool) => tool.name)).toEqual(
+          expect.arrayContaining([
+            "dashboard_service_status",
+            "dashboard_service_install",
+            "dashboard_service_restart",
+            "dashboard_service_repair"
+          ])
+        );
+        const status = parseTextContent(await client.callTool({ name: "dashboard_service_status", arguments: {} })) as {
+          service: string;
+          service_state: string;
+        };
+        expect(status).toMatchObject({ service: "moryn-dashboard.service", service_state: expect.any(String) });
+
+        const rejected = await client.callTool({ name: "dashboard_service_install", arguments: {} });
+        expect(rejected).toMatchObject({
+          isError: true,
+          structuredContent: {
+            outcome: { status: "failed", committed: false },
+            result: { error: { code: "CONFIRMATION_REQUIRED" } }
+          }
+        });
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("queues Learning Inbox items through the discoverable learn tool", async () => {
     await withInitializedTempStore(async (storePath) => {
       const client = new Client({ name: "moryn-learning-inbox-test", version: "1.0.0" });
@@ -1521,6 +1578,90 @@ describe("MCP stdio server", () => {
           runtime_binding_status: "current",
           stale_entries: 0
         });
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("exposes compact automation status and explicitly gated reconciliation", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-automation-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await mkdir(project, { recursive: true });
+      await withMcpClient(store, async (client) => {
+        const statusResponse = await client.callTool({
+          name: "automation_status",
+          arguments: { project_path: project }
+        });
+        const status = parseTextContent(statusResponse) as any;
+        expect(status).toMatchObject({
+          operation: "automation_status",
+          status: "needs_reconcile",
+          checks: { store: { status: "missing" }, project: { status: "missing" } }
+        });
+        expect(statusResponse.structuredContent).toMatchObject({
+          outcome: { status: "completed_with_warnings", committed: false, retryable: true }
+        });
+
+        const dryRunResponse = await client.callTool({
+          name: "automation_reconcile",
+          arguments: { project_path: project }
+        });
+        const dryRun = parseTextContent(dryRunResponse) as any;
+        expect(dryRun).toMatchObject({
+          mode: "dry_run",
+          changed: false,
+          committed: false,
+          host_config_writes: "none",
+          changes: { store_config: { status: "planned" }, project_config: { status: "planned" } }
+        });
+        expect(dryRunResponse.structuredContent).toMatchObject({
+          outcome: { status: "completed_with_warnings", committed: false, retryable: true }
+        });
+        await expect(readFile(join(store, "config.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+
+        const localApply = parseTextContent(
+          await client.callTool({
+            name: "automation_reconcile",
+            arguments: { project_path: project, host: "codex", apply: true }
+          })
+        ) as any;
+        expect(localApply).toMatchObject({
+          host_activation_requested: false,
+          host_config_writes: "none",
+          changes: { store_config: { status: "applied" }, project_config: { status: "applied" } }
+        });
+        await expect(readFile(join(project, ".codex", "hooks.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+
+        const activationPlan = parseTextContent(
+          await client.callTool({
+            name: "automation_reconcile",
+            arguments: { project_path: project, host: "codex", activate_host: true }
+          })
+        ) as any;
+        expect(activationPlan).toMatchObject({
+          mode: "dry_run",
+          host_config_writes: "planned",
+          changes: { host_activation: { status: "planned" } }
+        });
+        await expect(readFile(join(project, ".codex", "hooks.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+
+        const activated = parseTextContent(
+          await client.callTool({
+            name: "automation_reconcile",
+            arguments: { project_path: project, host: "codex", activate_host: true, apply: true }
+          })
+        ) as any;
+        expect(activated).toMatchObject({
+          status: "reconciled",
+          changed: true,
+          committed: true,
+          host_config_writes: "applied",
+          host_activation: { status: "configured_unverified" }
+        });
+        await expect(readFile(join(project, ".codex", "hooks.json"), "utf8")).resolves.toContain(" host hook ");
       });
     } finally {
       await rm(root, { recursive: true, force: true });
@@ -2811,6 +2952,12 @@ describe("MCP stdio server", () => {
         expect(parsed.operations_by_id.setup.cli_command).toBe("moryn setup");
         expect(parsed.operations_by_mcp_tool.setup).toBe("setup");
         expect(parsed.operations_by_cli_command["moryn setup"]).toBe("setup");
+        expect(parsed.operations_by_id.automation_status.cli_command).toBe("moryn automation status");
+        expect(parsed.operations_by_mcp_tool.automation_status).toBe("automation_status");
+        expect(parsed.operations_by_cli_command["moryn automation status"]).toBe("automation_status");
+        expect(parsed.operations_by_id.automation_reconcile.cli_command).toBe("moryn automation reconcile");
+        expect(parsed.operations_by_mcp_tool.automation_reconcile).toBe("automation_reconcile");
+        expect(parsed.operations_by_cli_command["moryn automation reconcile"]).toBe("automation_reconcile");
         expect(parsed.operations_by_id.dashboard.execution_hint).toBeUndefined();
         expect(parsed.operations_by_id.dashboard.cli_command).toBe("moryn dashboard");
         expect(parsed.operations_by_id.agent_finish).not.toHaveProperty("arguments_by_name");
@@ -3956,6 +4103,8 @@ describe("MCP stdio server", () => {
           "agent_start",
           "agent_status",
           "archive",
+          "automation_reconcile",
+          "automation_status",
           "boot",
           "capture_policy",
           "capture_session",
@@ -3963,6 +4112,10 @@ describe("MCP stdio server", () => {
           "consolidate_semantic",
           "context_pack",
           "dashboard",
+          "dashboard_service_install",
+          "dashboard_service_repair",
+          "dashboard_service_restart",
+          "dashboard_service_status",
           "dogfood_report",
           "health_check",
           "init",
@@ -4020,6 +4173,14 @@ describe("MCP stdio server", () => {
             "reason",
             "provenance_method"
           ])
+        );
+        const listRecentTool = tools.tools.find((tool) => tool.name === "list_recent");
+        expect(Object.keys(listRecentTool?.inputSchema.properties ?? {})).toEqual(
+          expect.arrayContaining(["project_id", "projectId", "all_projects", "allProjects"])
+        );
+        const automationReconcileTool = tools.tools.find((tool) => tool.name === "automation_reconcile");
+        expect(Object.keys(automationReconcileTool?.inputSchema.properties ?? {})).toEqual(
+          expect.arrayContaining(["project_path", "projectPath", "activate_host", "activateHost", "apply"])
         );
         const agentEnterTool = tools.tools.find((tool) => tool.name === "agent_enter");
         expect(Object.keys(agentEnterTool?.inputSchema.properties ?? {})).toEqual(
@@ -4665,7 +4826,7 @@ describe("MCP stdio server", () => {
         const recentResult = parseTextContent(
           await client.callTool({
             name: "list_recent",
-            arguments: { limit: 1 }
+            arguments: { limit: 1, project_id: "moryn" }
           })
         ) as {
           records: Array<{ id: string; state: string; content: { text: string } }>;
@@ -4692,6 +4853,8 @@ describe("MCP stdio server", () => {
             }
           })
         ) as {
+          cursor: string;
+          has_more: boolean;
           changes: Array<{
             record_id: string;
             importance: string;
@@ -4718,6 +4881,8 @@ describe("MCP stdio server", () => {
           selection_sources: Record<string, string>;
         };
 
+        expect(refreshResult.cursor).toMatch(/^moryn-refresh:v1:/);
+        expect(refreshResult.has_more).toBe(false);
         expect(refreshResult.selection_sources).toEqual({
           change: "changes_by_record_id.<record_id>",
           record_id: "changes_by_record_id.<record_id>.record_id",
@@ -4750,7 +4915,7 @@ describe("MCP stdio server", () => {
             }
           })
         ) as { record: { id: string } };
-        parseTextContent(
+        const otherProject = parseTextContent(
           await client.callTool({
             name: "write",
             arguments: {
@@ -4765,7 +4930,25 @@ describe("MCP stdio server", () => {
               source: { client: "mcp-test" }
             }
           })
-        );
+        ) as { record: { id: string } };
+
+        const projectRecent = parseTextContent(
+          await client.callTool({
+            name: "list_recent",
+            arguments: { limit: 10, project_id: "moryn" }
+          })
+        ) as { records: Array<{ id: string }> };
+        expect(projectRecent.records.map((record) => record.id)).toContain(writeResult.record.id);
+        expect(projectRecent.records.map((record) => record.id)).toContain(globalPreference.record.id);
+        expect(projectRecent.records.map((record) => record.id)).not.toContain(otherProject.record.id);
+
+        const allProjectRecent = parseTextContent(
+          await client.callTool({
+            name: "list_recent",
+            arguments: { limit: 10, all_projects: true }
+          })
+        ) as { records: Array<{ id: string }> };
+        expect(allProjectRecent.records.map((record) => record.id)).toContain(otherProject.record.id);
         const globalRefresh = parseTextContent(
           await client.callTool({
             name: "refresh",
@@ -9234,6 +9417,42 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("replays MCP mutations by idempotency key and returns a collision outcome", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-idempotency-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        await client.callTool({ name: "init", arguments: {} });
+        const args = {
+          kind: "agent_note",
+          type: "automation_test",
+          scope: "project",
+          project_id: "moryn",
+          text: "Idempotent MCP write",
+          idempotency_key: "mcp-request-1"
+        };
+        const first = parseTextContent(await client.callTool({ name: "write", arguments: args })) as any;
+        const replay = parseTextContent(await client.callTool({ name: "write", arguments: args })) as any;
+        expect(first).toMatchObject({ committed: true, idempotent_replay: false });
+        expect(replay).toMatchObject({ committed: true, idempotent_replay: true, record: { id: first.record.id } });
+
+        const collision = await client.callTool({
+          name: "write",
+          arguments: { ...args, text: "Different MCP write" }
+        });
+        expect(collision).toMatchObject({
+          isError: true,
+          structuredContent: {
+            outcome: { status: "failed", committed: false, retryable: true },
+            result: { ok: false, error: { code: "IDEMPOTENCY_KEY_REUSED" } }
+          }
+        });
+        expect(await readEvents(store)).toHaveLength(1);
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("writes provenance over MCP", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-provenance-"));
     try {
@@ -10298,7 +10517,7 @@ describe("MCP stdio server", () => {
         const defaultRecent = parseTextContent(
           await client.callTool({
             name: "list_recent",
-            arguments: { limit: 10 }
+            arguments: { limit: 10, project_id: "moryn" }
           })
         ) as { records: Array<{ id: string }> };
         const privateRecent = parseTextContent(
@@ -10306,6 +10525,7 @@ describe("MCP stdio server", () => {
             name: "list_recent",
             arguments: {
               limit: 10,
+              project_id: "moryn",
               include_private: true
             }
           })
@@ -11678,8 +11898,8 @@ describe("MCP stdio server", () => {
           operation_contract: "operations_by_id.refresh",
           rejected_argument: { argument: "cursor", value: "not-a-date" },
           expected: {
-            kind: "iso_datetime",
-            format: "RFC3339 timestamp with timezone",
+            kind: "moryn_refresh_cursor_or_legacy_iso_datetime",
+            format: "versioned opaque Moryn refresh cursor or RFC3339 timestamp with timezone",
             source: "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor"
           },
           argument_sources: {
@@ -11688,7 +11908,7 @@ describe("MCP stdio server", () => {
           retry_with: {
             argument: "cursor",
             value_source: "previous Moryn response cursor field",
-            value_placeholder: "<refresh cursor ISO datetime>"
+            value_placeholder: "<Moryn refresh cursor>"
           }
         });
         const invalidAgentCursor = parseTextContent(
@@ -11717,8 +11937,8 @@ describe("MCP stdio server", () => {
           operation_contract: "operations_by_id.refresh",
           rejected_argument: { argument: "refresh_since", value: "not-a-date" },
           expected: {
-            kind: "iso_datetime",
-            format: "RFC3339 timestamp with timezone",
+            kind: "moryn_refresh_cursor_or_legacy_iso_datetime",
+            format: "versioned opaque Moryn refresh cursor or RFC3339 timestamp with timezone",
             source: "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor"
           },
           argument_sources: {
@@ -11727,7 +11947,7 @@ describe("MCP stdio server", () => {
           retry_with: {
             argument: "refresh_since",
             value_source: "previous Moryn response cursor field",
-            value_placeholder: "<refresh cursor ISO datetime>"
+            value_placeholder: "<Moryn refresh cursor>"
           }
         });
         const invalidAgentEnterCursor = parseTextContent(
@@ -11743,8 +11963,8 @@ describe("MCP stdio server", () => {
           operation_contract: "operations_by_id.refresh",
           rejected_argument: { argument: "refresh_since", value: "not-a-date" },
           expected: {
-            kind: "iso_datetime",
-            format: "RFC3339 timestamp with timezone",
+            kind: "moryn_refresh_cursor_or_legacy_iso_datetime",
+            format: "versioned opaque Moryn refresh cursor or RFC3339 timestamp with timezone",
             source: "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor"
           },
           argument_sources: {
@@ -11753,7 +11973,7 @@ describe("MCP stdio server", () => {
           retry_with: {
             argument: "refresh_since",
             value_source: "previous Moryn response cursor field",
-            value_placeholder: "<refresh cursor ISO datetime>"
+            value_placeholder: "<Moryn refresh cursor>"
           }
         });
         for (const tool of ["agent_start", "agent_enter"] as const) {

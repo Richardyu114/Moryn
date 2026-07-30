@@ -54,6 +54,20 @@ export {
   structuredSemanticMergeSchema,
   validateContextDelta
 } from "./core/context-delta.js";
+export type {
+  DashboardServiceConfig,
+  DashboardServiceState,
+  DashboardServiceStatus
+} from "./core/dashboard-service.js";
+export {
+  DASHBOARD_SERVICE_NAME,
+  dashboardServiceUnitPath,
+  inspectDashboardService,
+  installDashboardService,
+  renderDashboardServiceUnit,
+  repairDashboardService,
+  restartDashboardService
+} from "./core/dashboard-service.js";
 export { createEngine } from "./core/engine.js";
 export type {
   AutomaticExactDuplicateConsolidationResult,
@@ -63,6 +77,8 @@ export type {
 export { AUTOMATIC_EXACT_DUPLICATE_RECORD_KINDS } from "./core/exact-duplicate-consolidation.js";
 export type { FinalizationAssuranceSelection, IncomingSessionIdentity } from "./core/finalization-assurance.js";
 export { selectPriorSessionForFinalization } from "./core/finalization-assurance.js";
+export type { AutomationOutcome, AutomationOutcomeStatus } from "./core/operation-outcome.js";
+export { automationOutcome, failedAutomationOutcome } from "./core/operation-outcome.js";
 export type { WorkingSetReportOptions, WorkingSetSummaryOptions } from "./core/working-set-report.js";
 export { buildWorkingSetReport, summarizeWorkingSet } from "./core/working-set-report.js";
 export type { OperationContractsResponse } from "./operation-contracts.js";
@@ -89,6 +105,26 @@ export {
   AUTOMATIC_SEMANTIC_MAINTENANCE_MAX_MERGES,
   runAutomaticSemanticMaintenance
 } from "./core/automatic-semantic-maintenance.js";
+export type {
+  AutomationChange,
+  AutomationChangeId,
+  AutomationChangeStatus,
+  AutomationCheck,
+  AutomationCheckStatus,
+  AutomationReconcileDependencies,
+  AutomationReconcileInput,
+  AutomationReconcileResult,
+  AutomationStatus,
+  AutomationStatusInput,
+  AutomationStatusResult,
+  CompactHostActivationStatus
+} from "./core/automation.js";
+export {
+  AUTOMATION_RECONCILE_SELECTION_SOURCES,
+  AUTOMATION_STATUS_SELECTION_SOURCES,
+  automationReconcile,
+  automationStatus
+} from "./core/automation.js";
 export type { ClaudeActivationResult, ClaudeSettingsMergeResult } from "./core/claude-activation.js";
 export { activateClaudeSettings, mergeClaudeSettings } from "./core/claude-activation.js";
 export { activateCodexHooks, mergeCodexHooks } from "./core/codex-activation.js";
@@ -137,6 +173,16 @@ export {
 } from "./core/host-adapters.js";
 export type { HostCapabilities, HostLifecycleEvent } from "./core/host-capabilities.js";
 export { getHostCapabilities, negotiateHostLifecycle } from "./core/host-capabilities.js";
+export type {
+  HostHookExecutionReceipt,
+  HostHookExecutionReceiptInput,
+  HostHookExecutionStage,
+  HostHookExecutionStatus
+} from "./core/host-hook-receipts.js";
+export {
+  hostHookExecutionReceiptIdentity,
+  recordHostHookExecutionReceipt
+} from "./core/host-hook-receipts.js";
 export type { HostHookRunResult, RunHostHookInput } from "./core/host-hook-runner.js";
 export { runHostHook } from "./core/host-hook-runner.js";
 export type { NormalizedHostHookEvent } from "./core/host-hooks.js";

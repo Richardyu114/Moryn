@@ -760,7 +760,15 @@ function operationRequiredFieldsByName(input: OperationContractInput): Record<st
 
 function operationArgumentsByName(input: OperationContractInput): Record<string, OperationArgumentMetadata> {
   return Object.fromEntries(
-    Object.entries(input.arguments_by_name ?? {}).map(([name, metadata]) => [name, { ...metadata, name }])
+    Object.entries({
+      timeout_ms: {
+        type: "number" as const,
+        required: false,
+        cli: { flag: "--timeout-ms" },
+        mcp: { argument: "timeout_ms" }
+      },
+      ...(input.arguments_by_name ?? {})
+    }).map(([name, metadata]) => [name, { ...metadata, name }])
   );
 }
 
@@ -889,6 +897,15 @@ const privateReadArgument = {
   }
 } as const satisfies Record<string, OperationArgumentMetadataInput>;
 
+const idempotencyArgument = {
+  idempotency_key: {
+    type: "string",
+    required: false,
+    cli: { flag: "--idempotency-key" },
+    mcp: { argument: "idempotency_key" }
+  }
+} as const satisfies Record<string, OperationArgumentMetadataInput>;
+
 const lifecycleContextArguments = {
   ...projectContextArguments,
   sync_remote: {
@@ -966,6 +983,7 @@ const startSessionArguments = {
 
 const publishSessionArguments = {
   ...lifecycleContextArguments,
+  ...idempotencyArgument,
   push: {
     type: "boolean",
     required: false,
@@ -1020,7 +1038,7 @@ const checkpointSourceArguments = {
 
 const hostAdapterIds = ["claude", "codex", "gemini", "cursor", "shell"] as const;
 
-const installArguments = {
+const setupArguments = {
   host: {
     type: "string",
     required: false,
@@ -1049,7 +1067,27 @@ const installArguments = {
   }
 } as const satisfies Record<string, OperationArgumentMetadataInput>;
 
-const setupArguments = installArguments;
+const installArguments = {
+  ...setupArguments,
+  activate_host: {
+    type: "boolean",
+    required: false,
+    default: false,
+    cli: { flag: "--activate-host", default: false },
+    mcp: { argument: "activate_host" }
+  }
+} as const satisfies Record<string, OperationArgumentMetadataInput>;
+
+const automationStatusArguments = {
+  host: setupArguments.host,
+  project_path: setupArguments.project_path
+} as const satisfies Record<string, OperationArgumentMetadataInput>;
+
+const automationReconcileArguments = {
+  ...automationStatusArguments,
+  apply: setupArguments.apply,
+  activate_host: installArguments.activate_host
+} as const satisfies Record<string, OperationArgumentMetadataInput>;
 
 const captureSessionArguments = {
   summary: {
@@ -1136,6 +1174,29 @@ const dashboardArguments = {
     mcp: { argument: "limit" }
   },
   ...privateReadArgument
+} as const satisfies Record<string, OperationArgumentMetadataInput>;
+
+const dashboardServiceArguments = {
+  ...projectContextArguments,
+  host: { ...dashboardArguments.host, mcp: { argument: "host" } },
+  readiness_host: { ...dashboardArguments.readiness_host, mcp: { argument: "readiness_host" } },
+  sync_remote: { ...dashboardArguments.sync_remote, mcp: { argument: "sync_remote" } },
+  port: { ...dashboardArguments.port, mcp: { argument: "port" } },
+  interval_ms: {
+    type: "number",
+    required: false,
+    default: 2000,
+    cli: { flag: "--interval", default: 2000 },
+    mcp: { argument: "interval_ms" }
+  },
+  limit: dashboardArguments.limit,
+  include_private: privateReadArgument.include_private,
+  confirm: {
+    type: "boolean",
+    required: false,
+    default: false,
+    mcp: { argument: "confirm" }
+  }
 } as const satisfies Record<string, OperationArgumentMetadataInput>;
 
 export const OPERATION_CONTRACTS = [
@@ -1760,8 +1821,8 @@ export const OPERATION_CONTRACTS = [
   operationContract({
     operation: "install",
     category: "setup",
-    summary: "Plan and optionally run safe Moryn-local host adapter setup without mutating host configuration files.",
-    safe_to_run: true,
+    summary: "Plan or apply Moryn-local setup; host configuration changes require the explicit activate_host argument.",
+    safe_to_run: false,
     required_when: "When a host needs an adoption plan for Moryn MCP registration, context packs, and session capture.",
     required_fields: [],
     arguments_by_name: installArguments,
@@ -1782,6 +1843,34 @@ export const OPERATION_CONTRACTS = [
     interfaces: {
       cli: { command: "moryn setup", argv: ["setup"] },
       mcp: { tool: "setup", arguments: {} }
+    }
+  }),
+  operationContract({
+    operation: "automation_status",
+    category: "setup",
+    summary: "Return a compact, read-only automation readiness status for the local store, project, and explicit host.",
+    safe_to_run: true,
+    required_when: "Before an automated client reconciles local Moryn setup or explicitly managed host hooks.",
+    required_fields: [],
+    arguments_by_name: automationStatusArguments,
+    interfaces: {
+      cli: { command: "moryn automation status", argv: ["automation", "status"] },
+      mcp: { tool: "automation_status", arguments: {} }
+    }
+  }),
+  operationContract({
+    operation: "automation_reconcile",
+    category: "setup",
+    summary:
+      "Plan automation reconciliation by default and apply only explicitly approved local or host configuration changes.",
+    safe_to_run: false,
+    required_when:
+      "When automation status reports missing local setup or explicitly repairable host configuration drift.",
+    required_fields: [],
+    arguments_by_name: automationReconcileArguments,
+    interfaces: {
+      cli: { command: "moryn automation reconcile", argv: ["automation", "reconcile"] },
+      mcp: { tool: "automation_reconcile", arguments: {} }
     }
   }),
   operationContract({
@@ -2230,7 +2319,8 @@ export const OPERATION_CONTRACTS = [
         required: false,
         mcp: { argument: "source" }
       },
-      ...sourceIdentityArguments
+      ...sourceIdentityArguments,
+      ...idempotencyArgument
     },
     required_fields_by_name: {
       kind: {
@@ -2305,7 +2395,8 @@ export const OPERATION_CONTRACTS = [
         required: false,
         mcp: { argument: "source" }
       },
-      ...sourceIdentityArguments
+      ...sourceIdentityArguments,
+      ...idempotencyArgument
     },
     interfaces: {
       cli: {
@@ -2354,7 +2445,8 @@ export const OPERATION_CONTRACTS = [
         required: false,
         mcp: { argument: "source" }
       },
-      ...sourceIdentityArguments
+      ...sourceIdentityArguments,
+      ...idempotencyArgument
     },
     required_fields_by_name: {
       target_state: {
@@ -2399,7 +2491,8 @@ export const OPERATION_CONTRACTS = [
         required: false,
         mcp: { argument: "source" }
       },
-      ...sourceIdentityArguments
+      ...sourceIdentityArguments,
+      ...idempotencyArgument
     },
     interfaces: {
       cli: { command: "moryn archive <record_id>", argv: ["archive", "<record_id>"] },
@@ -2432,7 +2525,8 @@ export const OPERATION_CONTRACTS = [
         required: false,
         mcp: { argument: "source" }
       },
-      ...sourceIdentityArguments
+      ...sourceIdentityArguments,
+      ...idempotencyArgument
     },
     interfaces: {
       cli: { command: "moryn quarantine <record_id>", argv: ["quarantine", "<record_id>"] },
@@ -2471,7 +2565,8 @@ export const OPERATION_CONTRACTS = [
         required: false,
         mcp: { argument: "source" }
       },
-      ...sourceIdentityArguments
+      ...sourceIdentityArguments,
+      ...idempotencyArgument
     },
     interfaces: {
       cli: {
@@ -2492,6 +2587,14 @@ export const OPERATION_CONTRACTS = [
     required_when: "When an agent needs a quick recent-record index or a fallback after a missing record id.",
     required_fields: [],
     arguments_by_name: {
+      ...projectContextArguments,
+      all_projects: {
+        type: "boolean",
+        required: false,
+        default: false,
+        cli: { flag: "--all-projects", default: false },
+        mcp: { argument: "all_projects" }
+      },
       limit: {
         type: "number",
         required: false,
@@ -3070,6 +3173,58 @@ export const OPERATION_CONTRACTS = [
     interfaces: {
       cli: { command: "moryn dashboard", argv: ["dashboard"] },
       mcp: { tool: "dashboard", arguments: {} }
+    }
+  }),
+  operationContract({
+    operation: "dashboard_service_status",
+    category: "observability",
+    summary: "Inspect the supervised Dashboard user-service state without changing it.",
+    safe_to_run: true,
+    required_when: "When an automated host needs to verify that the Dashboard is supervised and active.",
+    required_fields: [],
+    arguments_by_name: {},
+    interfaces: {
+      cli: { command: "moryn dashboard service status", argv: ["dashboard", "service", "status"] },
+      mcp: { tool: "dashboard_service_status", arguments: {} }
+    }
+  }),
+  operationContract({
+    operation: "dashboard_service_install",
+    category: "observability",
+    summary: "Install and enable the supervised Dashboard user service with explicit runtime arguments.",
+    safe_to_run: false,
+    required_when: "When the user explicitly authorizes persistent Dashboard supervision on Linux.",
+    required_fields: [],
+    arguments_by_name: dashboardServiceArguments,
+    interfaces: {
+      cli: { command: "moryn dashboard service install", argv: ["dashboard", "service", "install"] },
+      mcp: { tool: "dashboard_service_install", arguments: { confirm: true } }
+    }
+  }),
+  operationContract({
+    operation: "dashboard_service_restart",
+    category: "observability",
+    summary: "Restart an installed supervised Dashboard user service.",
+    safe_to_run: false,
+    required_when: "When the user explicitly requests a Dashboard service restart.",
+    required_fields: [],
+    arguments_by_name: { confirm: dashboardServiceArguments.confirm },
+    interfaces: {
+      cli: { command: "moryn dashboard service restart", argv: ["dashboard", "service", "restart"] },
+      mcp: { tool: "dashboard_service_restart", arguments: { confirm: true } }
+    }
+  }),
+  operationContract({
+    operation: "dashboard_service_repair",
+    category: "observability",
+    summary: "Reload and enable the existing supervised Dashboard user service without rewriting its arguments.",
+    safe_to_run: false,
+    required_when: "When Dashboard service status reports drift, failure, or an unusable unit.",
+    required_fields: [],
+    arguments_by_name: { confirm: dashboardServiceArguments.confirm },
+    interfaces: {
+      cli: { command: "moryn dashboard service repair", argv: ["dashboard", "service", "repair"] },
+      mcp: { tool: "dashboard_service_repair", arguments: { confirm: true } }
     }
   }),
   operationContract({

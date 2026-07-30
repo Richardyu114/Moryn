@@ -36,16 +36,18 @@ import { type FinalizationAssuranceSelection, selectPriorSessionForFinalization 
 import { type HostActivationStatus, inspectHostActivation } from "./host-activation.js";
 import { normalizeHostId } from "./host-adapter-registry.js";
 import { type HostRuntimeDescriptor, writeHostIntegrationArtifact } from "./host-integration-artifacts.js";
+import { derivedIdempotencyKey, mutationIdempotency, validateIdempotencyKey } from "./idempotency.js";
 import { type KnowledgeProtocol, knowledgeProtocolForHost } from "./knowledge-protocol.js";
 import { buildLearningCandidateReviewWorkflow, unresolvedLearningCandidates } from "./learning-candidate-review.js";
 import { consumeLearningInbox, learningInboxForLifecycle } from "./learning-inbox.js";
 import { learningRecordIdentity } from "./learning-ingestion.js";
-import { rethrowIfOperationDeadlineExceeded } from "./operation-deadline.js";
+import { remainingOperationTimeMs, rethrowIfOperationDeadlineExceeded } from "./operation-deadline.js";
 import { type ProjectContext, resolveProjectContext, type SyncMode } from "./project.js";
 import { readCurrentRecords } from "./record-read-model.js";
 import type { SessionFoldPlan } from "./session-fold.js";
 import type { SessionFoldApplyResult } from "./session-fold-transaction.js";
 import { type SessionSynthesis, synthesizeSession } from "./session-synthesis.js";
+import { readEvents } from "./store.js";
 import {
   assessSyncCompensation,
   type SyncCompensationAssessment,
@@ -93,12 +95,14 @@ export interface AgentFinishInput extends AgentLifecycleInput {
   learnings?: LearningDeltaInput[];
   semanticConsolidationProposals?: SemanticConsolidationProposalInput[];
   synthesis?: SessionSynthesis;
+  idempotencyKey?: unknown;
 }
 
 export interface AgentStatusInput extends AgentLifecycleInput {
   status: unknown;
   push?: boolean;
   synthesis?: SessionSynthesis;
+  idempotencyKey?: unknown;
 }
 
 export interface AgentLifecycleDeps {
@@ -122,7 +126,34 @@ export type AgentSessionFoldResult =
   | { status: "committed"; plan: SessionFoldPlan; result: SessionFoldApplyResult }
   | { status: "failed"; plan?: SessionFoldPlan; warning: AgentSessionFoldWarning }
   | { status: "review_required"; plan: SessionFoldPlan }
-  | { status: "skipped"; reason: "missing_session_id" | "no_plan" };
+  | { status: "skipped"; reason: "missing_session_id" | "no_plan" | "operation_deadline_budget" };
+
+export interface AgentDeferredWork {
+  status: "deferred";
+  work: "pull" | "session_fold" | "exact_duplicate_consolidation" | "episode_rollup" | "semantic_maintenance" | "push";
+  reason: "operation_deadline_budget";
+  remaining_ms: number;
+  minimum_remaining_ms: number;
+}
+
+const AGENT_OPTIONAL_WORK_MIN_REMAINING_MS = 5_000;
+
+function optionalWorkBudget(
+  work: AgentDeferredWork["work"]
+): { allowed: true } | { allowed: false; deferred: AgentDeferredWork } {
+  const remaining = remainingOperationTimeMs();
+  if (remaining === undefined || remaining >= AGENT_OPTIONAL_WORK_MIN_REMAINING_MS) return { allowed: true };
+  return {
+    allowed: false,
+    deferred: {
+      status: "deferred",
+      work,
+      reason: "operation_deadline_budget",
+      remaining_ms: remaining,
+      minimum_remaining_ms: AGENT_OPTIONAL_WORK_MIN_REMAINING_MS
+    }
+  };
+}
 
 export type AgentSyncCompensation = Omit<SyncCompensationAssessment, "decision"> & {
   decision: "not_needed" | "blocked" | "pushed" | "failed";
@@ -3302,17 +3333,19 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
   const actionInput = portableLifecycleInput(input, project);
   const projectInfo = projectEnvelope(project);
   const shouldPull = input.pull ?? projectInfo.sync_mode !== "manual";
+  const pullBudget = shouldPull ? optionalWorkBudget("pull") : ({ allowed: true } as const);
   const sync: {
     before?: GitSyncStatus;
     compensation?: AgentSyncCompensation;
     pull?: GitSyncResult;
     pull_error?: string;
     pull_error_details?: MorynErrorEnvelope["error"];
+    pull_skipped?: AgentDeferredWork;
     after?: GitSyncStatus;
   } = {};
 
   sync.before = await assertSyncNotConflicted(input.storePath);
-  if (shouldPull) {
+  if (shouldPull && pullBudget.allowed) {
     try {
       const pending = await getPendingSyncEvidence(input.storePath);
       const assessment = assessSyncCompensation({
@@ -3360,6 +3393,8 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
       sync.pull_error = pulled.error;
       sync.pull_error_details = syncErrorDetails(pulled.cause);
     }
+  } else if (!pullBudget.allowed) {
+    sync.pull_skipped = pullBudget.deferred;
   }
   sync.after = await assertSyncNotConflicted(input.storePath);
   const finalizationAssurance = await assurePriorSessionFinalization(input, project, nowIso, deps);
@@ -3439,6 +3474,7 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
   validateLifecycleCurrentTask(input.currentTask, "agent_finish");
   validateLifecycleSyncRemote(input.syncRemote, "agent_finish");
   validateLifecycleBoolean(input.push, "push", "agent_finish");
+  validateIdempotencyKey(input.idempotencyKey, "agent_finish");
   const bootstrap = await ensureLifecycleBootstrap(input);
   const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
   const actionInput = portableLifecycleInput(input, project);
@@ -3448,9 +3484,28 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
   const engine = (deps.createEngine ?? createEngine)({ storePath: input.storePath, now: () => lifecycleNow });
   const agentSource = sourceFromAgent(input.agent);
   const sessionId = agentSource.session_id?.trim();
+  const idempotencyKey =
+    (input.idempotencyKey as string | undefined) ??
+    (sessionId
+      ? derivedIdempotencyKey("agent_finish", {
+          project_id: project.project_id,
+          session_id: sessionId,
+          device_id: agentSource.device_id,
+          summary: input.summary,
+          synthesis: input.synthesis,
+          handoff_payload_fingerprint: deps.handoffPayloadFingerprint,
+          finalization_recovery: deps.finalizationRecovery
+        })
+      : undefined);
   let foldCoverage: Awaited<ReturnType<typeof engine.previewSessionFold>>["coverage"];
   let foldPreviewWarning: AgentSessionFoldWarning | undefined;
-  if (sessionId) {
+  const existingFinishEventId = idempotencyKey ? mutationIdempotency("write", idempotencyKey, {}).event_id : undefined;
+  const existingFinishEvent = existingFinishEventId
+    ? (await readEvents(input.storePath)).find((event) => event.event_id === existingFinishEventId)
+    : undefined;
+  if (existingFinishEvent?.op === "upsert_record") {
+    foldCoverage = existingFinishEvent.record.content.session_fold_coverage as typeof foldCoverage;
+  } else if (sessionId) {
     try {
       foldCoverage = (
         await engine.previewSessionFold({
@@ -3497,8 +3552,10 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
         : {}),
       ...(foldCoverage ? { session_fold_coverage: foldCoverage } : {})
     },
-    source: agentSource
+    source: agentSource,
+    idempotency_key: idempotencyKey
   });
+  const deferredWork: AgentDeferredWork[] = [];
   const pendingInbox = await learningInboxForLifecycle(input.storePath, {
     project_id: project.project_id,
     session_id: agentSource.session_id,
@@ -3529,10 +3586,14 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     source: agentSource,
     occurred_at: lifecycleNow
   });
-  const exactDuplicateConsolidation = await runAutomaticExactDuplicateConsolidation(engine, {
-    project_id: project.project_id,
-    source: agentSource
-  });
+  const exactDuplicateBudget = optionalWorkBudget("exact_duplicate_consolidation");
+  if (!exactDuplicateBudget.allowed) deferredWork.push(exactDuplicateBudget.deferred);
+  const exactDuplicateConsolidation = exactDuplicateBudget.allowed
+    ? await runAutomaticExactDuplicateConsolidation(engine, {
+        project_id: project.project_id,
+        source: agentSource
+      })
+    : exactDuplicateBudget.deferred;
   const inboxConsumption = await consumeLearningInbox(input.storePath, {
     inbox_records: pendingInbox,
     consumed_at: new Date(Date.parse(lifecycleNow) + 1).toISOString(),
@@ -3541,53 +3602,66 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     source: agentSource
   });
   const learningInbox = { selected: pendingInbox.length, ...inboxConsumption };
-  const sessionFold: AgentSessionFoldResult = await (async () => {
-    if (!sessionId) return { status: "skipped", reason: "missing_session_id" };
-    if (foldPreviewWarning) return { status: "failed", warning: foldPreviewWarning };
-    let plan: SessionFoldPlan | undefined;
-    try {
-      plan = await engine.planSessionFold({ project_id: project.project_id, session_id: sessionId });
-    } catch (error) {
-      rethrowIfOperationDeadlineExceeded(error);
-      return { status: "failed", warning: sessionFoldWarning("plan", error) };
-    }
-    if (!plan) return { status: "skipped", reason: "no_plan" };
-    if (plan.status !== "ready" || !plan.auto_fold) return { status: "review_required", plan };
-    try {
-      return { status: "committed", plan, result: await engine.applySessionFold({ plan }) };
-    } catch (error) {
-      rethrowIfOperationDeadlineExceeded(error);
-      return { status: "failed", plan, warning: sessionFoldWarning("apply", error) };
-    }
-  })();
-  const episodeRollup: AutomaticEpisodeRollupResult = await (
-    deps.runAutomaticEpisodeRollups ?? runAutomaticEpisodeRollups
-  )({
-    store_path: input.storePath,
-    project_id: project.project_id,
-    now: lifecycleNow
-  });
-  const automaticSemanticMaintenance: AutomaticSemanticMaintenanceResult = await (
-    deps.runAutomaticSemanticMaintenance ?? runAutomaticSemanticMaintenance
-  )(engine, {
-    project_id: project.project_id,
-    source: agentSource
-  });
+  const sessionFoldBudget = optionalWorkBudget("session_fold");
+  if (!sessionFoldBudget.allowed) deferredWork.push(sessionFoldBudget.deferred);
+  const sessionFold: AgentSessionFoldResult = !sessionFoldBudget.allowed
+    ? { status: "skipped", reason: "operation_deadline_budget" }
+    : await (async () => {
+        if (!sessionId) return { status: "skipped", reason: "missing_session_id" };
+        if (foldPreviewWarning) return { status: "failed", warning: foldPreviewWarning };
+        let plan: SessionFoldPlan | undefined;
+        try {
+          plan = await engine.planSessionFold({ project_id: project.project_id, session_id: sessionId });
+        } catch (error) {
+          rethrowIfOperationDeadlineExceeded(error);
+          return { status: "failed", warning: sessionFoldWarning("plan", error) };
+        }
+        if (!plan) return { status: "skipped", reason: "no_plan" };
+        if (plan.status !== "ready" || !plan.auto_fold) return { status: "review_required", plan };
+        try {
+          return { status: "committed", plan, result: await engine.applySessionFold({ plan }) };
+        } catch (error) {
+          rethrowIfOperationDeadlineExceeded(error);
+          return { status: "failed", plan, warning: sessionFoldWarning("apply", error) };
+        }
+      })();
+  const episodeRollupBudget = optionalWorkBudget("episode_rollup");
+  if (!episodeRollupBudget.allowed) deferredWork.push(episodeRollupBudget.deferred);
+  const episodeRollup: AutomaticEpisodeRollupResult | AgentDeferredWork = episodeRollupBudget.allowed
+    ? await (deps.runAutomaticEpisodeRollups ?? runAutomaticEpisodeRollups)({
+        store_path: input.storePath,
+        project_id: project.project_id,
+        now: lifecycleNow
+      })
+    : episodeRollupBudget.deferred;
+  const semanticMaintenanceBudget = optionalWorkBudget("semantic_maintenance");
+  if (!semanticMaintenanceBudget.allowed) deferredWork.push(semanticMaintenanceBudget.deferred);
+  const automaticSemanticMaintenance: AutomaticSemanticMaintenanceResult | AgentDeferredWork =
+    semanticMaintenanceBudget.allowed
+      ? await (deps.runAutomaticSemanticMaintenance ?? runAutomaticSemanticMaintenance)(engine, {
+          project_id: project.project_id,
+          source: agentSource
+        })
+      : semanticMaintenanceBudget.deferred;
   const shouldPush = input.push ?? projectInfo.sync_mode !== "manual";
+  const pushBudget = shouldPush ? optionalWorkBudget("push") : ({ allowed: true } as const);
+  if (!pushBudget.allowed) deferredWork.push(pushBudget.deferred);
   const auditEvents = deps.runAutomaticEventAudit ?? runAutomaticEventAudit;
   let automaticEventAudit: Awaited<ReturnType<typeof runAutomaticEventAudit>>;
   const sync: {
     push?: GitSyncResult;
-    push_skipped?: {
-      reason: "automatic_event_audit_failed";
-      audit_code: AutomaticEventAuditFailureCode;
-    };
+    push_skipped?:
+      | {
+          reason: "automatic_event_audit_failed";
+          audit_code: AutomaticEventAuditFailureCode;
+        }
+      | AgentDeferredWork;
     push_error?: string;
     push_error_details?: MorynErrorEnvelope["error"];
     status?: GitSyncStatus;
   } = {};
 
-  if (shouldPush) {
+  if (shouldPush && pushBudget.allowed) {
     const pushed = await trySync(() =>
       (deps.pushGitSync ?? pushGitSync)(
         input.storePath,
@@ -3614,6 +3688,7 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
       sync.push_error_details = syncErrorDetails(pushed.cause);
     }
   } else {
+    if (!pushBudget.allowed) sync.push_skipped = pushBudget.deferred;
     automaticEventAudit = await auditEvents(input.storePath);
   }
   sync.status = await getGitSyncStatus(input.storePath);
@@ -3625,6 +3700,12 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
 
   return {
     ok: true,
+    committed: record.committed,
+    idempotent_replay: record.idempotent_replay,
+    durability: record.durability,
+    durability_by_event_id: record.durability_by_event_id,
+    derived_views_refreshed: record.derived_views_refreshed,
+    ...(record.warnings ? { warnings: record.warnings } : {}),
     agent: agentSource,
     project: projectInfo,
     bootstrap,
@@ -3638,6 +3719,7 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     episode_rollup: episodeRollup,
     automatic_semantic_maintenance: automaticSemanticMaintenance,
     automatic_event_audit: automaticEventAudit,
+    ...(deferredWork.length ? { deferred_work: deferredWork } : {}),
     sync,
     next: {
       recommended_start_command: "moryn agent start --project <path> --current-task <task>",
@@ -3657,12 +3739,27 @@ export async function agentStatus(input: AgentStatusInput, deps: AgentLifecycleD
   validateLifecycleCurrentTask(input.currentTask, "agent_status");
   validateLifecycleSyncRemote(input.syncRemote, "agent_status");
   validateLifecycleBoolean(input.push, "push", "agent_status");
+  validateIdempotencyKey(input.idempotencyKey, "agent_status");
   const bootstrap = await ensureLifecycleBootstrap(input);
   const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
   const actionInput = portableLifecycleInput(input, project);
   const projectInfo = projectEnvelope(project);
   await assertSyncNotConflicted(input.storePath);
   const engine = createEngine({ storePath: input.storePath });
+  const statusSource = sourceFromAgent(input.agent);
+  const statusSessionId = statusSource.session_id?.trim();
+  const idempotencyKey =
+    (input.idempotencyKey as string | undefined) ??
+    (statusSessionId
+      ? derivedIdempotencyKey("agent_status", {
+          project_id: project.project_id,
+          session_id: statusSessionId,
+          device_id: statusSource.device_id,
+          status: input.status,
+          current_task: input.currentTask,
+          synthesis: input.synthesis
+        })
+      : undefined);
   const record = await engine.write({
     kind: "session_summary",
     type: "status",
@@ -3689,17 +3786,22 @@ export async function agentStatus(input: AgentStatusInput, deps: AgentLifecycleD
           }
         : {})
     },
-    source: sourceFromAgent(input.agent)
+    source: statusSource,
+    idempotency_key: idempotencyKey
   });
   const shouldPush = input.push ?? projectInfo.sync_mode !== "manual";
+  const deferredWork: AgentDeferredWork[] = [];
+  const pushBudget = shouldPush ? optionalWorkBudget("push") : ({ allowed: true } as const);
+  if (!pushBudget.allowed) deferredWork.push(pushBudget.deferred);
   const sync: {
     push?: GitSyncResult;
+    push_skipped?: AgentDeferredWork;
     push_error?: string;
     push_error_details?: MorynErrorEnvelope["error"];
     status?: GitSyncStatus;
   } = {};
 
-  if (shouldPush) {
+  if (shouldPush && pushBudget.allowed) {
     const pushed = await trySync(() =>
       (deps.pushGitSync ?? pushGitSync)(input.storePath, { message: `agent status: ${project.project_id}` })
     );
@@ -3709,18 +3811,27 @@ export async function agentStatus(input: AgentStatusInput, deps: AgentLifecycleD
       sync.push_error = pushed.error;
       sync.push_error_details = syncErrorDetails(pushed.cause);
     }
+  } else if (!pushBudget.allowed) {
+    sync.push_skipped = pushBudget.deferred;
   }
   sync.status = await getGitSyncStatus(input.storePath);
   const actions = statusNextActions(actionInput, record.record.updated_at);
 
   return {
     ok: true,
+    committed: record.committed,
+    idempotent_replay: record.idempotent_replay,
+    durability: record.durability,
+    durability_by_event_id: record.durability_by_event_id,
+    derived_views_refreshed: record.derived_views_refreshed,
+    ...(record.warnings ? { warnings: record.warnings } : {}),
     agent: sourceFromAgent(input.agent),
     project: projectInfo,
     bootstrap,
     record: record.record,
     warning: record.warning,
     sync,
+    ...(deferredWork.length ? { deferred_work: deferredWork } : {}),
     next: {
       recommended_finish_action: "call agent_finish with the final session_summary when meaningful work ends",
       recommended_finish_action_id: "finish_session",

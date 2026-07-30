@@ -13,6 +13,13 @@ import type {
   LearningDeltaInput,
   SemanticConsolidationProposalInput
 } from "./core/context-delta.js";
+import {
+  type DashboardServiceConfig,
+  inspectDashboardService,
+  installDashboardService,
+  repairDashboardService,
+  restartDashboardService
+} from "./core/dashboard-service.js";
 import { rebuildDerivedViews } from "./core/derived.js";
 import { createEngine } from "./core/engine.js";
 import { EPISODE_BUCKET_KINDS } from "./core/episode-rollup.js";
@@ -51,6 +58,7 @@ import {
   OperationDeadlineExceededError,
   withOperationDeadline
 } from "./core/operation-deadline.js";
+import { automationOutcome } from "./core/operation-outcome.js";
 import {
   initializeProjectConfig,
   PROJECT_SYNC_MODE_INPUTS,
@@ -63,6 +71,8 @@ import { SOUL_DISTRIBUTIONS } from "./core/soul-profile.js";
 import {
   activateClaudeSettings,
   activateCodexHooks,
+  automationReconcile,
+  automationStatus,
   buildHostIntegrationArtifact,
   captureSession,
   contextPack,
@@ -124,6 +134,7 @@ const WRITE_CONTENT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.
 const RECALL_FILTER_OPTIONS = ["--record-id", "--kind", "--scope", "--type", "--state", "--tag", "--file"] as const;
 const CLI_GLOBAL_OPTIONS = [
   { option: "--store", value_placeholder: "<path>", position: "before_command" },
+  { option: "--timeout-ms", value_placeholder: "<ms>", position: "before_command" },
   { option: "--help", position: "before_command" },
   { option: "-h", position: "before_command" },
   { option: "--version", position: "before_command" },
@@ -192,6 +203,8 @@ type CliRequiredPositionalSource = CliRequiredSource & {
 type CliParserOperation =
   | "install"
   | "setup"
+  | "automation_status"
+  | "automation_reconcile"
   | "capture_session"
   | "context_pack"
   | "write"
@@ -199,6 +212,7 @@ type CliParserOperation =
   | "boot"
   | "recall"
   | "timeline"
+  | "list_recent"
   | "refresh"
   | "memory_doctor"
   | "memory_maintenance_shadow"
@@ -585,6 +599,7 @@ function storePath(): string {
 
 function printJson(value: unknown, options: { pretty?: boolean } = {}): void {
   process.stdout.write(`${JSON.stringify(value, null, options.pretty === false ? undefined : 2)}\n`);
+  if (automationOutcome(value).status === "failed") process.exitCode = 1;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -1367,6 +1382,7 @@ function cliExtraPositionals(args: readonly string[], operation: OperationContra
 function cliOperationOptions(operation: OperationContract): string[] {
   const options: string[] = [];
   for (const argument of Object.values(operation.arguments_by_name)) {
+    if (argument.name === "timeout_ms") continue;
     if (argument.cli?.flag !== undefined) options.push(argument.cli.flag);
     if (argument.cli?.negative_flag !== undefined) options.push(argument.cli.negative_flag);
     for (const flag of argument.cli?.flags ?? []) options.push(flag);
@@ -2370,6 +2386,35 @@ function parseDashboardInterval(value: string | undefined): number | undefined {
   return interval;
 }
 
+function addDashboardServiceOptions(command: Command): Command {
+  return command
+    .option("--project <path>", "Resolve dashboard project context from a project path")
+    .option("--project-id <id>", "Use an explicit dashboard project id")
+    .option("--host <host>", "Dashboard server bind host", "127.0.0.1")
+    .option("--readiness-host <host>", "Host adapter to include in Health Check setup readiness commands")
+    .option("--sync-remote <remote>", "Shared Git remote to include in Health Check readiness commands")
+    .option("--port <port>", "Dashboard server port", "8765")
+    .option("--interval <ms>", "Dashboard browser refresh interval in milliseconds", "2000")
+    .option("--limit <n>", "Recent record and event limit", "20")
+    .option("--include-private", "Include private records in dashboard data");
+}
+
+function dashboardServiceConfig(options: DashboardCliOptions): DashboardServiceConfig {
+  return {
+    store_path: storePath(),
+    runtime: hostRuntime,
+    host: parseNonEmptyString(options.host, "--host"),
+    port: parseDashboardPort(options.port),
+    interval_ms: parseDashboardInterval(options.interval),
+    limit: options.limit === undefined ? undefined : parseLimit(options.limit, "dashboard"),
+    project_path: parseNonEmptyString(options.project, "--project"),
+    project_id: parseNonEmptyString(options.projectId, "--project-id"),
+    include_private: options.includePrivate,
+    readiness_host: parseNonEmptyString(options.readinessHost, "--readiness-host"),
+    sync_remote: parseNonEmptyString(options.syncRemote, "--sync-remote")
+  };
+}
+
 async function dashboardMetadata(options: DashboardCliOptions = {}): Promise<DashboardCliMetadata> {
   try {
     const limit = options.limit === undefined ? undefined : parseLimit(options.limit, "dashboard");
@@ -2470,6 +2515,25 @@ function compactUndefined<T extends Record<string, unknown>>(input: T): Record<s
   return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined));
 }
 
+function cliOperationTimeoutMs(args: readonly string[]): number {
+  const inline = args.find((argument) => argument.startsWith("--timeout-ms="));
+  const optionIndex = args.indexOf("--timeout-ms");
+  const raw = inline?.slice("--timeout-ms=".length) ?? (optionIndex >= 0 ? args[optionIndex + 1] : undefined);
+  if (raw !== undefined) {
+    const parsed = Number(raw);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      throw new Error("Invalid argument: timeout_ms must be a positive integer");
+    }
+    return parsed;
+  }
+  const remoteOrLifecycle = args.some((argument) => ["sync", "agent", "maintenance"].includes(argument));
+  return remoteOrLifecycle ? 120_000 : 60_000;
+}
+
+function isLongRunningCliCommand(args: readonly string[]): boolean {
+  return args.includes("dashboard") && args.includes("--serve");
+}
+
 program
   .name("moryn")
   .description("Moryn CLI")
@@ -2478,7 +2542,8 @@ program
     outputError: () => {}
   })
   .exitOverride()
-  .option("--store <path>", "Override Moryn store path");
+  .option("--store <path>", "Override Moryn store path")
+  .option("--timeout-ms <ms>", "Operation deadline in milliseconds");
 
 program
   .command("init")
@@ -2493,31 +2558,39 @@ program
   .option("--project <path>", "Project path to attach to Moryn")
   .option("--sync-remote <remote>", "User-owned Git remote to include in generated commands")
   .option("--apply", "Run safe Moryn-local setup; never mutates host configuration files")
+  .option("--activate-host", "Explicitly update supported host hook configuration after local setup")
   .action(async (options) => {
     const host = parseNonEmptyString(options.host, "--host");
     const projectPath = parseNonEmptyString(options.project, "--project");
     const syncRemote = parseNonEmptyString(options.syncRemote, "--sync-remote");
+    if (options.activateHost && !options.apply) {
+      throw new Error("Invalid argument: --activate-host requires --apply");
+    }
+    const normalizedHost = host === "claude-code" ? "claude" : host;
+    if (options.activateHost && (!projectPath || (normalizedHost !== "claude" && normalizedHost !== "codex"))) {
+      throw new Error("Invalid argument: --activate-host requires --project and --host <claude|codex>");
+    }
     const plan = planInstall({
       host,
       projectPath,
       syncRemote,
-      apply: Boolean(options.apply)
+      apply: Boolean(options.apply),
+      activateHost: Boolean(options.activateHost)
     });
     if (options.apply) {
       await initializeStore(storePath());
       if (projectPath) {
         const projectConfig = await initializeProjectConfig(projectPath, {});
-        if (host === "codex" || host === "claude" || host === "claude-code") {
+        if (options.activateHost && (normalizedHost === "claude" || normalizedHost === "codex")) {
           const projectId = projectConfig.config.project_id;
           if (!projectId) throw new Error("Invalid project config: missing project_id after initialization");
           const artifact = await writeHostIntegrationArtifact({
-            host,
+            host: normalizedHost,
             project_id: projectId,
             project_path: projectPath,
             store_path: storePath(),
             runtime: hostRuntime
           });
-          const normalizedHost = host === "claude-code" ? "claude" : host;
           const activation =
             normalizedHost === "claude"
               ? await activateClaudeSettings({ project_path: projectPath, artifact: artifact.artifact })
@@ -2734,6 +2807,58 @@ program
     }
   });
 
+const automation = program.command("automation").description("Inspect and reconcile local automation readiness");
+
+automation
+  .command("status")
+  .option("--project <path>", "Project path", process.cwd())
+  .option("--host <host>", "Host activation to inspect explicitly")
+  .action(async (options) => {
+    const projectPath = parseNonEmptyCliString(options.project, "--project", {
+      operation: "automation_status",
+      argument: "project_path"
+    })!;
+    const host = parseNonEmptyCliString(options.host, "--host", {
+      operation: "automation_status",
+      argument: "host"
+    });
+    printJson(
+      await automationStatus({
+        storePath: storePath(),
+        projectPath,
+        host,
+        hostRuntime
+      })
+    );
+  });
+
+automation
+  .command("reconcile")
+  .option("--project <path>", "Project path", process.cwd())
+  .option("--host <host>", "Host activation to inspect explicitly")
+  .option("--apply", "Apply missing Moryn-local configuration")
+  .option("--activate-host", "Explicitly allow repair of Moryn-owned host configuration")
+  .action(async (options) => {
+    const projectPath = parseNonEmptyCliString(options.project, "--project", {
+      operation: "automation_reconcile",
+      argument: "project_path"
+    })!;
+    const host = parseNonEmptyCliString(options.host, "--host", {
+      operation: "automation_reconcile",
+      argument: "host"
+    });
+    printJson(
+      await automationReconcile({
+        storePath: storePath(),
+        projectPath,
+        host,
+        apply: options.apply === true,
+        activateHost: options.activateHost === true,
+        hostRuntime
+      })
+    );
+  });
+
 const capture = program.command("capture");
 
 capture
@@ -2831,6 +2956,7 @@ program
   .option("--priority <priority>")
   .option("--derived-from <id>", "Source record id for provenance", collectNonEmptyOption("--derived-from"), [])
   .option("--reason <reason>", "Provenance reason")
+  .option("--idempotency-key <key>", "Safe retry identity for this mutation")
   .option("--confirm", "Confirm a high-risk canonical write")
   .option("--text <text>")
   .option("--content-json <json>", "Structured JSON object content")
@@ -2880,6 +3006,10 @@ program
       }),
       source: { client: "cli" },
       confirmed: options.confirm,
+      idempotency_key: parseNonEmptyCliString(options.idempotencyKey, "--idempotency-key", {
+        operation: "write",
+        argument: "idempotency_key"
+      }),
       provenance: reason || options.derivedFrom.length ? { reason, derived_from: options.derivedFrom } : undefined
     });
     printJson(result);
@@ -3069,6 +3199,7 @@ program
     []
   )
   .option("--reason <reason>")
+  .option("--idempotency-key <key>", "Safe retry identity for this mutation")
   .option("--confirm", "Confirm a high-risk or conflicting canonical revision")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
@@ -3100,7 +3231,11 @@ program
           patch,
           reason,
           source: { client: "cli" },
-          confirmed: options.confirm
+          confirmed: options.confirm,
+          idempotency_key: parseNonEmptyCliString(options.idempotencyKey, "--idempotency-key", {
+            operation: "revise",
+            argument: "idempotency_key"
+          })
         })
       );
     } catch (error) {
@@ -3114,6 +3249,7 @@ program
   .argument("<record-id>")
   .requiredOption("--state <state>")
   .option("--reason <reason>")
+  .option("--idempotency-key <key>", "Safe retry identity for this mutation")
   .option("--confirm", "Confirm a high-risk canonical promotion")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
@@ -3142,7 +3278,11 @@ program
           target_state: targetState,
           reason,
           source: { client: "cli" },
-          confirmed: options.confirm
+          confirmed: options.confirm,
+          idempotency_key: parseNonEmptyCliString(options.idempotencyKey, "--idempotency-key", {
+            operation: "promote",
+            argument: "idempotency_key"
+          })
         })
       );
     } catch (error) {
@@ -3155,6 +3295,7 @@ program
   .command("archive")
   .argument("<record-id>")
   .option("--reason <reason>")
+  .option("--idempotency-key <key>", "Safe retry identity for this mutation")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
     const parsedRecordId = parseNonEmptyCliPositional(recordId, "record-id", {
@@ -3171,7 +3312,17 @@ program
       }
     };
     try {
-      printJson(await engine.archive({ record_id: parsedRecordId, reason, source: { client: "cli" } }));
+      printJson(
+        await engine.archive({
+          record_id: parsedRecordId,
+          reason,
+          source: { client: "cli" },
+          idempotency_key: parseNonEmptyCliString(options.idempotencyKey, "--idempotency-key", {
+            operation: "archive",
+            argument: "idempotency_key"
+          })
+        })
+      );
     } catch (error) {
       printError(error, context);
       process.exitCode = 1;
@@ -3182,6 +3333,7 @@ program
   .command("quarantine")
   .argument("<record-id>")
   .option("--reason <reason>")
+  .option("--idempotency-key <key>", "Safe retry identity for this mutation")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
     const parsedRecordId = parseNonEmptyCliPositional(recordId, "record-id", {
@@ -3198,7 +3350,17 @@ program
       }
     };
     try {
-      printJson(await engine.quarantine({ record_id: parsedRecordId, reason, source: { client: "cli" } }));
+      printJson(
+        await engine.quarantine({
+          record_id: parsedRecordId,
+          reason,
+          source: { client: "cli" },
+          idempotency_key: parseNonEmptyCliString(options.idempotencyKey, "--idempotency-key", {
+            operation: "quarantine",
+            argument: "idempotency_key"
+          })
+        })
+      );
     } catch (error) {
       printError(error, context);
       process.exitCode = 1;
@@ -3210,6 +3372,7 @@ program
   .argument("<record-id>")
   .argument("<linked-record-id>")
   .requiredOption("--type <type>")
+  .option("--idempotency-key <key>", "Safe retry identity for this mutation")
   .action(async (recordId, linkedRecordId, options) => {
     const engine = createCliEngine();
     const parsedRecordId = parseNonEmptyCliPositional(recordId, "record-id", {
@@ -3240,6 +3403,10 @@ program
           record_id: parsedRecordId,
           linked_record_id: parsedLinkedRecordId,
           link_type: linkType,
+          idempotency_key: parseNonEmptyCliString(options.idempotencyKey, "--idempotency-key", {
+            operation: "link",
+            argument: "idempotency_key"
+          }),
           source: { client: "cli" }
         })
       );
@@ -3280,12 +3447,36 @@ program
 
 program
   .command("list-recent")
+  .option("--project-id <id>")
+  .option("--project <path>")
+  .option("--all-projects", "Explicitly query records across every project")
   .option("--limit <n>", "Result limit", "20")
   .option("--include-private", "Include private records")
   .action(async (options) => {
     const engine = createCliEngine();
+    const projectPath = parseNonEmptyCliString(options.project, "--project", {
+      operation: "list_recent",
+      argument: "project_path"
+    });
+    const explicitProjectId = parseNonEmptyCliString(options.projectId, "--project-id", {
+      operation: "list_recent",
+      argument: "project_id"
+    });
+    if (options.allProjects && (projectPath || explicitProjectId)) {
+      throw new Error("Invalid argument: --all-projects cannot be combined with --project or --project-id");
+    }
+    const projectId = options.allProjects
+      ? undefined
+      : (
+          await resolveProjectContext({
+            projectPath: projectPath ?? (explicitProjectId ? undefined : process.cwd()),
+            projectId: explicitProjectId
+          })
+        ).project_id;
     printJson(
       await engine.listRecent({
+        project_id: projectId,
+        all_projects: options.allProjects,
         limit: parseLimit(options.limit, "list_recent"),
         include_private: options.includePrivate
       })
@@ -3765,7 +3956,7 @@ program.command("rebuild").action(async () => {
   printJson(await rebuildDerivedViews(storePath()));
 });
 
-program
+const dashboardCommand = program
   .command("dashboard")
   .option("--project <path>", "Resolve dashboard project context from a project path")
   .option("--project-id <id>", "Use an explicit dashboard project id")
@@ -3799,6 +3990,26 @@ program
     }
     printJson(dashboard);
   });
+
+const dashboardServiceCommand = dashboardCommand
+  .command("service")
+  .description("Manage the supervised Moryn Dashboard user service");
+
+dashboardServiceCommand.command("status").action(async () => {
+  printJson(await inspectDashboardService());
+});
+
+addDashboardServiceOptions(dashboardServiceCommand.command("install")).action(async (options) => {
+  printJson(await installDashboardService(dashboardServiceConfig(options)));
+});
+
+dashboardServiceCommand.command("restart").action(async () => {
+  printJson(await restartDashboardService());
+});
+
+dashboardServiceCommand.command("repair").action(async () => {
+  printJson(await repairDashboardService());
+});
 
 const contracts = program.command("contracts");
 
@@ -4336,6 +4547,7 @@ agent
   .option("--project <path>")
   .option("--sync-remote <remote>", "Initialize or connect Git sync before publishing status")
   .option("--current-task <task>")
+  .option("--idempotency-key <key>", "Safe retry identity for this status")
   .option("--no-push", "Do not push sync after writing the status")
   .option("--open", "Open the generated dashboard after publishing status")
   .option("--no-open", "Do not open the generated dashboard after publishing status")
@@ -4395,6 +4607,11 @@ agent
           lifecycleStringSource(operation, "current_task")
         ),
         status,
+        idempotencyKey: parseNonEmptyCliString(
+          options.idempotencyKey,
+          "--idempotency-key",
+          lifecycleStringSource(operation, "idempotency_key")
+        ),
         push,
         agent: agentOptions
       });
@@ -4418,6 +4635,7 @@ agent
   .option("--project <path>")
   .option("--sync-remote <remote>", "Initialize or connect Git sync before handoff")
   .option("--current-task <task>")
+  .option("--idempotency-key <key>", "Safe retry identity for this handoff")
   .option("--no-push", "Do not push sync after writing the handoff")
   .option("--open", "Open the generated dashboard after publishing handoff")
   .option("--no-open", "Do not open the generated dashboard after publishing handoff")
@@ -4494,6 +4712,11 @@ agent
           lifecycleStringSource(operation, "current_task")
         ),
         summary,
+        idempotencyKey: parseNonEmptyCliString(
+          options.idempotencyKey,
+          "--idempotency-key",
+          lifecycleStringSource(operation, "idempotency_key")
+        ),
         push,
         agent: agentOptions,
         learnings,
@@ -4680,26 +4903,34 @@ sync
     printJson(await getGitSyncStatus(storePath()));
   });
 
-program.parseAsync().catch((error: unknown) => {
-  if (error instanceof CommanderError && error.exitCode === 0) {
-    process.exitCode = 0;
-    return;
-  }
+const cliArguments = process.argv.slice(2);
+const cliExecution = () =>
+  isLongRunningCliCommand(cliArguments)
+    ? program.parseAsync()
+    : withOperationDeadline(cliOperationTimeoutMs(cliArguments), () => program.parseAsync());
 
-  if (error instanceof CommanderError) {
-    const message = error.message.startsWith("error: ") ? error.message.slice("error: ".length) : error.message;
-    printError(
-      cliRequiredOptionError(message) ??
-        cliRequiredArgumentError(message) ??
-        cliUnknownCommandError(message) ??
-        cliTooManyArgumentsCommandError(message) ??
-        cliUnknownOptionError(message) ??
-        new Error(`Invalid argument: ${message}`)
-    );
-    process.exitCode = error.exitCode;
-    return;
-  }
+Promise.resolve()
+  .then(cliExecution)
+  .catch((error: unknown) => {
+    if (error instanceof CommanderError && error.exitCode === 0) {
+      process.exitCode = 0;
+      return;
+    }
 
-  printError(error);
-  process.exitCode = 1;
-});
+    if (error instanceof CommanderError) {
+      const message = error.message.startsWith("error: ") ? error.message.slice("error: ".length) : error.message;
+      printError(
+        cliRequiredOptionError(message) ??
+          cliRequiredArgumentError(message) ??
+          cliUnknownCommandError(message) ??
+          cliTooManyArgumentsCommandError(message) ??
+          cliUnknownOptionError(message) ??
+          new Error(`Invalid argument: ${message}`)
+      );
+      process.exitCode = error.exitCode;
+      return;
+    }
+
+    printError(error);
+    process.exitCode = 1;
+  });

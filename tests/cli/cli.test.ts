@@ -2220,7 +2220,7 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
     expect(parsed.operations_by_id.install).toMatchObject({
       operation: "install",
       category: "setup",
-      safe_to_run: true,
+      safe_to_run: false,
       interfaces: {
         cli: { command: "moryn install" },
         mcp: { tool: "install" }
@@ -2240,7 +2240,35 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
           required: false,
           cli: { flag: "--apply" },
           mcp: { argument: "apply" }
+        },
+        activate_host: {
+          name: "activate_host",
+          type: "boolean",
+          required: false,
+          cli: { flag: "--activate-host" },
+          mcp: { argument: "activate_host" }
+        },
+        timeout_ms: {
+          name: "timeout_ms",
+          type: "number",
+          required: false,
+          cli: { flag: "--timeout-ms" },
+          mcp: { argument: "timeout_ms" }
         }
+      }
+    });
+    expect(parsed.operations_by_id.dashboard_service_status).toMatchObject({
+      safe_to_run: true,
+      interfaces: {
+        cli: { command: "moryn dashboard service status" },
+        mcp: { tool: "dashboard_service_status" }
+      }
+    });
+    expect(parsed.operations_by_id.dashboard_service_install).toMatchObject({
+      safe_to_run: false,
+      interfaces: {
+        cli: { command: "moryn dashboard service install" },
+        mcp: { tool: "dashboard_service_install", arguments: { confirm: true } }
       }
     });
     expect(parsed.operations_by_id.setup).toMatchObject({
@@ -2267,6 +2295,32 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
           cli: { flag: "--apply" },
           mcp: { argument: "apply" }
         }
+      }
+    });
+    expect(parsed.operations_by_id.automation_status).toMatchObject({
+      operation: "automation_status",
+      category: "setup",
+      safe_to_run: true,
+      interfaces: {
+        cli: { command: "moryn automation status" },
+        mcp: { tool: "automation_status" }
+      }
+    });
+    expect(parsed.operations_by_id.automation_reconcile).toMatchObject({
+      operation: "automation_reconcile",
+      category: "setup",
+      safe_to_run: false,
+      arguments_by_name: {
+        apply: { default: false, cli: { flag: "--apply" }, mcp: { argument: "apply" } },
+        activate_host: {
+          default: false,
+          cli: { flag: "--activate-host" },
+          mcp: { argument: "activate_host" }
+        }
+      },
+      interfaces: {
+        cli: { command: "moryn automation reconcile" },
+        mcp: { tool: "automation_reconcile" }
       }
     });
     expect(parsed.operations_by_id.capture_session).toMatchObject({
@@ -3895,6 +3949,104 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
     });
   });
 
+  it("keeps automation reconcile dry-run by default and gates host writes separately", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      const project = join(dir, "project");
+      await mkdir(project, { recursive: true });
+
+      const status = JSON.parse(
+        (await exec("node", [cliJsPath, "--store", store, "automation", "status"], { cwd: project })).stdout
+      ) as {
+        operation: string;
+        status: string;
+        checks: Record<string, { status: string }>;
+      };
+      expect(status).toMatchObject({
+        operation: "automation_status",
+        status: "needs_reconcile",
+        checks: { store: { status: "missing" }, project: { status: "missing" } }
+      });
+
+      const dryRun = JSON.parse(
+        (await exec("node", [cliJsPath, "--store", store, "automation", "reconcile"], { cwd: project })).stdout
+      ) as {
+        mode: string;
+        changed: boolean;
+        committed: boolean;
+        host_config_writes: string;
+        changes: Record<string, { status: string }>;
+      };
+      expect(dryRun).toMatchObject({
+        mode: "dry_run",
+        changed: false,
+        committed: false,
+        host_config_writes: "none",
+        changes: { store_config: { status: "planned" }, project_config: { status: "planned" } }
+      });
+      await expect(readFile(join(store, "config.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(readFile(join(project, ".moryn.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+
+      const localApply = JSON.parse(
+        (
+          await exec("node", [cliJsPath, "--store", store, "automation", "reconcile", "--host", "codex", "--apply"], {
+            cwd: project
+          })
+        ).stdout
+      ) as {
+        host_activation_requested: boolean;
+        host_config_writes: string;
+        changes: Record<string, { status: string }>;
+      };
+      expect(localApply).toMatchObject({
+        host_activation_requested: false,
+        host_config_writes: "none",
+        changes: { store_config: { status: "applied" }, project_config: { status: "applied" } }
+      });
+      await expect(readFile(join(project, ".codex", "hooks.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+
+      const activationPlan = JSON.parse(
+        (
+          await exec(
+            "node",
+            [cliJsPath, "--store", store, "automation", "reconcile", "--host", "codex", "--activate-host"],
+            { cwd: project }
+          )
+        ).stdout
+      ) as { mode: string; host_config_writes: string; changes: Record<string, { status: string }> };
+      expect(activationPlan).toMatchObject({
+        mode: "dry_run",
+        host_config_writes: "planned",
+        changes: { host_activation: { status: "planned" } }
+      });
+      await expect(readFile(join(project, ".codex", "hooks.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+
+      const activated = JSON.parse(
+        (
+          await exec(
+            "node",
+            [cliJsPath, "--store", store, "automation", "reconcile", "--host", "codex", "--activate-host", "--apply"],
+            { cwd: project }
+          )
+        ).stdout
+      ) as {
+        status: string;
+        changed: boolean;
+        committed: boolean;
+        host_config_writes: string;
+        host_activation: { status: string };
+      };
+      expect(activated).toMatchObject({
+        status: "reconciled",
+        changed: true,
+        committed: true,
+        host_config_writes: "applied",
+        host_activation: { status: "configured_unverified" }
+      });
+      await expect(readFile(join(project, ".codex", "hooks.json"), "utf8")).resolves.toContain(" host hook ");
+    });
+  });
+
   it("returns executable setup recovery when the project path is not a directory", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
@@ -4637,6 +4789,8 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
         "2000-01-01T00:00:00.000Z"
       ]);
       const parsedRefresh = JSON.parse(refresh.stdout) as {
+        cursor: string;
+        has_more: boolean;
         changes: Array<{
           record_id: string;
           importance: string;
@@ -4662,6 +4816,8 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
         >;
         selection_sources: Record<string, string>;
       };
+      expect(parsedRefresh.cursor).toMatch(/^moryn-refresh:v1:/);
+      expect(parsedRefresh.has_more).toBe(false);
       expect(parsedRefresh.selection_sources).toEqual({
         change: "changes_by_record_id.<record_id>",
         record_id: "changes_by_record_id.<record_id>.record_id",
@@ -4680,7 +4836,16 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
         parsedRefresh.changes[0]!.next_action.workflow
       );
 
-      const recent = await exec("node", [cliJsPath, "--store", dir, "list-recent", "--limit", "1"]);
+      const recent = await exec("node", [
+        cliJsPath,
+        "--store",
+        dir,
+        "list-recent",
+        "--limit",
+        "1",
+        "--project-id",
+        "moryn"
+      ]);
       const parsedRecent = JSON.parse(recent.stdout) as {
         records: Array<{ id: string; content: { text: string } }>;
         records_by_id: Record<string, { id: string; content: { text: string } }>;
@@ -5978,10 +6143,23 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
         ).stdout
       ) as { changes: Array<{ record_id: string }> };
       const defaultRecent = JSON.parse(
-        (await exec("node", [cliJsPath, "--store", dir, "list-recent", "--limit", "10"])).stdout
+        (await exec("node", [cliJsPath, "--store", dir, "list-recent", "--limit", "10", "--project-id", "moryn"]))
+          .stdout
       ) as { records: Array<{ id: string }> };
       const privateRecent = JSON.parse(
-        (await exec("node", [cliJsPath, "--store", dir, "list-recent", "--limit", "10", "--include-private"])).stdout
+        (
+          await exec("node", [
+            cliJsPath,
+            "--store",
+            dir,
+            "list-recent",
+            "--limit",
+            "10",
+            "--project-id",
+            "moryn",
+            "--include-private"
+          ])
+        ).stdout
       ) as { records: Array<{ id: string }> };
       const privateTimeline = JSON.parse(
         (
@@ -6220,6 +6398,66 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
       const parsedBoot = JSON.parse(boot.stdout) as { skills: Array<{ id: string }> };
 
       expect(parsedBoot.skills).toEqual([]);
+    });
+  });
+
+  it("defaults list-recent to the current project and supports an explicit all-projects view", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      const alphaProject = join(dir, "alpha-project");
+      await mkdir(alphaProject, { recursive: true });
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      await exec("node", [cliJsPath, "project", "init", "--path", alphaProject, "--project-id", "alpha"]);
+
+      let nextId = 0;
+      const engine = createEngine({
+        storePath: store,
+        now: () => "2026-05-27T00:01:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
+      const global = await engine.write({
+        kind: "memory",
+        type: "preference",
+        scope: "global",
+        content: { text: "Global CLI preference.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      const alpha = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "alpha",
+        content: { text: "Alpha CLI decision.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      const beta = await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "beta",
+        content: { text: "Beta CLI warning.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      const scoped = JSON.parse(
+        (await exec("node", [cliJsPath, "--store", store, "list-recent", "--limit", "10"], { cwd: alphaProject }))
+          .stdout
+      ) as { records: Array<{ id: string }> };
+      expect(scoped.records.map((record) => record.id).sort()).toEqual([global.record.id, alpha.record.id].sort());
+
+      const allProjects = JSON.parse(
+        (
+          await exec("node", [cliJsPath, "--store", store, "list-recent", "--limit", "10", "--all-projects"], {
+            cwd: alphaProject
+          })
+        ).stdout
+      ) as { records: Array<{ id: string }> };
+      expect(allProjects.records.map((record) => record.id).sort()).toEqual(
+        [global.record.id, alpha.record.id, beta.record.id].sort()
+      );
     });
   });
 
@@ -6468,6 +6706,50 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
         retry_with: { option: "--store", value_placeholder: "<non-empty store>" }
       });
     }
+  });
+
+  it("replays CLI mutations by idempotency key and rejects key reuse", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", [cliJsPath, "--store", dir, "init"]);
+      const args = [
+        cliJsPath,
+        "--store",
+        dir,
+        "write",
+        "--kind",
+        "agent_note",
+        "--type",
+        "automation_test",
+        "--scope",
+        "project",
+        "--project-id",
+        "moryn",
+        "--text",
+        "Idempotent CLI write",
+        "--idempotency-key",
+        "cli-request-1"
+      ];
+      const first = JSON.parse((await exec("node", args)).stdout);
+      const replay = JSON.parse((await exec("node", args)).stdout);
+      expect(first).toMatchObject({ committed: true, idempotent_replay: false });
+      expect(replay).toMatchObject({
+        committed: true,
+        idempotent_replay: true,
+        record: { id: first.record.id }
+      });
+
+      try {
+        await exec(
+          "node",
+          args.map((argument) => (argument === "Idempotent CLI write" ? "Different write" : argument))
+        );
+        throw new Error("Expected idempotency key reuse to fail");
+      } catch (error) {
+        const parsed = JSON.parse((error as { stderr: string }).stderr);
+        expect(parsed).toMatchObject({ ok: false, error: { code: "IDEMPOTENCY_KEY_REUSED" } });
+      }
+      expect(await readEvents(dir)).toHaveLength(1);
+    });
   });
 
   it("writes provenance from the CLI", async () => {
@@ -7924,6 +8206,25 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
       expect(status.stdout).toContain('"dirty": false');
     });
   }, 30000);
+
+  it("reports Dashboard service state and exits nonzero for an uncommitted restart", async () => {
+    await withTempDir(async (dir) => {
+      const environment = { ...process.env, HOME: dir };
+      const status = JSON.parse(
+        (await exec("node", [cliJsPath, "dashboard", "service", "status"], { env: environment })).stdout
+      );
+      expect(status).toMatchObject({ service_state: "not_installed", supervised: false });
+
+      try {
+        await exec("node", [cliJsPath, "dashboard", "service", "restart"], { env: environment });
+        throw new Error("Expected missing Dashboard service restart to fail");
+      } catch (error) {
+        const failure = error as { code: number; stdout: string };
+        expect(failure.code).toBe(1);
+        expect(JSON.parse(failure.stdout)).toMatchObject({ status: "failed", committed: false });
+      }
+    });
+  });
 
   it("writes and opens dashboard snapshots from the CLI", async () => {
     await withTempDir(async (dir) => {
@@ -11465,8 +11766,8 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
           operation_contract: "operations_by_id.refresh",
           rejected_argument: { option: "--cursor", value: "not-a-date" },
           expected: {
-            kind: "iso_datetime",
-            format: "RFC3339 timestamp with timezone",
+            kind: "moryn_refresh_cursor_or_legacy_iso_datetime",
+            format: "versioned opaque Moryn refresh cursor or RFC3339 timestamp with timezone",
             source: "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor"
           },
           argument_sources: {
@@ -11475,7 +11776,7 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
           retry_with: {
             option: "--cursor",
             value_source: "previous Moryn response cursor field",
-            value_placeholder: "<refresh cursor ISO datetime>"
+            value_placeholder: "<Moryn refresh cursor>"
           }
         });
       }
@@ -11528,8 +11829,8 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
             operation_contract: "operations_by_id.refresh",
             rejected_argument: { option: "--refresh-since", value: "not-a-date" },
             expected: {
-              kind: "iso_datetime",
-              format: "RFC3339 timestamp with timezone",
+              kind: "moryn_refresh_cursor_or_legacy_iso_datetime",
+              format: "versioned opaque Moryn refresh cursor or RFC3339 timestamp with timezone",
               source:
                 "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor"
             },
@@ -11539,7 +11840,7 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
             retry_with: {
               option: "--refresh-since",
               value_source: "previous Moryn response cursor field",
-              value_placeholder: "<refresh cursor ISO datetime>"
+              value_placeholder: "<Moryn refresh cursor>"
             }
           });
         }
@@ -14356,7 +14657,8 @@ describe("host hook CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
             "codex",
             "--project",
             project,
-            "--apply"
+            "--apply",
+            "--activate-host"
           ])
         ).stdout
       );
@@ -14416,10 +14718,49 @@ describe("host hook CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
 });
 
 describe("official host integration install", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
+  it("keeps install --apply local unless host activation is explicit", async () => {
+    await withTempDir(async (store) => {
+      await withTempDir(async (project) => {
+        const result = JSON.parse(
+          (
+            await exec("node", [
+              cliJsPath,
+              "--store",
+              store,
+              "install",
+              "--host",
+              "codex",
+              "--project",
+              project,
+              "--apply"
+            ])
+          ).stdout
+        );
+        expect(result).not.toHaveProperty("integration_artifact");
+        expect(result).not.toHaveProperty("activation");
+        await expect(readFile(join(project, ".moryn.json"), "utf8")).resolves.toContain("project_id");
+        await expect(readFile(join(project, ".codex", "hooks.json"), "utf8")).rejects.toMatchObject({
+          code: "ENOENT"
+        });
+      });
+    });
+  });
+
   it("writes and activates Claude Code hooks idempotently on apply", async () => {
     await withTempDir(async (store) => {
       await withTempDir(async (project) => {
-        const args = [cliJsPath, "--store", store, "install", "--host", "claude", "--project", project, "--apply"];
+        const args = [
+          cliJsPath,
+          "--store",
+          store,
+          "install",
+          "--host",
+          "claude",
+          "--project",
+          project,
+          "--apply",
+          "--activate-host"
+        ];
         const first = JSON.parse((await exec("node", args)).stdout);
         const second = JSON.parse((await exec("node", args)).stdout);
         expect(first.integration_artifact).toMatchObject({
@@ -14457,7 +14798,8 @@ describe("official host integration install", { timeout: CLI_INTEGRATION_TEST_TI
               "codex",
               "--project",
               project,
-              "--apply"
+              "--apply",
+              "--activate-host"
             ])
           ).stdout
         );

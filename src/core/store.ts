@@ -164,6 +164,39 @@ export interface AppendEventIfAbsentResult {
   warnings?: AppendEventIfAbsentWarning[];
 }
 
+async function confirmPublishedEventDirectory(path: string, fsOpen: typeof open) {
+  let durability: EventDurability = "confirmed";
+  const warnings: AppendEventIfAbsentWarning[] = [];
+  let directoryHandle: FileHandle | undefined;
+  try {
+    directoryHandle = await fsOpen(dirname(path), "r");
+    await directoryHandle.sync();
+  } catch (error) {
+    const code = error instanceof Error && "code" in error ? String(error.code) : undefined;
+    if (code === "EINVAL" || code === "ENOTSUP") {
+      durability = "best_effort";
+      warnings.push({
+        code: "IDEMPOTENT_EVENT_DIRECTORY_SYNC_UNSUPPORTED",
+        reason: `directory sync unsupported: ${code}`
+      });
+    } else {
+      durability = "failed";
+      warnings.push({
+        code: "IDEMPOTENT_EVENT_DIRECTORY_SYNC_FAILED",
+        reason: error instanceof Error ? error.message : String(error)
+      });
+    }
+  } finally {
+    try {
+      await directoryHandle?.close();
+    } catch {
+      durability = "failed";
+      warnings.push({ code: "IDEMPOTENT_EVENT_DIRECTORY_CLOSE_FAILED", reason: "directory close failed" });
+    }
+  }
+  return { durability, warnings };
+}
+
 async function appendEventIfAbsentWithLease(
   storePath: string,
   event: MorynEvent,
@@ -197,35 +230,7 @@ async function appendEventIfAbsentWithLease(
     await options.before_publish?.(tempPath, path);
     try {
       await fsLink(tempPath, path);
-      let durability: EventDurability = "confirmed";
-      const warnings: AppendEventIfAbsentWarning[] = [];
-      let directoryHandle: FileHandle | undefined;
-      try {
-        directoryHandle = await fsOpen(dirname(path), "r");
-        await directoryHandle.sync();
-      } catch (error) {
-        const code = error instanceof Error && "code" in error ? String(error.code) : undefined;
-        if (code === "EINVAL" || code === "ENOTSUP") {
-          durability = "best_effort";
-          warnings.push({
-            code: "IDEMPOTENT_EVENT_DIRECTORY_SYNC_UNSUPPORTED",
-            reason: `directory sync unsupported: ${code}`
-          });
-        } else {
-          durability = "failed";
-          warnings.push({
-            code: "IDEMPOTENT_EVENT_DIRECTORY_SYNC_FAILED",
-            reason: error instanceof Error ? error.message : String(error)
-          });
-        }
-      } finally {
-        try {
-          await directoryHandle?.close();
-        } catch {
-          durability = "failed";
-          warnings.push({ code: "IDEMPOTENT_EVENT_DIRECTORY_CLOSE_FAILED", reason: "directory close failed" });
-        }
-      }
+      const { durability, warnings } = await confirmPublishedEventDirectory(path, fsOpen);
       result = { created: true, event: parsed, path, durability, ...(warnings.length ? { warnings } : {}) };
     } catch (error) {
       const code = error instanceof Error && "code" in error ? String(error.code) : undefined;
@@ -234,11 +239,14 @@ async function appendEventIfAbsentWithLease(
       }
       if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
       try {
+        const existing = parseEvent(JSON.parse(await readFile(path, "utf8")));
+        const { durability, warnings } = await confirmPublishedEventDirectory(path, fsOpen);
         result = {
           created: false,
-          event: parseEvent(JSON.parse(await readFile(path, "utf8"))),
+          event: existing,
           path,
-          durability: "best_effort"
+          durability,
+          ...(warnings.length ? { warnings } : {})
         };
       } catch {
         throw new Error(`Corrupt idempotent event: ${parsed.event_id}`);

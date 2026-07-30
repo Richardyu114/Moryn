@@ -107,15 +107,15 @@ export class InvalidRefreshCursorError extends Error {
     operation_contract: typeof REFRESH_OPERATION_CONTRACT_SOURCE;
     rejected_argument: { argument: "cursor"; value: string };
     expected: {
-      kind: "iso_datetime";
-      format: "RFC3339 timestamp with timezone";
+      kind: "moryn_refresh_cursor_or_legacy_iso_datetime";
+      format: "versioned opaque Moryn refresh cursor or RFC3339 timestamp with timezone";
       source: typeof REFRESH_CURSOR_SOURCE;
     };
     argument_sources: { cursor: typeof REFRESH_CURSOR_ARGUMENT_SOURCE };
     retry_with: {
       argument: "cursor";
       value_source: "previous Moryn response cursor field";
-      value_placeholder: "<refresh cursor ISO datetime>";
+      value_placeholder: "<Moryn refresh cursor>";
     };
   };
 
@@ -126,15 +126,15 @@ export class InvalidRefreshCursorError extends Error {
       operation_contract: REFRESH_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: "cursor", value },
       expected: {
-        kind: "iso_datetime",
-        format: "RFC3339 timestamp with timezone",
+        kind: "moryn_refresh_cursor_or_legacy_iso_datetime",
+        format: "versioned opaque Moryn refresh cursor or RFC3339 timestamp with timezone",
         source: REFRESH_CURSOR_SOURCE
       },
       argument_sources: { cursor: REFRESH_CURSOR_ARGUMENT_SOURCE },
       retry_with: {
         argument: "cursor",
         value_source: "previous Moryn response cursor field",
-        value_placeholder: "<refresh cursor ISO datetime>"
+        value_placeholder: "<Moryn refresh cursor>"
       }
     };
   }
@@ -668,6 +668,8 @@ export function withNextActionMetadata<
 
 export function errorCode(message: string): string {
   if (message === "Operation deadline exceeded") return "OPERATION_DEADLINE_EXCEEDED";
+  if (message === "Operation cancelled") return "OPERATION_CANCELLED";
+  if (message.startsWith("Idempotency collision:")) return "IDEMPOTENCY_KEY_REUSED";
   if (message.startsWith("Store not initialized") || message.includes("ENOENT")) return "STORE_NOT_INITIALIZED";
   if (message.startsWith("Confirmation required:")) return "CONFIRMATION_REQUIRED";
   if (message.startsWith("Invalid project config:")) return "INVALID_PROJECT_CONFIG";
@@ -714,6 +716,10 @@ export function recommendedAction(code: string): string {
       return "fix or repair config.json, then run moryn init";
     case "INVALID_ARGUMENT":
       return "fix the command arguments and retry";
+    case "IDEMPOTENCY_KEY_REUSED":
+      return "retry with a new idempotency_key for the different request";
+    case "MUTATION_PARTIALLY_COMMITTED":
+      return "retry the same mutation with the same idempotency_key";
     case "RECORD_NOT_FOUND":
       return "check the record id or call recall/list-recent to find it";
     case "STORE_NOT_INITIALIZED":
@@ -740,6 +746,8 @@ export function recommendedAction(code: string): string {
       return "continue locally and retry sync later";
     case "OPERATION_DEADLINE_EXCEEDED":
       return "continue locally; retry the operation, and retry sync later if local data was already saved";
+    case "OPERATION_CANCELLED":
+      return "inspect whether the caller still needs the result, then retry with a new request if needed";
     default:
       return "inspect logs and retry";
   }
@@ -1459,7 +1467,12 @@ export function toErrorEnvelope(error: unknown, context?: MorynErrorContext): Mo
     errorRecord.code === "SYNC_CONFLICT" ||
     errorRecord.code === "SYNC_STATUS_UNAVAILABLE" ||
     errorRecord.code === "EVENT_HISTORY_MUTATION" ||
-    errorRecord.code === "OPERATION_DEADLINE_EXCEEDED"
+    errorRecord.code === "IDEMPOTENCY_KEY_REUSED" ||
+    errorRecord.code === "MUTATION_PARTIALLY_COMMITTED" ||
+    errorRecord.code === "AUTOMATION_RECONCILE_PARTIALLY_COMMITTED" ||
+    errorRecord.code === "HOST_INTEGRATION_ARTIFACT_PARTIALLY_COMMITTED" ||
+    errorRecord.code === "OPERATION_DEADLINE_EXCEEDED" ||
+    errorRecord.code === "OPERATION_CANCELLED"
       ? errorRecord.code
       : undefined;
   const code = explicitCode ?? errorCode(message);

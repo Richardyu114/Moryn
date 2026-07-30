@@ -536,7 +536,7 @@ describe("engine.checkpoint", () => {
         )
       ).toBe(false);
       expect(events.some((event) => event.op === "archive_record")).toBe(false);
-      const records = (await engine.listRecent({ limit: 100, include_private: true })).records;
+      const records = (await engine.listRecent({ limit: 100, include_private: true, all_projects: true })).records;
       const duplicateAudit = await engine.recall({
         record_ids: [duplicate.record.id],
         include_private: true

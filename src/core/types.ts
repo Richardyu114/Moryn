@@ -37,6 +37,13 @@ export interface RecordConflict {
   resolution: "needs_review" | "resolved";
 }
 
+export interface EventIdempotency {
+  version: 1;
+  operation: string;
+  key_digest: string;
+  request_digest: string;
+}
+
 export interface MorynRecord {
   id: string;
   kind: RecordKind;
@@ -57,7 +64,7 @@ export interface MorynRecord {
   links?: RecordLink[];
 }
 
-export type MorynEvent =
+export type MorynEvent = { idempotency?: EventIdempotency } & (
   | {
       event_id: string;
       op: "upsert_record";
@@ -96,4 +103,5 @@ export type MorynEvent =
       reason?: string;
       created_at: string;
       source: RecordSource;
-    };
+    }
+);

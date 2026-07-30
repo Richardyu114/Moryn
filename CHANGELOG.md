@@ -53,6 +53,10 @@ memory.
   become recurring user-visible Hook failures. Native Windows retains the
   prior direct absolute runtime command instead of receiving an unusable POSIX
   launcher.
+- Automation-safe status and reconcile APIs, opaque composite refresh cursors,
+  project-scoped recent-record reads, mutation idempotency receipts, normalized
+  CLI/MCP outcomes, bounded cancellation propagation, durable Hook timeout
+  receipts, and a supervised systemd user service for the Dashboard.
 
 ### Changed
 
@@ -75,6 +79,10 @@ memory.
   launcher identities now include a collision-resistant project digest and a
   full canonical project/Store scope, while remaining stable across runtime
   upgrades.
+- Setup and install apply only Moryn-local configuration by default; host file
+  changes now require the separate explicit `activate_host` permission. Slow
+  optional lifecycle work is reported as deferred after the local write is
+  durable instead of turning a committed mutation into an ambiguous failure.
 
 ### Safety and compatibility
 

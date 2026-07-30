@@ -13,17 +13,42 @@ const DEFAULT_CHILD_OUTPUT_LIMIT_BYTES = 64 * 1024 * 1024;
 interface OperationDeadlineContext {
   deadlineAtMs: number;
   signal: AbortSignal;
-  abort: () => void;
+  abort: (reason?: unknown) => void;
 }
 
 const operationDeadlines = new AsyncLocalStorage<OperationDeadlineContext | undefined>();
 
 export class OperationDeadlineExceededError extends Error {
   readonly code = "OPERATION_DEADLINE_EXCEEDED";
+  readonly committed?: true;
+  readonly recommended_action?: string;
+  readonly recovery_hint?: { deadline_observed_after_commit: true; committed_result: unknown };
 
-  constructor() {
+  constructor(committedResult?: unknown) {
     super("Operation deadline exceeded");
     this.name = "OperationDeadlineExceededError";
+    if (committedResult !== undefined) {
+      this.committed = true;
+      this.recommended_action = "inspect the committed result before deciding whether to retry";
+      this.recovery_hint = { deadline_observed_after_commit: true, committed_result: committedResult };
+    }
+  }
+}
+
+export class OperationCancelledError extends Error {
+  readonly code = "OPERATION_CANCELLED";
+  readonly committed?: true;
+  readonly recommended_action?: string;
+  readonly recovery_hint?: { cancellation_observed_after_commit: true; committed_result: unknown };
+
+  constructor(committedResult?: unknown) {
+    super("Operation cancelled");
+    this.name = "OperationCancelledError";
+    if (committedResult !== undefined) {
+      this.committed = true;
+      this.recommended_action = "inspect the committed result before deciding whether to retry";
+      this.recovery_hint = { cancellation_observed_after_commit: true, committed_result: committedResult };
+    }
   }
 }
 
@@ -70,6 +95,21 @@ function deadlineError(signal?: AbortSignal): OperationDeadlineExceededError {
   return isOperationDeadlineExceeded(signal?.reason) ? signal.reason : new OperationDeadlineExceededError();
 }
 
+function cancellationError(signal?: AbortSignal): Error {
+  if (isOperationDeadlineExceeded(signal?.reason) || isOperationCancelled(signal?.reason)) return signal.reason;
+  return new OperationCancelledError();
+}
+
+function committedOperationValue(value: unknown): boolean {
+  return typeof value === "object" && value !== null && "committed" in value && value.committed === true;
+}
+
+function cancellationAfterCommitError(signal: AbortSignal, result: unknown): Error {
+  return isOperationDeadlineExceeded(signal.reason)
+    ? new OperationDeadlineExceededError(result)
+    : new OperationCancelledError(result);
+}
+
 function scheduleAbsoluteDeadline(deadlineAtMs: number, expire: () => void): () => void {
   let timer: NodeJS.Timeout | undefined;
   const arm = () => {
@@ -90,10 +130,14 @@ async function runDeadlineScopedWork<T>(context: OperationDeadlineContext, work:
   throwIfOperationDeadlineExceeded();
   try {
     const result = await work();
-    throwIfOperationDeadlineExceeded();
+    if (!context.signal.aborted && context.deadlineAtMs <= Date.now()) context.abort();
+    if (context.signal.aborted) {
+      if (committedOperationValue(result)) throw cancellationAfterCommitError(context.signal, result);
+      throw cancellationError(context.signal);
+    }
     return result;
   } catch (error) {
-    if (context.signal.aborted) throw deadlineError(context.signal);
+    if (context.signal.aborted && !committedOperationValue(error)) throw cancellationError(context.signal);
     throw error;
   }
 }
@@ -106,11 +150,15 @@ async function runDeadlineScopedWork<T>(context: OperationDeadlineContext, work:
  * AbortSignal. This function still awaits the started work before rejecting so
  * callers never observe a deadline while writes continue in the background.
  */
-export async function withOperationDeadline<T>(timeoutMs: number, work: () => Promise<T>): Promise<T> {
+export async function withOperationDeadline<T>(
+  timeoutMs: number,
+  work: () => Promise<T>,
+  externalSignal?: AbortSignal
+): Promise<T> {
   validateTimeoutMs(timeoutMs);
   const requestedDeadline = Date.now() + timeoutMs;
   const inherited = operationDeadlines.getStore();
-  if (inherited && inherited.deadlineAtMs <= requestedDeadline) {
+  if (inherited && inherited.deadlineAtMs <= requestedDeadline && !externalSignal) {
     return runDeadlineScopedWork(inherited, work);
   }
 
@@ -119,11 +167,14 @@ export async function withOperationDeadline<T>(timeoutMs: number, work: () => Pr
   const context: OperationDeadlineContext = {
     deadlineAtMs,
     signal: controller.signal,
-    abort: () => controller.abort(new OperationDeadlineExceededError())
+    abort: (reason = new OperationDeadlineExceededError()) => controller.abort(reason)
   };
-  const abortFromParent = () => controller.abort(deadlineError(inherited?.signal));
+  const abortFromParent = () => controller.abort(cancellationError(inherited?.signal));
+  const abortFromExternal = () => controller.abort(cancellationError(externalSignal));
   if (inherited?.signal.aborted) abortFromParent();
   else inherited?.signal.addEventListener("abort", abortFromParent, { once: true });
+  if (externalSignal?.aborted) abortFromExternal();
+  else externalSignal?.addEventListener("abort", abortFromExternal, { once: true });
   const cancelTimer = scheduleAbsoluteDeadline(deadlineAtMs, context.abort);
 
   try {
@@ -131,6 +182,7 @@ export async function withOperationDeadline<T>(timeoutMs: number, work: () => Pr
   } finally {
     cancelTimer();
     inherited?.signal.removeEventListener("abort", abortFromParent);
+    externalSignal?.removeEventListener("abort", abortFromExternal);
   }
 }
 
@@ -151,7 +203,7 @@ export function throwIfOperationDeadlineExceeded(): void {
   const context = operationDeadlines.getStore();
   if (!context) return;
   if (!context.signal.aborted && context.deadlineAtMs <= Date.now()) context.abort();
-  if (context.signal.aborted) throw deadlineError(context.signal);
+  if (context.signal.aborted) throw cancellationError(context.signal);
 }
 
 /**
@@ -175,8 +227,15 @@ export function isOperationDeadlineExceeded(error: unknown): error is OperationD
   );
 }
 
+export function isOperationCancelled(error: unknown): error is OperationCancelledError {
+  return (
+    error instanceof OperationCancelledError ||
+    (error instanceof Error && "code" in error && error.code === "OPERATION_CANCELLED")
+  );
+}
+
 export function rethrowIfOperationDeadlineExceeded(error: unknown): void {
-  if (isOperationDeadlineExceeded(error)) throw error;
+  if (isOperationDeadlineExceeded(error) || isOperationCancelled(error)) throw error;
 }
 
 function signalProcessGroup(child: ChildProcessWithoutNullStreams, signal: NodeJS.Signals): void {

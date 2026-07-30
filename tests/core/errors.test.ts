@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { toErrorEnvelope } from "../../src/core/errors.js";
-import { OperationDeadlineExceededError } from "../../src/core/operation-deadline.js";
+import { OperationCancelledError, OperationDeadlineExceededError } from "../../src/core/operation-deadline.js";
 
 const NEXT_ACTION_SELECTION_SOURCES = {
   error_next_action: "error.next_action",
@@ -263,6 +263,18 @@ function expectNextActionExecution(action: {
 }
 
 describe("error envelopes", () => {
+  it("preserves a stable caller-cancellation code", () => {
+    expect(toErrorEnvelope(new OperationCancelledError())).toMatchObject({
+      ok: false,
+      error: {
+        code: "OPERATION_CANCELLED",
+        message: "Operation cancelled",
+        recoverable: true,
+        recommended_action: "inspect whether the caller still needs the result, then retry with a new request if needed"
+      }
+    });
+  });
+
   it("preserves the operation deadline code and a local-first retry action", () => {
     const envelope = toErrorEnvelope(new OperationDeadlineExceededError());
 

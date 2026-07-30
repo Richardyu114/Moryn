@@ -159,7 +159,8 @@ hosts can use the lower-level handoff commands.
 moryn setup --host codex --project .
 moryn setup --host codex --project . --apply
 moryn install --host codex --project . --apply
-moryn install --host claude --project . --apply
+moryn install --host codex --project . --apply --activate-host
+moryn install --host claude --project . --apply --activate-host
 moryn agent enter --project . --agent codex --session-id "<session-id>" --device-id "<device-id>" --current-task "<current task>"
 moryn agent finish --project . --agent codex --session-id "<session-id>" --device-id "<device-id>" --summary "<concise handoff>"
 ```
@@ -169,6 +170,12 @@ moryn agent finish --project . --agent codex --session-id "<session-id>" --devic
 files. Apply only after the dry-run looks right. The dry-run lists planned local
 writes with exact paths; apply initializes only the Moryn store and project
 config and does not edit host configuration files.
+
+`moryn install --apply` follows the same local-only boundary. Editing Codex or
+Claude Code configuration requires the separate `--activate-host` flag. For
+unattended checks and repair planning, use `moryn automation status` and
+`moryn automation reconcile`; reconcile is a dry-run unless `--apply` is set,
+and host repair still requires `--activate-host`.
 
 The lower-level `moryn context pack` remains available and returns Handoff Pack v0.2
 with the current goal, recent decisions, open threads, risks, preferences,
@@ -312,6 +319,8 @@ activity:
 ```bash
 moryn dashboard --serve --host 127.0.0.1 --port 8765 --project-id moryn
 moryn dashboard --serve --host 127.0.0.1 --port 8765 --project-id moryn --readiness-host codex --no-open
+moryn dashboard service install --host 127.0.0.1 --port 8765 --limit 20 --project-id moryn
+moryn dashboard service status
 ```
 
 It rebuilds from event history on each refresh and also exposes `/api/dashboard`
@@ -329,6 +338,14 @@ In a shared environment, report the deployment-specific dashboard URL, for
 example `<dashboard-url>`. `127.0.0.1:8765` is the internal server bind target,
 not necessarily the human-facing address. Static output remains at
 `state/dashboard/index.html`; see `docs/dashboard.md` for access modes.
+
+On Linux, `dashboard service install` creates and enables a restartable systemd
+user service with the exact Node runtime, CLI entry point, store, bind, project,
+refresh, and limit arguments. `status`, `restart`, and `repair` return stable
+JSON receipts suitable for automation.
+MCP clients use `dashboard_service_status`, `dashboard_service_install`,
+`dashboard_service_restart`, and `dashboard_service_repair`; mutating service
+tools require `confirm: true`.
 
 ## Command surface
 
@@ -354,6 +371,9 @@ The read-only inspection commands (all safe, none mutate memory):
 | `moryn capture policy` | audit what autocapture already decided |
 | `moryn dogfood report` | capture backlog, duplicate handoffs, failure/timeout signals |
 | `moryn health check` | store readiness, replay, project context, MCP freshness |
+| `moryn automation status` | compact keyed readiness checks without writes |
+| `moryn automation reconcile` | dry-run repair plan; `--apply` gates local writes |
+| `moryn list-recent --project .` | bounded recent records for one project |
 | `moryn eval recall` | recall quality against golden queries |
 | `moryn project migrate` | preview + apply auditable project-id migration |
 
@@ -404,6 +424,13 @@ mutate memory.
 Suggested mutating actions stay `safe_to_run: false` until you confirm. Each has
 a matching MCP tool. See [Contracts](docs/contracts.md) for operation contracts,
 selection-source paths, and recovery metadata.
+
+Automation can put a global operation deadline before the command, for example
+`moryn --timeout-ms 30000 write ...`. Retriable mutations accept
+`--idempotency-key <key>` and return `committed`, `idempotent_replay`,
+durability, derived-view status, and warnings. MCP responses retain their
+legacy text while also returning `structuredContent.outcome` with `status`,
+`committed`, `retryable`, and an optional `next_action`.
 
 ## Documentation
 

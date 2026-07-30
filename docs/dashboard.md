@@ -138,6 +138,38 @@ http://<machine-ip>:8765/
 `127.0.0.1` is local-only. `0.0.0.0` listens on external network interfaces, but
 firewalls and network policy still need to allow the selected port.
 
+### Supervised Linux User Service
+
+On Linux with a systemd user manager, Moryn can install a restartable Dashboard
+service without root privileges:
+
+```bash
+moryn dashboard service install \
+  --host 127.0.0.1 \
+  --port 8765 \
+  --interval 2000 \
+  --limit 20 \
+  --project-id moryn
+moryn dashboard service status
+moryn dashboard service restart
+```
+
+`install` atomically writes `~/.config/systemd/user/moryn-dashboard.service`,
+reloads the user manager, and enables the service. The unit records the exact
+Node executable, CLI entry point, store path, bind address, project selection,
+refresh interval, and result limit; it restarts after process failure. Commands
+return JSON with `committed`, active and enabled state, PID when active,
+warnings, and a next action on failure. `repair` reloads and re-enables the
+existing unit without rewriting its saved arguments; use `install` explicitly
+to replace the desired unit configuration. This service does not configure a
+reverse proxy, firewall, authentication, or TLS.
+
+MCP hosts discover the same controls as `dashboard_service_status`,
+`dashboard_service_install`, `dashboard_service_restart`, and
+`dashboard_service_repair`. Status is read-only. The three mutating MCP tools
+reject calls unless `confirm: true` is present; CLI authorization remains the
+explicit `dashboard service install|restart|repair` subcommand.
+
 ### Opt-in Container Supervisor
 
 External Docker-style deployments can explicitly select
