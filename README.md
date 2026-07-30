@@ -2,14 +2,35 @@
 
 ![Moryn hero](assets/moryn-hero.png)
 
-**Moryn is a local-first, user-owned, auditable context store and handoff layer for
-multi-agent, multi-device AI work.**
+**Local-first, user-owned memory and handoffs for AI agents.**
 
-Codex, Claude, Cursor, Gemini, shell agents, and scripts share one durable
-context store — without memory belonging to any single agent. The user owns the
-store. Agents recall context, hand work to the next agent, sync through a
-user-owned private Git repo, and every saved item shows exactly where it came
-from.
+Moryn lets Codex, Claude Code, Cursor, Gemini, shell agents, and scripts share
+durable project context without giving ownership to any one agent vendor.
+Agents recall only what fits, hand work to the next agent, and sync through a
+private Git repository you control.
+
+**Moryn is a local-first, user-owned, auditable context store and handoff layer
+for multi-agent, multi-device AI work.** Every saved item keeps its provenance,
+so useful context can move between agents without becoming an opaque cloud
+profile.
+
+[![Moryn Dashboard showing a current task, cross-agent handoff, memory state, and healthy sync](assets/moryn-dashboard-demo.png)](assets/moryn-dashboard-demo.png)
+
+*The real Moryn Dashboard rendered from a synthetic demo store. No personal,
+local, or production memory is shown.*
+
+## Why Moryn
+
+- **Continue across agents and devices.** A new session can recover the current
+  task, recent decisions, blockers, changed files, and next steps.
+- **Keep ownership local.** The runtime store lives on your machine; optional
+  sync uses a dedicated private Git repository you control.
+- **Keep recall bounded.** Moryn selects the most useful context for the
+  available budget instead of replaying an ever-growing transcript.
+- **Trace every conclusion.** Records retain source, confidence, state, links,
+  and append-only history for inspection and repair.
+- **See continuity at a glance.** The Dashboard brings current work, memory
+  state, cross-agent handoffs, and sync assurance into one calm view.
 
 Moryn is not an agent platform, not a vector-memory SDK, and not a hosted cloud service.
 It is the *memory bus between agents*: simple on the default path, and
@@ -72,11 +93,13 @@ handoff.
 install -> enter/recover -> work/checkpoint -> compact/resume -> finish/sync
 ```
 
-The dashboard is a quiet, read-only monitoring surface on the normal path. It
-shows health, current context, memory flow, sync state, and audit evidence.
-Users intervene only for exceptional cases: credentials or private
-configuration, unresolved sync conflicts, sensitive content, ambiguous project
-identity, or materially conflicting long-term memory.
+The dashboard is a quiet, read-only monitoring surface on the normal path. Its
+Overview, Memory, Preferences, and History views show current context, memory
+flow, sync state, and audit evidence without adding a routine write path.
+Exceptional confirmation-gated actions are isolated in Audit Details. Users
+intervene only for exceptional cases: credentials or private configuration,
+unresolved sync conflicts, sensitive content, ambiguous project identity, or
+materially conflicting long-term memory.
 
 Most users should ask an agent to operate Moryn. Deeper reference material is
 available in [Agent Workflow](docs/agent-workflow.md),
@@ -84,15 +107,17 @@ available in [Agent Workflow](docs/agent-workflow.md),
 
 ## Try the demo
 
-From a source checkout:
+The repository includes a synthetic dogfood demo that creates a temporary
+store, exercises the core memory and handoff flow, verifies Dashboard evidence,
+and removes the fixture afterward:
 
 ```bash
 npm run smoke:dogfood-demo
 ```
 
-The demo exercises storage, context, capture policy, and dashboard evidence on
-a temporary store. The required Autopilot lifecycle is covered by
-`npm run smoke:agent-lifecycle`. Neither smoke touches your real store.
+This is an executable verification demo rather than a hosted sandbox. The
+required Autopilot lifecycle is covered by `npm run smoke:agent-lifecycle`.
+Neither smoke touches your real store.
 
 ## Use With An Agent
 
@@ -123,13 +148,21 @@ long term. Never store secrets.
 A longer prompt and setup expectations live in
 [Agent Install Prompt](docs/agent-install-prompt.md).
 
-**Install manually:**
+**Install manually from source today:**
 
 ```bash
-npm install -g @richardyu114/moryn@0.4.0  # npm target after publication
-# or from source:
 git clone https://github.com/Richardyu114/Moryn.git
-cd Moryn && npm install && npm run build && npm link
+cd Moryn
+npm install
+npm run build
+npm link
+moryn --version
+```
+
+The npm target after v0.4 is published will be:
+
+```bash
+npm install -g @richardyu114/moryn@0.4.0
 ```
 
 The executable is `moryn`. Existing v0.2 and v0.3 stores open in place: no
