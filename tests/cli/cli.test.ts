@@ -12876,8 +12876,8 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
         expect(parsed.error.next_action).toMatchObject({
           recommended_action: "list_recent_records_and_retry_with_known_record_id",
           tool: "list_recent",
-          command: "moryn list-recent",
-          arguments: {},
+          command: "moryn list-recent --all-projects",
+          arguments: { all_projects: true },
           argument_sources: { record_id: "list_recent.records_by_id.<record_id>.id" },
           rejected_arguments: { record_id: "rec_missing" },
           required_fields: [],
@@ -12905,7 +12905,7 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
       await exec("node", [cliJsPath, "--store", store, "init"]);
 
       try {
-        await exec("node", [cliJsPath, "--store", store, "recall", "--record-id", "rec_missing"]);
+        await exec("node", [cliJsPath, "--store", store, "recall", "--record-id", "rec_missing", "--include-private"]);
         throw new Error("Expected moryn recall to fail for a missing record");
       } catch (error) {
         const parsed = JSON.parse((error as { stderr: string }).stderr) as {
@@ -12913,6 +12913,8 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
           error: {
             code: string;
             next_action?: {
+              command?: string;
+              arguments?: Record<string, unknown>;
               workflow?: {
                 phases?: Array<Record<string, unknown>>;
               };
@@ -12921,13 +12923,17 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
         };
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("RECORD_NOT_FOUND");
+        expect(parsed.error.next_action).toMatchObject({
+          command: "moryn list-recent --all-projects --include-private",
+          arguments: { all_projects: true, include_private: true }
+        });
         expect(parsed.error.next_action?.workflow?.phases?.[1]).toEqual({
           phase: "retry_original_tool_with_selected_record_id",
           order: 2,
           action_source: "list_recent.records_by_id.<record_id>.id",
           tool: "recall",
-          command: "moryn recall --record-id <record_id_from_list_recent>",
-          arguments: { record_ids: ["<record_id_from_list_recent>"] },
+          command: "moryn recall --record-id <record_id_from_list_recent> --include-private",
+          arguments: { record_ids: ["<record_id_from_list_recent>"], include_private: true },
           replace_arguments: { record_ids: "list_recent.records_by_id.<record_id>.id" },
           required_when:
             "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",

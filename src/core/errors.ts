@@ -176,6 +176,36 @@ function knownRecommendedAction(message: string): string | undefined {
   return undefined;
 }
 
+function listRecentDiscovery(context?: MorynErrorContext): {
+  command: string;
+  arguments:
+    | { project_id: string; include_private?: true }
+    | { project_path: string; include_private?: true }
+    | { all_projects: true; include_private?: true };
+} {
+  const includePrivate = context?.arguments.include_private === true;
+  const privateFlag = includePrivate ? " --include-private" : "";
+  const privateArgument = includePrivate ? ({ include_private: true } as const) : {};
+  const projectId = typeof context?.arguments.project_id === "string" ? context.arguments.project_id : "";
+  if (projectId.trim()) {
+    return {
+      command: `moryn list-recent --project-id ${shellQuote(projectId)}${privateFlag}`,
+      arguments: { project_id: projectId, ...privateArgument }
+    };
+  }
+  const projectPath = typeof context?.arguments.project_path === "string" ? context.arguments.project_path : "";
+  if (projectPath.trim()) {
+    return {
+      command: `moryn list-recent --project ${shellQuote(projectPath)}${privateFlag}`,
+      arguments: { project_path: projectPath, ...privateArgument }
+    };
+  }
+  return {
+    command: `moryn list-recent --all-projects${privateFlag}`,
+    arguments: { all_projects: true, ...privateArgument }
+  };
+}
+
 function knownRecoveryHint(code: string, message: string, context?: MorynErrorContext): unknown {
   if (message === PROJECT_SCOPE_CONTEXT_REQUIRED_MESSAGE) {
     return {
@@ -303,6 +333,7 @@ function knownRecoveryHint(code: string, message: string, context?: MorynErrorCo
   if (code === "RECORD_NOT_FOUND") {
     const recordId = missingRecordIdFromMessage(message);
     const argument = missingRecordArgumentKey(context, recordId);
+    const discovery = listRecentDiscovery(context);
     return {
       rejected_argument: {
         argument,
@@ -310,8 +341,7 @@ function knownRecoveryHint(code: string, message: string, context?: MorynErrorCo
       },
       discover_with: {
         tool: "list_recent",
-        command: "moryn list-recent",
-        arguments: {},
+        ...discovery,
         safe_to_run: true
       },
       retry_with: {
@@ -1340,11 +1370,11 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
     case "RECORD_NOT_FOUND": {
       const recordId = missingRecordIdFromMessage(message);
       const retryPhase = missingRecordRetryPhase(context, recordId);
+      const discovery = listRecentDiscovery(context);
       const action = withNextActionMetadata({
         recommended_action: "list_recent_records_and_retry_with_known_record_id",
         tool: "list_recent",
-        command: "moryn list-recent",
-        arguments: {},
+        ...discovery,
         required_when: LIST_RECORDS_WHEN,
         required_fields: [],
         ...(recordId ? { rejected_arguments: { record_id: recordId } } : {}),

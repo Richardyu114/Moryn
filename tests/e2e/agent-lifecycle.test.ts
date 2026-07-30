@@ -780,6 +780,7 @@ describe("agent lifecycle", () => {
         { now: () => "2026-07-11T00:01:00.000Z" }
       );
 
+      expect(result.idempotency_protected).toBe(true);
       expect(result).toMatchObject({
         learning_ingestion: { learnings_received: 1, records_created: 1 },
         learning_inbox: { selected: 1, consumed: 1, already_consumed: 0, inbox_record_ids: [queued.record.id] }
@@ -1891,6 +1892,17 @@ describe("agent lifecycle", () => {
       expect(firstFinish.bootstrap.initialized_store).toBe(true);
       expect(firstFinish.bootstrap.sync_init?.ok).toBe(true);
       expect(firstFinish.sync.push?.pushed).toBe(true);
+      expect(firstFinish.idempotency_protected).toBe(false);
+
+      const unprotectedStatus = await agentStatus({
+        storePath: storeA,
+        projectPath: project,
+        agent: { client: "codex", device_id: "device_codex" },
+        status: "Fresh Codex device has no stable session id.",
+        currentTask: "verify unprotected lifecycle status",
+        push: false
+      });
+      expect(unprotectedStatus.idempotency_protected).toBe(false);
 
       const firstStart = await agentStart({
         storePath: storeB,
@@ -1934,6 +1946,7 @@ describe("agent lifecycle", () => {
         currentTask: "lifecycle status propagation"
       });
 
+      expect(status.idempotency_protected).toBe(true);
       expect(status.bootstrap.initialized_store).toBe(true);
       expect(status.record).toMatchObject({
         kind: "session_summary",

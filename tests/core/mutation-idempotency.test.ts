@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createEngine } from "../../src/core/engine.js";
 import { IdempotencyCollisionError, type PartialMutationCommitError } from "../../src/core/idempotency.js";
+import { automationOutcome } from "../../src/core/operation-outcome.js";
 import { appendEventIfAbsent, readEvents } from "../../src/core/store.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
@@ -15,6 +16,29 @@ const writeInput = {
 };
 
 describe("mutation idempotency", () => {
+  it("does not expose a completed non-idempotent write as safe to retry", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath });
+      const result = await engine.write(writeInput);
+
+      expect(result).toMatchObject({ committed: true, durability: "best_effort" });
+      expect(result.event).not.toHaveProperty("idempotency");
+      expect(automationOutcome(result)).toMatchObject({
+        status: "completed_with_warnings",
+        committed: true,
+        retryable: false,
+        next_action: {
+          recommended_action: "inspect_returned_committed_result_before_new_mutation",
+          reason: "mutation_committed_without_idempotency_key",
+          inspection_source: "returned_committed_result",
+          committed_event_ids: [result.event.event_id],
+          retry_original_mutation: false
+        }
+      });
+      expect(await readEvents(storePath)).toHaveLength(1);
+    });
+  });
+
   it("replays the same write receipt without storing the caller key", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createEngine({ storePath });
@@ -164,6 +188,105 @@ describe("mutation idempotency", () => {
     });
   });
 
+  it("does not mistake a literal redaction token for durable redaction evidence on revise replay", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath });
+      const source = await engine.write({ ...writeInput, content: { text: "Original documentation text" } });
+      const request = {
+        record_id: source.record.id,
+        patch: { "content.text": "The literal [REDACTED_SECRET] token is documented here." },
+        reason: "document the public redaction token",
+        idempotency_key: "literal-redaction-token"
+      };
+
+      const first = await engine.revise(request);
+      const replay = await engine.revise(request);
+      const events = await readEvents(storePath);
+
+      expect(first).toMatchObject({ idempotent_replay: false });
+      expect(first.event).not.toHaveProperty("redaction");
+      expect(replay).toMatchObject({
+        idempotent_replay: true,
+        event: { event_id: first.event.event_id }
+      });
+      expect(replay.event).not.toHaveProperty("redaction");
+      expect(events.filter((event) => event.op === "quarantine_record")).toHaveLength(0);
+      expect(
+        (
+          await engine.recall({
+            record_ids: [source.record.id],
+            states: ["raw"],
+            project_id: "moryn"
+          })
+        ).results[0]?.record
+      ).toMatchObject({ state: "raw", content: { text: request.patch["content.text"] } });
+    });
+  });
+
+  it("recovers a legacy composite-sensitive revision from its event-time record state", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let failedQuarantine = false;
+      const engine = createEngine({
+        storePath,
+        appendEventIfAbsent: async (path, event) => {
+          if (event.op === "revise_record" && event.redaction) {
+            const legacyRevision = { ...event };
+            delete legacyRevision.redaction;
+            return appendEventIfAbsent(path, legacyRevision);
+          }
+          if (event.idempotency?.operation === "revise_quarantine" && !failedQuarantine) {
+            failedQuarantine = true;
+            throw new Error("injected legacy quarantine append failure");
+          }
+          return appendEventIfAbsent(path, event);
+        }
+      });
+      const source = await engine.write({
+        ...writeInput,
+        type: "legacy_composite_sensitive_revision",
+        content: { text: "ENV_ONE=alpha\nENV_TWO=beta\nENV_THREE=gamma\nENV_FOUR=delta" }
+      });
+      const request = {
+        record_id: source.record.id,
+        patch: { "content.extra_env": "ENV_FIVE=epsilon" },
+        reason: "complete the environment example",
+        idempotency_key: "legacy-composite-sensitive-revise"
+      };
+
+      await expect(engine.revise(request)).rejects.toMatchObject({
+        code: "MUTATION_PARTIALLY_COMMITTED",
+        committed: true
+      });
+      expect((await readEvents(storePath)).find((event) => event.op === "revise_record")).not.toHaveProperty(
+        "redaction"
+      );
+
+      await engine.revise({
+        record_id: source.record.id,
+        patch: { "content.text": "ENV_ONE=alpha\nENV_TWO=beta\nENV_THREE=gamma" },
+        reason: "later cleanup after the partial revision"
+      });
+
+      const resumed = await engine.revise(request);
+      expect(resumed).toMatchObject({
+        committed: true,
+        warning: { code: "SENSITIVE_CONTENT_DETECTED" },
+        quarantine_event: { op: "quarantine_record" }
+      });
+      const events = await readEvents(storePath);
+      expect(events.filter((event) => event.op === "quarantine_record")).toHaveLength(1);
+      expect(
+        (
+          await engine.recall({
+            record_ids: [source.record.id],
+            states: ["quarantined"],
+            project_id: "moryn"
+          })
+        ).results[0]?.record.state
+      ).toBe("quarantined");
+    });
+  });
+
   it("replays a successful promotion before re-evaluating later conflicts", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createEngine({ storePath });
@@ -238,6 +361,9 @@ describe("mutation idempotency", () => {
         committed: true,
         recovery_hint: { committed_event_ids: [expect.any(String)] }
       } satisfies Partial<PartialMutationCommitError>);
+      expect((await readEvents(storePath)).find((event) => event.op === "revise_record")).toMatchObject({
+        redaction: { kind: "sensitive_content", applied: true }
+      });
       const resumed = await engine.revise(request);
       expect(resumed).toMatchObject({
         committed: true,

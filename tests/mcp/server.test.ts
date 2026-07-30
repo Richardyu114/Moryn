@@ -8,9 +8,11 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { describe, expect, it } from "vitest";
 import { CHECKPOINT_SELECTION_SOURCES } from "../../src/core/checkpoint.js";
 import { BOOT_SELECTION_SOURCES, createEngine } from "../../src/core/engine.js";
+import { currentOperationDeadlineSignal } from "../../src/core/operation-deadline.js";
 import { initializeProjectConfig } from "../../src/core/project.js";
 import { SEMANTIC_CONSOLIDATION_RECEIPT_SELECTION_SOURCES } from "../../src/core/semantic-consolidation.js";
 import { readEvents } from "../../src/core/store.js";
+import { executeMcpToolWithDeadline, mcpErrorResult } from "../../src/mcp/server.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
 const exec = promisify(execFile);
@@ -1276,6 +1278,176 @@ describe("MCP stdio server", () => {
     } finally {
       await rm(store, { recursive: true, force: true });
     }
+  });
+
+  it("maps an unprotected committed MCP deadline result to a non-retryable failure", async () => {
+    const committedResult = {
+      ok: true,
+      committed: true,
+      idempotency_protected: false,
+      durability: "best_effort"
+    };
+    let capturedError: unknown;
+
+    try {
+      await executeMcpToolWithDeadline(20, new AbortController().signal, async () => {
+        const signal = currentOperationDeadlineSignal();
+        if (!signal) throw new Error("Expected an operation deadline signal");
+        await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
+        return {
+          content: [{ type: "text", text: JSON.stringify(committedResult) }],
+          structuredContent: {
+            outcome: { status: "completed_with_warnings", committed: true, retryable: false },
+            result: committedResult
+          }
+        };
+      });
+    } catch (error) {
+      capturedError = error;
+    }
+
+    const mapped = mcpErrorResult(capturedError);
+    expect(mapped).toMatchObject({
+      isError: true,
+      structuredContent: {
+        outcome: {
+          status: "failed",
+          committed: true,
+          retryable: false,
+          next_action: {
+            recommended_action: "inspect_returned_committed_result_before_new_mutation",
+            reason: "mutation_committed_without_idempotency_key",
+            inspection_source: "returned_committed_result",
+            retry_original_mutation: false
+          }
+        },
+        result: {
+          ok: false,
+          error: {
+            code: "OPERATION_DEADLINE_EXCEEDED",
+            recovery_hint: {
+              deadline_observed_after_commit: true,
+              committed_result: committedResult
+            }
+          }
+        }
+      }
+    });
+    expect(mapped.structuredContent?.outcome).not.toHaveProperty("next_action.committed_event_ids");
+  });
+
+  it("keeps a protected best-effort MCP result retryable after its deadline", async () => {
+    const committedResult = {
+      ok: true,
+      committed: true,
+      idempotency_protected: true,
+      durability: "best_effort"
+    };
+    let capturedError: unknown;
+
+    try {
+      await executeMcpToolWithDeadline(20, new AbortController().signal, async () => {
+        const signal = currentOperationDeadlineSignal();
+        if (!signal) throw new Error("Expected an operation deadline signal");
+        await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
+        return {
+          content: [{ type: "text", text: JSON.stringify(committedResult) }],
+          structuredContent: {
+            outcome: { status: "completed_with_warnings", committed: true, retryable: true },
+            result: committedResult
+          }
+        };
+      });
+    } catch (error) {
+      capturedError = error;
+    }
+
+    expect(mcpErrorResult(capturedError)).toMatchObject({
+      isError: true,
+      structuredContent: {
+        outcome: { status: "failed", committed: true, retryable: true },
+        result: { ok: false, error: { code: "OPERATION_DEADLINE_EXCEEDED" } }
+      }
+    });
+  });
+
+  it("preserves external cancellation classification through the MCP error mapping", async () => {
+    const committedResult = {
+      ok: true,
+      committed: true,
+      idempotency_protected: true,
+      durability: "best_effort"
+    };
+    const controller = new AbortController();
+    let notifyStarted: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      notifyStarted = resolve;
+    });
+    const pending = executeMcpToolWithDeadline(1_000, controller.signal, async () => {
+      const signal = currentOperationDeadlineSignal();
+      if (!signal) throw new Error("Expected an operation deadline signal");
+      notifyStarted?.();
+      await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
+      return {
+        content: [{ type: "text", text: JSON.stringify(committedResult) }],
+        structuredContent: {
+          outcome: { status: "completed_with_warnings", committed: true, retryable: true },
+          result: committedResult
+        }
+      };
+    });
+    await started;
+    controller.abort();
+    let capturedError: unknown;
+    try {
+      await pending;
+    } catch (error) {
+      capturedError = error;
+    }
+
+    expect(mcpErrorResult(capturedError)).toMatchObject({
+      isError: true,
+      structuredContent: {
+        outcome: { status: "failed", committed: true, retryable: true },
+        result: {
+          ok: false,
+          error: {
+            code: "OPERATION_CANCELLED",
+            recovery_hint: {
+              cancellation_observed_after_commit: true,
+              committed_result: committedResult
+            }
+          }
+        }
+      }
+    });
+  });
+
+  it("preserves an existing committed MCP business error after the deadline", async () => {
+    const response = {
+      content: [{ type: "text" as const, text: '{"ok":false}' }],
+      structuredContent: {
+        outcome: { status: "failed", committed: true, retryable: true },
+        result: {
+          ok: false,
+          error: {
+            code: "MUTATION_PARTIALLY_COMMITTED",
+            recommended_action: "retry the same mutation with the same idempotency_key",
+            recovery_hint: { committed_event_ids: ["evt_partial"] }
+          }
+        }
+      },
+      isError: true
+    };
+
+    const result = await executeMcpToolWithDeadline(20, new AbortController().signal, async () => {
+      const signal = currentOperationDeadlineSignal();
+      if (!signal) throw new Error("Expected an operation deadline signal");
+      await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
+      return response;
+    });
+
+    expect(result).toBe(response);
   });
 
   it("discovers Dashboard service controls and requires confirmation for MCP mutations", async () => {
@@ -8997,8 +9169,8 @@ describe("MCP stdio server", () => {
         expect(result.error.next_action).toMatchObject({
           recommended_action: "list_recent_records_and_retry_with_known_record_id",
           tool: "list_recent",
-          command: "moryn list-recent",
-          arguments: {},
+          command: "moryn list-recent --all-projects",
+          arguments: { all_projects: true },
           rejected_arguments: { record_id: "rec_missing" },
           required_fields: [],
           safe_to_run: true
@@ -9033,7 +9205,8 @@ describe("MCP stdio server", () => {
           await client.callTool({
             name: "recall",
             arguments: {
-              record_ids: ["rec_missing"]
+              record_ids: ["rec_missing"],
+              include_private: true
             }
           })
         ) as {
@@ -9041,6 +9214,8 @@ describe("MCP stdio server", () => {
           error: {
             code: string;
             next_action?: {
+              command?: string;
+              arguments?: Record<string, unknown>;
               workflow?: {
                 phases?: Array<Record<string, unknown>>;
               };
@@ -9050,13 +9225,17 @@ describe("MCP stdio server", () => {
 
         expect(result.ok).toBe(false);
         expect(result.error.code).toBe("RECORD_NOT_FOUND");
+        expect(result.error.next_action).toMatchObject({
+          command: "moryn list-recent --all-projects --include-private",
+          arguments: { all_projects: true, include_private: true }
+        });
         expect(result.error.next_action?.workflow?.phases?.[1]).toEqual({
           phase: "retry_original_tool_with_selected_record_id",
           order: 2,
           action_source: "list_recent.records_by_id.<record_id>.id",
           tool: "recall",
-          command: "moryn recall --record-id <record_id_from_list_recent>",
-          arguments: { record_ids: ["<record_id_from_list_recent>"] },
+          command: "moryn recall --record-id <record_id_from_list_recent> --include-private",
+          arguments: { record_ids: ["<record_id_from_list_recent>"], include_private: true },
           replace_arguments: { record_ids: "list_recent.records_by_id.<record_id>.id" },
           required_when:
             "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",

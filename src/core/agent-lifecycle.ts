@@ -3701,6 +3701,7 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
   return {
     ok: true,
     committed: record.committed,
+    idempotency_protected: record.events.length > 0 && record.events.every((event) => event.idempotency !== undefined),
     idempotent_replay: record.idempotent_replay,
     durability: record.durability,
     durability_by_event_id: record.durability_by_event_id,
@@ -3820,6 +3821,7 @@ export async function agentStatus(input: AgentStatusInput, deps: AgentLifecycleD
   return {
     ok: true,
     committed: record.committed,
+    idempotency_protected: record.events.length > 0 && record.events.every((event) => event.idempotency !== undefined),
     idempotent_replay: record.idempotent_replay,
     durability: record.durability,
     durability_by_event_id: record.durability_by_event_id,

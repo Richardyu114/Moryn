@@ -61,6 +61,30 @@ describe("operation deadline", () => {
     });
   });
 
+  it("treats committed_result as ordinary committed operation data", async () => {
+    const result = {
+      committed: true,
+      event_id: "evt_domain_result",
+      committed_result: { source: "domain" }
+    };
+
+    await expect(
+      withOperationDeadline(20, async () => {
+        const signal = currentOperationDeadlineSignal();
+        if (!signal) throw new Error("Expected an operation deadline signal");
+        await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
+        return result;
+      })
+    ).rejects.toMatchObject({
+      code: "OPERATION_DEADLINE_EXCEEDED",
+      committed: true,
+      recovery_hint: {
+        deadline_observed_after_commit: true,
+        committed_result: result
+      }
+    });
+  });
+
   it("does not replace a partial-commit error after cancellation", async () => {
     const partial = Object.assign(new Error("mutation partially committed"), {
       code: "MUTATION_PARTIALLY_COMMITTED",
@@ -83,6 +107,55 @@ describe("operation deadline", () => {
         timeoutMs: 20
       })
     ).rejects.toBeInstanceOf(OperationChildProcessTimeoutError);
+  });
+
+  it("preserves external cancellation inside an in-flight child consumer", async () => {
+    const controller = new AbortController();
+    let childError: unknown;
+
+    await expect(
+      withOperationDeadline(
+        1_000,
+        async () => {
+          const abortTimer = setTimeout(() => controller.abort(new Error("SDK transport closed")), 20);
+          try {
+            await execOperationChildProcess(process.execPath, ["--eval", "setInterval(() => undefined, 1000)"], {
+              cwd: process.cwd()
+            });
+          } catch (error) {
+            childError = error;
+            throw error;
+          } finally {
+            clearTimeout(abortTimer);
+          }
+        },
+        controller.signal
+      )
+    ).rejects.toBeInstanceOf(OperationCancelledError);
+
+    expect(childError).toBeInstanceOf(OperationCancelledError);
+  });
+
+  it("classifies a late child timer against the expired absolute deadline", async () => {
+    let childError: unknown;
+
+    await expect(
+      withOperationDeadline(80, async () => {
+        const pending = execOperationChildProcess(process.execPath, ["--eval", "setInterval(() => undefined, 1000)"], {
+          cwd: process.cwd(),
+          timeoutMs: 10
+        });
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 140);
+        try {
+          await pending;
+        } catch (error) {
+          childError = error;
+          throw error;
+        }
+      })
+    ).rejects.toBeInstanceOf(OperationDeadlineExceededError);
+
+    expect(childError).toBeInstanceOf(OperationDeadlineExceededError);
   });
 
   it("escalates an ignored TERM to KILL and waits for child close", async () => {

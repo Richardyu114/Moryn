@@ -91,12 +91,14 @@ function validateTimeoutMs(timeoutMs: number): void {
   }
 }
 
-function deadlineError(signal?: AbortSignal): OperationDeadlineExceededError {
-  return isOperationDeadlineExceeded(signal?.reason) ? signal.reason : new OperationDeadlineExceededError();
-}
-
 function cancellationError(signal?: AbortSignal): Error {
   if (isOperationDeadlineExceeded(signal?.reason) || isOperationCancelled(signal?.reason)) return signal.reason;
+  return new OperationCancelledError();
+}
+
+function operationTerminationError(signal: AbortSignal | undefined, deadlineAtMs: number | undefined): Error {
+  if (signal?.aborted) return cancellationError(signal);
+  if (deadlineAtMs !== undefined && deadlineAtMs <= Date.now()) return new OperationDeadlineExceededError();
   return new OperationCancelledError();
 }
 
@@ -480,7 +482,7 @@ export function spawnOperationChildProcess(
     killTimer = setTimeout(forceKillPosixGroup, CHILD_TERMINATION_GRACE_MS);
   };
 
-  const abortForOperation = () => terminate(deadlineError(operationSignal));
+  const abortForOperation = () => terminate(operationTerminationError(operationSignal, operationDeadlineAtMs));
   if (operationSignal?.aborted) abortForOperation();
   else operationSignal?.addEventListener("abort", abortForOperation, { once: true });
 

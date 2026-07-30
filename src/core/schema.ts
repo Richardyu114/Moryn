@@ -69,6 +69,11 @@ const eventIdempotencySchema = z.object({
 
 const eventIdempotencyShape = { idempotency: eventIdempotencySchema.optional() };
 
+const eventRedactionSchema = z.object({
+  kind: z.literal("sensitive_content"),
+  applied: z.literal(true)
+});
+
 export const recordSchema = z.object({
   id: z.string().min(1),
   kind: recordKindSchema,
@@ -116,6 +121,7 @@ export const eventSchema = z.discriminatedUnion("op", [
     reason: nonEmptyStringSchema.optional(),
     confirmed: z.boolean().optional(),
     conflict: recordConflictSchema.optional(),
+    redaction: eventRedactionSchema.optional(),
     created_at: isoDateTimeSchema,
     source: recordSourceSchema
   }),

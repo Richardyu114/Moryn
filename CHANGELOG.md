@@ -83,6 +83,14 @@ memory.
   changes now require the separate explicit `activate_host` permission. Slow
   optional lifecycle work is reported as deferred after the local write is
   durable instead of turning a committed mutation into an ambiguous failure.
+- MCP deadline responses preserve a mutation's committed result, external
+  cancellation remains distinguishable from deadline expiry through child
+  process cleanup, and automation does not recommend blindly replaying a
+  committed mutation that had no idempotency key.
+- Missing-record recovery keeps an explicit project scope when available and
+  otherwise requests an explicit all-projects recent-record search. Explicit
+  private-read authorization is preserved, and discovery no longer falls back
+  silently to the global-only default scope.
 
 ### Safety and compatibility
 
@@ -116,6 +124,10 @@ memory.
   as plain session evidence. Deadline-aware Git helpers terminate their full
   POSIX process group, and lease cleanup runs outside an expired operation
   budget without hiding a simultaneous work failure.
+- New sensitive revisions persist explicit redaction evidence instead of
+  inferring it from user-authored placeholder text, while legacy partial
+  revisions are re-evaluated against their event-time record content. Literal
+  `[REDACTED...]` documentation no longer triggers accidental quarantine.
 - Production dependency resolutions include the current `body-parser`, Hono,
   and `fast-uri` security fixes. Until the MCP SDK accepts Hono's safe 2.x
   adapter range directly, the root development install applies a scoped

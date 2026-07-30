@@ -44,6 +44,11 @@ export interface EventIdempotency {
   request_digest: string;
 }
 
+export interface EventRedaction {
+  kind: "sensitive_content";
+  applied: true;
+}
+
 export interface MorynRecord {
   id: string;
   kind: RecordKind;
@@ -80,6 +85,7 @@ export type MorynEvent = { idempotency?: EventIdempotency } & (
       reason?: string;
       confirmed?: boolean;
       conflict?: RecordConflict;
+      redaction?: EventRedaction;
       created_at: string;
       source: RecordSource;
     }

@@ -93,6 +93,7 @@ describe("host adapters", () => {
         currentTask: "design host adapter"
       });
 
+      expect(result).toMatchObject({ committed: true, idempotency_protected: false });
       expect(result.record.kind).toBe("session_summary");
       expect(result.record.type).toBe("summary");
       expect(result.record.scope).toBe("project");

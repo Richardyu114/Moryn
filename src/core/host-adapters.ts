@@ -69,6 +69,8 @@ export type CaptureSessionInput = {
 
 export type CaptureSessionResult = {
   ok: true;
+  committed: true;
+  idempotency_protected: boolean;
   mode: "capture_session";
   adapter: HostAdapter;
   record: MorynRecord;
@@ -450,6 +452,9 @@ export async function captureSession(input: CaptureSessionInput): Promise<Captur
   const syncArg = input.syncRemote ? ` --sync-remote ${quoteCli(input.syncRemote)}` : "";
   return {
     ok: true,
+    committed: written.committed,
+    idempotency_protected:
+      written.events.length > 0 && written.events.every((event) => event.idempotency !== undefined),
     mode: "capture_session",
     adapter,
     record: written.record,

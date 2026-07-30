@@ -849,8 +849,8 @@ describe("error envelopes", () => {
           rejected_argument: { argument: "record_id", value: "rec_missing" },
           discover_with: {
             tool: "list_recent",
-            command: "moryn list-recent",
-            arguments: {},
+            command: "moryn list-recent --all-projects",
+            arguments: { all_projects: true },
             safe_to_run: true
           },
           retry_with: {
@@ -864,8 +864,8 @@ describe("error envelopes", () => {
         next_action: {
           recommended_action: "list_recent_records_and_retry_with_known_record_id",
           tool: "list_recent",
-          command: "moryn list-recent",
-          arguments: {},
+          command: "moryn list-recent --all-projects",
+          arguments: { all_projects: true },
           argument_sources: { record_id: "list_recent.records_by_id.<record_id>.id" },
           rejected_arguments: { record_id: "rec_missing" },
           required_fields_by_name: {},
@@ -933,6 +933,77 @@ describe("error envelopes", () => {
     ).toEqual(["record_id"]);
   });
 
+  it("keeps missing-record discovery inside an explicit project context", () => {
+    const envelope = toErrorEnvelope(new Error("Record not found: rec_missing"), {
+      tool: "recall",
+      command: "moryn recall --record-id rec_missing --project-id alpha",
+      arguments: {
+        record_ids: ["rec_missing"],
+        project_id: "alpha",
+        project_path: "/workspace/Alpha Project"
+      }
+    });
+
+    expect(envelope.error.recovery_hint).toMatchObject({
+      discover_with: {
+        tool: "list_recent",
+        command: "moryn list-recent --project-id alpha",
+        arguments: { project_id: "alpha" }
+      }
+    });
+    expect(envelope.error.next_action).toMatchObject({
+      tool: "list_recent",
+      command: "moryn list-recent --project-id alpha",
+      arguments: { project_id: "alpha" }
+    });
+  });
+
+  it("uses a quoted project path for missing-record discovery when no project id is available", () => {
+    const envelope = toErrorEnvelope(new Error("Record not found: rec_missing"), {
+      tool: "recall",
+      command: "moryn recall --record-id rec_missing --project '/workspace/Alpha Project'",
+      arguments: { record_ids: ["rec_missing"], project_path: "/workspace/Alpha Project" }
+    });
+
+    expect(envelope.error.recovery_hint).toMatchObject({
+      discover_with: {
+        tool: "list_recent",
+        command: "moryn list-recent --project '/workspace/Alpha Project'",
+        arguments: { project_path: "/workspace/Alpha Project" }
+      }
+    });
+    expect(envelope.error.next_action).toMatchObject({
+      tool: "list_recent",
+      command: "moryn list-recent --project '/workspace/Alpha Project'",
+      arguments: { project_path: "/workspace/Alpha Project" }
+    });
+  });
+
+  it("preserves explicit private visibility and the exact project id in missing-record discovery", () => {
+    const envelope = toErrorEnvelope(new Error("Record not found: rec_missing"), {
+      tool: "recall",
+      command: "moryn recall --record-id rec_missing --project-id ' alpha ' --include-private",
+      arguments: {
+        record_ids: ["rec_missing"],
+        project_id: " alpha ",
+        include_private: true
+      }
+    });
+
+    expect(envelope.error.recovery_hint).toMatchObject({
+      discover_with: {
+        tool: "list_recent",
+        command: "moryn list-recent --project-id ' alpha ' --include-private",
+        arguments: { project_id: " alpha ", include_private: true }
+      }
+    });
+    expect(envelope.error.next_action).toMatchObject({
+      tool: "list_recent",
+      command: "moryn list-recent --project-id ' alpha ' --include-private",
+      arguments: { project_id: " alpha ", include_private: true }
+    });
+  });
+
   it("uses error context to make missing-record retry workflows executable", () => {
     const envelope = toErrorEnvelope(new Error("Record not found: rec_missing"), {
       tool: "promote",
@@ -975,8 +1046,8 @@ describe("error envelopes", () => {
       rejected_argument: { argument: "record_ids", value: "rec_missing" },
       discover_with: {
         tool: "list_recent",
-        command: "moryn list-recent",
-        arguments: {},
+        command: "moryn list-recent --all-projects",
+        arguments: { all_projects: true },
         safe_to_run: true
       },
       retry_with: {

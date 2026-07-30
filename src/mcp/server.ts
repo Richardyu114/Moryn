@@ -28,7 +28,13 @@ import type { HostRuntimeDescriptor } from "../core/host-integration-artifacts.j
 import { queueLearning } from "../core/learning-inbox.js";
 import { LOGICAL_RELATIONSHIP_TYPES } from "../core/logical-memory.js";
 import { runMaintenanceOnce } from "../core/maintenance-runner.js";
-import { withOperationDeadline } from "../core/operation-deadline.js";
+import {
+  isOperationCancelled,
+  isOperationDeadlineExceeded,
+  OperationCancelledError,
+  OperationDeadlineExceededError,
+  withOperationDeadline
+} from "../core/operation-deadline.js";
 import { automationOutcome, failedAutomationOutcome } from "../core/operation-outcome.js";
 import { initializeProjectConfig, type ProjectConfig, resolveProjectContext, type SyncMode } from "../core/project.js";
 import type {
@@ -725,17 +731,21 @@ function jsonResult(
   };
 }
 
+export function mcpErrorResult(error: unknown, context?: MorynErrorContext): CallToolResult {
+  const envelope = toErrorEnvelope(error, context);
+  return {
+    ...jsonResult(envelope, { outcome: failedAutomationOutcome(envelope.error.next_action, error) }),
+    isError: true
+  };
+}
+
 async function toolResult(fn: () => Promise<unknown>, context?: MorynErrorContext) {
   try {
     const value = await fn();
     const result = jsonResult(value);
     return automationOutcome(value).status === "failed" ? { ...result, isError: true } : result;
   } catch (error) {
-    const envelope = toErrorEnvelope(error, context);
-    return {
-      ...jsonResult(envelope, { outcome: failedAutomationOutcome(envelope.error.next_action, error) }),
-      isError: true
-    };
+    return mcpErrorResult(error, context);
   }
 }
 
@@ -752,11 +762,7 @@ async function toolResultWithNormalizedInput(
     const result = jsonResult(value);
     return automationOutcome(value).status === "failed" ? { ...result, isError: true } : result;
   } catch (error) {
-    const envelope = toErrorEnvelope(error, normalizedInput && context ? context(normalizedInput) : undefined);
-    return {
-      ...jsonResult(envelope, { outcome: failedAutomationOutcome(envelope.error.next_action, error) }),
-      isError: true
-    };
+    return mcpErrorResult(error, normalizedInput && context ? context(normalizedInput) : undefined);
   }
 }
 
@@ -766,6 +772,45 @@ function mcpOperationTimeoutMs(value: unknown): number {
     throw new Error("Invalid argument: timeout_ms must be a positive integer no greater than 900000");
   }
   return value;
+}
+
+function mcpCommittedResult(response: CallToolResult): { committed_result: unknown } | undefined {
+  const structuredContent = response.structuredContent;
+  if (!structuredContent || typeof structuredContent.outcome !== "object" || structuredContent.outcome === null) {
+    return undefined;
+  }
+  return "committed" in structuredContent.outcome && structuredContent.outcome.committed === true
+    ? { committed_result: structuredContent.result ?? null }
+    : undefined;
+}
+
+export async function executeMcpToolWithDeadline(
+  timeoutMs: number,
+  externalSignal: AbortSignal,
+  callback: () => Promise<CallToolResult>
+): Promise<CallToolResult> {
+  let completedResponse: CallToolResult | undefined;
+  try {
+    return await withOperationDeadline(
+      timeoutMs,
+      async () => {
+        completedResponse = await callback();
+        return completedResponse;
+      },
+      externalSignal
+    );
+  } catch (error) {
+    const committed = completedResponse ? mcpCommittedResult(completedResponse) : undefined;
+    if (!committed) throw error;
+    if (completedResponse?.isError === true) return completedResponse;
+    if (isOperationDeadlineExceeded(error)) {
+      throw new OperationDeadlineExceededError(committed.committed_result);
+    }
+    if (isOperationCancelled(error)) {
+      throw new OperationCancelledError(committed.committed_result);
+    }
+    throw error;
+  }
 }
 
 function registerMcpTool<TShape extends McpInputShape & McpTimeoutShape>(
@@ -788,17 +833,13 @@ function registerMcpTool<TShape extends McpInputShape & McpTimeoutShape>(
       const raw = input as Record<string, unknown>;
       const timeoutMs = mcpOperationTimeoutMs(raw.timeout_ms);
       const toolInput = Object.fromEntries(Object.entries(raw).filter(([key]) => key !== "timeout_ms"));
-      return await withOperationDeadline(
+      return await executeMcpToolWithDeadline(
         timeoutMs,
-        async () => await callback(toolInput as never, extra as never),
-        extra.signal
+        extra.signal,
+        async () => await callback(toolInput as never, extra as never)
       );
     } catch (error) {
-      const envelope = toErrorEnvelope(error);
-      return {
-        ...jsonResult(envelope, { outcome: failedAutomationOutcome(envelope.error.next_action, error) }),
-        isError: true
-      };
+      return mcpErrorResult(error);
     }
   });
 }

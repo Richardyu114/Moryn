@@ -3778,6 +3778,19 @@ export function createEngine(deps: EngineDeps) {
     return existing;
   }
 
+  async function revisionContentWasSensitiveWhenCommitted(
+    revision: Extract<MorynEvent, { op: "revise_record" }>,
+    patch: Record<string, unknown>
+  ): Promise<boolean> {
+    const events = await readEvents(deps.storePath);
+    const revisionIndex = events.findIndex((event) => event.event_id === revision.event_id);
+    if (revisionIndex < 0) return detectSensitiveContent(sensitiveScanText(patch)).sensitive;
+    const recordBeforeRevision = replayEvents(events.slice(0, revisionIndex)).get(revision.record_id);
+    if (!recordBeforeRevision) return detectSensitiveContent(sensitiveScanText(patch)).sensitive;
+    const patchedAtRevision = applyRecordPatch(recordBeforeRevision, patch);
+    return detectSensitiveContent(sensitiveScanText(patchedAtRevision.content)).sensitive;
+  }
+
   async function commitMutationEvents(
     events: MorynEvent[],
     operation: string,
@@ -4962,10 +4975,14 @@ export function createEngine(deps: EngineDeps) {
         const existingQuarantine = await existingIdempotentMutation(quarantineIdentity, "revise", [
           "quarantine_record"
         ]);
+        const legacySensitiveReplay =
+          !existingQuarantine &&
+          existingRevision.redaction === undefined &&
+          (await revisionContentWasSensitiveWhenCommitted(existingRevision, patch));
         const sensitiveReplay =
           Boolean(existingQuarantine) ||
-          JSON.stringify(existingRevision.patch).includes("[REDACTED") ||
-          detectSensitiveContent(sensitiveScanText(patch)).sensitive;
+          existingRevision.redaction?.kind === "sensitive_content" ||
+          legacySensitiveReplay;
         if (!sensitiveReplay) {
           const receipt = await commitMutationEvent(existingRevision, "revise");
           return { ...receipt, selection_sources: MUTATION_EVENT_SELECTION_SOURCES };
@@ -5026,6 +5043,7 @@ export function createEngine(deps: EngineDeps) {
         conflict: conflicts.length
           ? { kind: "semantic", with: conflicts.map((record) => record.id), resolution: "needs_review" }
           : undefined,
+        ...(sensitive.sensitive ? { redaction: { kind: "sensitive_content" as const, applied: true as const } } : {}),
         created_at: createdAt,
         source,
         ...(identity.metadata ? { idempotency: identity.metadata } : {})
