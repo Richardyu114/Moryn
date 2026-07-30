@@ -2960,6 +2960,61 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
     });
   });
 
+  it("preserves explicit Dashboard service install arguments in the rendered unit", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      let failure: (Error & { stdout?: string }) | undefined;
+      try {
+        await exec(
+          "node",
+          [
+            cliJsPath,
+            "--store",
+            store,
+            "dashboard",
+            "service",
+            "install",
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "18765",
+            "--interval",
+            "2500",
+            "--limit",
+            "30",
+            "--project-id",
+            "Moryn-349a446e",
+            "--readiness-host",
+            "codex",
+            "--sync-remote",
+            "https://github.com/example/moryn-store.git"
+          ],
+          {
+            env: {
+              ...process.env,
+              HOME: dir,
+              XDG_CONFIG_HOME: join(dir, ".config"),
+              DBUS_SESSION_BUS_ADDRESS: "disabled:"
+            }
+          }
+        );
+      } catch (error) {
+        failure = error as Error & { stdout?: string };
+      }
+
+      expect(failure?.stdout).toContain('"unit_changed": true');
+      const unit = await readFile(join(dir, ".config", "systemd", "user", "moryn-dashboard.service"), "utf8");
+      expect(unit).toContain(`"--store" "${store}"`);
+      expect(unit).toContain('"--host" "0.0.0.0"');
+      expect(unit).toContain('"--port" "18765"');
+      expect(unit).toContain('"--interval" "2500"');
+      expect(unit).toContain('"--limit" "30"');
+      expect(unit).toContain('"--project-id" "Moryn-349a446e"');
+      expect(unit).toContain('"--readiness-host" "codex"');
+      expect(unit).toContain('"--sync-remote" "https://github.com/example/moryn-store.git"');
+    });
+  });
+
   it("returns operation contract argument hints for empty write CLI provenance reason", async () => {
     await withTempDir(async (dir) => {
       await exec("node", [cliJsPath, "--store", dir, "init"]);

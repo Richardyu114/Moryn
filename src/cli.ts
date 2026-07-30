@@ -3999,8 +3999,8 @@ dashboardServiceCommand.command("status").action(async () => {
   printJson(await inspectDashboardService());
 });
 
-addDashboardServiceOptions(dashboardServiceCommand.command("install")).action(async (options) => {
-  printJson(await installDashboardService(dashboardServiceConfig(options)));
+addDashboardServiceOptions(dashboardServiceCommand.command("install")).action(async (_options, command: Command) => {
+  printJson(await installDashboardService(dashboardServiceConfig(command.optsWithGlobals() as DashboardCliOptions)));
 });
 
 dashboardServiceCommand.command("restart").action(async () => {
