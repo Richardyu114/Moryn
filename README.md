@@ -14,7 +14,7 @@ for multi-agent, multi-device AI work.** Every saved item keeps its provenance,
 so useful context can move between agents without becoming an opaque cloud
 profile.
 
-[![Moryn Dashboard showing a current task, cross-agent handoff, memory state, and healthy sync](assets/moryn-dashboard-demo.png)](assets/moryn-dashboard-demo.png)
+[![Full Moryn Dashboard Overview showing current work, cross-agent handoff, memory composition, recent changes, and healthy sync](assets/moryn-dashboard-demo.png)](assets/moryn-dashboard-demo.png)
 
 *The real Moryn Dashboard rendered from a synthetic demo store. No personal,
 local, or production memory is shown.*
