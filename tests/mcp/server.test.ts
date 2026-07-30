@@ -3113,9 +3113,7 @@ describe("MCP stdio server", () => {
         });
         expect(parsed.operations.find((operation) => operation.operation === "agent_finish")).toEqual({
           operation: "agent_finish",
-          mcp_tool: "agent_finish",
-          cli_command: "moryn agent finish --summary <summary>",
-          next_step: "collect_required_fields"
+          operation_source: "operations_by_id.agent_finish"
         });
         expect(parsed.operations_by_id.agent_finish.full_contract_lookup.mcp).toMatchObject({
           tool: "operation_contracts",
@@ -4303,6 +4301,7 @@ describe("MCP stdio server", () => {
           "memory_compaction_restore",
           "memory_doctor",
           "memory_expand",
+          "memory_feedback",
           "memory_lifecycle",
           "memory_maintenance_shadow",
           "operation_contracts",
@@ -4870,9 +4869,16 @@ describe("MCP stdio server", () => {
           record: "results_by_id.<record_id>.record",
           record_id: "results_by_id.<record_id>.record.id",
           result_next_action: "results_by_id.<record_id>.next_action",
+          historical_match: "historical_recovery.matches_by_record_id.<record_id>",
+          historical_record_id: "historical_recovery.matches_by_record_id.<record_id>.record_id",
+          historical_full_record: "historical_recovery.matches_by_record_id.<record_id>.record",
+          historical_excerpt: "historical_recovery.matches_by_record_id.<record_id>.excerpt",
+          outcome_best_result_source: "outcome.best_result_source",
+          outcome_best_result_path: "outcome.best_result_path",
           memory_working_set: "memory_working_set",
           next_action: "next_actions_by_id.<action_id>",
-          ordered_next_action: "next_actions[]"
+          ordered_next_action: "next_actions[]",
+          next_action_argument: "next_actions_by_id.<action_id>.arguments_by_name.<argument>"
         });
         expect(recallResult.results_by_id[writeResult.record.id]).toEqual(recallResult.results[0]);
 
@@ -9317,7 +9323,8 @@ describe("MCP stdio server", () => {
               "source",
               "provenance",
               "conflict",
-              "links"
+              "links",
+              "memory_usage"
             ]
           },
           retry_with: {

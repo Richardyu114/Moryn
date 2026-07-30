@@ -3,6 +3,7 @@ import { commandLineForCliInterface } from "./core/cli-command-line.js";
 import { PROJECT_SYNC_MODE_INPUTS } from "./core/project.js";
 import { PROVENANCE_METHODS, RECORD_KINDS, RECORD_PRIORITIES, RECORD_SCOPES, RECORD_STATES } from "./core/schema.js";
 import { stringKeyedRecordFromEntries } from "./core/string-keyed-record.js";
+import { RECORD_FEEDBACK_OUTCOMES } from "./core/types.js";
 import { type RequiredFieldMetadata, requiredFieldsByName } from "./core/workflow.js";
 
 type OperationCategory = "setup" | "core" | "sync" | "lifecycle" | "contracts" | "maintenance" | "observability";
@@ -380,7 +381,7 @@ export type OperationContractIndexResponse = {
       by_cli_command_arguments: { cli_command: string };
     };
   };
-  operations: Array<Pick<OperationContractIndexEntry, "operation" | "mcp_tool" | "cli_command" | "next_step">>;
+  operations: Array<Pick<OperationContractIndexEntry, "operation" | "operation_source">>;
   operations_by_id: Record<string, OperationContractIndexEntry>;
   operations_by_mcp_tool: Record<string, string>;
   operations_by_cli_command: Record<string, string>;
@@ -2067,9 +2068,11 @@ export const OPERATION_CONTRACTS = [
   operationContract({
     operation: "recall",
     category: "core",
-    summary: "Search or fetch records by query, record id, project, kind, scope, state, tag, type, or file.",
+    summary:
+      "Search bounded current memory and, on a missing or incomplete default query result, recover bounded retained history without reactivating it.",
     safe_to_run: true,
-    required_when: "When an agent needs specific memory records or the full content behind a returned record id.",
+    required_when:
+      "When an agent needs specific memory, including evidence that may have been folded, archived, or omitted by the active working-set budget.",
     required_fields: [],
     arguments_by_name: {
       query: {
@@ -2188,6 +2191,73 @@ export const OPERATION_CONTRACTS = [
     interfaces: {
       cli: { command: "moryn timeline", argv: ["timeline"] },
       mcp: { tool: "timeline", arguments: {} }
+    }
+  }),
+  operationContract({
+    operation: "memory_feedback",
+    category: "core",
+    summary:
+      "Append one final recall outcome to a record's non-semantic usage projection without storing the query or answer.",
+    safe_to_run: false,
+    required_when:
+      "After a recall interaction has a final outcome; submit exactly one of recalled, used, verified, or rejected for each idempotency key.",
+    required_fields: ["record_id", "outcome", "idempotency_key"],
+    argument_sources: userInputSources(["record_id", "outcome", "idempotency_key"]),
+    arguments_by_name: {
+      record_id: {
+        type: "string",
+        required: true,
+        cli: { positional: "record-id" },
+        mcp: { argument: "record_id" }
+      },
+      outcome: {
+        type: "string",
+        required: true,
+        cli: { flag: "--outcome" },
+        mcp: { argument: "outcome" },
+        allowed_values: RECORD_FEEDBACK_OUTCOMES
+      },
+      occurred_at: {
+        type: "string",
+        required: false,
+        cli: { flag: "--occurred-at" },
+        mcp: { argument: "occurred_at" }
+      },
+      idempotency_key: {
+        type: "string",
+        required: true,
+        cli: { flag: "--idempotency-key" },
+        mcp: { argument: "idempotency_key" }
+      },
+      source: {
+        type: "object",
+        required: false,
+        mcp: { argument: "source" }
+      },
+      ...sourceIdentityArguments
+    },
+    required_fields_by_name: {
+      outcome: {
+        name: "outcome",
+        argument_path: "outcome",
+        value: "<outcome>",
+        placeholder: "<outcome>",
+        allowed_values: RECORD_FEEDBACK_OUTCOMES
+      }
+    },
+    interfaces: {
+      cli: {
+        command: "moryn memory feedback <record_id> --outcome <outcome> --idempotency-key <interaction_id>",
+        argv: ["memory", "feedback", "<record_id>", "--outcome", "<outcome>", "--idempotency-key", "<interaction_id>"]
+      },
+      mcp: {
+        tool: "memory_feedback",
+        arguments: {
+          record_id: "<record_id>",
+          outcome: "<outcome>",
+          idempotency_key: "<interaction_id>"
+        }
+      }
     }
   }),
   operationContract({
@@ -3357,11 +3427,9 @@ function operationsByCliCommandId(operations: readonly OperationContract[]): Rec
 
 export function getOperationContractIndex(): OperationContractIndexResponse {
   const operationEntries = OPERATION_CONTRACTS.map(operationContractIndexEntry);
-  const operations = operationEntries.map(({ operation, mcp_tool, cli_command, next_step }) => ({
+  const operations = operationEntries.map(({ operation, operation_source }) => ({
     operation,
-    mcp_tool,
-    cli_command,
-    next_step
+    operation_source
   }));
   return {
     recommended_entrypoint: "agent_enter",

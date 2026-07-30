@@ -225,7 +225,8 @@ function canonicalSelectionValue(value: unknown): unknown {
 }
 
 function stableSelectionKey(record: MorynRecord): string {
-  return JSON.stringify(canonicalSelectionValue(record));
+  const { memory_usage: _memoryUsage, ...semanticRecord } = record;
+  return JSON.stringify(canonicalSelectionValue(semanticRecord));
 }
 
 /** Deterministic approximation for budgeting canonical JSON passed through boot/retrieval context. */
@@ -249,14 +250,17 @@ function workingSetPriority(left: MemoryWorkingSetEntry, right: MemoryWorkingSet
   const layerPriority = { L0: 0, L1: 1, L2: 2, L3: 3 } satisfies Record<MemoryLayer, number>;
   const tierPriority = { purged: 0, cold: 1, warm: 2, hot: 3 } satisfies Record<MemoryRetentionTier, number>;
   const recordPriority = { low: 0, normal: 1, high: 2 } as const;
+  const leftFeedback = left.retention.usage.useful_count - left.retention.usage.rejected_count;
+  const rightFeedback = right.retention.usage.useful_count - right.retention.usage.rejected_count;
   return (
     layerPriority[right.retention.layer.level] - layerPriority[left.retention.layer.level] ||
     Number(right.retention.retention.never_forget) - Number(left.retention.retention.never_forget) ||
     Number(right.retention.retention.pinned) - Number(left.retention.retention.pinned) ||
     recordPriority[right.record.priority] - recordPriority[left.record.priority] ||
     tierPriority[right.retention.retention.tier] - tierPriority[left.retention.retention.tier] ||
+    rightFeedback - leftFeedback ||
     right.retention.usage.useful_count - left.retention.usage.useful_count ||
-    right.retention.usage.recall_count - left.retention.usage.recall_count ||
+    left.retention.usage.rejected_count - right.retention.usage.rejected_count ||
     compareCodeUnits(right.record.updated_at, left.record.updated_at) ||
     compareCodeUnits(left.record.id, right.record.id) ||
     compareCodeUnits(stableSelectionKey(left.record), stableSelectionKey(right.record))

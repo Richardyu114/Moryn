@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { recoverHistoricalRecall } from "../../src/core/historical-recall.js";
 import { buildPromptRecallContext } from "../../src/core/host-prompt-recall.js";
 import type { RecallOutcome } from "../../src/core/recall-outcome.js";
+import type { MorynRecord } from "../../src/core/types.js";
 
 function outcome(status: RecallOutcome["status"], bestRecordId?: string): RecallOutcome {
   return {
@@ -91,5 +93,75 @@ describe("host prompt recall context", () => {
         queue_learning: expect.objectContaining({ mcp_tool: "learn" })
       }
     });
+  });
+
+  it("injects bounded historical metadata without injecting unverified content", () => {
+    const historicalRecord: MorynRecord = {
+      id: "rec_historical",
+      kind: "session_summary",
+      type: "status",
+      scope: "project",
+      project_id: "moryn",
+      tags: [],
+      content: { text: "The historical release channel is cedar." },
+      state: "archived",
+      confidence: 0.8,
+      priority: "normal",
+      visibility: "archived",
+      created_at: "2026-07-01T00:00:00.000Z",
+      updated_at: "2026-07-01T00:00:01.000Z",
+      source: { client: "codex", session_id: "session-old" }
+    };
+    const historicalRecovery = recoverHistoricalRecall({
+      records: [historicalRecord],
+      active_working_set_record_ids: [],
+      query: "release channel cedar"
+    });
+    const context = buildPromptRecallContext({
+      outcome: outcome("verification_required", historicalRecord.id),
+      results: [],
+      question: "Which release channel should be used?",
+      historical_recovery: historicalRecovery,
+      capture_context: {
+        project_id: "moryn",
+        agent: { client: "codex", session_id: "session-current", device_id: "device-a" }
+      }
+    });
+    const payload = JSON.parse(context.additional_context);
+
+    expect(context).toMatchObject({ injected: true, record_count: 0 });
+    expect(payload).toMatchObject({
+      status: "historical_recovery",
+      recovery: {
+        trigger: "active_working_set_knowledge_gap",
+        candidates: [
+          {
+            id: historicalRecord.id,
+            state: "archived",
+            content_mode: "full"
+          }
+        ],
+        verification_action: {
+          mcp_tool: "recall",
+          mcp_arguments: {
+            record_ids: [historicalRecord.id],
+            states: ["archived"],
+            include_private: false,
+            project_id: "moryn"
+          },
+          external_side_effects: false
+        }
+      },
+      learning_bridge: {
+        candidate_record_id: historicalRecord.id,
+        learning_delta_template: { related_record_ids: [historicalRecord.id] },
+        queue_learning: {
+          mcp_arguments: { related_record_ids: [historicalRecord.id] },
+          lifecycle_consumption: "automatic_on_checkpoint_or_finish"
+        }
+      }
+    });
+    expect(payload.instruction).toContain("Do not reactivate archived source records directly");
+    expect(context.additional_context).not.toContain("historical release channel is cedar");
   });
 });

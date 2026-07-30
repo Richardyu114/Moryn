@@ -165,6 +165,44 @@ include records inside the shared private boundary (private tags or legacy
 content privacy markers). Private timeline items preserve that opt-in in their
 follow-up `recall` action.
 
+Recall is read-only. A host that knows how one recalled record was ultimately
+handled can append exactly one final outcome through the separate
+`memory_feedback` mutation:
+
+```bash
+moryn contracts operations --operation memory_feedback
+moryn memory feedback rec_... --outcome used --idempotency-key interaction-...
+```
+
+The MCP equivalent is:
+
+```json
+{
+  "tool": "memory_feedback",
+  "arguments": {
+    "record_id": "rec_...",
+    "outcome": "used",
+    "idempotency_key": "interaction-..."
+  }
+}
+```
+
+`outcome` is one of `recalled`, `used`, `verified`, or `rejected`. `used` and
+`verified` positively influence later working-set selection, `rejected`
+down-ranks the record, and `recalled` is neutral. Each key represents one final
+outcome: an exact retry replays the receipt, while changing the outcome under
+the same key fails with `IDEMPOTENCY_KEY_REUSED`. The event stores the record
+id, outcome, source, canonical time, and idempotency digests, but never stores
+the recall query or answer.
+
+Replay exposes aggregate counters as `record.memory_usage`. This is a
+non-semantic derived projection: it does not modify the record body,
+`updated_at`, logical fingerprint, token estimate, or any compaction/semantic
+merge source digest. A reliable Learning that conflicts with current canonical
+memory is instead persisted as a confirmation-required candidate with
+`conflict.resolution: "needs_review"`; pending conflicts are excluded from
+automatic near-duplicate consolidation.
+
 The read-only memory governance audit is also available through the registry:
 
 ```bash
@@ -879,7 +917,8 @@ Business failures set MCP `isError`; CLI commands exit nonzero when the same
 normalized outcome is `failed`.
 
 The `write`, `revise`, `promote`, `archive`, `quarantine`, `link`,
-`agent_status`, and `agent_finish` mutation paths accept an idempotency key.
+`memory_feedback`, `agent_status`, and `agent_finish` mutation paths accept an
+idempotency key.
 Reusing a key with the same normalized request replays the prior receipt without
 appending another event. Reusing it for different input fails with
 `IDEMPOTENCY_KEY_REUSED`. Only a SHA-256 digest is stored in event metadata;
@@ -1006,6 +1045,9 @@ valid. An automatically created exact-duplicate link remains effective only
 while both records still have the same current fingerprint. Revising either
 record makes a stale exact link stop hiding it immediately; authored semantic
 `duplicate_of` links keep their existing evidence-based behavior.
+The same exclusion applies to automatic near-duplicate proposals: a Learning
+candidate with `conflict.resolution: "needs_review"` remains visible for
+confirmation and is not silently merged with either side of the conflict.
 
 Semantic consolidation is an authored, bounded proposal. Moryn never uses an
 external model to decide the relationship. By default, proposals are
@@ -1173,8 +1215,21 @@ Consolidation, archive/cold transition, and purge are separate operations:
   source record and append-only event history;
 - purge is not part of compaction apply and is never implied by archive.
 
-Cold does not mean deleted. Cold records remain available for timeline audit and
-explicit source expansion. The v0.4 compaction plan always reports
+Cold does not mean deleted. Cold records remain available for timeline audit,
+explicit source expansion, and a bounded second-pass recall when the current
+working set produces a knowledge gap or only a partial, verification-grade
+match. Historical fallback is read-only, privacy-filtered, token-bounded, and
+always requires verification. Related successor and covering-rollup ids cross
+the same privacy, project, quarantine, and purge boundaries. Historical text is
+returned once in the explicit recall response, but native prompt hooks inject
+only candidate metadata and a read-only inspection action. Recall never
+reactivates a source record. A useful recovered fact becomes current only
+through an evidence-linked Learning Delta after verification.
+If this optional second pass is unavailable, the first-pass recall result still
+returns normally with a generic fail-closed recovery status and no internal
+error text.
+
+The v0.4 compaction plan always reports
 `purge.included: false`, `sync_impact.physical_purge: false`, and
 `sync_impact.git_history_retained: true`. Structural
 `automatic_purge_safe` classification is not destructive authorization. Normal

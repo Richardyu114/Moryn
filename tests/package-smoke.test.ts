@@ -176,7 +176,7 @@ describe("published package smoke", () => {
           [
             "--input-type=module",
             "-e",
-            "import { DEFAULT_MEMORY_WORKING_SET_TOTAL_TOKEN_BUDGET, MEMORY_LAYERS, MEMORY_RETENTION_TIERS, SOUL_DELIVERY_PROOF_SCOPE, SOUL_DISTRIBUTIONS, SOUL_PROFILE_SCHEMA_VERSION, applyMemoryCompactionPlan, approveSoulProfileDraft, buildSoulHostContext, compileEffectiveSoul, createSoulProfileDraft, expandMemorySources, planEpisodeRollup, planSessionFold, previewMemoryCompaction, readSoulProfileStatus, restoreMemoryCompactionPlan, rollbackSoulProfile, version } from '@richardyu114/moryn'; console.log(JSON.stringify({ version, layers: MEMORY_LAYERS, tiers: MEMORY_RETENTION_TIERS, budget: DEFAULT_MEMORY_WORKING_SET_TOTAL_TOKEN_BUDGET, soul_schema: SOUL_PROFILE_SCHEMA_VERSION, distributions: SOUL_DISTRIBUTIONS, proof_scope: SOUL_DELIVERY_PROOF_SCOPE, functions: [planSessionFold, planEpisodeRollup, previewMemoryCompaction, applyMemoryCompactionPlan, restoreMemoryCompactionPlan, expandMemorySources, compileEffectiveSoul, createSoulProfileDraft, approveSoulProfileDraft, rollbackSoulProfile, readSoulProfileStatus, buildSoulHostContext].map((value) => typeof value) }));"
+            "import { DEFAULT_MEMORY_WORKING_SET_TOTAL_TOKEN_BUDGET, MEMORY_LAYERS, MEMORY_RETENTION_TIERS, SOUL_DELIVERY_PROOF_SCOPE, SOUL_DISTRIBUTIONS, SOUL_PROFILE_SCHEMA_VERSION, applyMemoryCompactionPlan, approveSoulProfileDraft, buildSoulHostContext, compileEffectiveSoul, createSoulProfileDraft, expandMemorySources, planEpisodeRollup, planSessionFold, previewMemoryCompaction, readSoulProfileStatus, recoverHistoricalRecall, restoreMemoryCompactionPlan, rollbackSoulProfile, version } from '@richardyu114/moryn'; console.log(JSON.stringify({ version, layers: MEMORY_LAYERS, tiers: MEMORY_RETENTION_TIERS, budget: DEFAULT_MEMORY_WORKING_SET_TOTAL_TOKEN_BUDGET, soul_schema: SOUL_PROFILE_SCHEMA_VERSION, distributions: SOUL_DISTRIBUTIONS, proof_scope: SOUL_DELIVERY_PROOF_SCOPE, functions: [planSessionFold, planEpisodeRollup, previewMemoryCompaction, applyMemoryCompactionPlan, restoreMemoryCompactionPlan, expandMemorySources, recoverHistoricalRecall, compileEffectiveSoul, createSoulProfileDraft, approveSoulProfileDraft, rollbackSoulProfile, readSoulProfileStatus, buildSoulHostContext].map((value) => typeof value) }));"
           ],
           { cwd: dir }
         );
@@ -1387,7 +1387,7 @@ describe("published package smoke", () => {
           soul_schema: 1,
           distributions: ["local_only", "personal_sync"],
           proof_scope: "hook_output_prepared_not_host_acknowledged_or_obedience",
-          functions: Array.from({ length: 12 }, () => "function")
+          functions: Array.from({ length: 13 }, () => "function")
         });
         expect(JSON.parse(await readFile(join(store, "config.json"), "utf8"))).toMatchObject({ store_version: 1 });
       } finally {

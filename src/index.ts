@@ -68,6 +68,7 @@ export {
   repairDashboardService,
   restartDashboardService
 } from "./core/dashboard-service.js";
+export type { RecordFeedbackInput } from "./core/engine.js";
 export { createEngine } from "./core/engine.js";
 export type {
   AutomaticExactDuplicateConsolidationResult,
@@ -156,6 +157,21 @@ export { EPISODE_BUCKET_KINDS, planEpisodeRollup, planEpisodeRollups } from "./c
 export type { EpisodeRollupApplyResult, EpisodeRollupReceipt } from "./core/episode-rollup-transaction.js";
 export { applyEpisodeRollupPlan, readEpisodeRollupReceipt } from "./core/episode-rollup-transaction.js";
 export type { EventDurabilityAttestation } from "./core/event-durability-attestation.js";
+export type {
+  HistoricalRecallInput,
+  HistoricalRecallMatch,
+  HistoricalRecallMatchSummary,
+  HistoricalRecallReason,
+  HistoricalRecallRecovery,
+  HistoricalRecallTrigger
+} from "./core/historical-recall.js";
+export {
+  DEFAULT_HISTORICAL_RECALL_MAX_RECORDS,
+  DEFAULT_HISTORICAL_RECALL_TOKEN_BUDGET,
+  HISTORICAL_RECALL_SELECTION_SOURCES,
+  recoverHistoricalRecall,
+  unavailableHistoricalRecall
+} from "./core/historical-recall.js";
 export type {
   ActivationStatus,
   ActivationSuggestedAction,
@@ -625,6 +641,7 @@ import {
   PROJECT_MIGRATE_SELECTION_SOURCES,
   RECALL_EVAL_SELECTION_SOURCES,
   RECALL_SELECTION_SOURCES,
+  RECORD_FEEDBACK_SELECTION_SOURCES,
   REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES,
   REFRESH_SELECTION_SOURCES,
   SENSITIVE_REVISE_SELECTION_SOURCES,
@@ -674,7 +691,8 @@ export {
   pendingLearningInbox,
   queueLearning
 } from "./core/learning-inbox.js";
-export type { MorynRecord } from "./core/types.js";
+export type { MorynRecord, RecordFeedbackOutcome, RecordMemoryUsage } from "./core/types.js";
+export { RECORD_FEEDBACK_OUTCOMES } from "./core/types.js";
 
 export const version = "0.4.0-dev.0";
 
@@ -711,6 +729,7 @@ export {
   REBUILD_SELECTION_SOURCES,
   RECALL_EVAL_SELECTION_SOURCES,
   RECALL_SELECTION_SOURCES,
+  RECORD_FEEDBACK_SELECTION_SOURCES,
   REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES,
   REFRESH_SELECTION_SOURCES,
   SENSITIVE_REVISE_SELECTION_SOURCES,
@@ -735,6 +754,7 @@ export const SELECTION_SOURCE_CONTRACTS = {
     checkpoint: CHECKPOINT_SELECTION_SOURCES,
     write: WRITE_SELECTION_SOURCES,
     mutation_event: MUTATION_EVENT_SELECTION_SOURCES,
+    memory_feedback: RECORD_FEEDBACK_SELECTION_SOURCES,
     link_event: LINK_EVENT_SELECTION_SOURCES,
     sensitive_revise: SENSITIVE_REVISE_SELECTION_SOURCES,
     recall: RECALL_SELECTION_SOURCES,

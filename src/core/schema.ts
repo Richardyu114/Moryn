@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { MorynEvent } from "./types.js";
+import { type MorynEvent, RECORD_FEEDBACK_OUTCOMES } from "./types.js";
 
 export const RECORD_KINDS = ["memory", "skill", "soul", "session_summary", "agent_note"] as const;
 export const RECORD_STATES = ["raw", "candidate", "canonical", "archived", "quarantined"] as const;
@@ -60,6 +60,21 @@ export const recordConflictSchema = z.object({
   resolution: z.enum(CONFLICT_RESOLUTIONS)
 });
 
+const recordMemoryUsageSchema = z
+  .object({
+    version: z.literal(1),
+    last_recalled_at: isoDateTimeSchema.optional(),
+    last_useful_at: isoDateTimeSchema.optional(),
+    last_rejected_at: isoDateTimeSchema.optional(),
+    last_verified_at: isoDateTimeSchema.optional(),
+    recall_count: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+    useful_count: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+    rejected_count: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)
+  })
+  .refine((usage) => usage.useful_count + usage.rejected_count <= usage.recall_count, {
+    message: "Useful and rejected counts must not exceed recall count"
+  });
+
 const eventIdempotencySchema = z.object({
   version: z.literal(1),
   operation: nonEmptyStringSchema,
@@ -98,7 +113,8 @@ export const recordSchema = z.object({
     })
     .optional(),
   conflict: recordConflictSchema.optional(),
-  links: z.array(recordLinkSchema).optional()
+  links: z.array(recordLinkSchema).optional(),
+  memory_usage: recordMemoryUsageSchema.optional()
 });
 
 export type ParsedRecord = z.infer<typeof recordSchema>;
@@ -158,6 +174,15 @@ export const eventSchema = z.discriminatedUnion("op", [
     reason: nonEmptyStringSchema.optional(),
     confirmed: z.boolean().optional(),
     conflict: recordConflictSchema.optional(),
+    created_at: isoDateTimeSchema,
+    source: recordSourceSchema
+  }),
+  z.object({
+    ...eventIdempotencyShape,
+    event_id: z.string().min(1),
+    op: z.literal("record_feedback"),
+    record_id: z.string().min(1),
+    outcome: z.enum(RECORD_FEEDBACK_OUTCOMES),
     created_at: isoDateTimeSchema,
     source: recordSourceSchema
   }),

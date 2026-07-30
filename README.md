@@ -57,6 +57,15 @@ flat list:
   overflow evidence instead of silent truncation.
 - **Traceable depth:** a rollup can be expanded to its immediate sources and
   leaf evidence with digest, privacy, conflict, and quarantine checks.
+- **Historical recovery:** when bounded current recall is missing or incomplete, Moryn performs
+  one bounded, read-only search across cold, archived, logically hidden, and
+  working-set-omitted records. Verified useful evidence returns as a compact
+  current Learning record; archived sources stay archived and auditable.
+- **Outcome-aware ranking:** recall remains read-only. After a recall interaction
+  ends, a host can explicitly submit exactly one final `recalled`, `used`,
+  `verified`, or `rejected` outcome with a unique idempotency key. Moryn stores
+  record-level outcome metadata, not the query or answer; useful outcomes improve
+  later selection, rejection lowers it, and a plain recall is neutral.
 - **Portable Soul:** User Soul and Agent Persona are versioned separately,
   support global/project clauses and `local_only`/`personal_sync` distribution,
   require approval for activation, and can be rolled back append-only.
@@ -78,6 +87,22 @@ moryn learn --project . \
   --conclusion "The supported reusable conclusion." \
   --evidence-type source_code
 ```
+
+Reliable Learning can enter the durable set automatically only when it agrees
+with current memory. A semantic conflict keeps the new Learning as a candidate for
+confirmation and excludes the pending conflict from automatic near-duplicate
+merging.
+
+When a host knows the final result of using recalled memory, it can record the
+outcome explicitly:
+
+```bash
+moryn memory feedback <record-id> --outcome used \
+  --idempotency-key <recall-interaction-id>
+```
+
+The resulting `memory_usage` is a rebuildable, non-semantic projection. It does
+not rewrite the record body, logical fingerprint, or compaction summary digest.
 
 Finalization Assurance recovers an unfinalized prior Codex session at the next
 startup when durable checkpoint or status evidence exists.

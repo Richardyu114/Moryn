@@ -45,6 +45,12 @@ import {
   runAutomaticExactDuplicateConsolidation
 } from "./exact-duplicate-consolidation.js";
 import { diagnoseHealthCheck, HEALTH_CHECK_SELECTION_SOURCES, type HealthCheckInput } from "./health-check.js";
+import {
+  HISTORICAL_RECALL_SELECTION_SOURCES,
+  type HistoricalRecallRecovery,
+  recoverHistoricalRecall,
+  unavailableHistoricalRecall
+} from "./historical-recall.js";
 import { inspectHostActivation } from "./host-activation.js";
 import { normalizeHostId } from "./host-adapter-registry.js";
 import type { HostRuntimeDescriptor } from "./host-integration-artifacts.js";
@@ -83,7 +89,9 @@ import { restoreMemoryCompactionPlan as restoreCommittedMemoryCompactionPlan } f
 import { diagnoseMemory, MEMORY_DOCTOR_SELECTION_SOURCES } from "./memory-doctor.js";
 import { expandMemorySources as buildMemorySourceExpansion } from "./memory-expansion.js";
 import { normalizeMemoryExpansionCommand } from "./memory-expansion-command.js";
+import { applyRecordFeedback } from "./memory-feedback.js";
 import { diagnoseMemoryLifecycle, type MemoryLifecycleInput } from "./memory-lifecycle.js";
+import { buildMemoryRetentionView } from "./memory-retention.js";
 import {
   buildRecallMemoryExpandAction,
   buildRecallNextActions,
@@ -184,15 +192,17 @@ import {
   structuredSemanticMergeTimestamp
 } from "./structured-semantic-merge.js";
 import { readSyncCompensationReceipt } from "./sync-compensation.js";
-import type {
-  MorynEvent,
-  MorynRecord,
-  RecordKind,
-  RecordPriority,
-  RecordProvenance,
-  RecordScope,
-  RecordSource,
-  RecordState
+import {
+  type MorynEvent,
+  type MorynRecord,
+  RECORD_FEEDBACK_OUTCOMES,
+  type RecordFeedbackOutcome,
+  type RecordKind,
+  type RecordPriority,
+  type RecordProvenance,
+  type RecordScope,
+  type RecordSource,
+  type RecordState
 } from "./types.js";
 import { type RequiredFieldMetadata, withPhasesByName, withRequiredFieldsByName } from "./workflow.js";
 
@@ -255,6 +265,14 @@ interface RecallInput {
   files?: unknown;
   limit?: unknown;
   include_private?: unknown;
+}
+
+export interface RecordFeedbackInput {
+  record_id: unknown;
+  outcome: unknown;
+  occurred_at?: unknown;
+  source?: RecordSource;
+  idempotency_key: unknown;
 }
 
 interface RefreshInput {
@@ -692,6 +710,12 @@ export const MUTATION_EVENT_SELECTION_SOURCES = {
   record_id: "event.record_id"
 };
 
+export const RECORD_FEEDBACK_SELECTION_SOURCES = {
+  ...MUTATION_EVENT_SELECTION_SOURCES,
+  outcome: "event.outcome",
+  usage: "usage"
+};
+
 export const LINK_EVENT_SELECTION_SOURCES = {
   ...MUTATION_EVENT_SELECTION_SOURCES,
   linked_record_id: "event.linked_record_id"
@@ -759,9 +783,16 @@ export const RECALL_SELECTION_SOURCES = {
   record: "results_by_id.<record_id>.record",
   record_id: "results_by_id.<record_id>.record.id",
   result_next_action: "results_by_id.<record_id>.next_action",
+  historical_match: HISTORICAL_RECALL_SELECTION_SOURCES.match,
+  historical_record_id: HISTORICAL_RECALL_SELECTION_SOURCES.record_id,
+  historical_full_record: HISTORICAL_RECALL_SELECTION_SOURCES.full_record,
+  historical_excerpt: HISTORICAL_RECALL_SELECTION_SOURCES.excerpt,
+  outcome_best_result_source: "outcome.best_result_source",
+  outcome_best_result_path: "outcome.best_result_path",
   memory_working_set: "memory_working_set",
   next_action: RECALL_ACTION_SELECTION_SOURCES.action,
-  ordered_next_action: RECALL_ACTION_SELECTION_SOURCES.ordered_action
+  ordered_next_action: RECALL_ACTION_SELECTION_SOURCES.ordered_action,
+  next_action_argument: RECALL_ACTION_SELECTION_SOURCES.argument
 };
 
 export { RECALL_EVAL_SELECTION_SOURCES };
@@ -1094,6 +1125,12 @@ type ValidatedPromoteInput = PromoteInput & {
   reason?: string;
   idempotency_key?: string;
 };
+type ValidatedRecordFeedbackInput = RecordFeedbackInput & {
+  record_id: string;
+  outcome: RecordFeedbackOutcome;
+  occurred_at?: string;
+  idempotency_key: string;
+};
 type ValidatedLinkInput = LinkInput & {
   record_id: string;
   linked_record_id: string;
@@ -1127,7 +1164,7 @@ type ReadArgumentSource = `operations_by_id.${ReadOperation}.arguments_by_name.$
 type AgentIdentityField = "client" | "session_id" | "model" | "device_id";
 type AgentIdentityArgument = `agent.${AgentIdentityField}`;
 
-type MutationOperation = "revise" | "promote" | "archive" | "quarantine" | "link";
+type MutationOperation = "revise" | "promote" | "archive" | "quarantine" | "link" | "memory_feedback";
 type MutationOperationContractSource = `operations_by_id.${MutationOperation}`;
 type SourceIdentityField = "client" | "session_id" | "model" | "device_id";
 type SourceIdentityArgument = `source.${SourceIdentityField}`;
@@ -2698,6 +2735,22 @@ function validateRecallInput(input: RecallInput): void {
   validateOptionalBoolean("recall", input.include_private, "include_private");
 }
 
+function validateRecordFeedbackInput(input: RecordFeedbackInput): asserts input is ValidatedRecordFeedbackInput {
+  assertPlainObject(input, "memory feedback input");
+  validateRecordId("memory_feedback", input.record_id);
+  if (!RECORD_FEEDBACK_OUTCOMES.includes(input.outcome as RecordFeedbackOutcome)) {
+    throw new Error(`Invalid argument: memory feedback outcome must use ${RECORD_FEEDBACK_OUTCOMES.join(", ")}`);
+  }
+  if (input.occurred_at !== undefined && !isoDateTimeSchema.safeParse(input.occurred_at).success) {
+    throw new Error("Invalid argument: memory feedback occurred_at must be an ISO timestamp");
+  }
+  validateOptionalSource(input.source, "memory_feedback", "retry memory_feedback with a valid source client");
+  validateIdempotencyKey(input.idempotency_key, "memory_feedback");
+  if (input.idempotency_key === undefined) {
+    throw new Error("Invalid argument: memory feedback requires idempotency_key");
+  }
+}
+
 function validateBootInput(input: BootInput): void {
   assertPlainObject(input, "boot input");
   validateOptionalString("boot", input.project_id, "project_id");
@@ -3259,6 +3312,89 @@ function matchesQuery(result: { reason: string[] }, input: ValidatedRecallInput)
   return result.reason.some((reason) => reason.startsWith("text_match:"));
 }
 
+function sameRecallManifest(
+  left: { count: number; digest: string },
+  right: { count: number; digest: string }
+): boolean {
+  return left.count === right.count && left.digest === right.digest;
+}
+
+function shouldRecoverHistoricalRecall(outcome: ReturnType<typeof assessRecallOutcome> | undefined): boolean {
+  return Boolean(
+    outcome?.status === "knowledge_gap" || (outcome?.status === "verification_required" && outcome.coverage < 0.75)
+  );
+}
+
+function activeRecallSelection(input: {
+  recall: ValidatedRecallInput;
+  available_records: MorynRecord[];
+  retrieval?: RetrievalCandidateReadResult;
+  limit: number;
+  now: string;
+}) {
+  const eligibleRecords = input.available_records
+    .filter(
+      (record) =>
+        includesHiddenState(input.recall) || includesRawState(input.recall) || isVisibleInDefaultRecall(record)
+    )
+    .filter((record) => isAllowedByPrivateBoundary(record, input.recall.include_private))
+    .filter((record) => recordProjectMatchesRecall(record, input.recall))
+    .filter(
+      (record) =>
+        !isManagedSoulProfileRecord(record) ||
+        input.recall.record_ids?.includes(record.id) ||
+        input.recall.types?.includes(SOUL_PROFILE_RECORD_TYPE)
+    );
+  const bounded =
+    !input.recall.record_ids?.length && !includesHiddenState(input.recall)
+      ? defaultMemoryWorkingSet(eligibleRecords)
+      : undefined;
+  const logicalRecords = bounded?.records ?? eligibleRecords;
+  const retrievalEvidence = input.retrieval
+    ? boundedRetrievalEvidence(
+        input.retrieval,
+        logicalRecords,
+        bounded?.report ?? defaultMemoryWorkingSet(logicalRecords).report
+      )
+    : undefined;
+  const rankedRecords = logicalRecords
+    .filter((record) => !input.recall.record_ids?.length || input.recall.record_ids.includes(record.id))
+    .filter((record) => !input.recall.kinds?.length || input.recall.kinds.includes(record.kind))
+    .filter((record) => !input.recall.scopes?.length || input.recall.scopes.includes(record.scope))
+    .filter((record) => !input.recall.types?.length || input.recall.types.includes(record.type))
+    .filter((record) => !input.recall.states?.length || input.recall.states.includes(record.state))
+    .filter((record) => matchesAny(record.tags, input.recall.tags))
+    .filter(
+      (record) =>
+        !input.recall.files?.length ||
+        input.recall.files.some((file) =>
+          `${searchableText(record)} ${record.tags.join(" ")}`.toLowerCase().includes(file.toLowerCase())
+        )
+    )
+    .map((record) => {
+      const result = { record, ...reasonAndScore(record, input.recall) };
+      return recallRollupType(record.type)
+        ? {
+            ...result,
+            next_action: buildRecallMemoryExpandAction(record.id, input.recall.include_private)
+          }
+        : result;
+    })
+    .filter((result) => matchesQuery(result, input.recall))
+    .filter((result) => result.score > 0 || (!input.recall.query && !input.recall.record_ids?.length))
+    .sort(
+      (left, right) =>
+        right.score - left.score ||
+        right.record.updated_at.localeCompare(left.record.updated_at) ||
+        left.record.id.localeCompare(right.record.id)
+    )
+    .slice(0, input.limit);
+  const outcome = input.recall.query
+    ? assessRecallOutcome({ query: input.recall.query, results: rankedRecords, now: input.now })
+    : undefined;
+  return { bounded, logicalRecords, outcome, rankedRecords, retrievalEvidence };
+}
+
 function recordIdFromEvent(event: MorynEvent): string {
   return event.op === "upsert_record" ? event.record.id : event.record_id;
 }
@@ -3506,7 +3642,8 @@ const managedRevisionFields = new Set([
   "source",
   "provenance",
   "conflict",
-  "links"
+  "links",
+  "memory_usage"
 ]);
 
 const MANAGED_REVISION_FIELDS = [...managedRevisionFields];
@@ -3671,9 +3808,22 @@ function textFromContent(content: Record<string, unknown> & { text?: string }): 
 }
 
 function tagOverlap(left: string[], right: string[]): boolean {
-  const genericProjectTags = new Set(["javascript", "mcp", "node", "nodejs", "python", "typescript"]);
-  const rightTags = new Set(right.filter((tag) => !genericProjectTags.has(tag.toLowerCase())));
-  return left.some((tag) => rightTags.has(tag) && !genericProjectTags.has(tag.toLowerCase()));
+  const ignoredTags = new Set([
+    "javascript",
+    "learning",
+    "mcp",
+    "node",
+    "nodejs",
+    "python",
+    "time-bounded",
+    "typescript"
+  ]);
+  const isSemanticTag = (tag: string) => {
+    const normalized = tag.toLowerCase();
+    return !ignoredTags.has(normalized) && !normalized.startsWith("evidence:") && !normalized.startsWith("policy:");
+  };
+  const rightTags = new Set(right.filter(isSemanticTag).map((tag) => tag.toLowerCase()));
+  return left.some((tag) => isSemanticTag(tag) && rightTags.has(tag.toLowerCase()));
 }
 
 function subjectTokens(content: Record<string, unknown> & { text?: string }): string[] {
@@ -3731,6 +3881,84 @@ function semanticConflicts(
     .filter((record) => record.project_id === input.project_id)
     .filter((record) => tagOverlap(record.tags, input.tags ?? []) || subjectOverlap(record.content, input.content))
     .filter((record) => textFromContent(record.content) !== inputText);
+}
+
+const CLAIM_NEGATION_TOKENS = new Set([
+  "deny",
+  "denied",
+  "disable",
+  "disabled",
+  "forbid",
+  "forbidden",
+  "never",
+  "no",
+  "not",
+  "without"
+]);
+const CLAIM_VALUE_TOKENS = new Set([
+  "zero",
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+  "eleven",
+  "twelve"
+]);
+const CLAIM_EXCLUSIVE_TOKEN_GROUPS = [
+  ["allow", "allowed", "deny", "denied", "forbid", "forbidden"],
+  ["enable", "enabled", "disable", "disabled"],
+  ["true", "false"],
+  ["required", "optional"],
+  ["always", "never"],
+  ["before", "after"]
+] as const;
+
+function claimTokens(content: Record<string, unknown> & { text?: string }): Set<string> {
+  return new Set(textFromContent(content).match(/[\p{L}\p{N}_-]+/gu) ?? []);
+}
+
+function sameStringSet(left: ReadonlySet<string>, right: ReadonlySet<string>): boolean {
+  return left.size === right.size && [...left].every((value) => right.has(value));
+}
+
+function explicitClaimConflict(
+  left: Record<string, unknown> & { text?: string },
+  right: Record<string, unknown> & { text?: string }
+): boolean {
+  const leftTokens = claimTokens(left);
+  const rightTokens = claimTokens(right);
+  const leftNegated = [...leftTokens].some((token) => CLAIM_NEGATION_TOKENS.has(token));
+  const rightNegated = [...rightTokens].some((token) => CLAIM_NEGATION_TOKENS.has(token));
+  if (leftNegated !== rightNegated) return true;
+
+  const valueTokens = (tokens: ReadonlySet<string>) =>
+    new Set([...tokens].filter((token) => CLAIM_VALUE_TOKENS.has(token) || /^\d+(?:[._-]\d+)*$/.test(token)));
+  const leftValues = valueTokens(leftTokens);
+  const rightValues = valueTokens(rightTokens);
+  if (leftValues.size > 0 && rightValues.size > 0 && !sameStringSet(leftValues, rightValues)) return true;
+
+  return CLAIM_EXCLUSIVE_TOKEN_GROUPS.some((group) => {
+    const leftValues = new Set(group.filter((token) => leftTokens.has(token)));
+    const rightValues = new Set(group.filter((token) => rightTokens.has(token)));
+    return leftValues.size > 0 && rightValues.size > 0 && !sameStringSet(leftValues, rightValues);
+  });
+}
+
+function learningSemanticConflicts(records: MorynRecord[], input: MorynRecord): MorynRecord[] {
+  return semanticConflicts(records, input).filter((record) => explicitClaimConflict(record.content, input.content));
+}
+
+function learningPolicyAgnosticFingerprint(record: MorynRecord): string {
+  return logicalMemoryFingerprint({
+    ...record,
+    tags: record.tags.filter((tag) => !tag.startsWith("policy:"))
+  });
 }
 
 export function createEngine(deps: EngineDeps) {
@@ -4281,6 +4509,7 @@ export function createEngine(deps: EngineDeps) {
       ) {
         throw new Error("Invalid argument: occurred_at must be a canonical ISO timestamp");
       }
+      const occurredAt = input.occurred_at;
       const learnings = input.learnings.map((learning) => learningDeltaSchema.parse(learning)) as LearningDelta[];
       const dispositions = [];
       const ingestedRecordIds: string[] = [];
@@ -4289,46 +4518,94 @@ export function createEngine(deps: EngineDeps) {
       for (const learning of learnings) {
         if (learning.scope === "project" && !input.project_id)
           throw new Error("Invalid argument: project learning requires project_id");
-        const policy = learningStatePolicy(learning, { now: input.occurred_at });
-        const record = normalizeLearningRecord({
-          project_id: input.project_id,
-          learning,
-          source: input.source,
-          occurred_at: input.occurred_at,
-          policy
-        });
         const identity = learningRecordIdentity({ project_id: input.project_id, learning });
-        const event: MorynEvent = {
-          event_id: identity.event_id,
-          op: "upsert_record",
-          record,
-          created_at: input.occurred_at,
-          source: input.source
-        };
-        const appended = await appendIdempotentEvent(deps.storePath, event);
-        if (
-          appended.event.op !== "upsert_record" ||
-          logicalMemoryFingerprint(appended.event.record) !== logicalMemoryFingerprint(record)
-        ) {
+        const persisted = await withStoreStateLease(deps.storePath, async () => {
+          const basePolicy = learningStatePolicy(learning, { now: occurredAt });
+          const baseRecord = normalizeLearningRecord({
+            project_id: input.project_id,
+            learning,
+            source: input.source,
+            occurred_at: occurredAt,
+            policy: basePolicy
+          });
+          const existing = (await readEvents(deps.storePath)).find((event) => event.event_id === identity.event_id);
+          if (existing) {
+            if (
+              existing.op !== "upsert_record" ||
+              (existing.record.state !== "candidate" && existing.record.state !== "canonical") ||
+              learningPolicyAgnosticFingerprint(existing.record) !== learningPolicyAgnosticFingerprint(baseRecord)
+            ) {
+              throw new Error(`Learning idempotency collision: ${identity.event_id}`);
+            }
+            return { event: existing, created: false, policy: basePolicy };
+          }
+
+          const conflicts =
+            basePolicy.state === "canonical" ? learningSemanticConflicts(await currentRecords(), baseRecord) : [];
+          const policy = conflicts.length
+            ? {
+                state: "candidate" as const,
+                requires_confirmation: true,
+                reason: "semantic_conflict_requires_confirmation" as const
+              }
+            : basePolicy;
+          const normalized = normalizeLearningRecord({
+            project_id: input.project_id,
+            learning,
+            source: input.source,
+            occurred_at: occurredAt,
+            policy
+          });
+          const record: MorynRecord = conflicts.length
+            ? {
+                ...normalized,
+                conflict: {
+                  kind: "semantic",
+                  with: [...new Set(conflicts.map((candidate) => candidate.id))].sort(),
+                  resolution: "needs_review"
+                }
+              }
+            : normalized;
+          const event: MorynEvent = {
+            event_id: identity.event_id,
+            op: "upsert_record",
+            record,
+            created_at: occurredAt,
+            source: input.source
+          };
+          const appended = await appendIdempotentEvent(deps.storePath, event);
+          const committedEvent = appended.event;
+          if (
+            committedEvent.op !== "upsert_record" ||
+            (committedEvent.record.state !== "candidate" && committedEvent.record.state !== "canonical") ||
+            learningPolicyAgnosticFingerprint(committedEvent.record) !== learningPolicyAgnosticFingerprint(record)
+          ) {
+            throw new Error(`Learning idempotency collision: ${identity.event_id}`);
+          }
+          return { event: committedEvent, created: appended.created, policy };
+        });
+        const { event: learningEvent, created, policy } = persisted;
+        const learningState = learningEvent.record.state;
+        if (learningState !== "candidate" && learningState !== "canonical") {
           throw new Error(`Learning idempotency collision: ${identity.event_id}`);
         }
-        if (appended.created) createdCount += 1;
+        if (created) createdCount += 1;
         if (input.origin_record_id) {
           const originRecord = await requireRecord(input.origin_record_id);
           const evidenceBaseTimestamp =
-            originRecord.updated_at > appended.event.record.updated_at
+            originRecord.updated_at > learningEvent.record.updated_at
               ? originRecord.updated_at
-              : appended.event.record.updated_at;
+              : learningEvent.record.updated_at;
           const evidenceEvent: MorynEvent = {
-            event_id: duplicateLinkEventId(input.origin_record_id, appended.event.record.id),
+            event_id: duplicateLinkEventId(input.origin_record_id, learningEvent.record.id),
             op: "link_records",
             record_id: input.origin_record_id,
-            linked_record_id: appended.event.record.id,
+            linked_record_id: learningEvent.record.id,
             link_type: "supports",
             reason: `Learning evidence: ${learning.evidence_type}`,
             created_at: nextMutationTimestamp(
-              { ...appended.event.record, updated_at: evidenceBaseTimestamp },
-              input.occurred_at
+              { ...learningEvent.record, updated_at: evidenceBaseTimestamp },
+              occurredAt
             ),
             source: input.source
           };
@@ -4336,13 +4613,16 @@ export function createEngine(deps: EngineDeps) {
           if (evidenceAppended.created) evidenceLinksCreated += 1;
         }
         dispositions.push({
-          record_id: appended.event.record.id,
-          created: appended.created,
-          state: policy.state,
-          requires_confirmation: policy.requires_confirmation,
-          policy_reason: policy.reason
+          record_id: learningEvent.record.id,
+          created,
+          state: learningState,
+          requires_confirmation:
+            learningState === "candidate" &&
+            (policy.requires_confirmation || learningEvent.record.conflict !== undefined),
+          policy_reason:
+            learningEvent.record.tags.find((tag) => tag.startsWith("policy:"))?.slice("policy:".length) ?? policy.reason
         });
-        ingestedRecordIds.push(appended.event.record.id);
+        ingestedRecordIds.push(learningEvent.record.id);
       }
       if (createdCount > 0 || evidenceLinksCreated > 0) await rebuildDerivedViews(deps.storePath);
       const records = await currentRecords();
@@ -4362,7 +4642,7 @@ export function createEngine(deps: EngineDeps) {
             proposals,
             project_id: input.project_id,
             source: input.source,
-            occurred_at: input.occurred_at
+            occurred_at: occurredAt
           })
         : semanticConsolidationReceipt([]);
       const semanticCandidates = await (async () => {
@@ -4552,6 +4832,52 @@ export function createEngine(deps: EngineDeps) {
         semantic_consolidation: semanticConsolidation,
         automatic_event_audit: automaticEventAudit,
         selection_sources: CHECKPOINT_SELECTION_SOURCES
+      };
+    },
+
+    async recordFeedback(input: RecordFeedbackInput) {
+      validateRecordFeedbackInput(input);
+      const source = input.source ?? { client: "moryn" };
+      const identity = mutationIdempotency("memory_feedback", input.idempotency_key, {
+        record_id: input.record_id,
+        outcome: input.outcome,
+        occurred_at: input.occurred_at ?? null,
+        source
+      });
+      const existing = await existingIdempotentMutation(identity, "memory_feedback", ["record_feedback"]);
+      if (existing) {
+        const receipt = await commitMutationEvent(existing, "memory_feedback");
+        if (receipt.event.op !== "record_feedback") {
+          throw new Error("Committed memory feedback event is not a record_feedback event");
+        }
+        const record = await requireRecord(receipt.event.record_id);
+        return {
+          ...receipt,
+          usage: buildMemoryRetentionView(record).usage,
+          selection_sources: RECORD_FEEDBACK_SELECTION_SOURCES
+        };
+      }
+
+      const record = await requireRecord(input.record_id);
+      const event: Extract<MorynEvent, { op: "record_feedback" }> = {
+        event_id: identity.event_id!,
+        op: "record_feedback",
+        record_id: input.record_id,
+        outcome: input.outcome,
+        created_at: nextMutationTimestamp(record, input.occurred_at ?? now()),
+        source,
+        idempotency: identity.metadata!
+      };
+      applyRecordFeedback(record, event);
+      const receipt = await commitMutationEvent(event, "memory_feedback");
+      if (receipt.event.op !== "record_feedback") {
+        throw new Error("Committed memory feedback event is not a record_feedback event");
+      }
+      const projected = await requireRecord(event.record_id);
+      return {
+        ...receipt,
+        usage: buildMemoryRetentionView(projected).usage,
+        selection_sources: RECORD_FEEDBACK_SELECTION_SOURCES
       };
     },
 
@@ -5293,7 +5619,7 @@ export function createEngine(deps: EngineDeps) {
       const useRetrievalIndex = Boolean(
         recallInput.project_id && !recallInput.record_ids?.length && !includesHiddenState(recallInput)
       );
-      const retrieval = useRetrievalIndex
+      let retrieval = useRetrievalIndex
         ? await readCandidates(deps.storePath, {
             project_id: recallInput.project_id!,
             read_current_records: readRecords
@@ -5305,80 +5631,137 @@ export function createEngine(deps: EngineDeps) {
         (recallInput.record_ids?.length || includesHiddenState(recallInput)
           ? current!.records
           : buildActiveLogicalMemoryView(current!.records).active_records);
-      const eligibleRecords = availableRecords
-        .filter(
-          (record) =>
-            includesHiddenState(recallInput) || includesRawState(recallInput) || isVisibleInDefaultRecall(record)
-        )
-        .filter((record) => isAllowedByPrivateBoundary(record, recallInput.include_private))
-        .filter((record) => recordProjectMatchesRecall(record, recallInput))
-        .filter(
-          (record) =>
-            !isManagedSoulProfileRecord(record) ||
-            recallInput.record_ids?.includes(record.id) ||
-            recallInput.types?.includes(SOUL_PROFILE_RECORD_TYPE)
-        );
-      const bounded =
-        !recallInput.record_ids?.length && !includesHiddenState(recallInput)
-          ? defaultMemoryWorkingSet(eligibleRecords)
-          : undefined;
-      const logicalRecords = bounded?.records ?? eligibleRecords;
-      const retrievalEvidence = retrieval
-        ? boundedRetrievalEvidence(
-            retrieval,
-            logicalRecords,
-            bounded?.report ?? defaultMemoryWorkingSet(logicalRecords).report
-          )
-        : undefined;
-      const rankedRecords = logicalRecords
-        .filter((record) => !recallInput.record_ids?.length || recallInput.record_ids.includes(record.id))
-        .filter((record) => !recallInput.kinds?.length || recallInput.kinds.includes(record.kind))
-        .filter((record) => !recallInput.scopes?.length || recallInput.scopes.includes(record.scope))
-        .filter((record) => !recallInput.types?.length || recallInput.types.includes(record.type))
-        .filter((record) => !recallInput.states?.length || recallInput.states.includes(record.state))
-        .filter((record) => matchesAny(record.tags, recallInput.tags))
-        .filter(
-          (record) =>
-            !recallInput.files?.length ||
-            recallInput.files.some((file) =>
-              `${searchableText(record)} ${record.tags.join(" ")}`.toLowerCase().includes(file.toLowerCase())
-            )
-        )
-        .map((record) => {
-          const result = { record, ...reasonAndScore(record, recallInput) };
-          return recallRollupType(record.type)
+      const recallTime = now();
+      let active = activeRecallSelection({
+        recall: recallInput,
+        available_records: availableRecords,
+        retrieval,
+        limit,
+        now: recallTime
+      });
+      const shouldRecoverHistory = Boolean(
+        recallInput.query &&
+          shouldRecoverHistoricalRecall(active.outcome) &&
+          !recallInput.record_ids?.length &&
+          !recallInput.states?.length
+      );
+      let historicalRecords: CurrentRecordReadResult | undefined;
+      let historicalRecovery: HistoricalRecallRecovery | undefined;
+      if (shouldRecoverHistory) {
+        let historicalTrigger =
+          active.outcome?.status === "verification_required"
+            ? ("active_working_set_verification_required" as const)
+            : ("active_working_set_knowledge_gap" as const);
+        const historicalMaxRecords = Math.min(limit, 3);
+        try {
+          historicalRecords = current ?? (await readRecords(deps.storePath));
+          if (retrieval && !sameRecallManifest(retrieval.event_manifest, historicalRecords.event_manifest)) {
+            const refreshedRetrieval = await readCandidates(deps.storePath, {
+              project_id: recallInput.project_id!,
+              read_current_records: readRecords
+            });
+            if (!sameRecallManifest(refreshedRetrieval.event_manifest, historicalRecords.event_manifest)) {
+              throw new Error("Recall snapshots changed during bounded historical recovery");
+            }
+            retrieval = refreshedRetrieval;
+            active = activeRecallSelection({
+              recall: recallInput,
+              available_records: refreshedRetrieval.records,
+              retrieval,
+              limit,
+              now: recallTime
+            });
+            historicalTrigger =
+              active.outcome?.status === "verification_required"
+                ? "active_working_set_verification_required"
+                : "active_working_set_knowledge_gap";
+          }
+          if (shouldRecoverHistoricalRecall(active.outcome)) {
+            historicalRecovery = recoverHistoricalRecall({
+              records: historicalRecords.records,
+              active_working_set_record_ids: active.logicalRecords.map((record) => record.id),
+              query: recallInput.query!,
+              project_id: recallInput.project_id,
+              kinds: recallInput.kinds,
+              scopes: recallInput.scopes,
+              types: recallInput.types,
+              tags: recallInput.tags,
+              files: recallInput.files,
+              include_private: recallInput.include_private,
+              trigger: historicalTrigger,
+              max_records: historicalMaxRecords,
+              now: recallTime,
+              excluded_record_ids: historicalRecords.records
+                .filter(
+                  (record) =>
+                    isManagedSoulProfileRecord(record) && !recallInput.types?.includes(SOUL_PROFILE_RECORD_TYPE)
+                )
+                .map((record) => record.id)
+            });
+          }
+        } catch {
+          historicalRecords = undefined;
+          historicalRecovery = unavailableHistoricalRecall({
+            include_private: recallInput.include_private,
+            trigger: historicalTrigger,
+            max_records: historicalMaxRecords
+          });
+        }
+      }
+      const { bounded, outcome: activeOutcome, rankedRecords, retrievalEvidence } = active;
+      const recoveredBest = historicalRecovery?.matches[0];
+      const historicalIsBest = Boolean(
+        recoveredBest &&
+          (activeOutcome?.status === "knowledge_gap" ||
+            (!recoveredBest.stale && recoveredBest.coverage > (activeOutcome?.coverage ?? 0)))
+      );
+      const outcome =
+        historicalIsBest && recoveredBest
+          ? {
+              status: "verification_required" as const,
+              best_record_id: recoveredBest.record_id,
+              best_score: recoveredBest.score,
+              coverage: recoveredBest.coverage,
+              trust: "limited" as const,
+              stale: recoveredBest.stale,
+              recommended_action: "verify_then_use_or_learn" as const,
+              best_result_source: "historical_recovery" as const,
+              best_result_path: `historical_recovery.matches_by_record_id.${recoveredBest.record_id}`
+            }
+          : activeOutcome
             ? {
-                ...result,
-                next_action: buildRecallMemoryExpandAction(record.id, recallInput.include_private)
+                ...activeOutcome,
+                best_result_source: activeOutcome.best_record_id ? ("results" as const) : ("none" as const),
+                ...(activeOutcome.best_record_id
+                  ? { best_result_path: `results_by_id.${activeOutcome.best_record_id}` }
+                  : {})
               }
-            : result;
-        })
-        .filter((result) => matchesQuery(result, recallInput))
-        .filter((result) => result.score > 0 || (!recallInput.query && !recallInput.record_ids?.length))
-        .sort(
-          (a, b) =>
-            b.score - a.score ||
-            b.record.updated_at.localeCompare(a.record.updated_at) ||
-            a.record.id.localeCompare(b.record.id)
-        )
-        .slice(0, limit);
-      const outcome = recallInput.query
-        ? assessRecallOutcome({ query: recallInput.query, results: rankedRecords, now: now() })
-        : undefined;
-      const records = outcome?.status === "knowledge_gap" ? [] : rankedRecords;
-      const expandableRecordId = records.find((result) => recallRollupType(result.record.type))?.record.id;
+            : undefined;
+      const records = activeOutcome?.status === "knowledge_gap" ? [] : rankedRecords;
+      const recoveryExpansionRoot =
+        historicalIsBest && recoveredBest
+          ? recoveredBest.covered_by_record_ids
+              .map((recordId) => historicalRecords?.records.find((record) => record.id === recordId))
+              .find((record) => record && recallRollupType(record.type))?.id
+          : undefined;
+      const expandableRecordId =
+        records.find((result) => recallRollupType(result.record.type))?.record.id ?? recoveryExpansionRoot;
       const actionContract = outcome
         ? buildRecallNextActions({
             query: recallInput.query ?? "",
             outcome,
             include_private: recallInput.include_private,
-            expandable_record_id: expandableRecordId
+            expandable_record_id: expandableRecordId,
+            historical_recovery_record_ids: historicalIsBest
+              ? historicalRecovery?.upgrade.evidence_record_ids
+              : undefined
           })
         : undefined;
       return {
         results: records,
         ...(retrievalEvidence ? { retrieval: retrievalEvidence } : {}),
         ...(bounded ? { memory_working_set: bounded.report } : {}),
+        ...(historicalRecovery ? { historical_recovery: historicalRecovery } : {}),
         ...(outcome ? { outcome } : {}),
         ...(actionContract ? actionContract : {}),
         selection_sources: RECALL_SELECTION_SOURCES,

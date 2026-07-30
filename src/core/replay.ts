@@ -1,3 +1,4 @@
+import { applyRecordFeedback } from "./memory-feedback.js";
 import { isValidPatchPath, parseRecord } from "./schema.js";
 import type { MorynEvent, MorynRecord, RecordState } from "./types.js";
 
@@ -121,10 +122,17 @@ function replayStateTransition(
 
 export function replayEvents(events: MorynEvent[]): Map<string, MorynRecord> {
   const records = new Map<string, MorynRecord>();
+  const feedbackEvents: Array<Extract<MorynEvent, { op: "record_feedback" }>> = [];
 
   for (const event of events) {
+    if (event.op === "record_feedback") {
+      feedbackEvents.push(event);
+      continue;
+    }
+
     if (event.op === "upsert_record") {
-      const record = validateReplayRecord(event, structuredClone(event.record));
+      const { memory_usage: _memoryUsage, ...semanticRecord } = structuredClone(event.record);
+      const record = validateReplayRecord(event, semanticRecord as MorynRecord);
       records.set(record.id, record);
       continue;
     }
@@ -132,6 +140,7 @@ export function replayEvents(events: MorynEvent[]): Map<string, MorynRecord> {
     if (event.op === "revise_record") {
       const record = requireReplayRecord(records, event, event.record_id);
       const next = applyRecordPatch(record, event.patch) as unknown as Record<string, unknown>;
+      delete next.memory_usage;
       next.updated_at = event.created_at;
       if (event.conflict) {
         next.conflict = event.conflict;
@@ -188,6 +197,23 @@ export function replayEvents(events: MorynEvent[]): Map<string, MorynRecord> {
           updated_at: event.created_at
         })
       );
+    }
+  }
+
+  // Feedback is a derived, non-semantic projection. Applying it after semantic replay
+  // makes the result stable across cross-device clock skew and later record upserts.
+  for (const event of feedbackEvents) {
+    const record = records.get(event.record_id);
+    if (!record) continue;
+    try {
+      records.set(event.record_id, validateReplayRecord(event, applyRecordFeedback(record, event)));
+    } catch (error) {
+      if (error instanceof ReplayHistoryError) throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      throw new ReplayHistoryError(`Invalid replay result for event ${event.event_id}: ${message}`, event, {
+        failure: "invalid_replay_result",
+        record_id: event.record_id
+      });
     }
   }
 

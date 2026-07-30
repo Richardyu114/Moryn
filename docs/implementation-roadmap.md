@@ -359,6 +359,10 @@ layer; dashboard health and moryn-store sync are clean.
 
 - Filtered recall with stable ranking reasons.
 - Default exclusion of raw, archived, and quarantined records.
+- Bounded historical fallback after a current working-set gap or partial match,
+  covering archived/cold sources, logical predecessors, and budget omissions;
+  recovered evidence upgrades through Learning Delta rather than source
+  reactivation.
 - Boot sections for profile, project context, skills, task-relevant records,
   recent changes, warnings, and sync state.
 - Keyed mirrors such as `records_by_id`, `results_by_id`, and

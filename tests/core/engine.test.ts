@@ -4687,9 +4687,16 @@ describe("core engine", () => {
         record: "results_by_id.<record_id>.record",
         record_id: "results_by_id.<record_id>.record.id",
         result_next_action: "results_by_id.<record_id>.next_action",
+        historical_match: "historical_recovery.matches_by_record_id.<record_id>",
+        historical_record_id: "historical_recovery.matches_by_record_id.<record_id>.record_id",
+        historical_full_record: "historical_recovery.matches_by_record_id.<record_id>.record",
+        historical_excerpt: "historical_recovery.matches_by_record_id.<record_id>.excerpt",
+        outcome_best_result_source: "outcome.best_result_source",
+        outcome_best_result_path: "outcome.best_result_path",
         memory_working_set: "memory_working_set",
         next_action: "next_actions_by_id.<action_id>",
-        ordered_next_action: "next_actions[]"
+        ordered_next_action: "next_actions[]",
+        next_action_argument: "next_actions_by_id.<action_id>.arguments_by_name.<argument>"
       });
       expect(recall.results_by_id[decision.record.id]).toEqual(recall.results[0]);
     });

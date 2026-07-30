@@ -12,9 +12,10 @@ The short version:
 2. Use `agent status` during meaningful long-running work.
 3. Use `refresh` when checking for new context without a full restart.
 4. Use `timeline` when a recalled record needs surrounding event context.
-5. Use `memory doctor` when memory quality or project identity looks stale.
-6. Use `agent finish` before stopping or handing off.
-7. Follow returned `next` actions instead of inventing command sequences.
+5. After a recall interaction ends, submit one final memory outcome when known.
+6. Use `memory doctor` when memory quality or project identity looks stale.
+7. Use `agent finish` before stopping or handing off.
+8. Follow returned `next` actions instead of inventing command sequences.
 
 Official Codex and Claude Code sessions use the Autopilot lifecycle by default:
 
@@ -360,7 +361,12 @@ user knowledge is uncertain:
    exploration.
 2. Follow the returned `next_actions` in order. A trusted match can be used
    with its record id as evidence. A verification-required result must be
-   checked. A knowledge gap moves exploration to project files, local tools,
+   checked. Before reporting a knowledge gap, Moryn automatically performs one
+   bounded historical pass when the current result is missing or only a
+   partial, verification-grade match, covering cold, archived, logically
+   hidden, and working-set-omitted records. A recovered match remains
+   verification-required;
+   only a miss in both passes moves exploration to project files, local tools,
    web sources when needed, or the user when needed.
 3. Queue only a supported, reusable conclusion with the one-call `learn`
    operation. Unsupported inference, unresolved conflict, transient text, and
@@ -368,9 +374,16 @@ user knowledge is uncertain:
 4. Before host compaction, write resolved Learning Deltas and preserve every
    unresolved material question with evidence and an exact next step.
 
-A prompt recall miss does not write a store record by itself. The Codex and
-Claude Code `UserPromptSubmit` hook returns a bounded `learning_bridge` only for
-`knowledge_gap` or `verification_required`. The bridge references
+A prompt recall miss does not write a store record by itself. Historical
+recovery is read-only as well. The Codex and Claude Code `UserPromptSubmit`
+hook returns bounded historical candidate metadata and an explicit read-only
+verification action, but it does not inject unverified historical text into the
+host prompt. It also returns a `learning_bridge` for `knowledge_gap` or
+`verification_required`. Recovered archived records remain archived. When the
+selected recovered conclusion is actually verified and useful, the bridge
+carries its id in `related_record_ids`; checkpoint or finish then
+creates a compact current memory whose `provenance.derived_from` preserves the
+evidence chain. The bridge references
 `current_user_prompt` instead of echoing prompt text into hook output.
 `learning_bridge.queue_learning` points to the one-call `learn` operation and
 contains the resolved project plus current host, session, and device identity.
@@ -380,6 +393,30 @@ learning automatically at the next checkpoint or finish, then applies learning
 policy, exact deduplication, and semantic consolidation. If the question
 remains unresolved, the agent preserves a `knowledge_investigation` at the next
 checkpoint instead of creating speculative memory.
+
+Recall, including historical recovery, remains read-only. Once the surrounding
+interaction is complete and the host can judge the result, submit exactly one
+final outcome for each recalled record with a unique idempotency key:
+
+```bash
+moryn memory feedback <record-id> --outcome used \
+  --idempotency-key <recall-interaction-id>
+```
+
+The allowed outcomes are `recalled`, `used`, `verified`, and `rejected`.
+`used` and `verified` strengthen later working-set selection, `rejected`
+down-ranks the record, and `recalled` records exposure without positive
+reinforcement. Moryn does not infer this mutation during recall. The event keeps
+only the record id, final outcome, source, timestamp, and idempotency digests;
+it does not persist the query or answer. Retrying the same normalized outcome
+with the same key is safe, while reusing the key for another outcome is an
+idempotency error.
+
+The projected `memory_usage` counters are non-semantic. They do not change the
+record body, logical fingerprint, token estimate, or compaction summary digest.
+When otherwise reliable Learning conflicts with current canonical memory,
+ingestion downgrades it to a confirmation-required candidate. Records with that
+pending conflict are not eligible for automatic near-duplicate consolidation.
 
 ```bash
 moryn learn \

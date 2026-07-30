@@ -145,6 +145,7 @@ export interface HostHookRunResult {
     outcome: { status: "trusted_match" | "verification_required" | "knowledge_gap"; best_record_id?: string };
     injected: boolean;
     record_count: number;
+    historical_recovery?: { status: "not_found" | "recovered" | "unavailable"; record_ids: string[] };
   };
   sync_cadence?: HostHookSyncCadence;
   transcript_evidence?: HostTranscriptEvidenceSummary;
@@ -415,17 +416,36 @@ async function runResolvedHostHook(
   if (input.hook.event === "user_prompt_submit") {
     setStage("recall");
     const engine = createEngine({ storePath: input.storePath });
-    const recall = await engine.recall({
+    const primaryRecall = await engine.recall({
       query: input.hook.prompt,
       project_id: project.project_id,
       kinds: ["memory", "skill", "soul"],
       limit: 3,
       include_private: false
     });
+    let recall = primaryRecall;
+    if (primaryRecall.outcome?.status !== "trusted_match") {
+      const sessionRecall = await engine.recall({
+        query: input.hook.prompt,
+        project_id: project.project_id,
+        kinds: ["session_summary"],
+        limit: 3,
+        include_private: false
+      });
+      const statusRank = { knowledge_gap: 0, verification_required: 1, trusted_match: 2 } as const;
+      const primaryRank = statusRank[primaryRecall.outcome!.status];
+      const sessionRank = statusRank[sessionRecall.outcome!.status];
+      if (
+        sessionRank > primaryRank ||
+        (sessionRank === primaryRank && sessionRecall.outcome!.coverage > primaryRecall.outcome!.coverage)
+      )
+        recall = sessionRecall;
+    }
     const promptRecall = buildPromptRecallContext({
       outcome: recall.outcome!,
       results: recall.results,
       question: input.hook.prompt!,
+      historical_recovery: recall.historical_recovery,
       capture_context: {
         project_id: project.project_id,
         current_task: input.current_task,
@@ -445,7 +465,15 @@ async function runResolvedHostHook(
       prompt_recall: {
         outcome: recall.outcome!,
         injected: promptRecall.injected,
-        record_count: promptRecall.record_count
+        record_count: promptRecall.record_count,
+        ...(recall.historical_recovery
+          ? {
+              historical_recovery: {
+                status: recall.historical_recovery.status,
+                record_ids: recall.historical_recovery.matches.map((match) => match.record_id)
+              }
+            }
+          : {})
       },
       ...activationEvidence
     };

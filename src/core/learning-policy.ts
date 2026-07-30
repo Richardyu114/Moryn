@@ -10,6 +10,7 @@ export type LearningPolicyReason =
   | "low_confidence_candidate"
   | "session_learning_candidate"
   | "expired_learning_candidate"
+  | "semantic_conflict_requires_confirmation"
   | "high_risk_learning_requires_confirmation";
 
 export interface LearningStatePolicyResult {

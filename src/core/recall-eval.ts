@@ -1,3 +1,4 @@
+import type { HistoricalRecallMatch } from "./historical-recall.js";
 import { isPrivateMemoryBoundary } from "./sensitive.js";
 import type { MorynRecord, RecordKind, RecordScope, RecordState } from "./types.js";
 
@@ -56,6 +57,9 @@ export interface RecallEvalRecallResult {
     score: number;
     reason: string[];
   }>;
+  historical_recovery?: {
+    matches_by_record_id: Record<string, HistoricalRecallMatch>;
+  };
 }
 
 export interface RecallEvalCaseResult {
@@ -271,6 +275,54 @@ function recallInputForHiddenRecords(hiddenRecords: RecallEvalHiddenRecord[]): R
   };
 }
 
+function rankedRecallResults(
+  recalled: RecallEvalRecallResult,
+  includePrivate: boolean,
+  leakedPrivate: Set<string>
+): RecallEvalCaseResult["results"] {
+  type UnrankedResult = Omit<RecallEvalCaseResult["results"][number], "rank">;
+  const unranked: UnrankedResult[] = [];
+  const seenRecordIds = new Set<string>();
+
+  for (const result of recalled.results) {
+    if (!includePrivate && isPrivateMemoryBoundary(result.record)) leakedPrivate.add(result.record.id);
+    if (seenRecordIds.has(result.record.id)) continue;
+    seenRecordIds.add(result.record.id);
+    unranked.push({
+      record_id: result.record.id,
+      score: result.score,
+      reason: result.reason,
+      provenance_method: result.record.provenance?.method ?? "agent-proposed"
+    });
+  }
+
+  const historicalMatches = Object.values(recalled.historical_recovery?.matches_by_record_id ?? {});
+  for (const match of historicalMatches) {
+    if (!includePrivate && match.record && isPrivateMemoryBoundary(match.record)) {
+      leakedPrivate.add(match.record.id);
+    }
+  }
+  historicalMatches.sort(
+    (left, right) =>
+      right.coverage - left.coverage ||
+      right.score - left.score ||
+      right.updated_at.localeCompare(left.updated_at) ||
+      left.record_id.localeCompare(right.record_id)
+  );
+  for (const match of historicalMatches) {
+    if (seenRecordIds.has(match.record_id)) continue;
+    seenRecordIds.add(match.record_id);
+    unranked.push({
+      record_id: match.record_id,
+      score: match.score,
+      reason: ["historical_recovery", ...match.reasons.map((reason) => `historical:${reason}`)],
+      provenance_method: match.record?.provenance?.method ?? "agent-proposed"
+    });
+  }
+
+  return unranked.map((result, index) => ({ ...result, rank: index + 1 }));
+}
+
 export async function evaluateRecall(
   input: RecallEvalInput,
   recall: RecallFunction,
@@ -300,16 +352,7 @@ export async function evaluateRecall(
       include_private: includePrivate
     };
     const recalled = await recall(recallInput);
-    const ranked = recalled.results.map((result, index) => {
-      if (!includePrivate && isPrivateMemoryBoundary(result.record)) leakedPrivate.add(result.record.id);
-      return {
-        record_id: result.record.id,
-        rank: index + 1,
-        score: result.score,
-        reason: result.reason,
-        provenance_method: result.record.provenance?.method ?? "agent-proposed"
-      };
-    });
+    const ranked = rankedRecallResults(recalled, includePrivate, leakedPrivate);
     const matched = testCase.expected_record_ids.filter((recordId) =>
       ranked.some((result) => result.record_id === recordId)
     );

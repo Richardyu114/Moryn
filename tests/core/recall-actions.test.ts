@@ -110,6 +110,22 @@ describe("recall next actions", () => {
     });
   });
 
+  it("carries only the selected historical id into the compact learning upgrade action", () => {
+    const result = buildRecallNextActions({
+      query: "release channel cedar",
+      outcome: outcome("verification_required", "rec-history-a"),
+      historical_recovery_record_ids: ["rec-history-b", "rec-history-a", "rec-history-a"]
+    });
+
+    expect(result.next_actions_by_id.capture_confirmed_learning).toMatchObject({
+      evidence: { record_ids: ["rec-history-b"] },
+      arguments_by_name: { related_record_ids: ["rec-history-b"] },
+      destinations: ["checkpoint.delta.learnings[]", "finish.learnings[]"]
+    });
+    expect(result.next_actions_by_id.capture_confirmed_learning?.description).toContain("compact Learning Delta");
+    expect(result.selection_sources.argument).toBe("next_actions_by_id.<action_id>.arguments_by_name.<argument>");
+  });
+
   it("explores a knowledge gap and preserves it when still unresolved", () => {
     const result = buildRecallNextActions({
       query: "release rollback policy",

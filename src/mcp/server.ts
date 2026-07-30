@@ -38,6 +38,7 @@ import {
 import { automationOutcome, failedAutomationOutcome } from "../core/operation-outcome.js";
 import { initializeProjectConfig, type ProjectConfig, resolveProjectContext, type SyncMode } from "../core/project.js";
 import type {
+  RecordFeedbackOutcome,
   RecordKind,
   RecordPriority,
   RecordProvenance,
@@ -2109,7 +2110,8 @@ export async function runMcpServer(
     "recall",
     {
       title: "Recall Moryn Records",
-      description: "Search memory, skills, soul, session summaries, and agent notes.",
+      description:
+        "Search bounded current memory and recover bounded retained history when a normal query is missing or incomplete.",
       inputSchema: mcpInputSchema({
         record_ids: z.unknown().optional(),
         query: coreValidatedStringSchema.optional(),
@@ -2182,6 +2184,35 @@ export async function runMcpServer(
               ? { include_private: normalizedInput.include_private }
               : {})
           }
+        })
+      )
+  );
+
+  registerMcpTool(
+    server,
+    "memory_feedback",
+    {
+      title: "Record Moryn Memory Feedback",
+      description:
+        "Append one final recall outcome without changing semantic memory content or storing the query or answer.",
+      inputSchema: mcpInputSchema({
+        record_id: coreValidatedStringSchema.optional(),
+        outcome: coreValidatedStringSchema.optional(),
+        occurred_at: coreValidatedStringSchema.optional(),
+        idempotency_key: coreValidatedStringSchema.optional(),
+        source: z.unknown().optional(),
+        ...sourceAliasInputSchema,
+        ...camelCaseAliasInputSchema("memory_feedback")
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("memory_feedback", input, async (normalizedInput) =>
+        engine.recordFeedback({
+          record_id: normalizedInput.record_id,
+          outcome: normalizedInput.outcome as RecordFeedbackOutcome,
+          occurred_at: normalizedInput.occurred_at,
+          idempotency_key: normalizedInput.idempotency_key,
+          source: withDefaultSource(normalizedInput.source) as RecordSource
         })
       )
   );

@@ -50,6 +50,32 @@ describe("recall outcomes", () => {
     });
   });
 
+  it("prefers equally relevant trusted knowledge over a higher-scoring unverified summary", () => {
+    const trusted = record({ id: "rec-trusted" });
+    const unverifiedSummary = record({
+      id: "rec-summary",
+      kind: "session_summary",
+      state: "candidate",
+      confidence: 0.7,
+      provenance: { method: "agent-proposed" }
+    });
+
+    expect(
+      assessRecallOutcome({
+        query: "moryn pull push",
+        now: "2026-07-11T01:00:00.000Z",
+        results: [
+          { record: unverifiedSummary, score: 100, reason: [] },
+          { record: trusted, score: 10, reason: [] }
+        ]
+      })
+    ).toMatchObject({
+      status: "trusted_match",
+      best_record_id: trusted.id,
+      trust: "trusted"
+    });
+  });
+
   it.each([
     ["candidate", record({ state: "candidate", confidence: 0.6, provenance: { method: "agent-proposed" } })],
     ["stale", record({ content: { text: "Moryn pulls on enter", valid_until: "2026-07-10T00:00:00.000Z" } })],

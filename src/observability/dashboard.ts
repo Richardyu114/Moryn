@@ -1370,12 +1370,13 @@ function summarizeEvent(event: MorynEvent, recordsById: Map<string, MorynRecord>
           : event.op === "quarantine_record"
             ? (event.target_state ?? "quarantined")
             : undefined;
+  const reason = event.op !== "upsert_record" && event.op !== "record_feedback" ? event.reason : undefined;
   return {
     event_id: event.event_id,
     op: event.op,
     record_id: targetRecordId(event),
     ...(event.op === "link_records" ? { linked_record_id: event.linked_record_id, link_type: event.link_type } : {}),
-    ...(event.op !== "upsert_record" && event.reason ? { reason: eventChangeValue(event.reason) } : {}),
+    ...(reason ? { reason: eventChangeValue(reason) } : {}),
     ...(targetState ? { target_state: targetState } : {}),
     changes: shownChanges,
     changes_truncated: rawChanges.length > shownChanges.length,

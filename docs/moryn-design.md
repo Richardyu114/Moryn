@@ -450,6 +450,7 @@ Supported first-version operations:
 - `archive_record`
 - `quarantine_record`
 - `link_records`
+- `record_feedback`
 
 Records are not physically deleted in normal operation. Removal is represented through state changes.
 
@@ -1390,10 +1391,38 @@ Output:
       ]
     }
   },
+  "historical_recovery": {
+    "attempted": true,
+    "status": "recovered",
+    "trigger": "active_working_set_knowledge_gap",
+    "limits": { "max_records": 3, "token_budget": 2000 },
+    "matches": [
+      {
+        "record_id": "rec_historical_...",
+        "reasons": ["archived", "cold"],
+        "content_mode": "excerpt",
+        "covered_by_record_ids": ["rec_rollup_..."]
+      }
+    ],
+    "matches_by_record_id": {
+      "rec_historical_...": {
+        "record_id": "rec_historical_...",
+        "content_mode": "excerpt",
+        "excerpt": "...bounded matching evidence..."
+      }
+    },
+    "upgrade": {
+      "mode": "capture_learning_delta_after_verification",
+      "automatic_source_reactivation": false,
+      "evidence_record_ids": ["rec_historical_..."],
+      "candidate_record_ids": ["rec_historical_..."]
+    }
+  },
   "selection_sources": {
     "result": "results_by_id.<record_id>",
     "record": "results_by_id.<record_id>.record",
-    "record_id": "results_by_id.<record_id>.record.id"
+    "record_id": "results_by_id.<record_id>.record.id",
+    "historical_match": "historical_recovery.matches_by_record_id.<record_id>"
   }
 }
 ```
@@ -1404,14 +1433,78 @@ CLI:
 moryn recall "fix auth middleware bug" --project . --kind memory --kind skill
 ```
 
-Archived and quarantined records are excluded by default. To inspect them,
-query by explicit record id with a matching state filter.
+Archived and quarantined records are excluded from the first-pass current
+working set. When a normal text query would otherwise return `knowledge_gap`
+or only a `verification_required` partial match,
+recall performs one bounded, read-only historical pass over cold or archived
+sources, logically hidden predecessors, and active records omitted by the
+working-set budget. Quarantined, purged, unauthorized private, cross-project,
+and explicitly filtered records remain excluded. The fallback returns at most
+three matches within a separate 2,000-token content budget. Ordered `matches`
+contain metadata; each full record or excerpt appears once under
+`matches_by_record_id`, avoiding a duplicate serialized content payload.
+It never restores an older point-in-time revision from event history.
+If the retained-history read or fallback model fails, recall keeps the original
+first-pass outcome and reports only
+`historical_recovery.status: "unavailable"` with a generic fail-closed code;
+internal parser details and record content are not returned.
+
+A historical match is always `verification_required`, even when its former
+state was canonical. Native prompt hooks expose candidate metadata and an
+explicit read-only verification action, not unverified historical text. The
+returned learning action carries only the selected best record id as
+`related_record_ids`; other matches remain inspectable candidates. After
+verification, checkpoint or finish can create a small current Learning record
+with `provenance.derived_from`. Recall itself
+does not write usage events or reactivate archived compaction sources. Explicit
+`record_ids` and `states` queries keep their requested behavior and do not run
+the fallback.
+
+To inspect an archived or quarantined record directly, query by explicit
+record id with a matching state filter.
 `results[]` is the ranked display list, while `results_by_id` mirrors the
 returned records by `record.id` so hosts can consume a known result without
 array scanning. `selection_sources` names the keyed result, record, and
 record-id paths explicitly. Library hosts can reuse the exported
 `RECALL_SELECTION_SOURCES` map from the package entrypoint as the canonical
 field-path contract.
+
+### `memory_feedback`
+
+`recall` itself never writes usage state. After a recall interaction has a
+known final result, the host or agent may append exactly one outcome for each
+selected record:
+
+```json
+{
+  "record_id": "rec_...",
+  "outcome": "used",
+  "occurred_at": "2026-07-30T00:01:00Z",
+  "idempotency_key": "interaction-...",
+  "source": { "client": "codex" }
+}
+```
+
+The allowed final outcomes are `recalled`, `used`, `verified`, and `rejected`.
+`used` and `verified` strengthen later working-set selection; `rejected`
+weakens it; `recalled` is neutral and records only exposure. One idempotency key
+represents one final outcome, so an exact retry is replay-safe and a different
+outcome under the same key is rejected.
+
+The append-only `record_feedback` event contains the record id, outcome, source,
+time, and idempotency digests. It contains no query or answer. Replay folds the
+events into `record.memory_usage` counters and timestamps. This usage field is
+a non-semantic derived projection: it does not alter `content`, `updated_at`,
+the logical-memory fingerprint, selection token estimate, or compaction and
+semantic-merge source digests.
+
+CLI:
+
+```bash
+moryn memory feedback rec_... --outcome used --idempotency-key interaction-...
+```
+
+The corresponding MCP tool is `memory_feedback`.
 
 ### `timeline`
 
@@ -2636,6 +2729,9 @@ task relevance:
 
 source:
   user-confirmed > rule-promoted > agent-proposed
+
+usage, after semantic eligibility and retention priority:
+  used/verified > neutral recalled > rejected
 ```
 
 Default result count: 5 to 20 records.
@@ -2685,6 +2781,12 @@ Required confirmation cases:
 - Permission or credential handling rules.
 - Any record that conflicts with existing canonical memory.
 - Any high-impact agent inference.
+
+Reliable Learning is checked against current canonical memory while the store
+state lease is held. A conflict overrides automatic canonical eligibility: the
+new record is stored as a candidate with `conflict.resolution: "needs_review"`
+and requires confirmation. Until resolved, it is skipped by automatic
+near-duplicate consolidation.
 
 Promotion event example:
 
@@ -2793,6 +2895,12 @@ First-version conflict detection can be rule-based:
 - High tag overlap.
 - Both records are canonical.
 - Records update the same subject.
+
+Learning ingestion applies the same check before canonical publication. A
+reliable but conflicting Learning remains a candidate with references to the
+records it conflicts with. Automatic near-duplicate consolidation ignores any
+record whose conflict resolution is still `needs_review`; conflict does not
+implicitly choose a winner or hide either conclusion.
 
 ## Sync Modes
 
@@ -3842,6 +3950,11 @@ purged records stay outside normal boot/recall; mandatory L3, pinned, and
 never-forget records can overflow a budget only with explicit overflow evidence.
 Record-count limits remain secondary safeguards rather than a substitute for a
 token budget.
+
+Usage learned through `record_feedback` is replayed as a separate
+`memory_usage` projection. It can influence selection but is not record content:
+feedback does not change logical identity, token estimates, lineage source
+digests, or the summaries and digests produced by compaction.
 
 ### Distillation And Lineage
 

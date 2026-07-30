@@ -68,6 +68,13 @@ function isStale(record: MorynRecord, now: string | undefined): boolean {
   return Date.parse(validUntil) < Date.parse(now);
 }
 
+function usableTrustRank(input: { trust: RecallTrust; stale: boolean }): number {
+  if (input.stale) return 0;
+  if (input.trust === "trusted") return 2;
+  if (input.trust === "limited") return 1;
+  return 0;
+}
+
 export function assessRecallOutcome(input: {
   query: string;
   results: RecallOutcomeResult[];
@@ -82,7 +89,10 @@ export function assessRecallOutcome(input: {
     }))
     .sort(
       (left, right) =>
-        right.coverage - left.coverage || right.score - left.score || compareCodeUnits(left.record.id, right.record.id)
+        right.coverage - left.coverage ||
+        usableTrustRank(right) - usableTrustRank(left) ||
+        right.score - left.score ||
+        compareCodeUnits(left.record.id, right.record.id)
     );
   const best = assessed[0];
   if (!best || best.coverage < 0.5) {

@@ -8,6 +8,7 @@ import { runHostHook } from "../../src/core/host-hook-runner.js";
 import { learningRecordIdentity } from "../../src/core/learning-ingestion.js";
 import { initializeProjectConfig } from "../../src/core/project.js";
 import { approveSoulProfileDraft, createSoulProfileDraft } from "../../src/core/soul-profile-management.js";
+import { readEvents } from "../../src/core/store.js";
 import { SYNC_RESULT_SELECTION_SOURCES } from "../../src/sync/git.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
@@ -388,6 +389,57 @@ describe("host hook runner", () => {
       expect(result.hook_output.additional_context).toContain("queue_learning");
       expect(result.hook_output.additional_context).toContain("automatic_on_checkpoint_or_finish");
       expect(after).toBe(before);
+    });
+  });
+
+  it("discovers archived session evidence without injecting, reactivating, or writing it", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath });
+      const historical = await engine.write({
+        kind: "session_summary",
+        type: "status",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "The archived release channel is cedar." },
+        state: "archived",
+        confidence: 0.8,
+        source: { client: "codex", session_id: "session-old" }
+      });
+      await engine.write({
+        kind: "session_summary",
+        type: "status",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["private"],
+        content: { text: "The archived private release channel is obsidian." },
+        state: "archived",
+        confidence: 0.8,
+        source: { client: "codex", session_id: "session-private" }
+      });
+      const before = await readEvents(storePath);
+
+      const result = await runHostHook({
+        storePath,
+        hook: { ...base, event: "user_prompt_submit", prompt: "Which release channel is cedar?" },
+        project_id: "moryn"
+      });
+      const after = await readEvents(storePath);
+
+      expect(after).toHaveLength(before.length);
+      expect(result).toMatchObject({
+        action: "recall_prompt",
+        prompt_recall: {
+          outcome: { status: "verification_required", best_record_id: historical.record.id },
+          injected: true,
+          record_count: 0,
+          historical_recovery: { status: "recovered", record_ids: [historical.record.id] }
+        }
+      });
+      expect(result.hook_output.additional_context).toContain("historical_recovery");
+      expect(result.hook_output.additional_context).toContain("verification_action");
+      expect(result.hook_output.additional_context).toContain(`"related_record_ids":["${historical.record.id}"]`);
+      expect(result.hook_output.additional_context).not.toContain("archived release channel is cedar");
+      expect(result.hook_output.additional_context).not.toContain("obsidian");
     });
   });
 

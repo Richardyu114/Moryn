@@ -44,6 +44,7 @@ export const RECALL_ACTION_SELECTION_SOURCES = {
   executor: "next_actions_by_id.<action_id>.executor",
   evidence_record_id: "next_actions_by_id.<action_id>.evidence.record_ids[]",
   destination: "next_actions_by_id.<action_id>.destinations[]",
+  argument: "next_actions_by_id.<action_id>.arguments_by_name.<argument>",
   required_field: "next_actions_by_id.<action_id>.required_fields_by_name.<field>",
   cli_argv: "next_actions_by_id.<action_id>.interfaces.cli.argv[]",
   mcp_tool: "next_actions_by_id.<action_id>.interfaces.mcp.tool"
@@ -81,13 +82,19 @@ function timelineAction(
   };
 }
 
-function captureLearningAction(): RecallNextAction {
+function captureLearningAction(evidenceRecordIds: readonly string[] = []): RecallNextAction {
+  const evidence = [...new Set(evidenceRecordIds)].sort();
   return {
     id: "capture_confirmed_learning",
     title: "Capture confirmed reusable learning",
-    description: "After verification, queue an evidence-backed Learning Delta for the next checkpoint or finish.",
+    description: evidence.length
+      ? "After using recovered history, queue a compact Learning Delta derived from these records for the next checkpoint or finish."
+      : "After verification, queue an evidence-backed Learning Delta for the next checkpoint or finish.",
     executor: "host_agent",
     safe_to_run: true,
+    ...(evidence.length
+      ? { evidence: { record_ids: evidence }, arguments_by_name: { related_record_ids: evidence } }
+      : {}),
     destinations: ["checkpoint.delta.learnings[]", "finish.learnings[]"],
     required_fields_by_name: LEARNING_FIELDS,
     execution: { external_side_effects: false }
@@ -127,8 +134,10 @@ export function buildRecallNextActions(input: {
   outcome: RecallOutcome;
   include_private?: boolean;
   expandable_record_id?: string;
+  historical_recovery_record_ids?: readonly string[];
 }): RecallActionContract {
   const includePrivate = input.include_private === true;
+  const historicalRecoveryRecordIds = [...new Set(input.historical_recovery_record_ids ?? [])].slice(0, 1);
   const expandAction = input.expandable_record_id
     ? [buildRecallMemoryExpandAction(input.expandable_record_id, includePrivate)]
     : [];
@@ -161,7 +170,7 @@ export function buildRecallNextActions(input: {
         source_order: ["project_files", "local_tools", "web_when_needed", "user_when_needed"],
         execution: { external_side_effects: false }
       },
-      captureLearningAction()
+      captureLearningAction(historicalRecoveryRecordIds)
     ]);
   }
   return keyed([
@@ -174,7 +183,7 @@ export function buildRecallNextActions(input: {
       source_order: ["project_files", "local_tools", "web_when_needed", "user_when_needed"],
       execution: { external_side_effects: false }
     },
-    captureLearningAction(),
+    captureLearningAction(historicalRecoveryRecordIds),
     {
       id: "preserve_unresolved_investigation",
       title: "Preserve unresolved investigation",

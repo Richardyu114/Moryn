@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { isPrivateMemoryBoundary } from "./sensitive.js";
-import type { MorynRecord, RecordKind, RecordScope, RecordState } from "./types.js";
+import type { MorynRecord, RecordKind, RecordMemoryUsage, RecordScope, RecordState } from "./types.js";
 
 export const MEMORY_RETENTION_METADATA_KEY = "memory_retention" as const;
 
@@ -86,8 +86,10 @@ export interface MemoryRetentionMetadataV2 {
   usage?: {
     last_recalled_at?: string;
     last_useful_at?: string;
+    last_rejected_at?: string;
     recall_count?: number;
     useful_count?: number;
+    rejected_count?: number;
   };
   lineage?: {
     derived_from?: string[];
@@ -119,8 +121,10 @@ export interface NormalizedMemoryRetentionMetadataV2 {
   usage: {
     last_recalled_at?: string;
     last_useful_at?: string;
+    last_rejected_at?: string;
     recall_count?: number;
     useful_count?: number;
+    rejected_count?: number;
   };
   lineage: {
     derived_from: string[];
@@ -177,8 +181,10 @@ export interface MemoryValidityViewV2 {
 export interface MemoryUsageViewV2 {
   last_recalled_at?: string;
   last_useful_at?: string;
+  last_rejected_at?: string;
   recall_count: number;
   useful_count: number;
+  rejected_count: number;
 }
 
 export interface MemoryLineageViewV2 {
@@ -520,6 +526,11 @@ export function parseMemoryRetentionMetadata(record: MorynRecord): ParsedMemoryR
     warning(warnings, "inconsistent_value", `${rootPath}.usage.useful_count`);
     usefulCount = recallCount;
   }
+  let rejectedCount = countValue(usage?.rejected_count, `${rootPath}.usage.rejected_count`, warnings);
+  if (recallCount !== undefined && rejectedCount !== undefined && (usefulCount ?? 0) + rejectedCount > recallCount) {
+    warning(warnings, "inconsistent_value", `${rootPath}.usage.rejected_count`);
+    rejectedCount = Math.max(0, recallCount - (usefulCount ?? 0));
+  }
 
   const coveredRecordIds = stringList(lineage?.covered_record_ids, `${rootPath}.lineage.covered_record_ids`, warnings);
   const coveredByRecordIds = stringList(
@@ -558,8 +569,10 @@ export function parseMemoryRetentionMetadata(record: MorynRecord): ParsedMemoryR
     usage: {
       last_recalled_at: timestampValue(usage?.last_recalled_at, `${rootPath}.usage.last_recalled_at`, warnings),
       last_useful_at: timestampValue(usage?.last_useful_at, `${rootPath}.usage.last_useful_at`, warnings),
+      last_rejected_at: timestampValue(usage?.last_rejected_at, `${rootPath}.usage.last_rejected_at`, warnings),
       recall_count: recallCount,
-      useful_count: usefulCount
+      useful_count: usefulCount,
+      rejected_count: rejectedCount
     },
     lineage: {
       derived_from: stringList(lineage?.derived_from, `${rootPath}.lineage.derived_from`, warnings),
@@ -873,6 +886,7 @@ function legacyValidUntil(record: MorynRecord, warnings: MemoryRetentionWarning[
 function validityView(
   record: MorynRecord,
   metadata: NormalizedMemoryRetentionMetadataV2 | undefined,
+  feedback: RecordMemoryUsage | undefined,
   now: string | undefined,
   warnings: MemoryRetentionWarning[],
   reasons: MemoryRetentionReason[]
@@ -881,6 +895,7 @@ function validityView(
   const legacy = metadataValidUntil ? undefined : legacyValidUntil(record, warnings);
   const validUntil = metadataValidUntil ?? legacy;
   const staleAt = metadata?.validity.stale_at;
+  const lastVerifiedAt = latestTimestamp(metadata?.validity.last_verified_at, feedback?.last_verified_at);
   if (legacy) {
     addReason(
       reasons,
@@ -900,7 +915,7 @@ function validityView(
     status,
     ...(validUntil ? { valid_until: validUntil } : {}),
     ...(staleAt ? { stale_at: staleAt } : {}),
-    ...(metadata?.validity.last_verified_at ? { last_verified_at: metadata.validity.last_verified_at } : {})
+    ...(lastVerifiedAt ? { last_verified_at: lastVerifiedAt } : {})
   };
 }
 
@@ -1155,12 +1170,26 @@ function safetyView(input: {
   };
 }
 
-function usageView(metadata: NormalizedMemoryRetentionMetadataV2 | undefined): MemoryUsageViewV2 {
+function latestTimestamp(left: string | undefined, right: string | undefined): string | undefined {
+  if (!left) return right;
+  if (!right) return left;
+  return left >= right ? left : right;
+}
+
+function usageView(
+  metadata: NormalizedMemoryRetentionMetadataV2 | undefined,
+  feedback: RecordMemoryUsage | undefined
+): MemoryUsageViewV2 {
+  const lastRecalledAt = latestTimestamp(metadata?.usage.last_recalled_at, feedback?.last_recalled_at);
+  const lastUsefulAt = latestTimestamp(metadata?.usage.last_useful_at, feedback?.last_useful_at);
+  const lastRejectedAt = latestTimestamp(metadata?.usage.last_rejected_at, feedback?.last_rejected_at);
   return {
-    ...(metadata?.usage.last_recalled_at ? { last_recalled_at: metadata.usage.last_recalled_at } : {}),
-    ...(metadata?.usage.last_useful_at ? { last_useful_at: metadata.usage.last_useful_at } : {}),
-    recall_count: metadata?.usage.recall_count ?? 0,
-    useful_count: metadata?.usage.useful_count ?? 0
+    ...(lastRecalledAt ? { last_recalled_at: lastRecalledAt } : {}),
+    ...(lastUsefulAt ? { last_useful_at: lastUsefulAt } : {}),
+    ...(lastRejectedAt ? { last_rejected_at: lastRejectedAt } : {}),
+    recall_count: (metadata?.usage.recall_count ?? 0) + (feedback?.recall_count ?? 0),
+    useful_count: (metadata?.usage.useful_count ?? 0) + (feedback?.useful_count ?? 0),
+    rejected_count: (metadata?.usage.rejected_count ?? 0) + (feedback?.rejected_count ?? 0)
   };
 }
 
@@ -1181,7 +1210,7 @@ function buildMemoryRetentionViewInternal(
   const isProtectedType = protectedType(record);
   const protectedSignals = protectedMemorySignals(record);
   const lineage = lineageView(record, metadata, warnings, reasons, projectedCoveredBy);
-  const validity = validityView(record, metadata, now, warnings, reasons);
+  const validity = validityView(record, metadata, record.memory_usage, now, warnings, reasons);
   const retention = retentionAxis({
     record,
     layer: layer.level,
@@ -1219,7 +1248,7 @@ function buildMemoryRetentionViewInternal(
     trust,
     retention,
     validity,
-    usage: usageView(metadata),
+    usage: usageView(metadata, record.memory_usage),
     lineage,
     safety,
     metadata: {

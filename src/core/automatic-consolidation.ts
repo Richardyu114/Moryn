@@ -13,12 +13,22 @@ export function discoverAutomaticDuplicateProposal(
   sourceRecordId: string
 ): SemanticConsolidationProposal | undefined {
   const source = records.find((record) => record.id === sourceRecordId);
-  if (!source || !DURABLE_KINDS.has(source.kind) || isPrivateMemoryBoundary(source)) return undefined;
+  if (
+    !source ||
+    !DURABLE_KINDS.has(source.kind) ||
+    isPrivateMemoryBoundary(source) ||
+    source.conflict?.resolution === "needs_review"
+  )
+    return undefined;
   const candidate = retrieveSemanticConsolidationCandidates(records, {
     source_record_ids: [sourceRecordId],
     per_source_limit: 8,
     total_limit: 8
-  }).candidates.find((item) => item.token_overlap >= AUTOMATIC_DUPLICATE_OVERLAP);
+  }).candidates.find(
+    (item) =>
+      item.token_overlap >= AUTOMATIC_DUPLICATE_OVERLAP &&
+      records.find((record) => record.id === item.record_id)?.conflict?.resolution !== "needs_review"
+  );
   if (!candidate) return undefined;
   const target = records.find((record) => record.id === candidate.record_id);
   if (!target) return undefined;

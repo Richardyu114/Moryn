@@ -207,7 +207,8 @@ describe("memory retention metadata", () => {
       last_recalled_at: "2026-07-18T00:00:00.000Z",
       last_useful_at: "2026-07-18T00:00:00.000Z",
       recall_count: 8,
-      useful_count: 5
+      useful_count: 5,
+      rejected_count: 0
     });
     expect(view.lineage).toEqual({
       derived_from: ["rec-a", "rec-b", "rec-z"],

@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { createEngine } from "../../src/core/engine.js";
+import type { HistoricalRecallMatch } from "../../src/core/historical-recall.js";
 import { evaluateRecall } from "../../src/core/recall-eval.js";
 import { readEvents } from "../../src/core/store.js";
-import type { RecordKind, RecordScope, RecordState } from "../../src/core/types.js";
+import type { MorynRecord, RecordKind, RecordScope, RecordState } from "../../src/core/types.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
 const RECALL_EVAL_SELECTION_SOURCES = {
@@ -15,6 +16,55 @@ const RECALL_EVAL_SELECTION_SOURCES = {
   suggested_action: "suggested_actions_by_id.<action_id>",
   suggested_action_id: "suggested_actions_by_id.<action_id>.action_id"
 };
+
+function evalRecord(id: string, overrides: Partial<MorynRecord> = {}): MorynRecord {
+  return {
+    id,
+    kind: "memory",
+    type: "fact",
+    scope: "project",
+    project_id: "moryn",
+    tags: [],
+    content: { text: id },
+    state: "canonical",
+    confidence: 0.9,
+    priority: "normal",
+    visibility: "active",
+    created_at: "2026-05-28T00:00:00.000Z",
+    updated_at: "2026-05-28T00:00:00.000Z",
+    source: { client: "test" },
+    provenance: { method: "user-confirmed" },
+    ...overrides
+  };
+}
+
+function historicalMatch(record: MorynRecord, overrides: Partial<HistoricalRecallMatch> = {}): HistoricalRecallMatch {
+  return {
+    record_id: record.id,
+    kind: record.kind,
+    type: record.type,
+    scope: record.scope,
+    ...(record.project_id ? { project_id: record.project_id } : {}),
+    state: record.state,
+    visibility: record.visibility,
+    confidence: record.confidence,
+    priority: record.priority,
+    updated_at: record.updated_at,
+    layer: "L1",
+    tier: "cold",
+    reasons: ["archived"],
+    covered_by_record_ids: [],
+    matched_tokens: ["historical"],
+    query_tokens: ["historical"],
+    coverage: 1,
+    score: 10,
+    content_mode: "full",
+    source_estimated_tokens: 10,
+    returned_estimated_tokens: 10,
+    record,
+    ...overrides
+  };
+}
 
 describe("recall eval", () => {
   async function writeFixtureRecord(
@@ -460,5 +510,90 @@ describe("recall eval", () => {
       });
       expect(report.summary.privacy_leaks).toBe(2);
     });
+  });
+
+  it("ranks keyed historical recovery after ordinary results and removes duplicate record ids", async () => {
+    const ordinary = evalRecord("rec-ordinary");
+    const historical = evalRecord("rec-historical", {
+      state: "archived",
+      visibility: "archived",
+      updated_at: "2026-05-27T00:00:00.000Z"
+    });
+
+    const report = await evaluateRecall(
+      {
+        project_id: "moryn",
+        cases: [
+          {
+            case_id: "historical-recovery",
+            query: "historical detail",
+            expected_record_ids: [ordinary.id, historical.id]
+          }
+        ]
+      },
+      async () => ({
+        results: [{ record: ordinary, score: 20, reason: ["ordinary_result"] }],
+        historical_recovery: {
+          matches_by_record_id: {
+            [ordinary.id]: historicalMatch(ordinary, { score: 100 }),
+            [historical.id]: historicalMatch(historical, { score: 15 })
+          }
+        }
+      })
+    );
+
+    expect(report.cases_by_id["historical-recovery"]).toMatchObject({
+      status: "pass",
+      matched_record_ids: [ordinary.id, historical.id],
+      missing_record_ids: [],
+      hidden_record_ids: [],
+      top_record_id: ordinary.id,
+      results: [
+        { record_id: ordinary.id, rank: 1, score: 20, reason: ["ordinary_result"] },
+        { record_id: historical.id, rank: 2, score: 15 }
+      ]
+    });
+    expect(report.cases_by_id["historical-recovery"]?.results[1]?.reason).toContain("historical_recovery");
+  });
+
+  it("flags private records returned through keyed historical recovery", async () => {
+    const privateHistorical = evalRecord("rec-private-historical", {
+      tags: ["private"],
+      state: "archived",
+      visibility: "archived"
+    });
+
+    const report = await evaluateRecall(
+      {
+        project_id: "moryn",
+        cases: [
+          {
+            case_id: "historical-private-leak",
+            query: "private historical detail",
+            expected_record_ids: [privateHistorical.id]
+          }
+        ]
+      },
+      async () => ({
+        results: [],
+        historical_recovery: {
+          matches_by_record_id: {
+            [privateHistorical.id]: historicalMatch(privateHistorical)
+          }
+        }
+      })
+    );
+
+    expect(report.cases_by_id["historical-private-leak"]).toMatchObject({
+      status: "pass",
+      matched_record_ids: [privateHistorical.id],
+      results: [{ record_id: privateHistorical.id, rank: 1 }]
+    });
+    expect(report.privacy).toEqual({
+      include_private: false,
+      leaked_private_record_ids: [privateHistorical.id],
+      leak_count: 1
+    });
+    expect(report.summary.privacy_leaks).toBe(1);
   });
 });

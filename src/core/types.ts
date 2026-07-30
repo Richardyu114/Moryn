@@ -3,6 +3,8 @@ export type RecordState = "raw" | "candidate" | "canonical" | "archived" | "quar
 export type RecordScope = "global" | "project" | "topic" | "session" | "artifact";
 export type RecordPriority = "low" | "normal" | "high";
 export type RecordVisibility = "active" | "archived" | "quarantined";
+export const RECORD_FEEDBACK_OUTCOMES = ["recalled", "used", "verified", "rejected"] as const;
+export type RecordFeedbackOutcome = (typeof RECORD_FEEDBACK_OUTCOMES)[number];
 
 export interface RecordContent {
   text?: string;
@@ -37,6 +39,17 @@ export interface RecordConflict {
   resolution: "needs_review" | "resolved";
 }
 
+export interface RecordMemoryUsage {
+  version: 1;
+  last_recalled_at?: string;
+  last_useful_at?: string;
+  last_rejected_at?: string;
+  last_verified_at?: string;
+  recall_count: number;
+  useful_count: number;
+  rejected_count: number;
+}
+
 export interface EventIdempotency {
   version: 1;
   operation: string;
@@ -67,6 +80,7 @@ export interface MorynRecord {
   provenance?: RecordProvenance;
   conflict?: RecordConflict;
   links?: RecordLink[];
+  memory_usage?: RecordMemoryUsage;
 }
 
 export type MorynEvent = { idempotency?: EventIdempotency } & (
@@ -97,6 +111,14 @@ export type MorynEvent = { idempotency?: EventIdempotency } & (
       reason?: string;
       confirmed?: boolean;
       conflict?: RecordConflict;
+      created_at: string;
+      source: RecordSource;
+    }
+  | {
+      event_id: string;
+      op: "record_feedback";
+      record_id: string;
+      outcome: RecordFeedbackOutcome;
       created_at: string;
       source: RecordSource;
     }

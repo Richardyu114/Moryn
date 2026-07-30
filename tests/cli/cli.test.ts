@@ -2508,9 +2508,7 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
     });
     expect(parsed.operations.find((operation) => operation.operation === "agent_finish")).toEqual({
       operation: "agent_finish",
-      mcp_tool: "agent_finish",
-      cli_command: "moryn agent finish --summary <summary>",
-      next_step: "collect_required_fields"
+      operation_source: "operations_by_id.agent_finish"
     });
     expect(parsed.operations_by_id.agent_finish.full_contract_lookup.mcp).toMatchObject({
       tool: "operation_contracts",
@@ -4827,8 +4825,15 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
         record: "results_by_id.<record_id>.record",
         record_id: "results_by_id.<record_id>.record.id",
         result_next_action: "results_by_id.<record_id>.next_action",
+        historical_match: "historical_recovery.matches_by_record_id.<record_id>",
+        historical_record_id: "historical_recovery.matches_by_record_id.<record_id>.record_id",
+        historical_full_record: "historical_recovery.matches_by_record_id.<record_id>.record",
+        historical_excerpt: "historical_recovery.matches_by_record_id.<record_id>.excerpt",
+        outcome_best_result_source: "outcome.best_result_source",
+        outcome_best_result_path: "outcome.best_result_path",
         next_action: "next_actions_by_id.<action_id>",
         ordered_next_action: "next_actions[]",
+        next_action_argument: "next_actions_by_id.<action_id>.arguments_by_name.<argument>",
         memory_working_set: "memory_working_set"
       });
       expect(parsedRecall.results_by_id[recordId]).toEqual(parsedRecall.results[0]);
@@ -7698,7 +7703,8 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
               "source",
               "provenance",
               "conflict",
-              "links"
+              "links",
+              "memory_usage"
             ]
           },
           retry_with: {
@@ -8144,7 +8150,22 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
         "--project",
         project
       ]);
-      expect(hiddenRecall.stdout).not.toContain("Old linked memory");
+      const recoveredHistory = JSON.parse(hiddenRecall.stdout) as {
+        historical_recovery: {
+          status: string;
+          matches: Array<{ record_id: string }>;
+          matches_by_record_id: Record<string, { record: { content: { text: string } } }>;
+          upgrade: { automatic_source_reactivation: boolean; evidence_record_ids: string[] };
+        };
+      };
+      expect(recoveredHistory.historical_recovery).toMatchObject({
+        status: "recovered",
+        matches: [{ record_id: oldId }],
+        upgrade: { automatic_source_reactivation: false, evidence_record_ids: [oldId] }
+      });
+      expect(recoveredHistory.historical_recovery.matches_by_record_id[oldId]?.record.content.text).toBe(
+        "Old linked memory"
+      );
 
       const archivedRecall = await exec("node", [
         cliJsPath,

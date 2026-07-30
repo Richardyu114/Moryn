@@ -68,6 +68,7 @@ import {
 import type { RecallEvalCaseInput } from "./core/recall-eval.js";
 import { isValidPatchPath, RECORD_KINDS, RECORD_PRIORITIES, RECORD_SCOPES, RECORD_STATES } from "./core/schema.js";
 import { SOUL_DISTRIBUTIONS } from "./core/soul-profile.js";
+import { RECORD_FEEDBACK_OUTCOMES } from "./core/types.js";
 import {
   activateClaudeSettings,
   activateCodexHooks,
@@ -118,6 +119,7 @@ const recordKinds = RECORD_KINDS;
 const recordScopes = RECORD_SCOPES;
 const recordStates = RECORD_STATES;
 const recordPriorities = RECORD_PRIORITIES;
+const recordFeedbackOutcomes = RECORD_FEEDBACK_OUTCOMES;
 const projectSyncModeInputs = PROJECT_SYNC_MODE_INPUTS;
 
 const CLI_ARGUMENT_RECOVERY_ACTION_PREFIX = "retry with a valid" as const;
@@ -159,7 +161,7 @@ type CliLimitOperation =
   | "dashboard";
 type CliLimitOperationContractSource = `operations_by_id.${CliLimitOperation}`;
 type CliLimitArgumentSource = `operations_by_id.${CliLimitOperation}.arguments_by_name.limit`;
-type CliEnumOperation = "write" | "recall" | "promote" | "project_init";
+type CliEnumOperation = "write" | "recall" | "promote" | "project_init" | "memory_feedback";
 type CliEnumOperationContractSource = `operations_by_id.${CliEnumOperation}`;
 type CliEnumArgumentSource = `operations_by_id.${CliEnumOperation}.arguments_by_name.${string}`;
 type CliEnumSource = {
@@ -188,6 +190,7 @@ type CliRequiredOperation =
   | "sync_init"
   | "soul_approve"
   | "soul_rollback"
+  | "memory_feedback"
   | "memory_expand"
   | "memory_compaction_plan"
   | "memory_compaction_apply"
@@ -218,6 +221,7 @@ type CliParserOperation =
   | "memory_maintenance_shadow"
   | "maintenance_run"
   | "memory_lifecycle"
+  | "memory_feedback"
   | "memory_expand"
   | "memory_compaction_preview"
   | "memory_compaction_plan"
@@ -3623,6 +3627,36 @@ soul
   });
 
 const memory = program.command("memory");
+
+memory
+  .command("feedback")
+  .argument("<record-id>")
+  .requiredOption("--outcome <outcome>", "Final recall outcome")
+  .requiredOption("--idempotency-key <key>", "Unique recall interaction id")
+  .option("--occurred-at <iso>", "Canonical outcome timestamp")
+  .action(async (recordId, options) => {
+    printJson(
+      await createCliEngine().recordFeedback({
+        record_id: parseNonEmptyCliPositional(recordId, "record-id", {
+          operation: "memory_feedback",
+          argument: "record_id"
+        }),
+        outcome: parseEnum(options.outcome, recordFeedbackOutcomes, "--outcome", {
+          operation: "memory_feedback",
+          argument: "outcome"
+        }),
+        occurred_at: parseNonEmptyCliString(options.occurredAt, "--occurred-at", {
+          operation: "memory_feedback",
+          argument: "occurred_at"
+        }),
+        idempotency_key: parseNonEmptyCliString(options.idempotencyKey, "--idempotency-key", {
+          operation: "memory_feedback",
+          argument: "idempotency_key"
+        }),
+        source: { client: "cli" }
+      })
+    );
+  });
 
 memory
   .command("expand")
