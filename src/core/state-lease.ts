@@ -33,6 +33,7 @@ const LEASE_POLL_MS = 25;
 const LEASE_RELEASE_GATE_TIMEOUT_MS = 500;
 const RECOVERY_OWNER_NAME = "owner.json";
 const RECOVERY_CLAIM_PREFIX = "owner.recover-";
+const RECOVERY_PENDING_SUFFIX = ".pending-";
 
 interface HeldStateLease {
   active: boolean;
@@ -318,25 +319,42 @@ async function recoverRecoveryGate(recoveryPath: string, recoveryToken: string):
 async function tryAcquireRecoveryGate(recoveryPath: string): Promise<RecoveryGate | undefined> {
   const token = newOwnerToken();
   const ownerPath = join(recoveryPath, RECOVERY_OWNER_NAME);
+  const pendingRecoveryPath = `${recoveryPath}${RECOVERY_PENDING_SUFFIX}${token}`;
+  const pendingOwnerPath = join(pendingRecoveryPath, RECOVERY_OWNER_NAME);
+  let pendingOwnerHandle: FileHandle | undefined;
+  let published = false;
   try {
-    await mkdir(recoveryPath, { mode: 0o700 });
-  } catch (error) {
-    if (!hasErrorCode(error, "EEXIST")) throw error;
-    await recoverRecoveryGate(recoveryPath, token);
-    return undefined;
-  }
+    await mkdir(pendingRecoveryPath, { mode: 0o700 });
+    pendingOwnerHandle = await open(pendingOwnerPath, "wx", 0o600);
+    await writeOwner(pendingOwnerHandle, token, new Date().toISOString());
+    await pendingOwnerHandle.close();
+    pendingOwnerHandle = undefined;
 
-  let ownerHandle: FileHandle | undefined;
-  try {
-    ownerHandle = await open(ownerPath, "wx", 0o600);
-    await writeOwner(ownerHandle, token, new Date().toISOString());
+    try {
+      await rename(pendingRecoveryPath, recoveryPath);
+      published = true;
+    } catch (error) {
+      const recoveryPathExists = await pathUpdatedAt(recoveryPath);
+      const destinationExists =
+        hasErrorCode(error, "EEXIST") ||
+        hasErrorCode(error, "ENOTEMPTY") ||
+        (hasErrorCode(error, "EPERM") && recoveryPathExists !== undefined);
+      if (!destinationExists) throw error;
+      await rm(pendingRecoveryPath, { recursive: true, force: true });
+      await recoverRecoveryGate(recoveryPath, token);
+      return undefined;
+    }
+
     if ((await readOwnerToken(ownerPath)) !== token) {
       throw new Error("Store state recovery gate ownership changed during acquisition");
     }
   } catch (error) {
-    await ownerHandle?.close().catch(() => undefined);
-    if ((await readOwnerToken(ownerPath)) === token) await unlink(ownerPath).catch(() => undefined);
-    await removeEmptyRecoveryGate(recoveryPath).catch(() => undefined);
+    await pendingOwnerHandle?.close().catch(() => undefined);
+    await rm(pendingRecoveryPath, { recursive: true, force: true }).catch(() => undefined);
+    if (published && (await readOwnerToken(ownerPath)) === token) {
+      await unlink(ownerPath).catch(() => undefined);
+      await removeEmptyRecoveryGate(recoveryPath).catch(() => undefined);
+    }
     throw error;
   }
 
@@ -345,7 +363,6 @@ async function tryAcquireRecoveryGate(recoveryPath: string): Promise<RecoveryGat
     release: async () => {
       if (released) return;
       released = true;
-      await ownerHandle.close();
       if ((await readOwnerToken(ownerPath)) !== token) return;
       await unlink(ownerPath);
       await removeEmptyRecoveryGate(recoveryPath);

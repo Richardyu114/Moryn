@@ -700,7 +700,7 @@ export function errorCode(message: string): string {
   if (message === "Operation deadline exceeded") return "OPERATION_DEADLINE_EXCEEDED";
   if (message === "Operation cancelled") return "OPERATION_CANCELLED";
   if (message.startsWith("Idempotency collision:")) return "IDEMPOTENCY_KEY_REUSED";
-  if (message.startsWith("Store not initialized") || message.includes("ENOENT")) return "STORE_NOT_INITIALIZED";
+  if (message.startsWith("Store not initialized")) return "STORE_NOT_INITIALIZED";
   if (message.startsWith("Confirmation required:")) return "CONFIRMATION_REQUIRED";
   if (message.startsWith("Invalid project config:")) return "INVALID_PROJECT_CONFIG";
   if (message.startsWith("Project context required:")) return "PROJECT_CONTEXT_REQUIRED";

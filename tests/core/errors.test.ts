@@ -649,6 +649,19 @@ describe("error envelopes", () => {
     });
   });
 
+  it("does not misclassify an internal missing file as an uninitialized store", () => {
+    const envelope = toErrorEnvelope(
+      new Error("ENOENT: no such file or directory, open '/tmp/store/state/store-state.recovery/owner.json'")
+    );
+
+    expect(envelope.error).toMatchObject({
+      code: "INTERNAL_ERROR",
+      recoverable: false
+    });
+    expect(envelope.error.recovery_hint).toBeUndefined();
+    expect(envelope.error.next_action).toBeUndefined();
+  });
+
   it("returns a guarded repair action for invalid store config", () => {
     const envelope = toErrorEnvelope(
       new Error("Invalid store config: /home/user/.moryn/config.json: Unexpected end of JSON input")
