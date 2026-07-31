@@ -1412,7 +1412,14 @@ describe("published package smoke", () => {
         );
 
         const smoke = join(dir, "node_modules", ".bin", "moryn-agent-smoke");
-        const result = await exec(smoke, [], { cwd: dir });
+        const result = await exec(smoke, [], {
+          cwd: dir,
+          env: {
+            ...process.env,
+            MORYN_AGENT_LIFECYCLE_REMOTE: "",
+            MORYN_PRIVATE_GIT_REMOTE: ""
+          }
+        });
 
         expect(result.stdout).toContain("agent lifecycle smoke passed");
         expect(result.stdout).toContain("Codex smoke status reached Gemini");

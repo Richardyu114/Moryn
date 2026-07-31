@@ -173,6 +173,27 @@ describe("v0.4 release gate", () => {
     expect(JSON.parse(logs.at(-1)!)).toEqual(result);
   });
 
+  it("does not expose a configured private remote to the full test suite", async () => {
+    const testEnvironments: NodeJS.ProcessEnv[] = [];
+    await runReleaseGate({
+      private_remote: "https://example.invalid/private-store.git",
+      run_command: async (command, args, options) => {
+        if (command === "npm" && args[0] === "test") testEnvironments.push(options?.env ?? {});
+        if (command === "npm" && args[0] === "pack") {
+          throw new Error("stop after test environment capture");
+        }
+        return "ok";
+      },
+      log: () => undefined
+    }).catch((error: unknown) => {
+      if (!(error instanceof Error && error.message === "stop after test environment capture")) throw error;
+    });
+
+    expect(testEnvironments).toHaveLength(1);
+    expect(testEnvironments[0]?.MORYN_AGENT_LIFECYCLE_REMOTE).toBeUndefined();
+    expect(testEnvironments[0]?.MORYN_PRIVATE_GIT_REMOTE).toBeUndefined();
+  });
+
   it("maps a full release run to all eleven v0.4 acceptance areas", () => {
     const completed = releaseGateSteps(false, false)
       .filter((step) => step.mode === "required")

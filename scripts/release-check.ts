@@ -83,6 +83,13 @@ async function defaultRun(
   return stdout;
 }
 
+function isolatedTestEnvironment(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  delete env.MORYN_AGENT_LIFECYCLE_REMOTE;
+  delete env.MORYN_PRIVATE_GIT_REMOTE;
+  return env;
+}
+
 export function releaseGateSteps(skipSlowChecks: boolean, hasPrivateRemote: boolean): ReleaseGateStep[] {
   return [
     { id: "build", mode: skipSlowChecks ? "skipped" : "required" },
@@ -371,7 +378,7 @@ export async function runReleaseGate(options: ReleaseGateOptions = {}): Promise<
     const command = commands[step.id];
     if (command) {
       log(`$ ${command[0]} ${command[1].join(" ")}`);
-      await run(command[0], command[1]);
+      await run(command[0], command[1], step.id === "tests" ? { env: isolatedTestEnvironment() } : undefined);
     } else if (step.id === "package") await validatePackage(run, log);
     else if (step.id === "private_remote" && privateRemote) await validatePrivateRemote(privateRemote, run, log);
     completed.push(step.id);

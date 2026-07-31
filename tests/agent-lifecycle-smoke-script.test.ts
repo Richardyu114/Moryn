@@ -15,7 +15,14 @@ describe("agent lifecycle smoke script", () => {
     expect(pkg.bin?.["moryn-agent-smoke"]).toBe("scripts/agent-lifecycle-smoke.js");
     expect(pkg.scripts?.["smoke:agent-lifecycle"]).toBe("node scripts/agent-lifecycle-smoke.js");
 
-    const result = await exec("node", ["scripts/agent-lifecycle-smoke.js"], { cwd: process.cwd() });
+    const result = await exec("node", ["scripts/agent-lifecycle-smoke.js"], {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        MORYN_AGENT_LIFECYCLE_REMOTE: "",
+        MORYN_PRIVATE_GIT_REMOTE: ""
+      }
+    });
 
     expect(result.stdout).toContain("agent lifecycle smoke passed");
     expect(result.stdout).toContain("Codex smoke status reached Gemini");

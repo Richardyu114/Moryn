@@ -197,7 +197,11 @@ async function main() {
       "--no-push"
     ]);
     const initialPromptEventsAfter = (await runJson(command, [...argsPrefix, "--store", storeCodex, "health", "check", "--project", project, "--host", "codex"])).stats.total_events;
-    if (initialPromptRecall.prompt_recall?.outcome?.status !== "knowledge_gap") throw new Error("Initial Codex prompt recall did not expose a knowledge gap");
+    if (initialPromptRecall.prompt_recall?.outcome?.status !== "knowledge_gap") {
+      throw new Error(
+        `Initial Codex prompt recall did not expose a knowledge gap: ${JSON.stringify(initialPromptRecall.prompt_recall ?? null)}`
+      );
+    }
     if (initialPromptEventsAfter !== initialPromptEventsBefore) throw new Error("Initial Codex prompt recall mutated the event store");
 
     const target = await runJson(command, [...argsPrefix, "--store", storeCodex, "write", "--kind", "memory", "--type", "fact", "--scope", "project", "--project", project, "--text", "Agents pull memory on project enter.", "--state", "canonical", "--confirm"]);
