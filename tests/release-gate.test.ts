@@ -173,25 +173,36 @@ describe("v0.4 release gate", () => {
     expect(JSON.parse(logs.at(-1)!)).toEqual(result);
   });
 
-  it("does not expose a configured private remote to the full test suite", async () => {
+  it("does not expose a configured private remote to tests or lifecycle smoke", async () => {
     const testEnvironments: NodeJS.ProcessEnv[] = [];
-    await runReleaseGate({
-      private_remote: "https://example.invalid/private-store.git",
-      run_command: async (command, args, options) => {
-        if (command === "npm" && args[0] === "test") testEnvironments.push(options?.env ?? {});
-        if (command === "npm" && args[0] === "pack") {
-          throw new Error("stop after test environment capture");
-        }
-        return "ok";
-      },
-      log: () => undefined
-    }).catch((error: unknown) => {
-      if (!(error instanceof Error && error.message === "stop after test environment capture")) throw error;
-    });
+    const lifecycleEnvironments: NodeJS.ProcessEnv[] = [];
+    vi.stubEnv("MORYN_PRIVATE_GIT_REMOTE", "https://example.invalid/private-store.git");
+    try {
+      await runReleaseGate({
+        private_remote: "https://example.invalid/private-store.git",
+        run_command: async (command, args, options) => {
+          if (command === "npm" && args[0] === "test") testEnvironments.push(options?.env ?? {});
+          if (command === "npm" && args.includes("smoke:agent-lifecycle")) {
+            lifecycleEnvironments.push(options?.env ?? {});
+          }
+          if (command === "npm" && args[0] === "pack") {
+            throw new Error("stop after test environment capture");
+          }
+          return "ok";
+        },
+        log: () => undefined
+      }).catch((error: unknown) => {
+        if (!(error instanceof Error && error.message === "stop after test environment capture")) throw error;
+      });
 
-    expect(testEnvironments).toHaveLength(1);
-    expect(testEnvironments[0]?.MORYN_AGENT_LIFECYCLE_REMOTE).toBeUndefined();
-    expect(testEnvironments[0]?.MORYN_PRIVATE_GIT_REMOTE).toBeUndefined();
+      expect(testEnvironments).toHaveLength(1);
+      expect(testEnvironments[0]?.MORYN_AGENT_LIFECYCLE_REMOTE).toBeUndefined();
+      expect(testEnvironments[0]?.MORYN_PRIVATE_GIT_REMOTE).toBeUndefined();
+      expect(lifecycleEnvironments).toHaveLength(1);
+      expect(lifecycleEnvironments[0]?.MORYN_PRIVATE_GIT_REMOTE).toBeUndefined();
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("maps a full release run to all eleven v0.4 acceptance areas", () => {
