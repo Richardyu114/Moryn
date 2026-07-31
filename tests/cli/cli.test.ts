@@ -13532,6 +13532,21 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
         "--text",
         "This should not create a store implicitly."
       ]);
+
+      await expectStoreNotInitialized(["sync", "init", join(dir, "remote.git")]);
+
+      await expectStoreNotInitialized([
+        "host",
+        "hook",
+        "--host",
+        "codex",
+        "--project-id",
+        "moryn",
+        "--input-json",
+        JSON.stringify({ hook_event_name: "SessionStart", session_id: "uninitialized-store", cwd: dir }),
+        "--no-pull",
+        "--no-push"
+      ]);
     });
   });
 

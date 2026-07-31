@@ -35,6 +35,15 @@ export interface InitializeStoreOptions {
   repair?: boolean;
 }
 
+class StoreNotInitializedError extends Error {
+  readonly code = "ENOENT";
+
+  constructor(configPath: string, cause: unknown) {
+    super(`Store not initialized: missing ${configPath}`, { cause });
+    this.name = "StoreNotInitializedError";
+  }
+}
+
 const INIT_OPERATION_CONTRACT_SOURCE = "operations_by_id.init";
 const INIT_REPAIR_ARGUMENT_SOURCE = "operations_by_id.init.arguments_by_name.repair";
 
@@ -108,15 +117,16 @@ async function ensureStoreDirectories(storePath: string): Promise<void> {
 
 export async function readStoreConfig(storePath: string): Promise<StoreConfig> {
   validateStorePath(storePath);
+  const configPath = join(storePath, "config.json");
   let raw: unknown;
   try {
-    raw = JSON.parse(await readFile(join(storePath, "config.json"), "utf8")) as unknown;
+    raw = JSON.parse(await readFile(configPath, "utf8")) as unknown;
   } catch (error) {
     if (isNotFoundError(error)) {
-      throw error;
+      throw new StoreNotInitializedError(configPath, error);
     }
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Invalid store config: ${join(storePath, "config.json")}: ${message}`);
+    throw new Error(`Invalid store config: ${configPath}: ${message}`);
   }
   const result = storeConfigSchema.safeParse(raw);
   if (!result.success) {
@@ -140,7 +150,7 @@ export async function initializeStore(
   try {
     existing = await readStoreConfig(storePath);
   } catch (error) {
-    if (isNotFoundError(error)) {
+    if (error instanceof StoreNotInitializedError) {
       existing = undefined;
     } else if (options.repair && error instanceof Error && error.message.startsWith("Invalid store config:")) {
       existing = undefined;

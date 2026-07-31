@@ -14,7 +14,7 @@ import {
   stat,
   unlink
 } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import {
   currentOperationDeadlineSignal,
@@ -316,6 +316,53 @@ async function recoverRecoveryGate(recoveryPath: string, recoveryToken: string):
   return removeEmptyRecoveryGate(recoveryPath);
 }
 
+function recoveryPendingOwnerPid(entry: string, pendingPrefix: string): number | undefined {
+  if (!entry.startsWith(pendingPrefix)) return undefined;
+  const match = /^(\d+)-(\d+)-[a-f0-9]+$/u.exec(entry.slice(pendingPrefix.length));
+  if (!match?.[1] || !match[2]) return undefined;
+  const pid = Number(match[1]);
+  const createdAtMs = Number(match[2]);
+  if (!Number.isSafeInteger(pid) || pid <= 0 || !Number.isSafeInteger(createdAtMs) || createdAtMs <= 0) {
+    return undefined;
+  }
+  return pid;
+}
+
+async function recoverAbandonedRecoveryPublications(recoveryPath: string, recoveryToken: string): Promise<void> {
+  const statePath = dirname(recoveryPath);
+  const pendingPrefix = `${basename(recoveryPath)}${RECOVERY_PENDING_SUFFIX}`;
+  const entries = await readdir(statePath);
+  for (const entry of entries) {
+    const pendingOwnerPid = recoveryPendingOwnerPid(entry, pendingPrefix);
+    if (pendingOwnerPid === undefined) continue;
+
+    const pendingPath = join(statePath, entry);
+    const pendingOwnerPath = join(pendingPath, RECOVERY_OWNER_NAME);
+    const updatedAt = await leaseUpdatedAt(pendingPath, pendingOwnerPath);
+    if (updatedAt === undefined || Date.now() - updatedAt <= OWNERLESS_STATE_STALE_MS) continue;
+
+    const pendingOwner = await readOwner(pendingOwnerPath);
+    if (pendingOwner ? await ownerIsDefinitelyLive(pendingOwner) : processIsAlive(pendingOwnerPid)) continue;
+
+    const abandonedPath = `${pendingPath}.stale-${recoveryToken}`;
+    try {
+      await rename(pendingPath, abandonedPath);
+    } catch (error) {
+      if (hasErrorCode(error, "ENOENT")) continue;
+      throw error;
+    }
+
+    const movedOwner = await readOwner(join(abandonedPath, RECOVERY_OWNER_NAME));
+    if (movedOwner && (await ownerIsDefinitelyLive(movedOwner))) {
+      await rename(abandonedPath, pendingPath).catch((error: unknown) => {
+        if (!hasErrorCode(error, "EEXIST")) throw error;
+      });
+      continue;
+    }
+    await rm(abandonedPath, { recursive: true, force: true });
+  }
+}
+
 async function tryAcquireRecoveryGate(recoveryPath: string): Promise<RecoveryGate | undefined> {
   const token = newOwnerToken();
   const ownerPath = join(recoveryPath, RECOVERY_OWNER_NAME);
@@ -324,6 +371,7 @@ async function tryAcquireRecoveryGate(recoveryPath: string): Promise<RecoveryGat
   let pendingOwnerHandle: FileHandle | undefined;
   let published = false;
   try {
+    await recoverAbandonedRecoveryPublications(recoveryPath, token);
     await mkdir(pendingRecoveryPath, { mode: 0o700 });
     pendingOwnerHandle = await open(pendingOwnerPath, "wx", 0o600);
     await writeOwner(pendingOwnerHandle, token, new Date().toISOString());

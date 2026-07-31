@@ -390,6 +390,26 @@ describe("store state lease", () => {
     });
   });
 
+  it("removes a stale recovery publication left by a terminated process", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const recoveryPath = join(storePath, "state", "store-state.recovery");
+      const pendingPath = `${recoveryPath}.pending-4000000-1-deadbeef`;
+      const pendingOwnerPath = join(pendingPath, "owner.json");
+      await mkdir(pendingPath, { mode: 0o700 });
+      await writeFile(
+        pendingOwnerPath,
+        `${JSON.stringify({ version: 1, token: "4000000-1-deadbeef", pid: 4_000_000 })}\n`,
+        { encoding: "utf8", mode: 0o600 }
+      );
+      const staleAt = new Date("2000-01-01T00:00:00.000Z");
+      await utimes(pendingOwnerPath, staleAt, staleAt);
+      await utimes(pendingPath, staleAt, staleAt);
+
+      await expect(withStoreStateLease(storePath, async () => "recovered")).resolves.toBe("recovered");
+      await expect(stat(pendingPath)).rejects.toMatchObject({ code: "ENOENT" });
+    });
+  });
+
   it("recovers a stale lease left by a terminated process without retaining stale owners", async () => {
     await withInitializedTempStore(async (storePath) => {
       const leaseModule = pathToFileURL(join(process.cwd(), "dist", "core", "state-lease.js")).href;

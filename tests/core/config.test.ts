@@ -118,6 +118,24 @@ describe("store config", () => {
     });
   });
 
+  it("classifies a missing config as an uninitialized store", async () => {
+    await withTempStore(async (storePath) => {
+      let caught: unknown;
+      try {
+        await readStoreConfig(storePath);
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(Error);
+      expect(toErrorEnvelope(caught).error).toMatchObject({
+        code: "STORE_NOT_INITIALIZED",
+        recoverable: true,
+        recommended_action: "run moryn init"
+      });
+    });
+  });
+
   it("rejects invalid repair options before writing local store files", async () => {
     await withTempStore(async (storePath) => {
       await expectInvalidStoreRepair(() => initializeStore(storePath, { repair: "yes" as never }), "yes");
