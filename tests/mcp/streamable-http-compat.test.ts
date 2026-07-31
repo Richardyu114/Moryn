@@ -9,7 +9,7 @@ describe("MCP Streamable HTTP dependency compatibility", () => {
   it("handles initialization through the overridden Hono adapter", async () => {
     const mcpServer = new McpServer({
       name: "moryn-streamable-http-compat",
-      version: "0.4.0-dev.0"
+      version: "0.4.0"
     });
     const transport = new StreamableHTTPServerTransport({
       enableJsonResponse: true,
@@ -64,7 +64,7 @@ describe("MCP Streamable HTTP dependency compatibility", () => {
           protocolVersion: LATEST_PROTOCOL_VERSION,
           serverInfo: {
             name: "moryn-streamable-http-compat",
-            version: "0.4.0-dev.0"
+            version: "0.4.0"
           }
         }
       });

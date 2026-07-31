@@ -45,11 +45,10 @@ required smoke/package coverage, and rejects private release-planning paths
 from npm contents. It does not mutate files, create a tag, push, or publish;
 those remain explicit release actions outside the check.
 
-The active source line is `0.4.0-dev.0`, so final release readiness is expected
-to remain blocked until the remaining v0.4 scope is complete and the version is
-explicitly promoted. Development verification uses build, typecheck, lint, the
-full test suite, focused smokes, and dry-run package inspection without creating
-a tag or publishing.
+The v0.4 release line is `0.4.0`. Development verification uses build,
+typecheck, lint, the full test suite, focused smokes, and dry-run package
+inspection. Tagging and publication remain explicit actions after the release
+gate passes.
 
 `npm run release:check` is the authoritative local release gate. It runs build,
 typecheck, the full test suite, dogfood, cross-host lifecycle, v0.2 in-place

@@ -36,14 +36,14 @@ Moryn is not an agent platform, not a vector-memory SDK, and not a hosted cloud 
 It is the *memory bus between agents*: simple on the default path, and
 fully traceable when someone needs review, provenance, sync, or handoff history.
 
-> Current source/package version: v0.4.0-dev.0. v0.4 is still in active development and has not been tagged or published.
+> Current source/package version: v0.4.0.
 >
 > Memory Distillation bounds the active working set,
 > and Portable Soul versions user/agent identity and prepares it for Codex and
 > Claude Code hook output.
 > v0.2/v0.3 stores and explicit handoff commands remain compatible.
 
-## What is being built for v0.4
+## What v0.4 adds
 
 Moryn now treats long-lived context as a lifecycle rather than an ever-growing
 flat list:
@@ -89,7 +89,8 @@ flat list:
   for hook output. Its receipt does not prove stdout transport, Host
   acknowledgment, or model obedience.
 
-The dashboard adds read-only Memory Maintenance and Soul Studio views. See the
+Dashboard GET views add read-only Memory Maintenance and Soul Studio
+projections; explicit POST actions remain auditable mutations. See the
 [v0.4 migration guide](docs/v0.4-migration.md) for compatibility and safety
 details.
 
@@ -173,10 +174,9 @@ Install and use Moryn for this project.
 
 Work autonomously: install Moryn if needed, initialize the local store, attach
 this repo as a Moryn project, and register `moryn mcp` if this host supports
-MCP. Until v0.4 is published to npm, use the source repo at
-https://github.com/Richardyu114/Moryn (`npm install`, `npm run build`, then
-`npm link`) and verify `moryn --version` reports `0.4.0-dev.0`. Do not assume an
-unpinned npm install contains v0.4.
+MCP. Install `@richardyu114/moryn@0.4.0` from npm and verify `moryn --version`
+reports `0.4.0`. When working inside the Moryn source checkout itself, use
+`npm install`, `npm run build`, then `npm link` instead.
 
 Do not ask me to choose Moryn commands. Learn the command surface from
 `moryn agent guide` and `moryn contracts operations --index`, then decide when
@@ -192,7 +192,14 @@ long term. Never store secrets.
 A longer prompt and setup expectations live in
 [Agent Install Prompt](docs/agent-install-prompt.md).
 
-**Install manually from source today:**
+**Install from npm:**
+
+```bash
+npm install -g @richardyu114/moryn@0.4.0
+moryn --version
+```
+
+**Or install from source:**
 
 ```bash
 git clone https://github.com/Richardyu114/Moryn.git
@@ -201,12 +208,6 @@ npm install
 npm run build
 npm link
 moryn --version
-```
-
-The npm target after v0.4 is published will be:
-
-```bash
-npm install -g @richardyu114/moryn@0.4.0
 ```
 
 The executable is `moryn`. Existing v0.2 and v0.3 stores open in place: no

@@ -175,7 +175,7 @@ async function main() {
 
     const semanticLearning = { question: "When do agents pull?", conclusion: "Agents pull memories when entering a project.", evidence_type: "source_code", scope: "project", confidence: 0.99, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] };
     const protectedLearning = { question: "How many retries?", conclusion: "Retry 4 times.", evidence_type: "source_code", scope: "project", confidence: 0.99, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] };
-    const promptLearning = { question: "What protects an active task before context compaction?", conclusion: "A durable Moryn checkpoint protects the active task before context compaction.", evidence_type: "source_code", scope: "project", confidence: 0.99, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] };
+    const promptLearning = { question: "What protects release marker ZXQ-731 before context compaction?", conclusion: "A durable Moryn checkpoint protects release marker ZXQ-731 before context compaction.", evidence_type: "source_code", scope: "project", confidence: 0.99, recommended_kind: "memory", recommended_type: "fact", related_record_ids: [] };
     const initialPromptEventsBefore = (await runJson(command, [...argsPrefix, "--store", storeCodex, "health", "check", "--project", project, "--host", "codex"])).stats.total_events;
     const initialPromptRecall = await runJson(command, [
       ...argsPrefix,

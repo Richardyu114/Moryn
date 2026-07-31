@@ -1,6 +1,6 @@
 {
   "name": "@richardyu114/moryn",
-  "version": "0.4.0-dev.0",
+  "version": "0.4.0",
   "description": "Local-first memory, skill, and handoff layer for AI agents.",
   "type": "module",
   "main": "./dist/index.js",
@@ -62,7 +62,7 @@
     "dev": "tsx src/cli.ts",
     "release:check": "tsx scripts/release-check.ts",
     "release:readiness": "tsx scripts/release-readiness.ts",
-    "test:v04-acceptance": "npm run build && vitest run tests/core/v04-compaction-quality-gate.test.ts tests/core/state-lease.test.ts tests/core/session-fold-transaction.test.ts tests/core/episode-rollup-transaction.test.ts tests/core/automatic-episode-rollup.test.ts tests/core/memory-compaction.test.ts tests/core/session-fold-conflict-projection.test.ts tests/core/structured-semantic-merge.test.ts tests/core/semantic-consolidation-engine.test.ts tests/e2e/soul-git-portability.test.ts tests/e2e/soul-git-sync-receipts.test.ts tests/e2e/compaction-git-concurrency.test.ts tests/sync/git-state-lease.test.ts",
+    "test:v04-acceptance": "npm run build && vitest run tests/core/v04-compaction-quality-gate.test.ts tests/core/state-lease.test.ts tests/core/session-fold-transaction.test.ts tests/core/episode-rollup-transaction.test.ts tests/core/automatic-episode-rollup.test.ts tests/core/memory-compaction.test.ts tests/core/memory-expansion.test.ts tests/core/session-fold-conflict-projection.test.ts tests/core/structured-semantic-merge.test.ts tests/core/semantic-consolidation-engine.test.ts tests/core/automatic-semantic-maintenance.test.ts tests/core/memory-feedback.test.ts tests/core/project-alias-attestation.test.ts tests/e2e/historical-recovery-upgrade.test.ts tests/e2e/soul-git-portability.test.ts tests/e2e/soul-git-sync-receipts.test.ts tests/e2e/compaction-git-concurrency.test.ts tests/mcp/historical-recall.test.ts tests/mcp/memory-feedback.test.ts tests/sync/git-state-lease.test.ts",
     "smoke:agent-lifecycle": "node scripts/agent-lifecycle-smoke.js",
     "smoke:host-runtime-binding": "node scripts/host-runtime-binding-smoke.js",
     "smoke:transcript-compact-safety": "node scripts/transcript-compact-safety-smoke.js",

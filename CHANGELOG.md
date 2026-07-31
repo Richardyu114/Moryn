@@ -1,11 +1,11 @@
 # Changelog
 
-## 0.4.0-dev.0 - Unreleased
+## 0.4.0 - 2026-07-31
 
-Moryn v0.4 remains in active development. The current development line makes
-accumulated memory bounded and auditable, and makes agent/user
+Moryn v0.4 makes accumulated memory bounded and auditable, makes agent/user
 identity portable without treating private persona text as ordinary synced
-memory.
+memory, and automates recovery and maintenance without hiding append-only
+evidence.
 
 ### Added
 
@@ -26,9 +26,22 @@ memory.
   deterministic activation/promotion, and resumable same-plan retries.
 - Proof-gated semantic maintenance drafts with deterministic lossless text-unit
   union, complete source coverage, final-record token projection, and at most
-  one automatic public project merge per `agent_finish`.
+  one automatic public project merge per newly committed checkpoint and
+  `agent_finish`. Idempotent checkpoint replay does not rerun maintenance.
 - Bounded source expansion from a rollup to immediate sources and leaf evidence,
   including cycle, digest, privacy, conflict, and quarantine reporting.
+- One bounded historical recovery pass across cold, archived, logically hidden,
+  and working-set-omitted records when current recall is missing or incomplete.
+  Verified useful evidence is upgraded into one compact current Learning while
+  the historical source remains archived and auditable. Chinese/CJK queries use
+  bounded matching that does not require whitespace between words.
+- Explicit idempotent recall outcome feedback (`recalled`, `used`, `verified`,
+  or `rejected`) and a prompt-recall feedback bridge. Feedback stores
+  record-level outcome metadata without retaining the query or generated answer.
+- Directional portable project-alias attestations. After one approved exact
+  Dashboard repair, later eligible public records under that alias can migrate
+  automatically; private, Soul, conflicted, protected-state, unknown, and
+  reverse mappings remain manual.
 - Versioned User Soul and Agent Persona profiles with global/project clauses,
   `local_only` and `personal_sync` distribution, explicit approval, conflict
   fallback, rollback, deterministic Effective Soul budgets, and metadata-only
@@ -38,8 +51,9 @@ memory.
   `hook_output_prepared_not_host_acknowledged_or_obedience` mean only that
   bounded hook output was prepared; they do not prove stdout transport, Host
   acknowledgment, or model obedience.
-- Read-only Dashboard Memory Maintenance and Soul Studio projections, plus CLI,
-  MCP, operation-contract, and public TypeScript surfaces for v0.4 workflows.
+- Read-only Dashboard GET projections for Memory Maintenance and Soul Studio,
+  explicit auditable POST mutations, plus CLI, MCP, operation-contract, and
+  public TypeScript surfaces for v0.4 workflows.
 - A content-bearing Dashboard memory-status projection that separates current,
   historical, quarantined, pending-learning, and organized-old-version content,
   plus an allowlisted Collaboration Preferences view for selected
@@ -91,6 +105,9 @@ memory.
   otherwise requests an explicit all-projects recent-record search. Explicit
   private-read authorization is preserved, and discovery no longer falls back
   silently to the global-only default scope.
+- Dashboard POST mutations now accept direct and reverse-proxied requests.
+  Access restrictions remain a deployment responsibility at the network or
+  proxy layer; ordinary GET views remain non-mutating.
 
 ### Safety and compatibility
 
@@ -124,6 +141,10 @@ memory.
   as plain session evidence. Deadline-aware Git helpers terminate their full
   POSIX process group, and lease cleanup runs outside an expired operation
   budget without hiding a simultaneous work failure.
+- Recovery-gate ownership is fully written and synchronized before atomic
+  publication. Stale unpublished gates from terminated processes are reclaimed,
+  while unrelated internal `ENOENT` failures are no longer mislabeled as an
+  uninitialized store.
 - New sensitive revisions persist explicit redaction evidence instead of
   inferring it from user-authored placeholder text, while legacy partial
   revisions are re-evaluated against their event-time record content. Literal

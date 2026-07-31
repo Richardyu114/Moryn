@@ -1380,7 +1380,7 @@ describe("published package smoke", () => {
           "true|agent_status|agent_status|operations_by_id.agent_status|agent_status"
         );
         expect(JSON.parse(v04PublicImportCheck.stdout)).toEqual({
-          version: "0.4.0-dev.0",
+          version: "0.4.0",
           layers: ["L0", "L1", "L2", "L3"],
           tiers: ["hot", "warm", "cold", "purged"],
           budget: 16_000,

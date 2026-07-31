@@ -90,21 +90,24 @@ export function releaseGateSteps(skipSlowChecks: boolean, hasPrivateRemote: bool
     { id: "lint", mode: skipSlowChecks ? "skipped" : "required" },
     { id: "tests", mode: skipSlowChecks ? "skipped" : "required" },
     { id: "release_readiness", mode: "required" },
-    { id: "dogfood_smoke", mode: "required" },
-    { id: "lifecycle_smoke", mode: "required" },
-    { id: "learning_inbox_smoke", mode: "required" },
-    { id: "finalization_assurance_smoke", mode: "required" },
-    { id: "host_runtime_binding_smoke", mode: "required" },
-    { id: "transcript_compact_safety_smoke", mode: "required" },
-    { id: "official_host_handoff_smoke", mode: "required" },
-    { id: "upgrade_compat_smoke", mode: "required" },
-    { id: "sync_resilience_smoke", mode: "required" },
-    { id: "sync_conflict_smoke", mode: "required" },
-    { id: "permission_recovery_smoke", mode: "required" },
-    { id: "large_store_smoke", mode: "required" },
-    { id: "v04_acceptance", mode: "required" },
+    { id: "dogfood_smoke", mode: skipSlowChecks ? "skipped" : "required" },
+    { id: "lifecycle_smoke", mode: skipSlowChecks ? "skipped" : "required" },
+    { id: "learning_inbox_smoke", mode: skipSlowChecks ? "skipped" : "required" },
+    { id: "finalization_assurance_smoke", mode: skipSlowChecks ? "skipped" : "required" },
+    { id: "host_runtime_binding_smoke", mode: skipSlowChecks ? "skipped" : "required" },
+    { id: "transcript_compact_safety_smoke", mode: skipSlowChecks ? "skipped" : "required" },
+    { id: "official_host_handoff_smoke", mode: skipSlowChecks ? "skipped" : "required" },
+    { id: "upgrade_compat_smoke", mode: skipSlowChecks ? "skipped" : "required" },
+    { id: "sync_resilience_smoke", mode: skipSlowChecks ? "skipped" : "required" },
+    { id: "sync_conflict_smoke", mode: skipSlowChecks ? "skipped" : "required" },
+    { id: "permission_recovery_smoke", mode: skipSlowChecks ? "skipped" : "required" },
+    { id: "large_store_smoke", mode: skipSlowChecks ? "skipped" : "required" },
+    { id: "v04_acceptance", mode: skipSlowChecks ? "skipped" : "required" },
     { id: "package", mode: "required" },
-    { id: "private_remote", mode: hasPrivateRemote ? "required" : "optional_skipped" }
+    {
+      id: "private_remote",
+      mode: skipSlowChecks ? "skipped" : hasPrivateRemote ? "required" : "optional_skipped"
+    }
   ];
 }
 

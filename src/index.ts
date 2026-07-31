@@ -694,7 +694,7 @@ export {
 export type { MorynRecord, RecordFeedbackOutcome, RecordMemoryUsage } from "./core/types.js";
 export { RECORD_FEEDBACK_OUTCOMES } from "./core/types.js";
 
-export const version = "0.4.0-dev.0";
+export const version = "0.4.0";
 
 export {
   BOOT_SELECTION_SOURCES,

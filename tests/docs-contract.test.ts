@@ -91,7 +91,7 @@ describe("documentation contracts", () => {
     }
   });
 
-  it("documents the active v0.4 development line and in-place upgrade path", async () => {
+  it("documents the v0.4 release and in-place upgrade path", async () => {
     const [readme, changelog, development, migration] = await Promise.all([
       readFile("README.md", "utf8"),
       readFile("CHANGELOG.md", "utf8"),
@@ -99,15 +99,20 @@ describe("documentation contracts", () => {
       readFile("docs/v0.4-migration.md", "utf8")
     ]);
 
-    expect(readme).toContain("Current source/package version: v0.4.0-dev.0");
-    expectText(readme, "v0.4 is still in active development and has not been tagged or published");
+    expect(readme).toContain("Current source/package version: v0.4.0");
     expect(readme).toContain("Distilled Memory");
     expect(readme).toContain("Portable Soul");
+    expectText(readme, "Historical recovery");
+    expectText(readme, "Outcome-aware ranking");
+    expectText(readme, "Bounded semantic maintenance");
+    expectText(readme, "Remembered project aliases");
     expect(readme).toContain("moryn learn --project .");
     expect(readme).toContain('--question "What did we learn?"');
     expectText(readme, "Finalization Assurance recovers an unfinalized prior Codex session at the next startup");
-    expect(changelog).toContain("## 0.4.0-dev.0 - Unreleased");
+    expect(changelog).toContain("## 0.4.0 - 2026-07-31");
     expectText(changelog, "Session Fold and Episode Rollup");
+    expectText(changelog, "One bounded historical recovery pass");
+    expectText(changelog, "Explicit idempotent recall outcome feedback");
     expect(changelog).toContain("## 0.3.0 - 2026-07-18");
     expectText(changelog, "Learning Inbox and the one-call `learn` operation");
     expectText(changelog, "Finalization Assurance");
@@ -115,6 +120,10 @@ describe("documentation contracts", () => {
     expectText(development, "It does not mutate files, create a tag, push, or publish");
     expectText(migration, "Moryn v0.4 opens v0.2 and v0.3 stores in place");
     expectText(migration, "Archive/cold is a reversible logical state");
+    expect(migration).toContain("## Historical recovery and outcome feedback");
+    expect(migration).toContain("## Automatic maintenance and remembered aliases");
+    expect(migration).toContain("## Dashboard deployment");
+    expectText(migration, "v0.4 intentionally does not add a periodic background scheduler");
     expectText(migration, "Unified apply and restore require explicit `--confirm` or `confirm: true`");
     expectText(migration, "`agent_finish` may still apply a safe, fully covered Session Fold automatically");
     expectText(migration, "they do not prove stdout transport, Host acknowledgment, or model obedience");
@@ -1478,9 +1487,9 @@ describe("documentation contracts", () => {
     expect(roadmap).toContain("Phase 4: Recall Eval");
     expect(roadmap).toContain("Phase 5: Public Polish");
     expect(roadmap).toContain("Phase 6: Release Gate");
-    expect(roadmap).toContain("v0.4 development: Distilled Memory and Portable Soul");
+    expect(roadmap).toContain("v0.4 release: Distilled Memory and Portable Soul");
     expect(roadmap).toContain("v0.3.0 Context Autopilot");
-    expect(roadmap.indexOf("v0.4 development: Distilled Memory and Portable Soul")).toBeLessThan(
+    expect(roadmap.indexOf("v0.4 release: Distilled Memory and Portable Soul")).toBeLessThan(
       roadmap.indexOf("v0.3.0 Context Autopilot")
     );
     expect(roadmap).toContain("enter -> recall/recover -> work -> checkpoint -> compact/resume -> finish");
@@ -1549,7 +1558,7 @@ describe("documentation contracts", () => {
     expect(changelog).not.toContain("docs/superpowers");
     expect(changelog).not.toContain("v0.2-phase-plan.md");
 
-    expect(readme).toContain("Current source/package version: v0.4.0-dev.0");
+    expect(readme).toContain("Current source/package version: v0.4.0");
     expect(readme).toContain("v0.3 Autopilot lifecycle");
     expectText(readme, "v0.2/v0.3 stores and explicit handoff commands remain compatible");
     expect(readme).toContain('DashboardReview["Exceptional attention only');

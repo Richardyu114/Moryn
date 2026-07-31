@@ -403,16 +403,9 @@ describe("release check", () => {
       });
 
       expect(result.stdout).toContain("private Git remote validation skipped");
-      expect(result.stdout).toContain("$ npm run smoke:dogfood-demo");
-      expect(result.stdout).toContain("$ npm run smoke:agent-lifecycle");
-      expect(result.stdout).toContain("$ npm run smoke:host-runtime-binding");
-      expect(result.stdout).toContain("$ npm run smoke:transcript-compact-safety");
-      expect(result.stdout).toContain("$ npm run smoke:official-host-handoff");
-      expect(result.stdout).toContain("$ npm run smoke:upgrade-compat");
-      expect(result.stdout).toContain("$ npm run smoke:sync-resilience");
-      expect(result.stdout).toContain("$ npm run smoke:sync-conflict");
-      expect(result.stdout).toContain("$ npm run smoke:permission-recovery");
-      expect(result.stdout).toContain("$ npm run smoke:large-store");
+      expect(result.stdout).toContain("$ npm run release:readiness");
+      expect(result.stdout).toContain("$ npm pack --dry-run --json");
+      expect(result.stdout).not.toContain("$ npm run smoke:");
       expect(result.stdout).toContain('"status":"passed"');
     },
     180_000
@@ -433,9 +426,7 @@ describe("release check", () => {
           }
         });
 
-        expect(result.stdout).toContain(
-          '"completed":["release_readiness","dogfood_smoke","lifecycle_smoke","learning_inbox_smoke","finalization_assurance_smoke","host_runtime_binding_smoke","transcript_compact_safety_smoke","official_host_handoff_smoke","upgrade_compat_smoke","sync_resilience_smoke","sync_conflict_smoke","permission_recovery_smoke","large_store_smoke","package"]'
-        );
+        expect(result.stdout).toContain('"completed":["release_readiness","package"]');
       } finally {
         await rm(root, { recursive: true, force: true });
       }

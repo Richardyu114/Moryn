@@ -33,21 +33,21 @@ describe("v0.4 release gate", () => {
       ["lint", "skipped"],
       ["tests", "skipped"],
       ["release_readiness", "required"],
-      ["dogfood_smoke", "required"],
-      ["lifecycle_smoke", "required"],
-      ["learning_inbox_smoke", "required"],
-      ["finalization_assurance_smoke", "required"],
-      ["host_runtime_binding_smoke", "required"],
-      ["transcript_compact_safety_smoke", "required"],
-      ["official_host_handoff_smoke", "required"],
-      ["upgrade_compat_smoke", "required"],
-      ["sync_resilience_smoke", "required"],
-      ["sync_conflict_smoke", "required"],
-      ["permission_recovery_smoke", "required"],
-      ["large_store_smoke", "required"],
-      ["v04_acceptance", "required"],
+      ["dogfood_smoke", "skipped"],
+      ["lifecycle_smoke", "skipped"],
+      ["learning_inbox_smoke", "skipped"],
+      ["finalization_assurance_smoke", "skipped"],
+      ["host_runtime_binding_smoke", "skipped"],
+      ["transcript_compact_safety_smoke", "skipped"],
+      ["official_host_handoff_smoke", "skipped"],
+      ["upgrade_compat_smoke", "skipped"],
+      ["sync_resilience_smoke", "skipped"],
+      ["sync_conflict_smoke", "skipped"],
+      ["permission_recovery_smoke", "skipped"],
+      ["large_store_smoke", "skipped"],
+      ["v04_acceptance", "skipped"],
       ["package", "required"],
-      ["private_remote", "optional_skipped"]
+      ["private_remote", "skipped"]
     ]);
   });
 
@@ -78,12 +78,19 @@ describe("v0.4 release gate", () => {
         "tests/core/episode-rollup-transaction.test.ts",
         "tests/core/automatic-episode-rollup.test.ts",
         "tests/core/memory-compaction.test.ts",
+        "tests/core/memory-expansion.test.ts",
         "tests/core/session-fold-conflict-projection.test.ts",
         "tests/core/structured-semantic-merge.test.ts",
         "tests/core/semantic-consolidation-engine.test.ts",
+        "tests/core/automatic-semantic-maintenance.test.ts",
+        "tests/core/memory-feedback.test.ts",
+        "tests/core/project-alias-attestation.test.ts",
+        "tests/e2e/historical-recovery-upgrade.test.ts",
         "tests/e2e/soul-git-portability.test.ts",
         "tests/e2e/soul-git-sync-receipts.test.ts",
         "tests/e2e/compaction-git-concurrency.test.ts",
+        "tests/mcp/historical-recall.test.ts",
+        "tests/mcp/memory-feedback.test.ts",
         "tests/sync/git-state-lease.test.ts"
       ])
     );
@@ -135,28 +142,16 @@ describe("v0.4 release gate", () => {
       },
       log: (line) => logs.push(line)
     });
-    expect(calls).toEqual([
-      "npm run release:readiness",
-      "npm run smoke:dogfood-demo",
-      "npm run smoke:agent-lifecycle",
-      "npm run smoke:learning-inbox",
-      "npm run smoke:finalization-assurance",
-      "npm run smoke:host-runtime-binding",
-      "npm run smoke:transcript-compact-safety",
-      "npm run smoke:official-host-handoff",
-      "npm run smoke:upgrade-compat",
-      "npm run smoke:sync-resilience",
-      "npm run smoke:sync-conflict",
-      "npm run smoke:permission-recovery",
-      "npm run smoke:large-store",
-      "npm run test:v04-acceptance",
-      "npm pack --dry-run --json"
-    ]);
+    expect(calls).toEqual(["npm run release:readiness", "npm pack --dry-run --json"]);
     expect(result).toMatchObject({
       version: 1,
       status: "passed",
-      completed: [
-        "release_readiness",
+      completed: ["release_readiness", "package"],
+      skipped: [
+        "build",
+        "typecheck",
+        "lint",
+        "tests",
         "dogfood_smoke",
         "lifecycle_smoke",
         "learning_inbox_smoke",
@@ -170,9 +165,8 @@ describe("v0.4 release gate", () => {
         "permission_recovery_smoke",
         "large_store_smoke",
         "v04_acceptance",
-        "package"
+        "private_remote"
       ],
-      skipped: ["build", "typecheck", "lint", "tests", "private_remote"],
       acceptance_complete: false
     });
     expect(Object.values(result.acceptance).every((area) => area.status === "not_verified")).toBe(true);
@@ -232,10 +226,10 @@ describe("v0.4 release gate", () => {
       if (args.includes("smoke:agent-lifecycle")) throw new Error("lifecycle failed");
       return "ok";
     });
-    await expect(
-      runReleaseGate({ skip_slow_checks: true, run_command: run, log: (line) => logs.push(line) })
-    ).rejects.toThrow("lifecycle failed");
+    await expect(runReleaseGate({ run_command: run, log: (line) => logs.push(line) })).rejects.toThrow(
+      "lifecycle failed"
+    );
     expect(logs.some((line) => line.includes('"status":"passed"'))).toBe(false);
-    expect(run).toHaveBeenCalledTimes(3);
+    expect(run).toHaveBeenCalledTimes(7);
   });
 });

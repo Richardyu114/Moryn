@@ -1,11 +1,9 @@
 # Moryn Implementation Roadmap
 
-This roadmap tracks the active v0.4 development line, currently focused on
-Distilled Memory and Portable Soul, alongside the published v0.3 Context
-Autopilot foundation, the v0.2 compatibility baseline, and the current product
-boundaries. The source package version is
-`0.4.0-dev.0`; v0.4 has not been tagged or published and remains open to
-additional scope.
+This roadmap records the v0.4 release scope: Distilled Memory and Portable
+Soul, alongside the v0.3 Context Autopilot foundation, the v0.2 compatibility
+baseline, and the current product boundaries. The source package version is
+`0.4.0`; new scope moves to the next release line.
 Detailed protocol design lives in [moryn-design.md](moryn-design.md). Agent
 usage details live in [agent-workflow.md](agent-workflow.md). Machine-readable
 contracts are summarized in [contracts.md](contracts.md). Dashboard usage lives
@@ -14,7 +12,7 @@ README.md, docs/moryn-design.md, docs/agent-workflow.md, docs/dashboard.md, and
 docs/contracts.md. Temporary development plans are not part of the public
 package.
 
-## v0.4 development: Distilled Memory and Portable Soul
+## v0.4 release: Distilled Memory and Portable Soul
 
 The v0.4 goal is not to retain more text. It is to keep the smallest useful,
 truthful working context while accumulated evidence remains inspectable, and to
@@ -546,9 +544,9 @@ Current semantic-maintenance slice:
   source-digest, coverage, real-token, and strict current-count gates pass.
   Idempotent checkpoint replay skips the pass; the receipt verifies observed
   before/after values and retains append-only source history.
-- [ ] Decide from dogfood whether a periodic scheduler adds value beyond the
-  checkpoint and finish lifecycle hooks. Do not add a background daemon merely
-  to create activity.
+- [x] Defer a periodic scheduler until post-v0.4 dogfood shows value beyond the
+  checkpoint and finish lifecycle hooks. v0.4 does not add a background daemon
+  merely to create activity.
 
 ### Phase 3: Setup Wizard
 
@@ -616,12 +614,14 @@ These are not required for the first MVP, but they are good next steps:
 - Split large CLI and MCP test suites by command group.
 - Add generated reference docs for the operation contract registry.
 - Add a hosted docs site or docs index if the public API grows further.
+- Re-evaluate periodic semantic maintenance after v0.4 dogfood; keep checkpoint
+  and finish hooks as the default unless measured recall quality justifies more.
 
 ## Out of Scope for First Version
 
 - Hosted cloud storage.
 - Multi-user server authorization.
-- Browser UI.
+- Hosted multi-user browser service. The local single-user Dashboard is included.
 - Non-Git sync backends.
 - Full encryption or secret-management replacement.
 - Semantic embeddings or remote vector search.

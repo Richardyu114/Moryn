@@ -7,7 +7,7 @@ import { version } from "../src/index.js";
 const exec = promisify(execFile);
 
 describe("package metadata", () => {
-  it("keeps scoped package metadata coherent during prerelease development", async () => {
+  it("keeps scoped package metadata coherent for the v0.4 release", async () => {
     const packageJson = JSON.parse(await readFile("package.json", "utf8")) as {
       name: string;
       main?: string;
@@ -30,7 +30,7 @@ describe("package metadata", () => {
 
     expect(packageJson.name).toBe("@richardyu114/moryn");
     expect(packageJson.version).toBe(version);
-    expect(packageJson.version).toBe("0.4.0-dev.0");
+    expect(packageJson.version).toBe("0.4.0");
     expect(packageJson.main).toBe("./dist/index.js");
     expect(packageJson.types).toBe("./dist/index.d.ts");
     expect(packageJson.exports?.["."]).toEqual({
