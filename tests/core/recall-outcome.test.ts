@@ -31,6 +31,71 @@ describe("query token coverage", () => {
       coverage: 0.6
     });
   });
+
+  it("matches shared terms in an unspaced Chinese query", () => {
+    const chinesePreference = record({
+      content: {
+        text: "用户经常在手机上查看和操作。修改 Notion 文章时，应默认直接写入 Notion 子页并回传链接。"
+      }
+    });
+
+    const match = queryTokenCoverage("手机上看Notion时应该怎么处理", chinesePreference);
+
+    expect(match.query_tokens).toEqual(expect.arrayContaining(["手", "机", "上", "看", "notion", "时", "应"]));
+    expect(match.matched_tokens).toEqual(expect.arrayContaining(["手", "机", "上", "看", "notion", "时", "应"]));
+    expect(match.coverage).toBeGreaterThanOrEqual(0.5);
+    expect(
+      assessRecallOutcome({
+        query: "手机上看Notion时应该怎么处理",
+        results: [{ record: chinesePreference, score: 20, reason: [] }]
+      }).status
+    ).toBe("verification_required");
+  });
+
+  it("does not trust scattered single-character CJK overlap", () => {
+    const unrelated = record({
+      content: { text: "参数已记录，依据明确，仓库稳定，迁徙完成，移动端可用。" }
+    });
+
+    expect(queryTokenCoverage("数据库迁移", unrelated)).toMatchObject({
+      matched_tokens: ["数", "据", "库", "迁", "移"],
+      query_tokens: ["数", "据", "库", "迁", "移"],
+      coverage: 1
+    });
+    expect(
+      assessRecallOutcome({
+        query: "数据库迁移",
+        results: [{ record: unrelated, score: 20, reason: [] }]
+      }).status
+    ).toBe("knowledge_gap");
+  });
+
+  it("prefers an anchored CJK match over higher scattered-character coverage", () => {
+    const relevant = record({
+      id: "rec-relevant",
+      content: { text: "用户经常在手机上查看和操作。修改 Notion 文章时，应默认直接写入子页。" }
+    });
+    const scattered = record({
+      id: "rec-scattered",
+      content: { text: "手册；机器；上层；看法；时间；响应；该项；怎样；这么；处置；理由。" }
+    });
+
+    expect(
+      assessRecallOutcome({
+        query: "手机上看Notion时应该怎么处理",
+        results: [
+          { record: scattered, score: 100, reason: [] },
+          { record: relevant, score: 10, reason: [] }
+        ]
+      })
+    ).toMatchObject({ best_record_id: relevant.id, status: "verification_required" });
+  });
+
+  it("bounds the number of query tokens", () => {
+    const longQuery = Array.from({ length: 600 }, (_value, index) => String.fromCodePoint(0x4e00 + index)).join("");
+
+    expect(queryTokenCoverage(longQuery, record()).query_tokens).toHaveLength(128);
+  });
 });
 
 describe("recall outcomes", () => {
@@ -91,6 +156,78 @@ describe("recall outcomes", () => {
       status: "verification_required",
       recommended_action: "verify_then_use_or_learn"
     });
+  });
+
+  it.each([
+    [
+      "v2 validity expiry",
+      record({
+        content: {
+          text: "Moryn pulls on agent enter and pushes on agent finish",
+          memory_retention: {
+            version: 2,
+            validity: { valid_until: "2026-07-11T01:00:00.000Z" }
+          }
+        }
+      })
+    ],
+    [
+      "v2 staleness",
+      record({
+        content: {
+          text: "Moryn pulls on agent enter and pushes on agent finish",
+          memory_retention: {
+            version: 2,
+            validity: {
+              stale_at: "2026-07-10T00:00:00.000Z",
+              valid_until: "2026-07-20T00:00:00.000Z"
+            }
+          }
+        }
+      })
+    ],
+    [
+      "legacy validity expiry",
+      record({
+        content: {
+          text: "Moryn pulls on agent enter and pushes on agent finish",
+          valid_until: "2026-07-10T00:00:00.000Z"
+        }
+      })
+    ]
+  ])("marks %s as stale for recall", (_label, candidate) => {
+    expect(
+      assessRecallOutcome({
+        query: "moryn pull push",
+        now: "2026-07-11T01:00:00.000Z",
+        results: [{ record: candidate, score: 12, reason: [] }]
+      })
+    ).toMatchObject({
+      status: "verification_required",
+      stale: true,
+      recommended_action: "verify_then_use_or_learn"
+    });
+  });
+
+  it("uses v2 validity in preference to an expired legacy field", () => {
+    const candidate = record({
+      content: {
+        text: "Moryn pulls on agent enter and pushes on agent finish",
+        valid_until: "2026-07-10T00:00:00.000Z",
+        memory_retention: {
+          version: 2,
+          validity: { valid_until: "2026-07-20T00:00:00.000Z" }
+        }
+      }
+    });
+
+    expect(
+      assessRecallOutcome({
+        query: "moryn pull push",
+        now: "2026-07-11T01:00:00.000Z",
+        results: [{ record: candidate, score: 12, reason: [] }]
+      })
+    ).toMatchObject({ status: "trusted_match", stale: false });
   });
 
   it("returns an explicit knowledge gap for absent or incidental matches", () => {

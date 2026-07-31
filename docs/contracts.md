@@ -195,6 +195,13 @@ the same key fails with `IDEMPOTENCY_KEY_REUSED`. The event stores the record
 id, outcome, source, canonical time, and idempotency digests, but never stores
 the recall query or answer.
 
+Native prompt recall that selects a trusted or verification-required record
+includes a `feedback_bridge` with that `record_id`, `mcp_tool:
+"memory_feedback"`, an allowed-outcome placeholder, and a unique-idempotency-key
+placeholder. Its `submit_after` policy is `use_or_verification_is_complete` and
+its submission policy is exactly one final outcome per recall interaction. The
+bridge is an action template, not an implicit write.
+
 Replay exposes aggregate counters as `record.memory_usage`. This is a
 non-semantic derived projection: it does not modify the record body,
 `updated_at`, logical fingerprint, token estimate, or any compaction/semantic
@@ -532,13 +539,15 @@ promotion draft approvals. Each entry carries
 surface, kind, label, intent, target, endpoint or command, request body, safety,
 and source path metadata. Rendered buttons include `data-dashboard-action-id`
 with the same id. This registry is an audit and selection surface; it does not
-create a background executor or add any automatic write path.
+create a background executor or authorize any automatic write path. The live
+server's separate alias reconciler can act only on an already user-confirmed
+directional attestation.
 Review Queue approvals post only `plan_hash` to
 `POST /api/maintenance/plans/:plan_id/approve`; the server reconstructs the
-current plan before writing. Project identity repair plans append
-`revise_record` events, while candidate noise cleanup plans append
-`archive_record` events after explicit approval. Successful approval responses
-return `event_ids` plus `trace.timeline_commands[]` and
+current plan before writing. The first project identity repair appends an alias
+attestation plus exact `revise_record` events, while candidate noise cleanup
+plans append `archive_record` events after explicit approval. Successful
+approval responses return `event_ids` plus `trace.timeline_commands[]` and
 `trace.recall_commands[]` so every append-only write has immediate inspection
 commands. Candidate Triage promotion draft approvals return `event_id` plus
 `trace.timeline_command` and `trace.recall_command`.
@@ -673,13 +682,14 @@ POST /api/maintenance/plans/:plan_id/approve
 
 The first supported plan is project identity repair. `/api/dashboard` returns a
 `maintenance.plans[]` entry and a `maintenance.plans_by_id.<plan_id>` index
-with `plan_id`, `plan_hash`, dry-run counts, safety checks, the equivalent
-`moryn project migrate --apply --confirm` command, and a `decision_card` with
+with `plan_id`, `plan_hash`, dry-run counts, safety checks, the equivalent exact
+`moryn revise <record-id> --set project_id=<target> --confirm` fallback, and a
+`decision_card` with
 issue, impact, recommended action, evidence, rollback path, and raw evidence.
 Project-specific plans require `project_id`/`project_path` context; without it,
 `maintenance.plans[]` is empty. If `include_private: true` is used, private
-records included in the plan are counted separately and the equivalent command
-contains `--include-private`.
+records included in the plan are counted separately and appear only as their
+explicit ids in the exact fallback command.
 The approve endpoint accepts only:
 
 ```json
@@ -688,10 +698,38 @@ The approve endpoint accepts only:
 }
 ```
 
-The server rebuilds the current plan from the local store, compares the
-submitted `plan_hash`, and applies only when it still matches. Stale approvals
-return `409` with `status: "stale_plan"`. For automation or MCP hosts, the
-dashboard operation still supports static snapshot generation.
+The server acquires the store-state lease, rebuilds the current plan, compares
+the submitted `plan_hash`, and applies only when it still matches. Project
+repair approval appends a durable directional `alias -> canonical project`
+attestation and revisions for exactly the sealed `record_ids`; it does not run a
+second whole-project scan after validation. Stale approvals return `409` with
+`status: "stale_plan"`.
+
+Dashboard POST mutation endpoints accept both direct and reverse-proxied
+requests. Reverse-proxied POST requests use the same route-level body, current
+record, plan-hash, and append-only event validation as direct requests. The
+Dashboard provides no application-level authentication; deployment-specific
+network or proxy controls own access restrictions. GET and HEAD rendering
+remains read-only.
+
+The live Dashboard server runs one bounded alias-reconciliation pass at startup
+and once per minute. A pass applies at most one project repair, and only when an
+active user-confirmed attestation already matches the exact source and target
+direction. Public, non-Soul records may be absorbed; private, quarantined,
+conflicted, or unknown directions remain manual. A source may have only one
+target, and no project id may be both source and target; conflicting, reverse,
+chained, or cyclic attestations are rejected until the old direction is
+revoked. Candidate-noise
+archive plans are never automatic. GET and HEAD requests remain read-only and
+do not trigger reconciliation. Static Dashboard generation and the MCP
+Dashboard operation also remain read-only. Each automatic batch uses a
+`dashboard-maintenance-auto:<plan-hash-prefix>` source session so its exact
+events remain grouped in history. Exact rollback revokes the
+attestation and restores only the approved plan's record ids, never every record under
+the canonical project.
+
+For automation or MCP hosts, the dashboard operation still supports static
+snapshot generation.
 
 The MCP equivalent is:
 
@@ -1155,15 +1193,18 @@ rejected before its upsert, and a stale field plan fails explicitly rather than
 creating a second canonical merge. `conflicts_with` never creates a merged
 record: both facts remain visible and only the conflict relationship is appended.
 
-At `agent_finish`, proof-gated semantic maintenance runs after Session Fold and
-Episode Rollup and before sync. It applies at most one public, project-owned,
-normal-priority `memory` or `skill` draft. Preferences, principles, rules,
-private/global/high-priority content, non-cumulative field conflicts, weak topic
-evidence, nested prior merges, incomplete text-unit coverage, or a non-decreasing
-final token estimate all block the write. The returned
-`automatic_semantic_maintenance` receipt reports before/after current records
-and tokens, the merged/source IDs, and observed postconditions. Source events
-remain append-only; this path never physically deletes either input record.
+Proof-gated semantic maintenance runs after bounded duplicate maintenance for a
+newly committed checkpoint, and after Session Fold and Episode Rollup at
+`agent_finish`. Each lifecycle call applies at most one public, project-owned,
+normal-priority `memory` or `skill` draft. An idempotent checkpoint replay
+returns the existing checkpoint and does not run semantic maintenance again.
+Preferences, principles, rules, private/global/high-priority content,
+non-cumulative field conflicts, weak topic evidence, nested prior merges,
+incomplete text-unit coverage, or a non-decreasing final token estimate all
+block the write. The returned `automatic_semantic_maintenance` receipt reports
+before/after current records and tokens, the merged/source IDs, and observed
+postconditions. Source events remain append-only; this path never physically
+deletes either input record.
 
 Checkpoint accepts proposals inside `delta.semantic_consolidation_proposals` or
 through repeatable CLI `--semantic-consolidation-proposal` flags. Agent finish
@@ -1228,6 +1269,16 @@ through an evidence-linked Learning Delta after verification.
 If this optional second pass is unavailable, the first-pass recall result still
 returns normally with a generic fail-closed recovery status and no internal
 error text.
+
+Natural Chinese/CJK recall does not depend on whitespace-delimited words. Query
+normalization and token generation are bounded, and a contiguous CJK anchor is
+required so scattered character overlap alone cannot become a reliable match.
+For current recall and boot, `retrieval` is bounded evidence rather than a
+second record channel: `unbounded_candidate_count` reports the indexed pool,
+`candidate_count` reports the bounded ranking pool, and `working_set` reports
+selection counts and tokens. Full scanned candidate records are deliberately
+omitted from `retrieval`; selected record payloads remain under the normal
+result or boot fields.
 
 The v0.4 compaction plan always reports
 `purge.included: false`, `sync_impact.physical_purge: false`, and

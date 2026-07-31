@@ -2207,6 +2207,7 @@ describe("core engine", () => {
           tokens: { budgets: { total_token_budget: 16_000 } }
         }
       });
+      expect(recall.retrieval).not.toHaveProperty("records");
       expect(recall.memory_working_set).toEqual(recall.retrieval?.working_set);
       expect(boot.task_relevant.map((record) => record.id)).toEqual(["rec-alpha"]);
       expect(boot.retrieval).toMatchObject({
@@ -2219,6 +2220,7 @@ describe("core engine", () => {
           tokens: { budgets: { total_token_budget: 16_000 } }
         }
       });
+      expect(boot.retrieval).not.toHaveProperty("records");
       expect(boot.memory_working_set).toEqual(boot.retrieval?.working_set);
       expect(calls).toEqual(["alpha", "alpha"]);
     });
@@ -4737,6 +4739,37 @@ describe("core engine", () => {
       expect(recall.results[0]?.record.id).toBe(structured.record.id);
       expect(recall.results[0]?.reason).toContain("text_match:mcp-parity");
       expect(recall.results[0]?.reason).toContain("file_match:src/auth.ts");
+    });
+  });
+
+  it("uses anchored CJK matches for active recall without trusting scattered characters", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath, now: () => "2026-07-30T00:00:00.000Z" });
+      const relevant = await engine.write({
+        kind: "memory",
+        type: "procedure",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "数据库迁移需要先创建备份，再执行兼容性检查。" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "procedure",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "参数已记录，依据明确，仓库稳定，迁徙完成，移动端可用。" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "test" }
+      });
+
+      const recall = await engine.recall({ query: "数据库迁移", project_id: "moryn" });
+
+      expect(recall.results.map((result) => result.record.id)).toEqual([relevant.record.id]);
+      expect(recall.results[0]?.reason).toContain("text_anchor");
     });
   });
 

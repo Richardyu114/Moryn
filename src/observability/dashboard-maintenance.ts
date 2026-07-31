@@ -1,8 +1,20 @@
 import { createHash } from "node:crypto";
 import { displayRecordText } from "../core/content-text.js";
 import { createEngine } from "../core/engine.js";
+import { buildActiveLogicalMemoryView } from "../core/logical-memory.js";
+import {
+  activeProjectAliasAttestations,
+  PROJECT_ALIAS_ATTESTATION_TYPE,
+  projectAliasAttestationConflict,
+  projectAliasAttestationIdentity,
+  projectAliasAttestationKey,
+  readProjectAliasAttestation,
+  readProjectAliasAttestationDeclaration,
+  recordProjectAliasAttestation
+} from "../core/project-alias-attestation.js";
 import { replayEvents } from "../core/replay.js";
 import { isPrivateMemoryBoundary } from "../core/sensitive.js";
+import { withStoreStateLease } from "../core/state-lease.js";
 import { readEvents } from "../core/store.js";
 import type { MorynRecord, RecordState } from "../core/types.js";
 
@@ -16,6 +28,11 @@ export interface DashboardMaintenanceSafetyCheck {
   id:
     | "dry_run_completed"
     | "target_project_explicit"
+    | "exact_record_selection"
+    | "alias_attestation"
+    | "alias_topology"
+    | "eligible_record_states"
+    | "no_unresolved_conflicts"
     | "candidate_noise_detected"
     | "no_private_records"
     | "append_only";
@@ -65,8 +82,8 @@ export interface DashboardMaintenancePlan {
   };
   safety_checks: DashboardMaintenanceSafetyCheck[];
   approval: {
-    requires_user_confirmation: true;
-    safe_to_auto_apply: false;
+    requires_user_confirmation: boolean;
+    safe_to_auto_apply: boolean;
   };
   decision_card: DashboardMaintenanceDecisionCard;
 }
@@ -86,6 +103,19 @@ export interface DashboardMaintenanceOptions {
   include_private?: boolean;
 }
 
+export const AUTOMATIC_DASHBOARD_MAINTENANCE_MAX_PLANS = 1;
+
+export interface AutomaticDashboardMaintenanceResult {
+  status: "applied" | "skipped" | "failed";
+  maximum_plans: 1;
+  evaluated_plans: number;
+  eligible_plans: number;
+  applied_plan_ids: string[];
+  records_changed: number;
+  event_ids: string[];
+  failures: Array<{ plan_id?: string; reason: string }>;
+}
+
 export type DashboardMaintenanceApprovalResult =
   | {
       ok: true;
@@ -99,6 +129,12 @@ export type DashboardMaintenanceApprovalResult =
       events_written: number;
       record_ids: string[];
       event_ids: string[];
+      alias_attestation?: {
+        created: boolean;
+        reactivated: boolean;
+        record_id: string;
+        event_id: string;
+      };
       trace: DashboardMaintenanceApprovalTrace;
     }
   | {
@@ -115,7 +151,7 @@ export type DashboardMaintenanceApprovalResult =
     }
   | {
       ok: false;
-      status: "plan_not_found" | "stale_plan";
+      status: "plan_not_found" | "stale_plan" | "alias_conflict";
       plan_id: string;
       message: string;
     };
@@ -229,20 +265,58 @@ function approvalTrace(
   };
 }
 
-export function projectMigrateApplyCommand(fromProjectId: string, toProjectId: string, includePrivate = false): string {
-  const parts = [
+function exactProjectRevisionCommand(recordId: string, projectId: string, reason: string): string {
+  return [
     "moryn",
-    "project",
-    "migrate",
-    "--from",
-    shellQuote(fromProjectId),
-    "--to",
-    shellQuote(toProjectId),
-    "--apply",
+    "revise",
+    shellQuote(recordId),
+    "--set",
+    shellQuote(`project_id=${projectId}`),
+    "--reason",
+    shellQuote(reason),
     "--confirm"
-  ];
-  if (includePrivate) parts.push("--include-private");
-  return parts.join(" ");
+  ].join(" ");
+}
+
+function exactProjectApplyCommand(recordIds: string[], fromProjectId: string, toProjectId: string): string {
+  return recordIds
+    .map((recordId) =>
+      exactProjectRevisionCommand(
+        recordId,
+        toProjectId,
+        `Project identity migration: ${fromProjectId} -> ${toProjectId}`
+      )
+    )
+    .join(" && ");
+}
+
+function exactProjectRollbackCommand(recordIds: string[], fromProjectId: string, toProjectId: string): string {
+  const attestationId = projectAliasAttestationIdentity(fromProjectId, toProjectId).record_id;
+  const revoke = [
+    "moryn",
+    "archive",
+    shellQuote(attestationId),
+    "--reason",
+    shellQuote(`Revoke project alias: ${fromProjectId} -> ${toProjectId}`)
+  ].join(" ");
+  const restore = recordIds.map((recordId) =>
+    exactProjectRevisionCommand(
+      recordId,
+      fromProjectId,
+      `Rollback project alias migration: ${fromProjectId} -> ${toProjectId}`
+    )
+  );
+  return [revoke, ...restore].join(" && ");
+}
+
+function projectMigrationIdempotencyKey(planHash: string, recordId: string): string {
+  const digest = createHash("sha256").update(`${planHash}\u0000${recordId}`).digest("hex");
+  return `dashboard-project-alias:${digest}`;
+}
+
+function projectAliasReactivationIdempotencyKey(planHash: string, record: MorynRecord): string {
+  const digest = createHash("sha256").update(`${planHash}\u0000${record.id}\u0000${record.updated_at}`).digest("hex");
+  return `dashboard-project-alias-reactivate:${digest}`;
 }
 
 function planHash(input: {
@@ -252,9 +326,33 @@ function planHash(input: {
   record_ids: string[];
   updated_at_by_record_id: Record<string, string>;
   include_private: boolean;
+  alias_attestation_guard?: {
+    record_id: string;
+    state: RecordState | "missing";
+    visibility?: MorynRecord["visibility"];
+    updated_at?: string;
+    declaration?: ReturnType<typeof readProjectAliasAttestationDeclaration> | null;
+  };
 }): string {
   const stableJson = JSON.stringify(input);
   return `sha256:${createHash("sha256").update(stableJson).digest("hex")}`;
+}
+
+function projectAliasPlanGuard(
+  records: MorynRecord[],
+  fromProjectId: string,
+  toProjectId: string
+): NonNullable<Parameters<typeof planHash>[0]["alias_attestation_guard"]> {
+  const recordId = projectAliasAttestationIdentity(fromProjectId, toProjectId).record_id;
+  const record = records.find((candidate) => candidate.id === recordId);
+  if (!record) return { record_id: recordId, state: "missing" };
+  return {
+    record_id: recordId,
+    state: record.state,
+    visibility: record.visibility,
+    updated_at: record.updated_at,
+    declaration: readProjectAliasAttestationDeclaration(record) ?? null
+  };
 }
 
 function candidateArchiveApplyCommand(records: MorynRecord[]): string {
@@ -342,9 +440,14 @@ function buildProjectIdentityPlan(
   allRecords: MorynRecord[],
   fromProjectId: string,
   toProjectId: string,
-  includePrivate: boolean
+  includePrivate: boolean,
+  aliasAttested: boolean,
+  logicalConflictRecordIds: ReadonlySet<string>
 ): DashboardMaintenancePlan | undefined {
-  const matchingRecords = allRecords.filter((record) => record.project_id === fromProjectId).sort(stableRecordSort);
+  const matchingRecords = allRecords
+    .filter((record) => record.project_id === fromProjectId)
+    .filter((record) => record.type !== PROJECT_ALIAS_ATTESTATION_TYPE)
+    .sort(stableRecordSort);
   const records = matchingRecords.filter((record) => includePrivate || !isPrivateMemoryBoundary(record));
   if (records.length === 0) return undefined;
 
@@ -358,16 +461,46 @@ function buildProjectIdentityPlan(
     to_project_id: toProjectId,
     record_ids: recordIds,
     updated_at_by_record_id: Object.fromEntries(records.map((record) => [record.id, record.updated_at])),
-    include_private: includePrivate
+    include_private: includePrivate,
+    alias_attestation_guard: projectAliasPlanGuard(allRecords, fromProjectId, toProjectId)
   });
-  const command = projectMigrateApplyCommand(fromProjectId, toProjectId, includePrivate);
+  const command = exactProjectApplyCommand(recordIds, fromProjectId, toProjectId);
+  const aliasConflict = projectAliasAttestationConflict(allRecords, fromProjectId, toProjectId);
   const safetyChecks: DashboardMaintenanceSafetyCheck[] = [
     { id: "dry_run_completed", label: "Dry-run completed", ok: true },
     { id: "target_project_explicit", label: "Target project is explicit", ok: toProjectId.length > 0 },
+    {
+      id: "exact_record_selection",
+      label: "Apply is limited to the sealed record ids",
+      ok: true
+    },
+    {
+      id: "alias_attestation",
+      label: "Alias direction was user-confirmed",
+      ok: aliasAttested
+    },
+    {
+      id: "alias_topology",
+      label: "Alias does not conflict, chain, or form a cycle",
+      ok: aliasConflict === undefined
+    },
+    {
+      id: "eligible_record_states",
+      label: "No quarantined records included",
+      ok: records.every((record) => record.state !== "quarantined" && record.visibility !== "quarantined")
+    },
+    {
+      id: "no_unresolved_conflicts",
+      label: "No unresolved record conflicts included",
+      ok: records.every(
+        (record) => record.conflict?.resolution !== "needs_review" && !logicalConflictRecordIds.has(record.id)
+      )
+    },
     { id: "no_private_records", label: "No private records included", ok: includedPrivateRecords === 0 },
-    { id: "append_only", label: "Operation appends revise_record events only", ok: true }
+    { id: "append_only", label: "Operation appends events without rewriting history", ok: true }
   ];
-  const reverseCommand = projectMigrateApplyCommand(toProjectId, fromProjectId, includePrivate);
+  const safeToAutoApply = aliasAttested && safetyChecks.every((check) => check.ok);
+  const rollbackCommand = exactProjectRollbackCommand(recordIds, fromProjectId, toProjectId);
 
   return {
     plan_id: `project_migrate:${fromProjectId}->${toProjectId}`,
@@ -386,19 +519,23 @@ function buildProjectIdentityPlan(
     },
     safety_checks: safetyChecks,
     approval: {
-      requires_user_confirmation: true,
-      safe_to_auto_apply: false
+      requires_user_confirmation: !safeToAutoApply,
+      safe_to_auto_apply: safeToAutoApply
     },
     decision_card: {
       title: "Project identity repair",
       issue: `${pluralize(records.length, "record")} under ${fromProjectId} likely belong${records.length === 1 ? "s" : ""} to ${toProjectId}.`,
       impact: `Boot and recall can miss these memories when agents ask for project ${toProjectId}.`,
-      recommended_action: `Apply the repair only after confirming ${fromProjectId} is an old or generated id for ${toProjectId}.`,
-      rollback_path: `If this was wrong, review the refreshed plan and run ${reverseCommand}.`,
+      recommended_action: aliasConflict
+        ? `Revoke the conflicting alias (${aliasConflict.conflicting_directions.join(", ")}) before approving this direction.`
+        : aliasAttested
+          ? `Absorb these late records using the confirmed ${fromProjectId} -> ${toProjectId} alias.`
+          : `Apply the repair once to confirm ${fromProjectId} is an old id for ${toProjectId}; later records can then move automatically.`,
+      rollback_path: `If this was wrong, revoke the alias and restore only this plan's records with ${rollbackCommand}.`,
       evidence: [
         `Matched records: ${pluralize(records.length, "record")}; ${stateSummary(states)}.`,
         `Private records: ${privateRecordsSummary(skippedPrivateRecords, includedPrivateRecords)}`,
-        "Write behavior: append-only revise_record events; no history rewrite."
+        "Write behavior: one durable alias attestation plus exact append-only revisions; no history rewrite."
       ],
       examples: recordExamples(records),
       raw_evidence: {
@@ -418,26 +555,44 @@ export function buildDashboardMaintenance(
   const projectId = options.project_id;
   if (!projectId) return { plans: [], plans_by_id: {} };
   const includePrivate = options.include_private === true;
-  const visibleRecords = allRecords.filter((record) => includePrivate || !isPrivateMemoryBoundary(record));
+  const maintenanceRecords = allRecords.filter((record) => record.kind !== "soul");
+  const visibleRecords = maintenanceRecords.filter((record) => includePrivate || !isPrivateMemoryBoundary(record));
 
   const currentProjectRecords = visibleRecords.filter((record) => record.project_id === projectId);
   if (currentProjectRecords.length === 0) return { plans: [], plans_by_id: {} };
-  const currentProjectTags = new Set(currentProjectRecords.flatMap(meaningfulTags));
+  const currentProjectTags = new Set(
+    currentProjectRecords.filter((record) => record.type !== PROJECT_ALIAS_ATTESTATION_TYPE).flatMap(meaningfulTags)
+  );
   const tagProjectCounts = meaningfulTagProjectCounts(visibleRecords);
+  const aliasAttestations = activeProjectAliasAttestations(maintenanceRecords);
+  const logicalConflictRecordIds = new Set(buildActiveLogicalMemoryView(maintenanceRecords).conflict_record_ids);
+  const attestedSourceProjectIds = [...aliasAttestations.values()]
+    .filter((attestation) => attestation.to_project_id === projectId)
+    .map((attestation) => attestation.from_project_id);
 
   const relatedProjectIds = [
-    ...new Set(
-      visibleRecords
+    ...new Set([
+      ...visibleRecords
         .filter((record) => record.project_id && record.project_id !== projectId)
         .filter((record) => hasSharedMeaningfulTag(currentProjectTags, record, tagProjectCounts))
-        .map((record) => record.project_id as string)
-    )
+        .map((record) => record.project_id as string),
+      ...attestedSourceProjectIds
+    ])
   ].sort();
 
   const plans = relatedProjectIds
-    .map((fromProjectId) => buildProjectIdentityPlan(allRecords, fromProjectId, projectId, includePrivate))
+    .map((fromProjectId) =>
+      buildProjectIdentityPlan(
+        maintenanceRecords,
+        fromProjectId,
+        projectId,
+        includePrivate,
+        aliasAttestations.has(projectAliasAttestationKey(fromProjectId, projectId)),
+        logicalConflictRecordIds
+      )
+    )
     .filter((plan): plan is DashboardMaintenancePlan => plan !== undefined);
-  const candidateNoiseArchivePlan = buildCandidateNoiseArchivePlan(allRecords, projectId, includePrivate);
+  const candidateNoiseArchivePlan = buildCandidateNoiseArchivePlan(maintenanceRecords, projectId, includePrivate);
   if (candidateNoiseArchivePlan) plans.push(candidateNoiseArchivePlan);
 
   return {
@@ -446,93 +601,236 @@ export function buildDashboardMaintenance(
   };
 }
 
-async function currentMaintenancePlans(
+async function currentMaintenanceSnapshot(
   storePath: string,
   options: DashboardMaintenanceOptions
-): Promise<DashboardMaintenancePlan[]> {
+): Promise<{ records: MorynRecord[]; plans: DashboardMaintenancePlan[] }> {
   const events = await readEvents(storePath);
-  const allRecords = [...replayEvents(events).values()];
-  return buildDashboardMaintenance(allRecords, options).plans;
+  const records = [...replayEvents(events).values()];
+  return { records, plans: buildDashboardMaintenance(records, options).plans };
 }
 
 export async function approveMaintenancePlan(
   storePath: string,
   options: DashboardMaintenanceOptions,
   planId: string,
-  planHash: string
+  planHash: string,
+  execution: { automatic?: boolean } = {}
 ): Promise<DashboardMaintenanceApprovalResult> {
-  const plans = await currentMaintenancePlans(storePath, options);
-  const plan = plans.find((candidate) => candidate.plan_id === planId);
-  if (!plan) {
-    return {
-      ok: false,
-      status: "plan_not_found",
-      plan_id: planId,
-      message: "This maintenance plan is no longer available."
-    };
-  }
-  if (plan.plan_hash !== planHash) {
-    return {
-      ok: false,
-      status: "stale_plan",
-      plan_id: planId,
-      message: "The store changed after this plan was rendered. Review the refreshed plan before approving."
-    };
-  }
-
-  const engine = createEngine({ storePath });
-  if (plan.type === "candidate_noise_archive") {
-    const eventIds: string[] = [];
-    for (const recordId of plan.record_ids) {
-      const archived = await engine.archive({
-        record_id: recordId,
-        reason: ARCHIVE_MARKER_REASON,
-        source: { client: "dashboard", session_id: "dashboard-maintenance-approval" }
-      });
-      eventIds.push(archived.event.event_id);
+  return withStoreStateLease(storePath, async () => {
+    const snapshot = await currentMaintenanceSnapshot(storePath, options);
+    const plan = snapshot.plans.find((candidate) => candidate.plan_id === planId);
+    if (!plan) {
+      return {
+        ok: false,
+        status: "plan_not_found",
+        plan_id: planId,
+        message: "This maintenance plan is no longer available."
+      };
     }
+    if (plan.plan_hash !== planHash) {
+      return {
+        ok: false,
+        status: "stale_plan",
+        plan_id: planId,
+        message: "The store changed after this plan was rendered. Review the refreshed plan before approving."
+      };
+    }
+
+    const engine = createEngine({ storePath });
+    const batchId = plan.plan_hash.replace(/^sha256:/u, "").slice(0, 16);
+    const source = {
+      client: "dashboard",
+      session_id: `${execution.automatic ? "dashboard-maintenance-auto" : "dashboard-maintenance-approval"}:${batchId}`
+    };
+    if (plan.type === "candidate_noise_archive") {
+      const eventIds: string[] = [];
+      for (const recordId of plan.record_ids) {
+        const archived = await engine.archive({
+          record_id: recordId,
+          reason: ARCHIVE_MARKER_REASON,
+          source
+        });
+        eventIds.push(archived.event.event_id);
+      }
+
+      return {
+        ok: true,
+        status: "applied",
+        plan_id: plan.plan_id,
+        plan_hash: plan.plan_hash,
+        archived_records: plan.record_ids.length,
+        records_changed: plan.record_ids.length,
+        events_written: eventIds.length,
+        record_ids: plan.record_ids,
+        event_ids: eventIds,
+        trace: approvalTrace(eventIds, plan.record_ids, plan.to_project_id)
+      };
+    }
+
+    const fromProjectId = plan.from_project_id ?? "";
+    const toProjectId = plan.to_project_id ?? "";
+    const aliasConflict = projectAliasAttestationConflict(snapshot.records, fromProjectId, toProjectId);
+    if (aliasConflict) {
+      return {
+        ok: false,
+        status: "alias_conflict",
+        plan_id: planId,
+        message: `Project alias conflicts with ${aliasConflict.conflicting_directions.join(", ")}. Revoke the conflicting direction first.`
+      };
+    }
+    if (execution.automatic && !plan.approval.safe_to_auto_apply) {
+      return {
+        ok: false,
+        status: "stale_plan",
+        plan_id: planId,
+        message: "Automatic project repair requires an active user-confirmed alias attestation."
+      };
+    }
+
+    const attestation = execution.automatic
+      ? undefined
+      : await recordProjectAliasAttestation(storePath, {
+          from_project_id: fromProjectId,
+          to_project_id: toProjectId,
+          confirmed_at: new Date().toISOString(),
+          source
+        });
+    let attestationReactivationEventId: string | undefined;
+    if (attestation && !attestation.created) {
+      const currentAttestationRecord = replayEvents(await readEvents(storePath)).get(attestation.record.id);
+      if (!currentAttestationRecord) {
+        throw new Error(`Project alias attestation disappeared: ${attestation.record.id}`);
+      }
+      if (!readProjectAliasAttestation(currentAttestationRecord)) {
+        const declaration = readProjectAliasAttestationDeclaration(currentAttestationRecord);
+        if (!declaration || currentAttestationRecord.state !== "archived") {
+          throw new Error(`Project alias attestation cannot be reactivated: ${attestation.record.id}`);
+        }
+        const reactivated = await engine.promote({
+          record_id: currentAttestationRecord.id,
+          target_state: "canonical",
+          reason: `User re-approved project alias: ${fromProjectId} -> ${toProjectId}`,
+          confirmed: true,
+          source,
+          idempotency_key: projectAliasReactivationIdempotencyKey(plan.plan_hash, currentAttestationRecord)
+        });
+        attestationReactivationEventId = reactivated.event.event_id;
+        const reactivatedRecord = replayEvents(await readEvents(storePath)).get(currentAttestationRecord.id);
+        if (!reactivatedRecord || !readProjectAliasAttestation(reactivatedRecord)) {
+          throw new Error(`Project alias attestation reactivation failed: ${currentAttestationRecord.id}`);
+        }
+      }
+    }
+    const migrationEventIds: string[] = [];
+    for (const recordId of plan.record_ids) {
+      const revised = await engine.revise({
+        record_id: recordId,
+        patch: { project_id: toProjectId },
+        reason: `Project identity migration: ${fromProjectId} -> ${toProjectId}`,
+        confirmed: true,
+        source,
+        idempotency_key: projectMigrationIdempotencyKey(plan.plan_hash, recordId)
+      });
+      migrationEventIds.push(revised.event.event_id);
+    }
+    const attestationEventIds = attestation?.created
+      ? [attestation.event.event_id]
+      : attestationReactivationEventId
+        ? [attestationReactivationEventId]
+        : [];
+    const eventIds = [...attestationEventIds, ...migrationEventIds];
+    const traceRecordIds = [...(attestation ? [attestation.record.id] : []), ...plan.record_ids];
 
     return {
       ok: true,
       status: "applied",
       plan_id: plan.plan_id,
       plan_hash: plan.plan_hash,
-      archived_records: plan.record_ids.length,
-      records_changed: plan.record_ids.length,
+      from_project_id: fromProjectId,
+      to_project_id: toProjectId,
+      migrated_records: migrationEventIds.length,
+      records_changed: migrationEventIds.length,
       events_written: eventIds.length,
       record_ids: plan.record_ids,
       event_ids: eventIds,
-      trace: approvalTrace(eventIds, plan.record_ids, plan.to_project_id)
+      ...(attestation
+        ? {
+            alias_attestation: {
+              created: attestation.created,
+              reactivated: attestationReactivationEventId !== undefined,
+              record_id: attestation.record.id,
+              event_id: attestationReactivationEventId ?? attestation.event.event_id
+            }
+          }
+        : {}),
+      trace: approvalTrace(eventIds, traceRecordIds, toProjectId)
+    };
+  });
+}
+
+export async function runAutomaticDashboardMaintenance(
+  storePath: string,
+  options: DashboardMaintenanceOptions
+): Promise<AutomaticDashboardMaintenanceResult> {
+  try {
+    const { plans } = await currentMaintenanceSnapshot(storePath, options);
+    const eligible = plans.filter(
+      (plan) =>
+        plan.type === "project_identity_repair" &&
+        plan.approval.safe_to_auto_apply &&
+        !plan.approval.requires_user_confirmation
+    );
+    const selected = eligible.slice(0, AUTOMATIC_DASHBOARD_MAINTENANCE_MAX_PLANS);
+    if (!selected.length) {
+      return {
+        status: "skipped",
+        maximum_plans: AUTOMATIC_DASHBOARD_MAINTENANCE_MAX_PLANS,
+        evaluated_plans: plans.length,
+        eligible_plans: eligible.length,
+        applied_plan_ids: [],
+        records_changed: 0,
+        event_ids: [],
+        failures: []
+      };
+    }
+
+    const appliedPlanIds: string[] = [];
+    const eventIds: string[] = [];
+    const failures: AutomaticDashboardMaintenanceResult["failures"] = [];
+    let recordsChanged = 0;
+    for (const plan of selected) {
+      const result = await approveMaintenancePlan(storePath, options, plan.plan_id, plan.plan_hash, {
+        automatic: true
+      });
+      if (!result.ok) {
+        failures.push({ plan_id: plan.plan_id, reason: result.message });
+        continue;
+      }
+      appliedPlanIds.push(plan.plan_id);
+      recordsChanged += result.records_changed;
+      eventIds.push(...result.event_ids);
+    }
+    return {
+      status: failures.length ? "failed" : "applied",
+      maximum_plans: AUTOMATIC_DASHBOARD_MAINTENANCE_MAX_PLANS,
+      evaluated_plans: plans.length,
+      eligible_plans: eligible.length,
+      applied_plan_ids: appliedPlanIds,
+      records_changed: recordsChanged,
+      event_ids: eventIds,
+      failures
+    };
+  } catch (error) {
+    return {
+      status: "failed",
+      maximum_plans: AUTOMATIC_DASHBOARD_MAINTENANCE_MAX_PLANS,
+      evaluated_plans: 0,
+      eligible_plans: 0,
+      applied_plan_ids: [],
+      records_changed: 0,
+      event_ids: [],
+      failures: [{ reason: error instanceof Error ? error.message : String(error) }]
     };
   }
-
-  const fromProjectId = plan.from_project_id ?? "";
-  const toProjectId = plan.to_project_id ?? "";
-  const applied = await engine.migrateProject({
-    from_project_id: fromProjectId,
-    to_project_id: toProjectId,
-    dry_run: false,
-    confirmed: true,
-    include_private: options.include_private === true,
-    source: { client: "dashboard", session_id: "dashboard-maintenance-approval" }
-  });
-
-  return {
-    ok: true,
-    status: "applied",
-    plan_id: plan.plan_id,
-    plan_hash: plan.plan_hash,
-    from_project_id: fromProjectId,
-    to_project_id: toProjectId,
-    migrated_records: applied.migrated_records,
-    records_changed: applied.migrated_records,
-    events_written: applied.events.length,
-    record_ids: plan.record_ids,
-    event_ids: applied.events.map((event) => event.event_id),
-    trace: approvalTrace(
-      applied.events.map((event) => event.event_id),
-      plan.record_ids,
-      toProjectId
-    )
-  };
 }

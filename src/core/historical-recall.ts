@@ -1,4 +1,5 @@
 import { displayRecordText, searchableRecordText } from "./content-text.js";
+import { isLearningInboxRecord } from "./learning-inbox.js";
 import { buildActiveLogicalMemoryView } from "./logical-memory.js";
 import { expandMemorySources } from "./memory-expansion.js";
 import {
@@ -7,7 +8,7 @@ import {
   type MemoryRetentionTier,
   type MemoryValidityStatus
 } from "./memory-retention.js";
-import { queryTokenCoverage } from "./recall-outcome.js";
+import { queryRecordMatch } from "./recall-outcome.js";
 import { estimateMemoryRecordTokens } from "./record-read-model.js";
 import { isPrivateMemoryBoundary } from "./sensitive.js";
 import { stringKeyedRecordFromEntries } from "./string-keyed-record.js";
@@ -441,7 +442,11 @@ function candidateScore(
   );
 }
 
-function sufficientHistoricalMatch(match: ReturnType<typeof queryTokenCoverage>): boolean {
+function sufficientHistoricalMatch(match: ReturnType<typeof queryRecordMatch>): boolean {
+  const hasCjkQueryToken = match.query_tokens.some((token) =>
+    /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(token)
+  );
+  if (hasCjkQueryToken && match.reliable_match_anchor && match.coverage >= 0.5) return true;
   const distinctiveToken = (token: string) => {
     const normalized = token.toLocaleLowerCase();
     return [...normalized].length >= 4 && !GENERIC_HISTORICAL_RECALL_TOKENS.has(normalized);
@@ -522,6 +527,7 @@ export function recoverHistoricalRecall(input: HistoricalRecallInput): Historica
   const ranked: RankedHistoricalCandidate[] = [];
 
   for (const record of input.records) {
+    if (isLearningInboxRecord(record)) continue;
     if (excluded.has(record.id) || selected.has(record.id) || !filtersMatch(record, input)) continue;
     const view = retentionById.get(record.id);
     if (!view) continue;
@@ -546,7 +552,7 @@ export function recoverHistoricalRecall(input: HistoricalRecallInput): Historica
     });
     if (!reasons.length) continue;
     historicalCandidates += 1;
-    const match = queryTokenCoverage(query, record);
+    const match = queryRecordMatch(query, record);
     if (!sufficientHistoricalMatch(match)) continue;
     const logicalSuccessor = logical.hidden_by_record_id[record.id]
       ? recordsById.get(logical.hidden_by_record_id[record.id]!.active_record_id)

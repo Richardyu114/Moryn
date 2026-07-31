@@ -15,7 +15,7 @@ describe("documentation contracts", () => {
     expect(readme).toContain("moryn install --host claude --project . --apply --activate-host");
     expect(readme).toContain("moryn agent enter --project .");
     expect(readme).toContain("moryn agent finish --project .");
-    expectText(readme, "The dashboard is a quiet, read-only monitoring surface on the normal path");
+    expectText(readme, "Dashboard GET views are a quiet, read-only monitoring surface on the normal path");
     expectText(readme, "Users intervene only for exceptional cases");
     expect(readme).not.toContain("setup -> context pack -> capture -> dashboard review -> approve -> sync");
   });
@@ -565,7 +565,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The brief says the server rechecks the plan hash before writing");
     expectText(
       dashboard,
-      "raw `plan_hash`, equivalent CLI command, rollback path, and record ids stay inside `Decision details`"
+      "raw `plan_hash`, exact record-id CLI fallback, rollback path, and record ids stay inside `Decision details`"
     );
     expect(dashboard).toContain("Evidence Library");
     expectText(
@@ -1112,7 +1112,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "write labels, active guard labels, full safety notes");
     expectText(dashboard, "The JSON contract keeps those per-decision audit fields in `items[]`");
     expectText(dashboard, "It counts human decision units, not raw approve/reject buttons");
-    expectText(dashboard, "Actual writes remain inside Capture Inbox, Review Queue, and Candidate Triage controls");
+    expectText(
+      dashboard,
+      "Writes represented by Pending Decisions remain inside Capture Inbox, Review Queue, and Candidate Triage controls"
+    );
     expectText(
       dashboard,
       "After a dashboard approval or rejection succeeds, the browser renders one compact `Action receipt` in the global receipt anchor"
@@ -1245,6 +1248,22 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("POST /api/maintenance/plans/:plan_id/approve");
     expect(dashboard).toContain("plan_hash");
     expect(dashboard).toContain("decision card");
+    expectText(dashboard, "The first approved project repair also records a durable, directional");
+    expectText(dashboard, "it never runs as a side effect of a page request");
+    expectText(dashboard, "revises only the sealed `record_ids`");
+    expectText(dashboard, "it never runs a broad reverse project migration");
+    expectText(
+      dashboard,
+      "Dashboard POST mutation endpoints are available through both direct and reverse-proxied requests"
+    );
+    expectText(dashboard, "reverse, chained, and cyclic mappings are rejected");
+    expectText(contracts, "an active user-confirmed attestation already matches the exact source and target direction");
+    expectText(contracts, "GET and HEAD requests remain read-only and do not trigger reconciliation");
+    expectText(contracts, "Reverse-proxied POST requests use the same route-level body");
+    expectText(contracts, "`dashboard-maintenance-auto:<plan-hash-prefix>` source session");
+    expectText(workflow, "Later public records under the same alias are absorbed automatically");
+    expectText(workflow, "Conflicting, reverse, chained, or cyclic aliases are rejected");
+    expectText(readme, "Remembered project aliases");
     expect(dashboard).toContain("short confirmation summary that reads `Approval required`");
     expectText(
       dashboard,
@@ -1261,7 +1280,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Guard` and `Writes` in the approval brief are the visible write-boundary explanation");
     expectText(
       dashboard,
-      "The raw `plan_hash`, equivalent CLI command, rollback path, and record ids stay inside `Decision details`"
+      "The raw `plan_hash`, exact record-id CLI fallback, rollback path, and record ids stay inside `Decision details`"
     );
     expectText(dashboard, "The structured reasoning lives in that single fold");
     expect(dashboard).toContain("one expandable `Decision details` fold instead of several");

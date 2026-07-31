@@ -41,6 +41,9 @@ describe("learning inbox", () => {
       });
       expect(second).toMatchObject({ created: false, record: { id: first.record.id } });
       expect((await readEvents(storePath)).filter((event) => event.op === "upsert_record")).toHaveLength(1);
+
+      const boot = await createEngine({ storePath }).boot({ project_id: "moryn" });
+      expect(JSON.stringify(boot)).not.toContain(first.record.id);
     });
   });
 
@@ -116,6 +119,8 @@ describe("learning inbox", () => {
       expect(second).toEqual({ consumed: 0, already_consumed: 1, inbox_record_ids: [queued.record.id] });
       const [record] = await pendingLearningInbox(storePath, { project_id: "moryn", include_consumed: true });
       expect(record).toMatchObject({
+        state: "archived",
+        visibility: "archived",
         content: {
           status: "consumed",
           consumed_at: "2026-07-13T00:10:00.000Z",

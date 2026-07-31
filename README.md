@@ -53,19 +53,34 @@ flat list:
   hot/warm/cold retention. Session Fold and Episode Rollup compact covered
   history without erasing its provenance.
 - **Bounded recall:** deterministic token budgets keep normal boot and retrieval
-  bounded. L3, pinned, and `never_forget` memory remain mandatory, with explicit
-  overflow evidence instead of silent truncation.
+  bounded. Ranked results remain available, while retrieval diagnostics omit
+  the full scanned candidate records and return bounded ranking-pool and
+  working-set evidence instead. L3, pinned, and `never_forget` memory remain
+  mandatory, with explicit overflow evidence instead of silent truncation.
 - **Traceable depth:** a rollup can be expanded to its immediate sources and
   leaf evidence with digest, privacy, conflict, and quarantine checks.
 - **Historical recovery:** when bounded current recall is missing or incomplete, Moryn performs
   one bounded, read-only search across cold, archived, logically hidden, and
   working-set-omitted records. Verified useful evidence returns as a compact
   current Learning record; archived sources stay archived and auditable.
+  Bounded Chinese/CJK matching supports natural queries without requiring
+  whitespace between words.
 - **Outcome-aware ranking:** recall remains read-only. After a recall interaction
   ends, a host can explicitly submit exactly one final `recalled`, `used`,
   `verified`, or `rejected` outcome with a unique idempotency key. Moryn stores
   record-level outcome metadata, not the query or answer; useful outcomes improve
-  later selection, rejection lowers it, and a plain recall is neutral.
+  later selection, rejection lowers it, and a plain recall is neutral. Native
+  prompt recall returns a `feedback_bridge` with the selected record and
+  `memory_feedback` arguments so the host can submit that outcome after use or
+  verification completes.
+- **Bounded semantic maintenance:** a newly committed checkpoint and
+  `agent_finish` can each apply at most one proof-gated, public project merge.
+  Idempotent checkpoint replay returns the existing checkpoint without running
+  maintenance again.
+- **Remembered project aliases:** the first approved Dashboard project repair
+  records a directional, portable alias attestation. Later public records under
+  that alias are absorbed automatically with exact record-id revisions; private,
+  Soul, conflicted, protected-state, unknown, and reverse mappings stay manual.
 - **Portable Soul:** User Soul and Agent Persona are versioned separately,
   support global/project clauses and `local_only`/`personal_sync` distribution,
   require approval for activation, and can be rolled back append-only.
@@ -118,9 +133,13 @@ handoff.
 install -> enter/recover -> work/checkpoint -> compact/resume -> finish/sync
 ```
 
-The dashboard is a quiet, read-only monitoring surface on the normal path. Its
-Overview, Memory, Preferences, and History views show current context, memory
-flow, sync state, and audit evidence without adding a routine write path.
+Dashboard GET views are a quiet, read-only monitoring surface on the normal
+path. They show current context, memory flow, sync state, and audit evidence
+without writing on refresh. A separate bounded live-server pass may reconcile
+only project aliases the user already confirmed; it does not approve new
+identity mappings. Dashboard POST mutations accept both direct and
+reverse-proxied requests. Deployments that require access restrictions must
+provide them at the network or proxy layer.
 Exceptional confirmation-gated actions are isolated in Audit Details. Users
 intervene only for exceptional cases: credentials or private configuration,
 unresolved sync conflicts, sensitive content, ambiguous project identity, or
@@ -371,7 +390,7 @@ the earlier Git blob.
 
 ## Dashboard
 
-A local, read-only browser view of sync state, records, recent events, and agent
+A local-first browser view of sync state, records, recent events, and agent
 activity:
 
 ```bash

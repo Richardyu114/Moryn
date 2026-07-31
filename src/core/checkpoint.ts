@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { AutomaticEventAuditReceipt } from "./automatic-event-audit.js";
+import type { AutomaticSemanticMaintenanceResult } from "./automatic-semantic-maintenance.js";
 import { type ContextDelta, type ContextDeltaInput, validateContextDelta } from "./context-delta.js";
 import type { AutomaticExactDuplicateConsolidationResult } from "./exact-duplicate-consolidation.js";
 import type { LearningCandidateReviewWorkflow } from "./learning-candidate-review.js";
@@ -95,6 +96,7 @@ export interface CheckpointResult {
     candidate_review?: LearningCandidateReviewWorkflow;
   };
   exact_duplicate_consolidation: AutomaticExactDuplicateConsolidationResult;
+  automatic_semantic_maintenance?: AutomaticSemanticMaintenanceResult;
   semantic_consolidation: SemanticConsolidationReceipt;
   automatic_event_audit: AutomaticEventAuditReceipt;
   learning_inbox: {
@@ -117,6 +119,7 @@ export const CHECKPOINT_SELECTION_SOURCES = {
   learning_ingestion: "learning_ingestion",
   learning_inbox: "learning_inbox",
   exact_duplicate_consolidation: "exact_duplicate_consolidation",
+  automatic_semantic_maintenance: "automatic_semantic_maintenance",
   semantic_consolidation: "semantic_consolidation",
   automatic_event_audit: "automatic_event_audit"
 } as const;

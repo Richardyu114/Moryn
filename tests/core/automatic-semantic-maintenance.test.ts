@@ -73,4 +73,66 @@ describe("automatic semantic maintenance", () => {
       expect(eventCount).toBeGreaterThan(beforeEvents.length);
     });
   });
+
+  it("runs once for a new checkpoint and does not rerun on an idempotent replay", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let tick = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => new Date(Date.parse("2026-07-20T00:00:00.000Z") + tick++).toISOString()
+      });
+      const shared = `The verified checkpoint procedure retains this complete evidence ${"shared ".repeat(600)}.`;
+      const base = {
+        kind: "skill" as const,
+        type: "procedure",
+        scope: "project" as const,
+        project_id: "moryn",
+        tags: ["checkpoint-maintenance"],
+        state: "canonical" as const,
+        confirmed: true,
+        confidence: 0.99,
+        source: { client: "codex" }
+      };
+      await engine.write({ ...base, content: { text: `${shared} Old endpoint remains available.` } });
+      await engine.write({ ...base, content: { text: `${shared} New endpoint is canonical.` } });
+      const input = {
+        project_id: "moryn",
+        source: { client: "codex", session_id: "session-checkpoint", device_id: "device-checkpoint" },
+        occurred_at: "2026-07-20T00:01:00.000Z",
+        delta: {
+          session_id: "session-checkpoint",
+          checkpoint_id: "semantic-maintenance",
+          current_task: "Maintain compact memory",
+          progress: [],
+          decisions: [],
+          changed_facts: [],
+          blockers: [],
+          next_steps: [],
+          files: [],
+          candidate_memories: [],
+          candidate_skills: [],
+          learnings: []
+        }
+      };
+
+      const first = await engine.checkpoint(input);
+      const eventCount = (await readEvents(storePath)).length;
+      const replay = await engine.checkpoint(input);
+
+      expect(first.automatic_semantic_maintenance).toMatchObject({
+        status: "committed",
+        maximum_merges: 1,
+        merges_attempted: 1,
+        merges_committed: 1,
+        proof: {
+          strict_record_decrease_observed: true,
+          strict_token_decrease_observed: true,
+          source_history_retained: true,
+          physical_delete: false
+        }
+      });
+      expect(replay.automatic_semantic_maintenance).toBeUndefined();
+      expect(await readEvents(storePath)).toHaveLength(eventCount);
+    });
+  });
 });

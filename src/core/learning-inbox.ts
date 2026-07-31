@@ -138,7 +138,7 @@ export async function queueLearning(storePath: string, input: QueueLearningInput
   };
 }
 
-function isLearningInboxRecord(record: MorynRecord): record is LearningInboxRecord {
+export function isLearningInboxRecord(record: MorynRecord): record is LearningInboxRecord {
   return (
     record.kind === "agent_note" &&
     record.type === "learning_inbox" &&
@@ -225,7 +225,9 @@ export async function consumeLearningInbox(
         "content.consumed_at": consumedAt,
         "content.consumed_by_record_id": input.consumed_by_record_id,
         "content.produced_record_ids": [...new Set(input.produced_record_ids)].sort(),
-        tags: ["consumed", "learning", "learning-inbox"]
+        tags: ["consumed", "learning", "learning-inbox"],
+        state: "archived",
+        visibility: "archived"
       },
       reason: "Learning Inbox consumed by lifecycle capture",
       created_at: consumedAt,

@@ -69,6 +69,22 @@ function learningBridge(input: PromptRecallInput): Record<string, unknown> {
   };
 }
 
+function feedbackBridge(input: PromptRecallInput, recordId: string): Record<string, unknown> {
+  return {
+    version: 1,
+    record_id: recordId,
+    submission_policy: "exactly_one_final_outcome_per_recall_interaction",
+    submit_after: "use_or_verification_is_complete",
+    mcp_tool: "memory_feedback",
+    mcp_arguments: {
+      record_id: recordId,
+      outcome: "<recalled|used|verified|rejected>",
+      idempotency_key: "<unique-recall-interaction-id>",
+      ...(input.capture_context ? { source: input.capture_context.agent } : {})
+    }
+  };
+}
+
 export interface PromptRecallContext {
   injected: boolean;
   record_count: number;
@@ -131,7 +147,8 @@ export function buildPromptRecallContext(input: PromptRecallInput): PromptRecall
             external_side_effects: false
           }
         },
-        learning_bridge: learningBridge(input)
+        learning_bridge: learningBridge(input),
+        feedback_bridge: feedbackBridge(input, selectedHistoricalMatch.record_id)
       })
     };
   }
@@ -145,7 +162,10 @@ export function buildPromptRecallContext(input: PromptRecallInput): PromptRecall
         ...(input.outcome.best_record_id ? { candidate_record_id: input.outcome.best_record_id } : {}),
         instruction:
           "Moryn found only unverified knowledge. Inspect the candidate timeline and verify it with project files, local tools, web sources, or the user before relying on it. Only after the conclusion is supported, call learning_bridge.queue_learning once.",
-        learning_bridge: learningBridge(input)
+        learning_bridge: learningBridge(input),
+        ...(input.outcome.best_record_id
+          ? { feedback_bridge: feedbackBridge(input, input.outcome.best_record_id) }
+          : {})
       })
     };
   }
@@ -164,7 +184,8 @@ export function buildPromptRecallContext(input: PromptRecallInput): PromptRecall
       confidence: record.confidence,
       updated_at: record.updated_at,
       text: boundedText(record)
-    }))
+    })),
+    feedback_bridge: feedbackBridge(input, records[0]!.record.id)
   };
   return { injected: true, record_count: records.length, additional_context: JSON.stringify(context, null, 2) };
 }

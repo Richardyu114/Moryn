@@ -267,7 +267,7 @@ dry-run   handoff     evidence    decision   append    user-owned
 | Context pack | `moryn context pack` returns Handoff Pack v0.2 with quality gate, evidence paths, and required capture action. | CLI/MCP tests, `npm run smoke:dogfood-demo`. |
 | Capture | Low-risk handoffs auto-capture as local evidence; risky or durable handoffs enter Capture Inbox. | Capture policy tests and dashboard smoke evidence. |
 | Review | Capture Inbox groups decisions by source/session/project/day; Review Queue and Candidate Triage use the same approval brief language. | Dashboard tests and `/api/dashboard.decision_summary`. |
-| Approval | No unvalidated canonical writes. Reliable low-risk project Learning Deltas may become canonical through the v0.3 state policy; Capture Inbox, Review Queue, Candidate Triage, sensitive, conflicting, cross-project, and high-impact changes retain explicit approval controls with append-only evidence. | Learning state-policy tests, Safe Action Registry, stale guards, timeline evidence. |
+| Approval | No unvalidated canonical writes. Reliable low-risk project Learning Deltas may become canonical through the v0.3 state policy. The first directional project alias requires explicit approval and durable attestation; only later exact public records for that attested direction reconcile automatically. Direct and reverse-proxied POST requests use the same action-specific guards. Alias topology conflicts, Capture Inbox, Candidate Triage, unknown aliases, privacy boundaries, conflicts, and high-impact changes retain explicit controls with append-only evidence. | Learning state-policy tests, forwarded mutation tests, alias-attestation tests, topology and stale guards, timeline evidence. |
 | Sync | Private Git sync can report clean/pending/conflict, push local events, pull remote events, and leave generated views local-only. | Sync adapter tests, lifecycle tests, live `moryn sync --status`. |
 | Dashboard | Dashboard first screen answers whether the user needs to act, what Moryn stores, recently saved content, and shared-copy state. Default copy is English with a Chinese language switch; read-only evidence stays folded under `More details` while `/api/dashboard` keeps the full machine-readable trail. | `tests/observability/dashboard.test.ts`, live `/api/dashboard`, browser fragment smoke. |
 | Audit | Evidence remains in `/api/dashboard`; visible HTML may collapse or index evidence, but should not delete the machine-readable trail. | Docs contract, dashboard JSON smoke, release check. |
@@ -541,12 +541,14 @@ Current semantic-maintenance slice:
   reductions.
 - [x] Author a derived semantic record from evidence, prove protected-term and
   coverage preservation, and calculate its real token size.
-- [x] Run at most one cumulative semantic proposal automatically at
-  `agent_finish` after topic, conflict, privacy, source-digest, coverage, real
-  token, and strict current-count gates pass. The receipt verifies observed
+- [x] Run at most one cumulative semantic proposal automatically at each newly
+  committed checkpoint and at `agent_finish` after topic, conflict, privacy,
+  source-digest, coverage, real-token, and strict current-count gates pass.
+  Idempotent checkpoint replay skips the pass; the receipt verifies observed
   before/after values and retains append-only source history.
 - [ ] Decide from dogfood whether a periodic scheduler adds value beyond the
-  lifecycle hook. Do not add a background daemon merely to create activity.
+  checkpoint and finish lifecycle hooks. Do not add a background daemon merely
+  to create activity.
 
 ### Phase 3: Setup Wizard
 

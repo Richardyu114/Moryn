@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { createServer as createHttpServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -7,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { recordActivationReceipt } from "../../src/core/activation-receipts.js";
 import { initializeStore } from "../../src/core/config.js";
 import { createEngine } from "../../src/core/engine.js";
+import { projectAliasAttestationIdentity } from "../../src/core/project-alias-attestation.js";
 import { readEvents } from "../../src/core/store.js";
 import { writeSyncCompensationReceipt } from "../../src/core/sync-compensation.js";
 import {
@@ -18,6 +20,10 @@ import {
   writeDashboardSnapshot
 } from "../../src/observability/dashboard.js";
 import { dashboardDrawerId } from "../../src/observability/dashboard-drawer-id.js";
+import {
+  approveMaintenancePlan,
+  runAutomaticDashboardMaintenance
+} from "../../src/observability/dashboard-maintenance.js";
 import { dashboardWorkspaceCss } from "../../src/observability/dashboard-workspace.css.js";
 import { initializeGitSync } from "../../src/sync/git.js";
 import { withTempStore } from "../helpers/temp-store.js";
@@ -4264,7 +4270,7 @@ describe("observability dashboard", () => {
         finding_id: "project_identity_split",
         from_project_id: "repo-e6f0166fd942",
         to_project_id: "moryn",
-        command: "moryn project migrate --from repo-e6f0166fd942 --to moryn --apply --confirm",
+        command: expect.stringContaining(`moryn revise ${candidateOld.record.id} --set project_id=moryn`),
         dry_run: {
           matched_records: 2,
           skipped_private_records: 1,
@@ -4283,9 +4289,10 @@ describe("observability dashboard", () => {
           issue: "2 records under repo-e6f0166fd942 likely belong to moryn.",
           impact: "Boot and recall can miss these memories when agents ask for project moryn.",
           recommended_action:
-            "Apply the repair only after confirming repo-e6f0166fd942 is an old or generated id for moryn.",
-          rollback_path:
-            "If this was wrong, review the refreshed plan and run moryn project migrate --from moryn --to repo-e6f0166fd942 --apply --confirm.",
+            "Apply the repair once to confirm repo-e6f0166fd942 is an old id for moryn; later records can then move automatically.",
+          rollback_path: expect.stringContaining(
+            `moryn revise ${candidateOld.record.id} --set project_id=repo-e6f0166fd942`
+          ),
           examples: expect.arrayContaining([
             expect.objectContaining({
               record_id: candidateOld.record.id,
@@ -4301,21 +4308,25 @@ describe("observability dashboard", () => {
           evidence: expect.arrayContaining([
             "Matched records: 2 records; 1 canonical, 1 candidate.",
             "Private records: 1 private record skipped.",
-            "Write behavior: append-only revise_record events; no history rewrite."
+            "Write behavior: one durable alias attestation plus exact append-only revisions; no history rewrite."
           ])
         }
       });
       expect(data.maintenance.plans[0]?.decision_card.raw_evidence).toMatchObject({
         plan_hash: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
-        command: "moryn project migrate --from repo-e6f0166fd942 --to moryn --apply --confirm",
+        command: expect.stringContaining(`moryn revise ${canonicalOld.record.id} --set project_id=moryn`),
         record_ids: [candidateOld.record.id, canonicalOld.record.id]
       });
       expect(data.maintenance.plans[0]?.plan_hash).toMatch(/^sha256:[a-f0-9]{64}$/);
       expect(data.maintenance.plans[0]?.record_ids).toEqual([candidateOld.record.id, canonicalOld.record.id]);
+      expect(data.maintenance.plans[0]?.command).not.toContain("project migrate");
       expect(data.maintenance.plans[0]?.safety_checks).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ id: "dry_run_completed", ok: true }),
           expect.objectContaining({ id: "target_project_explicit", ok: true }),
+          expect.objectContaining({ id: "exact_record_selection", ok: true }),
+          expect.objectContaining({ id: "alias_attestation", ok: false }),
+          expect.objectContaining({ id: "alias_topology", ok: true }),
           expect.objectContaining({ id: "no_private_records", ok: true }),
           expect.objectContaining({ id: "append_only", ok: true })
         ])
@@ -4552,7 +4563,7 @@ describe("observability dashboard", () => {
       const plan = data.maintenance.plans[0];
 
       expect(plan).toMatchObject({
-        command: "moryn project migrate --from repo-e6f0166fd942 --to moryn --apply --confirm --include-private",
+        command: expect.stringContaining(`moryn revise ${localOnlyRecord.record.id} --set project_id=moryn`),
         dry_run: {
           matched_records: 4,
           skipped_private_records: 0,
@@ -4927,7 +4938,8 @@ describe("observability dashboard", () => {
             target_label: "Open Review Queue",
             requires_user_confirmation: true,
             writes: "append_only_events",
-            safety_note: "Apply Repair appends revise_record events only after the plan_hash guard passes.",
+            safety_note:
+              "Apply Repair may append an alias attestation or reactivation event and appends exact revise_record events only after the plan_hash guard passes.",
             evidence_path: "maintenance.plans[]"
           })
         ]
@@ -7196,15 +7208,17 @@ describe("observability dashboard", () => {
         };
         const plan = dashboard.maintenance.plans[0];
         expect(plan).toBeDefined();
-
-        const response = await fetch(
-          new URL(`/api/maintenance/plans/${encodeURIComponent(plan.plan_id)}/approve`, server.url),
-          {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ plan_hash: plan.plan_hash })
-          }
-        );
+        const endpoint = new URL(`/api/maintenance/plans/${encodeURIComponent(plan.plan_id)}/approve`, server.url);
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-forwarded-for": "203.0.113.10",
+            "x-forwarded-host": "moryn.example.test",
+            "x-forwarded-proto": "https"
+          },
+          body: JSON.stringify({ plan_hash: plan.plan_hash })
+        });
         const applied = (await response.json()) as {
           ok: boolean;
           status: string;
@@ -7212,6 +7226,7 @@ describe("observability dashboard", () => {
           events_written: number;
           record_ids: string[];
           event_ids: string[];
+          alias_attestation: { created: boolean; record_id: string; event_id: string };
           trace: { timeline_commands: string[]; recall_commands: string[] };
         };
 
@@ -7220,18 +7235,36 @@ describe("observability dashboard", () => {
           ok: true,
           status: "applied",
           migrated_records: 1,
-          events_written: 1,
+          events_written: 2,
           record_ids: [oldRecord.record.id]
         });
-        expect(applied.event_ids).toHaveLength(1);
-        expect(applied.event_ids[0]).toMatch(/^evt_/);
+        expect(applied.alias_attestation).toMatchObject({
+          created: true,
+          record_id: expect.stringMatching(/^rec_project_alias_/),
+          event_id: expect.stringMatching(/^evt_project_alias_/)
+        });
+        expect(applied.event_ids).toHaveLength(2);
+        expect(applied.event_ids).toContain(applied.alias_attestation.event_id);
         expect(applied.trace).toEqual({
           timeline_commands: applied.event_ids.map(
             (eventId) => `moryn timeline --event-id ${eventId} --project-id moryn`
           ),
-          recall_commands: [oldRecord.record.id].map(
+          recall_commands: [applied.alias_attestation.record_id, oldRecord.record.id].map(
             (recordId) => `moryn recall --record-id ${recordId} --project-id moryn`
           )
+        });
+        const aliasEvent = (await readEvents(storePath)).find(
+          (event) => event.event_id === applied.alias_attestation.event_id && event.op === "upsert_record"
+        );
+        expect(aliasEvent).toMatchObject({
+          record: {
+            type: "project_identity_alias_attestation",
+            project_id: "moryn",
+            content: {
+              from_project_id: "repo-e6f0166fd942",
+              to_project_id: "moryn"
+            }
+          }
         });
         expect(
           (await engine.recall({ record_ids: [oldRecord.record.id], project_id: "moryn" })).results[0]?.record
@@ -7239,6 +7272,475 @@ describe("observability dashboard", () => {
         ).toBe("moryn");
       } finally {
         await server.close();
+      }
+    });
+  });
+
+  it("automatically absorbs late public records only for a user-confirmed directional alias", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "canonical-project",
+        tags: ["project-memory"],
+        content: { text: "Canonical project context.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const firstLegacy = await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "legacy-project",
+        tags: ["project-memory"],
+        content: { text: "Initial legacy project record.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+
+      const approvalServer = await startDashboardServer(storePath, {
+        host: "127.0.0.1",
+        port: 0,
+        project_id: "canonical-project"
+      });
+      try {
+        const dashboard = (await (await fetch(new URL("/api/dashboard", approvalServer.url))).json()) as {
+          maintenance: { plans: Array<{ plan_id: string; plan_hash: string }> };
+        };
+        const plan = dashboard.maintenance.plans[0];
+        expect(plan).toBeDefined();
+        const response = await fetch(
+          new URL(`/api/maintenance/plans/${encodeURIComponent(plan.plan_id)}/approve`, approvalServer.url),
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ plan_hash: plan.plan_hash })
+          }
+        );
+        expect(response.status).toBe(200);
+      } finally {
+        await approvalServer.close();
+      }
+      expect(
+        (await engine.recall({ record_ids: [firstLegacy.record.id], project_id: "canonical-project" })).results[0]
+          ?.record.project_id
+      ).toBe("canonical-project");
+
+      const latePublic = await engine.write({
+        kind: "agent_note",
+        type: "note",
+        scope: "project",
+        project_id: "legacy-project",
+        tags: [],
+        content: { text: "Late record without shared tag evidence.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const latePrivate = await engine.write({
+        kind: "memory",
+        type: "preference",
+        scope: "project",
+        project_id: "legacy-project",
+        tags: ["private"],
+        content: { text: "Private late record stays behind.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const legacySoul = await engine.write({
+        kind: "soul",
+        type: "working_principle",
+        scope: "project",
+        project_id: "legacy-project",
+        tags: [],
+        content: { text: "Soul identity is outside Dashboard maintenance.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const eventsBeforeStartup = await readEvents(storePath);
+      const attestedData = await buildDashboardData(storePath, { project_id: "canonical-project" });
+      const automaticPlan = attestedData.maintenance.plans.find((plan) => plan.type === "project_identity_repair");
+      expect(automaticPlan).toMatchObject({
+        from_project_id: "legacy-project",
+        to_project_id: "canonical-project",
+        record_ids: [latePublic.record.id],
+        approval: { requires_user_confirmation: false, safe_to_auto_apply: true }
+      });
+      expect(attestedData.decision_summary.items.some((item) => item.surface === "maintenance_review")).toBe(false);
+      expect(
+        attestedData.governance.items.find(
+          (item) => item.source === "maintenance" && item.record_ids.includes(latePublic.record.id)
+        )
+      ).toMatchObject({ safe_to_run: true, requires_user_confirmation: false });
+
+      const automaticServer = await startDashboardServer(storePath, {
+        host: "127.0.0.1",
+        port: 0,
+        project_id: "canonical-project"
+      });
+      try {
+        const eventsAfterStartup = await readEvents(storePath);
+        expect(eventsAfterStartup).toHaveLength(eventsBeforeStartup.length + 1);
+        expect(eventsAfterStartup).toContainEqual(
+          expect.objectContaining({
+            op: "revise_record",
+            record_id: latePublic.record.id,
+            patch: { project_id: "canonical-project" },
+            source: expect.objectContaining({
+              session_id: expect.stringMatching(/^dashboard-maintenance-auto:[a-f0-9]{16}$/)
+            })
+          })
+        );
+
+        const dashboardResponse = await fetch(new URL("/api/dashboard", automaticServer.url));
+        const dashboard = (await dashboardResponse.json()) as {
+          maintenance: { plans: Array<{ type: string }> };
+        };
+        expect(dashboard.maintenance.plans.filter((plan) => plan.type === "project_identity_repair")).toEqual([]);
+        await fetch(new URL("/fragment", automaticServer.url));
+        await fetch(new URL("/api/dashboard", automaticServer.url), { method: "HEAD" });
+        expect(await readEvents(storePath)).toHaveLength(eventsAfterStartup.length);
+
+        const recalled = await engine.recall({
+          record_ids: [latePublic.record.id, latePrivate.record.id, legacySoul.record.id],
+          include_private: true
+        });
+        const projectsByRecordId = Object.fromEntries(
+          recalled.results.map((result) => [result.record.id, result.record.project_id])
+        );
+        expect(projectsByRecordId).toMatchObject({
+          [latePublic.record.id]: "canonical-project",
+          [latePrivate.record.id]: "legacy-project",
+          [legacySoul.record.id]: "legacy-project"
+        });
+
+        await engine.write({
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "legacy-project",
+          tags: ["project-memory"],
+          content: { text: "A reverse target does not reverse the approved alias.", format: "text" },
+          state: "canonical",
+          confirmed: true,
+          source: { client: "user" }
+        });
+        const reverseData = await buildDashboardData(storePath, { project_id: "legacy-project" });
+        const reversePlan = reverseData.maintenance.plans.find(
+          (plan) => plan.type === "project_identity_repair" && plan.from_project_id === "canonical-project"
+        );
+        expect(reversePlan?.approval).toEqual({
+          requires_user_confirmation: true,
+          safe_to_auto_apply: false
+        });
+        expect(reversePlan?.safety_checks).toContainEqual(
+          expect.objectContaining({ id: "alias_attestation", ok: false })
+        );
+        expect(reversePlan?.safety_checks).toContainEqual(expect.objectContaining({ id: "alias_topology", ok: false }));
+        if (!reversePlan) throw new Error("Expected a reverse project identity plan");
+        const eventsBeforeReverseApproval = await readEvents(storePath);
+        const reverseApproval = await approveMaintenancePlan(
+          storePath,
+          { project_id: "legacy-project" },
+          reversePlan.plan_id,
+          reversePlan.plan_hash
+        );
+        expect(reverseApproval).toMatchObject({ ok: false, status: "alias_conflict" });
+        expect(await readEvents(storePath)).toEqual(eventsBeforeReverseApproval);
+      } finally {
+        await automaticServer.close();
+      }
+    });
+  });
+
+  it("reactivates an archived alias only after the user approves that direction again", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "canonical-project",
+        tags: ["project-memory"],
+        content: { text: "Canonical project context.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "legacy-project",
+        tags: ["project-memory"],
+        content: { text: "Initial legacy project record.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+
+      const initialPlan = (await buildDashboardData(storePath, { project_id: "canonical-project" })).maintenance
+        .plans[0];
+      expect(initialPlan).toBeDefined();
+      const initialApproval = await approveMaintenancePlan(
+        storePath,
+        { project_id: "canonical-project" },
+        initialPlan.plan_id,
+        initialPlan.plan_hash
+      );
+      expect(initialApproval.ok).toBe(true);
+
+      const aliasId = projectAliasAttestationIdentity("legacy-project", "canonical-project").record_id;
+      const lateSharedRecord = await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "legacy-project",
+        tags: ["project-memory"],
+        content: { text: "Late record after alias revocation.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const preRevocationPlan = (
+        await buildDashboardData(storePath, { project_id: "canonical-project" })
+      ).maintenance.plans.find((plan) => plan.type === "project_identity_repair");
+      expect(preRevocationPlan?.approval).toEqual({
+        requires_user_confirmation: false,
+        safe_to_auto_apply: true
+      });
+      if (!preRevocationPlan) throw new Error("Expected an attested project identity plan before revocation");
+
+      await engine.archive({ record_id: aliasId, reason: "User revoked this project alias" });
+      const eventsAfterRevocation = await readEvents(storePath);
+      const staleApproval = await approveMaintenancePlan(
+        storePath,
+        { project_id: "canonical-project" },
+        preRevocationPlan.plan_id,
+        preRevocationPlan.plan_hash
+      );
+      expect(staleApproval).toMatchObject({ ok: false, status: "stale_plan" });
+      expect(await readEvents(storePath)).toEqual(eventsAfterRevocation);
+      expect((await engine.recall({ record_ids: [lateSharedRecord.record.id] })).results[0]?.record.project_id).toBe(
+        "legacy-project"
+      );
+
+      const revokedPlan = (
+        await buildDashboardData(storePath, { project_id: "canonical-project" })
+      ).maintenance.plans.find((plan) => plan.type === "project_identity_repair");
+      expect(revokedPlan?.approval).toEqual({
+        requires_user_confirmation: true,
+        safe_to_auto_apply: false
+      });
+      if (!revokedPlan) throw new Error("Expected a project identity plan after alias revocation");
+      const reapproval = await approveMaintenancePlan(
+        storePath,
+        { project_id: "canonical-project" },
+        revokedPlan.plan_id,
+        revokedPlan.plan_hash
+      );
+      expect(reapproval.ok).toBe(true);
+      if (!reapproval.ok || !("alias_attestation" in reapproval) || !reapproval.alias_attestation) {
+        throw new Error("Expected the alias attestation to be reactivated");
+      }
+      expect(reapproval.alias_attestation).toMatchObject({
+        created: false,
+        reactivated: true,
+        record_id: aliasId
+      });
+      expect(await readEvents(storePath)).toContainEqual(
+        expect.objectContaining({
+          event_id: reapproval.alias_attestation.event_id,
+          op: "promote_record",
+          record_id: aliasId,
+          target_state: "canonical"
+        })
+      );
+      expect((await engine.recall({ record_ids: [lateSharedRecord.record.id] })).results[0]?.record.project_id).toBe(
+        "canonical-project"
+      );
+
+      const lateAutomaticRecord = await engine.write({
+        kind: "agent_note",
+        type: "note",
+        scope: "project",
+        project_id: "legacy-project",
+        tags: [],
+        content: { text: "No-tag record after alias reapproval.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const automatic = await runAutomaticDashboardMaintenance(storePath, {
+        project_id: "canonical-project"
+      });
+      expect(automatic).toMatchObject({ status: "applied", records_changed: 1 });
+      expect((await engine.recall({ record_ids: [lateAutomaticRecord.record.id] })).results[0]?.record.project_id).toBe(
+        "canonical-project"
+      );
+    });
+  });
+
+  it("keeps logically conflicted records out of automatic alias migration", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "canonical-project",
+        tags: ["project-memory"],
+        content: { text: "Canonical project context.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "legacy-project",
+        tags: ["project-memory"],
+        content: { text: "Initial legacy record.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const initialPlan = (await buildDashboardData(storePath, { project_id: "canonical-project" })).maintenance
+        .plans[0];
+      await approveMaintenancePlan(
+        storePath,
+        { project_id: "canonical-project" },
+        initialPlan.plan_id,
+        initialPlan.plan_hash
+      );
+
+      const first = await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "legacy-project",
+        tags: [],
+        content: { text: "The deployment region is east.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const second = await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "legacy-project",
+        tags: [],
+        content: { text: "The deployment region is west.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.link({
+        record_id: first.record.id,
+        linked_record_id: second.record.id,
+        link_type: "conflicts_with",
+        reason: "These deployment regions need resolution."
+      });
+
+      const plan = (await buildDashboardData(storePath, { project_id: "canonical-project" })).maintenance.plans.find(
+        (candidate) => candidate.type === "project_identity_repair"
+      );
+      expect(plan?.record_ids).toEqual(expect.arrayContaining([first.record.id, second.record.id]));
+      expect(plan?.approval).toEqual({ requires_user_confirmation: true, safe_to_auto_apply: false });
+      expect(plan?.safety_checks).toContainEqual(expect.objectContaining({ id: "no_unresolved_conflicts", ok: false }));
+
+      const eventsBeforeAutomaticPass = await readEvents(storePath);
+      expect(await runAutomaticDashboardMaintenance(storePath, { project_id: "canonical-project" })).toMatchObject({
+        status: "skipped",
+        records_changed: 0
+      });
+      expect(await readEvents(storePath)).toEqual(eventsBeforeAutomaticPass);
+      const recalled = await engine.recall({ record_ids: [first.record.id, second.record.id] });
+      expect(recalled.results.map((result) => result.record.project_id)).toEqual(["legacy-project", "legacy-project"]);
+    });
+  });
+
+  it("does not run startup migration when the dashboard cannot listen", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "canonical-project",
+        tags: ["project-memory"],
+        content: { text: "Canonical project context.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "legacy-project",
+        tags: ["project-memory"],
+        content: { text: "Initial legacy record.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const initialPlan = (await buildDashboardData(storePath, { project_id: "canonical-project" })).maintenance
+        .plans[0];
+      await approveMaintenancePlan(
+        storePath,
+        { project_id: "canonical-project" },
+        initialPlan.plan_id,
+        initialPlan.plan_hash
+      );
+      const lateRecord = await engine.write({
+        kind: "agent_note",
+        type: "note",
+        scope: "project",
+        project_id: "legacy-project",
+        tags: [],
+        content: { text: "This record must wait for a listening dashboard.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+
+      const blocker = createHttpServer();
+      await new Promise<void>((resolve, reject) => {
+        blocker.once("error", reject);
+        blocker.listen(0, "127.0.0.1", resolve);
+      });
+      try {
+        const address = blocker.address();
+        if (!address || typeof address === "string") throw new Error("Expected a TCP blocker address");
+        const eventsBeforeFailedStartup = await readEvents(storePath);
+        await expect(
+          startDashboardServer(storePath, {
+            host: "127.0.0.1",
+            port: address.port,
+            project_id: "canonical-project"
+          })
+        ).rejects.toThrow();
+        expect(await readEvents(storePath)).toEqual(eventsBeforeFailedStartup);
+        expect((await engine.recall({ record_ids: [lateRecord.record.id] })).results[0]?.record.project_id).toBe(
+          "legacy-project"
+        );
+      } finally {
+        await new Promise<void>((resolve, reject) => {
+          blocker.close((error) => (error ? reject(error) : resolve()));
+        });
       }
     });
   });

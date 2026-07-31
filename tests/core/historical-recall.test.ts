@@ -176,6 +176,27 @@ describe("historical recall recovery", () => {
     ).toMatchObject({ status: "not_found", matches: [] });
   });
 
+  it("recovers an unspaced Chinese historical query but rejects scattered character overlap", () => {
+    const relevant = record("rec-chinese-history", {
+      state: "archived",
+      visibility: "archived",
+      content: { text: "数据库迁移需要先创建备份，再执行兼容性检查。" }
+    });
+    const scattered = record("rec-scattered-chinese", {
+      state: "archived",
+      visibility: "archived",
+      content: { text: "参数已记录，依据明确，仓库稳定，迁徙完成，移动端可用。" }
+    });
+
+    const result = recoverHistoricalRecall({
+      records: [scattered, relevant],
+      active_working_set_record_ids: [],
+      query: "数据库迁移"
+    });
+
+    expect(result.matches.map((match) => match.record_id)).toEqual([relevant.id]);
+  });
+
   it("finds active records omitted by the working-set budget without duplicating selected records", () => {
     const selected = record("rec-selected", { content: { text: "selected retention policy" } });
     const omitted = record("rec-omitted", { content: { text: "rare deployment checksum gamma-7" } });

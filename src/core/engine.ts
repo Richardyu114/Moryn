@@ -7,7 +7,8 @@ import { runAutomaticEventAudit } from "./automatic-event-audit.js";
 import {
   AUTOMATIC_SEMANTIC_MAINTENANCE_MAX_MERGES,
   type AutomaticSemanticMaintenanceInput,
-  type AutomaticSemanticMaintenanceResult
+  type AutomaticSemanticMaintenanceResult,
+  runAutomaticSemanticMaintenance
 } from "./automatic-semantic-maintenance.js";
 import { type CapturePolicyInput, diagnoseCapturePolicy } from "./capture-policy-report.js";
 import {
@@ -63,7 +64,7 @@ import {
   validateIdempotencyKey
 } from "./idempotency.js";
 import { buildLearningCandidateReviewWorkflow, unresolvedLearningCandidates } from "./learning-candidate-review.js";
-import { consumeLearningInbox, learningInboxForLifecycle } from "./learning-inbox.js";
+import { consumeLearningInbox, isLearningInboxRecord, learningInboxForLifecycle } from "./learning-inbox.js";
 import { learningRecordIdentity, normalizeLearningRecord } from "./learning-ingestion.js";
 import { learningStatePolicy } from "./learning-policy.js";
 import {
@@ -92,13 +93,14 @@ import { normalizeMemoryExpansionCommand } from "./memory-expansion-command.js";
 import { applyRecordFeedback } from "./memory-feedback.js";
 import { diagnoseMemoryLifecycle, type MemoryLifecycleInput } from "./memory-lifecycle.js";
 import { buildMemoryRetentionView } from "./memory-retention.js";
+import { isProjectAliasAttestationControlRecord } from "./project-alias-attestation.js";
 import {
   buildRecallMemoryExpandAction,
   buildRecallNextActions,
   RECALL_ACTION_SELECTION_SOURCES
 } from "./recall-actions.js";
 import { evaluateRecall, RECALL_EVAL_SELECTION_SOURCES, type RecallEvalInput } from "./recall-eval.js";
-import { assessRecallOutcome } from "./recall-outcome.js";
+import { assessRecallOutcome, queryRecordMatch } from "./recall-outcome.js";
 import {
   type CurrentRecordReadResult,
   DEFAULT_MEMORY_WORKING_SET_OPTIONS,
@@ -3105,9 +3107,10 @@ function boundedRetrievalEvidence(
   records: readonly MorynRecord[],
   workingSet: ReturnType<typeof defaultMemoryWorkingSet>["report"]
 ) {
+  const { records: _candidateRecords, ...evidence } = retrieval;
+  void _candidateRecords;
   return {
-    ...retrieval,
-    records: [...records],
+    ...evidence,
     unbounded_candidate_count: retrieval.candidate_count,
     candidate_count: records.length,
     working_set: workingSet
@@ -3127,7 +3130,7 @@ function includesRawState(input: ValidatedRecallInput): boolean {
 }
 
 function isVisibleInDefaultRecall(record: MorynRecord): boolean {
-  return isVisibleByDefault(record) && record.state !== "raw";
+  return isVisibleByDefault(record) && record.state !== "raw" && !isLearningInboxRecord(record);
 }
 
 function skillMatchesSelector(record: MorynRecord, selector: string): boolean {
@@ -3296,20 +3299,18 @@ function reasonAndScore(record: MorynRecord, input: ValidatedRecallInput): { sco
     }
   }
   if (input.query) {
-    const haystack = `${searchableText(record)} ${record.tags.join(" ")} ${record.type}`.toLowerCase();
-    for (const token of input.query.toLowerCase().split(/\s+/).filter(Boolean)) {
-      if (haystack.includes(token)) {
-        score += 3;
-        reason.push(`text_match:${token}`);
-      }
-    }
+    const match = queryRecordMatch(input.query, record);
+    const scoredTokens = match.matched_tokens.slice(0, 16);
+    score += scoredTokens.length * 3;
+    reason.push(...scoredTokens.map((token) => `text_match:${token}`));
+    if (match.reliable_match_anchor) reason.push("text_anchor");
   }
   return { score, reason: [...new Set(reason)] };
 }
 
 function matchesQuery(result: { reason: string[] }, input: ValidatedRecallInput): boolean {
   if (!input.query || input.record_ids?.length) return true;
-  return result.reason.some((reason) => reason.startsWith("text_match:"));
+  return result.reason.includes("text_anchor");
 }
 
 function sameRecallManifest(
@@ -4786,6 +4787,12 @@ export function createEngine(deps: EngineDeps) {
         project_id: normalized.project_id,
         source: normalized.source
       });
+      const automaticSemanticMaintenance = outcome.idempotent_replay
+        ? undefined
+        : await runAutomaticSemanticMaintenance(engine, {
+            project_id: normalized.project_id,
+            source: normalized.source
+          });
       const candidateReview = buildLearningCandidateReviewWorkflow(
         normalized.project_id,
         unresolvedLearningCandidates(learningIngestion.semantic_candidates.candidates, semanticConsolidation)
@@ -4829,6 +4836,7 @@ export function createEngine(deps: EngineDeps) {
         learning_ingestion: learningIngestionResult,
         learning_inbox: learningInbox,
         exact_duplicate_consolidation: exactDuplicateConsolidation,
+        ...(automaticSemanticMaintenance ? { automatic_semantic_maintenance: automaticSemanticMaintenance } : {}),
         semantic_consolidation: semanticConsolidation,
         automatic_event_audit: automaticEventAudit,
         selection_sources: CHECKPOINT_SELECTION_SOURCES
@@ -5340,6 +5348,9 @@ export function createEngine(deps: EngineDeps) {
       const existingReceipt = await replayCommittedRevision();
       if (existingReceipt) return existingReceipt;
       const record = await requireRecord(revisionInput.record_id);
+      if (isProjectAliasAttestationControlRecord(record)) {
+        throw new Error("Invalid argument: project alias attestation records cannot be revised");
+      }
       const createdAt = nextMutationTimestamp(record, now());
       const patched = applyRecordPatch(record, patch);
       try {
@@ -5421,6 +5432,9 @@ export function createEngine(deps: EngineDeps) {
         return { ...receipt, selection_sources: MUTATION_EVENT_SELECTION_SOURCES };
       }
       const record = await requireRecord(promoteInput.record_id);
+      if (isProjectAliasAttestationControlRecord(record) && promoteInput.target_state !== "canonical") {
+        throw new Error("Invalid argument: project alias attestations can only be promoted to canonical");
+      }
       const conflicts =
         promoteInput.target_state === "canonical" ? semanticConflicts(await currentRecords(), record) : [];
       if (
@@ -5530,7 +5544,10 @@ export function createEngine(deps: EngineDeps) {
         return { ...receipt, selection_sources: LINK_EVENT_SELECTION_SOURCES };
       }
       const record = await requireRecord(linkInput.record_id);
-      await requireRecord(linkInput.linked_record_id);
+      const linkedRecord = await requireRecord(linkInput.linked_record_id);
+      if (isProjectAliasAttestationControlRecord(record) || isProjectAliasAttestationControlRecord(linkedRecord)) {
+        throw new Error("Invalid argument: project alias attestation records cannot be linked");
+      }
       const createdAt = nextMutationTimestamp(record, now());
       const event: MorynEvent = {
         event_id: identity.event_id ?? id("evt"),
@@ -5571,6 +5588,12 @@ export function createEngine(deps: EngineDeps) {
         };
       }
       const records = await currentRecords();
+      const requestedRecords = records.filter(
+        (record) => record.id === input.record_id || record.id === input.linked_record_id
+      );
+      if (requestedRecords.some(isProjectAliasAttestationControlRecord)) {
+        throw new Error("Invalid argument: project alias attestation records cannot be linked");
+      }
       const validated = validateLogicalRelationship(records, {
         record_id: input.record_id as string,
         linked_record_id: input.linked_record_id as string,
@@ -5845,7 +5868,7 @@ export function createEngine(deps: EngineDeps) {
       const allCurrentRecords = retrieval?.records ?? current!.records;
       const activeCurrentRecords = retrieval?.records ?? buildActiveLogicalMemoryView(allCurrentRecords).active_records;
       const workingSetEligibleRecords = activeCurrentRecords
-        .filter(isVisibleByDefault)
+        .filter((record) => isVisibleByDefault(record) && !isLearningInboxRecord(record))
         .filter((record) => isAllowedByPrivateBoundary(record, bootInput.include_private))
         .filter((record) => recordBootContextMatches(record, bootInput.project_id))
         .filter((record) => !isManagedSoulProfileRecord(record));

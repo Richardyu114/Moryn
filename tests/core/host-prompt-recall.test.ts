@@ -159,6 +159,19 @@ describe("host prompt recall context", () => {
           mcp_arguments: { related_record_ids: [historicalRecord.id] },
           lifecycle_consumption: "automatic_on_checkpoint_or_finish"
         }
+      },
+      feedback_bridge: {
+        version: 1,
+        record_id: historicalRecord.id,
+        submission_policy: "exactly_one_final_outcome_per_recall_interaction",
+        submit_after: "use_or_verification_is_complete",
+        mcp_tool: "memory_feedback",
+        mcp_arguments: {
+          record_id: historicalRecord.id,
+          outcome: "<recalled|used|verified|rejected>",
+          idempotency_key: "<unique-recall-interaction-id>",
+          source: { client: "codex", session_id: "session-current", device_id: "device-a" }
+        }
       }
     });
     expect(payload.instruction).toContain("Do not reactivate archived source records directly");

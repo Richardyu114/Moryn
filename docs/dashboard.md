@@ -206,8 +206,18 @@ listens, so `--host 0.0.0.0` exposes the dashboard on external network
 interfaces. `--readiness-host` is separate: it selects the agent adapter used
 inside `health_check.setup_readiness` commands, such as `codex`, `claude`,
 `gemini`, `cursor`, or `shell`. `--sync-remote` is copied into generated
-readiness commands but the dashboard remains read-only; it does not initialize
-sync, contact the remote, register MCP, or edit host config while rendering.
+readiness commands. Dashboard GET and HEAD rendering remains read-only: it does
+not initialize sync, contact the remote, register MCP, edit host config, or
+approve a new project identity. Separately, the live server runs a bounded
+project-alias reconciler at startup and once per minute. It can append exact
+revisions only for a directional alias previously confirmed by the user; it
+never runs as a side effect of a page request.
+
+Dashboard POST mutation endpoints are available through both direct and
+reverse-proxied requests. Forwarded requests use the same route-level input,
+state, stale-plan, and append-only write guards as direct requests. The
+Dashboard does not add application-level authentication, so deployments that
+need access restrictions must provide them at the network or proxy layer.
 
 Server endpoints:
 
@@ -485,19 +495,23 @@ merges` is a separate possibility and does not change the current count.
 Semantic similarity is discovery evidence, not proof of equivalent meaning.
 Until a combined record is authored, checked for source-unit coverage, and
 shown to reduce both records and final serialized tokens, its token forecast
-remains unknown and no write is allowed. A ready proof-gated merge may run at
-the next `agent_finish`, at most one group per finish. The Dashboard remains
-read-only. Source history remains append-only and recoverable after apply; the
-forecast never implies physical deletion.
+remains unknown and no write is allowed. A ready proof-gated merge may run at a
+newly committed checkpoint or the next `agent_finish`, at most one group per
+lifecycle call; idempotent checkpoint replay does not run it again. This
+forecast remains read-only. Source history remains append-only and recoverable
+after apply; the forecast never implies physical deletion.
 
 ### Review Queue
 
-The live dashboard can include a `Review Queue` for local maintenance plans. In
-the first version, interactive plans stay narrow and auditable:
+The live dashboard can include a `Review Queue` for local maintenance plans.
+Interactive plans stay narrow and auditable: an unrecognized
 `project_identity_split` discovered by `memory doctor` becomes a
 `project_migrate` dry-run plan, and smoke/e2e/marker candidate noise becomes a
 candidate cleanup plan that can append `archive_record` events only after user
-approval.
+approval. The first approved project repair also records a durable, directional
+`alias -> canonical project` attestation. Later public records arriving under
+that alias are reconciled automatically instead of becoming repetitive
+approval work.
 
 The approval card is a human-readable decision card. The queue is collapsed by
 default behind a short confirmation summary that reads `Approval required`
@@ -523,7 +537,7 @@ second decision-summary fold. The first expanded queue view stays focused on
 the title, the short approval brief, and explicit controls. It does not add
 separate safety badges beside the card title; `Guard` and `Writes` in the
 approval brief are the visible write-boundary explanation. The raw `plan_hash`,
-equivalent CLI command, rollback path, and record ids stay inside
+exact record-id CLI fallback, rollback path, and record ids stay inside
 `Decision details`. The structured reasoning lives in that single fold, where
 it still shows:
 
@@ -545,8 +559,8 @@ Evidence, rollback, and raw plan details stay inside a nested `Evidence trace`
 fold under `Decision details`, so the first expanded decision view stays readable without hiding audit data.
 That evidence section includes source and target project ids for migrations,
 archive reasons for candidate cleanup, matched
-record count, state distribution, private record counts, safety checks,
-equivalent CLI command, record ids, rollback path, and `plan_hash`.
+record count, state distribution, private record counts, safety checks, exact
+record-id CLI fallback, record ids, rollback path, and `plan_hash`.
 Large plans keep the raw details budgeted: the visible row shows the first few
 record ids plus an overflow count, while `All record ids` and `Full command`
 remain available behind nested folds. The `Copy command` button lives inside
@@ -560,18 +574,32 @@ Approving the card posts only the current `plan_hash` to:
 POST /api/maintenance/plans/:plan_id/approve
 ```
 
-The browser does not send arbitrary record ids or migration arguments. The
-server reconstructs the current plan from the local store, re-runs the dry run,
-compares the submitted `plan_hash`, and applies only when the hash still
-matches. Project repair approvals append `revise_record` events. Candidate
-noise approvals append `archive_record` events and never delete records. Stale
-approvals return `409` with `status: "stale_plan"`. `Not now` is
-browser-session-only and does not write store events.
+The browser does not send arbitrary record ids or migration arguments. Under
+one store-state lease, the server reconstructs the current plan, compares the
+submitted `plan_hash`, records the directional alias attestation, and revises
+only the sealed `record_ids`. It never re-scans the whole source project after
+the guard passes. Candidate noise approvals append `archive_record` events and
+never delete records. Stale approvals return `409` with `status:
+"stale_plan"`. `Not now` is browser-session-only and does not write store
+events.
 
-If the dashboard is served with `--include-private`, matching private
-records are included in the dry run and the copied command includes
-`--include-private`. Without that explicit flag, private records are counted as
-skipped and stay out of the approval.
+An attested alias is directional. The live server's bounded maintenance pass
+applies at most one eligible plan per run, and only when every selected record
+is public, non-Soul, non-quarantined, and free of unresolved conflict. Unknown
+aliases, private records, Candidate Cleanup, and uncertain plans still require
+explicit local review. A source cannot point to multiple targets, and a node
+cannot be both an alias source and target; reverse, chained, and cyclic mappings
+are rejected until the conflicting attestation is revoked. Automatic events use a
+`dashboard-maintenance-auto:<plan-hash-prefix>` source session so each exact
+batch remains grouped in history. GET, HEAD, static snapshots, and
+the MCP dashboard snapshot never trigger the pass. Rollback first archives the
+attestation and then restores only the approved plan's exact record ids; it never runs
+a broad reverse project migration.
+
+If the dashboard is served with `--include-private`, matching private records
+are included in the dry run and as explicit ids in the copied exact-revision
+command. Without that flag, private records are counted as skipped and stay out
+of the approval and copied command.
 
 ### Governance Hub
 
@@ -1171,8 +1199,9 @@ those per-decision audit fields in `items[]`, including `title`, `summary`,
 `decision_label`, `writes: "append_only_events"`, `safety_note`, `evidence_path`,
 `primary_action_id`, and `secondary_action_id`, but the HTML keeps Pending
 Decisions as a compact routing layer. It does not add a new endpoint, background
-executor, or second approval path. Actual writes remain inside Capture Inbox,
-Review Queue, and Candidate Triage controls.
+executor, or second approval path. Writes represented by Pending Decisions
+remain inside Capture Inbox, Review Queue, and Candidate Triage controls;
+already-attested alias reconciliation is not counted as a pending decision.
 
 Action Board cards keep full explanations in `items[].detail` for agents and
 audit readers, but the visible card footer uses the shorter `items[].hint`.
@@ -1538,11 +1567,13 @@ request body, source path, and safety metadata. Browser buttons carry the same
 id in `data-dashboard-action-id`, so a rendered control can be traced back to
 the JSON action contract.
 
-The registry is not a background executor and does not add automatic writes.
-Actions that mutate the store remain explicit dashboard button presses, use
-append-only events, and carry stale guards such as `active_candidate_record`,
-`active_candidate_group`, or `plan_hash`. Read-only actions record
-`writes: "none"`.
+The registry is not a background executor. Unattested actions that mutate the
+store remain explicit dashboard button presses, use append-only events, and
+carry stale guards such as `active_candidate_record`,
+`active_candidate_group`, or `plan_hash`. The separate live-server alias
+reconciler consumes only an existing user-confirmed attestation and is not
+driven by registry buttons or GET requests. Read-only actions record `writes:
+"none"`.
 
 After a dashboard approval or rejection succeeds, the browser renders one
 compact `Action receipt` in the global receipt anchor before refreshing the body.
@@ -1894,8 +1925,10 @@ Default read-boundary and redaction rules still apply:
   remains the explicit data source
 
 If you bind to `0.0.0.0`, anyone who can reach that host and port may view the
-dashboard. Use local-only binding, firewall rules, SSH tunnels, Tailscale, or a
-trusted reverse proxy when access should be restricted.
+dashboard and invoke its POST mutation endpoints. The same endpoints remain
+available when the Dashboard is forwarded through a reverse proxy. Use
+local-only binding, firewall rules, SSH tunnels, Tailscale, or proxy-layer
+authentication when access should be restricted.
 
 ## Troubleshooting
 

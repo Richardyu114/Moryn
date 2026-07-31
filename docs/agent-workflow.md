@@ -374,6 +374,11 @@ user knowledge is uncertain:
 4. Before host compaction, write resolved Learning Deltas and preserve every
    unresolved material question with evidence and an exact next step.
 
+A bounded multilingual matcher handles natural Chinese/CJK queries without
+depending on whitespace. It requires a contiguous CJK anchor before treating
+character overlap as a reliable match, and keeps query normalization and token
+generation within fixed limits.
+
 A prompt recall miss does not write a store record by itself. Historical
 recovery is read-only as well. The Codex and Claude Code `UserPromptSubmit`
 hook returns bounded historical candidate metadata and an explicit read-only
@@ -387,6 +392,11 @@ evidence chain. The bridge references
 `current_user_prompt` instead of echoing prompt text into hook output.
 `learning_bridge.queue_learning` points to the one-call `learn` operation and
 contains the resolved project plus current host, session, and device identity.
+When prompt recall selects a trusted or verification-required record, it also
+returns a `feedback_bridge` naming that record, the `memory_feedback` MCP tool,
+the allowed final outcomes, and a unique-idempotency-key placeholder. The host
+submits the bridge once only after use or verification is complete; prompt
+recall does not submit feedback itself.
 After research or user dialogue supports a reusable conclusion, the agent fills
 only `question`, `conclusion`, and `evidence_type`. Moryn consumes queued
 learning automatically at the next checkpoint or finish, then applies learning
@@ -484,12 +494,16 @@ it differs from that deterministic result. Differing values cannot use
 `retain`: they require an evidence-backed `replace`, an exact-value `union`, a
 verified lossless text synthesis, or an explicit evidence-backed `obsolete`.
 
-At finish, Moryn may apply at most one public project merge without asking the
-user. Similarity only discovers the pair. Automatic apply additionally requires
-strong topic evidence, cumulative-only fields, complete source text-unit
-coverage, a canonical final record, and strict decreases in both current records
-and the final serialized token estimate. The receipt verifies the actual
-post-write counts; old source records stay in append-only history.
+A newly committed checkpoint may apply at most one public project merge after
+its bounded duplicate maintenance, and `agent_finish` may independently apply
+at most one after Session Fold and Episode Rollup. An idempotent checkpoint
+replay returns the existing checkpoint without running semantic maintenance
+again. Similarity only discovers the pair. Automatic apply additionally
+requires strong topic evidence, cumulative-only fields, complete source
+text-unit coverage, a canonical final record, and strict decreases in both
+current records and the final serialized token estimate. The
+`automatic_semantic_maintenance` receipt verifies the actual post-write counts;
+old source records stay in append-only history.
 Without an explicit `structured_merge.version: 1` plan, the proposal remains
 relationship-only and can append only its validated logical link.
 
@@ -649,11 +663,20 @@ moryn dashboard --serve --host 127.0.0.1 --port 8765 --project-id moryn
 The Review Queue shows the generated project migration as a decision card:
 issue, impact, recommended action, evidence, rollback path, and raw evidence
 with safety checks and `plan_hash`. If the user clicks `Approve Repair`, the
-dashboard server re-runs the dry run and applies only when the hash still
-matches. Agents must not invent approval or send `confirmed: true` unless the
-user approved the specific plan. Serve with `--include-private` only when the
-user explicitly asked private memories to be included in the review and
-repair.
+dashboard server holds the store-state lease, re-runs the dry run, and applies
+only when the hash still matches. It records that exact directional alias as a
+durable attestation and revises only the plan's sealed record ids. Later public
+records under the same alias are absorbed automatically by the live Dashboard
+server without another approval. Unknown aliases, private records, Soul
+records, quarantined or conflicted records, and candidate cleanup remain
+manual. Conflicting, reverse, chained, or cyclic aliases are rejected until the
+old attestation is revoked. Agents must not invent the first alias approval or send `confirmed:
+true` unless the user approved that direction. Serve with `--include-private`
+only when the user explicitly asked private memories to be included in the
+review and repair. Dashboard POST mutations work through both the direct URL
+and a reverse-proxied live Dashboard; deployments must restrict proxy access
+when required. To undo a repair, revoke its attestation and restore only the
+approved plan's record ids; do not run a whole-project reverse migration.
 
 For autocaptured session handoffs, use `moryn capture session` and let
 `default_autocapture_policy` choose the route. Low-risk handoffs are

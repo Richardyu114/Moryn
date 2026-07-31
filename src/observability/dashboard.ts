@@ -40,7 +40,8 @@ import {
   approveMaintenancePlan,
   buildDashboardMaintenance,
   type DashboardMaintenanceData,
-  type DashboardMaintenancePlan
+  type DashboardMaintenancePlan,
+  runAutomaticDashboardMaintenance
 } from "./dashboard-maintenance.js";
 import { buildDashboardMemoryStatus } from "./dashboard-memory-status.js";
 import { buildDashboardSyncAssurance, type DashboardSyncAssurance } from "./dashboard-sync-assurance.js";
@@ -51,6 +52,7 @@ import { dashboardWorkspaceScript } from "./dashboard-workspace-script.js";
 
 const exec = promisify(execFile);
 const DEFAULT_LIMIT = 20;
+export const DASHBOARD_AUTOMATIC_MAINTENANCE_INTERVAL_MS = 60_000;
 const MAX_LIMIT = 100;
 const RECENT_VALUE_LIMIT = 8;
 const DASHBOARD_REMOTE_OBSERVATION_TIMEOUT_MS = 1_500;
@@ -2642,8 +2644,8 @@ function maintenanceActions(plans: DashboardMaintenancePlan[]): DashboardAction[
     endpoint: maintenancePlanEndpoint(plan),
     request_body: { plan_hash: plan.plan_hash },
     safety: {
-      safe_to_auto_run: false,
-      requires_user_confirmation: true,
+      safe_to_auto_run: plan.approval.safe_to_auto_apply,
+      requires_user_confirmation: plan.approval.requires_user_confirmation,
       writes: "append_only_events",
       stale_guard: "plan_hash"
     },
@@ -2716,22 +2718,24 @@ function buildDecisionSummary(input: {
       evidence_path: "capture_inbox.groups[]"
     })
   );
-  const maintenanceItems = input.maintenance.plans.map(
-    (plan): DashboardDecisionSummaryItem => ({
-      id: `maintenance_review:${plan.plan_hash.replace(/^sha256:/, "")}`,
-      surface: "maintenance_review",
-      title: plan.decision_card.title,
-      summary: maintenanceDecisionSummaryText(plan),
-      decision_label: maintenancePrimaryActionLabel(plan),
-      target: "maintenance-review-queue",
-      target_label: "Open Review Queue",
-      primary_action_id: maintenanceApproveActionId(plan),
-      requires_user_confirmation: true,
-      writes: "append_only_events",
-      safety_note: maintenanceActionSafetyNote(plan),
-      evidence_path: "maintenance.plans[]"
-    })
-  );
+  const maintenanceItems = input.maintenance.plans
+    .filter((plan) => plan.approval.requires_user_confirmation)
+    .map(
+      (plan): DashboardDecisionSummaryItem => ({
+        id: `maintenance_review:${plan.plan_hash.replace(/^sha256:/, "")}`,
+        surface: "maintenance_review",
+        title: plan.decision_card.title,
+        summary: maintenanceDecisionSummaryText(plan),
+        decision_label: maintenancePrimaryActionLabel(plan),
+        target: "maintenance-review-queue",
+        target_label: "Open Review Queue",
+        primary_action_id: maintenanceApproveActionId(plan),
+        requires_user_confirmation: true,
+        writes: "append_only_events",
+        safety_note: maintenanceActionSafetyNote(plan),
+        evidence_path: "maintenance.plans[]"
+      })
+    );
   const candidateTriagePromotionItems = Object.values(input.candidateTriage.groups_by_id)
     .flatMap((group) => (group ? Object.values(group.promotion_drafts_by_id) : []))
     .map(
@@ -3202,15 +3206,15 @@ function governanceFromMaintenance(maintenance: DashboardMaintenanceData): Dashb
         evidence_path: evidencePath,
         action_label: actionLabel,
         action_id: maintenanceApproveActionId(plan),
-        safe_to_run: false,
-        requires_user_confirmation: true,
+        safe_to_run: plan.approval.safe_to_auto_apply,
+        requires_user_confirmation: plan.approval.requires_user_confirmation,
         writes: "append_only_events",
         review_log: governanceReviewLog({
           source: "maintenance",
           category: plan.type === "candidate_noise_archive" ? "candidate_backlog" : "project_identity",
           actionLabel,
           evidencePath,
-          requiresUserConfirmation: true,
+          requiresUserConfirmation: plan.approval.requires_user_confirmation,
           writes: "append_only_events"
         })
       };
@@ -4339,8 +4343,10 @@ function maintenanceApprovalEventName(plan: DashboardMaintenancePlan): "archive_
 }
 
 function maintenanceActionSafetyNote(plan: DashboardMaintenancePlan): string {
-  const eventName = maintenanceApprovalEventName(plan);
-  return `${maintenancePrimaryActionLabel(plan)} appends ${eventName} events only after the plan_hash guard passes.`;
+  if (plan.type === "project_identity_repair") {
+    return `${maintenancePrimaryActionLabel(plan)} may append an alias attestation or reactivation event and appends exact revise_record events only after the plan_hash guard passes.`;
+  }
+  return `${maintenancePrimaryActionLabel(plan)} appends ${maintenanceApprovalEventName(plan)} events only after the plan_hash guard passes.`;
 }
 
 function maintenanceMoveSummary(plan: DashboardMaintenancePlan): string {
@@ -10660,19 +10666,38 @@ export async function startDashboardServer(
   const renderOptions: Pick<DashboardRenderOptions, "showStoredContent"> = {
     showStoredContent: includePrivate !== true
   };
-  const dashboardDataLoader = createDashboardDataLoader(() =>
-    buildDashboardData(storePath, {
-      limit,
-      include_private: includePrivate,
-      project_id: options.project_id,
-      user_profile_id: options.user_profile_id,
-      agent_profile_id: options.agent_profile_id,
-      char_budget: options.char_budget,
-      token_budget: options.token_budget,
-      readiness_host: options.readiness_host,
-      sync_remote: options.sync_remote
-    })
-  );
+  const dataOptions = {
+    limit,
+    include_private: includePrivate,
+    project_id: options.project_id,
+    user_profile_id: options.user_profile_id,
+    agent_profile_id: options.agent_profile_id,
+    char_budget: options.char_budget,
+    token_budget: options.token_budget,
+    readiness_host: options.readiness_host,
+    sync_remote: options.sync_remote
+  };
+  const dashboardDataLoader = createDashboardDataLoader(() => buildDashboardData(storePath, dataOptions));
+  const automaticMaintenanceOptions = {
+    project_id: options.project_id,
+    include_private: includePrivate
+  };
+  let automaticMaintenanceInFlight: ReturnType<typeof runAutomaticDashboardMaintenance> | undefined;
+  const runAutomaticMaintenance = () => {
+    automaticMaintenanceInFlight ??= runAutomaticDashboardMaintenance(storePath, automaticMaintenanceOptions)
+      .then((result) => {
+        if (result.status === "failed") {
+          console.error(
+            `Dashboard automatic maintenance failed: ${result.failures.map((item) => item.reason).join("; ")}`
+          );
+        }
+        return result;
+      })
+      .finally(() => {
+        automaticMaintenanceInFlight = undefined;
+      });
+    return automaticMaintenanceInFlight;
+  };
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? `${host}:${requestedPort}`}`);
     const includeBody = request.method !== "HEAD";
@@ -10821,7 +10846,7 @@ export async function startDashboardServer(
         );
         sendResponse(
           response,
-          approval.ok ? 200 : approval.status === "stale_plan" ? 409 : 404,
+          approval.ok ? 200 : approval.status === "plan_not_found" ? 404 : 409,
           JSON.stringify(approval),
           "application/json; charset=utf-8",
           includeBody
@@ -10893,15 +10918,26 @@ export async function startDashboardServer(
       resolve();
     });
   });
+  if (options.project_id) await runAutomaticMaintenance();
   const address = server.address() as AddressInfo;
   const port = address.port;
+  const automaticMaintenanceTimer = options.project_id
+    ? setInterval(() => {
+        void runAutomaticMaintenance();
+      }, DASHBOARD_AUTOMATIC_MAINTENANCE_INTERVAL_MS)
+    : undefined;
+  automaticMaintenanceTimer?.unref();
   return {
     serving: true,
     host,
     port,
     url: dashboardServerUrl(host, port),
     refresh_interval_ms: refreshIntervalMs,
-    close: () => closeDashboardServer(server)
+    close: async () => {
+      if (automaticMaintenanceTimer) clearInterval(automaticMaintenanceTimer);
+      await closeDashboardServer(server);
+      await automaticMaintenanceInFlight;
+    }
   };
 }
 
