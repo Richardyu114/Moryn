@@ -162,25 +162,28 @@ function meaningfulTags(record: MorynRecord): string[] {
     .filter((tag) => tag.length > 0 && !GENERIC_TAGS.has(tag) && !PRIVATE_RECORD_TAGS.has(tag));
 }
 
-function meaningfulTagProjectCounts(records: MorynRecord[]): Map<string, number> {
-  const projectIdsByTag = new Map<string, Set<string>>();
-  for (const record of records) {
-    if (!record.project_id) continue;
-    for (const tag of meaningfulTags(record)) {
-      const projectIds = projectIdsByTag.get(tag) ?? new Set<string>();
-      projectIds.add(record.project_id);
-      projectIdsByTag.set(tag, projectIds);
-    }
+function hasGeneratedLegacyProjectId(sourceProjectId: string, targetProjectId: string): boolean {
+  const source = sourceProjectId.toLowerCase();
+  const target = targetProjectId.toLowerCase();
+  if (source === target) return sourceProjectId !== targetProjectId;
+  for (const separator of ["-", "_"]) {
+    const prefix = `${target}${separator}`;
+    if (!source.startsWith(prefix)) continue;
+    return /^[a-f0-9]{8,64}$/u.test(source.slice(prefix.length));
   }
-  return new Map([...projectIdsByTag].map(([tag, projectIds]) => [tag, projectIds.size]));
+  return false;
 }
 
-function hasSharedMeaningfulTag(
-  leftTags: Set<string>,
+function hasExplicitProjectIdentityEvidence(
+  currentProjectTags: ReadonlySet<string>,
   record: MorynRecord,
-  tagProjectCounts: Map<string, number>
+  targetProjectId: string
 ): boolean {
-  return meaningfulTags(record).some((tag) => leftTags.has(tag) && (tagProjectCounts.get(tag) ?? 0) <= 2);
+  if (!record.project_id) return false;
+  if (hasGeneratedLegacyProjectId(record.project_id, targetProjectId)) return true;
+
+  const targetTag = targetProjectId.toLowerCase();
+  return currentProjectTags.has(targetTag) && meaningfulTags(record).includes(targetTag);
 }
 
 function isMarkerNoiseCandidate(record: MorynRecord): boolean {
@@ -563,7 +566,6 @@ export function buildDashboardMaintenance(
   const currentProjectTags = new Set(
     currentProjectRecords.filter((record) => record.type !== PROJECT_ALIAS_ATTESTATION_TYPE).flatMap(meaningfulTags)
   );
-  const tagProjectCounts = meaningfulTagProjectCounts(visibleRecords);
   const aliasAttestations = activeProjectAliasAttestations(maintenanceRecords);
   const logicalConflictRecordIds = new Set(buildActiveLogicalMemoryView(maintenanceRecords).conflict_record_ids);
   const attestedSourceProjectIds = [...aliasAttestations.values()]
@@ -574,7 +576,7 @@ export function buildDashboardMaintenance(
     ...new Set([
       ...visibleRecords
         .filter((record) => record.project_id && record.project_id !== projectId)
-        .filter((record) => hasSharedMeaningfulTag(currentProjectTags, record, tagProjectCounts))
+        .filter((record) => hasExplicitProjectIdentityEvidence(currentProjectTags, record, projectId))
         .map((record) => record.project_id as string),
       ...attestedSourceProjectIds
     ])

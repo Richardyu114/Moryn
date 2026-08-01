@@ -4358,6 +4358,44 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("recognizes a generated legacy id that retains the canonical project slug", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["dashboard"],
+        content: { text: "Canonical Moryn project context." },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const legacy = await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "Moryn-349a446e",
+        tags: ["release"],
+        content: { text: "Legacy release evidence." },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+
+      const data = await buildDashboardData(storePath, { project_id: "moryn" });
+
+      expect(data.maintenance.plans).toContainEqual(
+        expect.objectContaining({
+          plan_id: "project_migrate:Moryn-349a446e->moryn",
+          record_ids: [legacy.record.id]
+        })
+      );
+    });
+  });
+
   it("does not treat a tag shared across many distinct projects as project identity evidence", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device-test" });
@@ -4383,6 +4421,61 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("does not treat shared operational or domain tags as project identity evidence", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, { device_id: "device-test" });
+      const engine = createEngine({ storePath });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["learning", "activation", "mi325x", "rocm"],
+        content: { text: "Moryn can observe work from several independent projects." },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "experiment_status",
+        scope: "project",
+        project_id: "ks-kimi-k2.7-f7cb2612",
+        tags: ["activation", "mi325x", "rocm"],
+        content: { text: "Independent Kimi benchmark status." },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "fact",
+        scope: "project",
+        project_id: "workspace-8af22c44",
+        tags: ["learning"],
+        content: { text: "Independent Orca relay fact." },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      for (const projectId of ["moryn-smoke", "moryn-release-check"]) {
+        await engine.write({
+          kind: "session_summary",
+          type: "status",
+          scope: "project",
+          project_id: projectId,
+          tags: ["typescript"],
+          content: { text: `Independent ${projectId} validation run.` },
+          source: { client: "codex" }
+        });
+      }
+
+      const data = await buildDashboardData(storePath, { project_id: "moryn" });
+
+      expect(data.maintenance.plans.filter((plan) => plan.type === "project_identity_repair")).toEqual([]);
+    });
+  });
+
   it("does not infer project identity from private-only cross-project evidence", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, { device_id: "device-test" });
@@ -4392,7 +4485,7 @@ describe("observability dashboard", () => {
         type: "decision",
         scope: "project",
         project_id: "moryn",
-        tags: ["shared-private-evidence"],
+        tags: ["moryn"],
         content: { text: "Public current project context." },
         state: "canonical",
         confirmed: true,
@@ -4403,7 +4496,7 @@ describe("observability dashboard", () => {
         type: "rule",
         scope: "project",
         project_id: "private-evidence-project",
-        tags: ["shared-private-evidence"],
+        tags: ["moryn"],
         content: { text: "Private-only project identity hint.", privacy: "private" },
         state: "canonical",
         confirmed: true,
@@ -4414,7 +4507,7 @@ describe("observability dashboard", () => {
         type: "rule",
         scope: "project",
         project_id: "private-evidence-project",
-        tags: ["shared-private-evidence"],
+        tags: ["moryn"],
         content: { text: "Local-only project identity hint.", distribution: "local_only" },
         state: "canonical",
         confirmed: true,
@@ -7285,7 +7378,7 @@ describe("observability dashboard", () => {
         type: "decision",
         scope: "project",
         project_id: "canonical-project",
-        tags: ["project-memory"],
+        tags: ["canonical-project"],
         content: { text: "Canonical project context.", format: "text" },
         state: "canonical",
         confirmed: true,
@@ -7296,7 +7389,7 @@ describe("observability dashboard", () => {
         type: "rule",
         scope: "project",
         project_id: "legacy-project",
-        tags: ["project-memory"],
+        tags: ["canonical-project", "legacy-project"],
         content: { text: "Initial legacy project record.", format: "text" },
         state: "canonical",
         confirmed: true,
@@ -7426,7 +7519,7 @@ describe("observability dashboard", () => {
           type: "decision",
           scope: "project",
           project_id: "legacy-project",
-          tags: ["project-memory"],
+          tags: ["legacy-project"],
           content: { text: "A reverse target does not reverse the approved alias.", format: "text" },
           state: "canonical",
           confirmed: true,
@@ -7469,7 +7562,7 @@ describe("observability dashboard", () => {
         type: "decision",
         scope: "project",
         project_id: "canonical-project",
-        tags: ["project-memory"],
+        tags: ["canonical-project"],
         content: { text: "Canonical project context.", format: "text" },
         state: "canonical",
         confirmed: true,
@@ -7480,7 +7573,7 @@ describe("observability dashboard", () => {
         type: "rule",
         scope: "project",
         project_id: "legacy-project",
-        tags: ["project-memory"],
+        tags: ["canonical-project"],
         content: { text: "Initial legacy project record.", format: "text" },
         state: "canonical",
         confirmed: true,
@@ -7504,7 +7597,7 @@ describe("observability dashboard", () => {
         type: "rule",
         scope: "project",
         project_id: "legacy-project",
-        tags: ["project-memory"],
+        tags: ["canonical-project"],
         content: { text: "Late record after alias revocation.", format: "text" },
         state: "canonical",
         confirmed: true,
@@ -7598,7 +7691,7 @@ describe("observability dashboard", () => {
         type: "decision",
         scope: "project",
         project_id: "canonical-project",
-        tags: ["project-memory"],
+        tags: ["canonical-project"],
         content: { text: "Canonical project context.", format: "text" },
         state: "canonical",
         confirmed: true,
@@ -7609,7 +7702,7 @@ describe("observability dashboard", () => {
         type: "decision",
         scope: "project",
         project_id: "legacy-project",
-        tags: ["project-memory"],
+        tags: ["canonical-project"],
         content: { text: "Initial legacy record.", format: "text" },
         state: "canonical",
         confirmed: true,
@@ -7680,7 +7773,7 @@ describe("observability dashboard", () => {
         type: "decision",
         scope: "project",
         project_id: "canonical-project",
-        tags: ["project-memory"],
+        tags: ["canonical-project"],
         content: { text: "Canonical project context.", format: "text" },
         state: "canonical",
         confirmed: true,
@@ -7691,7 +7784,7 @@ describe("observability dashboard", () => {
         type: "decision",
         scope: "project",
         project_id: "legacy-project",
-        tags: ["project-memory"],
+        tags: ["canonical-project"],
         content: { text: "Initial legacy record.", format: "text" },
         state: "canonical",
         confirmed: true,
