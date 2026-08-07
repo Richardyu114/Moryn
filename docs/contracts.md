@@ -712,6 +712,25 @@ Dashboard provides no application-level authentication; deployment-specific
 network or proxy controls own access restrictions. GET and HEAD rendering
 remains read-only.
 
+`POST /api/sync` is the live Dashboard's bounded shared-copy action. It accepts
+only `application/json`, the `X-Moryn-Dashboard-Action: sync` request header,
+and this exact authored confirmation shape:
+
+```json
+{
+  "confirmed": true
+}
+```
+
+The route takes no remote, branch, commit-message, merge-strategy, or force
+input. It applies a 120-second operation deadline and server-level single-flight
+guard, rejects an unconfigured remote or existing conflict with `409`, and then
+uses the normal `pushGitSync` transaction: managed-path commit, verified fetch,
+append-only rebase, derived-view rebuild, automatic event audit, and non-force
+push. A rebase conflict remains unresolved and returns a bounded error without
+raw paths. Successful output includes the resulting position and a dedicated
+Git receipt; it is not represented as an append-only record mutation.
+
 The live Dashboard server runs one bounded alias-reconciliation pass at startup
 and once per minute. A pass applies at most one project repair, and only when an
 active user-confirmed attestation already matches the exact source and target

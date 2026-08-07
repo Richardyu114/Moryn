@@ -671,15 +671,16 @@ function soulItems(
 
 export async function buildDashboardSoulStudio(
   storePath: string,
-  options: DashboardSoulCompilationOptions
+  options: DashboardSoulCompilationOptions,
+  records?: readonly MorynRecord[]
 ): Promise<DashboardSoulStudio> {
-  const [status, compilationReceipts, current] = await Promise.all([
-    readSoulProfileStatus(storePath, options),
-    listCompilationReceipts(storePath),
-    readCurrentRecords(storePath)
+  const currentRecords = records ?? (await readCurrentRecords(storePath)).records;
+  const [status, compilationReceipts] = await Promise.all([
+    readSoulProfileStatus(storePath, options, currentRecords),
+    listCompilationReceipts(storePath)
   ]);
   const portable = await readSoulProfileRevisions(storePath, {
-    records: current.records.filter((record) => !isPrivateMemoryBoundary(record)),
+    records: currentRecords.filter((record) => !isPrivateMemoryBoundary(record)),
     include_legacy_private: false,
     include_local_projections: false
   });
@@ -759,7 +760,7 @@ export async function buildDashboardV04Data(
 ): Promise<DashboardV04Data> {
   const [memoryMaintenance, soulStudio] = await Promise.all([
     Promise.resolve(buildDashboardMemoryMaintenance(records, options)),
-    buildDashboardSoulStudio(storePath, options)
+    buildDashboardSoulStudio(storePath, options, records)
   ]);
   return {
     memory_maintenance: memoryMaintenance,

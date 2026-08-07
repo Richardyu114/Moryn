@@ -20,21 +20,24 @@ import {
 import { displayRecordText } from "../core/content-text.js";
 import { type DogfoodReportResult, diagnoseDogfood } from "../core/dogfood-report.js";
 import { createEngine } from "../core/engine.js";
-import { commandForPromoteContext } from "../core/errors.js";
+import { commandForPromoteContext, toErrorEnvelope } from "../core/errors.js";
 import { diagnoseHealthCheck, type HealthCheckReport } from "../core/health-check.js";
 import { buildActiveLogicalMemoryView } from "../core/logical-memory.js";
 import { diagnoseMemory, type MemoryDoctorResult } from "../core/memory-doctor.js";
 import { diagnoseMemoryLifecycle, type MemoryLifecycleResult } from "../core/memory-lifecycle.js";
+import { withOperationDeadline } from "../core/operation-deadline.js";
 import type { RecallEvalReport } from "../core/recall-eval.js";
-import { readCurrentRecords } from "../core/record-read-model.js";
-import { replayEvents } from "../core/replay.js";
+import { eventManifest, readCurrentRecords } from "../core/record-read-model.js";
+import { replayEvents, replayEventsBestEffort } from "../core/replay.js";
 import { readRetrievalCandidates } from "../core/retrieval-index.js";
+import { parseEvent } from "../core/schema.js";
 import { isPrivateMemoryBoundary, redactSensitiveContent } from "../core/sensitive.js";
-import { readEvents } from "../core/store.js";
+import { withStoreStateLease } from "../core/state-lease.js";
+import { readEventInputFiles, readEvents } from "../core/store.js";
 import { readSyncCompensationReceipt } from "../core/sync-compensation.js";
 import type { MorynEvent, MorynRecord, RecordKind, RecordSource } from "../core/types.js";
 import { summarizeWorkingSet } from "../core/working-set-report.js";
-import { type GitSyncStatus, getGitSyncStatus } from "../sync/git.js";
+import { type GitSyncStatus, getGitSyncStatus, pushGitSync } from "../sync/git.js";
 import { dashboardDrawerId } from "./dashboard-drawer-id.js";
 import {
   approveMaintenancePlan,
@@ -55,7 +58,8 @@ const DEFAULT_LIMIT = 20;
 export const DASHBOARD_AUTOMATIC_MAINTENANCE_INTERVAL_MS = 60_000;
 const MAX_LIMIT = 100;
 const RECENT_VALUE_LIMIT = 8;
-const DASHBOARD_REMOTE_OBSERVATION_TIMEOUT_MS = 1_500;
+const DASHBOARD_REMOTE_OBSERVATION_TIMEOUT_MS = 5_000;
+const DASHBOARD_SYNC_OPERATION_TIMEOUT_MS = 120_000;
 const CAPTURE_NOISE_RULES: DashboardCaptureNoiseRule[] = [
   {
     id: "smoke_test_marker",
@@ -93,6 +97,7 @@ declare global {
     currentDashboardLanguage?: () => "en" | "zh";
     restoreActionReceipt?: () => void;
     renderActionReceipt?: (result: unknown) => void;
+    refreshDashboard?: () => Promise<void>;
     initializeDashboardWorkspace?: () => void;
     restoreDashboardWorkspaceAfterFragment?: (state?: {
       view?: string;
@@ -1052,6 +1057,7 @@ export interface DashboardRenderOptions {
   refreshIntervalMs?: number;
   showStoredContent?: boolean;
   memorySearchEndpoint?: string;
+  syncActionEndpoint?: string;
 }
 
 export interface DashboardServerHandle {
@@ -1617,11 +1623,13 @@ function buildHealth(
     };
   }
   if (syncAssurance.state === "remote_unverified") {
+    const savedByLastPush = syncAssurance.remote_copy.proof_source === "last_successful_push";
     return {
       status: "sync_pending",
-      label: "Shared Copy Unverified",
-      explanation:
-        "Local memory remains available, but Moryn could not verify that the shared copy contains the current committed version.",
+      label: savedByLastPush ? "Live Check Incomplete" : "Shared Copy Unverified",
+      explanation: savedByLastPush
+        ? "The current committed version was successfully pushed before this fresh shared-copy check could not finish."
+        : "Local memory remains available, but Moryn could not verify that the shared copy contains the current committed version.",
       generated_at: generatedAt
     };
   }
@@ -3662,8 +3670,36 @@ function buildDashboardGovernance(input: {
 
 export async function buildDashboardData(storePath: string, options: DashboardOptions = {}): Promise<DashboardData> {
   const limit = dashboardLimit(options.limit);
-  const events = await readEvents(storePath);
-  const currentRecordRead = await readCurrentRecords(storePath);
+  const generatedAt = options.now ?? new Date().toISOString();
+  const sync = await getGitSyncStatus(storePath, {
+    remote_timeout_ms: DASHBOARD_REMOTE_OBSERVATION_TIMEOUT_MS
+  });
+  const conflictedEventPaths = new Set(
+    (sync.conflict?.files ?? []).filter((path) => path.startsWith("events/") && path.endsWith(".json"))
+  );
+  const conflictReplay = async () => {
+    const parsed: MorynEvent[] = [];
+    for (const file of await readEventInputFiles(storePath)) {
+      if (conflictedEventPaths.has(file.path)) continue;
+      parsed.push(parseEvent(file.input));
+    }
+    return replayEventsBestEffort(
+      parsed.sort(
+        (left, right) => left.created_at.localeCompare(right.created_at) || left.event_id.localeCompare(right.event_id)
+      )
+    );
+  };
+  const diagnosticReplay = conflictedEventPaths.size > 0 ? await conflictReplay() : undefined;
+  const events = diagnosticReplay?.events ?? (await readEvents(storePath));
+  const currentRecordRead: Awaited<ReturnType<typeof readCurrentRecords>> = diagnosticReplay
+    ? {
+        records: [...diagnosticReplay.records.values()],
+        source: "event_replay",
+        repaired: false,
+        fallback_reason: "invalid",
+        event_manifest: eventManifest(events)
+      }
+    : await readCurrentRecords(storePath);
   const allRecordsById = new Map(currentRecordRead.records.map((record) => [record.id, record]));
   const allRecords = [...allRecordsById.values()];
   const dashboardContentRecords = allRecords.filter((record) => record.kind !== "soul");
@@ -3709,7 +3745,6 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
       (left, right) => right.created_at.localeCompare(left.created_at) || left.event_id.localeCompare(right.event_id)
     )
     .slice(0, limit);
-  const generatedAt = options.now ?? new Date().toISOString();
   const activationReceipts = records
     .filter(
       (record) =>
@@ -3775,9 +3810,6 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
   }
   const knowledgeInvestigations = [...investigationsById.values()];
   const learnedRecords = memoryStatusProjection.absorbed_learning_records;
-  const sync = await getGitSyncStatus(storePath, {
-    remote_timeout_ms: DASHBOARD_REMOTE_OBSERVATION_TIMEOUT_MS
-  });
   const syncAssurance = buildDashboardSyncAssurance(sync, generatedAt);
   const agentActivity = summarizeAgentActivity(
     scopedVisibleEvents,
@@ -4588,7 +4620,7 @@ function dashboardMemorySearch(data: DashboardData, searchParams: URLSearchParam
 
 function renderDashboardBody(
   data: DashboardData,
-  options: Pick<DashboardRenderOptions, "showStoredContent" | "memorySearchEndpoint"> = {}
+  options: Pick<DashboardRenderOptions, "showStoredContent" | "memorySearchEndpoint" | "syncActionEndpoint"> = {}
 ): string {
   const displayHealth = dashboardDisplayHealth(data);
   const healthLabelZh = dashboardHealthZh(
@@ -4603,7 +4635,8 @@ function renderDashboardBody(
       memory_html: memoryHtml,
       memory_records: memoryRecords,
       history_html: historyHtml,
-      language_toggle_html: dashboardLanguageToggle()
+      language_toggle_html: dashboardLanguageToggle(),
+      sync_action_endpoint: options.syncActionEndpoint
     })}
     <section id="last-action-receipt" class="panel last-action-receipt" data-action-receipt-anchor aria-live="polite" hidden></section>`;
 }
@@ -4645,6 +4678,81 @@ function dashboardRefreshScript(_refreshIntervalMs: number | undefined): string 
         if (target instanceof Element && target.closest("[data-dashboard-refresh-button]")) {
           event.preventDefault();
           refresh();
+        }
+      });
+    })();
+  </script>`;
+}
+
+function dashboardSyncScript(): string {
+  return `
+  <script>
+    (() => {
+      const main = document.querySelector("main");
+      if (!main) return;
+      let syncInFlight = false;
+      const responseJson = async (response) => {
+        const text = await response.text();
+        if (!text) return {};
+        try {
+          return JSON.parse(text);
+        } catch {
+          return { ok: false, message: text, message_zh: text };
+        }
+      };
+      const setStatus = (status, en, zh = en) => {
+        if (!(status instanceof HTMLElement)) return;
+        status.dataset.i18nEn = en;
+        status.dataset.i18nZh = zh;
+        status.textContent = window.currentDashboardLanguage?.() === "zh" ? zh : en;
+      };
+      main.addEventListener("click", async (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const button = target.closest("[data-sync-action]");
+        if (!(button instanceof HTMLButtonElement) || syncInFlight) return;
+        const language = window.currentDashboardLanguage?.() ?? "en";
+        const confirmed = window.confirm(
+          language === "zh"
+            ? "现在同步并合并共享副本吗？Moryn 会拉取远端更新、合并兼容的历史，并推送本机记忆。若发生冲突，操作会停止且不会覆盖任一方。"
+            : "Sync and merge the shared copy now? Moryn will fetch remote updates, merge compatible history, and push local memory. A conflict stops the operation without overwriting either side."
+        );
+        if (!confirmed) return;
+
+        const status = button.closest(".editorial-sync-action")?.querySelector("[data-sync-action-status]");
+        syncInFlight = true;
+        button.disabled = true;
+        button.dataset.syncing = "true";
+        setStatus(status, "Syncing the shared copy...", "正在同步共享副本...");
+        try {
+          const response = await fetch(button.dataset.syncEndpoint || "", {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              "x-moryn-dashboard-action": "sync"
+            },
+            body: JSON.stringify({ confirmed: true })
+          });
+          const result = await responseJson(response);
+          if (!response.ok || result.ok === false) {
+            setStatus(
+              status,
+              result.message || "Shared-copy sync could not be completed.",
+              result.message_zh || result.message || "共享副本同步未能完成。"
+            );
+            if (result.status === "conflict") await window.refreshDashboard?.();
+            return;
+          }
+          setStatus(status, "Shared copy synchronized.", "共享副本已同步。");
+          window.renderActionReceipt?.(result);
+          await window.refreshDashboard?.();
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Shared-copy sync could not be completed.";
+          setStatus(status, message, error instanceof Error ? error.message : "共享副本同步未能完成。");
+        } finally {
+          syncInFlight = false;
+          button.disabled = false;
+          delete button.dataset.syncing;
         }
       });
     })();
@@ -5531,6 +5639,10 @@ function dashboardActionReceiptScript(): string {
       const i18nPair = (tag, en, zh, className = "") => \`<\${tag}\${className ? \` class="\${className}"\` : ""} data-i18n-en="\${htmlEscape(en)}" data-i18n-zh="\${htmlEscape(zh)}">\${htmlEscape(en)}</\${tag}>\`;
       const pluralize = (count, singular, plural = singular + "s") => count + " " + (count === 1 ? singular : plural);
       const pluralizeZh = (count, noun) => count + " " + noun;
+      const boundedCount = (value) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : 0;
+      };
       const changedLabel = (count) => pluralize(count, "record updated", "records updated");
       const changedLabelZh = (count) => pluralizeZh(count, "条记录已更新");
       const titleCase = (value) => String(value || "applied")
@@ -5563,7 +5675,121 @@ function dashboardActionReceiptScript(): string {
         if (status === "approved") return "你已批准 Capture Inbox 候选内容。";
         return "你已确认 dashboard 操作。";
       };
+      const syncReceiptFromResult = (result) => {
+        const merged = boundedCount(result.remote_commits_merged ?? result.remote_updates_merged);
+        const published = Boolean(result.local_updates_published);
+        const remote = result.remote_changes && typeof result.remote_changes === "object"
+          ? result.remote_changes
+          : undefined;
+        const eventCount = remote ? boundedCount(remote.event_count) : undefined;
+        const recordCount = remote ? boundedCount(remote.record_count) : undefined;
+        const currentProjectCount = remote ? boundedCount(remote.current_project_count) : 0;
+        const globalCount = remote ? boundedCount(remote.global_count) : 0;
+        const otherProjectCount = remote ? boundedCount(remote.other_project_count) : 0;
+        const hiddenCount = remote ? boundedCount(remote.hidden_count) : 0;
+        const itemsOmitted = remote ? boundedCount(remote.items_omitted) : 0;
+        const items = remote && Array.isArray(remote.items)
+          ? remote.items
+              .filter((item) => item && typeof item === "object")
+              .slice(0, 3)
+              .map((item) => ({
+                event_id: String(item.event_id || ""),
+                record_id: String(item.record_id || ""),
+                type: String(item.type || item.kind || "memory"),
+                scope: String(item.scope || "project"),
+                summary: String(item.summary || ""),
+                source_client: String(item.source_client || "unknown")
+              }))
+              .filter((item) => item.event_id && item.record_id && item.summary)
+          : [];
+        const changed = eventCount !== undefined
+          ? eventCount > 0
+            ? pluralize(eventCount, "remote event received", "remote events received") +
+              " · " +
+              pluralize(recordCount, "memory affected", "memories affected")
+            : "No new remote memory"
+          : merged > 0
+            ? pluralize(merged, "shared update merged", "shared updates merged")
+            : published
+              ? "Local updates published"
+              : "Shared state verified";
+        const changedZh = eventCount !== undefined
+          ? eventCount > 0
+            ? pluralizeZh(eventCount, "项远端事件已接收") + " · " + pluralizeZh(recordCount, "条记忆受影响")
+            : "没有新的远端记忆"
+          : merged > 0
+            ? pluralizeZh(merged, "项远端更新已合并")
+            : published
+              ? "本机更新已发布"
+              : "共享状态已验证";
+        const currentViewCount = currentProjectCount + globalCount;
+        const otherProjectSummary = otherProjectCount > 0
+          ? "; " + pluralize(otherProjectCount, "other-project memory was", "other-project memories were") + " saved but not shown here"
+          : "";
+        const hiddenSummary = hiddenCount > 0
+          ? "; " + pluralize(hiddenCount, "protected change was", "protected changes were") + " not shown"
+          : "";
+        const otherProjectSummaryZh = otherProjectCount > 0
+          ? "；其他项目 " + otherProjectCount + " 条已保存，但未在这里展示"
+          : "";
+        const hiddenSummaryZh = hiddenCount > 0 ? "；另有 " + hiddenCount + " 条受保护变更未展示" : "";
+        const syncSummary = eventCount === undefined
+          ? changed + " · " + (result.remote_verified ? "Remote commit verified" : "Push completed")
+          : eventCount === 0
+            ? "No new remote memory was received; the shared copy is current."
+            : pluralize(currentViewCount, "memory", "memories") + " available in this view" + otherProjectSummary + hiddenSummary + ".";
+        const syncSummaryZh = eventCount === undefined
+          ? changedZh + " · " + (result.remote_verified ? "远端提交已验证" : "推送已完成")
+          : eventCount === 0
+            ? "没有收到新的远端记忆；共享副本已是最新。"
+            : "当前视图可查看 " + currentViewCount + " 条" + otherProjectSummaryZh + hiddenSummaryZh + "。";
+        return {
+          surface: "sync",
+          status: "Synced",
+          store_status: "Shared copy updated",
+          zh_store_status: "共享副本已更新",
+          sync_headline: eventCount === undefined
+            ? "Shared copy synchronized"
+            : eventCount > 0
+              ? "Sync complete · " +
+                pluralize(eventCount, "remote update received", "remote updates received")
+              : "Shared copy checked",
+          zh_sync_headline: eventCount === undefined
+            ? "共享副本已同步"
+            : eventCount > 0
+              ? "同步完成 · 收到 " + eventCount + " 项远端更新"
+              : "共享副本已核对",
+          sync_summary: syncSummary,
+          zh_sync_summary: syncSummaryZh,
+          decision: "Moryn synchronized the shared copy without overwriting either history.",
+          zh_decision: "Moryn 已同步共享副本，且未覆盖任一方的历史。",
+          write_boundary: "Verified Git rebase and push",
+          zh_write_boundary: "经验证的 Git 变基与推送",
+          changed,
+          zh_changed: changedZh,
+          audit_status: result.remote_verified ? "Remote commit verified" : "Push completed",
+          zh_audit_status: result.remote_verified ? "远端提交已验证" : "推送已完成",
+          context: [result.commit, result.completed_at, merged > 0 ? merged + " remote commit(s) merged" : undefined].filter(Boolean),
+          record_ids: items.map((item) => item.record_id),
+          event_ids: items.map((item) => item.event_id),
+          commands: ["moryn sync --status"],
+          remote_changes: remote
+            ? {
+                event_count: eventCount,
+                record_count: recordCount,
+                current_project_count: currentProjectCount,
+                global_count: globalCount,
+                other_project_count: otherProjectCount,
+                hidden_count: hiddenCount,
+                items_omitted: itemsOmitted,
+                items
+              }
+            : undefined,
+          saved_at: new Date().toISOString()
+        };
+      };
       const receiptFromResult = (result) => {
+        if (result.surface === "sync") return syncReceiptFromResult(result);
         const recordIds = Array.isArray(result.record_ids) ? result.record_ids : result.record_id ? [result.record_id] : [];
         const eventIds = Array.isArray(result.event_ids) ? result.event_ids : result.event_id ? [result.event_id] : [];
         const timelineCommands = eventIds.length > 0
@@ -5592,7 +5818,7 @@ function dashboardActionReceiptScript(): string {
         <div class="action-receipt-layout">
           <div class="action-receipt-head">
             \${i18nPair("span", "Action receipt", "操作回执", "action-receipt-title")}
-            \${i18nPair("strong", "Store updated", "存储已更新")}
+            \${i18nPair("strong", receipt.store_status || "Store updated", receipt.zh_store_status || "存储已更新")}
             <p data-i18n-en="\${htmlEscape(receipt.decision)}" data-i18n-zh="\${htmlEscape(receipt.zh_decision)}">\${htmlEscape(receipt.decision)}</p>
           </div>
           <div class="action-receipt-summary" aria-label="Action receipt summary">
@@ -5616,11 +5842,46 @@ function dashboardActionReceiptScript(): string {
           </details>
         </div>
       \`;
+      const renderSyncReceiptSummary = (receipt) => {
+        document.querySelectorAll("[data-sync-action-receipt]").forEach((item) => item.remove());
+        if (receipt.surface !== "sync") return;
+        const context = document.querySelector('[data-editorial-section="current-context"]');
+        if (!(context instanceof HTMLElement)) return;
+        const summary = document.createElement("div");
+        summary.className = "editorial-sync-result";
+        summary.dataset.syncActionReceipt = "success";
+        summary.setAttribute("role", "status");
+        const remote = receipt.remote_changes;
+        const items = remote && Array.isArray(remote.items) ? remote.items : [];
+        const itemRows = items.map((item) => \`
+          <li data-sync-memory-item>
+            <span class="editorial-sync-result-item-text">\${htmlEscape(item.summary)}</span>
+            <small>\${htmlEscape(item.type)} · \${htmlEscape(item.source_client)}</small>
+          </li>
+        \`).join("");
+        const omitted = remote ? boundedCount(remote.items_omitted) : 0;
+        const omittedRow = omitted > 0
+          ? \`<p class="editorial-sync-result-note" data-i18n-en="\${htmlEscape(pluralize(omitted, "more current-view memory was received", "more current-view memories were received"))}" data-i18n-zh="\${htmlEscape("当前视图另有 " + omitted + " 条记忆已接收")}">\${htmlEscape(pluralize(omitted, "more current-view memory was received", "more current-view memories were received"))}</p>\`
+          : "";
+        summary.innerHTML = \`
+          <span class="editorial-sync-result-mark" aria-hidden="true">✓</span>
+          <div class="editorial-sync-result-copy" data-sync-memory-summary>
+            <strong data-i18n-en="\${htmlEscape(receipt.sync_headline || receipt.store_status)}" data-i18n-zh="\${htmlEscape(receipt.zh_sync_headline || receipt.zh_store_status)}">\${htmlEscape(receipt.sync_headline || receipt.store_status)}</strong>
+            <small data-i18n-en="\${htmlEscape(receipt.sync_summary || receipt.changed + " · " + receipt.audit_status)}" data-i18n-zh="\${htmlEscape(receipt.zh_sync_summary || receipt.zh_changed + " · " + receipt.zh_audit_status)}">\${htmlEscape(receipt.sync_summary || receipt.changed + " · " + receipt.audit_status)}</small>
+            \${itemRows ? \`<ul class="editorial-sync-result-items">\${itemRows}</ul>\` : ""}
+            \${omittedRow}
+          </div>
+        \`;
+        const assurance = context.querySelector("[data-sync-assurance]");
+        if (assurance) assurance.insertAdjacentElement("afterend", summary);
+        else context.querySelector(".editorial-lead")?.insertAdjacentElement("afterend", summary);
+      };
       const renderReceiptInto = (target, receipt) => {
         if (!(target instanceof HTMLElement)) return;
         target.hidden = false;
         target.classList.add("action-receipt");
         target.innerHTML = receiptHtml(receipt);
+        renderSyncReceiptSummary(receipt);
         window.applyDashboardLanguage?.();
       };
       window.restoreActionReceipt = () => {
@@ -10265,10 +10526,12 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
 <body class="neutral-intelligence">
   <main${refreshAttributes}>${renderDashboardBody(data, {
     showStoredContent: options.showStoredContent,
-    memorySearchEndpoint: options.memorySearchEndpoint
+    memorySearchEndpoint: options.memorySearchEndpoint,
+    syncActionEndpoint: options.syncActionEndpoint
   })}</main>
   ${dashboardLanguageScript()}
   ${dashboardRefreshScript(options.refreshIntervalMs)}
+  ${dashboardSyncScript()}
   ${dashboardActionBoardScript()}
   ${dashboardStoredContentScript()}
   ${dashboardActionReceiptScript()}
@@ -10291,20 +10554,21 @@ export function renderDashboardHtml(
 export function renderDashboardServerHtml(
   data: DashboardData,
   refreshIntervalMs: number,
-  options: Pick<DashboardRenderOptions, "showStoredContent" | "memorySearchEndpoint"> = {}
+  options: Pick<DashboardRenderOptions, "showStoredContent" | "memorySearchEndpoint" | "syncActionEndpoint"> = {}
 ): string {
   return renderDashboardShell(data, {
     refreshIntervalMs,
     showStoredContent: options.showStoredContent,
-    memorySearchEndpoint: options.memorySearchEndpoint ?? "api/memory/search"
+    memorySearchEndpoint: options.memorySearchEndpoint ?? "api/memory/search",
+    syncActionEndpoint: options.syncActionEndpoint ?? "api/sync"
   });
 }
 
 export function renderDashboardFragment(
   data: DashboardData,
-  options: Pick<DashboardRenderOptions, "showStoredContent" | "memorySearchEndpoint"> = {}
+  options: Pick<DashboardRenderOptions, "showStoredContent" | "memorySearchEndpoint" | "syncActionEndpoint"> = {}
 ): string {
-  return renderDashboardBody(data, options);
+  return renderDashboardBody(data, { ...options, syncActionEndpoint: options.syncActionEndpoint ?? "api/sync" });
 }
 
 export function createDashboardDataLoader<T>(build: () => Promise<T>): { load: () => Promise<T> } {
@@ -10411,6 +10675,314 @@ function candidateTriagePromotionAction(pathname: string): { recordId: string } 
   const match = /^\/api\/candidate-triage\/promotions\/([^/]+)\/approve$/.exec(pathname);
   if (!match?.[1]) return undefined;
   return { recordId: decodeURIComponent(match[1]) };
+}
+
+function isDashboardSyncAction(pathname: string): boolean {
+  return pathname === "/api/sync";
+}
+
+function dashboardSyncErrorCopy(code: string, conflict: boolean): { en: string; zh: string } {
+  if (conflict || code === "SYNC_CONFLICT") {
+    return {
+      en: "Sync stopped because the local and shared histories conflict. Resolve the conflict before retrying.",
+      zh: "同步已停止：本机与共享副本的历史存在冲突。请先解决冲突，再重试。"
+    };
+  }
+  if (code === "SYNC_NOT_CONFIGURED") {
+    return {
+      en: "No shared copy is configured for this Moryn store.",
+      zh: "当前 Moryn 存储尚未配置共享副本。"
+    };
+  }
+  if (code === "PERMISSION_DENIED") {
+    return {
+      en: "Remote authentication failed. Check the Dashboard host's Git credentials.",
+      zh: "远端身份验证失败。请检查 Dashboard 主机上的 Git 凭据。"
+    };
+  }
+  if (code === "OPERATION_DEADLINE_EXCEEDED" || code === "OPERATION_CANCELLED") {
+    return {
+      en: "Remote sync exceeded the 120-second safety limit and was stopped.",
+      zh: "远端同步超过 120 秒安全时限，已停止。"
+    };
+  }
+  if (code === "EVENT_HISTORY_MUTATION") {
+    return {
+      en: "Sync stopped because the append-only event history did not pass safety checks.",
+      zh: "同步已停止：追加式事件历史未通过安全检查。"
+    };
+  }
+  return {
+    en: "Shared-copy sync could not be completed. Check moryn sync --status on the Dashboard host.",
+    zh: "共享副本同步未能完成。请在 Dashboard 主机上检查 moryn sync --status。"
+  };
+}
+
+const DASHBOARD_REMOTE_CHANGE_ITEM_LIMIT = 3;
+const DASHBOARD_REMOTE_CHANGE_SUMMARY_LIMIT = 120;
+
+interface DashboardRemoteChangeItem {
+  event_id: string;
+  record_id: string;
+  operation: MorynEvent["op"];
+  kind: MorynRecord["kind"];
+  type: string;
+  state: MorynRecord["state"];
+  scope: MorynRecord["scope"];
+  project_id?: string;
+  summary: string;
+  source_client: string;
+}
+
+interface DashboardRemoteChanges {
+  event_count: number;
+  record_count: number;
+  current_project_count: number;
+  global_count: number;
+  other_project_count: number;
+  hidden_count: number;
+  unattributed_event_count: number;
+  items_omitted: number;
+  items: DashboardRemoteChangeItem[];
+}
+
+function dashboardRemoteChangeSummary(text: string): string {
+  const normalized = text.replace(/\s+/gu, " ").trim();
+  const characters = [...normalized];
+  if (characters.length <= DASHBOARD_REMOTE_CHANGE_SUMMARY_LIMIT) return normalized;
+  return `${characters
+    .slice(0, DASHBOARD_REMOTE_CHANGE_SUMMARY_LIMIT - 1)
+    .join("")
+    .trimEnd()}…`;
+}
+
+function eventOrder(left: MorynEvent, right: MorynEvent): number {
+  return left.created_at.localeCompare(right.created_at) || left.event_id.localeCompare(right.event_id);
+}
+
+function buildDashboardRemoteChanges(
+  beforeEventIds: ReadonlySet<string>,
+  afterEvents: readonly MorynEvent[],
+  afterRecords: readonly MorynRecord[],
+  options: Pick<DashboardOptions, "project_id" | "include_private">
+): DashboardRemoteChanges {
+  const remoteEvents = afterEvents.filter((event) => !beforeEventIds.has(event.event_id));
+  const recordsById = new Map(afterRecords.map((record) => [record.id, record]));
+  const affectedRecordIds = new Set(remoteEvents.flatMap(eventRecordIds));
+  // Sync receipts stay count-only for protected memory even when the wider
+  // Dashboard was explicitly configured to render private records.
+  const privateHistoryRecordIds = recordIdsWithPrivateEventHistory(afterEvents, afterRecords);
+  const latestEventByRecordId = new Map<string, MorynEvent>();
+  for (const event of remoteEvents) {
+    for (const recordId of eventRecordIds(event)) {
+      const current = latestEventByRecordId.get(recordId);
+      if (!current || eventOrder(current, event) < 0) latestEventByRecordId.set(recordId, event);
+    }
+  }
+
+  const currentProjectRecords: MorynRecord[] = [];
+  const globalRecords: MorynRecord[] = [];
+  let otherProjectCount = 0;
+  let hiddenCount = 0;
+  for (const recordId of affectedRecordIds) {
+    const record = recordsById.get(recordId);
+    if (!record) continue;
+    const hidden =
+      !isVisibleForDashboard(record, false) ||
+      privateHistoryRecordIds.has(record.id) ||
+      record.state === "quarantined" ||
+      record.visibility === "quarantined";
+    if (hidden) {
+      hiddenCount += 1;
+      continue;
+    }
+    if (record.scope === "global") {
+      globalRecords.push(record);
+    } else if (!options.project_id || record.project_id === options.project_id) {
+      currentProjectRecords.push(record);
+    } else {
+      otherProjectCount += 1;
+    }
+  }
+
+  const visibleRecords = [...currentProjectRecords, ...globalRecords].sort((left, right) => {
+    const leftEvent = latestEventByRecordId.get(left.id);
+    const rightEvent = latestEventByRecordId.get(right.id);
+    if (leftEvent && rightEvent) {
+      const order = eventOrder(rightEvent, leftEvent);
+      if (order !== 0) return order;
+    }
+    return right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id);
+  });
+  const items = visibleRecords.slice(0, DASHBOARD_REMOTE_CHANGE_ITEM_LIMIT).flatMap((record) => {
+    const event = latestEventByRecordId.get(record.id);
+    if (!event) return [];
+    return [
+      {
+        event_id: event.event_id,
+        record_id: record.id,
+        operation: event.op,
+        kind: record.kind,
+        type: record.type,
+        state: record.state,
+        scope: record.scope,
+        ...(record.project_id ? { project_id: record.project_id } : {}),
+        summary: dashboardRemoteChangeSummary(recordText(record)),
+        source_client: event.source.client
+      }
+    ];
+  });
+
+  return {
+    event_count: remoteEvents.length,
+    record_count: affectedRecordIds.size,
+    current_project_count: currentProjectRecords.length,
+    global_count: globalRecords.length,
+    other_project_count: otherProjectCount,
+    hidden_count: hiddenCount,
+    unattributed_event_count: remoteEvents.filter((event) =>
+      eventRecordIds(event).some((recordId) => !recordsById.has(recordId))
+    ).length,
+    items_omitted: Math.max(0, visibleRecords.length - items.length),
+    items
+  };
+}
+
+async function applyDashboardSyncAction(
+  storePath: string,
+  body: unknown,
+  options: Pick<DashboardOptions, "project_id" | "include_private"> = {}
+): Promise<{ statusCode: number; body: Record<string, unknown> }> {
+  const bodyKeys = body && typeof body === "object" && !Array.isArray(body) ? Object.keys(body) : [];
+  if (
+    !body ||
+    typeof body !== "object" ||
+    Array.isArray(body) ||
+    bodyKeys.length !== 1 ||
+    bodyKeys[0] !== "confirmed" ||
+    (body as { confirmed?: unknown }).confirmed !== true
+  ) {
+    return {
+      statusCode: 400,
+      body: {
+        ok: false,
+        status: "confirmation_required",
+        message: "Remote sync requires explicit confirmation.",
+        message_zh: "远端同步需要明确确认。"
+      }
+    };
+  }
+
+  try {
+    return await withOperationDeadline(DASHBOARD_SYNC_OPERATION_TIMEOUT_MS, () =>
+      withStoreStateLease(storePath, async () => {
+        const before = await getGitSyncStatus(storePath);
+        if (!before.configured || !before.remote) {
+          const copy = dashboardSyncErrorCopy("SYNC_NOT_CONFIGURED", false);
+          return {
+            statusCode: 409,
+            body: {
+              ok: false,
+              status: "not_configured",
+              message: copy.en,
+              message_zh: copy.zh,
+              error_code: "SYNC_NOT_CONFIGURED"
+            }
+          };
+        }
+        if (before.sync_state === "conflict") {
+          const copy = dashboardSyncErrorCopy("SYNC_CONFLICT", true);
+          return {
+            statusCode: 409,
+            body: {
+              ok: false,
+              status: "conflict",
+              message: copy.en,
+              message_zh: copy.zh,
+              error_code: "SYNC_CONFLICT",
+              suggested_command: "moryn sync --status"
+            }
+          };
+        }
+        const beforeEventIds = new Set((await readEvents(storePath)).map((event) => event.event_id));
+
+        const result = await pushGitSync(storePath, { message: "Sync Moryn events from Dashboard" });
+        if (!result.ok) {
+          return {
+            statusCode: 409,
+            body: {
+              ok: false,
+              status: "blocked",
+              message: result.message ?? "Shared-copy sync was blocked by a safety check.",
+              message_zh: "共享副本同步被安全检查阻止。",
+              audit_status: result.automatic_event_audit?.status,
+              suggested_command: "moryn sync --status"
+            }
+          };
+        }
+
+        const after = await getGitSyncStatus(storePath);
+        const afterEvents = await readEvents(storePath);
+        const afterRecords = (await readCurrentRecords(storePath)).records;
+        const remoteChanges = buildDashboardRemoteChanges(beforeEventIds, afterEvents, afterRecords, options);
+        const remoteUpdatesMerged = Math.max(0, before.behind ?? 0);
+        const localUpdatesPublished = result.committed === true || (before.ahead ?? 0) > 0;
+        const remoteVerified =
+          result.pushed === true &&
+          after.remote_observation?.reachable === true &&
+          after.remote_observation.contains_local_head === true;
+        return {
+          statusCode: 200,
+          body: {
+            ok: true,
+            status: "synced",
+            surface: "sync",
+            message: "Shared copy synchronized.",
+            message_zh: "共享副本已同步。",
+            committed: result.committed === true,
+            pushed: result.pushed === true,
+            remote_updates_merged: remoteUpdatesMerged,
+            remote_commits_merged: remoteUpdatesMerged,
+            remote_changes: remoteChanges,
+            local_updates_published: localUpdatesPublished,
+            remote_verified: remoteVerified,
+            commit: after.last_commit,
+            completed_at: new Date().toISOString(),
+            position: {
+              ahead: after.ahead ?? 0,
+              behind: after.behind ?? 0,
+              sync_state: after.sync_state
+            },
+            audit_status: result.automatic_event_audit?.status,
+            suggested_command: "moryn sync --status"
+          }
+        };
+      })
+    );
+  } catch (error) {
+    const envelope = toErrorEnvelope(error);
+    const current = await getGitSyncStatus(storePath, { remote_timeout_ms: DASHBOARD_REMOTE_OBSERVATION_TIMEOUT_MS });
+    const conflict = current.sync_state === "conflict" || envelope.error.code === "SYNC_CONFLICT";
+    const copy = dashboardSyncErrorCopy(envelope.error.code, conflict);
+    const statusCode =
+      conflict || envelope.error.code === "SYNC_NOT_CONFIGURED"
+        ? 409
+        : envelope.error.code === "OPERATION_DEADLINE_EXCEEDED"
+          ? 504
+          : 502;
+    return {
+      statusCode,
+      body: {
+        ok: false,
+        status: conflict ? "conflict" : "failed",
+        message: copy.en,
+        message_zh: copy.zh,
+        error_code: envelope.error.code,
+        recoverable: envelope.error.recoverable,
+        suggested_command: "moryn sync --status"
+      }
+    };
+  }
 }
 
 async function requireCaptureInboxCandidate(
@@ -10698,11 +11270,85 @@ export async function startDashboardServer(
       });
     return automaticMaintenanceInFlight;
   };
+  let dashboardSyncInFlight: ReturnType<typeof applyDashboardSyncAction> | undefined;
+  const runDashboardSync = (body: unknown) => {
+    if (dashboardSyncInFlight) {
+      return Promise.resolve({
+        statusCode: 409,
+        body: {
+          ok: false,
+          status: "in_progress",
+          message: "A shared-copy sync is already in progress.",
+          message_zh: "共享副本同步正在进行中。"
+        }
+      });
+    }
+    dashboardSyncInFlight = applyDashboardSyncAction(storePath, body, {
+      project_id: options.project_id,
+      include_private: includePrivate
+    }).finally(() => {
+      dashboardSyncInFlight = undefined;
+    });
+    return dashboardSyncInFlight;
+  };
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? `${host}:${requestedPort}`}`);
     const includeBody = request.method !== "HEAD";
     try {
       if (request.method === "POST") {
+        if (isDashboardSyncAction(url.pathname)) {
+          if (request.headers["x-moryn-dashboard-action"] !== "sync") {
+            sendResponse(
+              response,
+              403,
+              JSON.stringify({ ok: false, status: "forbidden", message: "Dashboard action header is required." }),
+              "application/json; charset=utf-8",
+              includeBody
+            );
+            return;
+          }
+          const contentType = request.headers["content-type"];
+          if (typeof contentType !== "string" || !/^application\/json(?:;|$)/i.test(contentType)) {
+            sendResponse(
+              response,
+              415,
+              JSON.stringify({
+                ok: false,
+                status: "unsupported_media_type",
+                message: "JSON request body is required."
+              }),
+              "application/json; charset=utf-8",
+              includeBody
+            );
+            return;
+          }
+          let body: unknown;
+          try {
+            body = await readRequestJson(request);
+          } catch {
+            sendResponse(
+              response,
+              400,
+              JSON.stringify({
+                ok: false,
+                status: "invalid_request",
+                message: "Invalid request: JSON body is required"
+              }),
+              "application/json; charset=utf-8",
+              includeBody
+            );
+            return;
+          }
+          const result = await runDashboardSync(body);
+          sendResponse(
+            response,
+            result.statusCode,
+            JSON.stringify(result.body),
+            "application/json; charset=utf-8",
+            includeBody
+          );
+          return;
+        }
         const inboxGroupAction = captureInboxGroupAction(url.pathname);
         if (inboxGroupAction) {
           let body: unknown;

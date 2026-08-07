@@ -20,6 +20,22 @@ describe("documentation contracts", () => {
     expect(readme).not.toContain("setup -> context pack -> capture -> dashboard review -> approve -> sync");
   });
 
+  it("documents the dashboard remote-memory sync receipt boundary", async () => {
+    const dashboard = await readFile("docs/dashboard.md", "utf8");
+
+    expectText(dashboard, "The success receipt also reports what this sync actually received");
+    expectText(dashboard, "`remote_commits_merged` remains a Git commit count");
+    expectText(
+      dashboard,
+      "`remote_changes.event_count` and `remote_changes.record_count` report newly received events and distinct affected records"
+    );
+    expectText(
+      dashboard,
+      "Other-project and protected records are count-only and never return their bodies or record ids in the sync response"
+    );
+    expectText(dashboard, "an older event received during the current sync is still reported");
+  });
+
   it("keeps current operating guides lifecycle-first and dashboard-exceptional", async () => {
     const [installPrompt, workflow, dashboard] = await Promise.all([
       readFile("docs/agent-install-prompt.md", "utf8"),
@@ -371,6 +387,8 @@ describe("documentation contracts", () => {
     );
     expectText(dashboard, "Record ids, event ids, decision context, and read-only trace commands");
     expectText(dashboard, "stay literal inside the collapsed `Trace details` fold");
+    expectText(dashboard, "Shared-copy sync uses a dedicated Git receipt");
+    expectText(dashboard, "never labels a sync as an append-only record update");
     expectText(dashboard, "warm-white editorial workspace");
     expectText(dashboard, "medium information density");
     expectText(dashboard, "Current Context is the primary reading block");
@@ -383,7 +401,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "top navigation switches between `Overview`, `Memory`, and `History`");
     expectText(dashboard, "Live refresh preserves the active top-level view, language, scroll position");
     expectText(dashboard, "drawer becomes a full-screen detail sheet");
-    expectText(dashboard, "does not add a write path to Overview, Memory, History, or the reading drawer");
+    expectText(dashboard, "Overview has one narrowly scoped exception");
+    expectText(dashboard, "Static snapshots never render that control");
     expectText(dashboard, "The read-only detail pane opens with the first visible saved item");
     expectText(dashboard, "follows the first matching item after filtering");
     expectText(dashboard, "It starts with a read-first summary for `Status`, `Meaning`, `Why saved`,");
@@ -1153,6 +1172,7 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("POST /api/capture-inbox/:record_id/approve");
     expect(dashboard).toContain("POST /api/capture-inbox/:record_id/reject");
     expect(dashboard).toContain("POST /api/capture-inbox/groups/:group_id/approve");
+    expect(dashboard).toContain("POST /api/sync");
     expect(dashboard).toContain("manual review");
     expect(dashboard).toContain("No auto-canonical");
     expect(dashboard).toContain("likely noise");

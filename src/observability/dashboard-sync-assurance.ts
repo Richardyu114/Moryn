@@ -19,6 +19,8 @@ export interface DashboardSyncAssurance {
   detail_zh: string;
   remote_copy: {
     proof: "verified_committed_version" | "not_verified" | "not_configured";
+    proof_source?: "live_observation" | "last_successful_push";
+    verified_at?: string;
     durable: boolean;
     covers_all_local_content: boolean;
     reachable?: boolean;
@@ -56,6 +58,12 @@ export interface DashboardSyncAssurance {
   };
 }
 
+function isCanonicalIsoTimestamp(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) && new Date(parsed).toISOString() === value;
+}
+
 function pluralize(count: number, singular: string, plural = `${singular}s`): string {
   return `${count} ${count === 1 ? singular : plural}`;
 }
@@ -88,7 +96,7 @@ function pendingAge(
   };
 }
 
-function remoteCopy(sync: GitSyncStatus, pending: boolean): DashboardSyncAssurance["remote_copy"] {
+function remoteCopy(sync: GitSyncStatus, pending: boolean, nowIso: string): DashboardSyncAssurance["remote_copy"] {
   if (!sync.remote) {
     return {
       proof: "not_configured",
@@ -100,19 +108,38 @@ function remoteCopy(sync: GitSyncStatus, pending: boolean): DashboardSyncAssuran
   }
   const observation = sync.remote_observation;
   const containsLocalCommit = observation?.reachable === true && observation.contains_local_head === true;
-  if (containsLocalCommit) {
+  const lastSuccessfulPushContainsLocalCommit =
+    observation?.reachable !== true &&
+    sync.last_sync?.operation === "push" &&
+    isCanonicalIsoTimestamp(sync.last_sync.at) &&
+    sync.last_sync?.commit !== undefined &&
+    sync.last_commit !== undefined &&
+    sync.last_sync.commit === sync.last_commit &&
+    (sync.ahead ?? 0) === 0;
+  if (containsLocalCommit || lastSuccessfulPushContainsLocalCommit) {
+    const liveProof = containsLocalCommit;
     return {
       proof: "verified_committed_version",
+      proof_source: liveProof ? "live_observation" : "last_successful_push",
+      verified_at: liveProof ? nowIso : sync.last_sync?.at,
       durable: true,
       covers_all_local_content: !pending,
-      reachable: true,
+      ...(observation ? { reachable: observation.reachable } : {}),
       contains_local_commit: true,
-      message: pending
-        ? "The shared copy contains the previous committed version, but not the pending local changes."
-        : "The shared copy was checked and contains the current local version.",
-      message_zh: pending
-        ? "共享副本包含上一次已提交版本，但尚不包含本机待同步内容。"
-        : "已检查共享副本，其中包含本机当前版本。"
+      message: liveProof
+        ? pending
+          ? "The shared copy contains the previous committed version, but not the pending local changes."
+          : "The shared copy was checked and contains the current local version."
+        : pending
+          ? "The last successful push saved the previous committed version, but pending local changes are not covered; this live check did not finish."
+          : "The last successful push saved the current local version in the shared copy; this live check did not finish.",
+      message_zh: liveProof
+        ? pending
+          ? "共享副本包含上一次已提交版本，但尚不包含本机待同步内容。"
+          : "已检查共享副本，其中包含本机当前版本。"
+        : pending
+          ? "上次成功推送已将此前提交版本保存到共享副本，但不包含本机待同步内容；本次在线检查未能完成。"
+          : "上次成功推送已将本机当前版本保存到共享副本；本次在线检查未能完成。"
     };
   }
   return {
@@ -178,7 +205,7 @@ export function buildDashboardSyncAssurance(sync: GitSyncStatus, nowIso: string)
   const localPendingPresent = dirtyFiles > 0 || ahead > 0;
   const age = pendingAge(dirty?.pending_time_complete === true ? dirty.oldest_pending_file_mtime : undefined, nowIso);
   const significant = eventFiles >= PENDING_SYNC_ATTENTION_EVENT_FILES;
-  const remote = remoteCopy(sync, localPendingPresent);
+  const remote = remoteCopy(sync, localPendingPresent, nowIso);
   const attentionReasons: DashboardSyncAssurance["attention_reasons"] = [
     ...(age.overdue ? (["oldest_pending_file_modified_over_24_hours"] as const) : []),
     ...(significant ? (["many_pending_event_files"] as const) : [])
@@ -249,7 +276,7 @@ export function buildDashboardSyncAssurance(sync: GitSyncStatus, nowIso: string)
       ...common
     };
   }
-  if (remote.covers_all_local_content) {
+  if (remote.covers_all_local_content && remote.reachable === true) {
     return {
       state: "remote_current",
       headline: "Everything saved here is also in the shared copy",
@@ -261,8 +288,10 @@ export function buildDashboardSyncAssurance(sync: GitSyncStatus, nowIso: string)
   }
   return {
     state: "remote_unverified",
-    headline: "Local memory is ready; the shared copy is not verified",
-    headline_zh: "本机记忆可用；共享副本尚未验证",
+    headline: remote.durable
+      ? "Shared copy saved; the live check is incomplete"
+      : "Local memory is ready; the shared copy is not verified",
+    headline_zh: remote.durable ? "共享副本已保存；在线检查未完成" : "本机记忆可用；共享副本尚未验证",
     detail: remote.message,
     detail_zh: remote.message_zh,
     ...common

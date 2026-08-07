@@ -19,7 +19,7 @@ local store and never uploads dashboard data.
 ## First Screen
 
 The v0.3 default is a warm-white editorial workspace with medium information
-density. It is a quiet, read-only monitoring surface rather than a management
+density. It is a quiet monitoring surface rather than a general management
 console. The first screen answers what the current task is, whether continuity
 is protected, what memory is available, what changed recently, and whether the
 user genuinely needs to intervene.
@@ -57,10 +57,11 @@ Live refresh preserves the active top-level view, language, scroll position,
 and open drawer when the referenced item still exists. If the item disappears,
 the drawer closes without disturbing the refreshed page.
 
-Existing approval actions remain in Audit Details. The redesign does not add a
-write path to Overview, Memory, History, or the reading drawer. Existing
-privacy filtering, static snapshots, live server behavior, localization, and
-action endpoints remain compatible.
+Existing approval actions remain in Audit Details. Memory, History, and the
+reading drawer stay read-only. Overview has one narrowly scoped exception: a
+live server may render `Sync and merge` beside an actionable shared-copy status.
+Static snapshots never render that control. Existing privacy filtering,
+localization, and other action endpoints remain compatible.
 
 ## Sync Assurance
 
@@ -74,8 +75,49 @@ exposes the same distinction through `remote_copy.durable`,
 Even with a clean worktree, a failed remote check renders `remote_unverified`
 instead of `Healthy`; the first screen keeps that uncertainty visible without
 claiming that the shared copy is current. Dashboard remote observation is
-fail-closed and capped at 1.5 seconds, so a stalled remote becomes an
-unverified status instead of blocking every Dashboard request indefinitely.
+fail-closed and capped at 5 seconds, matching the sync layer's bounded remote
+check so an ordinary Git fetch can finish while a stalled remote still becomes
+an unverified status instead of blocking every Dashboard request indefinitely.
+If a live check later times out, a valid last-successful-push receipt whose
+`last_sync.commit == last_commit`, with no committed-ahead work, preserves proof
+that the current local commit reached the shared copy. Pull or initialization
+receipts, malformed timestamps, and mismatched commits do not qualify. The state
+remains `remote_unverified` because newer remote work is still unknown, but the
+copy distinguishes an incomplete live check from having no remote durability
+proof. The API exposes the distinction with `remote_copy.proof_source` and
+`remote_copy.verified_at`.
+
+When the live server reports `local_pending`, `remote_updates_pending`, or
+`remote_unverified`, Overview renders `Sync and merge`. After a second
+confirmation, the action commits only Moryn-managed event paths, fetches and
+validates `origin/main`, rebases compatible append-only history, rebuilds
+derived views, runs the automatic event-integrity audit, and pushes without
+force. It never accepts a remote URL, branch, commit message, or force option
+from the browser. An existing or newly encountered conflict stops with `409`;
+Moryn does not auto-resolve or overwrite either side. `local_only`, `conflict`,
+and `remote_current` do not render an executable button.
+
+The action has a 120-second operation deadline and one server-level in-flight
+slot so double clicks do not queue duplicate pushes. Its dedicated receipt says
+whether remote updates were integrated, local updates were published, and the
+resulting commit was verified. The receipt survives the fragment refresh even
+if the next fail-closed 5-second observation cannot immediately re-verify the
+remote. While a Git conflict is present, Dashboard replay omits the unmerged
+event input and continues rendering the remaining valid history plus the
+conflict status.
+
+The success receipt also reports what this sync actually received. Under one
+Store state lease, the server snapshots event ids before the Git operation and
+compares them with the validated event set afterward. `remote_commits_merged`
+remains a Git commit count; `remote_changes.event_count` and
+`remote_changes.record_count` report newly received events and distinct affected
+records. The compact Overview receipt shows at most three one-line summaries
+from the current project or global scope. Other-project and protected records
+are count-only and never return their bodies or record ids in the sync response.
+When the event delta is empty, the receipt explicitly says that the shared copy
+was checked and no new remote memory was received. This delta is independent of
+event `created_at`, so an older event received during the current sync is still
+reported even when it does not enter the top of the recent-history list.
 
 For pending event history, Moryn reports the number of event files and, where
 available, separates untracked, staged additions, modified files, and event
@@ -226,6 +268,9 @@ Server endpoints:
 - `GET /api/dashboard` rebuilds dashboard data and returns JSON.
 - `GET /api/memory/search` searches and paginates the complete visible Memory
   scope without crossing the configured project or private-record boundary.
+- `POST /api/sync` accepts only JSON `{ "confirmed": true }` with the
+  `X-Moryn-Dashboard-Action: sync` header, then performs one bounded,
+  non-force shared-copy sync and merge.
 - `POST /api/capture-inbox/:record_id/approve` promotes one active Capture
   Inbox candidate to canonical memory with explicit user confirmation.
 - `POST /api/capture-inbox/:record_id/reject` archives one active Capture Inbox
@@ -1596,6 +1641,12 @@ ids, decision context, and read-only trace commands such as
 `moryn recall --record-id <record_id>` stay literal inside the collapsed
 `Trace details` fold. It is a visibility layer only: it does not add background
 execution, retry writes, or a second mutation path.
+
+Shared-copy sync uses a dedicated Git receipt instead of the record-oriented
+approval receipt. Its headline is `Shared copy updated`; its write boundary is
+`Verified Git rebase and push`; and its changed/audit fields report integrated
+remote updates, published local updates, and remote commit verification. It
+never labels a sync as an append-only record update or invents a record count.
 
 ### Context Pack Review
 

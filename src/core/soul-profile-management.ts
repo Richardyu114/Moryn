@@ -28,7 +28,7 @@ import {
   writeSoulProfileRevision
 } from "./soul-profile-store.js";
 import { listSoulSyncReceipts, type SoulSyncReceipt } from "./soul-sync-receipts.js";
-import type { RecordSource } from "./types.js";
+import type { MorynRecord, RecordSource } from "./types.js";
 
 export interface CreateSoulProfileDraftInput {
   source: RecordSource;
@@ -645,9 +645,10 @@ function deliveryMetadata(
 
 export async function readSoulProfileStatus(
   storePath: string,
-  options: ReadSoulProfileStatusOptions = {}
+  options: ReadSoulProfileStatusOptions = {},
+  records?: readonly MorynRecord[]
 ): Promise<SoulProfileStatus> {
-  const loaded = await readSoulProfileRevisions(storePath);
+  const loaded = await readSoulProfileRevisions(storePath, records ? { records } : {});
   const [localApprovalReceipts, deliveryReceipts, syncReceipts] = await Promise.all([
     listSoulApprovalReceipts(storePath),
     listSoulDeliveryReceipts(storePath),

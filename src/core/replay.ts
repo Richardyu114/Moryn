@@ -120,6 +120,96 @@ function replayStateTransition(
   return event.op === "archive_record" ? "archived" : "quarantined";
 }
 
+function replaySemanticEvent(records: Map<string, MorynRecord>, event: MorynEvent): void {
+  if (event.op === "record_feedback") return;
+
+  if (event.op === "upsert_record") {
+    const { memory_usage: _memoryUsage, ...semanticRecord } = structuredClone(event.record);
+    const record = validateReplayRecord(event, semanticRecord as MorynRecord);
+    records.set(record.id, record);
+    return;
+  }
+
+  if (event.op === "revise_record") {
+    const record = requireReplayRecord(records, event, event.record_id);
+    const next = applyRecordPatch(record, event.patch) as unknown as Record<string, unknown>;
+    delete next.memory_usage;
+    next.updated_at = event.created_at;
+    if (event.conflict) {
+      next.conflict = event.conflict;
+    } else {
+      delete next.conflict;
+    }
+    records.set(event.record_id, validateReplayRecord(event, next as unknown as MorynRecord));
+    return;
+  }
+
+  if (event.op === "promote_record" || event.op === "archive_record" || event.op === "quarantine_record") {
+    const record = requireReplayRecord(records, event, event.record_id);
+    const state = replayStateTransition(event);
+    records.set(
+      event.record_id,
+      validateReplayRecord(event, {
+        ...record,
+        state,
+        visibility: state === "canonical" || state === "candidate" || state === "raw" ? "active" : state,
+        updated_at: event.created_at,
+        conflict:
+          event.op === "promote_record" && state === "canonical" && event.conflict ? event.conflict : record.conflict,
+        provenance:
+          event.op === "promote_record" && state === "canonical"
+            ? {
+                ...(record.provenance ?? {}),
+                reason: event.reason ?? record.provenance?.reason,
+                method: event.confirmed === true || event.source.client === "user" ? "user-confirmed" : "rule-promoted",
+                promoted_at: event.created_at
+              }
+            : record.provenance
+      })
+    );
+    return;
+  }
+
+  if (event.op === "link_records") {
+    const record = requireReplayRecord(records, event, event.record_id);
+    requireReplayRecord(records, event, event.linked_record_id, "Linked record");
+    records.set(
+      event.record_id,
+      validateReplayRecord(event, {
+        ...record,
+        links: [
+          ...(record.links ?? []),
+          {
+            record_id: event.linked_record_id,
+            link_type: event.link_type,
+            reason: event.reason,
+            created_at: event.created_at
+          }
+        ],
+        updated_at: event.created_at
+      })
+    );
+  }
+}
+
+function replayFeedbackEvent(
+  records: Map<string, MorynRecord>,
+  event: Extract<MorynEvent, { op: "record_feedback" }>
+): void {
+  const record = records.get(event.record_id);
+  if (!record) return;
+  try {
+    records.set(event.record_id, validateReplayRecord(event, applyRecordFeedback(record, event)));
+  } catch (error) {
+    if (error instanceof ReplayHistoryError) throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    throw new ReplayHistoryError(`Invalid replay result for event ${event.event_id}: ${message}`, event, {
+      failure: "invalid_replay_result",
+      record_id: event.record_id
+    });
+  }
+}
+
 export function replayEvents(events: MorynEvent[]): Map<string, MorynRecord> {
   const records = new Map<string, MorynRecord>();
   const feedbackEvents: Array<Extract<MorynEvent, { op: "record_feedback" }>> = [];
@@ -129,93 +219,53 @@ export function replayEvents(events: MorynEvent[]): Map<string, MorynRecord> {
       feedbackEvents.push(event);
       continue;
     }
-
-    if (event.op === "upsert_record") {
-      const { memory_usage: _memoryUsage, ...semanticRecord } = structuredClone(event.record);
-      const record = validateReplayRecord(event, semanticRecord as MorynRecord);
-      records.set(record.id, record);
-      continue;
-    }
-
-    if (event.op === "revise_record") {
-      const record = requireReplayRecord(records, event, event.record_id);
-      const next = applyRecordPatch(record, event.patch) as unknown as Record<string, unknown>;
-      delete next.memory_usage;
-      next.updated_at = event.created_at;
-      if (event.conflict) {
-        next.conflict = event.conflict;
-      } else {
-        delete next.conflict;
-      }
-      records.set(event.record_id, validateReplayRecord(event, next as unknown as MorynRecord));
-      continue;
-    }
-
-    if (event.op === "promote_record" || event.op === "archive_record" || event.op === "quarantine_record") {
-      const record = requireReplayRecord(records, event, event.record_id);
-      const state = replayStateTransition(event);
-      records.set(
-        event.record_id,
-        validateReplayRecord(event, {
-          ...record,
-          state,
-          visibility: state === "canonical" || state === "candidate" || state === "raw" ? "active" : state,
-          updated_at: event.created_at,
-          conflict:
-            event.op === "promote_record" && state === "canonical" && event.conflict ? event.conflict : record.conflict,
-          provenance:
-            event.op === "promote_record" && state === "canonical"
-              ? {
-                  ...(record.provenance ?? {}),
-                  reason: event.reason ?? record.provenance?.reason,
-                  method:
-                    event.confirmed === true || event.source.client === "user" ? "user-confirmed" : "rule-promoted",
-                  promoted_at: event.created_at
-                }
-              : record.provenance
-        })
-      );
-      continue;
-    }
-
-    if (event.op === "link_records") {
-      const record = requireReplayRecord(records, event, event.record_id);
-      requireReplayRecord(records, event, event.linked_record_id, "Linked record");
-      records.set(
-        event.record_id,
-        validateReplayRecord(event, {
-          ...record,
-          links: [
-            ...(record.links ?? []),
-            {
-              record_id: event.linked_record_id,
-              link_type: event.link_type,
-              reason: event.reason,
-              created_at: event.created_at
-            }
-          ],
-          updated_at: event.created_at
-        })
-      );
-    }
+    replaySemanticEvent(records, event);
   }
 
   // Feedback is a derived, non-semantic projection. Applying it after semantic replay
   // makes the result stable across cross-device clock skew and later record upserts.
-  for (const event of feedbackEvents) {
-    const record = records.get(event.record_id);
-    if (!record) continue;
+  for (const event of feedbackEvents) replayFeedbackEvent(records, event);
+
+  return records;
+}
+
+export interface BestEffortReplayResult {
+  events: MorynEvent[];
+  records: Map<string, MorynRecord>;
+  skipped_event_ids: string[];
+}
+
+/** Builds a coherent diagnostic projection while a Git conflict blocks strict replay. */
+export function replayEventsBestEffort(events: readonly MorynEvent[]): BestEffortReplayResult {
+  const records = new Map<string, MorynRecord>();
+  const accepted = new Set<number>();
+  const feedbackEvents: Array<{ event: Extract<MorynEvent, { op: "record_feedback" }>; index: number }> = [];
+
+  for (const [index, event] of events.entries()) {
+    if (event.op === "record_feedback") {
+      feedbackEvents.push({ event, index });
+      continue;
+    }
     try {
-      records.set(event.record_id, validateReplayRecord(event, applyRecordFeedback(record, event)));
-    } catch (error) {
-      if (error instanceof ReplayHistoryError) throw error;
-      const message = error instanceof Error ? error.message : String(error);
-      throw new ReplayHistoryError(`Invalid replay result for event ${event.event_id}: ${message}`, event, {
-        failure: "invalid_replay_result",
-        record_id: event.record_id
-      });
+      replaySemanticEvent(records, event);
+      accepted.add(index);
+    } catch {
+      // Missing dependencies and invalid projections are omitted only from the conflict diagnostic view.
     }
   }
 
-  return records;
+  for (const { event, index } of feedbackEvents) {
+    try {
+      replayFeedbackEvent(records, event);
+      accepted.add(index);
+    } catch {
+      // Keep the semantic projection usable even if a derived feedback event depends on omitted history.
+    }
+  }
+
+  return {
+    events: events.filter((_, index) => accepted.has(index)),
+    records,
+    skipped_event_ids: events.filter((_, index) => !accepted.has(index)).map((event) => event.event_id)
+  };
 }

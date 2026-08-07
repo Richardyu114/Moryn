@@ -141,10 +141,15 @@ only project aliases the user already confirmed; it does not approve new
 identity mappings. Dashboard POST mutations accept both direct and
 reverse-proxied requests. Deployments that require access restrictions must
 provide them at the network or proxy layer.
-Exceptional confirmation-gated actions are isolated in Audit Details. Users
-intervene only for exceptional cases: credentials or private configuration,
-unresolved sync conflicts, sensitive content, ambiguous project identity, or
-materially conflicting long-term memory.
+The Overview may show one explicit `Sync and merge` control when a configured
+shared copy is pending or cannot be verified. It confirms the action, commits
+only Moryn-managed paths, safely rebases compatible remote history, audits the
+result, and pushes without force. Other exceptional confirmation-gated actions
+remain isolated in Audit Details.
+Users intervene only for exceptional cases: credentials or private
+configuration, unresolved sync conflicts, sensitive content, ambiguous project
+identity, or materially conflicting long-term memory. The explicit sync control
+is an opt-in operational command, not a conflict-repair approval.
 
 Most users should ask an agent to operate Moryn. Deeper reference material is
 available in [Agent Workflow](docs/agent-workflow.md),
@@ -292,10 +297,11 @@ flowchart TB
   end
 
   subgraph ReviewLayer["Quiet monitoring and exceptions"]
-    Dashboard["Read-only dashboard"]
+    Dashboard["Read-only views + explicit sync"]
     DashboardReview["Exceptional attention only"]
     MemorySearch["Find what Moryn saved"]
     Approve["Confirm high-impact changes"]
+    SyncAction["Confirm sync and merge"]
     SharedCopy["Shared copy"]
   end
 
@@ -312,8 +318,10 @@ flowchart TB
   Views -. monitor .-> Dashboard
   Dashboard --> DashboardReview
   Dashboard --> MemorySearch
+  Dashboard --> SyncAction
   DashboardReview --> Approve
   Approve --> Events
+  SyncAction --> Git
   Events --> Git
   Git <--> Remote
 ```

@@ -20,6 +20,7 @@ export interface DashboardWorkspaceFragments {
   memory_records: readonly DashboardRecordSummary[];
   history_html: string;
   language_toggle_html: string;
+  sync_action_endpoint?: string;
 }
 
 export interface DashboardDrawerItem {
@@ -209,10 +210,12 @@ function syncLabel(data: DashboardData): { en: string; zh: string } {
   if (assurance.state === "local_only") return { en: "Saved on this device only", zh: "仅保存在本机" };
   if (assurance.state === "remote_updates_pending")
     return { en: "New shared updates are waiting", zh: "共享副本有新更新待接收" };
+  if (assurance.remote_copy.durable)
+    return { en: "Shared copy saved; live check incomplete", zh: "共享副本已保存；在线检查未完成" };
   return { en: "Shared copy not verified", zh: "共享副本尚未验证" };
 }
 
-function renderSyncAssurance(data: DashboardData): string {
+function renderSyncAssurance(data: DashboardData, syncActionEndpoint: string | undefined): string {
   const assurance = data.sync_assurance;
   if (assurance.state === "remote_current") return "";
   const pending = assurance.local_pending;
@@ -242,11 +245,25 @@ function renderSyncAssurance(data: DashboardData): string {
     en: `${assurance.technical.ahead} local updates ahead · ${assurance.technical.behind} shared updates waiting`,
     zh: `本机领先 ${assurance.technical.ahead} 个更新 · 共享副本有 ${assurance.technical.behind} 个更新待接收`
   };
+  const syncAction =
+    syncActionEndpoint &&
+    (assurance.state === "local_pending" ||
+      assurance.state === "remote_updates_pending" ||
+      assurance.state === "remote_unverified")
+      ? `<div class="editorial-sync-action">
+          <button type="button" class="editorial-sync-action-button" data-sync-action data-sync-endpoint="${escapeHtml(syncActionEndpoint.replace(/^\//, ""))}">
+            <span class="editorial-sync-action-icon" aria-hidden="true">↻</span>
+            <span data-i18n-en="Sync and merge" data-i18n-zh="同步并合并">Sync and merge</span>
+          </button>
+          <span class="editorial-sync-action-status" data-sync-action-status aria-live="polite"></span>
+        </div>`
+      : "";
   return `<section class="editorial-sync-assurance${assurance.attention_required ? " attention" : ""}" data-sync-assurance="${escapeHtml(assurance.state)}">
     <div class="editorial-sync-assurance-mark" aria-hidden="true">${assurance.attention_required ? "!" : assurance.state === "remote_unverified" ? "?" : "↑"}</div>
     <div class="editorial-sync-assurance-copy">
       <strong>${i18n(assurance.headline, assurance.headline_zh)}</strong>
       <p>${i18n(assurance.detail, assurance.detail_zh)}</p>
+      ${syncAction}
       <details class="editorial-sync-technical">
         <summary>${i18n("Technical details", "技术详情")}</summary>
         <dl>
@@ -1296,7 +1313,7 @@ export function renderDashboardWorkspace(data: DashboardData, fragments: Dashboa
               <div class="editorial-eyebrow">${i18n("Current work", "当前工作")}</div>
               <button type="button" class="editorial-task-button" data-drawer-target="context-current" aria-haspopup="dialog"><h1 class="editorial-task">${escapeHtml(model.task)}</h1></button>
               <p class="editorial-lead">${i18n(contextSummary(data).en, contextSummary(data).zh)}</p>
-              ${renderSyncAssurance(data)}
+              ${renderSyncAssurance(data, fragments.sync_action_endpoint)}
               ${model.no_action_required ? `<div class="editorial-conclusion" data-editorial-conclusion="no-action-required"><div class="editorial-conclusion-mark">✓</div><div><strong>${i18n("No action required", "无需操作")}</strong><span>${i18n("Moryn has saved the latest work and is taking care of routine organization.", "Moryn 已保存最新进度，并在后台处理日常整理。")}</span></div></div>` : ""}
             </section>
             ${renderAttention(data.quiet_dashboard.attention_needed, data.decision_summary.items, data.actions_by_id, data.maintenance)}

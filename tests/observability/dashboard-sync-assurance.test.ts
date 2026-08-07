@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -12,7 +12,12 @@ import {
   PENDING_SYNC_ATTENTION_AGE_MS,
   PENDING_SYNC_ATTENTION_EVENT_FILES
 } from "../../src/observability/dashboard-sync-assurance.js";
-import { type GitSyncStatus, initializeGitSync, SYNC_STATUS_SELECTION_SOURCES } from "../../src/sync/git.js";
+import {
+  type GitSyncStatus,
+  initializeGitSync,
+  pushGitSync,
+  SYNC_STATUS_SELECTION_SOURCES
+} from "../../src/sync/git.js";
 
 const exec = promisify(execFile);
 
@@ -193,6 +198,71 @@ describe("dashboard sync assurance", () => {
     });
   });
 
+  it("retains the exact last successful sync proof when a later live check times out", () => {
+    const assurance = buildDashboardSyncAssurance(
+      syncStatus({
+        last_commit: "abc123",
+        last_sync: { operation: "push", at: "2026-07-27T11:59:00.000Z", commit: "abc123" },
+        remote_observation: { checked: true, reachable: false, remote_commit: "abc123" }
+      }),
+      "2026-07-27T12:00:00.000Z"
+    );
+
+    expect(assurance).toMatchObject({
+      state: "remote_unverified",
+      headline: "Shared copy saved; the live check is incomplete",
+      headline_zh: "共享副本已保存；在线检查未完成",
+      remote_copy: {
+        proof: "verified_committed_version",
+        proof_source: "last_successful_push",
+        verified_at: "2026-07-27T11:59:00.000Z",
+        durable: true,
+        covers_all_local_content: true,
+        reachable: false,
+        contains_local_commit: true
+      }
+    });
+    expect(assurance.detail).toContain("last successful push saved the current local version");
+    expect(assurance.detail_zh).toContain("上次成功推送已将本机当前版本保存到共享副本");
+  });
+
+  it.each([
+    ["pull receipt", { operation: "pull", at: "2026-07-27T11:59:00.000Z", commit: "abc123" }],
+    ["initialization receipt", { operation: "init", at: "2026-07-27T11:59:00.000Z", commit: "abc123" }],
+    ["mismatched commit", { operation: "push", at: "2026-07-27T11:59:00.000Z", commit: "older" }],
+    ["malformed timestamp", { operation: "push", at: "not-a-timestamp", commit: "abc123" }]
+  ] as const)("does not treat a %s as durable push proof", (_label, lastSync) => {
+    const assurance = buildDashboardSyncAssurance(
+      syncStatus({
+        last_commit: "abc123",
+        last_sync: lastSync,
+        remote_observation: { checked: true, reachable: false }
+      }),
+      "2026-07-27T12:00:00.000Z"
+    );
+
+    expect(assurance).toMatchObject({
+      state: "remote_unverified",
+      remote_copy: { proof: "not_verified", durable: false, reachable: false }
+    });
+  });
+
+  it("prefers a fresh negative remote observation over an older successful push", () => {
+    const assurance = buildDashboardSyncAssurance(
+      syncStatus({
+        last_commit: "abc123",
+        last_sync: { operation: "push", at: "2026-07-27T11:59:00.000Z", commit: "abc123" },
+        remote_observation: { checked: true, reachable: true, remote_commit: "def456", contains_local_head: false }
+      }),
+      "2026-07-27T12:00:00.000Z"
+    );
+
+    expect(assurance).toMatchObject({
+      state: "remote_unverified",
+      remote_copy: { proof: "not_verified", durable: false, reachable: true, contains_local_commit: false }
+    });
+  });
+
   it("does not call unrelated worktree files pending memory changes", () => {
     const assurance = buildDashboardSyncAssurance(
       syncStatus({
@@ -367,6 +437,74 @@ describe("dashboard sync assurance", () => {
       expect(html).toContain('data-sync-assurance="remote_unverified"');
       expect(html).toContain("Local memory is ready; the shared copy is not verified");
       expect(html).not.toContain('data-i18n-en="Shared copy is current"');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("shows a successful push receipt separately from a later failed live check", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-dashboard-push-proof-"));
+    const store = join(root, "store");
+    const remote = join(root, "remote.git");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(store, {
+        now: () => "2026-07-27T00:00:00.000Z",
+        id: () => "device_push_proof"
+      });
+      await initializeGitSync(store, remote);
+      await pushGitSync(store);
+      await rm(remote, { recursive: true, force: true });
+
+      const data = await buildDashboardData(store, { now: "2026-07-27T12:00:00.000Z" });
+      const html = renderDashboardHtml(data);
+      expect(data.sync_assurance).toMatchObject({
+        state: "remote_unverified",
+        remote_copy: {
+          proof: "verified_committed_version",
+          proof_source: "last_successful_push",
+          durable: true,
+          covers_all_local_content: true,
+          reachable: false
+        }
+      });
+      expect(data.health).toMatchObject({
+        status: "sync_pending",
+        label: "Live Check Incomplete"
+      });
+      expect(html).toContain('data-i18n-zh="共享副本已保存；在线检查未完成"');
+      expect(html).toContain("上次成功推送已将本机当前版本保存到共享副本");
+      expect(html).not.toContain("当前没有远端保存证明");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("allows a bounded ordinary remote fetch to finish before declaring the shared copy unreachable", {
+    timeout: 10_000
+  }, async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-dashboard-remote-latency-"));
+    const store = join(root, "store");
+    const remote = join(root, "remote.git");
+    const delayedUploadPack = join(root, "delayed-upload-pack.sh");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(store, {
+        now: () => "2026-07-27T00:00:00.000Z",
+        id: () => "device_remote_latency"
+      });
+      await initializeGitSync(store, remote);
+      await writeFile(delayedUploadPack, '#!/bin/sh\nsleep 2\nexec git-upload-pack "$@"\n', "utf8");
+      await chmod(delayedUploadPack, 0o755);
+      await exec("git", ["config", "remote.origin.uploadpack", delayedUploadPack], { cwd: store });
+
+      const data = await buildDashboardData(store, { now: "2026-07-27T12:00:00.000Z" });
+      expect(data.sync.remote_observation).toMatchObject({
+        checked: true,
+        reachable: true,
+        contains_local_head: true
+      });
+      expect(data.sync_assurance.state).toBe("remote_current");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

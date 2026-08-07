@@ -76,7 +76,7 @@ export interface ReadSoulProfileRevisionsResult {
 }
 
 export interface ReadSoulProfileRevisionsOptions {
-  records?: MorynRecord[];
+  records?: readonly MorynRecord[];
   include_legacy_private?: boolean;
   /** Disable ignored local-full overlays when verifying an exact remote projection set. */
   include_local_projections?: boolean;

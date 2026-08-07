@@ -312,6 +312,11 @@ export interface EventFileManifest {
   digest: string;
 }
 
+export interface EventInputFile {
+  path: string;
+  input: unknown;
+}
+
 export async function readEventFileManifest(storePath: string): Promise<EventFileManifest> {
   await ensureStoreInitialized(storePath);
   const eventsPath = join(storePath, "events");
@@ -332,19 +337,24 @@ export async function readEventFileManifest(storePath: string): Promise<EventFil
  * represented as an invalid input so integrity audits can classify it with
  * schema failures, while filesystem read failures still reject the operation.
  */
-export async function readEventInputs(storePath: string): Promise<unknown[]> {
+export async function readEventInputFiles(storePath: string): Promise<EventInputFile[]> {
   await ensureStoreInitialized(storePath);
   const files = (await walkJsonFiles(join(storePath, "events"), true)).sort();
   return Promise.all(
     files.map(async (file) => {
       const text = await readFile(file, "utf8");
+      const path = relative(storePath, file).split("\\").join("/");
       try {
-        return JSON.parse(text) as unknown;
+        return { path, input: JSON.parse(text) as unknown };
       } catch {
-        return undefined;
+        return { path, input: undefined };
       }
     })
   );
+}
+
+export async function readEventInputs(storePath: string): Promise<unknown[]> {
+  return (await readEventInputFiles(storePath)).map((file) => file.input);
 }
 
 export async function readEvents(storePath: string): Promise<MorynEvent[]> {
