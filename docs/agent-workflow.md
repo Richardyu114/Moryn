@@ -129,7 +129,9 @@ for the same project, host, session, and device has the same bounded synthesis
 fingerprint, Moryn reuses that status instead of appending another event. A
 changed task, checkpoint evidence, decision, blocker, learning, or next step
 creates a new status. Remote sync cadence remains independent, so an unchanged
-Stop can still perform a due push without growing append-only history.
+Stop can still report deferred remote work without growing append-only history.
+Automatic hooks never perform that push inside the host deadline; use the
+Dashboard sync action or an explicit `moryn sync --push` instead.
 
 Official `SessionEnd` delivery is idempotent at the logical handoff layer. If
 the latest final summary for the same project, host, session, and device has the
@@ -518,10 +520,13 @@ hook context.
 
 Official side-effect hooks remain silent when no agent follow-up exists.
 PreCompact and Claude SessionEnd conditionally inject the bounded workflow into
-host output only when candidate review is required. This context is addressed
-to the running agent, not the user: it contains executable record-id recalls,
-keeps the normal dashboard quiet, and does not create a routine confirmation
-or notification step.
+host output only when candidate review is required. To stay within both hosts'
+event schemas, the wire output is a top-level `systemMessage`: a user-visible
+warning rather than model context. PreCompact also persists that bounded action
+in device-local state; the following `SessionStart(source=compact)` delivers it
+to the agent through legal `additionalContext`. The structured workflow remains
+available in the checkpoint or finish lifecycle result and never includes either
+candidate record's text.
 
 ## Timeline Context
 
@@ -922,28 +927,26 @@ moryn agent checkpoint \
 ```
 
 The direct command is local-first and does not implicitly push the sync remote.
-Official host `PreCompact` hooks also write locally first, then automatically
-push a newly created checkpoint when project sync mode is `session` or
-`interval`. Manual mode and an explicit no-push override remain local-only. A
-repeated hook reuses the same project, source identity, `occurred_at`, checkpoint
-id, tags, and semantic delta; identical retries return the existing checkpoint
-without another automatic push. Reusing the same idempotency key with different
-authored content returns a collision error. Remote failure never blocks
-compaction: the checkpoint stays locally protected and the hook result marks
-remote synchronization as pending.
+Official host `PreCompact` hooks also write locally and never wait on a remote.
+When project sync policy or an explicit request makes a push due, the result
+marks that work deferred. A repeated hook reuses the same project, source
+identity, `occurred_at`, checkpoint id, tags, and semantic delta; identical
+retries return the existing checkpoint without another write. Reusing the same
+idempotency key with different authored content returns a collision error.
 
-Official `PostCompact` hooks delegate to the normal agent-start sync policy:
-`session` and `interval` projects attempt a safe pull before building recovery
-context, while `manual` projects and explicit `pull: false` remain local-only.
-If the remote is unavailable, PostCompact reports the existing pull error
-evidence and still restores any locally available checkpoint.
+Generated host configuration no longer installs a `PostCompact` handler. Both
+official hosts follow compaction with `SessionStart(source=compact)`, which
+restores locally available checkpoint, Soul, and pending agent-follow-up context
+through that event's legal `additionalContext`. A legacy Moryn-owned
+`PostCompact` entry is a silent compatibility no-op until activation is applied
+again and removes it.
 
-When no Git remote has been configured, official lifecycle hooks stay quietly
-local-only: they do not repeatedly attempt pull or push, and local checkpoints,
-turn statuses, recovery, and handoffs continue normally. This is distinct from
-a configured remote that is offline or rejected, which remains visible as sync
-degradation. Explicit `pull: true` or `push: true` requests still attempt sync
-and return the normal configuration error so setup can be diagnosed.
+All automatic lifecycle hooks stay local even when a Git remote is configured:
+they do not fetch, pull, or push inside the host's execution deadline. Use the
+Dashboard sync action, `moryn sync --pull`, or `moryn sync --push` for shared-copy
+work and its visible conflict/offline evidence. Direct `agent start`, `agent
+status`, and `agent finish` calls retain their normal explicit/default sync
+semantics.
 
 `committed: true` means the event was atomically published. `durability` reports
 `confirmed`, `best_effort`, or `failed` separately from derived-view refresh
@@ -1147,7 +1150,7 @@ integers applied to Effective Soul compilation. Omitted bindings use normal
 automatic selection, and omitted budgets use the compiler defaults. Keep only
 profile metadata here—never put clause text or secrets in project config.
 
-`agent start`, `agent enter`, and automatic `SessionStart`/`PostCompact` hooks
+`agent start`, `agent enter`, and automatic `SessionStart` hooks
 use this config whenever project context resolves through that directory.
 Explicit lifecycle arguments take precedence for that call:
 

@@ -84,19 +84,17 @@ describe("host hook execution receipts", () => {
               {
                 storePath,
                 project_id: "moryn",
-                push: true,
-                current_task: "protect checkpoint",
+                current_task: "restore local context",
                 hook: {
                   ...hookBase,
-                  event: "pre_compact",
-                  compact_summary: "Checkpoint before cancellation."
+                  event: "session_start"
                 }
               },
               {
-                pushGitSync: async () => {
+                isGitSyncConfigured: async () => {
                   controller.abort(new Error("SDK request cancelled"));
                   await delay(10);
-                  return { ok: true, pushed: true };
+                  return true;
                 }
               }
             ),
@@ -109,7 +107,7 @@ describe("host hook execution receipts", () => {
         op: "upsert_record",
         record: {
           type: "host_hook_execution_receipt",
-          content: { status: "cancelled", stage: "checkpoint_sync", session_id: "session-timeout" }
+          content: { status: "cancelled", stage: "start", session_id: "session-timeout" }
         }
       });
     });
@@ -143,9 +141,9 @@ describe("host hook execution receipts", () => {
         checkpoint: { record: { id: expect.any(String) } },
         checkpoint_sync: {
           requested: true,
-          deferred: { work: "checkpoint_sync", reason: "operation_deadline_budget" }
+          deferred: { work: "checkpoint_sync", reason: "host_hook_local_fast_path" }
         },
-        deferred_work: [{ work: "checkpoint_sync", reason: "operation_deadline_budget" }]
+        deferred_work: [{ work: "checkpoint_sync", reason: "host_hook_local_fast_path" }]
       });
     });
   });

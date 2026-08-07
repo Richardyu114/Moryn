@@ -100,6 +100,14 @@ describe("documentation contracts", () => {
       workflow,
       "PreCompact and Claude SessionEnd conditionally inject the bounded workflow into host output only when candidate review is required"
     );
+    expectText(
+      workflow,
+      "the wire output is a top-level `systemMessage`: a user-visible warning rather than model context"
+    );
+    expectText(
+      workflow,
+      "the following `SessionStart(source=compact)` delivers it to the agent through legal `additionalContext`"
+    );
     expectText(dashboard, "Capture Inbox is a compatibility and exceptional review surface");
     for (const document of [installPrompt, workflow, dashboard]) {
       expect(document).not.toContain("Canonical memory still requires explicit Capture Inbox user action.");
@@ -1547,7 +1555,7 @@ describe("documentation contracts", () => {
     expectText(roadmap, "Compact safety reads only a bounded tail of host-authored public transcript messages");
     expectText(
       development,
-      "Transcript compact safety smoke executes generated Codex and Claude PreCompact and PostCompact hooks"
+      "Transcript compact safety smoke executes generated Codex and Claude PreCompact hooks and the following SessionStart with `source=compact`"
     );
     expectText(development, "Official host handoff smoke executes the generated Codex and Claude shell commands");
     expectText(development, "second-device Codex SessionStart");

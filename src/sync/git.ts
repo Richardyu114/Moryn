@@ -81,6 +81,7 @@ export interface GitSyncStatus {
 
 export interface GitSyncStatusOptions {
   remote_timeout_ms?: number;
+  observe_remote?: boolean;
 }
 
 export interface GitPendingChangesStatus {
@@ -1165,6 +1166,7 @@ export async function initializeGitSync(storePath: string, remoteUrl: string): P
 
 export async function getGitSyncStatus(storePath: string, options: GitSyncStatusOptions = {}): Promise<GitSyncStatus> {
   validateRequiredString(storePath, "storePath");
+  const observeRemote = options.observe_remote !== false;
   const remoteTimeoutMs =
     typeof options.remote_timeout_ms === "number" && Number.isFinite(options.remote_timeout_ms)
       ? Math.max(1, options.remote_timeout_ms)
@@ -1180,7 +1182,7 @@ export async function getGitSyncStatus(storePath: string, options: GitSyncStatus
     remote = await fallbackUnlessDeadline(git(storePath, ["remote", "get-url", "origin"]), undefined);
     let remoteCommit: string | undefined;
     let remoteReachable = false;
-    if (remote) {
+    if (remote && observeRemote) {
       remoteReachable = await fallbackUnlessDeadline(
         gitWithTimeout(storePath, ["fetch", "origin", "main"], remoteTimeoutMs).then(() => true),
         false
@@ -1228,7 +1230,7 @@ export async function getGitSyncStatus(storePath: string, options: GitSyncStatus
       last_sync: lastSync,
       last_commit: lastCommit,
       pending_changes: pendingChanges,
-      ...(remote
+      ...(remote && observeRemote
         ? {
             remote_observation: {
               checked: true,

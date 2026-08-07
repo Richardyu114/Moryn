@@ -4256,7 +4256,7 @@ describe("agent lifecycle", () => {
     }
   });
 
-  it("makes throttled turn statuses eventually visible on another device", async () => {
+  it("keeps turn statuses local until an explicit sync makes them visible on another device", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-turn-sync-cadence-"));
     const remote = join(root, "remote.git");
     const storeA = join(root, "store-a");
@@ -4295,7 +4295,14 @@ describe("agent lifecycle", () => {
         current_task: "Implement bounded turn sync",
         hook
       });
-      expect(first).toMatchObject({ sync_cadence: { reason: "first_turn_sync", push_succeeded: true } });
+      expect(first).toMatchObject({
+        sync_cadence: {
+          reason: "first_turn_sync",
+          push_requested: true,
+          deferred: { work: "status_sync", reason: "host_hook_local_fast_path" }
+        }
+      });
+      await pushGitSync(storeA, { message: "publish deferred turn status" });
       await pullGitSync(storeB);
       expect((await readEvents(storeB)).filter((event) => event.record?.type === "status")).toHaveLength(1);
 
@@ -4307,7 +4314,11 @@ describe("agent lifecycle", () => {
       });
       expect(second).toMatchObject({
         action: "skip_duplicate_status",
-        sync_cadence: { reason: "within_interval", push_requested: false }
+        sync_cadence: {
+          reason: "first_turn_sync",
+          push_requested: true,
+          deferred: { work: "status_sync", reason: "host_hook_local_fast_path" }
+        }
       });
       await pullGitSync(storeB);
       expect((await readEvents(storeB)).filter((event) => event.record?.type === "status")).toHaveLength(1);
@@ -4320,7 +4331,11 @@ describe("agent lifecycle", () => {
       });
       expect(third).toMatchObject({
         action: "skip_duplicate_status",
-        sync_cadence: { reason: "interval_elapsed", push_succeeded: true }
+        sync_cadence: {
+          reason: "first_turn_sync",
+          push_requested: true,
+          deferred: { work: "status_sync", reason: "host_hook_local_fast_path" }
+        }
       });
       await pullGitSync(storeB);
       expect((await readEvents(storeB)).filter((event) => event.record?.type === "status")).toHaveLength(1);
@@ -4381,8 +4396,13 @@ describe("agent lifecycle", () => {
       expect(checkpoint).toMatchObject({
         action: "checkpoint_before_compaction",
         checkpoint: { idempotent_replay: false },
-        checkpoint_sync: { requested: true, reason: "new_checkpoint", succeeded: true, push: { pushed: true } }
+        checkpoint_sync: {
+          requested: true,
+          reason: "new_checkpoint",
+          deferred: { work: "checkpoint_sync", reason: "host_hook_local_fast_path" }
+        }
       });
+      await pushGitSync(codexStore, { message: "publish Codex compact checkpoint" });
 
       const replay = await runHostHook({
         storePath: codexStore,
@@ -4411,7 +4431,8 @@ describe("agent lifecycle", () => {
         checkpoint_sync: { requested: false, reason: "idempotent_replay" }
       });
 
-      const claudeRestore = await runHostHook({
+      await pullGitSync(claudeStore);
+      const postCompact = await runHostHook({
         storePath: claudeStore,
         project_path: project,
         current_task: "Verify Claude restore",
@@ -4424,10 +4445,25 @@ describe("agent lifecycle", () => {
           occurred_at: "2026-07-11T00:05:00.000Z"
         }
       });
+      expect(postCompact).toMatchObject({ action: "defer_to_session_start" });
+      const claudeRestore = await runHostHook({
+        storePath: claudeStore,
+        project_path: project,
+        current_task: "Verify Claude restore",
+        pull: false,
+        hook: {
+          host: "claude",
+          event: "session_start",
+          trigger: "compact",
+          session_id: "codex-compact",
+          device_id: "device-claude",
+          cwd: project,
+          occurred_at: "2026-07-11T00:05:01.000Z"
+        }
+      });
       expect(claudeRestore).toMatchObject({
-        action: "resume_from_checkpoint",
-        degradation: { mode: "native" },
-        details: { sync: { pull: { pulled: true } } }
+        action: "agent_start",
+        degradation: { mode: "native" }
       });
       expect(claudeRestore.hook_output.additional_context).toContain(
         "Hook runner implemented; next verify Claude restore."
@@ -4452,6 +4488,10 @@ describe("agent lifecycle", () => {
         degradation: { mode: "native" },
         details: { record: { content: { synthesis_mode: "evidence_synthesized" } } }
       });
+      expect(claudeEnd).toMatchObject({
+        deferred_work: [{ work: "handoff_sync", reason: "host_hook_local_fast_path" }]
+      });
+      await pushGitSync(claudeStore, { message: "publish Claude handoff" });
 
       const replayedEnd = await runHostHook({
         storePath: claudeStore,
@@ -4884,7 +4924,8 @@ describe("agent lifecycle", () => {
       });
       expect((await pushGitSync(codexStore, { message: "codex semantic checkpoint" })).pushed).toBe(true);
 
-      const claudeRestore = await runHostHook({
+      await pullGitSync(claudeStore);
+      const postCompact = await runHostHook({
         storePath: claudeStore,
         project_path: project,
         current_task: "Verify semantic lifecycle",
@@ -4896,6 +4937,22 @@ describe("agent lifecycle", () => {
           device_id: "device-claude",
           cwd: project,
           occurred_at: "2026-07-12T00:10:00.000Z"
+        }
+      });
+      expect(postCompact).toMatchObject({ action: "defer_to_session_start" });
+      const claudeRestore = await runHostHook({
+        storePath: claudeStore,
+        project_path: project,
+        current_task: "Verify semantic lifecycle",
+        pull: false,
+        hook: {
+          host: "claude",
+          event: "session_start",
+          trigger: "compact",
+          session_id: "codex-semantic",
+          device_id: "device-claude",
+          cwd: project,
+          occurred_at: "2026-07-12T00:10:01.000Z"
         }
       });
       expect(claudeRestore.hook_output.additional_context).toContain("Codex authored bounded proposals");
@@ -5302,7 +5359,7 @@ describe("finalization assurance", () => {
     }
   });
 
-  it("recovers a status-only prior Codex session without changing Stop semantics", async () => {
+  it("defers status-only finalization in the host hook and recovers it on direct start", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-finalization-status-"));
     const store = join(root, "store");
     const project = join(root, "project");
@@ -5344,13 +5401,28 @@ describe("finalization assurance", () => {
         action: "agent_start",
         details: {
           finalization_assurance: {
-            status: "recovered",
-            prior_session: { session_id: "prior-status" },
-            recovered_handoff_record_id: expect.stringMatching(/^rec_/)
+            status: "deferred",
+            reason: "host_hook_local_fast_path"
           }
         }
       });
       expect(started.hook_output.additional_context).toContain("finalization_assurance");
+
+      const recovered = await agentStart(
+        {
+          storePath: store,
+          projectPath: project,
+          currentTask: "Continue work",
+          pull: false,
+          agent: { client: "codex", session_id: "current-status", device_id: "device-a" }
+        },
+        { now: () => "2026-07-13T01:05:01.000Z" }
+      );
+      expect(recovered.finalization_assurance).toMatchObject({
+        status: "recovered",
+        prior_session: { session_id: "prior-status" },
+        recovered_handoff_record_id: expect.stringMatching(/^rec_/)
+      });
     } finally {
       await rm(root, { recursive: true, force: true });
     }

@@ -1,3 +1,4 @@
+import type { HostAdapterId } from "./host-adapter-registry.js";
 import type { HostHookRunResult } from "./host-hook-runner.js";
 
 function candidateReview(result: HostHookRunResult): unknown | undefined {
@@ -9,40 +10,20 @@ function candidateReview(result: HostHookRunResult): unknown | undefined {
   return undefined;
 }
 
-function followUpOutput(result: HostHookRunResult): unknown | undefined {
-  const action = candidateReview(result);
-  if (!action) return undefined;
-  const hookEventName = result.event === "pre_compact" ? "PreCompact" : "SessionEnd";
-  return {
-    hookSpecificOutput: {
-      hookEventName,
-      additionalContext: JSON.stringify(
-        {
-          moryn_follow_up: {
-            version: 1,
-            reason: "learning_candidates_require_agent_review",
-            action,
-            instruction:
-              "Execute the supplied record-id recalls before proposing a semantic relationship; no routine user confirmation is required."
-          }
-        },
-        null,
-        2
-      )
+function candidateReviewSystemMessage(action: unknown): string {
+  return JSON.stringify({
+    moryn_follow_up: {
+      version: 1,
+      reason: "learning_candidates_require_agent_review",
+      action,
+      instruction:
+        "Recall the supplied record ids before proposing a semantic relationship; no routine user confirmation is required."
     }
-  };
+  });
 }
 
-export function formatHostHookOutput(result: HostHookRunResult): unknown | undefined {
-  if (result.event === "post_compact") {
-    if (!result.hook_output.additional_context) return undefined;
-    return {
-      hookSpecificOutput: {
-        hookEventName: "PostCompact",
-        additionalContext: result.hook_output.additional_context
-      }
-    };
-  }
+export function formatHostHookOutput(host: HostAdapterId, result: HostHookRunResult): unknown | undefined {
+  if (host !== "codex" && host !== "claude") return undefined;
   if (result.event === "user_prompt_submit") {
     if (!result.hook_output.additional_context) return undefined;
     return {
@@ -52,8 +33,10 @@ export function formatHostHookOutput(result: HostHookRunResult): unknown | undef
       }
     };
   }
-  const followUp = followUpOutput(result);
-  if (followUp) return followUp;
+  const action = candidateReview(result);
+  if (action && (result.event === "pre_compact" || (host === "claude" && result.event === "session_end"))) {
+    return { systemMessage: candidateReviewSystemMessage(action) };
+  }
   if (result.event !== "session_start") return undefined;
   return {
     hookSpecificOutput: {

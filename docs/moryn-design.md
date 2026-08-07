@@ -2667,6 +2667,15 @@ share the same Moryn sync repo: `agent_status` writes in-progress checkpoints,
 initializes local state if needed, pulls remote events, and returns relevant
 updates through boot, refresh, and the structured handoff inbox.
 
+Automatic Host lifecycle handlers are a narrower execution boundary than these
+direct lifecycle commands. SessionStart, PreCompact, Stop, and SessionEnd use
+local fast transactions and do not fetch, pull, push, or observe a remote.
+Remote merge and publication are explicit through the Dashboard sync action or
+`moryn sync`. Generated integrations do not install PostCompact handlers; a
+legacy handler is a silent no-op, and compact recovery is injected by the next
+SessionStart with `source=compact`. Direct `agent_start`, `agent_status`, and
+`agent_finish` retain the sync defaults documented above.
+
 Moryn cannot force-push new content into a running agent context. Agents or host
 applications must call `agent_start`, `refresh`, or `recall`.
 
@@ -2909,6 +2918,10 @@ Supported modes:
 - `manual`: Push only when explicitly requested.
 - `session`: Pull at boot and push at session end or explicit sync.
 - `interval`: Periodic commit and push.
+
+These modes govern direct lifecycle and explicit sync operations. Automatic
+Host hooks always use the local fast path; they leave remote work to the
+Dashboard sync action or `moryn sync`.
 
 Default mode:
 
@@ -4045,6 +4058,13 @@ The hook-preparation chain keeps distinct evidence states:
 4. Effective Soul compiled with source and rendered digests;
 5. bounded context prepared for Codex or Claude hook output;
 6. metadata-only compilation and hook-preparation receipts persisted locally.
+
+Hook context is emitted only from SessionStart, including
+`SessionStart(source=compact)` after compaction. Generated integrations omit
+PostCompact; any legacy Moryn PostCompact dispatch exits successfully without
+output. Automatic SessionStart, PreCompact, Stop, and SessionEnd handlers keep
+their work local, while step 3 remains a separate Dashboard or explicit
+`moryn sync` operation.
 
 These states are not interchangeable. A local personal-sync event is not proof
 of remote propagation. `host_context_prepared` and receipt proof scope

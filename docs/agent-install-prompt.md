@@ -74,28 +74,31 @@ During agent work:
 - Promote only material that is stable enough to become canonical shared memory.
 - Use `moryn agent status` during long work when it helps future handoffs.
 - Do not require automatic Stop hooks to append the same synthesized status on
-  every turn. Moryn coalesces unchanged status evidence while preserving due
-  remote synchronization and writes a new status when durable state changes.
+  every turn. Moryn coalesces unchanged local status evidence and writes a new
+  status only when durable state changes. Publish pending events later through
+  the Dashboard sync action or an explicit `moryn sync` command.
 - Before host compaction or when context pressure is visible, checkpoint current
   progress, durable learning, and unresolved knowledge investigations so the
   next compacted context can restore them.
-- Treat official `PreCompact` hooks as local-first durability boundaries. When
-  project sync policy allows, Moryn pushes a newly created checkpoint once so a
-  second agent or device can restore it. Replayed hooks do not push repeatedly,
-  and remote failure does not block compaction or discard the local checkpoint.
-- On `PostCompact`, use the normal safe startup pull policy before restoring
-  context. If pull fails, continue from the locally available checkpoint and
-  expose the sync degradation rather than blocking the agent.
-- If no sync remote is configured, keep automatic host hooks quietly local-only
-  instead of repeatedly reporting sync errors. Do not invent a remote. Explicit
-  sync requests should still return the normal setup diagnostic.
+- Treat official `PreCompact` hooks as local durability boundaries. They save a
+  checkpoint without fetching, pulling, or pushing a remote. Replayed hooks stay
+  idempotent, and pending Git evidence remains available for a later explicit
+  sync.
+- Restore compacted context through the following `SessionStart` event with
+  `source=compact`. Generated integrations do not install a `PostCompact`
+  handler; treat an older Moryn-owned `PostCompact` handler as a silent no-op.
+- Keep automatic `SessionStart`, `PreCompact`, `Stop`, and `SessionEnd` hooks on
+  the local fast path whether or not a sync remote is configured. Do not invent
+  or contact a remote from a hook. Use the Dashboard sync action or an explicit
+  `moryn sync` command for remote merge and publication.
 - End with `moryn agent finish` and a concise handoff summary.
 - Use `moryn context pack` and `moryn capture session` as explicit fallback,
   transfer, or unsupported-host tools rather than replacing the installed
   Codex/Claude lifecycle on every normal session.
 - Repeated official `SessionEnd` delivery should reuse an unchanged final
   handoff instead of creating duplicate inbox entries. A changed summary remains
-  a new handoff, and an explicit push may sync a replay without another write.
+  a new local handoff. Publish it separately through the Dashboard sync action
+  or an explicit `moryn sync` command.
 - Treat SessionEnd as unchanged only when its summary, Learning Deltas, and
   semantic consolidation proposals are all equivalent. Never skip newly
   authored knowledge merely because the visible handoff summary is unchanged.
@@ -177,7 +180,9 @@ The host adapter and autocapture path is the low-friction entrypoint; the
 `moryn install` plan remains available when a host wants MCP registration hints
 without the broader setup wizard. The `agent enter` / `agent finish` lifecycle
 remains the fuller protocol when a host needs diagnosis, status, sync push
-behavior, or explicit workflow actions.
+behavior, or explicit workflow actions. This local-only automatic hook policy
+does not change the default pull/push semantics of direct `agent start`,
+`agent status`, or `agent finish` calls.
 
 For deeper command semantics, use [Agent Workflow](agent-workflow.md),
 [Contracts](contracts.md), and [Dashboard](dashboard.md).

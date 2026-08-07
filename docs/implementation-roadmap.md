@@ -91,7 +91,7 @@ local_saved
    -> remote_pushed (personal_sync clauses only)
    -> remote_pulled_and_verified
    -> effective_compiled (user + agent + project scope + budget)
-   -> host_context_prepared (SessionStart / PostCompact hook output)
+   -> host_context_prepared (SessionStart hook output, including source=compact)
 
 host_context_prepared proves only that hook output was prepared. It does not
 prove stdout transport, Host acknowledgment, or model obedience.
@@ -117,10 +117,12 @@ prove stdout transport, Host acknowledgment, or model obedience.
 - Effective Soul uses deterministic precedence and character/token budgets.
   Boundary and identity clauses are protected; mandatory overflow blocks
   hook-context preparation instead of silently omitting them.
-- Codex and Claude Code hooks prepare the compiled Soul context at session start
-  and after compaction without overwriting user-owned `AGENTS.md`, `CLAUDE.md`,
-  or host configuration. Compilation and hook-preparation receipts use
-  restrictive local file permissions.
+- Codex and Claude Code hooks prepare the compiled Soul context through
+  SessionStart, including the `source=compact` event after compaction, without
+  overwriting user-owned `AGENTS.md`, `CLAUDE.md`, or host configuration.
+  Generated integrations do not install PostCompact handlers; legacy handlers
+  are silent no-ops. Compilation and hook-preparation receipts use restrictive
+  local file permissions.
 
 ### v0.4 release acceptance
 
@@ -132,7 +134,7 @@ prove stdout transport, Host acknowledgment, or model obedience.
 | Restore/expansion | Restore appends state changes and expansion remains bounded, cycle-safe, privacy-safe, and digest-aware. | Coordinator and expansion tests. |
 | Semantic consolidation | Relationship-only proposals remain the default. An explicit structured merge uses exact source values, field/value lineage, trust/privacy checks, stable identities, source-digest CAS, and resumable source-hiding order. | Structured-merge planner and Engine transaction tests. |
 | Portable Soul | Draft, approve, conflict fallback, distribution filtering, rollback, compilation, and metadata-only status preserve revision truth. Exact Git event blobs and projection digests gate push proof; pulled approved revisions additionally require a portable approval chain. | Soul profile/store/management tests, two-store portability E2E, and exact Git receipt E2E. |
-| Hook preparation | Codex/Claude SessionStart and PostCompact prepare the selected revision for hook output, without claiming stdout transport, Host acknowledgment, or model obedience. | Host context, receipt, adapter, hook, and lifecycle tests. |
+| Hook preparation | Codex/Claude SessionStart, including `source=compact`, prepares the selected revision for hook output without claiming stdout transport, Host acknowledgment, or model obedience. Automatic lifecycle hooks remain local fast transactions; remote synchronization is explicit. | Host context, receipt, adapter, hook, and lifecycle tests. |
 | Interfaces | Engine, CLI, MCP, operation contracts, public exports, and dashboard expose consistent fields and safety language. | CLI/MCP/contracts/package/dashboard tests. |
 | Compatibility | v0.2/v0.3 stores open without event rewrites; derived artifacts rebuild lazily. | Upgrade smoke and package smoke. |
 | Release | Build, typecheck, lint, full tests, pack audit, smokes, diff check, and privacy audit pass. | `npm run release:check` plus final repository audit. |
@@ -184,8 +186,16 @@ The external product roadmap is durably recorded in moryn-store as
 
 ## v0.3.0 Context Autopilot
 
-The v0.3.0 lifecycle provides simple, stable, low-intervention context
-continuity for Codex and Claude Code:
+The following table records the historical v0.3.0 lifecycle acceptance contract.
+It is retained as a legacy compatibility reference, not as the current automatic
+hook contract. Current automatic SessionStart, PreCompact, Stop, and SessionEnd
+handlers use local fast transactions; remote synchronization is initiated from
+the Dashboard or `moryn sync`, PostCompact is not generated, and compact recovery
+is delivered by `SessionStart(source=compact)`. Direct agent lifecycle commands
+retain their default sync semantics.
+
+The v0.3.0 lifecycle provided simple, stable, low-intervention context continuity
+for Codex and Claude Code:
 
 ```text
 enter -> recall/recover -> work -> checkpoint -> compact/resume -> finish

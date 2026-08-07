@@ -77,22 +77,27 @@ device-local launcher below a private per-user directory outside Git worktrees.
 The launcher never resolves a global `moryn` from `PATH`.
 Deadline regression tests exercise the full 20-second operation context with
 short injected budgets: open stdin cancellation, project-identification Git,
-Soul receipt Git, hanging smart-HTTP remotes, an ignored TERM in a descendant
-helper, and a live Store recovery gate. Official Hook artifacts use a shared
-30-second outer timeout and a 25-second process watchdog. Local Git observation
-caps remain ordinary recoverable status failures; only expiry of the inherited
-absolute budget becomes `OPERATION_DEADLINE_EXCEEDED`.
+Soul receipt Git, an ignored TERM in a descendant helper, and a live Store
+recovery gate. Official Hook artifacts use a shared 30-second outer timeout and
+a 25-second process watchdog. Automatic hooks do not fetch, pull, push, or
+observe a remote; network deadline coverage belongs to explicit lifecycle and
+sync tests. Only expiry of the inherited absolute budget becomes
+`OPERATION_DEADLINE_EXCEEDED`.
 Transcript compact safety smoke executes generated Codex and Claude PreCompact
-and PostCompact hooks against official-shape JSONL fixtures. It requires the
-latest public assistant progress to survive compaction, keeps restore context
-bounded, and rejects raw transcript paths, hidden reasoning, tool data, and
-sensitive extracted content from the recovered context.
+hooks and the following SessionStart with `source=compact` against official-shape
+JSONL fixtures. It also verifies that a legacy PostCompact dispatch is a silent
+no-op. The smoke requires the latest public assistant progress to survive
+compaction, keeps restore context bounded, and rejects raw transcript paths,
+hidden reasoning, tool data, and sensitive extracted content from the recovered
+context.
 Official host handoff smoke executes the generated Codex and Claude shell
 commands across three isolated stores and project checkouts. It proves the
 Codex SessionStart, prompt recall, and PreCompact path can move through Claude
-SessionStart, PostCompact, and SessionEnd to a second-device Codex SessionStart,
-while preserving sync, checkpoint, activation, bounded-context, and handoff
-evidence without exposing private transcript content.
+SessionStart with `source=compact` and SessionEnd to a second-device Codex
+SessionStart. Automatic hook transactions remain local; explicit sync steps
+publish and merge between stores while preserving checkpoint, activation,
+bounded-context, and handoff evidence without exposing private transcript
+content.
 `npm run smoke:upgrade-compat` materializes the frozen v0.2 disk contract
 directly, opens it with the current CLI without an explicit migration or
 rebuild, verifies the legacy event remains byte-identical, repairs verified
@@ -286,6 +291,7 @@ The dogfood smoke creates one hundred paraphrased candidate records, submits
 bounded agent-authored `duplicate_of` proposals, and requires the active logical
 working set and default boot set to remain bounded. The lifecycle smoke verifies
 Codex `PreCompact` capture, one accepted semantic link, one protected-signal
-rejection, Claude Code `PostCompact` restore and finish/push, and a second Codex
-device pull. These paths are automatic and must not introduce routine dashboard
-approval work.
+rejection, Claude Code `SessionStart(source=compact)` restore, local SessionEnd
+handoff, explicit publication, and a second Codex device pull. The automatic
+hook portions remain local and must not introduce routine dashboard approval
+work.

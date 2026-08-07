@@ -73,7 +73,7 @@ describe("Soul Host delivery", () => {
     expect(JSON.stringify(context)).not.toContain("Act as a careful cross-host collaborator.");
   });
 
-  it("injects and receipts the same approved revision at SessionStart and PostCompact", async () => {
+  it("injects and receipts the same approved revision on SessionStart after compaction", async () => {
     await withInitializedTempStore(async (storePath) => {
       const profile = await persistActiveProfile(storePath);
       const base = {
@@ -106,10 +106,23 @@ describe("Soul Host delivery", () => {
         project_id: "moryn",
         pull: false
       });
-      expect(compacted.soul_delivery?.context).toMatchObject({ host_context_prepared: true });
+      expect(compacted).toMatchObject({ action: "defer_to_session_start", hook_output: { additional_context: "" } });
+      expect(compacted.soul_delivery).toBeUndefined();
+      const resumed = await runHostHook({
+        storePath,
+        hook: {
+          ...base,
+          event: "session_start",
+          trigger: "compact",
+          occurred_at: "2026-07-20T06:06:00.000Z"
+        },
+        project_id: "moryn",
+        pull: false
+      });
+      expect(resumed.soul_delivery?.context).toMatchObject({ host_context_prepared: true });
       const receipts = await listSoulDeliveryReceipts(storePath);
       expect(receipts).toHaveLength(2);
-      expect(receipts.map((receipt) => receipt.event).sort()).toEqual(["post_compact", "session_start"]);
+      expect(receipts.map((receipt) => receipt.event)).toEqual(["session_start", "session_start"]);
       expect(new Set(receipts.map((receipt) => receipt.rendered_digest))).toHaveLength(1);
     });
   });
@@ -138,7 +151,7 @@ describe("Soul Host delivery", () => {
     });
   });
 
-  it("defers a changed Soul until PostCompact instead of injecting an implicit prompt delta", async () => {
+  it("defers a changed Soul until the compact SessionStart instead of injecting an implicit prompt delta", async () => {
     await withInitializedTempStore(async (storePath) => {
       const first = await persistActiveProfile(storePath);
       const base = {
@@ -198,14 +211,26 @@ describe("Soul Host delivery", () => {
         project_id: "moryn",
         pull: false
       });
-      expect(compacted.soul_delivery).toMatchObject({
+      expect(compacted).toMatchObject({ action: "defer_to_session_start" });
+      const resumed = await runHostHook({
+        storePath,
+        hook: {
+          ...base,
+          event: "session_start",
+          trigger: "compact",
+          occurred_at: "2026-07-20T06:05:00.000Z"
+        },
+        project_id: "moryn",
+        pull: false
+      });
+      expect(resumed.soul_delivery).toMatchObject({
         delivery: "prepared",
         context: {
           host_context_prepared: true,
           source_revision_ids: [second.revision_id]
         }
       });
-      expect(compacted.hook_output.additional_context).toContain("Act as the updated cross-host release partner.");
+      expect(resumed.hook_output.additional_context).toContain("Act as the updated cross-host release partner.");
       expect(await listSoulDeliveryReceipts(storePath)).toHaveLength(2);
     });
   });

@@ -43,7 +43,7 @@ describe("host activation inspector", () => {
         status: "stale_moryn_config",
         healthy: false,
         repairable_automatically: true,
-        stale_entries: 5,
+        stale_entries: 4,
         runtime_binding_status: "missing"
       });
     });

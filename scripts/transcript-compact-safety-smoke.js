@@ -54,8 +54,12 @@ async function main() {
       const sessionId = `${host}-compact-session`;
       const transcriptPath = host === "codex" ? codexTranscript : claudeTranscript;
       await runShellJson(hookCommand(settings, "PreCompact"), { session_id: sessionId, cwd: project, hook_event_name: "PreCompact", trigger: "auto", transcript_path: transcriptPath }, env);
-      const post = await runShellJson(hookCommand(settings, "PostCompact"), { session_id: sessionId, cwd: project, hook_event_name: "PostCompact", transcript_path: transcriptPath }, env);
-      const context = post.hookSpecificOutput?.additionalContext ?? "";
+      const sessionStartCommand = hookCommand(settings, "SessionStart");
+      const post = await runShellJson(sessionStartCommand, { session_id: sessionId, cwd: project, hook_event_name: "PostCompact", transcript_path: transcriptPath }, env);
+      const resumed = await runShellJson(sessionStartCommand, { session_id: sessionId, cwd: project, hook_event_name: "SessionStart", source: "compact", transcript_path: transcriptPath }, env);
+      const context = resumed.hookSpecificOutput?.additionalContext ?? "";
+      evidence[`${host}_postcompact_silent`] = Object.keys(post).length === 0;
+      evidence[`${host}_compact_session_start`] = resumed.hookSpecificOutput?.hookEventName === "SessionStart";
       evidence[`${host}_progress_recovered`] = context.includes(host === "codex" ? "Codex completed bounded transcript recovery" : "Claude completed compact checkpoint recovery");
       evidence[`${host}_precompact_saved`] = context.includes("checkpoint_recovery_pack") && context.includes("checkpoint_count");
       evidence[`${host}_bounded`] = context.length < 20000;

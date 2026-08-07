@@ -72,12 +72,11 @@ describe("host integration artifacts", () => {
       SessionStart: expect.any(Array),
       UserPromptSubmit: expect.any(Array),
       PreCompact: expect.any(Array),
-      PostCompact: expect.any(Array),
       Stop: expect.any(Array)
     });
     expect(artifact.content).toContain("SessionStart");
     expect(artifact.content).toContain("PreCompact");
-    expect(artifact.content).toContain("PostCompact");
+    expect(artifact.content).not.toContain("PostCompact");
     expect(artifact.content).toContain("host hook --host codex");
     expect(artifact.command).toContain(`'/bin/sh' '${artifact.runtime_binding!.path}' --store`);
     expect(artifact.command).not.toContain("/runtime/node");
@@ -92,7 +91,7 @@ describe("host integration artifacts", () => {
     expect(artifact.content).not.toContain("dangerously-bypass-hook-trust");
     expect(JSON.parse(artifact.content).hooks.Stop[0].hooks[0].timeout).toBe(30);
     expect(artifact.activation_id).toBe(activationId("moryn", "codex"));
-    expect(artifact.expected_events).toEqual(["SessionStart", "UserPromptSubmit", "PreCompact", "PostCompact", "Stop"]);
+    expect(artifact.expected_events).toEqual(["SessionStart", "UserPromptSubmit", "PreCompact", "Stop"]);
     expect(artifact.command_digest).toMatch(/^[a-f0-9]{64}$/);
     expect(artifact.runtime_binding).toMatchObject({ root_path: "/" });
     expect(artifact.runtime_binding?.path.startsWith("/runtime-bindings/")).toBe(true);
@@ -117,14 +116,7 @@ describe("host integration artifacts", () => {
     });
     expect(artifact.path).toBe(".claude/moryn-settings.json");
     const parsed = JSON.parse(artifact.content);
-    expect(Object.keys(parsed.hooks)).toEqual([
-      "SessionStart",
-      "UserPromptSubmit",
-      "PreCompact",
-      "PostCompact",
-      "Stop",
-      "SessionEnd"
-    ]);
+    expect(Object.keys(parsed.hooks)).toEqual(["SessionStart", "UserPromptSubmit", "PreCompact", "Stop", "SessionEnd"]);
     expect(parsed.hooks.PreCompact[0].hooks[0].command).toContain("host hook --host claude");
     expect(parsed.hooks.PreCompact[0].hooks[0].command).toContain(`--activation-id ${artifact.activation_id}`);
     expect(parsed.hooks.PreCompact[0].hooks[0].command).toContain("--host-output");
@@ -133,14 +125,7 @@ describe("host integration artifacts", () => {
     expect(parsed.hooks.PreCompact[0].hooks[0].timeout).toBe(30);
     expect(artifact.runtime_binding?.path.startsWith("/runtime-bindings/")).toBe(true);
     expect(basename(artifact.runtime_binding!.path)).toBe(`${artifact.activation_id}.sh`);
-    expect(artifact.expected_events).toEqual([
-      "SessionStart",
-      "UserPromptSubmit",
-      "PreCompact",
-      "PostCompact",
-      "Stop",
-      "SessionEnd"
-    ]);
+    expect(artifact.expected_events).toEqual(["SessionStart", "UserPromptSubmit", "PreCompact", "Stop", "SessionEnd"]);
   });
 
   it("keeps the trusted command stable while changing the runtime binding", () => {

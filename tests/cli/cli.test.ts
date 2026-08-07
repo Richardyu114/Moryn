@@ -5614,7 +5614,7 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
       ]);
       expect(JSON.parse(stale.stdout)).toMatchObject({
         status: "needs_attention",
-        activation_status: { status: "stale_moryn_config", stale_entries: 5 },
+        activation_status: { status: "stale_moryn_config", stale_entries: 4 },
         checks_by_id: { host_activation: { status: "warning", category: "host" } }
       });
 
@@ -14431,6 +14431,38 @@ describe("host hook CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
     });
   });
 
+  it.each(["codex", "claude"] as const)("keeps successful %s PostCompact output silent", async (host) => {
+    await withTempDir(async (store) => {
+      await exec("node", [cliJsPath, "--store", store, "init"]);
+      const payload = JSON.stringify({
+        hook_event_name: "PostCompact",
+        session_id: `post-compact-${host}`,
+        cwd: repoRoot,
+        trigger: "auto",
+        compact_summary: "Restore after compaction."
+      });
+      const result = await exec("node", [
+        cliJsPath,
+        "--store",
+        store,
+        "host",
+        "hook",
+        "--host",
+        host,
+        "--project-id",
+        "moryn",
+        "--device-id",
+        "device-a",
+        "--input-json",
+        payload,
+        "--host-output",
+        "--no-pull",
+        "--no-push"
+      ]);
+      expect(result.stdout).toBe("");
+    });
+  });
+
   it("keeps side-effect-only lifecycle hooks silent in host-output mode", async () => {
     await withTempDir(async (store) => {
       await exec("node", [cliJsPath, "--store", store, "init"]);
@@ -14465,7 +14497,7 @@ describe("host hook CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
     });
   });
 
-  it("emits bounded PreCompact follow-up context only when candidate review exists", async () => {
+  it("emits only a PreCompact systemMessage when candidate review exists", async () => {
     await withTempDir(async (store) => {
       await exec("node", [cliJsPath, "--store", store, "init"]);
       const target = JSON.parse(
@@ -14529,10 +14561,8 @@ describe("host hook CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
         "--no-push"
       ]);
       const output = JSON.parse(result.stdout);
-      expect(output).toMatchObject({
-        hookSpecificOutput: { hookEventName: "PreCompact", additionalContext: expect.any(String) }
-      });
-      expect(JSON.parse(output.hookSpecificOutput.additionalContext)).toMatchObject({
+      expect(output).toEqual({ systemMessage: expect.any(String) });
+      expect(JSON.parse(output.systemMessage)).toMatchObject({
         moryn_follow_up: {
           reason: "learning_candidates_require_agent_review",
           action: {
@@ -14542,11 +14572,12 @@ describe("host hook CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
           }
         }
       });
+      expect(output).not.toHaveProperty("hookSpecificOutput");
       expect(result.stdout).not.toContain(target.record.content.text);
     });
   });
 
-  it("emits the same bounded follow-up context at Claude SessionEnd", async () => {
+  it("emits only a Claude SessionEnd systemMessage when candidate review exists", async () => {
     await withTempDir(async (store) => {
       await exec("node", [cliJsPath, "--store", store, "init"]);
       const target = JSON.parse(
@@ -14609,9 +14640,8 @@ describe("host hook CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
         "--no-push"
       ]);
       const output = JSON.parse(result.stdout);
-      const context = JSON.parse(output.hookSpecificOutput.additionalContext);
-      expect(output.hookSpecificOutput.hookEventName).toBe("SessionEnd");
-      expect(context).toMatchObject({
+      expect(output).toEqual({ systemMessage: expect.any(String) });
+      expect(JSON.parse(output.systemMessage)).toMatchObject({
         moryn_follow_up: {
           reason: "learning_candidates_require_agent_review",
           action: {
@@ -14621,6 +14651,7 @@ describe("host hook CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
           }
         }
       });
+      expect(output).not.toHaveProperty("hookSpecificOutput");
       expect(result.stdout).not.toContain(target.record.content.text);
     });
   });
@@ -14945,7 +14976,7 @@ describe("host activation CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, ()
         });
         expect(after).toMatchObject({
           status: "configured_unverified",
-          configured_events: ["SessionStart", "UserPromptSubmit", "PreCompact", "PostCompact", "Stop", "SessionEnd"]
+          configured_events: ["SessionStart", "UserPromptSubmit", "PreCompact", "Stop", "SessionEnd"]
         });
       });
     });

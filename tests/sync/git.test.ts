@@ -464,6 +464,44 @@ describe("git sync adapter", () => {
     }
   });
 
+  it("reads local sync status without contacting the remote when observation is disabled", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-local-status-"));
+    const store = join(root, "store");
+    let requests = 0;
+    const server = createServer((_request, response) => {
+      requests += 1;
+      response.writeHead(500);
+      response.end();
+    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        server.once("error", reject);
+        server.listen(0, "127.0.0.1", resolve);
+      });
+      const address = server.address() as AddressInfo;
+      await initializeStore(store, { id: () => "device_local_status" });
+      await exec("git", ["init"], { cwd: store });
+      await exec("git", ["branch", "-M", "main"], { cwd: store });
+      await exec("git", ["remote", "add", "origin", `http://127.0.0.1:${address.port}/memory.git`], {
+        cwd: store
+      });
+
+      const status = await getGitSyncStatus(store, { observe_remote: false });
+
+      expect(status).toMatchObject({
+        configured: true,
+        branch: "main",
+        remote: `http://127.0.0.1:${address.port}/memory.git`
+      });
+      expect(status.remote_observation).toBeUndefined();
+      expect(requests).toBe(0);
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("projects bounded pending event counts, local file time, and checked remote proof", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-sync-pending-status-"));
     const store = join(root, "store");

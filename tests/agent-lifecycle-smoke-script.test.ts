@@ -55,6 +55,8 @@ describe("agent lifecycle smoke script", () => {
         idempotent_replay: boolean;
         second_checkpoint_created: boolean;
         second_checkpoint_pushed: boolean;
+        legacy_postcompact_silent: boolean;
+        compact_session_start_restored: boolean;
         recovery_pack_available: boolean;
         resume_action_ready: boolean;
         claude_checkpoint_restored: boolean;
@@ -105,6 +107,8 @@ describe("agent lifecycle smoke script", () => {
       idempotent_replay: true,
       second_checkpoint_created: true,
       second_checkpoint_pushed: true,
+      legacy_postcompact_silent: true,
+      compact_session_start_restored: true,
       recovery_pack_available: true,
       resume_action_ready: true,
       claude_checkpoint_restored: true,

@@ -395,7 +395,7 @@ function claudeHook(command: string) {
 function codexHook(command: string) {
   return [
     {
-      hooks: [{ type: "command", command, timeout: HOST_HOOK_TIMEOUT_SECONDS, statusMessage: "Syncing Moryn context" }]
+      hooks: [{ type: "command", command, timeout: HOST_HOOK_TIMEOUT_SECONDS, statusMessage: "Updating Moryn context" }]
     }
   ];
 }
@@ -427,14 +427,13 @@ export function buildHostIntegrationArtifact(input: {
   const command_digest = createHash("sha256").update(commandBase).digest("hex");
   const command = `${commandBase} --command-digest ${command_digest}`;
   if (host === "claude") {
-    const expected_events = ["SessionStart", "UserPromptSubmit", "PreCompact", "PostCompact", "Stop", "SessionEnd"];
+    const expected_events = ["SessionStart", "UserPromptSubmit", "PreCompact", "Stop", "SessionEnd"];
     const content = `${JSON.stringify(
       {
         hooks: {
           SessionStart: claudeHook(command),
           UserPromptSubmit: claudeHook(command),
           PreCompact: claudeHook(command),
-          PostCompact: claudeHook(command),
           Stop: claudeHook(command),
           SessionEnd: claudeHook(command)
         }
@@ -456,14 +455,13 @@ export function buildHostIntegrationArtifact(input: {
       ...(binding ? { runtime_binding: binding } : {})
     };
   }
-  const expected_events = ["SessionStart", "UserPromptSubmit", "PreCompact", "PostCompact", "Stop"];
+  const expected_events = ["SessionStart", "UserPromptSubmit", "PreCompact", "Stop"];
   const content = `${JSON.stringify(
     {
       hooks: {
         SessionStart: codexHook(command),
         UserPromptSubmit: codexHook(command),
         PreCompact: codexHook(command),
-        PostCompact: codexHook(command),
         Stop: codexHook(command)
       }
     },

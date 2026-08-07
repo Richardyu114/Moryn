@@ -989,9 +989,15 @@ retry the same request with the same key so the transaction can resume.
 CLI calls accept a global `--timeout-ms <ms>` before the command. MCP tools use
 a bounded default deadline and propagate SDK cancellation. Deadline or
 cancellation after a host hook starts records a payload-free execution receipt
-with the last completed stage. Once the core local write is durable, optional
-pull, fold, consolidation, rollup, semantic maintenance, or push work may be
-returned in `deferred_work` rather than making the write appear to have failed.
+with the last completed stage. Automatic SessionStart, PreCompact, Stop, and
+SessionEnd hooks use a local fast transaction and never fetch, pull, push, or
+observe a remote. Their result may report remote publication or slow local
+maintenance in `deferred_work`; the remote step is performed later through the
+Dashboard sync action or an explicit `moryn sync` command. Generated
+integrations do not install PostCompact handlers, and a legacy PostCompact
+dispatch is a silent no-op. After compaction, SessionStart with `source=compact`
+prepares the legal bounded context response. These hook constraints do not
+change the default sync semantics of direct agent lifecycle calls.
 
 `automation_status` is read-only. `automation_reconcile` is dry-run by default,
 requires `apply: true` for Moryn-local store/project writes, and additionally
@@ -1487,7 +1493,8 @@ The stable public interfaces are:
 `local_saved`/`personal_sync_saved` persistence, per-revision Git proof flags and
 receipt IDs, approval verification, Effective Soul compilation, conflicts, and
 hook-preparation receipts without clause text. `host_context_prepared` means
-that Moryn prepared a bounded Soul pack for a supported SessionStart or
-PostCompact hook output. The receipt proof scope is
+that Moryn prepared a bounded Soul pack for a supported SessionStart hook output,
+including SessionStart with `source=compact` after compaction. PostCompact does
+not prepare or deliver context. The receipt proof scope is
 `hook_output_prepared_not_host_acknowledged_or_obedience`: it does not prove
 stdout transport, Host acknowledgment, or model obedience.

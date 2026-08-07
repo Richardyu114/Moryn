@@ -489,7 +489,13 @@ delivery budgets in `.moryn.json`:
 
 Explicit `agent start`/`agent enter` profile and Soul-budget arguments override
 these fallback values for one call without rewriting project config. Automatic
-`SessionStart` and `PostCompact` hooks use the project binding. See
+`SessionStart` hooks use the project binding both at startup and after compaction
+when the Host reports `source=compact`. Generated integrations do not install a
+`PostCompact` handler; an older Moryn-owned handler is a silent no-op. Automatic
+lifecycle hooks keep their transactions local and leave remote publication to
+the Dashboard sync action or an explicit `moryn sync` command. Direct
+`agent start`, `agent status`, and `agent finish` calls retain their normal sync
+defaults. See
 [Portable Soul Workflow](docs/agent-workflow.md#v04-portable-soul-workflow) for
 the exact CLI/MCP argument mapping and safety rules.
 

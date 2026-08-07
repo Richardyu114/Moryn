@@ -303,10 +303,14 @@ async function main() {
       JSON.stringify(advancedInvestigation)
     ]);
     if (secondCheckpoint.checkpoint?.idempotent_replay !== false) throw new Error("Second PreCompact did not create a distinct checkpoint");
-    if (secondCheckpoint.checkpoint_sync?.succeeded !== true) throw new Error("Second PreCompact did not push the latest checkpoint");
+    if (secondCheckpoint.checkpoint_sync?.deferred?.reason !== "host_hook_local_fast_path") throw new Error("Second PreCompact did not defer remote sync outside the host hook");
+    const secondCheckpointPush = await runJson(command, [...argsPrefix, "--store", storeCodex, "sync", "--push", "--message", "publish second lifecycle checkpoint"]);
+    if (secondCheckpointPush.pushed !== true) throw new Error("Explicit sync did not push the latest checkpoint");
     await runJson(command, [...argsPrefix, "--store", storeClaude, "init"]);
     await runJson(command, [...argsPrefix, "--store", storeClaude, "sync", "init", remote]);
-    const claudeRestore = await runJson(command, [
+    const claudeCheckpointPull = await runJson(command, [...argsPrefix, "--store", storeClaude, "sync", "--pull"]);
+    if (claudeCheckpointPull.ok !== true) throw new Error("Explicit Claude sync did not pull the Codex checkpoint");
+    const claudeLegacyPostCompact = await runJson(command, [
       ...argsPrefix,
       "--store",
       storeClaude,
@@ -327,12 +331,36 @@ async function main() {
       "--input-json",
       JSON.stringify({ hook_event_name: "PostCompact", session_id: "codex-smoke", cwd: project })
     ]);
-    if (!claudeRestore.hook_output?.additional_context?.includes("Checkpoint smoke persisted with semantic consolidation")) throw new Error("Claude PostCompact did not restore the Codex checkpoint");
-    if (!claudeRestore.hook_output?.additional_context?.includes(advancedInvestigation.next_step)) throw new Error("Claude PostCompact did not restore the latest unresolved knowledge next step");
-    if (claudeRestore.activation_receipt?.created !== true) throw new Error("Claude PostCompact did not record activation receipt evidence");
+    if (claudeLegacyPostCompact.action !== "defer_to_session_start" || claudeLegacyPostCompact.hook_output?.additional_context !== "") throw new Error("Legacy Claude PostCompact was not a silent compatibility no-op");
+    const claudeRestore = await runJson(command, [
+      ...argsPrefix,
+      "--store",
+      storeClaude,
+      "host",
+      "hook",
+      "--host",
+      "claude",
+      "--project",
+      project,
+      "--device-id",
+      "device-claude-smoke",
+      "--activation-id",
+      claudeActivationId,
+      "--occurred-at",
+      "2026-07-11T10:35:01.000Z",
+      "--current-task",
+      "continue cross device lifecycle smoke",
+      "--input-json",
+      JSON.stringify({ hook_event_name: "SessionStart", session_id: "codex-smoke", cwd: project, source: "compact" }),
+      "--no-pull",
+      "--no-push"
+    ]);
+    if (!claudeRestore.hook_output?.additional_context?.includes("Checkpoint smoke persisted with semantic consolidation")) throw new Error("Claude compact SessionStart did not restore the Codex checkpoint");
+    if (!claudeRestore.hook_output?.additional_context?.includes(advancedInvestigation.next_step)) throw new Error("Claude compact SessionStart did not restore the latest unresolved knowledge next step");
+    if (claudeRestore.activation_receipt?.created !== true) throw new Error("Claude compact SessionStart did not record activation receipt evidence");
     const claudeRecoveryPack = claudeRestore.details?.boot?.checkpoint_recovery_pack;
-    if (claudeRecoveryPack?.checkpoint_count !== 2 || claudeRecoveryPack?.latest_checkpoint_id !== secondCheckpoint.checkpoint.record.content.checkpoint.checkpoint_id) throw new Error("Claude PostCompact did not select the latest of two checkpoints");
-    if (!claudeRecoveryPack.progress?.includes("Second checkpoint advanced rollback verification.")) throw new Error("Claude PostCompact did not restore second-checkpoint progress");
+    if (claudeRecoveryPack?.checkpoint_count !== 2 || claudeRecoveryPack?.latest_checkpoint_id !== secondCheckpoint.checkpoint.record.content.checkpoint.checkpoint_id) throw new Error("Claude compact SessionStart did not select the latest of two checkpoints");
+    if (!claudeRecoveryPack.progress?.includes("Second checkpoint advanced rollback verification.")) throw new Error("Claude compact SessionStart did not restore second-checkpoint progress");
     const secondPromptEventsBefore = (await runJson(command, [...argsPrefix, "--store", storeClaude, "health", "check", "--project", project, "--host", "claude"])).stats.total_events;
     const secondDevicePromptRecall = await runJson(command, [
       ...argsPrefix,
@@ -380,11 +408,15 @@ async function main() {
       "--input-json",
       JSON.stringify({ hook_event_name: "SessionEnd", session_id: "codex-smoke", cwd: project })
     ]);
-    if (finish.details?.sync?.push?.pushed !== true) throw new Error("Claude finish did not push to sync remote");
+    if (finish.deferred_work?.[0]?.reason !== "host_hook_local_fast_path" || finish.details?.sync?.push !== undefined) throw new Error("Claude SessionEnd did not keep remote sync outside the host hook");
     if (finish.details?.record?.content?.synthesis_mode !== "evidence_synthesized") throw new Error("Claude finish did not synthesize from checkpoint evidence");
     const finishSummary = finish.details.record.content.text;
+    const claudeHandoffPush = await runJson(command, [...argsPrefix, "--store", storeClaude, "sync", "--push", "--message", "publish Claude lifecycle handoff"]);
+    if (claudeHandoffPush.pushed !== true) throw new Error("Explicit sync did not push the Claude handoff");
     await runJson(command, [...argsPrefix, "--store", storeCodexSecond, "init"]);
     await runJson(command, [...argsPrefix, "--store", storeCodexSecond, "sync", "init", remote]);
+    const codexHandoffPull = await runJson(command, [...argsPrefix, "--store", storeCodexSecond, "sync", "--pull"]);
+    if (codexHandoffPull.ok !== true) throw new Error("Explicit second-Codex sync did not pull the Claude handoff");
     const codexStart = await runJson(command, [
       ...argsPrefix,
       "--store",
@@ -402,10 +434,11 @@ async function main() {
       "--current-task",
       "verify Claude handoff",
       "--refresh-since",
-      status.record.updated_at
+      status.record.updated_at,
+      "--no-pull"
     ]);
 
-    if (codexStart.sync.pull?.pulled !== true) throw new Error("Second Codex did not pull Claude handoff");
+    if (codexStart.sync.pull !== undefined) throw new Error("Second Codex agent start unexpectedly performed a remote pull");
     requireChange(codexStart, finishSummary);
     const readModelHealth = await runJson(command, [...argsPrefix, "--store", storeCodexSecond, "health", "check", "--project", project, "--host", "codex"]);
     if (readModelHealth.record_read_model?.status !== "fresh" || readModelHealth.record_read_model?.source !== "read_model") throw new Error("Second Codex did not use a fresh verified record read model");
@@ -413,16 +446,18 @@ async function main() {
     const claudeContext = claudeRestore.hook_output.additional_context;
     const crossHostHandoff = {
       codex_status_pushed: status.sync.push.pushed === true,
-      claude_checkpoint_pulled: claudeRestore.details?.sync?.pull?.pulled === true,
-      claude_handoff_pushed: finish.details.sync.push.pushed === true,
-      second_codex_handoff_pulled: codexStart.sync.pull.pulled === true,
+      claude_checkpoint_pulled: claudeCheckpointPull.ok === true,
+      claude_handoff_pushed: claudeHandoffPush.pushed === true,
+      second_codex_handoff_pulled: codexHandoffPull.ok === true,
       second_codex_handoff_visible: codexStart.refresh.changes.some((change) => change.summary.includes(finishSummary))
     };
     const checkpointCompactionRecovery = {
       checkpoint_created: checkpoint.checkpoint.idempotent_replay === false,
       idempotent_replay: checkpointReplay.checkpoint.idempotent_replay === true,
       second_checkpoint_created: secondCheckpoint.checkpoint.idempotent_replay === false,
-      second_checkpoint_pushed: secondCheckpoint.checkpoint_sync.succeeded === true,
+      second_checkpoint_pushed: secondCheckpointPush.pushed === true,
+      legacy_postcompact_silent: claudeLegacyPostCompact.action === "defer_to_session_start" && claudeLegacyPostCompact.hook_output.additional_context === "",
+      compact_session_start_restored: claudeRestore.action === "agent_start",
       recovery_pack_available: recoveryPack.available === true,
       resume_action_ready: resumeAction.execution.ready_to_run === true,
       claude_checkpoint_restored: claudeContext.includes("Checkpoint smoke persisted with semantic consolidation"),
@@ -461,7 +496,7 @@ async function main() {
     };
     const acceptance = {
       cross_host_handoff: Object.values(crossHostHandoff).every((value) => value === true),
-      checkpoint_compaction_recovery: checkpointCompactionRecovery.checkpoint_created && checkpointCompactionRecovery.idempotent_replay && checkpointCompactionRecovery.second_checkpoint_created && checkpointCompactionRecovery.second_checkpoint_pushed && checkpointCompactionRecovery.recovery_pack_available && checkpointCompactionRecovery.resume_action_ready && checkpointCompactionRecovery.claude_checkpoint_restored && checkpointCompactionRecovery.claude_checkpoint_count === 2 && checkpointCompactionRecovery.claude_latest_checkpoint_restored && checkpointCompactionRecovery.claude_latest_investigation_restored,
+      checkpoint_compaction_recovery: checkpointCompactionRecovery.checkpoint_created && checkpointCompactionRecovery.idempotent_replay && checkpointCompactionRecovery.second_checkpoint_created && checkpointCompactionRecovery.second_checkpoint_pushed && checkpointCompactionRecovery.legacy_postcompact_silent && checkpointCompactionRecovery.compact_session_start_restored && checkpointCompactionRecovery.recovery_pack_available && checkpointCompactionRecovery.resume_action_ready && checkpointCompactionRecovery.claude_checkpoint_restored && checkpointCompactionRecovery.claude_checkpoint_count === 2 && checkpointCompactionRecovery.claude_latest_checkpoint_restored && checkpointCompactionRecovery.claude_latest_investigation_restored,
       semantic_consolidation: semanticConsolidation.proposals_accepted === 1 && semanticConsolidation.links_created === 1 && semanticConsolidation.protected_rejections === 1,
       recall_explore_learn: recallExploreLearn.initial_prompt_status === "knowledge_gap" && recallExploreLearn.initial_prompt_read_only && recallExploreLearn.learning_records_created === 3 && recallExploreLearn.unresolved_investigations_preserved === 1 && recallExploreLearn.second_device_prompt_status === "trusted_match" && recallExploreLearn.second_device_prompt_record_count === 1 && recallExploreLearn.second_device_prompt_read_only && recallExploreLearn.second_device_learning_restored && recallExploreLearn.second_device_investigation_restored,
       bounded_verified_reads: boundedVerifiedReads.source === "read_model" && boundedVerifiedReads.status === "fresh" && boundedVerifiedReads.project_id === "moryn-smoke",

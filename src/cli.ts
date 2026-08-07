@@ -2745,11 +2745,11 @@ host
               parseCheckpointJson(value, "--semantic-consolidation-proposal") as SemanticConsolidationProposalInput
           ),
           hostRuntime,
-          pull: options.pull,
-          push: options.push
+          pull: options.pull === false ? false : undefined,
+          push: options.push === false ? false : undefined
         });
         if (options.hostOutput) {
-          const output = formatHostHookOutput(result);
+          const output = formatHostHookOutput(hookEvent.host, result);
           if (output !== undefined) printJson(output, { pretty: false });
         } else {
           printJson(result);

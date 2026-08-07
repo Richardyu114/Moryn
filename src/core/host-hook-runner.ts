@@ -1,7 +1,14 @@
 import { createHash } from "node:crypto";
-import { type GitSyncResult, isGitSyncConfigured, pushGitSync } from "../sync/git.js";
+import type { getGitSyncStatus, pullGitSync, pushGitSync } from "../sync/git.js";
+import { type GitSyncResult, isGitSyncConfigured } from "../sync/git.js";
 import { type ActivationReceiptInput, recordActivationReceipt } from "./activation-receipts.js";
-import { agentFinish, agentStart, agentStatus, buildLearningCandidateReviewAction } from "./agent-lifecycle.js";
+import {
+  type AgentLifecycleDeps,
+  agentFinish,
+  agentStart,
+  agentStatus,
+  buildLearningCandidateReviewAction
+} from "./agent-lifecycle.js";
 import {
   type KnowledgeInvestigationInput,
   type LearningDeltaInput,
@@ -24,17 +31,17 @@ import { unresolvedLearningCandidates } from "./learning-candidate-review.js";
 import {
   isOperationCancelled,
   isOperationDeadlineExceeded,
-  remainingOperationTimeMs,
   rethrowIfOperationDeadlineExceeded,
   throwIfOperationDeadlineExceeded,
   withoutOperationDeadline
 } from "./operation-deadline.js";
+import { readPendingHostFollowUp, writePendingHostFollowUp } from "./pending-host-follow-up.js";
 import { type ProjectContext, resolveProjectContext } from "./project.js";
 import { readCurrentRecords } from "./record-read-model.js";
 import { detectSensitiveContent } from "./sensitive.js";
 import { type SessionSynthesis, synthesizeSession } from "./session-synthesis.js";
 import { deliverEffectiveSoul } from "./soul-host-delivery.js";
-import { evaluateTurnSyncCadence, recordTurnSyncSuccess, type TurnSyncCadenceDecision } from "./turn-sync-cadence.js";
+import { evaluateTurnSyncCadence, type TurnSyncCadenceDecision } from "./turn-sync-cadence.js";
 
 export interface RunHostHookInput {
   storePath: string;
@@ -54,8 +61,11 @@ export interface RunHostHookInput {
 }
 
 export interface RunHostHookDeps {
+  getGitSyncStatus?: typeof getGitSyncStatus;
+  pullGitSync?: typeof pullGitSync;
   pushGitSync?: typeof pushGitSync;
   isGitSyncConfigured?: typeof isGitSyncConfigured;
+  writePendingHostFollowUp?: typeof writePendingHostFollowUp;
 }
 
 export type HostHookSyncCadence = {
@@ -98,9 +108,9 @@ export type HostHookDuplicateHandoffSync = {
 
 export interface HostHookDeferredWork {
   work: "pull" | "checkpoint_sync" | "handoff_sync" | "status_sync";
-  reason: "operation_deadline_budget";
-  remaining_ms: number;
-  minimum_remaining_ms: number;
+  reason: "operation_deadline_budget" | "host_hook_local_fast_path";
+  remaining_ms?: number;
+  minimum_remaining_ms?: number;
 }
 
 export type HostTranscriptEvidenceSummary = Pick<
@@ -121,6 +131,7 @@ export interface HostHookRunResult {
   event: NormalizedHostHookEvent["event"];
   action:
     | "agent_start"
+    | "defer_to_session_start"
     | "recall_prompt"
     | "checkpoint_before_compaction"
     | "resume_from_checkpoint"
@@ -135,6 +146,7 @@ export interface HostHookRunResult {
   checkpoint_sync?: HostHookCheckpointSync;
   activation_receipt?: Awaited<ReturnType<typeof recordActivationReceipt>>;
   activation_warning?: { code: "ACTIVATION_RECEIPT_FAILED"; reason: string };
+  pending_follow_up_warning?: { code: "PENDING_FOLLOW_UP_WRITE_FAILED"; reason: string };
   soul_delivery?: Awaited<ReturnType<typeof deliverEffectiveSoul>>;
   skipped?: { reason: "no_durable_session_evidence" };
   duplicate_status?: { prior_record_id: string };
@@ -152,21 +164,17 @@ export interface HostHookRunResult {
   deferred_work?: HostHookDeferredWork[];
 }
 
-const HOST_HOOK_SLOW_WORK_MIN_REMAINING_MS = 5_000;
+function deferRemoteWork(work: HostHookDeferredWork["work"]): HostHookDeferredWork {
+  return { work, reason: "host_hook_local_fast_path" };
+}
 
-function slowWorkBudget(
-  work: HostHookDeferredWork["work"]
-): { allowed: true } | { allowed: false; deferred: HostHookDeferredWork } {
-  const remaining = remainingOperationTimeMs();
-  if (remaining === undefined || remaining >= HOST_HOOK_SLOW_WORK_MIN_REMAINING_MS) return { allowed: true };
+function localHostLifecycleDeps(deps: RunHostHookDeps): AgentLifecycleDeps {
   return {
-    allowed: false,
-    deferred: {
-      work,
-      reason: "operation_deadline_budget",
-      remaining_ms: remaining,
-      minimum_remaining_ms: HOST_HOOK_SLOW_WORK_MIN_REMAINING_MS
-    }
+    getGitSyncStatus: deps.getGitSyncStatus,
+    pullGitSync: deps.pullGitSync,
+    pushGitSync: deps.pushGitSync,
+    allowRemoteSync: false,
+    allowSlowMaintenance: false
   };
 }
 
@@ -238,6 +246,25 @@ function lifecycleInput(input: RunHostHookInput) {
 
 function contextText(value: unknown): string {
   return JSON.stringify(value, null, 2);
+}
+
+function pendingFollowUpIdentity(input: RunHostHookInput, projectId: string) {
+  return {
+    project_id: projectId,
+    host: input.hook.host,
+    session_id: input.hook.session_id,
+    device_id: input.hook.device_id
+  };
+}
+
+function agentFollowUpContext(action: unknown) {
+  return {
+    version: 1 as const,
+    reason: "learning_candidates_require_agent_review" as const,
+    action,
+    instruction:
+      "Recall the supplied record ids before proposing a semantic relationship; no routine user confirmation is required."
+  };
 }
 
 function evidenceSummary(
@@ -478,7 +505,17 @@ async function runResolvedHostHook(
       ...activationEvidence
     };
   }
-  if (input.hook.event === "session_start" || input.hook.event === "post_compact") {
+  if (input.hook.event === "post_compact") {
+    return {
+      ok: true,
+      event: input.hook.event,
+      action: "defer_to_session_start",
+      degradation,
+      hook_output: { additional_context: "" },
+      ...activationEvidence
+    };
+  }
+  if (input.hook.event === "session_start") {
     setStage("start");
     const requestedPull =
       input.pull !== undefined
@@ -486,9 +523,14 @@ async function runResolvedHostHook(
         : project.config?.sync.mode === "manual"
           ? false
           : await hasConfiguredSync();
-    const pullBudget = requestedPull ? slowWorkBudget("pull") : ({ allowed: true } as const);
-    const pull = requestedPull && pullBudget.allowed;
-    const result = await agentStart({ ...common, pull });
+    const pullDeferred = requestedPull ? deferRemoteWork("pull") : undefined;
+    const result = await agentStart({ ...common, pull: false }, localHostLifecycleDeps(deps));
+    const pendingFollowUp =
+      input.hook.trigger?.trim().toLowerCase() === "compact"
+        ? await readPendingHostFollowUp(input.storePath, pendingFollowUpIdentity(input, project.project_id), {
+            now: () => input.hook.occurred_at
+          })
+        : undefined;
     const soulDelivery = await deliverEffectiveSoul({
       store_path: input.storePath,
       effective_soul: result.effective_soul,
@@ -499,15 +541,8 @@ async function runResolvedHostHook(
       event: input.hook.event,
       occurred_at: input.hook.occurred_at
     });
-    const safeCompactSummary =
-      input.hook.event === "post_compact" &&
-      input.hook.compact_summary &&
-      !detectSensitiveContent(input.hook.compact_summary).sensitive
-        ? input.hook.compact_summary
-        : undefined;
     const restoreContext = contextText({
       current_task: input.current_task,
-      ...(safeCompactSummary ? { host_compact_summary: safeCompactSummary } : {}),
       startup_overview: result.startup_overview,
       finalization_assurance:
         result.finalization_assurance.status === "recovered"
@@ -520,17 +555,18 @@ async function runResolvedHostHook(
           : { status: result.finalization_assurance.status },
       checkpoint_recovery_pack: result.boot.checkpoint_recovery_pack,
       active_checkpoint: result.boot.active_checkpoint,
-      effective_soul: soulDelivery.context
+      effective_soul: soulDelivery.context,
+      ...(pendingFollowUp ? { moryn_follow_up: agentFollowUpContext(pendingFollowUp.action) } : {})
     });
     return {
       ok: true as const,
       event: input.hook.event,
-      action: input.hook.event === "session_start" ? ("agent_start" as const) : ("resume_from_checkpoint" as const),
+      action: "agent_start",
       degradation,
       details: result,
       soul_delivery: soulDelivery,
       hook_output: { additional_context: restoreContext },
-      ...(!pullBudget.allowed ? { deferred_work: [pullBudget.deferred] } : {}),
+      ...(pullDeferred ? { deferred_work: [pullDeferred] } : {}),
       ...activationEvidence
     };
   }
@@ -570,27 +606,9 @@ async function runResolvedHostHook(
     } else {
       checkpointSync = { requested: true, reason: "new_checkpoint" };
     }
-    if (checkpointSync.requested) {
-      const syncBudget = slowWorkBudget("checkpoint_sync");
-      if (!syncBudget.allowed) {
-        checkpointSync.deferred = syncBudget.deferred;
-      } else {
-        setStage("checkpoint_sync");
-        try {
-          checkpointSync.push = await (deps.pushGitSync ?? pushGitSync)(input.storePath, {
-            message: `precompact checkpoint: ${project.project_id}`
-          });
-          checkpointSync.succeeded = checkpointSync.push.ok;
-          if (!checkpointSync.succeeded)
-            checkpointSync.error = checkpointSync.push.message ?? "remote synchronization failed";
-        } catch (error) {
-          checkpointSync.succeeded = false;
-          checkpointSync.error = error instanceof Error ? error.message : String(error);
-        }
-      }
-    }
+    if (checkpointSync.requested) checkpointSync.deferred = deferRemoteWork("checkpoint_sync");
     const additionalContext =
-      checkpointSync.succeeded === false
+      checkpointSync.deferred || checkpointSync.succeeded === false
         ? `Moryn checkpoint saved and locally protected: ${checkpoint.record.id}. Remote synchronization is pending.`
         : `Moryn checkpoint saved: ${checkpoint.record.id}`;
     const candidateReview = buildLearningCandidateReviewAction(
@@ -600,6 +618,21 @@ async function runResolvedHostHook(
         checkpoint.semantic_consolidation
       )
     );
+    let pendingFollowUpWarning: HostHookRunResult["pending_follow_up_warning"];
+    if (candidateReview)
+      try {
+        await (deps.writePendingHostFollowUp ?? writePendingHostFollowUp)(
+          input.storePath,
+          { ...pendingFollowUpIdentity(input, project.project_id), action: candidateReview },
+          { now: () => input.hook.occurred_at }
+        );
+      } catch (error) {
+        rethrowIfOperationDeadlineExceeded(error);
+        pendingFollowUpWarning = {
+          code: "PENDING_FOLLOW_UP_WRITE_FAILED",
+          reason: error instanceof Error ? error.message : String(error)
+        };
+      }
     const candidateContext = candidateReview
       ? `${additionalContext} Moryn found ${candidateReview.candidate_pairs.length} bounded semantic candidate pair(s); follow candidate_review recalls before proposing a relationship.`
       : additionalContext;
@@ -611,6 +644,7 @@ async function runResolvedHostHook(
       checkpoint,
       checkpoint_sync: checkpointSync,
       ...(candidateReview ? { candidate_review: candidateReview } : {}),
+      ...(pendingFollowUpWarning ? { pending_follow_up_warning: pendingFollowUpWarning } : {}),
       transcript_evidence: hostEvidence.summary,
       hook_output: { additional_context: candidateContext },
       ...(checkpointSync.deferred ? { deferred_work: [checkpointSync.deferred] } : {}),
@@ -633,8 +667,7 @@ async function runResolvedHostHook(
         : project.config?.sync.mode === "manual"
           ? false
           : await hasConfiguredSync();
-    const pushBudget = requestedPush ? slowWorkBudget("handoff_sync") : ({ allowed: true } as const);
-    const push = requestedPush && pushBudget.allowed;
+    const pushDeferred = requestedPush ? deferRemoteWork("handoff_sync") : undefined;
     const current = await readCurrentRecords(input.storePath);
     const priorSummary = current.records
       .filter(
@@ -647,22 +680,8 @@ async function runResolvedHostHook(
       )
       .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id))[0];
     if (priorSummary?.content.handoff_payload_fingerprint === payloadFingerprint) {
-      const duplicateSync: HostHookDuplicateHandoffSync = { requested: input.push === true };
-      if (duplicateSync.requested && !pushBudget.allowed) duplicateSync.deferred = pushBudget.deferred;
-      if (duplicateSync.requested && pushBudget.allowed) {
-        setStage("finish");
-        try {
-          duplicateSync.push = await (deps.pushGitSync ?? pushGitSync)(input.storePath, {
-            message: `agent finish: ${project.project_id}`
-          });
-          duplicateSync.succeeded = duplicateSync.push.ok;
-          if (!duplicateSync.succeeded)
-            duplicateSync.error = duplicateSync.push.message ?? "remote synchronization failed";
-        } catch (error) {
-          duplicateSync.succeeded = false;
-          duplicateSync.error = error instanceof Error ? error.message : String(error);
-        }
-      }
+      const duplicateSync: HostHookDuplicateHandoffSync = { requested: requestedPush };
+      if (pushDeferred) duplicateSync.deferred = pushDeferred;
       return {
         ok: true,
         event: input.hook.event,
@@ -682,11 +701,11 @@ async function runResolvedHostHook(
         ...common,
         summary: synthesis.summary,
         synthesis,
-        push,
+        push: false,
         learnings: input.learnings,
         semanticConsolidationProposals: input.semantic_consolidation_proposals
       },
-      { pushGitSync: deps.pushGitSync, handoffPayloadFingerprint: payloadFingerprint }
+      { ...localHostLifecycleDeps(deps), handoffPayloadFingerprint: payloadFingerprint }
     );
     return {
       ok: true,
@@ -696,7 +715,7 @@ async function runResolvedHostHook(
       details: result,
       transcript_evidence: hostEvidence.summary,
       hook_output: { additional_context: `Moryn handoff saved: ${result.record.id}` },
-      ...(!pushBudget.allowed ? { deferred_work: [pushBudget.deferred] } : {}),
+      ...(pushDeferred ? { deferred_work: [pushDeferred] } : {}),
       ...activationEvidence
     };
   }
@@ -723,7 +742,6 @@ async function runResolvedHostHook(
     };
   }
   let syncCadence: HostHookSyncCadence | undefined;
-  let push = input.push;
   if (input.hook.event === "stop") {
     const identity = {
       project_id: project.project_id,
@@ -738,20 +756,13 @@ async function runResolvedHostHook(
       syncCadence = { due: false, reason: "explicit_no_push", interval_minutes: 15, push_requested: false };
     } else if (project.config?.sync.mode === "manual") {
       syncCadence = { due: false, reason: "manual_mode", interval_minutes: 15, push_requested: false };
-      push = false;
     } else if (!(await hasConfiguredSync())) {
       syncCadence = { due: false, reason: "remote_unconfigured", interval_minutes: 15, push_requested: false };
-      push = false;
     } else {
       const decision = await evaluateTurnSyncCadence(input.storePath, identity);
       syncCadence = { ...decision, push_requested: decision.due };
-      push = decision.due;
     }
-    const statusSyncBudget = push ? slowWorkBudget("status_sync") : ({ allowed: true } as const);
-    if (!statusSyncBudget.allowed) {
-      push = false;
-      syncCadence.deferred = statusSyncBudget.deferred;
-    }
+    if (syncCadence.push_requested) syncCadence.deferred = deferRemoteWork("status_sync");
     const current = await readCurrentRecords(input.storePath);
     const priorStatus = current.records
       .filter(
@@ -764,18 +775,6 @@ async function runResolvedHostHook(
       )
       .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id))[0];
     if (priorStatus && recordSynthesisFingerprint(priorStatus.content) === synthesisFingerprint(synthesis)) {
-      if (syncCadence.push_requested && !syncCadence.deferred) {
-        try {
-          setStage("status_sync");
-          const pushed = await (deps.pushGitSync ?? pushGitSync)(input.storePath, {
-            message: `agent status: ${project.project_id}`
-          });
-          syncCadence.push_succeeded = pushed.ok;
-          if (pushed.ok) await recordTurnSyncSuccess(input.storePath, identity);
-        } catch {
-          syncCadence.push_succeeded = false;
-        }
-      }
       return {
         ok: true,
         event: input.hook.event,
@@ -791,13 +790,9 @@ async function runResolvedHostHook(
     }
     setStage("status");
     const result = await agentStatus(
-      { ...common, status: synthesis.summary, synthesis, push },
-      { pushGitSync: deps.pushGitSync }
+      { ...common, status: synthesis.summary, synthesis, push: false },
+      localHostLifecycleDeps(deps)
     );
-    if (syncCadence.push_requested && !syncCadence.deferred) {
-      syncCadence.push_succeeded = result.sync.push?.ok === true;
-      if (syncCadence.push_succeeded) await recordTurnSyncSuccess(input.storePath, identity);
-    }
     return {
       ok: true,
       event: input.hook.event,
@@ -813,8 +808,8 @@ async function runResolvedHostHook(
   }
   setStage("status");
   const result = await agentStatus(
-    { ...common, status: synthesis.summary, synthesis, push },
-    { pushGitSync: deps.pushGitSync }
+    { ...common, status: synthesis.summary, synthesis, push: false },
+    localHostLifecycleDeps(deps)
   );
   return {
     ok: true,

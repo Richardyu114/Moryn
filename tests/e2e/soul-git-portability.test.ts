@@ -168,8 +168,24 @@ describe("portable Soul through a real Git remote", () => {
           occurred_at: "2026-07-20T00:06:00.000Z"
         }
       });
+      expect(postCompact).toMatchObject({ action: "defer_to_session_start" });
+      const compactSessionStart = await runHostHook({
+        storePath: storeB,
+        project_id: projectId,
+        current_task: "Verify portable Soul",
+        pull: false,
+        hook: {
+          host: "codex",
+          event: "session_start",
+          trigger: "compact",
+          session_id: "session-b",
+          device_id: "device-b",
+          cwd: root,
+          occurred_at: "2026-07-20T00:06:01.000Z"
+        }
+      });
 
-      for (const result of [sessionStart, postCompact]) {
+      for (const result of [sessionStart, compactSessionStart]) {
         expect(result.soul_delivery).toMatchObject({
           delivery: "prepared",
           context: {

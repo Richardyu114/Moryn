@@ -108,7 +108,11 @@ export interface AgentStatusInput extends AgentLifecycleInput {
 export interface AgentLifecycleDeps {
   now?: () => string;
   createEngine?: typeof createEngine;
+  getGitSyncStatus?: typeof getGitSyncStatus;
+  pullGitSync?: typeof pullGitSync;
   pushGitSync?: typeof pushGitSync;
+  allowRemoteSync?: boolean;
+  allowSlowMaintenance?: boolean;
   handoffPayloadFingerprint?: string;
   finalizationRecovery?: { recovery_key: string; evidence_record_ids: string[] };
   runAutomaticEpisodeRollups?: typeof runAutomaticEpisodeRollups;
@@ -126,14 +130,24 @@ export type AgentSessionFoldResult =
   | { status: "committed"; plan: SessionFoldPlan; result: SessionFoldApplyResult }
   | { status: "failed"; plan?: SessionFoldPlan; warning: AgentSessionFoldWarning }
   | { status: "review_required"; plan: SessionFoldPlan }
-  | { status: "skipped"; reason: "missing_session_id" | "no_plan" | "operation_deadline_budget" };
+  | {
+      status: "skipped";
+      reason: "missing_session_id" | "no_plan" | "operation_deadline_budget" | "host_hook_local_fast_path";
+    };
 
 export interface AgentDeferredWork {
   status: "deferred";
-  work: "pull" | "session_fold" | "exact_duplicate_consolidation" | "episode_rollup" | "semantic_maintenance" | "push";
-  reason: "operation_deadline_budget";
-  remaining_ms: number;
-  minimum_remaining_ms: number;
+  work:
+    | "pull"
+    | "session_fold"
+    | "exact_duplicate_consolidation"
+    | "episode_rollup"
+    | "semantic_maintenance"
+    | "automatic_event_audit"
+    | "push";
+  reason: "operation_deadline_budget" | "host_hook_local_fast_path";
+  remaining_ms?: number;
+  minimum_remaining_ms?: number;
 }
 
 const AGENT_OPTIONAL_WORK_MIN_REMAINING_MS = 5_000;
@@ -155,6 +169,17 @@ function optionalWorkBudget(
   };
 }
 
+function optionalMaintenanceBudget(
+  work: AgentDeferredWork["work"],
+  deps: AgentLifecycleDeps
+): { allowed: true } | { allowed: false; deferred: AgentDeferredWork } {
+  if (deps.allowSlowMaintenance !== false) return optionalWorkBudget(work);
+  return {
+    allowed: false,
+    deferred: { status: "deferred", work, reason: "host_hook_local_fast_path" }
+  };
+}
+
 export type AgentSyncCompensation = Omit<SyncCompensationAssessment, "decision"> & {
   decision: "not_needed" | "blocked" | "pushed" | "failed";
   push?: GitSyncResult;
@@ -164,6 +189,7 @@ export type AgentSyncCompensation = Omit<SyncCompensationAssessment, "decision">
 
 export type FinalizationAssuranceReceipt = (
   | FinalizationAssuranceSelection
+  | { status: "deferred"; reason: "host_hook_local_fast_path" }
   | {
       status: "recovered";
       prior_session: { host: string; session_id: string; device_id: string };
@@ -2104,8 +2130,14 @@ function syncConflictNextAction() {
   });
 }
 
-async function assertSyncNotConflicted(storePath: string): Promise<GitSyncStatus> {
-  const status = await getGitSyncStatus(storePath);
+function lifecycleSyncStatus(storePath: string, deps: AgentLifecycleDeps): Promise<GitSyncStatus> {
+  return (deps.getGitSyncStatus ?? getGitSyncStatus)(storePath, {
+    observe_remote: deps.allowRemoteSync !== false
+  });
+}
+
+async function assertSyncNotConflicted(storePath: string, deps: AgentLifecycleDeps): Promise<GitSyncStatus> {
+  const status = await lifecycleSyncStatus(storePath, deps);
   if (status.sync_state === "conflict") {
     throw new Error("Sync conflict: resolve Git conflicts before lifecycle writes");
   }
@@ -3272,6 +3304,12 @@ async function assurePriorSessionFinalization(
   });
   if (selection.status !== "eligible")
     return { ...selection, selection_sources: FINALIZATION_ASSURANCE_SELECTION_SOURCES };
+  if (deps.allowSlowMaintenance === false)
+    return {
+      status: "deferred",
+      reason: "host_hook_local_fast_path",
+      selection_sources: FINALIZATION_ASSURANCE_SELECTION_SOURCES
+    };
   const recoveryPack = buildCheckpointRecoveryPack(current.records, {
     project_id: project.project_id,
     session_id: selection.prior_session.session_id,
@@ -3297,12 +3335,17 @@ async function assurePriorSessionFinalization(
         device_id: selection.prior_session.device_id
       },
       summary: synthesis.summary,
-      synthesis
+      synthesis,
+      ...(deps.allowRemoteSync === false ? { push: false } : {})
     },
     {
       now: () => nowIso,
       createEngine: deps.createEngine,
+      getGitSyncStatus: deps.getGitSyncStatus,
+      pullGitSync: deps.pullGitSync,
       pushGitSync: deps.pushGitSync,
+      allowRemoteSync: deps.allowRemoteSync,
+      allowSlowMaintenance: deps.allowSlowMaintenance,
       runAutomaticEpisodeRollups: deps.runAutomaticEpisodeRollups,
       handoffPayloadFingerprint: selection.recovery_key,
       finalizationRecovery: { recovery_key: selection.recovery_key, evidence_record_ids: selection.evidence_record_ids }
@@ -3332,7 +3375,7 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
   const activationStatus = await lifecycleActivationStatus(input, project);
   const actionInput = portableLifecycleInput(input, project);
   const projectInfo = projectEnvelope(project);
-  const shouldPull = input.pull ?? projectInfo.sync_mode !== "manual";
+  const shouldPull = deps.allowRemoteSync === false ? false : (input.pull ?? projectInfo.sync_mode !== "manual");
   const pullBudget = shouldPull ? optionalWorkBudget("pull") : ({ allowed: true } as const);
   const sync: {
     before?: GitSyncStatus;
@@ -3344,7 +3387,7 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
     after?: GitSyncStatus;
   } = {};
 
-  sync.before = await assertSyncNotConflicted(input.storePath);
+  sync.before = await assertSyncNotConflicted(input.storePath, deps);
   if (shouldPull && pullBudget.allowed) {
     try {
       const pending = await getPendingSyncEvidence(input.storePath);
@@ -3356,7 +3399,9 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
       });
       if (assessment.decision === "safe_to_push") {
         const pushed = await trySync(() =>
-          pushGitSync(input.storePath, { message: `Recover Moryn continuity for ${project.project_id}` })
+          (deps.pushGitSync ?? pushGitSync)(input.storePath, {
+            message: `Recover Moryn continuity for ${project.project_id}`
+          })
         );
         sync.compensation = pushed.ok
           ? { ...assessment, decision: "pushed", push: pushed.result }
@@ -3386,7 +3431,7 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
         return undefined;
       });
     }
-    const pulled = await trySync(() => pullGitSync(input.storePath));
+    const pulled = await trySync(() => (deps.pullGitSync ?? pullGitSync)(input.storePath));
     if (pulled.ok) {
       sync.pull = pulled.result;
     } else {
@@ -3396,13 +3441,13 @@ export async function agentStart(input: AgentStartInput, deps: AgentLifecycleDep
   } else if (!pullBudget.allowed) {
     sync.pull_skipped = pullBudget.deferred;
   }
-  sync.after = await assertSyncNotConflicted(input.storePath);
+  sync.after = await assertSyncNotConflicted(input.storePath, deps);
   const finalizationAssurance = await assurePriorSessionFinalization(input, project, nowIso, deps);
 
   const engine = createEngine({
     storePath: input.storePath,
     now: () => nowIso,
-    syncStatus: () => getGitSyncStatus(input.storePath)
+    syncStatus: () => lifecycleSyncStatus(input.storePath, deps)
   });
   const boot = await engine.boot({
     project_id: project.project_id,
@@ -3479,7 +3524,7 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
   const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
   const actionInput = portableLifecycleInput(input, project);
   const projectInfo = projectEnvelope(project);
-  await assertSyncNotConflicted(input.storePath);
+  await assertSyncNotConflicted(input.storePath, deps);
   const lifecycleNow = deps.now?.() ?? new Date().toISOString();
   const engine = (deps.createEngine ?? createEngine)({ storePath: input.storePath, now: () => lifecycleNow });
   const agentSource = sourceFromAgent(input.agent);
@@ -3505,7 +3550,7 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     : undefined;
   if (existingFinishEvent?.op === "upsert_record") {
     foldCoverage = existingFinishEvent.record.content.session_fold_coverage as typeof foldCoverage;
-  } else if (sessionId) {
+  } else if (sessionId && deps.allowSlowMaintenance !== false) {
     try {
       foldCoverage = (
         await engine.previewSessionFold({
@@ -3586,7 +3631,7 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     source: agentSource,
     occurred_at: lifecycleNow
   });
-  const exactDuplicateBudget = optionalWorkBudget("exact_duplicate_consolidation");
+  const exactDuplicateBudget = optionalMaintenanceBudget("exact_duplicate_consolidation", deps);
   if (!exactDuplicateBudget.allowed) deferredWork.push(exactDuplicateBudget.deferred);
   const exactDuplicateConsolidation = exactDuplicateBudget.allowed
     ? await runAutomaticExactDuplicateConsolidation(engine, {
@@ -3602,10 +3647,10 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     source: agentSource
   });
   const learningInbox = { selected: pendingInbox.length, ...inboxConsumption };
-  const sessionFoldBudget = optionalWorkBudget("session_fold");
+  const sessionFoldBudget = optionalMaintenanceBudget("session_fold", deps);
   if (!sessionFoldBudget.allowed) deferredWork.push(sessionFoldBudget.deferred);
   const sessionFold: AgentSessionFoldResult = !sessionFoldBudget.allowed
-    ? { status: "skipped", reason: "operation_deadline_budget" }
+    ? { status: "skipped", reason: sessionFoldBudget.deferred.reason }
     : await (async () => {
         if (!sessionId) return { status: "skipped", reason: "missing_session_id" };
         if (foldPreviewWarning) return { status: "failed", warning: foldPreviewWarning };
@@ -3625,7 +3670,7 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
           return { status: "failed", plan, warning: sessionFoldWarning("apply", error) };
         }
       })();
-  const episodeRollupBudget = optionalWorkBudget("episode_rollup");
+  const episodeRollupBudget = optionalMaintenanceBudget("episode_rollup", deps);
   if (!episodeRollupBudget.allowed) deferredWork.push(episodeRollupBudget.deferred);
   const episodeRollup: AutomaticEpisodeRollupResult | AgentDeferredWork = episodeRollupBudget.allowed
     ? await (deps.runAutomaticEpisodeRollups ?? runAutomaticEpisodeRollups)({
@@ -3634,7 +3679,7 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
         now: lifecycleNow
       })
     : episodeRollupBudget.deferred;
-  const semanticMaintenanceBudget = optionalWorkBudget("semantic_maintenance");
+  const semanticMaintenanceBudget = optionalMaintenanceBudget("semantic_maintenance", deps);
   if (!semanticMaintenanceBudget.allowed) deferredWork.push(semanticMaintenanceBudget.deferred);
   const automaticSemanticMaintenance: AutomaticSemanticMaintenanceResult | AgentDeferredWork =
     semanticMaintenanceBudget.allowed
@@ -3643,11 +3688,11 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
           source: agentSource
         })
       : semanticMaintenanceBudget.deferred;
-  const shouldPush = input.push ?? projectInfo.sync_mode !== "manual";
+  const shouldPush = deps.allowRemoteSync === false ? false : (input.push ?? projectInfo.sync_mode !== "manual");
   const pushBudget = shouldPush ? optionalWorkBudget("push") : ({ allowed: true } as const);
   if (!pushBudget.allowed) deferredWork.push(pushBudget.deferred);
   const auditEvents = deps.runAutomaticEventAudit ?? runAutomaticEventAudit;
-  let automaticEventAudit: Awaited<ReturnType<typeof runAutomaticEventAudit>>;
+  let automaticEventAudit: Awaited<ReturnType<typeof runAutomaticEventAudit>> | AgentDeferredWork;
   const sync: {
     push?: GitSyncResult;
     push_skipped?:
@@ -3689,9 +3734,15 @@ export async function agentFinish(input: AgentFinishInput, deps: AgentLifecycleD
     }
   } else {
     if (!pushBudget.allowed) sync.push_skipped = pushBudget.deferred;
-    automaticEventAudit = await auditEvents(input.storePath);
+    const auditBudget = optionalMaintenanceBudget("automatic_event_audit", deps);
+    if (auditBudget.allowed) {
+      automaticEventAudit = await auditEvents(input.storePath);
+    } else {
+      automaticEventAudit = auditBudget.deferred;
+      deferredWork.push(auditBudget.deferred);
+    }
   }
-  sync.status = await getGitSyncStatus(input.storePath);
+  sync.status = await lifecycleSyncStatus(input.storePath, deps);
   const actions = finishNextActions(
     actionInput,
     project.project_id,
@@ -3745,7 +3796,7 @@ export async function agentStatus(input: AgentStatusInput, deps: AgentLifecycleD
   const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
   const actionInput = portableLifecycleInput(input, project);
   const projectInfo = projectEnvelope(project);
-  await assertSyncNotConflicted(input.storePath);
+  await assertSyncNotConflicted(input.storePath, deps);
   const engine = createEngine({ storePath: input.storePath });
   const statusSource = sourceFromAgent(input.agent);
   const statusSessionId = statusSource.session_id?.trim();
@@ -3790,7 +3841,7 @@ export async function agentStatus(input: AgentStatusInput, deps: AgentLifecycleD
     source: statusSource,
     idempotency_key: idempotencyKey
   });
-  const shouldPush = input.push ?? projectInfo.sync_mode !== "manual";
+  const shouldPush = deps.allowRemoteSync === false ? false : (input.push ?? projectInfo.sync_mode !== "manual");
   const deferredWork: AgentDeferredWork[] = [];
   const pushBudget = shouldPush ? optionalWorkBudget("push") : ({ allowed: true } as const);
   if (!pushBudget.allowed) deferredWork.push(pushBudget.deferred);
@@ -3815,7 +3866,7 @@ export async function agentStatus(input: AgentStatusInput, deps: AgentLifecycleD
   } else if (!pushBudget.allowed) {
     sync.push_skipped = pushBudget.deferred;
   }
-  sync.status = await getGitSyncStatus(input.storePath);
+  sync.status = await lifecycleSyncStatus(input.storePath, deps);
   const actions = statusNextActions(actionInput, record.record.updated_at);
 
   return {

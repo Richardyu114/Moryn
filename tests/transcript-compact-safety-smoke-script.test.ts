@@ -7,6 +7,10 @@ describe("transcript compact safety smoke script", () => {
     for (const text of [
       "PreCompact",
       "PostCompact",
+      "SessionStart",
+      'source: "compact"',
+      "postcompact_silent",
+      "compact_session_start",
       "progress_recovered",
       "raw_transcript_path_absent",
       "sensitive_content_absent"

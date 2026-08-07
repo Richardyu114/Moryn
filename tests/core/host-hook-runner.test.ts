@@ -9,7 +9,12 @@ import { learningRecordIdentity } from "../../src/core/learning-ingestion.js";
 import { initializeProjectConfig } from "../../src/core/project.js";
 import { approveSoulProfileDraft, createSoulProfileDraft } from "../../src/core/soul-profile-management.js";
 import { readEvents } from "../../src/core/store.js";
-import { SYNC_RESULT_SELECTION_SOURCES } from "../../src/sync/git.js";
+import {
+  type GitSyncStatus,
+  type GitSyncStatusOptions,
+  SYNC_RESULT_SELECTION_SOURCES,
+  SYNC_STATUS_SELECTION_SOURCES
+} from "../../src/sync/git.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
 const base = {
@@ -258,7 +263,7 @@ describe("host hook runner", () => {
     });
   });
 
-  it("returns a safe PostCompact host summary alongside restored checkpoint evidence", async () => {
+  it("defers PostCompact recovery to the following SessionStart", async () => {
     await withInitializedTempStore(async (storePath) => {
       await runHostHook({
         storePath,
@@ -277,12 +282,11 @@ describe("host hook runner", () => {
           compact_summary: "Host compact retained the parser decision."
         }
       });
-      expect(result.hook_output.additional_context).toContain("Checkpointed parser implementation.");
-      expect(result.hook_output.additional_context).toContain("Host compact retained the parser decision.");
+      expect(result).toMatchObject({ action: "defer_to_session_start", hook_output: { additional_context: "" } });
     });
   });
 
-  it("omits a sensitive PostCompact host summary while restoring the checkpoint", async () => {
+  it("does not retain a sensitive PostCompact summary in its no-op response", async () => {
     await withInitializedTempStore(async (storePath) => {
       await runHostHook({
         storePath,
@@ -301,7 +305,7 @@ describe("host hook runner", () => {
           compact_summary: "Use api_key=abcdefghijklmnop after compact."
         }
       });
-      expect(result.hook_output.additional_context).toContain("Checkpointed safe progress.");
+      expect(result).toMatchObject({ action: "defer_to_session_start", hook_output: { additional_context: "" } });
       expect(result.hook_output.additional_context).not.toContain("abcdefghijklmnop");
     });
   });
@@ -605,9 +609,16 @@ describe("host hook runner", () => {
       });
       expect(checkpoint).toMatchObject({ checkpoint_sync: { requested: false, reason: "remote_unconfigured" } });
 
-      const restored = await runHostHook({
+      const compacted = await runHostHook({
         storePath,
         hook: { ...base, event: "post_compact" },
+        project_id: "moryn",
+        current_task: "Work locally"
+      });
+      expect(compacted).toMatchObject({ action: "defer_to_session_start", hook_output: { additional_context: "" } });
+      const restored = await runHostHook({
+        storePath,
+        hook: { ...base, event: "session_start", trigger: "compact", occurred_at: "2026-07-11T00:00:30.000Z" },
         project_id: "moryn",
         current_task: "Work locally"
       });
@@ -635,12 +646,12 @@ describe("host hook runner", () => {
 
       const explicitPull = await runHostHook({
         storePath,
-        hook: { ...base, event: "post_compact", occurred_at: "2026-07-11T00:03:00.000Z" },
+        hook: { ...base, event: "session_start", trigger: "compact", occurred_at: "2026-07-11T00:03:00.000Z" },
         project_id: "moryn",
         pull: true
       });
       expect(explicitPull).toMatchObject({
-        details: { sync: { pull_error: expect.stringContaining("not configured") } }
+        deferred_work: [{ work: "pull", reason: "host_hook_local_fast_path" }]
       });
       const explicitPush = await runHostHook({
         storePath,
@@ -658,14 +669,133 @@ describe("host hook runner", () => {
         checkpoint_sync: {
           requested: true,
           reason: "explicit_push",
-          succeeded: false,
-          error: expect.stringContaining("not configured")
+          deferred: { work: "checkpoint_sync", reason: "host_hook_local_fast_path" }
         }
       });
     });
   });
 
-  it("checkpoints idempotently before compact and restores after compact", async () => {
+  it("keeps every lifecycle host hook local when session sync is configured", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let localStatusChecks = 0;
+      const deps = {
+        isGitSyncConfigured: configuredSync,
+        getGitSyncStatus: async (_storePath: string, options?: GitSyncStatusOptions): Promise<GitSyncStatus> => {
+          if (options?.observe_remote !== false) throw new Error("host hook attempted remote status observation");
+          localStatusChecks += 1;
+          return {
+            configured: true,
+            branch: "main",
+            remote: "https://example.invalid/moryn.git",
+            dirty: false,
+            sync_state: "clean",
+            ahead: 0,
+            behind: 0,
+            selection_sources: SYNC_STATUS_SELECTION_SOURCES
+          };
+        },
+        pullGitSync: async () => {
+          throw new Error("host hook attempted remote pull");
+        },
+        pushGitSync: async () => {
+          throw new Error("host hook attempted remote push");
+        }
+      };
+
+      const started = await runHostHook(
+        {
+          storePath,
+          hook: { ...base, event: "session_start", trigger: "startup" },
+          project_id: "moryn",
+          current_task: "Keep hooks local"
+        },
+        deps
+      );
+      const checkpointed = await runHostHook(
+        {
+          storePath,
+          hook: {
+            ...base,
+            event: "pre_compact",
+            occurred_at: "2026-07-11T00:01:00.000Z",
+            compact_summary: "Local checkpoint."
+          },
+          project_id: "moryn",
+          current_task: "Keep hooks local"
+        },
+        deps
+      );
+      const statusChecksBeforePostCompact = localStatusChecks;
+      const compacted = await runHostHook(
+        {
+          storePath,
+          hook: { ...base, event: "post_compact", occurred_at: "2026-07-11T00:02:00.000Z" },
+          project_id: "moryn",
+          current_task: "Keep hooks local"
+        },
+        deps
+      );
+      expect(localStatusChecks).toBe(statusChecksBeforePostCompact);
+      const stopped = await runHostHook(
+        {
+          storePath,
+          hook: { ...base, event: "stop", occurred_at: "2026-07-11T00:03:00.000Z" },
+          project_id: "moryn",
+          current_task: "Keep hooks local"
+        },
+        deps
+      );
+      const ended = await runHostHook(
+        {
+          storePath,
+          hook: {
+            ...base,
+            host: "claude",
+            event: "session_end",
+            occurred_at: "2026-07-11T00:04:00.000Z",
+            compact_summary: "Local handoff."
+          },
+          project_id: "moryn",
+          current_task: "Keep hooks local"
+        },
+        deps
+      );
+
+      expect(started).toMatchObject({
+        deferred_work: [{ work: "pull", reason: "host_hook_local_fast_path" }]
+      });
+      expect(checkpointed).toMatchObject({
+        checkpoint_sync: {
+          requested: true,
+          deferred: { work: "checkpoint_sync", reason: "host_hook_local_fast_path" }
+        }
+      });
+      expect(compacted).toMatchObject({
+        action: "defer_to_session_start",
+        hook_output: { additional_context: "" }
+      });
+      expect(stopped).toMatchObject({
+        sync_cadence: {
+          push_requested: true,
+          deferred: { work: "status_sync", reason: "host_hook_local_fast_path" }
+        }
+      });
+      expect(ended).toMatchObject({
+        deferred_work: [{ work: "handoff_sync", reason: "host_hook_local_fast_path" }],
+        details: {
+          session_fold: { status: "skipped", reason: "host_hook_local_fast_path" },
+          automatic_event_audit: {
+            status: "deferred",
+            work: "automatic_event_audit",
+            reason: "host_hook_local_fast_path"
+          }
+        }
+      });
+      expect(localStatusChecks).toBeGreaterThan(0);
+    });
+  });
+
+  it("checkpoints idempotently and restores on SessionStart after compact", async () => {
     await withInitializedTempStore(async (storePath) => {
       const preCompact = {
         ...base,
@@ -689,9 +819,16 @@ describe("host hook runner", () => {
         { storePath, hook: preCompact, project_id: "moryn", current_task: "Implement hooks", pull: false },
         deps
       );
-      const restored = await runHostHook({
+      const compacted = await runHostHook({
         storePath,
         hook: { ...base, event: "post_compact" },
+        project_id: "moryn",
+        current_task: "Implement hooks",
+        pull: false
+      });
+      const restored = await runHostHook({
+        storePath,
+        hook: { ...base, event: "session_start", trigger: "compact", occurred_at: "2026-07-11T00:01:00.000Z" },
         project_id: "moryn",
         current_task: "Implement hooks",
         pull: false
@@ -699,19 +836,24 @@ describe("host hook runner", () => {
       expect(first).toMatchObject({
         action: "checkpoint_before_compaction",
         checkpoint: { idempotent_replay: false },
-        checkpoint_sync: { requested: true, reason: "new_checkpoint", succeeded: true }
+        checkpoint_sync: {
+          requested: true,
+          reason: "new_checkpoint",
+          deferred: { work: "checkpoint_sync", reason: "host_hook_local_fast_path" }
+        }
       });
       expect(replay).toMatchObject({
         checkpoint: { idempotent_replay: true },
         checkpoint_sync: { requested: false, reason: "idempotent_replay" }
       });
-      expect(restored).toMatchObject({ action: "resume_from_checkpoint" });
+      expect(compacted).toMatchObject({ action: "defer_to_session_start" });
+      expect(restored).toMatchObject({ action: "agent_start" });
       expect(restored.hook_output.additional_context).toContain("Implemented parser; next run tests.");
-      expect(pushes).toHaveLength(1);
+      expect(pushes).toHaveLength(0);
     });
   });
 
-  it("keeps a failed pre-compact push non-blocking and locally durable", async () => {
+  it("defers pre-compact remote push while keeping the checkpoint locally durable", async () => {
     await withInitializedTempStore(async (storePath) => {
       const result = await runHostHook(
         {
@@ -731,12 +873,23 @@ describe("host hook runner", () => {
       expect(result).toMatchObject({
         action: "checkpoint_before_compaction",
         checkpoint: { idempotent_replay: false },
-        checkpoint_sync: { requested: true, reason: "new_checkpoint", succeeded: false, error: "remote unavailable" }
+        checkpoint_sync: {
+          requested: true,
+          reason: "new_checkpoint",
+          deferred: { work: "checkpoint_sync", reason: "host_hook_local_fast_path" }
+        }
       });
       expect(result.hook_output.additional_context).toContain("locally protected");
-      const restored = await runHostHook({
+      const compacted = await runHostHook({
         storePath,
         hook: { ...base, event: "post_compact" },
+        project_id: "moryn",
+        current_task: "Preserve local checkpoint"
+      });
+      expect(compacted).toMatchObject({ action: "defer_to_session_start" });
+      const restored = await runHostHook({
+        storePath,
+        hook: { ...base, event: "session_start", trigger: "compact", occurred_at: "2026-07-11T00:01:00.000Z" },
         project_id: "moryn",
         current_task: "Preserve local checkpoint"
       });
@@ -746,8 +899,9 @@ describe("host hook runner", () => {
     });
   });
 
-  it("reports a non-throwing pre-compact sync failure", async () => {
+  it("does not invoke a non-throwing pre-compact remote sync dependency", async () => {
     await withInitializedTempStore(async (storePath) => {
+      let attempts = 0;
       const result = await runHostHook(
         {
           storePath,
@@ -756,22 +910,29 @@ describe("host hook runner", () => {
         },
         {
           isGitSyncConfigured: configuredSync,
-          pushGitSync: async () => ({
-            ok: false,
-            message: "remote rejected update",
-            selection_sources: SYNC_RESULT_SELECTION_SOURCES
-          })
+          pushGitSync: async () => {
+            attempts += 1;
+            return {
+              ok: false,
+              message: "remote rejected update",
+              selection_sources: SYNC_RESULT_SELECTION_SOURCES
+            };
+          }
         }
       );
 
       expect(result).toMatchObject({
-        checkpoint_sync: { requested: true, succeeded: false, error: "remote rejected update" }
+        checkpoint_sync: {
+          requested: true,
+          deferred: { work: "checkpoint_sync", reason: "host_hook_local_fast_path" }
+        }
       });
       expect(result.hook_output.additional_context).toContain("locally protected");
+      expect(attempts).toBe(0);
     });
   });
 
-  it("honors explicit pre-compact push overrides", async () => {
+  it("keeps explicit pre-compact push requests outside the host hook path", async () => {
     await withInitializedTempStore(async (storePath) => {
       let pushes = 0;
       const deps = {
@@ -802,9 +963,13 @@ describe("host hook runner", () => {
       expect(localOnly).toMatchObject({ checkpoint_sync: { requested: false, reason: "explicit_no_push" } });
       expect(forcedReplay).toMatchObject({
         checkpoint: { idempotent_replay: true },
-        checkpoint_sync: { requested: true, reason: "explicit_push", succeeded: true }
+        checkpoint_sync: {
+          requested: true,
+          reason: "explicit_push",
+          deferred: { work: "checkpoint_sync", reason: "host_hook_local_fast_path" }
+        }
       });
-      expect(pushes).toBe(1);
+      expect(pushes).toBe(0);
     });
   });
 
@@ -838,13 +1003,25 @@ describe("host hook runner", () => {
           checkpoint: { idempotent_replay: false },
           checkpoint_sync: { requested: false, reason: "manual_mode" }
         });
-        const restored = await runHostHook({
+        const compacted = await runHostHook({
           storePath,
           project_path: projectPath,
           hook: { ...base, cwd: projectPath, event: "post_compact" }
         });
+        expect(compacted).toMatchObject({ action: "defer_to_session_start" });
+        const restored = await runHostHook({
+          storePath,
+          project_path: projectPath,
+          hook: {
+            ...base,
+            cwd: projectPath,
+            event: "session_start",
+            trigger: "compact",
+            occurred_at: "2026-07-11T00:01:00.000Z"
+          }
+        });
         expect(restored).toMatchObject({
-          action: "resume_from_checkpoint",
+          action: "agent_start",
           details: { sync: { before: { configured: false }, after: { configured: false } } }
         });
         expect((restored.details as { sync: { pull?: unknown; pull_error?: unknown } }).sync.pull).toBeUndefined();
@@ -859,7 +1036,7 @@ describe("host hook runner", () => {
     }
   });
 
-  it("consolidates authored pre-compact learnings without mutating post-compact restore", async () => {
+  it("consolidates authored pre-compact learnings without mutating the PostCompact no-op", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createEngine({ storePath });
       const target = await engine.write({
@@ -917,12 +1094,12 @@ describe("host hook runner", () => {
       expect(preCompact).toMatchObject({
         checkpoint: { semantic_consolidation: { proposals_received: 1, proposals_accepted: 1, links_created: 1 } }
       });
-      expect(restored).toMatchObject({ action: "resume_from_checkpoint" });
+      expect(restored).toMatchObject({ action: "defer_to_session_start" });
       expect(eventsAfterRestore).toEqual(eventsBeforeRestore);
     });
   });
 
-  it("returns an agent-owned candidate review workflow before compaction", async () => {
+  it("delivers a persisted candidate review workflow on SessionStart after compaction", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createEngine({ storePath });
       const target = await engine.write({
@@ -972,6 +1149,82 @@ describe("host hook runner", () => {
       });
       expect(result.hook_output.additional_context).toContain("semantic candidate");
       expect(result.hook_output.additional_context).not.toContain(target.record.content.text);
+
+      const postCompact = await runHostHook({
+        storePath,
+        hook: {
+          ...base,
+          host: "claude",
+          event: "post_compact",
+          occurred_at: "2026-07-11T00:01:00.000Z"
+        },
+        project_id: "moryn",
+        pull: false
+      });
+      const resumed = await runHostHook({
+        storePath,
+        hook: {
+          ...base,
+          host: "claude",
+          event: "session_start",
+          trigger: "compact",
+          occurred_at: "2026-07-11T00:01:01.000Z"
+        },
+        project_id: "moryn",
+        current_task: "Verify compaction recovery",
+        pull: false
+      });
+      const restoredContext = JSON.parse(resumed.hook_output.additional_context);
+
+      expect(postCompact).toMatchObject({ action: "defer_to_session_start" });
+      expect(restoredContext.moryn_follow_up).toMatchObject({
+        version: 1,
+        reason: "learning_candidates_require_agent_review",
+        action: {
+          action: "review_learning_candidates",
+          owner: "agent",
+          candidate_pairs: [{ candidate_record_id: target.record.id }]
+        }
+      });
+      expect(JSON.stringify(restoredContext.moryn_follow_up)).not.toContain(target.record.content.text);
+
+      const degraded = await runHostHook(
+        {
+          storePath,
+          hook: {
+            ...base,
+            host: "claude",
+            event: "pre_compact",
+            session_id: "session-follow-up-write-failure",
+            trigger: "auto",
+            occurred_at: "2026-07-11T00:02:00.000Z",
+            compact_summary: "Checkpoint despite follow-up state failure."
+          },
+          project_id: "moryn",
+          current_task: "Verify compaction recovery",
+          learnings: [
+            {
+              ...learning,
+              conclusion: "Moryn restores project context immediately after host compaction."
+            }
+          ],
+          pull: false,
+          push: false
+        },
+        {
+          writePendingHostFollowUp: async () => {
+            throw new Error("simulated local state permission failure");
+          }
+        }
+      );
+      expect(degraded).toMatchObject({
+        action: "checkpoint_before_compaction",
+        candidate_review: { action: "review_learning_candidates" },
+        pending_follow_up_warning: {
+          code: "PENDING_FOLLOW_UP_WRITE_FAILED",
+          reason: "simulated local state permission failure"
+        }
+      });
     });
   });
 
@@ -1032,7 +1285,7 @@ describe("host hook runner", () => {
     });
   });
 
-  it("coalesces repeated SessionEnd handoffs while preserving explicit push", async () => {
+  it("coalesces repeated SessionEnd handoffs while deferring remote push", async () => {
     await withInitializedTempStore(async (storePath) => {
       const pushes: string[] = [];
       const deps = {
@@ -1061,9 +1314,12 @@ describe("host hook runner", () => {
       expect(forced).toMatchObject({
         action: "skip_duplicate_handoff",
         duplicate_handoff: { prior_record_id: first.details.record.id },
-        duplicate_handoff_sync: { requested: true, succeeded: true }
+        duplicate_handoff_sync: {
+          requested: true,
+          deferred: { work: "handoff_sync", reason: "host_hook_local_fast_path" }
+        }
       });
-      expect(pushes).toHaveLength(2);
+      expect(pushes).toHaveLength(0);
       const engine = createEngine({ storePath });
       expect(
         (await engine.listRecent({ project_id: "moryn", limit: 20 })).records.filter(
@@ -1258,7 +1514,7 @@ describe("host hook runner", () => {
     });
   });
 
-  it("throttles automatic turn pushes while explicit push overrides cadence", async () => {
+  it("keeps automatic and explicit turn pushes deferred from Stop", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createEngine({ storePath });
       await engine.checkpoint({
@@ -1306,24 +1562,43 @@ describe("host hook runner", () => {
 
       expect(first).toMatchObject({
         action: "agent_status",
-        sync_cadence: { due: true, reason: "first_turn_sync", push_requested: true, push_succeeded: true }
+        sync_cadence: {
+          due: true,
+          reason: "first_turn_sync",
+          push_requested: true,
+          deferred: { work: "status_sync", reason: "host_hook_local_fast_path" }
+        }
       });
       expect(second).toMatchObject({
         action: "skip_duplicate_status",
         duplicate_status: { prior_record_id: first.details.record.id },
-        sync_cadence: { due: false, reason: "within_interval", push_requested: false }
+        sync_cadence: {
+          due: true,
+          reason: "first_turn_sync",
+          push_requested: true,
+          deferred: { work: "status_sync", reason: "host_hook_local_fast_path" }
+        }
       });
       expect(third).toMatchObject({
         action: "skip_duplicate_status",
         duplicate_status: { prior_record_id: first.details.record.id },
-        sync_cadence: { due: true, reason: "interval_elapsed", push_requested: true, push_succeeded: true }
+        sync_cadence: {
+          due: true,
+          reason: "first_turn_sync",
+          push_requested: true,
+          deferred: { work: "status_sync", reason: "host_hook_local_fast_path" }
+        }
       });
       expect(explicit).toMatchObject({
         action: "skip_duplicate_status",
         duplicate_status: { prior_record_id: first.details.record.id },
-        sync_cadence: { reason: "explicit_push", push_requested: true, push_succeeded: true }
+        sync_cadence: {
+          reason: "explicit_push",
+          push_requested: true,
+          deferred: { work: "status_sync", reason: "host_hook_local_fast_path" }
+        }
       });
-      expect(pushes).toHaveLength(3);
+      expect(pushes).toHaveLength(0);
       expect(
         (await engine.listRecent({ project_id: "moryn", limit: 20 })).records.filter(
           (record) => record.type === "status"
@@ -1332,7 +1607,7 @@ describe("host hook runner", () => {
     });
   });
 
-  it("retries automatic turn sync after a failed push", async () => {
+  it("leaves automatic turn sync pending without invoking a failed remote", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createEngine({ storePath });
       await engine.checkpoint({
@@ -1369,13 +1644,21 @@ describe("host hook runner", () => {
       );
 
       expect(failed).toMatchObject({
-        sync_cadence: { reason: "first_turn_sync", push_requested: true, push_succeeded: false }
+        sync_cadence: {
+          reason: "first_turn_sync",
+          push_requested: true,
+          deferred: { work: "status_sync", reason: "host_hook_local_fast_path" }
+        }
       });
       expect(retried).toMatchObject({
         action: "skip_duplicate_status",
-        sync_cadence: { reason: "first_turn_sync", push_requested: true, push_succeeded: true }
+        sync_cadence: {
+          reason: "first_turn_sync",
+          push_requested: true,
+          deferred: { work: "status_sync", reason: "host_hook_local_fast_path" }
+        }
       });
-      expect(attempts).toBe(2);
+      expect(attempts).toBe(0);
     });
   });
 
@@ -1497,9 +1780,13 @@ describe("host hook runner", () => {
 
       expect(skipped).toMatchObject({ sync_cadence: { reason: "explicit_no_push", push_requested: false } });
       expect(automatic).toMatchObject({
-        sync_cadence: { reason: "first_turn_sync", push_requested: true, push_succeeded: true }
+        sync_cadence: {
+          reason: "first_turn_sync",
+          push_requested: true,
+          deferred: { work: "status_sync", reason: "host_hook_local_fast_path" }
+        }
       });
-      expect(pushes).toBe(1);
+      expect(pushes).toBe(0);
     });
   });
 });

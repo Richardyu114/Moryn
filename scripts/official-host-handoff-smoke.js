@@ -98,17 +98,22 @@ async function main() {
     const codexSessionStart = await runShellJson(hookCommand(codexSettings, "SessionStart"), { hook_event_name: "SessionStart", session_id: sessionId, cwd: projectCodex, source: "startup" }, env);
     const codexPrompt = await runShellJson(hookCommand(codexSettings, "UserPromptSubmit"), { hook_event_name: "UserPromptSubmit", session_id: sessionId, cwd: projectCodex, prompt: "What is the official host handoff invariant?" }, env);
     const codexPreCompact = await runShellJson(hookCommand(codexSettings, "PreCompact"), { hook_event_name: "PreCompact", session_id: sessionId, cwd: projectCodex, trigger: "auto", transcript_path: codexTranscript }, env);
+    const codexCheckpointPush = await runJson(command, [...args, "--store", storeCodex, "sync", "--push", "--message", "publish official Codex checkpoint"], { env });
 
     const claudeEnv = { ...env, MORYN_DEVICE_ID: "device-claude-secondary" };
     await initializeSyncedStore(command, args, storeClaude, remote, claudeEnv);
+    const claudeCheckpointPull = await runJson(command, [...args, "--store", storeClaude, "sync", "--pull"], { env: claudeEnv });
     await runJson(command, [...args, "--store", storeClaude, "activation", "apply", "--host", "claude", "--project", projectClaude], { env: claudeEnv });
     const claudeSettings = JSON.parse(await readFile(join(projectClaude, ".claude", "settings.local.json"), "utf8"));
-    const claudeSessionStart = await runShellJson(hookCommand(claudeSettings, "SessionStart"), { hook_event_name: "SessionStart", session_id: sessionId, cwd: projectClaude, source: "startup", transcript_path: claudeTranscript }, claudeEnv);
-    const claudePostCompact = await runShellJson(hookCommand(claudeSettings, "PostCompact"), { hook_event_name: "PostCompact", session_id: sessionId, cwd: projectClaude, transcript_path: claudeTranscript }, claudeEnv);
+    const claudeSessionStartCommand = hookCommand(claudeSettings, "SessionStart");
+    const claudePostCompact = await runShellJson(claudeSessionStartCommand, { hook_event_name: "PostCompact", session_id: sessionId, cwd: projectClaude, transcript_path: claudeTranscript }, claudeEnv);
+    const claudeSessionStart = await runShellJson(claudeSessionStartCommand, { hook_event_name: "SessionStart", session_id: sessionId, cwd: projectClaude, source: "compact", transcript_path: claudeTranscript }, claudeEnv);
     const claudeSessionEnd = await runShellJson(hookCommand(claudeSettings, "SessionEnd"), { hook_event_name: "SessionEnd", session_id: sessionId, cwd: projectClaude, reason: "completed", transcript_path: claudeTranscript, last_assistant_message: claudeHandoff }, claudeEnv);
+    const claudeHandoffPush = await runJson(command, [...args, "--store", storeClaude, "sync", "--push", "--message", "publish official Claude handoff"], { env: claudeEnv });
 
     const secondCodexEnv = { ...env, MORYN_DEVICE_ID: "device-codex-second" };
     await initializeSyncedStore(command, args, storeSecondCodex, remote, secondCodexEnv);
+    const secondCodexHandoffPull = await runJson(command, [...args, "--store", storeSecondCodex, "sync", "--pull"], { env: secondCodexEnv });
     await runJson(command, [...args, "--store", storeSecondCodex, "activation", "apply", "--host", "codex", "--project", projectSecondCodex], { env: secondCodexEnv });
     const secondCodexSettings = JSON.parse(await readFile(join(projectSecondCodex, ".codex", "hooks.json"), "utf8"));
     const secondCodexSessionStart = await runShellJson(hookCommand(secondCodexSettings, "SessionStart"), { hook_event_name: "SessionStart", session_id: "official-host-handoff-second-device", cwd: projectSecondCodex, source: "startup" }, secondCodexEnv);
@@ -116,9 +121,8 @@ async function main() {
     const codexStartContext = additionalContext(codexSessionStart);
     const codexPromptContext = additionalContext(codexPrompt);
     const claudeStartContext = additionalContext(claudeSessionStart);
-    const claudePostContext = additionalContext(claudePostCompact);
     const secondCodexContext = additionalContext(secondCodexSessionStart);
-    const allContext = [codexStartContext, codexPromptContext, claudeStartContext, claudePostContext, secondCodexContext].join("\n");
+    const allContext = [codexStartContext, codexPromptContext, claudeStartContext, secondCodexContext].join("\n");
     const claudeHandoffRecall = await runJson(command, [...args, "--store", storeSecondCodex, "recall", codexProgress, "--project", projectSecondCodex, "--kind", "session_summary"], { env: secondCodexEnv });
     const claudeSummary = claudeHandoffRecall.results?.find((result) => result.record?.type === "summary" && result.record?.source?.client === "claude")?.record;
     const activationHealth = await Promise.all([
@@ -136,15 +140,21 @@ async function main() {
       codex_generated_session_start: codexSessionStart.hookSpecificOutput?.hookEventName === "SessionStart",
       codex_generated_prompt_gap: codexPrompt.hookSpecificOutput?.hookEventName === "UserPromptSubmit" && codexPromptContext.includes("knowledge_gap"),
       codex_generated_precompact: Object.keys(codexPreCompact).length === 0,
+      codex_checkpoint_explicitly_pushed: codexCheckpointPush.pushed === true,
       claude_generated_session_start: claudeSessionStart.hookSpecificOutput?.hookEventName === "SessionStart" && claudeStartContext.includes(codexProgress),
-      claude_generated_postcompact: claudePostCompact.hookSpecificOutput?.hookEventName === "PostCompact",
+      claude_compact_session_start: claudeSessionStart.hookSpecificOutput?.hookEventName === "SessionStart",
+      claude_postcompact_not_registered: claudeSettings.hooks?.PostCompact === undefined,
+      claude_legacy_postcompact_silent: Object.keys(claudePostCompact).length === 0,
+      claude_checkpoint_explicitly_pulled: claudeCheckpointPull.ok === true,
       claude_generated_session_end: Object.keys(claudeSessionEnd).length === 0,
+      claude_handoff_explicitly_pushed: claudeHandoffPush.pushed === true,
       second_codex_generated_session_start: secondCodexSessionStart.hookSpecificOutput?.hookEventName === "SessionStart",
-      checkpoint_restored: claudePostContext.includes(codexProgress) && claudePostContext.includes("checkpoint_recovery_pack"),
+      second_codex_handoff_explicitly_pulled: secondCodexHandoffPull.ok === true,
+      checkpoint_restored: claudeStartContext.includes(codexProgress) && claudeStartContext.includes("checkpoint_recovery_pack"),
       handoff_visible_on_second_device: secondCodexContext.includes('"handoff_context"') && secondCodexContext.includes('"status": "available"') && claudeSummary?.content?.text?.includes(codexProgress) === true,
       activation_receipts_current: activationHealth.every((status) => status.status === "active"),
       sync_transitions_recorded: syncHealth.map((status) => status.last_sync?.operation).join(",") === "push,push,pull" && syncHealth.every((status) => status.ahead === 0 && status.sync_state !== "conflict"),
-      bounded_context: [codexStartContext, codexPromptContext, claudeStartContext, claudePostContext, secondCodexContext].every((context) => context.length < 20000),
+      bounded_context: [codexStartContext, codexPromptContext, claudeStartContext, secondCodexContext].every((context) => context.length < 20000),
       private_transcript_content_absent: !allContext.includes(hiddenMarker) && !allContext.includes(codexTranscript) && !allContext.includes(claudeTranscript)
     };
     const failed = Object.entries(evidence).filter(([, value]) => value !== true);
