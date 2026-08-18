@@ -93,6 +93,20 @@ export type {
   ActivationReceiptInput
 } from "./core/activation-receipts.js";
 export { activationReceiptIdentity, recordActivationReceipt } from "./core/activation-receipts.js";
+export type {
+  AgentContinuityNegotiationInput,
+  AgentContinuityOperation,
+  AgentContinuityRouteMode,
+  AgentContinuityTransferInput,
+  AgentContinuityTransport,
+  AgentContinuityTransportAvailability
+} from "./core/agent-continuity-protocol.js";
+export {
+  AGENT_CONTINUITY_OPERATIONS,
+  AGENT_CONTINUITY_PROTOCOL_VERSION,
+  buildAgentContinuityTransferPlan,
+  negotiateAgentContinuity
+} from "./core/agent-continuity-protocol.js";
 export type { AutomaticEpisodeRollupRecoveryPlan } from "./core/automatic-episode-rollup-recovery.js";
 export {
   countPrivateAutomaticEpisodeRollupRecoveryPlans,

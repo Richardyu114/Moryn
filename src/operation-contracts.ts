@@ -1037,7 +1037,7 @@ const checkpointSourceArguments = {
   }
 } as const satisfies Record<string, OperationArgumentMetadataInput>;
 
-const hostAdapterIds = ["claude", "codex", "gemini", "cursor", "shell"] as const;
+const hostAdapterIds = ["claude", "codex", "gemini", "cursor", "opencode", "shell"] as const;
 
 const setupArguments = {
   host: {

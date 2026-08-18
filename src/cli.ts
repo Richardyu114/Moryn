@@ -2558,7 +2558,7 @@ program
 
 program
   .command("install")
-  .option("--host <host>", "Agent host to prepare: claude, codex, gemini, cursor, or shell")
+  .option("--host <host>", "Agent host to prepare: claude, codex, gemini, cursor, opencode, or shell")
   .option("--project <path>", "Project path to attach to Moryn")
   .option("--sync-remote <remote>", "User-owned Git remote to include in generated commands")
   .option("--apply", "Run safe Moryn-local setup; never mutates host configuration files")
@@ -2769,7 +2769,7 @@ host
 
 program
   .command("setup")
-  .option("--host <host>", "Agent host to prepare: claude, codex, gemini, cursor, or shell")
+  .option("--host <host>", "Agent host to prepare: claude, codex, gemini, cursor, opencode, or shell")
   .option("--project <path>", "Project path to attach to Moryn")
   .option("--sync-remote <remote>", "User-owned Git remote to include in generated commands")
   .option("--apply", "Run safe Moryn-local setup; never mutates host configuration files")

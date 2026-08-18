@@ -2232,7 +2232,7 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
           required: false,
           cli: { flag: "--host" },
           mcp: { argument: "host" },
-          allowed_values: ["claude", "codex", "gemini", "cursor", "shell"]
+          allowed_values: ["claude", "codex", "gemini", "cursor", "opencode", "shell"]
         },
         apply: {
           name: "apply",
@@ -2286,7 +2286,7 @@ describe("moryn CLI", { timeout: CLI_INTEGRATION_TEST_TIMEOUT_MS }, () => {
           required: false,
           cli: { flag: "--host" },
           mcp: { argument: "host" },
-          allowed_values: ["claude", "codex", "gemini", "cursor", "shell"]
+          allowed_values: ["claude", "codex", "gemini", "cursor", "opencode", "shell"]
         },
         apply: {
           name: "apply",

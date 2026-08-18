@@ -15,7 +15,14 @@ import { withInitializedTempStore } from "../helpers/temp-store.js";
 
 describe("host adapters", () => {
   it("lists stable first-version host adapters", () => {
-    expect(getHostAdapters().map((adapter) => adapter.id)).toEqual(["claude", "codex", "gemini", "cursor", "shell"]);
+    expect(getHostAdapters().map((adapter) => adapter.id)).toEqual([
+      "claude",
+      "codex",
+      "gemini",
+      "cursor",
+      "opencode",
+      "shell"
+    ]);
   });
 
   it("normalizes common host aliases to stable client identities", () => {
@@ -23,6 +30,7 @@ describe("host adapters", () => {
     expect(normalizeHostId("codex-cli")).toBe("codex");
     expect(normalizeHostId("gemini-cli")).toBe("gemini");
     expect(normalizeHostId("cursor-agent")).toBe("cursor");
+    expect(normalizeHostId("open-code")).toBe("opencode");
     expect(normalizeHostId("bash")).toBe("shell");
   });
 
@@ -36,6 +44,9 @@ describe("host adapters", () => {
     const codex = getHostAdapter("codex-cli");
     expect(codex?.limitations.join(" ")).toContain("automatic lifecycle activation");
     expect(codex?.limitations.join(" ")).toContain("/hooks");
+    const opencode = getHostAdapter("opencode-cli");
+    expect(opencode?.mcp_registration.command).toContain("opencode.json");
+    expect(opencode?.limitations.join(" ")).toContain("does not install");
   });
 
   it.each(["codex", "claude"] as const)("includes the autonomous knowledge protocol for %s", (host) => {

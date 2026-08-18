@@ -1,4 +1,4 @@
-export type HostAdapterId = "claude" | "codex" | "gemini" | "cursor" | "shell";
+export type HostAdapterId = "claude" | "codex" | "gemini" | "cursor" | "opencode" | "shell";
 
 export type HostAdapter = {
   id: HostAdapterId;
@@ -99,6 +99,29 @@ const HOST_ADAPTERS: HostAdapter[] = [
       records: ["session_summary", "agent_note", "memory(candidate)", "skill(candidate)"]
     },
     limitations: ["MVP does not mutate Cursor settings."]
+  },
+  {
+    id: "opencode",
+    display_name: "OpenCode",
+    normalized_client: "opencode",
+    aliases: ["opencode", "open-code", "open_code", "opencode-cli"],
+    detection_signals: ["OPENCODE_CONFIG", "opencode.json", "opencode.jsonc", ".opencode"],
+    supported_install_steps: ["register_mcp", "print_lifecycle_prompt", "print_capture_commands"],
+    mcp_registration: {
+      command:
+        "Add a local MCP server named 'moryn' with command ['moryn', 'mcp'] under the mcp section in opencode.json.",
+      notes: [
+        "OpenCode supports local MCP servers over stdio; use the configuration shape documented for the installed OpenCode version."
+      ]
+    },
+    lifecycle_prompt: "Use Moryn MCP lifecycle tools for startup, checkpoints, handoff, and recovery.",
+    capture_strategy: {
+      default_command: "moryn capture session --agent opencode --summary <summary>",
+      records: ["session_summary", "agent_note", "memory(candidate)", "skill(candidate)"]
+    },
+    limitations: [
+      "OpenCode exposes plugin session events, but Moryn does not install an OpenCode lifecycle plugin yet; MCP and CLI remain the negotiated paths."
+    ]
   },
   {
     id: "shell",

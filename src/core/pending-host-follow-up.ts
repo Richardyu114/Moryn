@@ -32,7 +32,7 @@ export interface PendingHostFollowUpClockOptions {
 }
 
 const DIRECTORY = "pending-host-follow-ups";
-const hostSchema = z.enum(["claude", "codex", "gemini", "cursor", "shell"]);
+const hostSchema = z.enum(["claude", "codex", "gemini", "cursor", "opencode", "shell"]);
 const identitySchema = z
   .object({
     project_id: z.string().trim().min(1).max(1_024),
