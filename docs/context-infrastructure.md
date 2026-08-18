@@ -128,6 +128,8 @@ The policy is intentionally conservative:
 
 The synchronized event contains only the existing opaque device ID. Moryn does not add a hostname, username, home directory, or IP address to identify the machine. Host prompt injection carries the same boundary, preventing an agent from silently treating recalled remote paths as local tools or files.
 
+Ordinary record reads return the derived record lineage without expanding every contributing event ID. The bounded **timeline** response is the interface that exposes per-event origin metadata.
+
 ## Sync Gate
 
 Sync Gate evaluates pending synchronized events against a destination:

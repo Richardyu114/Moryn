@@ -3990,7 +3990,8 @@ export function createEngine(deps: EngineDeps) {
 
   async function executionOriginContext(
     records: readonly MorynRecord[],
-    events?: readonly MorynEvent[]
+    events?: readonly MorynEvent[],
+    includeEventOrigins = false
   ): Promise<ExecutionOriginContext> {
     const [deviceId, lineageEvents] = await Promise.all([
       currentDeviceId(),
@@ -3999,7 +4000,8 @@ export function createEngine(deps: EngineDeps) {
     return buildExecutionOriginContext({
       current_device_id: deviceId,
       records,
-      events: lineageEvents
+      events: lineageEvents,
+      include_event_origins: includeEventOrigins
     });
   }
 
@@ -5850,7 +5852,7 @@ export function createEngine(deps: EngineDeps) {
       const start = Math.max(0, anchor.index - timelineInput.before);
       const end = Math.min(orderedEvents.length, anchor.index + timelineInput.after + 1);
       const windowEvents = orderedEvents.slice(start, end);
-      const originContext = await executionOriginContext([], windowEvents);
+      const originContext = await executionOriginContext([], windowEvents, true);
       const items = windowEvents.map((event, offset) => {
         const index = start + offset;
         const recordId = recordIdFromEvent(event);

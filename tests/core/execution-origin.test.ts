@@ -43,7 +43,8 @@ describe("execution origin context", () => {
     const context = buildExecutionOriginContext({
       current_device_id: "device-b",
       records: [value],
-      events: [event]
+      events: [event],
+      include_event_origins: true
     });
 
     expect(context.policy).toEqual(EXECUTION_ORIGIN_POLICY);
@@ -134,7 +135,8 @@ describe("execution origin context", () => {
     const context = buildExecutionOriginContext({
       current_device_id: "device-b",
       records: [record()],
-      events: [upsert(), unrelated]
+      events: [upsert(), unrelated],
+      include_event_origins: true
     });
 
     expect(Object.keys(context.events_by_id)).toEqual(["evt-upsert"]);

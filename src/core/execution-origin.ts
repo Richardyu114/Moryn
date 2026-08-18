@@ -145,6 +145,7 @@ export function buildExecutionOriginContext(input: {
   current_device_id?: string;
   records?: readonly MorynRecord[];
   events?: readonly MorynEvent[];
+  include_event_origins?: boolean;
 }): ExecutionOriginContext {
   const currentDeviceId = input.current_device_id?.trim() || undefined;
   const records = [...(input.records ?? [])];
@@ -169,7 +170,7 @@ export function buildExecutionOriginContext(input: {
     recordsById[record.id] = recordLineage(record, eventsByRecordId.get(record.id) ?? [], currentDeviceId);
   }
   const eventsById = createStringKeyedRecord<EventExecutionOrigin>();
-  for (const event of relevantEvents) {
+  for (const event of input.include_event_origins ? relevantEvents : []) {
     const origin = sourceExecutionOrigin(event.source, currentDeviceId);
     eventsById[event.event_id] = {
       event_id: event.event_id,

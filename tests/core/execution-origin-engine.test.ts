@@ -28,6 +28,7 @@ describe("engine execution origin boundaries", () => {
         path_resolution: "require_explicit_device_or_workspace_mapping"
       });
       expect(recalled.results_by_id[written.record.id]?.origin).toEqual(recalled.results[0]?.origin);
+      expect(recalled.origin_context.events_by_id).toEqual({});
 
       const timeline = await engine.timeline({ record_id: written.record.id, before: 1, after: 1 });
       expect(timeline.items[0]?.origin).toMatchObject({
