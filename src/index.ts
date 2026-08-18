@@ -668,6 +668,34 @@ export {
 
 import { PROJECT_INIT_SELECTION_SOURCES } from "./core/project.js";
 
+export type {
+  AddRepoAtlasClaimInput,
+  AddRepoAtlasClaimResult,
+  BuildRepoAtlasViewInput,
+  ReadRepoAtlasInput,
+  RepoAtlasClaim,
+  RepoAtlasClaimEvidence,
+  RepoAtlasClaimStatus,
+  RepoAtlasDelta,
+  RepoAtlasDistribution,
+  RepoAtlasLens,
+  RepoAtlasObservation,
+  RepoAtlasPackageManifest,
+  RepoAtlasSnapshot,
+  RepoAtlasView,
+  ScanRepoAtlasInput
+} from "./core/repo-atlas.js";
+export {
+  addRepoAtlasClaim,
+  buildRepoAtlasView,
+  REPO_ATLAS_DISTRIBUTIONS,
+  REPO_ATLAS_LENSES,
+  REPO_ATLAS_SCHEMA_VERSION,
+  REPO_ATLAS_SNAPSHOT_SELECTION_SOURCES,
+  REPO_ATLAS_VIEW_SELECTION_SOURCES,
+  readRepoAtlas,
+  scanRepoAtlas
+} from "./core/repo-atlas.js";
 export { parseRecord } from "./core/schema.js";
 
 export type {
