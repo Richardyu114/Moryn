@@ -1,8 +1,11 @@
 import { type ActionExecution, type ActionSafety, actionExecution, actionSafety } from "./core/action-safety.js";
+import { AGENT_CONTINUITY_OPERATIONS } from "./core/agent-continuity-protocol.js";
 import { commandLineForCliInterface } from "./core/cli-command-line.js";
 import { PROJECT_SYNC_MODE_INPUTS } from "./core/project.js";
+import { REPO_ATLAS_DISTRIBUTIONS, REPO_ATLAS_LENSES } from "./core/repo-atlas.js";
 import { PROVENANCE_METHODS, RECORD_KINDS, RECORD_PRIORITIES, RECORD_SCOPES, RECORD_STATES } from "./core/schema.js";
 import { stringKeyedRecordFromEntries } from "./core/string-keyed-record.js";
+import { SYNC_GATE_DESTINATIONS } from "./core/sync-gate.js";
 import { RECORD_FEEDBACK_OUTCOMES } from "./core/types.js";
 import { type RequiredFieldMetadata, requiredFieldsByName } from "./core/workflow.js";
 
@@ -346,8 +349,8 @@ export type OperationContractIndexEntry = {
     package_helper: string;
     cli: {
       command: string;
-      executable: "moryn";
-      args: string[];
+      executable?: "moryn";
+      args?: string[];
       exec_file?: {
         executable: "moryn";
         args: string[];
@@ -1255,6 +1258,113 @@ export const OPERATION_CONTRACTS = [
     }
   }),
   operationContract({
+    operation: "continuity_negotiate",
+    category: "lifecycle",
+    summary: "Negotiate normalized lifecycle routes for one agent host without capturing transcript content.",
+    safe_to_run: true,
+    required_when: "Before relying on hooks, MCP, or CLI lifecycle behavior for a host.",
+    required_fields: ["host"],
+    argument_sources: userInputSources(["host"]),
+    arguments_by_name: {
+      host: { type: "string", required: true, cli: { flag: "--host" }, mcp: { argument: "host" } },
+      operations: {
+        type: "string[]",
+        required: false,
+        allowed_values: AGENT_CONTINUITY_OPERATIONS,
+        cli: { flag: "--operation", repeatable: true },
+        mcp: { argument: "operations" }
+      },
+      available_transports: {
+        type: "object",
+        required: false,
+        mcp: { argument: "available_transports" }
+      },
+      native_hook: {
+        type: "boolean",
+        required: false,
+        cli: { negative_flag: "--no-native-hooks" },
+        mcp: { argument: "available_transports", path: "native_hook" },
+        parent_argument: "available_transports"
+      },
+      mcp: {
+        type: "boolean",
+        required: false,
+        cli: { negative_flag: "--no-mcp" },
+        mcp: { argument: "available_transports", path: "mcp" },
+        parent_argument: "available_transports"
+      },
+      cli: {
+        type: "boolean",
+        required: false,
+        cli: { negative_flag: "--no-cli" },
+        mcp: { argument: "available_transports", path: "cli" },
+        parent_argument: "available_transports"
+      }
+    },
+    interfaces: {
+      cli: {
+        command: "moryn continuity negotiate --host <host>",
+        argv: ["continuity", "negotiate", "--host", "<host>"]
+      },
+      mcp: { tool: "continuity_negotiate", arguments: { host: "<host>" } }
+    }
+  }),
+  operationContract({
+    operation: "continuity_transfer",
+    category: "lifecycle",
+    summary: "Build a deterministic cross-host checkpoint, handoff, enter, and recovery plan for one workspace.",
+    safe_to_run: true,
+    required_when: "Before moving an active task between agent clients.",
+    required_fields: ["project_id", "source_host", "target_host"],
+    argument_sources: userInputSources(["project_id", "source_host", "target_host"]),
+    arguments_by_name: {
+      project_id: {
+        type: "string",
+        required: true,
+        cli: { flag: "--project-id" },
+        mcp: { argument: "project_id" }
+      },
+      source_host: {
+        type: "string",
+        required: true,
+        cli: { flag: "--source-host" },
+        mcp: { argument: "source_host" }
+      },
+      target_host: {
+        type: "string",
+        required: true,
+        cli: { flag: "--target-host" },
+        mcp: { argument: "target_host" }
+      },
+      source_transports: { type: "object", required: false, mcp: { argument: "source_transports" } },
+      target_transports: { type: "object", required: false, mcp: { argument: "target_transports" } }
+    },
+    interfaces: {
+      cli: {
+        command:
+          "moryn continuity transfer --project-id <project_id> --source-host <source_host> --target-host <target_host>",
+        argv: [
+          "continuity",
+          "transfer",
+          "--project-id",
+          "<project_id>",
+          "--source-host",
+          "<source_host>",
+          "--target-host",
+          "<target_host>"
+        ]
+      },
+      mcp: {
+        tool: "continuity_transfer",
+        arguments: {
+          project_id: "<project_id>",
+          source_host: "<source_host>",
+          target_host: "<target_host>"
+        }
+      }
+    }
+  }),
+  operationContract({
     operation: "agent_status",
     category: "lifecycle",
     summary: "Write an in-progress project status checkpoint for handoff and coordination.",
@@ -1501,6 +1611,163 @@ export const OPERATION_CONTRACTS = [
     interfaces: {
       cli: { command: "moryn context pack", argv: ["context", "pack"] },
       mcp: { tool: "context_pack", arguments: {} }
+    }
+  }),
+  operationContract({
+    operation: "repo_atlas_scan",
+    category: "core",
+    summary: "Build a local, content-free snapshot from Git-tracked repository evidence.",
+    safe_to_run: true,
+    required_when: "Before adding Repo Atlas claims or after tracked files change.",
+    required_fields: ["repo_path"],
+    argument_sources: userInputSources(["repo_path"]),
+    arguments_by_name: {
+      repo_path: { type: "string", required: true, cli: { flag: "--repo" }, mcp: { argument: "repo_path" } },
+      max_files: {
+        type: "number",
+        required: false,
+        cli: { flag: "--max-files" },
+        mcp: { argument: "max_files" }
+      }
+    },
+    interfaces: {
+      cli: {
+        command: "moryn repo-atlas scan --repo <repo_path>",
+        argv: ["repo-atlas", "scan", "--repo", "<repo_path>"]
+      },
+      mcp: { tool: "repo_atlas_scan", arguments: { repo_path: "<repo_path>" } }
+    }
+  }),
+  operationContract({
+    operation: "repo_atlas_read",
+    category: "core",
+    summary: "Read the current Repo Atlas snapshot and evidence-bound claims.",
+    safe_to_run: true,
+    required_when: "When an agent needs exact repository observations and claim status.",
+    required_fields: ["repo_path"],
+    argument_sources: userInputSources(["repo_path"]),
+    arguments_by_name: {
+      repo_path: { type: "string", required: true, cli: { flag: "--repo" }, mcp: { argument: "repo_path" } }
+    },
+    interfaces: {
+      cli: {
+        command: "moryn repo-atlas read --repo <repo_path>",
+        argv: ["repo-atlas", "read", "--repo", "<repo_path>"]
+      },
+      mcp: { tool: "repo_atlas_read", arguments: { repo_path: "<repo_path>" } }
+    }
+  }),
+  operationContract({
+    operation: "repo_atlas_view",
+    category: "core",
+    summary: "Derive an onboarding, request-path, or release-impact lens from Repo Atlas evidence.",
+    safe_to_run: true,
+    required_when: "When a task needs a bounded repository-specific view.",
+    required_fields: ["repo_path", "lens"],
+    argument_sources: userInputSources(["repo_path", "lens"]),
+    arguments_by_name: {
+      repo_path: { type: "string", required: true, cli: { flag: "--repo" }, mcp: { argument: "repo_path" } },
+      lens: {
+        type: "string",
+        required: true,
+        allowed_values: REPO_ATLAS_LENSES,
+        cli: { flag: "--lens" },
+        mcp: { argument: "lens" }
+      },
+      query: { type: "string", required: false, cli: { flag: "--query" }, mcp: { argument: "query" } },
+      limit: {
+        type: "number",
+        required: false,
+        default: 24,
+        cli: { flag: "--limit", default: 24 },
+        mcp: { argument: "limit" }
+      }
+    },
+    interfaces: {
+      cli: {
+        command: "moryn repo-atlas view --repo <repo_path> --lens <lens>",
+        argv: ["repo-atlas", "view", "--repo", "<repo_path>", "--lens", "<lens>"]
+      },
+      mcp: { tool: "repo_atlas_view", arguments: { repo_path: "<repo_path>", lens: "<lens>" } }
+    }
+  }),
+  operationContract({
+    operation: "repo_atlas_claim",
+    category: "core",
+    summary: "Append an agent-authored repository claim bound to exact observation IDs and digests.",
+    safe_to_run: false,
+    required_when: "When a reusable architecture statement has explicit tracked-file evidence.",
+    required_fields: ["repo_path", "project_id", "statement", "evidence_paths"],
+    argument_sources: userInputSources(["repo_path", "project_id", "statement", "evidence_paths"]),
+    arguments_by_name: {
+      repo_path: { type: "string", required: true, cli: { flag: "--repo" }, mcp: { argument: "repo_path" } },
+      project_id: {
+        type: "string",
+        required: true,
+        cli: { flag: "--project-id" },
+        mcp: { argument: "project_id" }
+      },
+      statement: {
+        type: "string",
+        required: true,
+        cli: { flag: "--statement" },
+        mcp: { argument: "statement" }
+      },
+      evidence_paths: {
+        type: "string[]",
+        required: true,
+        cli: { flag: "--evidence", repeatable: true },
+        mcp: { argument: "evidence_paths" }
+      },
+      confidence: {
+        type: "number",
+        required: false,
+        default: 0.7,
+        cli: { flag: "--confidence", default: 0.7 },
+        mcp: { argument: "confidence" }
+      },
+      tags: {
+        type: "string[]",
+        required: false,
+        cli: { flag: "--tag", repeatable: true },
+        mcp: { argument: "tags" }
+      },
+      distribution: {
+        type: "string",
+        required: false,
+        default: "personal_sync",
+        allowed_values: REPO_ATLAS_DISTRIBUTIONS,
+        cli: { flag: "--distribution", default: "personal_sync" },
+        mcp: { argument: "distribution" }
+      },
+      source: { type: "object", required: false, mcp: { argument: "source" } }
+    },
+    interfaces: {
+      cli: {
+        command:
+          "moryn repo-atlas claim --repo <repo_path> --project-id <project_id> --statement <statement> --evidence <path>",
+        argv: [
+          "repo-atlas",
+          "claim",
+          "--repo",
+          "<repo_path>",
+          "--project-id",
+          "<project_id>",
+          "--statement",
+          "<statement>",
+          "--evidence",
+          "<path>"
+        ]
+      },
+      mcp: {
+        tool: "repo_atlas_claim",
+        arguments: {
+          repo_path: "<repo_path>",
+          project_id: "<project_id>",
+          statement: "<statement>",
+          evidence_paths: ["<path>"]
+        }
+      }
     }
   }),
   operationContract({
@@ -3196,6 +3463,36 @@ export const OPERATION_CONTRACTS = [
     }
   }),
   operationContract({
+    operation: "sync_preflight",
+    category: "sync",
+    summary: "Evaluate pending synchronized events against a destination without publishing them.",
+    safe_to_run: true,
+    required_when: "Before a team or public export, or when diagnosing a blocked personal sync.",
+    required_fields: [],
+    arguments_by_name: {
+      destination: {
+        type: "string",
+        required: false,
+        default: "personal_sync",
+        allowed_values: SYNC_GATE_DESTINATIONS,
+        cli: { flag: "--destination", default: "personal_sync" },
+        mcp: { argument: "destination" }
+      },
+      mode: {
+        type: "string",
+        required: false,
+        default: "shadow",
+        allowed_values: ["shadow", "enforce"],
+        cli: { flag: "--mode", default: "shadow" },
+        mcp: { argument: "mode" }
+      }
+    },
+    interfaces: {
+      cli: { command: "moryn sync preflight", argv: ["sync", "preflight"] },
+      mcp: { tool: "sync_preflight", arguments: {} }
+    }
+  }),
+  operationContract({
     operation: "sync_pull",
     category: "sync",
     summary: "Pull remote event history into the local Moryn store.",
@@ -3348,15 +3645,14 @@ function singleOperationContractResponse(
 
 function operationContractLookup(
   operation: string,
-  options: { includeExecFile?: boolean } = {}
+  options: { includeCliExecution?: boolean; includeExecFile?: boolean } = {}
 ): OperationContractIndexEntry["full_contract_lookup"] {
   const args = ["contracts", "operations", "--operation", operation];
   return {
     package_helper: `getOperationContract('${operation}')`,
     cli: {
       command: commandLineForCliInterface("moryn", args),
-      executable: "moryn",
-      args,
+      ...(options.includeCliExecution ? { executable: "moryn" as const, args } : {}),
       ...(options.includeExecFile
         ? {
             exec_file: {
@@ -3412,6 +3708,7 @@ function operationContractIndexEntry(operation: OperationContract): OperationCon
         }
       : {}),
     full_contract_lookup: operationContractLookup(operation.operation, {
+      includeCliExecution: operation.operation === "agent_finish",
       includeExecFile: operation.operation === "agent_finish"
     })
   };

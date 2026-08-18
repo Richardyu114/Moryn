@@ -159,6 +159,25 @@ describe("documentation contracts", () => {
     expectText(migration, "does not carry a device-local overlay across an unrelated concurrent branch");
   });
 
+  it("documents evidence-backed context infrastructure and physical local-only routing", async () => {
+    const [readme, context] = await Promise.all([
+      readFile("README.md", "utf8"),
+      readFile("docs/context-infrastructure.md", "utf8")
+    ]);
+
+    expect(readme).toContain("[Context Infrastructure](docs/context-infrastructure.md)");
+    expectText(readme, "New `local_only` memory is written to an ignored local event journal");
+    expect(context).toContain("moryn.agent-continuity.v1");
+    expect(context).toContain("moryn continuity transfer");
+    expect(context).toContain("moryn repo-atlas view");
+    expect(context).toContain("moryn sync preflight");
+    expectText(context, "It does not persist source text or the repository's absolute path");
+    expectText(context, "They do not enter the Git publication tree");
+    expectText(context, "Historical bytes that were already published are not rewritten");
+    expectText(context, "The preflight receipt is content-free");
+    expectText(context, "Moryn does not currently install an OpenCode lifecycle plugin");
+  });
+
   it("documents v0.4 Memory Distillation and Portable Soul safety boundaries", async () => {
     const [contracts, design, dashboard, workflow] = await Promise.all([
       readFile("docs/contracts.md", "utf8"),
@@ -256,7 +275,8 @@ describe("documentation contracts", () => {
       readFile("docs/agent-install-prompt.md", "utf8"),
       readFile("docs/agent-workflow.md", "utf8"),
       readFile("docs/contracts.md", "utf8"),
-      readFile("docs/dashboard.md", "utf8")
+      readFile("docs/dashboard.md", "utf8"),
+      readFile("docs/context-infrastructure.md", "utf8")
     ]);
     const joinedDocs = docs.join("\n");
 

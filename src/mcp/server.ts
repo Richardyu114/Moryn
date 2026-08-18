@@ -4,6 +4,12 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { mcpArgumentsForAction } from "../core/action-interfaces.js";
+import {
+  type AgentContinuityOperation,
+  type AgentContinuityTransportAvailability,
+  buildAgentContinuityTransferPlan,
+  negotiateAgentContinuity
+} from "../core/agent-continuity-protocol.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "../core/agent-lifecycle.js";
 import { initializeStore } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
@@ -37,6 +43,15 @@ import {
 } from "../core/operation-deadline.js";
 import { automationOutcome, failedAutomationOutcome } from "../core/operation-outcome.js";
 import { initializeProjectConfig, type ProjectConfig, resolveProjectContext, type SyncMode } from "../core/project.js";
+import {
+  addRepoAtlasClaim,
+  buildRepoAtlasView,
+  type RepoAtlasDistribution,
+  type RepoAtlasLens,
+  readRepoAtlas,
+  scanRepoAtlas
+} from "../core/repo-atlas.js";
+import type { SyncGateDestination, SyncGateMode } from "../core/sync-gate.js";
 import type {
   RecordFeedbackOutcome,
   RecordKind,
@@ -81,7 +96,7 @@ import {
   validateOperationContractIndexArgument,
   validateOperationContractLookupArgument
 } from "../operation-contracts.js";
-import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "../sync/git.js";
+import { getGitSyncStatus, initializeGitSync, previewGitSync, pullGitSync, pushGitSync } from "../sync/git.js";
 
 type Engine = ReturnType<typeof createEngine>;
 type McpInputShape = Record<string, z.ZodType>;
@@ -3345,6 +3360,147 @@ export async function runMcpServer(
 
   registerMcpTool(
     server,
+    "continuity_negotiate",
+    {
+      title: "Negotiate Agent Continuity",
+      description: "Return normalized native-hook, MCP, CLI, or unavailable routes for one agent host.",
+      inputSchema: mcpInputSchema({
+        host: z.unknown(),
+        operations: z.unknown().optional(),
+        available_transports: z.unknown().optional()
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("continuity_negotiate", input, async (normalizedInput) =>
+        negotiateAgentContinuity({
+          host: normalizedInput.host as string,
+          operations: normalizedInput.operations as AgentContinuityOperation[] | undefined,
+          available_transports: normalizedInput.available_transports as AgentContinuityTransportAvailability | undefined
+        })
+      )
+  );
+
+  registerMcpTool(
+    server,
+    "continuity_transfer",
+    {
+      title: "Plan Cross-Host Continuity",
+      description: "Build a content-free checkpoint, handoff, enter, and recovery plan for one workspace.",
+      inputSchema: mcpInputSchema({
+        project_id: z.unknown(),
+        source_host: z.unknown(),
+        target_host: z.unknown(),
+        source_transports: z.unknown().optional(),
+        target_transports: z.unknown().optional()
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("continuity_transfer", input, async (normalizedInput) =>
+        buildAgentContinuityTransferPlan({
+          project_id: normalizedInput.project_id as string,
+          source_host: normalizedInput.source_host as string,
+          target_host: normalizedInput.target_host as string,
+          source_transports: normalizedInput.source_transports as AgentContinuityTransportAvailability | undefined,
+          target_transports: normalizedInput.target_transports as AgentContinuityTransportAvailability | undefined
+        })
+      )
+  );
+
+  registerMcpTool(
+    server,
+    "repo_atlas_scan",
+    {
+      title: "Scan Repo Atlas Evidence",
+      description: "Build a local content-free snapshot from Git-tracked repository files.",
+      inputSchema: mcpInputSchema({
+        repo_path: z.unknown(),
+        max_files: z.unknown().optional()
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("repo_atlas_scan", input, async (normalizedInput) =>
+        scanRepoAtlas({
+          store_path: options.storePath,
+          repo_path: normalizedInput.repo_path as string,
+          max_files: normalizedInput.max_files as number | undefined
+        })
+      )
+  );
+
+  registerMcpTool(
+    server,
+    "repo_atlas_read",
+    {
+      title: "Read Repo Atlas",
+      description: "Read the current evidence snapshot and evidence-bound claims.",
+      inputSchema: mcpInputSchema({ repo_path: z.unknown() })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("repo_atlas_read", input, async (normalizedInput) =>
+        readRepoAtlas({ store_path: options.storePath, repo_path: normalizedInput.repo_path as string })
+      )
+  );
+
+  registerMcpTool(
+    server,
+    "repo_atlas_view",
+    {
+      title: "Build Repo Atlas Lens",
+      description: "Derive an onboarding, request-path, or release-impact view.",
+      inputSchema: mcpInputSchema({
+        repo_path: z.unknown(),
+        lens: z.unknown(),
+        query: z.unknown().optional(),
+        limit: z.unknown().optional()
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("repo_atlas_view", input, async (normalizedInput) =>
+        buildRepoAtlasView({
+          store_path: options.storePath,
+          repo_path: normalizedInput.repo_path as string,
+          lens: normalizedInput.lens as RepoAtlasLens,
+          query: normalizedInput.query as string | undefined,
+          limit: normalizedInput.limit as number | undefined
+        })
+      )
+  );
+
+  registerMcpTool(
+    server,
+    "repo_atlas_claim",
+    {
+      title: "Add Repo Atlas Claim",
+      description: "Append an authored repository claim bound to exact observation IDs and digests.",
+      inputSchema: mcpInputSchema({
+        repo_path: z.unknown(),
+        project_id: z.unknown(),
+        statement: z.unknown(),
+        evidence_paths: z.unknown(),
+        confidence: z.unknown().optional(),
+        tags: z.unknown().optional(),
+        distribution: z.unknown().optional(),
+        source: coreValidatedSourceSchema.optional()
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("repo_atlas_claim", input, async (normalizedInput) =>
+        addRepoAtlasClaim({
+          store_path: options.storePath,
+          repo_path: normalizedInput.repo_path as string,
+          project_id: normalizedInput.project_id as string,
+          statement: normalizedInput.statement as string,
+          evidence_paths: normalizedInput.evidence_paths as string[],
+          confidence: normalizedInput.confidence as number | undefined,
+          tags: normalizedInput.tags as string[] | undefined,
+          distribution: normalizedInput.distribution as RepoAtlasDistribution | undefined,
+          source: withDefaultSource(normalizedInput.source) as RecordSource
+        })
+      )
+  );
+
+  registerMcpTool(
+    server,
     "agent_status",
     {
       title: "Publish Moryn Agent Status",
@@ -3646,6 +3802,27 @@ export async function runMcpServer(
     },
     async (input) =>
       toolResultWithNormalizedInput("sync_status", input, async () => getGitSyncStatus(options.storePath))
+  );
+
+  registerMcpTool(
+    server,
+    "sync_preflight",
+    {
+      title: "Preview Moryn Sync Policy",
+      description: "Evaluate pending synchronized events against a destination without publishing them.",
+      inputSchema: mcpInputSchema({
+        destination: z.unknown().optional(),
+        mode: z.unknown().optional()
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("sync_preflight", input, async (normalizedInput) =>
+        previewGitSync(
+          options.storePath,
+          normalizedInput.destination as SyncGateDestination | undefined,
+          normalizedInput.mode as SyncGateMode | undefined
+        )
+      )
   );
 
   registerMcpTool(

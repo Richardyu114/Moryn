@@ -167,7 +167,7 @@ flowchart LR
 
 The host adapter layer is an adoption layer, not a new ownership model. It
 normalizes common host identities such as `codex`, `claude`, `gemini`,
-`cursor`, and `shell`, then returns safe setup plans, startup context packs,
+`cursor`, `opencode`, and `shell`, then returns safe setup plans, startup context packs,
 and required end-of-session capture actions.
 
 ```text

@@ -247,7 +247,7 @@ Defaults:
 listens, so `--host 0.0.0.0` exposes the dashboard on external network
 interfaces. `--readiness-host` is separate: it selects the agent adapter used
 inside `health_check.setup_readiness` commands, such as `codex`, `claude`,
-`gemini`, `cursor`, or `shell`. `--sync-remote` is copied into generated
+`gemini`, `cursor`, `opencode`, or `shell`. `--sync-remote` is copied into generated
 readiness commands. Dashboard GET and HEAD rendering remains read-only: it does
 not initialize sync, contact the remote, register MCP, edit host config, or
 approve a new project identity. Separately, the live server runs a bounded

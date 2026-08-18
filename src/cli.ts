@@ -4,6 +4,12 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command, CommanderError } from "commander";
+import {
+  AGENT_CONTINUITY_OPERATIONS,
+  type AgentContinuityTransportAvailability,
+  buildAgentContinuityTransferPlan,
+  negotiateAgentContinuity
+} from "./core/agent-continuity-protocol.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "./core/agent-lifecycle.js";
 import { commandLineForCliInterface } from "./core/cli-command-line.js";
 import { initializeStore, readStoreConfig } from "./core/config.js";
@@ -66,8 +72,17 @@ import {
   type SyncMode
 } from "./core/project.js";
 import type { RecallEvalCaseInput } from "./core/recall-eval.js";
+import {
+  addRepoAtlasClaim,
+  buildRepoAtlasView,
+  REPO_ATLAS_DISTRIBUTIONS,
+  REPO_ATLAS_LENSES,
+  readRepoAtlas,
+  scanRepoAtlas
+} from "./core/repo-atlas.js";
 import { isValidPatchPath, RECORD_KINDS, RECORD_PRIORITIES, RECORD_SCOPES, RECORD_STATES } from "./core/schema.js";
 import { SOUL_DISTRIBUTIONS } from "./core/soul-profile.js";
+import { SYNC_GATE_DESTINATIONS, type SyncGateMode } from "./core/sync-gate.js";
 import { RECORD_FEEDBACK_OUTCOMES } from "./core/types.js";
 import {
   activateClaudeSettings,
@@ -106,7 +121,7 @@ import {
   OperationContractLookupError,
   type OperationContractLookupOption
 } from "./operation-contracts.js";
-import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "./sync/git.js";
+import { getGitSyncStatus, initializeGitSync, previewGitSync, pullGitSync, pushGitSync } from "./sync/git.js";
 
 const program = new Command();
 const hostRuntime = {
@@ -4769,6 +4784,145 @@ agent
     }
   });
 
+function continuityTransports(options: {
+  nativeHooks?: boolean;
+  mcp?: boolean;
+  cli?: boolean;
+}): AgentContinuityTransportAvailability | undefined {
+  const availability: AgentContinuityTransportAvailability = {};
+  if (options.nativeHooks === false) availability.native_hook = false;
+  if (options.mcp === false) availability.mcp = false;
+  if (options.cli === false) availability.cli = false;
+  return Object.keys(availability).length ? availability : undefined;
+}
+
+const continuity = program.command("continuity").description("Negotiate lifecycle capabilities across agent hosts");
+
+continuity
+  .command("negotiate")
+  .requiredOption("--host <host>", "Host adapter identity")
+  .option("--operation <name>", "Lifecycle operation", collectNonEmptyOption("--operation"))
+  .option("--no-native-hooks", "Declare native hooks unavailable")
+  .option("--no-mcp", "Declare MCP unavailable")
+  .option("--no-cli", "Declare the CLI unavailable")
+  .action((options) => {
+    printJson(
+      negotiateAgentContinuity({
+        host: options.host,
+        operations: options.operation?.length
+          ? parseEnumList(options.operation, AGENT_CONTINUITY_OPERATIONS, "--operation")
+          : undefined,
+        available_transports: continuityTransports(options)
+      })
+    );
+  });
+
+continuity
+  .command("transfer")
+  .requiredOption("--project-id <id>", "Stable workspace identity")
+  .requiredOption("--source-host <host>", "Host handing off the task")
+  .requiredOption("--target-host <host>", "Host resuming the task")
+  .option("--no-source-native-hooks", "Declare source native hooks unavailable")
+  .option("--no-source-mcp", "Declare source MCP unavailable")
+  .option("--no-source-cli", "Declare source CLI unavailable")
+  .option("--no-target-native-hooks", "Declare target native hooks unavailable")
+  .option("--no-target-mcp", "Declare target MCP unavailable")
+  .option("--no-target-cli", "Declare target CLI unavailable")
+  .action((options) => {
+    printJson(
+      buildAgentContinuityTransferPlan({
+        project_id: options.projectId,
+        source_host: options.sourceHost,
+        target_host: options.targetHost,
+        source_transports: continuityTransports({
+          nativeHooks: options.sourceNativeHooks,
+          mcp: options.sourceMcp,
+          cli: options.sourceCli
+        }),
+        target_transports: continuityTransports({
+          nativeHooks: options.targetNativeHooks,
+          mcp: options.targetMcp,
+          cli: options.targetCli
+        })
+      })
+    );
+  });
+
+const repoAtlas = program.command("repo-atlas").description("Build and query evidence-backed repository context");
+
+repoAtlas
+  .command("scan")
+  .option("--repo <path>", "Git repository path", process.cwd())
+  .option("--max-files <count>", "Maximum tracked files to inspect")
+  .action(async (options) => {
+    printJson(
+      await scanRepoAtlas({
+        store_path: storePath(),
+        repo_path: options.repo,
+        max_files: parseBoundedIntegerOption(options.maxFiles, "--max-files", 1, 50_000)
+      })
+    );
+  });
+
+repoAtlas
+  .command("read")
+  .option("--repo <path>", "Git repository path", process.cwd())
+  .action(async (options) => {
+    printJson(await readRepoAtlas({ store_path: storePath(), repo_path: options.repo }));
+  });
+
+repoAtlas
+  .command("view")
+  .option("--repo <path>", "Git repository path", process.cwd())
+  .requiredOption("--lens <lens>", "onboarding, request_path, or release_impact")
+  .option("--query <text>", "Optional request or architecture query")
+  .option("--limit <count>", "Maximum paths and claims", "24")
+  .action(async (options) => {
+    printJson(
+      await buildRepoAtlasView({
+        store_path: storePath(),
+        repo_path: options.repo,
+        lens: parseEnum(options.lens, REPO_ATLAS_LENSES, "--lens")!,
+        query: options.query,
+        limit: parseBoundedIntegerOption(options.limit, "--limit", 1, 200)
+      })
+    );
+  });
+
+repoAtlas
+  .command("claim")
+  .option("--repo <path>", "Git repository path", process.cwd())
+  .requiredOption("--project-id <id>")
+  .requiredOption("--statement <text>")
+  .requiredOption("--evidence <path>", "Tracked evidence path", collectNonEmptyOption("--evidence"))
+  .option("--confidence <value>", "Confidence from 0 to 1")
+  .option("--tag <tag>", "Claim tag", collectNonEmptyOption("--tag"))
+  .option("--distribution <class>", "Distribution boundary", "personal_sync")
+  .option("--agent <client>", "Source client", "cli")
+  .option("--session-id <id>")
+  .option("--model <model>")
+  .option("--device-id <id>")
+  .action(async (options) => {
+    printJson(
+      await addRepoAtlasClaim({
+        store_path: storePath(),
+        repo_path: options.repo,
+        project_id: options.projectId,
+        statement: options.statement,
+        evidence_paths: options.evidence,
+        confidence: parseConfidence(options.confidence),
+        tags: options.tag,
+        distribution: parseEnum(options.distribution, REPO_ATLAS_DISTRIBUTIONS, "--distribution"),
+        source: {
+          client: options.agent,
+          session_id: options.sessionId,
+          model: options.model,
+          device_id: options.deviceId
+        }
+      })
+    );
+  });
+
 const project = program.command("project");
 
 project
@@ -4910,6 +5064,20 @@ sync
   .action(async (remote, options) => {
     const syncRemote = parseNonEmptyCliPositional(remote, "remote", { operation: "sync_init", argument: "remote" });
     printJson(await withDashboard(await initializeGitSync(storePath(), syncRemote), { open: options.open }));
+  });
+
+sync
+  .command("preflight")
+  .option("--destination <destination>", "personal_sync, trusted_team, or public_export", "personal_sync")
+  .option("--mode <mode>", "shadow or enforce", "shadow")
+  .action(async (options) => {
+    printJson(
+      await previewGitSync(
+        storePath(),
+        parseEnum(options.destination, SYNC_GATE_DESTINATIONS, "--destination")!,
+        parseEnum(options.mode, ["shadow", "enforce"] as const, "--mode") as SyncGateMode
+      )
+    );
   });
 
 sync

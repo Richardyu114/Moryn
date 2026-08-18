@@ -4,7 +4,7 @@
 
 **Local-first, user-owned memory and handoffs for AI agents.**
 
-Moryn lets Codex, Claude Code, Cursor, Gemini, shell agents, and scripts share
+Moryn lets Codex, Claude Code, Cursor, Gemini, OpenCode, shell agents, and scripts share
 durable project context without giving ownership to any one agent vendor.
 Agents recall only what fits, hand work to the next agent, and sync through a
 private Git repository you control.
@@ -93,6 +93,25 @@ Dashboard GET views add read-only Memory Maintenance and Soul Studio
 projections; explicit POST actions remain auditable mutations. See the
 [v0.4 migration guide](docs/v0.4-migration.md) for compatibility and safety
 details.
+
+## Context infrastructure
+
+Moryn also exposes three evidence-first controls for multi-agent engineering:
+
+- **Agent Continuity Protocol v1** negotiates native hooks, MCP, or CLI per
+  lifecycle operation and emits content-free conformance receipts. Codex and
+  Claude use validated native lifecycle surfaces; OpenCode uses the same
+  contract through MCP without pretending its plugin hooks are installed.
+- **Repo Atlas** scans Git-tracked metadata into a rebuildable local snapshot,
+  binds authored architecture claims to exact file digests, marks claims stale
+  after evidence changes, and derives onboarding, request-path, and
+  release-impact views.
+- **Sync Gate** routes new local-only payloads to an ignored local journal and
+  evaluates synchronized events against personal, trusted-team, or public
+  destinations before publication.
+
+Commands, MCP parity, OpenCode setup, and safety boundaries are documented in
+[Context Infrastructure](docs/context-infrastructure.md).
 
 When a prompt exposes a reusable knowledge gap, the agent can queue it without
 interrupting the user:
@@ -277,6 +296,7 @@ flowchart TB
     Codex["Codex"]
     Claude["Claude"]
     Cursor["Cursor"]
+    OpenCode["OpenCode"]
     Scripts["Scripts"]
   end
 
@@ -310,7 +330,7 @@ flowchart TB
     Remote["user-owned private repo"]
   end
 
-  Codex & Claude & Cursor --> MCP
+  Codex & Claude & Cursor & OpenCode --> MCP
   Scripts --> CLI
   MCP & CLI --> Engine
   Engine --> Events
@@ -353,10 +373,11 @@ doctor/lifecycle reports, and the dashboard). Unified compaction preview also
 excludes private-classified sources by default and returns
 a count-only, non-applicable omission blocker when they are present in the
 requested scope. Pass `--include-private` (or MCP `include_private: true`) only
-with explicit user intent. For ordinary memory, `local_only` is a read
-authorization marker and does not prevent the append-only event from following
-the store's configured Git sync; Soul clause distribution is the separate
-portable-projection boundary. High-risk canonical writes require confirmation.
+with explicit user intent. New `local_only` memory is written to an ignored
+local event journal and merged into local read models without entering the Git
+publication tree. Existing bytes already published by older versions are not
+rewritten or claimed to be erased. High-risk canonical writes require
+confirmation.
 
 **Capture Inbox** is the exceptional human-review path. Low-risk handoffs are
 auto-captured as local evidence without a click; risky or durable decisions go
@@ -378,8 +399,10 @@ Generic MCP host config:
 { "mcpServers": { "moryn": { "command": "moryn", "args": ["mcp"] } } }
 ```
 
-Codex and Claude Code are the validated v0.3 Autopilot integrations; other hosts
-use MCP plus explicit lifecycle commands. See
+OpenCode can configure the same local command in `opencode.json` under
+`mcp`; see [Context Infrastructure](docs/context-infrastructure.md#opencode).
+Codex and Claude Code are the validated native Autopilot integrations; other
+hosts use MCP plus explicit lifecycle commands. See
 [Agent Workflow](docs/agent-workflow.md) for the full lifecycle.
 
 ## Git sync
@@ -391,11 +414,12 @@ code repo:
 moryn sync init git@github.com:yourname/moryn-store.git
 ```
 
-`config.json`, `.moryn/`, `snapshots/`, `indexes/`, and `state/` are local-only;
-event history is the source of truth and derived views rebuild via `moryn
-rebuild`. Sync fails closed if local or remote reachable history ever contained
-one of those local-only paths: deleting it from the current tip does not erase
-the earlier Git blob.
+`config.json`, `.moryn/`, `snapshots/`, `indexes/`, `state/`, and
+`state/local-events/` are local-only. Synchronized event history plus the
+local event overlay form the local source of truth; derived views rebuild via
+`moryn rebuild`. Sync fails closed if local or remote reachable history ever
+contained one of those local-only paths: deleting it from the current tip does
+not erase the earlier Git blob.
 
 ## Dashboard
 
