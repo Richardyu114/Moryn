@@ -76,6 +76,21 @@ export type {
   ExactDuplicateConsolidationReceipt
 } from "./core/exact-duplicate-consolidation.js";
 export { AUTOMATIC_EXACT_DUPLICATE_RECORD_KINDS } from "./core/exact-duplicate-consolidation.js";
+export type {
+  EventExecutionOrigin,
+  ExecutionOriginContext,
+  PathResolutionAction,
+  RecordDeviceLineage,
+  RecordExecutionOrigin,
+  SourceDeviceRelation,
+  SourceExecutionOrigin
+} from "./core/execution-origin.js";
+export {
+  buildExecutionOriginContext,
+  EXECUTION_ORIGIN_POLICY,
+  EXECUTION_ORIGIN_VERSION,
+  sourceExecutionOrigin
+} from "./core/execution-origin.js";
 export type { FinalizationAssuranceSelection, IncomingSessionIdentity } from "./core/finalization-assurance.js";
 export { selectPriorSessionForFinalization } from "./core/finalization-assurance.js";
 export type { AutomationOutcome, AutomationOutcomeStatus } from "./core/operation-outcome.js";

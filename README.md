@@ -96,7 +96,7 @@ details.
 
 ## Context infrastructure
 
-Moryn also exposes three evidence-first controls for multi-agent engineering:
+Moryn also exposes four evidence-first controls for multi-agent engineering:
 
 - **Agent Continuity Protocol v1** negotiates native hooks, MCP, or CLI per
   lifecycle operation and emits content-free conformance receipts. Codex and
@@ -109,6 +109,9 @@ Moryn also exposes three evidence-first controls for multi-agent engineering:
 - **Sync Gate** routes new local-only payloads to an ignored local journal and
   evaluates synchronized events against personal, trusted-team, or public
   destinations before publication.
+- **Execution Origin Boundary** marks recalled records and timeline events as
+  current-device, remote-device, multi-device, or unknown, so synchronized
+  filesystem paths are never silently treated as local paths.
 
 Commands, MCP parity, OpenCode setup, and safety boundaries are documented in
 [Context Infrastructure](docs/context-infrastructure.md).

@@ -24,6 +24,7 @@ import {
   normalizeCheckpointInput,
   parseCheckpointContent
 } from "./checkpoint.js";
+import { readStoreConfig } from "./config.js";
 import { displayRecordText, searchableContentText, searchableRecordText } from "./content-text.js";
 import {
   type LearningDelta,
@@ -45,6 +46,7 @@ import {
   type ExactDuplicateConsolidationInput,
   runAutomaticExactDuplicateConsolidation
 } from "./exact-duplicate-consolidation.js";
+import { buildExecutionOriginContext, type ExecutionOriginContext } from "./execution-origin.js";
 import { diagnoseHealthCheck, HEALTH_CHECK_SELECTION_SOURCES, type HealthCheckInput } from "./health-check.js";
 import {
   HISTORICAL_RECALL_SELECTION_SOURCES,
@@ -3975,9 +3977,30 @@ export function createEngine(deps: EngineDeps) {
   const appendIdempotentEvent = deps.appendEventIfAbsent ?? appendEventIfAbsent;
   const readRecords = deps.readCurrentRecords ?? readCurrentRecords;
   const readCandidates = deps.readRetrievalCandidates ?? readRetrievalCandidates;
+  let currentDeviceIdPromise: Promise<string> | undefined;
 
   async function currentRecords(): Promise<MorynRecord[]> {
     return (await readRecords(deps.storePath)).records;
+  }
+
+  function currentDeviceId(): Promise<string> {
+    currentDeviceIdPromise ??= readStoreConfig(deps.storePath).then((config) => config.device_id);
+    return currentDeviceIdPromise;
+  }
+
+  async function executionOriginContext(
+    records: readonly MorynRecord[],
+    events?: readonly MorynEvent[]
+  ): Promise<ExecutionOriginContext> {
+    const [deviceId, lineageEvents] = await Promise.all([
+      currentDeviceId(),
+      events ? Promise.resolve(events) : records.length ? readEvents(deps.storePath) : Promise.resolve([])
+    ]);
+    return buildExecutionOriginContext({
+      current_device_id: deviceId,
+      records,
+      events: lineageEvents
+    });
   }
 
   async function requireRecord(recordId: string): Promise<MorynRecord> {
@@ -5791,15 +5814,21 @@ export function createEngine(deps: EngineDeps) {
               : undefined
           })
         : undefined;
+      const originContext = await executionOriginContext(records.map((result) => result.record));
+      const results = records.map((result) => ({
+        ...result,
+        origin: originContext.records_by_id[result.record.id]
+      }));
       return {
-        results: records,
+        results,
+        origin_context: originContext,
         ...(retrievalEvidence ? { retrieval: retrievalEvidence } : {}),
         ...(bounded ? { memory_working_set: bounded.report } : {}),
         ...(historicalRecovery ? { historical_recovery: historicalRecovery } : {}),
         ...(outcome ? { outcome } : {}),
         ...(actionContract ? actionContract : {}),
         selection_sources: RECALL_SELECTION_SOURCES,
-        results_by_id: Object.fromEntries(records.map((result) => [result.record.id, result]))
+        results_by_id: Object.fromEntries(results.map((result) => [result.record.id, result]))
       };
     },
 
@@ -5820,7 +5849,9 @@ export function createEngine(deps: EngineDeps) {
       const anchor = timelineAnchor(orderedEvents, records, timelineInput);
       const start = Math.max(0, anchor.index - timelineInput.before);
       const end = Math.min(orderedEvents.length, anchor.index + timelineInput.after + 1);
-      const items = orderedEvents.slice(start, end).map((event, offset) => {
+      const windowEvents = orderedEvents.slice(start, end);
+      const originContext = await executionOriginContext([], windowEvents);
+      const items = windowEvents.map((event, offset) => {
         const index = start + offset;
         const recordId = recordIdFromEvent(event);
         const record = event.op === "upsert_record" ? event.record : recordsMap.get(recordId);
@@ -5831,6 +5862,7 @@ export function createEngine(deps: EngineDeps) {
           created_at: event.created_at,
           record_id: recordId,
           source: event.source,
+          origin: originContext.events_by_id[event.event_id],
           summary: record ? summarizeRecord(record) : event.op,
           ...(record
             ? { record: compactRecord(record), next_action: timelineItemNextAction(recordId, timelineInput) }
@@ -5848,6 +5880,7 @@ export function createEngine(deps: EngineDeps) {
           source: anchor.source
         },
         items,
+        origin_context: originContext,
         selection_sources: TIMELINE_SELECTION_SOURCES,
         items_by_event_id: stringKeyedRecordFromEntries(items.map((item) => [item.event_id, item] as const)),
         items_by_record_id: itemsByRecordId
@@ -5948,6 +5981,26 @@ export function createEngine(deps: EngineDeps) {
         .filter((record) => bootInput.include_private || !isPrivateRecord(record))
         .filter((record) => Boolean(parseCheckpointContent(record.content)))
         .at(-1);
+      const bootRecords = [
+        ...new Map(
+          [
+            ...userPreferences,
+            ...soul,
+            ...globalRules,
+            ...importantDecisions,
+            ...warnings,
+            ...skills,
+            ...compactTaskRelevant,
+            ...recentChanges
+          ].map((record) => [record.id, record] as const)
+        ).values()
+      ];
+      const originContext = await executionOriginContext([
+        ...bootRecords,
+        ...(activeCheckpoint && !bootRecords.some((record) => record.id === activeCheckpoint.id)
+          ? [activeCheckpoint]
+          : [])
+      ]);
       return {
         ...(retrievalEvidence ? { retrieval: retrievalEvidence } : {}),
         memory_working_set: memoryWorkingSet.report,
@@ -5986,17 +6039,9 @@ export function createEngine(deps: EngineDeps) {
         ...(bootInput.agent_session_id
           ? { active_checkpoint: activeCheckpoint, checkpoint_recovery_pack: checkpointRecoveryPack }
           : {}),
+        origin_context: originContext,
         selection_sources: BOOT_SELECTION_SOURCES,
-        records_by_id: recordsById([
-          ...userPreferences,
-          ...soul,
-          ...globalRules,
-          ...importantDecisions,
-          ...warnings,
-          ...skills,
-          ...compactTaskRelevant,
-          ...recentChanges
-        ]),
+        records_by_id: recordsById(bootRecords),
         sync: { cursor, remote_has_updates: remoteUpdates }
       };
     },
@@ -6031,6 +6076,11 @@ export function createEngine(deps: EngineDeps) {
       });
       const reportableChanges = allChanges.filter((change) => change.change.importance !== "silent");
       const changes = reportableChanges.slice(0, limit);
+      const originContext = await executionOriginContext(changes.map((change) => change.record));
+      const changesWithOrigin = changes.map((change) => ({
+        ...change.change,
+        origin: originContext.records_by_id[change.record.id]
+      }));
       const hasMore = reportableChanges.length > changes.length;
       const cursorRecord = hasMore ? changes.at(-1)?.record : records.at(-1);
       const cursorPosition =
@@ -6040,9 +6090,10 @@ export function createEngine(deps: EngineDeps) {
       return {
         cursor: encodeRefreshCursor(cursorPosition),
         has_more: hasMore,
-        changes: changes.map((change) => change.change),
+        changes: changesWithOrigin,
+        origin_context: originContext,
         selection_sources: REFRESH_SELECTION_SOURCES,
-        changes_by_record_id: Object.fromEntries(changes.map((change) => [change.change.record_id, change.change])),
+        changes_by_record_id: Object.fromEntries(changesWithOrigin.map((change) => [change.record_id, change])),
         should_interrupt: changes.some((change) => change.change.importance === "interrupt")
       };
     },
@@ -6063,8 +6114,10 @@ export function createEngine(deps: EngineDeps) {
           .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || compareCodeUnits(left.id, right.id))
           .slice(0, validateLimit(resolvedInput.limit, 20, "list_recent"))
       );
+      const originContext = await executionOriginContext(records);
       return {
         records,
+        origin_context: originContext,
         selection_sources: LIST_RECENT_SELECTION_SOURCES,
         records_by_id: recordsById(records)
       };

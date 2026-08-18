@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { buildExecutionOriginContext } from "../../src/core/execution-origin.js";
 import { recoverHistoricalRecall } from "../../src/core/historical-recall.js";
 import { buildPromptRecallContext } from "../../src/core/host-prompt-recall.js";
 import type { RecallOutcome } from "../../src/core/recall-outcome.js";
@@ -176,5 +177,53 @@ describe("host prompt recall context", () => {
     });
     expect(payload.instruction).toContain("Do not reactivate archived source records directly");
     expect(context.additional_context).not.toContain("historical release channel is cedar");
+  });
+
+  it("prevents a trusted remote path from being presented as local knowledge", () => {
+    const remoteRecord: MorynRecord = {
+      id: "rec_remote_path",
+      kind: "memory",
+      type: "workspace_path",
+      scope: "project",
+      project_id: "moryn",
+      tags: [],
+      content: { text: "The checkout is /home/machine-a/moryn." },
+      state: "canonical",
+      confidence: 1,
+      priority: "normal",
+      visibility: "active",
+      created_at: "2026-08-18T00:00:00.000Z",
+      updated_at: "2026-08-18T00:00:00.000Z",
+      source: { client: "codex", device_id: "device-a" }
+    };
+    const origin = buildExecutionOriginContext({
+      current_device_id: "device-b",
+      records: [remoteRecord]
+    }).records_by_id[remoteRecord.id];
+    const context = buildPromptRecallContext({
+      outcome: outcome("trusted_match", remoteRecord.id),
+      results: [{ record: remoteRecord, score: 1, origin }],
+      question: "Where is the checkout?",
+      capture_context: {
+        project_id: "moryn",
+        agent: { client: "codex", session_id: "session-b", device_id: "device-b" }
+      }
+    });
+    const payload = JSON.parse(context.additional_context);
+
+    expect(payload.instruction).not.toContain("trusted local knowledge");
+    expect(payload.origin_boundary).toMatchObject({
+      current_device: { device_id: "device-b" },
+      records_by_id: {
+        [remoteRecord.id]: {
+          lineage: "remote_device_only",
+          path_resolution: "require_explicit_device_or_workspace_mapping"
+        }
+      }
+    });
+    expect(payload.origin_boundary.instruction).toContain("do not access the same absolute path locally");
+    expect(payload.records[0].origin).toMatchObject({
+      creation: { relation_to_current_device: "other_device" }
+    });
   });
 });

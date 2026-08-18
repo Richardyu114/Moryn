@@ -1,10 +1,11 @@
 # Context Infrastructure
 
-Moryn provides three complementary context controls:
+Moryn provides four complementary context controls:
 
 - **Agent Continuity Protocol** normalizes lifecycle behavior across agent hosts.
 - **Repo Atlas** separates mechanical repository observations from authored architecture claims.
 - **Sync Gate** evaluates pending event bytes against an explicit destination before publication.
+- **Execution Origin Boundary** keeps synchronized events and filesystem paths tied to the device where they occurred.
 
 These controls keep Moryn local-first. They do not require a hosted memory service, a vector database, or ownership of the agent runtime.
 
@@ -91,6 +92,41 @@ Claims bind to exact observation IDs and digests. A later scan marks a claim **s
 - **release_impact:** changed paths and stale claims since the previous snapshot.
 
 Claim distribution is explicit: **local_only**, **personal_sync**, **trusted_team**, or **public_export**.
+
+## Execution Origin Boundary
+
+Synchronizing an event makes it available on another device; it does not make the event local to that device. Moryn therefore compares every event's immutable **source.device_id** with the reading store's local device ID.
+
+Read APIs expose **origin_context**, and recall, timeline, and refresh items include a direct **origin** reference. Record lineage is classified as:
+
+| Lineage | Meaning | Path action |
+| --- | --- | --- |
+| current_device_only | every known mutation occurred on this device | verify the path exists before access |
+| remote_device_only | every known mutation occurred on one other device | require an explicit device or workspace mapping |
+| multiple_devices | mutations came from more than one device | inspect the event timeline, then map the relevant path |
+| unknown | legacy or incomplete device provenance | verify origin before access |
+
+~~~json
+{
+  "lineage": "remote_device_only",
+  "source_device_ids": ["device-a"],
+  "path_resolution": "require_explicit_device_or_workspace_mapping",
+  "creation": {
+    "relation_to_current_device": "other_device",
+    "occurrence": "source_device_only"
+  }
+}
+~~~
+
+The policy is intentionally conservative:
+
+- The event source, not the reader, identifies where an operation occurred.
+- Absolute and relative filesystem paths remain source-device references.
+- Moryn never substitutes the same absolute path on another machine.
+- Paths from the current device still require an existence check.
+- Legacy events remain readable and are marked **unknown**; Moryn does not rewrite history.
+
+The synchronized event contains only the existing opaque device ID. Moryn does not add a hostname, username, home directory, or IP address to identify the machine. Host prompt injection carries the same boundary, preventing an agent from silently treating recalled remote paths as local tools or files.
 
 ## Sync Gate
 
