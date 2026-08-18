@@ -9,6 +9,7 @@ export const SYNC_GATE_DISTRIBUTIONS = ["local_only", "personal_sync", "trusted_
 export type SyncGateDestination = (typeof SYNC_GATE_DESTINATIONS)[number];
 export type SyncGateDistribution = (typeof SYNC_GATE_DISTRIBUTIONS)[number];
 export type SyncGateDecision = "allow" | "review_required" | "deny";
+export type SyncGateMode = "shadow" | "enforce";
 
 export type SyncGateFindingCode =
   | "sensitive_content"
@@ -41,8 +42,8 @@ export const SYNC_GATE_SELECTION_SOURCES = {
 export interface SyncGatePreflight {
   schema_version: 1;
   policy_version: typeof SYNC_GATE_POLICY_VERSION;
-  mode: "shadow";
-  enforced: false;
+  mode: SyncGateMode;
+  enforced: boolean;
   destination: SyncGateDestination;
   evidence_digest: string;
   receipt_id: string;
@@ -61,6 +62,7 @@ export interface SyncGatePreflight {
 export interface EvaluateSyncGateInput {
   events: MorynEvent[];
   destination?: SyncGateDestination;
+  mode?: SyncGateMode;
   current_records?: ReadonlyMap<string, MorynRecord>;
 }
 
@@ -267,6 +269,7 @@ function decideEvent(
 
 export function evaluateSyncGate(input: EvaluateSyncGateInput): SyncGatePreflight {
   const destination = parseSyncGateDestination(input.destination ?? "personal_sync");
+  const mode = input.mode ?? "shadow";
   const events = [...input.events].sort(
     (left, right) => left.created_at.localeCompare(right.created_at) || left.event_id.localeCompare(right.event_id)
   );
@@ -285,8 +288,8 @@ export function evaluateSyncGate(input: EvaluateSyncGateInput): SyncGatePrefligh
   return {
     schema_version: 1,
     policy_version: SYNC_GATE_POLICY_VERSION,
-    mode: "shadow",
-    enforced: false,
+    mode,
+    enforced: mode === "enforce",
     destination,
     evidence_digest: evidenceDigest,
     receipt_id: `sync_gate_${evidenceDigest.slice(0, 32)}`,

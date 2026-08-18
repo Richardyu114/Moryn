@@ -15,7 +15,12 @@ import { replayEvents } from "../core/replay.js";
 import { parseEvent } from "../core/schema.js";
 import { withStoreStateLease } from "../core/state-lease.js";
 import { readEvents } from "../core/store.js";
-import { evaluateSyncGate, type SyncGateDestination, type SyncGatePreflight } from "../core/sync-gate.js";
+import {
+  evaluateSyncGate,
+  type SyncGateDestination,
+  type SyncGateMode,
+  type SyncGatePreflight
+} from "../core/sync-gate.js";
 import type { MorynEvent } from "../core/types.js";
 import {
   captureSoulGitFetchRemoteIdentityDigest,
@@ -1304,7 +1309,8 @@ export async function pullGitSync(storePath: string): Promise<GitSyncResult> {
 
 export async function previewGitSync(
   storePath: string,
-  destination: SyncGateDestination = "personal_sync"
+  destination: SyncGateDestination = "personal_sync",
+  mode: SyncGateMode = "shadow"
 ): Promise<SyncGatePreflight> {
   validateRequiredString(storePath, "storePath");
   await ensureGitSyncConfigured(storePath);
@@ -1312,6 +1318,7 @@ export async function previewGitSync(
   return evaluateSyncGate({
     events: pending.events,
     destination,
+    mode,
     current_records: replayEvents(allEvents)
   });
 }
@@ -1333,7 +1340,16 @@ export async function pushGitSync(
       await assertEventPublicationCandidate(storePath, localBaselineCommit);
       await assertCommitTreeExcludesUnsafeEntryModes(storePath, localBaselineCommit, "local commit selected for push");
     }
-    const syncGate = await previewGitSync(storePath);
+    const syncGate = await previewGitSync(storePath, "personal_sync", "enforce");
+    if (syncGate.would_block) {
+      return withSyncResultSelectionSources({
+        ok: false,
+        committed: false,
+        pushed: false,
+        message: "Sync policy denied the pending publication; no event was committed or pushed.",
+        sync_gate: syncGate
+      });
+    }
 
     let pulledRemoteIdentityDigest: string | undefined;
     let remoteCommit: string | undefined;

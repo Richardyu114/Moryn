@@ -173,7 +173,13 @@ import {
 } from "./soul-profile-management.js";
 import { readSoulProfileRevisions, SOUL_PROFILE_RECORD_TYPE } from "./soul-profile-store.js";
 import { withStoreStateLease } from "./state-lease.js";
-import { type AppendEventIfAbsentResult, appendEvent, appendEventIfAbsent, readEvents } from "./store.js";
+import {
+  type AppendEventIfAbsentResult,
+  appendEvent,
+  appendEventIfAbsent,
+  eventStorageFromPath,
+  readEvents
+} from "./store.js";
 import { createStringKeyedRecord, stringKeyedRecordFromEntries } from "./string-keyed-record.js";
 import {
   planStructuredSemanticMerge,
@@ -4031,12 +4037,16 @@ export function createEngine(deps: EngineDeps) {
       try {
         appended = event.idempotency
           ? await appendIdempotentEvent(deps.storePath, event)
-          : {
-              created: true,
-              event,
-              path: await appendEvent(deps.storePath, event),
-              durability: "best_effort" as const
-            };
+          : await (async () => {
+              const path = await appendEvent(deps.storePath, event);
+              return {
+                created: true,
+                event,
+                path,
+                storage: eventStorageFromPath(deps.storePath, path),
+                durability: "best_effort" as const
+              };
+            })();
       } catch (error) {
         if (appendResults.length > 0) {
           throw new PartialMutationCommitError(
@@ -4079,6 +4089,7 @@ export function createEngine(deps: EngineDeps) {
       durability_by_event_id: Object.fromEntries(
         appendResults.map((result) => [result.event.event_id, result.durability])
       ),
+      storage_by_event_id: Object.fromEntries(appendResults.map((result) => [result.event.event_id, result.storage])),
       derived_views_refreshed: derivedViewsRefreshed,
       ...(warnings.length ? { warnings } : {})
     };

@@ -5145,6 +5145,8 @@ describe("core engine", () => {
         tags: ["distribution-marker"],
         content: { text: "Use a host-local response style.", distribution: "local_only" }
       });
+      expect(Object.values(publicSoul.storage_by_event_id)).toEqual(["synced"]);
+      expect(Object.values(localOnlySoul.storage_by_event_id)).toEqual(["local"]);
 
       const safeBoot = await engine.boot({ project_id: "moryn" });
       expect(safeBoot.profile.soul_profile_status.legacy_record_ids).toEqual([publicSoul.record.id]);

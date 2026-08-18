@@ -1,8 +1,14 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { toErrorEnvelope } from "../../src/core/errors.js";
-import { appendEvent, appendEventIfAbsent, readEvents } from "../../src/core/store.js";
+import {
+  appendEvent,
+  appendEventIfAbsent,
+  readEvents,
+  readLocalEvents,
+  readSyncedEvents
+} from "../../src/core/store.js";
 import { withInitializedTempStore, withTempStore } from "../helpers/temp-store.js";
 
 describe("event store", () => {
@@ -30,6 +36,90 @@ describe("event store", () => {
       }
     };
   }
+
+  function localOnlyStoreEvent(eventId: string) {
+    const event = checkpointStoreEvent(eventId);
+    return {
+      ...event,
+      record: {
+        ...event.record,
+        content: { ...event.record.content, distribution: "local_only" }
+      }
+    };
+  }
+
+  it("physically isolates local-only events while retaining them in the effective read model", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const event = localOnlyStoreEvent("evt_local_isolated");
+      const path = await appendEvent(storePath, event);
+
+      expect(path).toContain(join("state", "local-events"));
+      expect((await stat(path)).mode & 0o777).toBe(0o600);
+      expect((await stat(dirname(path))).mode & 0o777).toBe(0o700);
+      expect(await readSyncedEvents(storePath)).toEqual([]);
+      expect((await readLocalEvents(storePath)).map((item) => item.event_id)).toEqual([event.event_id]);
+      expect((await readEvents(storePath)).map((item) => item.event_id)).toEqual([event.event_id]);
+    });
+  });
+
+  it("keeps revisions and links involving local lineage in the local journal", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const local = localOnlyStoreEvent("evt_local_lineage");
+      const synced = checkpointStoreEvent("evt_synced_lineage");
+      await appendEvent(storePath, local);
+      await appendEvent(storePath, synced);
+
+      const revisionPath = await appendEvent(storePath, {
+        event_id: "evt_local_lineage_revision",
+        op: "revise_record",
+        record_id: local.record.id,
+        patch: { "content.text": "local revision" },
+        created_at: "2026-05-27T00:00:01.000Z",
+        source: local.source
+      });
+      const linkPath = await appendEvent(storePath, {
+        event_id: "evt_local_lineage_link",
+        op: "link_records",
+        record_id: local.record.id,
+        linked_record_id: synced.record.id,
+        link_type: "supports",
+        created_at: "2026-05-27T00:00:02.000Z",
+        source: local.source
+      });
+
+      expect(revisionPath).toContain(join("state", "local-events"));
+      expect(linkPath).toContain(join("state", "local-events"));
+      expect((await readSyncedEvents(storePath)).map((item) => item.event_id)).toEqual([synced.event_id]);
+      expect((await readLocalEvents(storePath)).map((item) => item.event_id)).toEqual([
+        local.event_id,
+        "evt_local_lineage_revision",
+        "evt_local_lineage_link"
+      ]);
+    });
+  });
+
+  it("rejects an explicit attempt to write local lineage into the synced journal", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const event = localOnlyStoreEvent("evt_local_forced_sync");
+      await expect(appendEvent(storePath, event, { storage: "synced" })).rejects.toThrow(
+        "local event lineage cannot be written to the synced event journal"
+      );
+      expect(await readEvents(storePath)).toEqual([]);
+    });
+  });
+
+  it("keeps idempotent local-only events local across retries", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const event = localOnlyStoreEvent("evt_local_idempotent");
+      const first = await appendEventIfAbsent(storePath, event);
+      const second = await appendEventIfAbsent(storePath, event);
+
+      expect(first).toMatchObject({ created: true, storage: "local" });
+      expect(second).toMatchObject({ created: false, storage: "local" });
+      expect(first.path).toContain(join("state", "local-events"));
+      expect(await readSyncedEvents(storePath)).toEqual([]);
+    });
+  });
   it("atomically appends a global event once and returns the persisted event to losers", async () => {
     await withInitializedTempStore(async (storePath) => {
       const event = {

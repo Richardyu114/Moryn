@@ -839,8 +839,8 @@ describe("git sync adapter", () => {
       expect(push.pushed).toBe(true);
       expect(push.sync_gate).toMatchObject({
         policy_version: "moryn.sync-gate.v1",
-        mode: "shadow",
-        enforced: false,
+        mode: "enforce",
+        enforced: true,
         destination: "personal_sync",
         decision: "allow",
         would_block: false,
@@ -892,8 +892,8 @@ describe("git sync adapter", () => {
     }
   });
 
-  it("reports a local-only pending event in shadow mode without blocking the current push path", async () => {
-    const root = await mkdtemp(join(tmpdir(), "moryn-sync-gate-shadow-"));
+  it("keeps local-only records out of the remote event tree", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-gate-local-journal-"));
     const remote = join(root, "remote.git");
     const store = join(root, "store");
     try {
@@ -914,34 +914,94 @@ describe("git sync adapter", () => {
         scope: "project",
         project_id: "moryn",
         content: {
-          text: "This payload needs the future local event journal.",
+          text: "This payload must remain in the local event journal.",
           distribution: "local_only"
         },
         state: "canonical",
         source: { client: "test", device_id: "device_sync_gate" }
       });
 
-      const result = await pushGitSync(store, { message: "exercise sync gate shadow mode" });
+      const result = await pushGitSync(store, { message: "publish only sync-authorized events" });
 
       expect(result).toMatchObject({
         ok: true,
         pushed: true,
         sync_gate: {
-          mode: "shadow",
-          enforced: false,
-          decision: "deny",
-          would_block: true,
-          summary: { total_events: 1, allowed_events: 0, review_required_events: 0, denied_events: 1 },
-          findings: [
-            {
-              code: "local_only_distribution",
-              decision: "deny",
-              content_included: false
-            }
-          ]
+          mode: "enforce",
+          enforced: true,
+          decision: "allow",
+          would_block: false,
+          summary: { total_events: 0, allowed_events: 0, review_required_events: 0, denied_events: 0 }
         }
       });
       expect(await remoteMainOid(remote)).toBeDefined();
+      const remoteTree = (await exec("git", ["--git-dir", remote, "ls-tree", "-r", "--name-only", "main"])).stdout;
+      expect(remoteTree).not.toContain("state/local-events");
+      expect(remoteTree).not.toContain("evt_sync_gate");
+      expect(
+        await readFile(
+          join(store, "state", "local-events", "device_sync_gate", "2026-08", "evt_sync_gate.json"),
+          "utf8"
+        )
+      ).toContain("local event journal");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("enforces the gate against a legacy local-only event already placed in the synced journal", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-gate-enforce-"));
+    const remote = join(root, "remote.git");
+    const store = join(root, "store");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(store, {
+        now: () => "2026-08-18T00:00:00.000Z",
+        id: () => "device_sync_gate_enforce"
+      });
+      await initializeGitSync(store, remote);
+      const remoteBefore = await remoteMainOid(remote);
+      const event = {
+        event_id: "evt_legacy_local_only",
+        op: "upsert_record",
+        created_at: "2026-08-18T00:01:00.000Z",
+        source: { client: "test", device_id: "device_sync_gate_enforce" },
+        record: {
+          id: "rec_legacy_local_only",
+          kind: "memory",
+          type: "local_note",
+          scope: "project",
+          project_id: "moryn",
+          tags: [],
+          content: { text: "legacy local payload", distribution: "local_only" },
+          state: "canonical",
+          confidence: 1,
+          priority: "normal",
+          visibility: "active",
+          created_at: "2026-08-18T00:01:00.000Z",
+          updated_at: "2026-08-18T00:01:00.000Z",
+          source: { client: "test", device_id: "device_sync_gate_enforce" }
+        }
+      };
+      const path = join(store, "events", "device_sync_gate_enforce", "2026-08", "evt_legacy_local_only.json");
+      await mkdir(dirname(path), { recursive: true });
+      await writeFile(path, `${JSON.stringify(event, null, 2)}\n`, "utf8");
+
+      const result = await pushGitSync(store, { message: "must not publish legacy local-only event" });
+
+      expect(result).toMatchObject({
+        ok: false,
+        committed: false,
+        pushed: false,
+        sync_gate: {
+          mode: "enforce",
+          enforced: true,
+          decision: "deny",
+          would_block: true,
+          findings: [{ code: "local_only_distribution", decision: "deny", content_included: false }]
+        }
+      });
+      expect(await remoteMainOid(remote)).toBe(remoteBefore);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

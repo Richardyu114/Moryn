@@ -677,6 +677,7 @@ export type {
   SyncGateDistribution,
   SyncGateFinding,
   SyncGateFindingCode,
+  SyncGateMode,
   SyncGatePreflight
 } from "./core/sync-gate.js";
 export {
