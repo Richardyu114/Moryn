@@ -670,6 +670,24 @@ import { PROJECT_INIT_SELECTION_SOURCES } from "./core/project.js";
 
 export { parseRecord } from "./core/schema.js";
 
+export type {
+  EvaluateSyncGateInput,
+  SyncGateDecision,
+  SyncGateDestination,
+  SyncGateDistribution,
+  SyncGateFinding,
+  SyncGateFindingCode,
+  SyncGatePreflight
+} from "./core/sync-gate.js";
+export {
+  evaluateSyncGate,
+  parseSyncGateDestination,
+  SYNC_GATE_DESTINATIONS,
+  SYNC_GATE_DISTRIBUTIONS,
+  SYNC_GATE_POLICY_VERSION,
+  SYNC_GATE_SELECTION_SOURCES
+} from "./core/sync-gate.js";
+
 import { CONTEXT_PACK_REVIEW_SELECTION_SOURCES, DASHBOARD_SELECTION_SOURCES } from "./observability/dashboard.js";
 
 export {
@@ -693,6 +711,7 @@ export {
 } from "./core/learning-inbox.js";
 export type { MorynRecord, RecordFeedbackOutcome, RecordMemoryUsage } from "./core/types.js";
 export { RECORD_FEEDBACK_OUTCOMES } from "./core/types.js";
+export { previewGitSync } from "./sync/git.js";
 
 export const version = "0.4.0";
 

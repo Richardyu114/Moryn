@@ -837,6 +837,15 @@ describe("git sync adapter", () => {
       const push = await pushGitSync(storeA, { message: "sync from device a" });
       expect(push.committed).toBe(true);
       expect(push.pushed).toBe(true);
+      expect(push.sync_gate).toMatchObject({
+        policy_version: "moryn.sync-gate.v1",
+        mode: "shadow",
+        enforced: false,
+        destination: "personal_sync",
+        decision: "allow",
+        would_block: false,
+        summary: { total_events: 1, allowed_events: 1, review_required_events: 0, denied_events: 0 }
+      });
       expect(push.selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
 
       const pull = await pullGitSync(storeB);
@@ -878,6 +887,61 @@ describe("git sync adapter", () => {
           last_sync: expect.objectContaining({ operation: "pull" })
         })
       );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("reports a local-only pending event in shadow mode without blocking the current push path", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-gate-shadow-"));
+    const remote = join(root, "remote.git");
+    const store = join(root, "store");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(store, {
+        now: () => "2026-08-18T00:00:00.000Z",
+        id: () => "device_sync_gate"
+      });
+      await initializeGitSync(store, remote);
+      const engine = createEngine({
+        storePath: store,
+        now: () => "2026-08-18T00:01:00.000Z",
+        id: (prefix) => `${prefix}_sync_gate`
+      });
+      await engine.write({
+        kind: "memory",
+        type: "local_note",
+        scope: "project",
+        project_id: "moryn",
+        content: {
+          text: "This payload needs the future local event journal.",
+          distribution: "local_only"
+        },
+        state: "canonical",
+        source: { client: "test", device_id: "device_sync_gate" }
+      });
+
+      const result = await pushGitSync(store, { message: "exercise sync gate shadow mode" });
+
+      expect(result).toMatchObject({
+        ok: true,
+        pushed: true,
+        sync_gate: {
+          mode: "shadow",
+          enforced: false,
+          decision: "deny",
+          would_block: true,
+          summary: { total_events: 1, allowed_events: 0, review_required_events: 0, denied_events: 1 },
+          findings: [
+            {
+              code: "local_only_distribution",
+              decision: "deny",
+              content_included: false
+            }
+          ]
+        }
+      });
+      expect(await remoteMainOid(remote)).toBeDefined();
     } finally {
       await rm(root, { recursive: true, force: true });
     }

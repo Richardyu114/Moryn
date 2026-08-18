@@ -14,6 +14,8 @@ import {
 import { replayEvents } from "../core/replay.js";
 import { parseEvent } from "../core/schema.js";
 import { withStoreStateLease } from "../core/state-lease.js";
+import { readEvents } from "../core/store.js";
+import { evaluateSyncGate, type SyncGateDestination, type SyncGatePreflight } from "../core/sync-gate.js";
 import type { MorynEvent } from "../core/types.js";
 import {
   captureSoulGitFetchRemoteIdentityDigest,
@@ -284,6 +286,7 @@ export interface GitSyncResult {
   pulled?: boolean;
   message?: string;
   automatic_event_audit?: AutomaticEventAuditReceipt;
+  sync_gate?: SyncGatePreflight;
   selection_sources: typeof SYNC_RESULT_SELECTION_SOURCES;
 }
 
@@ -1299,6 +1302,20 @@ export async function pullGitSync(storePath: string): Promise<GitSyncResult> {
   });
 }
 
+export async function previewGitSync(
+  storePath: string,
+  destination: SyncGateDestination = "personal_sync"
+): Promise<SyncGatePreflight> {
+  validateRequiredString(storePath, "storePath");
+  await ensureGitSyncConfigured(storePath);
+  const [pending, allEvents] = await Promise.all([getPendingSyncEvidence(storePath), readEvents(storePath)]);
+  return evaluateSyncGate({
+    events: pending.events,
+    destination,
+    current_records: replayEvents(allEvents)
+  });
+}
+
 export async function pushGitSync(
   storePath: string,
   options: { message?: string } = {},
@@ -1316,6 +1333,7 @@ export async function pushGitSync(
       await assertEventPublicationCandidate(storePath, localBaselineCommit);
       await assertCommitTreeExcludesUnsafeEntryModes(storePath, localBaselineCommit, "local commit selected for push");
     }
+    const syncGate = await previewGitSync(storePath);
 
     let pulledRemoteIdentityDigest: string | undefined;
     let remoteCommit: string | undefined;
@@ -1351,7 +1369,8 @@ export async function pushGitSync(
             committed,
             pushed: false,
             message: "Automatic event integrity verification failed; remote push was skipped.",
-            automatic_event_audit: automaticEventAudit
+            automatic_event_audit: automaticEventAudit,
+            sync_gate: syncGate
           });
         }
         return withSyncResultSelectionSources({
@@ -1359,7 +1378,8 @@ export async function pushGitSync(
           committed,
           pushed: false,
           message: "Local derived state could not be refreshed; remote push was skipped.",
-          automatic_event_audit: automaticEventAudit
+          automatic_event_audit: automaticEventAudit,
+          sync_gate: syncGate
         });
       }
       await recordPulledAndVerifiedSoulSyncReceipts(storePath, "pull", pulledRemoteIdentityDigest, remoteCommit);
@@ -1376,7 +1396,8 @@ export async function pushGitSync(
         committed,
         pushed: false,
         message: "Automatic event integrity verification failed; remote push was skipped.",
-        automatic_event_audit: automaticEventAudit
+        automatic_event_audit: automaticEventAudit,
+        sync_gate: syncGate
       });
     }
     await assertHistoryExcludesLocalOnlyPaths(storePath, ["HEAD"], "history selected for push");
@@ -1389,7 +1410,8 @@ export async function pushGitSync(
       ok: true,
       committed,
       pushed: true,
-      automatic_event_audit: automaticEventAudit
+      automatic_event_audit: automaticEventAudit,
+      sync_gate: syncGate
     });
   });
 }
