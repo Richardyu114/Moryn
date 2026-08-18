@@ -115,6 +115,7 @@ describe("v0.4 release gate", () => {
                   { path: "docs/agent-install-prompt.md" },
                   { path: "docs/agent-workflow.md" },
                   { path: "docs/contracts.md" },
+                  { path: "docs/context-infrastructure.md" },
                   { path: "docs/dashboard.md" },
                   { path: "docs/development.md" },
                   { path: "docs/implementation-roadmap.md" },
