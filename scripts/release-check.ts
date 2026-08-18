@@ -254,6 +254,7 @@ export function assertPackageFilesComplete(files: string[]): void {
     "docs/agent-install-prompt.md",
     "docs/agent-workflow.md",
     "docs/contracts.md",
+    "docs/context-infrastructure.md",
     "docs/dashboard.md",
     "docs/development.md",
     "docs/implementation-roadmap.md",
