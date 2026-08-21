@@ -539,16 +539,17 @@ recipes. Entries that need extra protection, such as unsafe writes or
 confirmation-gated commands, also include a compact `execution_hint` with the
 `execution.ready_to_run` guard, next step, missing required fields, and keyed
 required-input paths including value-path reverse lookup for collected
-`user_input.*` values. Read-only operations keep the index lighter and rely on
-`required_fields` plus full-contract lookup. Each entry includes
-`operation_source` with the concrete full-registry path and
-`full_contract_lookup` with concrete package, CLI, and MCP calls for fetching
-that operation's full contract. It also includes
+`user_input.*` values. Read-only operations keep the index lighter and use the
+top-level `next_lookup` templates to fetch one full contract. Entries requiring
+input collection or user confirmation additionally carry
+`full_contract_lookup` with concrete package, CLI, and MCP calls. Every entry
+includes `operation_source` with the concrete full-registry path. The response
+also includes
 `operation_source_lookup`, so agents starting from a tool or display command can
 read the relevant id map and then the concrete `operation_source` field without
 inventing paths. It carries a small `selection_sources` map for the index paths,
 including `operation_source`, `operation_source_lookup`, `execution_hint`, the
-value-path required-input hint, and `full_contract_lookup`; package users can import
+value-path required-input hint, and optional `full_contract_lookup`; package users can import
 `OPERATION_CONTRACT_INDEX_SELECTION_SOURCES` for the same compact map.
 The full response lists `operations`, keyed `operations_by_id`, grouped
 `operations_by_category`, reverse indexes `operations_by_mcp_tool` and

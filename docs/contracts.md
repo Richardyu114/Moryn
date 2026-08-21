@@ -1257,6 +1257,75 @@ record or evidence text. Repeating an accepted proposal is idempotent. The JSON
 payload is carried by the existing CLI/MCP proposal arguments, so no additional
 flag or tool is required.
 
+## Post-v0.4 Context Infrastructure Contract
+
+This development line adds three compatible context primitives without
+changing append-only event history or declaring a new release.
+
+### Device-local workspace mappings
+
+Workspace mappings are configuration, not memory. They live only in
+`state/workspace-mappings/mappings.json`; the directory and file use modes
+`0700` and `0600`. Setting or removing a mapping is serialized by the store
+state lease. No mapping operation appends an event, and source/local roots must
+not enter synchronized records or derived origin indexes.
+
+| Behavior | CLI | MCP | Package API |
+| --- | --- | --- | --- |
+| set mapping | `moryn workspace map set ...` | `workspace_mapping_set` | `setWorkspaceMapping` |
+| list mappings | `moryn workspace map list` | `workspace_mapping_list` | `listWorkspaceMappings` |
+| resolve path | `moryn workspace map resolve ...` | `workspace_path_resolve` | `resolveWorkspacePath` |
+| remove mapping | `moryn workspace map remove ...` | `workspace_mapping_remove` | `removeWorkspaceMapping` |
+
+The key is project ID, opaque source-device ID, and normalized source root.
+Resolution selects the longest explicit root. `safe_to_access` is true only
+when the target exists and its real path remains under the verified local root;
+symlink escapes fail closed. Recall may expose mapping status and opaque mapping
+IDs, but agents must resolve the path before local file access.
+
+### Execution-origin index
+
+`indexes/execution-origin.json` is a rebuildable, local derived artifact. Each
+record entry is limited to opaque source-device IDs, unknown-source state,
+creation/latest device IDs, and event count. Event bodies, filesystem paths,
+hostnames, usernames, and IP addresses are forbidden.
+
+`loadExecutionOriginIndex` uses the index only when its source event manifest
+matches. A stale or missing index is rebuilt with a
+manifest-before/events/manifest-after consistency check; if history changes
+again, the read fails rather than publishing a mixed-generation index.
+`moryn rebuild` reports the artifact under
+`artifacts.indexes.execution_origin`. Package callers can also use
+`buildExecutionOriginIndex`, `readExecutionOriginIndex`,
+`writeExecutionOriginIndex`, and `loadExecutionOriginIndex`.
+
+The direct loader throws `ExecutionOriginIndexSourceChangedError` when the
+requested generation cannot be rebuilt consistently. Engine reads fail lineage
+closed instead of failing recall: affected records are classified as `unknown`
+with `verify_origin_before_access` until a later read can use a matching index.
+
+### Repo Atlas v2 evidence
+
+Repo Atlas schema v2 extends file observations with bounded JavaScript and
+TypeScript AST symbol observations and dependency edges. The snapshot remains
+local, rebuildable, and content-free. Incremental scans derive a work set from
+commit, staged, unstaged, and previous dirty paths; unchanged evidence is
+reused. Tracked-file topology changes force parser-supported files to rescan so
+relative edge resolution stays current. A schema-v1 snapshot remains readable
+and triggers a complete v2 rescan.
+
+Claims may bind to files with `--evidence <path>`, symbols with
+`--symbol <path#qualified_name>`, or both. File evidence invalidates on a file
+digest change. Symbol evidence invalidates only when the selected symbol digest
+changes or disappears. `moryn repo-atlas reverify --claim-id <id>` and
+`repo_atlas_reverify` append a revision to the same claim identity with current
+evidence; they never rewrite the prior revision.
+
+The AST collector supports JS, TS, JSX, TSX, MJS, CJS, MTS, and CTS and skips
+source files larger than 2 MiB. Parse failures are content-free diagnostics and
+fall back to file evidence; dependency observations are not runtime-execution
+claims.
+
 ## v0.4 Memory Distillation Contract
 
 Memory classification uses three independent axes. A value on one axis must not

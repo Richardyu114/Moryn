@@ -58,10 +58,15 @@ describe("context infrastructure MCP", { timeout: 30_000 }, () => {
           expect.arrayContaining([
             "continuity_negotiate",
             "continuity_transfer",
+            "workspace_mapping_set",
+            "workspace_mapping_list",
+            "workspace_path_resolve",
+            "workspace_mapping_remove",
             "repo_atlas_scan",
             "repo_atlas_read",
             "repo_atlas_view",
             "repo_atlas_claim",
+            "repo_atlas_reverify",
             "sync_preflight"
           ])
         );
@@ -78,6 +83,30 @@ describe("context infrastructure MCP", { timeout: 30_000 }, () => {
           await client.callTool({ name: "repo_atlas_scan", arguments: { repo_path: repoPath } })
         );
         expect(scan.observations[0].path).toBe("README.md");
+
+        const mapping = parseResult(
+          await client.callTool({
+            name: "workspace_mapping_set",
+            arguments: {
+              project_id: "fixture",
+              source_device_id: "device-remote",
+              source_root: "/srv/fixture",
+              local_root: repoPath
+            }
+          })
+        );
+        expect(mapping).toMatchObject({ created: true, mapping: { project_id: "fixture" } });
+        const resolved = parseResult(
+          await client.callTool({
+            name: "workspace_path_resolve",
+            arguments: {
+              project_id: "fixture",
+              source_device_id: "device-remote",
+              source_path: "/srv/fixture/README.md"
+            }
+          })
+        );
+        expect(resolved).toMatchObject({ status: "resolved", safe_to_access: true });
 
         const claim = parseResult(
           await client.callTool({

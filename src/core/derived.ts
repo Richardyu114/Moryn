@@ -7,6 +7,7 @@ import {
   removeEventAuditProof,
   writeEventAuditProof
 } from "./event-audit-proof.js";
+import { buildExecutionOriginIndex, writeExecutionOriginIndex } from "./execution-origin-index.js";
 import { projectArtifactFileName } from "./project-artifact.js";
 import { buildRecordReadModel } from "./record-read-model.js";
 import { replayEvents } from "./replay.js";
@@ -27,7 +28,8 @@ export const REBUILD_SELECTION_SOURCES = {
   project_snapshots: "artifacts.snapshots.projects_by_id",
   skills_snapshot: "artifacts.snapshots.skills",
   recall_index: "artifacts.indexes.recall",
-  sync_cursors_index: "artifacts.indexes.sync_cursors"
+  sync_cursors_index: "artifacts.indexes.sync_cursors",
+  execution_origin_index: "artifacts.indexes.execution_origin"
 } as const;
 
 export interface RebuildResult {
@@ -46,6 +48,7 @@ export interface RebuildResult {
     indexes: {
       recall: string;
       sync_cursors: string;
+      execution_origin: string;
     };
   };
   selection_sources: typeof REBUILD_SELECTION_SOURCES;
@@ -112,7 +115,8 @@ function rebuildArtifacts(projectIds: string[]): RebuildResult["artifacts"] {
     },
     indexes: {
       recall: "indexes/recall.json",
-      sync_cursors: "indexes/sync-cursors.json"
+      sync_cursors: "indexes/sync-cursors.json",
+      execution_origin: "indexes/execution-origin.json"
     }
   };
 }
@@ -155,6 +159,7 @@ async function rebuildDerivedViewsUnlocked(storePath: string): Promise<RebuildRe
   await writeJson(join(snapshotPath, "user.json"), user);
   await writeJson(join(snapshotPath, "records.json"), buildRecordReadModel(events, records, eventFileManifest));
   await writeRetrievalIndex(storePath, buildRetrievalIndex(records, eventFileManifest));
+  await writeExecutionOriginIndex(storePath, buildExecutionOriginIndex(events, eventFileManifest));
 
   const projectIds = [
     ...new Set(

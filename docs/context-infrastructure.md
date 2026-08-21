@@ -72,26 +72,50 @@ claims (authored, evidence-bound, append-only)
 lenses (derived for the current task)
 ~~~
 
-A scan stores file paths, SHA-256 digests, sizes, line counts, language/role classification, and bounded **package.json** metadata. It does not persist source text or the repository's absolute path. The snapshot lives in ignored local state.
+A scan stores file paths, SHA-256 digests, sizes, line counts, language/role
+classification, and bounded **package.json** metadata. For JavaScript and
+TypeScript source, Repo Atlas v2 also parses bounded ASTs into stable symbol
+observations and static dependency edges for imports, re-exports, dynamic
+imports, and `require` calls. It does not persist source text or the
+repository's absolute path. The snapshot lives in ignored local state.
+
+After the first complete scan, Git commit, staged, unstaged, and prior dirty
+state determine the incremental work set. Unchanged observations are reused.
+If tracked-file topology changes, parser-supported files are rescanned so a
+relative import cannot retain an obsolete resolution. Unsupported languages or
+parse failures still keep file-level evidence; they do not produce guessed
+symbols.
 
 ~~~bash
 moryn repo-atlas scan --repo .
 moryn repo-atlas claim --repo . \
   --project-id my-project \
   --statement "src/server.ts owns the request boundary" \
-  --evidence src/server.ts \
+  --symbol 'src/server.ts#handleRequest' \
   --evidence tests/server.test.ts \
   --agent codex
+moryn repo-atlas reverify --repo . --claim-id <claim_id> --agent codex
 moryn repo-atlas view --repo . --lens request_path --query "authentication"
 ~~~
 
-Claims bind to exact observation IDs and digests. A later scan marks a claim **stale** when supporting files change or disappear; it does not silently rewrite the statement. The available lenses are:
+Claims bind to exact observation IDs and digests. File evidence becomes stale
+when the whole file changes or disappears. Symbol evidence becomes stale only
+when that symbol's parsed digest changes or the symbol disappears, so unrelated
+edits in the same file do not invalidate the claim. A later scan marks affected
+claims **stale**; it does not silently rewrite their statements. `reverify`
+appends a revision to the same claim identity with current evidence instead of
+replacing history. The available lenses are:
 
 - **onboarding:** manifests, entrypoints, source roots, and active claims.
 - **request_path:** paths and claims matching a bounded task query.
 - **release_impact:** changed paths and stale claims since the previous snapshot.
 
 Claim distribution is explicit: **local_only**, **personal_sync**, **trusted_team**, or **public_export**.
+
+The AST collector currently covers JavaScript, TypeScript, JSX, TSX, MJS, CJS,
+MTS, and CTS with a 2 MiB per-file parse cap. Dependency edges are mechanical
+observations, not proof that a runtime path executes. Claims remain the authored
+interpretation layer.
 
 ## Execution Origin Boundary
 
@@ -102,7 +126,7 @@ Read APIs expose **origin_context**, and recall, timeline, and refresh items inc
 | Lineage | Meaning | Path action |
 | --- | --- | --- |
 | current_device_only | every known mutation occurred on this device | verify the path exists before access |
-| remote_device_only | every known mutation occurred on one other device | require an explicit device or workspace mapping |
+| remote_device_only | every known mutation occurred on one other device | resolve through an explicit local workspace mapping |
 | multiple_devices | mutations came from more than one device | inspect the event timeline, then map the relevant path |
 | unknown | legacy or incomplete device provenance | verify origin before access |
 
@@ -129,6 +153,55 @@ The policy is intentionally conservative:
 The synchronized event contains only the existing opaque device ID. Moryn does not add a hostname, username, home directory, or IP address to identify the machine. Host prompt injection carries the same boundary, preventing an agent from silently treating recalled remote paths as local tools or files.
 
 Ordinary record reads return the derived record lineage without expanding every contributing event ID. The bounded **timeline** response is the interface that exposes per-event origin metadata.
+
+### Local workspace mapping
+
+Workspace mappings are an explicit device-local registry. A mapping joins one
+project, one opaque source-device ID, and one source root to a verified local
+checkout root:
+
+~~~bash
+moryn workspace map set \
+  --project-id my-project \
+  --source-device-id <opaque_source_device_id> \
+  --source-root /home/source/work/repo \
+  --local-root /home/local/work/repo
+
+moryn workspace map resolve \
+  --project-id my-project \
+  --source-device-id <opaque_source_device_id> \
+  --source-path /home/source/work/repo/src/server.ts
+
+moryn workspace map list --project-id my-project
+moryn workspace map remove --mapping-id <mapping_id>
+~~~
+
+Resolution uses the longest matching explicit source root. A result is marked
+`safe_to_access: true` only when the local target exists and its real path stays
+inside the mapped local root. A missing target, malformed mapping, or symlink
+escape fails closed. Moryn never infers a mapping from equal-looking absolute
+paths.
+
+The registry lives under `state/workspace-mappings/` with restrictive local
+permissions. Source and local roots are absent from append-only events,
+synchronized records, and origin-index artifacts. Recall reports only mapping
+status and opaque mapping IDs; an agent must call `workspace_path_resolve`
+before accessing the returned local path.
+
+### Derived origin index
+
+`moryn rebuild` writes `indexes/execution-origin.json` as a local derived view.
+For each record it contains only opaque source-device IDs, unknown-source state,
+creation/latest device IDs, and event count. It contains no event body and no
+filesystem path. Recall, boot, refresh, and recent-record reads use the index
+when its event manifest matches; a stale or missing index is rebuilt from a
+stable manifest snapshot and fails rather than publishing a mixed-generation
+result if history changes repeatedly during the build. Timeline keeps its
+bounded event-level projection because it is the inspection surface for exact
+mutation origin. If an Engine read already selected an older record generation
+that can no longer be matched after a concurrent append, recall remains
+available but marks that batch's lineage **unknown** and requires origin
+verification before path access.
 
 ## Sync Gate
 
@@ -159,7 +232,9 @@ Every command above has a matching MCP tool:
 ~~~text
 continuity_negotiate    continuity_transfer
 repo_atlas_scan         repo_atlas_read
-repo_atlas_view         repo_atlas_claim
+repo_atlas_view         repo_atlas_claim         repo_atlas_reverify
+workspace_mapping_set   workspace_mapping_list
+workspace_path_resolve  workspace_mapping_remove
 sync_preflight
 ~~~
 

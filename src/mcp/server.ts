@@ -49,6 +49,7 @@ import {
   type RepoAtlasDistribution,
   type RepoAtlasLens,
   readRepoAtlas,
+  reverifyRepoAtlasClaim,
   scanRepoAtlas
 } from "../core/repo-atlas.js";
 import type { SyncGateDestination, SyncGateMode } from "../core/sync-gate.js";
@@ -61,6 +62,12 @@ import type {
   RecordSource,
   RecordState
 } from "../core/types.js";
+import {
+  listWorkspaceMappings,
+  removeWorkspaceMapping,
+  resolveWorkspacePath,
+  setWorkspaceMapping
+} from "../core/workspace-mapping.js";
 import {
   activateClaudeSettings,
   activateCodexHooks,
@@ -3408,6 +3415,89 @@ export async function runMcpServer(
 
   registerMcpTool(
     server,
+    "workspace_mapping_set",
+    {
+      title: "Set Local Workspace Mapping",
+      description: "Bind one source-device workspace root to a verified local checkout without synchronizing paths.",
+      inputSchema: mcpInputSchema({
+        project_id: z.unknown(),
+        source_device_id: z.unknown(),
+        source_root: z.unknown(),
+        local_root: z.unknown()
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("workspace_mapping_set", input, async (normalizedInput) =>
+        setWorkspaceMapping({
+          store_path: options.storePath,
+          project_id: normalizedInput.project_id as string,
+          source_device_id: normalizedInput.source_device_id as string,
+          source_root: normalizedInput.source_root as string,
+          local_root: normalizedInput.local_root as string
+        })
+      )
+  );
+
+  registerMcpTool(
+    server,
+    "workspace_mapping_list",
+    {
+      title: "List Local Workspace Mappings",
+      description: "Read device-local cross-device path mappings.",
+      inputSchema: mcpInputSchema({
+        project_id: z.unknown().optional(),
+        source_device_id: z.unknown().optional()
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("workspace_mapping_list", input, async (normalizedInput) =>
+        listWorkspaceMappings({
+          store_path: options.storePath,
+          project_id: normalizedInput.project_id as string | undefined,
+          source_device_id: normalizedInput.source_device_id as string | undefined
+        })
+      )
+  );
+
+  registerMcpTool(
+    server,
+    "workspace_path_resolve",
+    {
+      title: "Resolve Remote Workspace Path",
+      description: "Resolve one source-device path and verify that the local target remains inside the mapped root.",
+      inputSchema: mcpInputSchema({
+        project_id: z.unknown(),
+        source_device_id: z.unknown(),
+        source_path: z.unknown()
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("workspace_path_resolve", input, async (normalizedInput) =>
+        resolveWorkspacePath({
+          store_path: options.storePath,
+          project_id: normalizedInput.project_id as string,
+          source_device_id: normalizedInput.source_device_id as string,
+          source_path: normalizedInput.source_path as string
+        })
+      )
+  );
+
+  registerMcpTool(
+    server,
+    "workspace_mapping_remove",
+    {
+      title: "Remove Local Workspace Mapping",
+      description: "Remove one device-local workspace mapping by its opaque mapping id.",
+      inputSchema: mcpInputSchema({ mapping_id: z.unknown() })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("workspace_mapping_remove", input, async (normalizedInput) =>
+        removeWorkspaceMapping({ store_path: options.storePath, mapping_id: normalizedInput.mapping_id as string })
+      )
+  );
+
+  registerMcpTool(
+    server,
     "repo_atlas_scan",
     {
       title: "Scan Repo Atlas Evidence",
@@ -3476,7 +3566,8 @@ export async function runMcpServer(
         repo_path: z.unknown(),
         project_id: z.unknown(),
         statement: z.unknown(),
-        evidence_paths: z.unknown(),
+        evidence_paths: z.unknown().optional(),
+        evidence_symbols: z.unknown().optional(),
         confidence: z.unknown().optional(),
         tags: z.unknown().optional(),
         distribution: z.unknown().optional(),
@@ -3490,10 +3581,34 @@ export async function runMcpServer(
           repo_path: normalizedInput.repo_path as string,
           project_id: normalizedInput.project_id as string,
           statement: normalizedInput.statement as string,
-          evidence_paths: normalizedInput.evidence_paths as string[],
+          evidence_paths: (normalizedInput.evidence_paths as string[] | undefined) ?? [],
+          evidence_symbols: normalizedInput.evidence_symbols as string[] | undefined,
           confidence: normalizedInput.confidence as number | undefined,
           tags: normalizedInput.tags as string[] | undefined,
           distribution: normalizedInput.distribution as RepoAtlasDistribution | undefined,
+          source: withDefaultSource(normalizedInput.source) as RecordSource
+        })
+      )
+  );
+
+  registerMcpTool(
+    server,
+    "repo_atlas_reverify",
+    {
+      title: "Re-verify Repo Atlas Claim",
+      description: "Append a claim revision bound to the current file or symbol evidence digests.",
+      inputSchema: mcpInputSchema({
+        repo_path: z.unknown(),
+        claim_id: z.unknown(),
+        source: coreValidatedSourceSchema.optional()
+      })
+    },
+    async (input) =>
+      toolResultWithNormalizedInput("repo_atlas_reverify", input, async (normalizedInput) =>
+        reverifyRepoAtlasClaim({
+          store_path: options.storePath,
+          repo_path: normalizedInput.repo_path as string,
+          claim_id: normalizedInput.claim_id as string,
           source: withDefaultSource(normalizedInput.source) as RecordSource
         })
       )

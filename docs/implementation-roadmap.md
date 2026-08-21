@@ -184,6 +184,30 @@ reported when all eleven areas have their required evidence in the same run.
 The external product roadmap is durably recorded in moryn-store as
 `rec_3eba4797c53f4dff9e7897a0cf76a199`.
 
+## Post-v0.4 context hardening
+
+The development branch now carries three compatible improvements for review
+before any v0.5 release or VPS dogfood switch:
+
+1. **Workspace Mapping:** explicit, device-local project/source-root mappings
+   resolve remote evidence into an existing local checkout only after realpath
+   containment. Roots never enter append-only or synchronized data.
+2. **Execution Origin Index:** ordinary recall, boot, refresh, and recent-record
+   reads consume a manifest-verified content-free origin index instead of
+   replaying every event solely to classify device lineage.
+3. **Repo Atlas v2:** incremental Git work sets, bounded JS/TS AST symbols,
+   dependency edges, symbol-scoped claim invalidation, and append-only claim
+   reverification improve repository evidence without storing source text.
+
+Focused acceptance includes concurrent mapping updates, symlink-escape
+rejection, stale-index retry/failure behavior, a 25,000-event origin-index
+fixture condensed to 100 record entries, v1 Atlas snapshot compatibility,
+incremental observation reuse, dependency changes, and symbol-level claim
+staleness. These are deterministic test fixtures, not production telemetry.
+
+The package remains `0.4.0` while this work is refined. Release tagging, npm
+publication, and updating the VPS dogfood checkout are explicitly deferred.
+
 ## v0.3.0 Context Autopilot
 
 The following table records the historical v0.3.0 lifecycle acceptance contract.

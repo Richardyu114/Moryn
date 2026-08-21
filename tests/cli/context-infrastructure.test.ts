@@ -87,6 +87,66 @@ describe("context infrastructure CLI", { timeout: 30_000 }, () => {
       const view = (await cli(storePath, ["repo-atlas", "view", "--repo", repoPath, "--lens", "onboarding"])) as any;
       expect(view.summary).toMatchObject({ tracked_files: 2, active_claims: 1, stale_claims: 0 });
       expect(view.claims[0].statement).toBe("src/index.ts is the public entrypoint");
+
+      const symbolClaim = (await cli(storePath, [
+        "repo-atlas",
+        "claim",
+        "--repo",
+        repoPath,
+        "--project-id",
+        "fixture",
+        "--statement",
+        "answer is the exported fixture value",
+        "--symbol",
+        "src/index.ts#answer",
+        "--agent",
+        "codex"
+      ])) as any;
+      expect(symbolClaim.claim.evidence[0]).toMatchObject({ kind: "symbol", qualified_name: "answer" });
+      const reverified = (await cli(storePath, [
+        "repo-atlas",
+        "reverify",
+        "--repo",
+        repoPath,
+        "--claim-id",
+        symbolClaim.claim.claim_id,
+        "--agent",
+        "codex"
+      ])) as any;
+      expect(reverified).toMatchObject({ revised: true, claim: { status: "active" } });
+    });
+  });
+
+  it("sets and verifies a device-local workspace mapping", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const repoPath = await fixtureRepository(storePath);
+      const created = (await cli(storePath, [
+        "workspace",
+        "map",
+        "set",
+        "--project-id",
+        "fixture",
+        "--source-device-id",
+        "device-remote",
+        "--source-root",
+        "/srv/fixture",
+        "--local-root",
+        repoPath
+      ])) as any;
+      expect(created).toMatchObject({ created: true, mapping: { project_id: "fixture" } });
+
+      const resolved = (await cli(storePath, [
+        "workspace",
+        "map",
+        "resolve",
+        "--project-id",
+        "fixture",
+        "--source-device-id",
+        "device-remote",
+        "--source-path",
+        "/srv/fixture/src/index.ts"
+      ])) as any;
+      expect(resolved).toMatchObject({ status: "resolved", safe_to_access: true });
     });
   });
 

@@ -31,7 +31,7 @@ function originBoundary(input: PromptRecallInput): Record<string, unknown> {
     },
     policy: EXECUTION_ORIGIN_POLICY,
     instruction:
-      "An event occurred on its source device, not on the device reading this context. Treat filesystem paths as source-device references. For other-device paths, do not access the same absolute path locally; require an explicit device or workspace mapping. For current-device paths, still verify existence before access. For multiple-device or unknown lineage, inspect the event timeline before resolving a path.",
+      "An event occurred on its source device, not on the device reading this context. Treat filesystem paths as source-device references. For other-device paths, do not access the same absolute path locally. When origin.path_resolution is resolve_with_explicit_workspace_mapping, call workspace_path_resolve with the exact source path and access only a safe_to_access result. Otherwise require an explicit device or workspace mapping. For current-device paths, still verify existence before access. For multiple-device or unknown lineage, inspect the event timeline before resolving a path.",
     records_by_id: recordsById
   };
 }

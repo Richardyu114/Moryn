@@ -91,6 +91,21 @@ export {
   EXECUTION_ORIGIN_VERSION,
   sourceExecutionOrigin
 } from "./core/execution-origin.js";
+export type {
+  ExecutionOriginIndex,
+  ExecutionOriginIndexDependencies,
+  ExecutionOriginIndexEntry,
+  LoadedExecutionOriginIndex
+} from "./core/execution-origin-index.js";
+export {
+  buildExecutionOriginIndex,
+  EXECUTION_ORIGIN_INDEX_PATH,
+  EXECUTION_ORIGIN_INDEX_VERSION,
+  ExecutionOriginIndexSourceChangedError,
+  loadExecutionOriginIndex,
+  readExecutionOriginIndex,
+  writeExecutionOriginIndex
+} from "./core/execution-origin-index.js";
 export type { FinalizationAssuranceSelection, IncomingSessionIdentity } from "./core/finalization-assurance.js";
 export { selectPriorSessionForFinalization } from "./core/finalization-assurance.js";
 export type { AutomationOutcome, AutomationOutcomeStatus } from "./core/operation-outcome.js";
@@ -706,12 +721,18 @@ export type {
   RepoAtlasClaimEvidence,
   RepoAtlasClaimStatus,
   RepoAtlasDelta,
+  RepoAtlasDependencyEdge,
+  RepoAtlasDependencyKind,
   RepoAtlasDistribution,
   RepoAtlasLens,
   RepoAtlasObservation,
   RepoAtlasPackageManifest,
   RepoAtlasSnapshot,
+  RepoAtlasSymbolKind,
+  RepoAtlasSymbolObservation,
   RepoAtlasView,
+  ReverifyRepoAtlasClaimInput,
+  ReverifyRepoAtlasClaimResult,
   ScanRepoAtlasInput
 } from "./core/repo-atlas.js";
 export {
@@ -723,6 +744,7 @@ export {
   REPO_ATLAS_SNAPSHOT_SELECTION_SOURCES,
   REPO_ATLAS_VIEW_SELECTION_SOURCES,
   readRepoAtlas,
+  reverifyRepoAtlasClaim,
   scanRepoAtlas
 } from "./core/repo-atlas.js";
 export { parseRecord } from "./core/schema.js";
@@ -745,6 +767,27 @@ export {
   SYNC_GATE_POLICY_VERSION,
   SYNC_GATE_SELECTION_SOURCES
 } from "./core/sync-gate.js";
+export type {
+  ListWorkspaceMappingsInput,
+  RemoveWorkspaceMappingInput,
+  ResolveWorkspacePathInput,
+  SetWorkspaceMappingInput,
+  WorkspaceMapping,
+  WorkspacePathResolution,
+  WorkspacePathStyle,
+  WorkspacePathVerification
+} from "./core/workspace-mapping.js";
+export {
+  listWorkspaceMappings,
+  removeWorkspaceMapping,
+  resolveWorkspacePath,
+  setWorkspaceMapping,
+  WORKSPACE_MAPPING_REGISTRY_PATH,
+  WORKSPACE_MAPPING_SELECTION_SOURCES,
+  WORKSPACE_MAPPING_VERSION,
+  WORKSPACE_PATH_RESOLUTION_SELECTION_SOURCES,
+  WORKSPACE_PATH_STYLES
+} from "./core/workspace-mapping.js";
 
 import { CONTEXT_PACK_REVIEW_SELECTION_SOURCES, DASHBOARD_SELECTION_SOURCES } from "./observability/dashboard.js";
 

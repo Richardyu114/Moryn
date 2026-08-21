@@ -16,7 +16,8 @@ const REBUILD_SELECTION_SOURCES = {
   project_snapshots: "artifacts.snapshots.projects_by_id",
   skills_snapshot: "artifacts.snapshots.skills",
   recall_index: "artifacts.indexes.recall",
-  sync_cursors_index: "artifacts.indexes.sync_cursors"
+  sync_cursors_index: "artifacts.indexes.sync_cursors",
+  execution_origin_index: "artifacts.indexes.execution_origin"
 };
 
 describe("derived views", () => {
@@ -150,6 +151,7 @@ describe("derived views", () => {
       expect(result.artifacts.snapshots.skills).toBe("snapshots/skills/index.json");
       expect(result.artifacts.indexes.recall).toBe("indexes/recall.json");
       expect(result.artifacts.indexes.sync_cursors).toBe("indexes/sync-cursors.json");
+      expect(result.artifacts.indexes.execution_origin).toBe("indexes/execution-origin.json");
 
       const user = JSON.parse(await readFile(join(storePath, "snapshots", "user.json"), "utf8")) as { soul: unknown[] };
       expect(user.soul).toHaveLength(1);

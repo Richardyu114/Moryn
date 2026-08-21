@@ -345,7 +345,7 @@ export type OperationContractIndexEntry = {
       by_value_path: "execution.required_input_paths_by_value_path.<value_path>";
     };
   };
-  full_contract_lookup: {
+  full_contract_lookup?: {
     package_helper: string;
     cli: {
       command: string;
@@ -1614,6 +1614,138 @@ export const OPERATION_CONTRACTS = [
     }
   }),
   operationContract({
+    operation: "workspace_mapping_set",
+    category: "core",
+    summary: "Store an explicit source-device workspace root mapping in device-local state.",
+    safe_to_run: false,
+    required_when: "When a recalled remote path must be resolved against a verified local checkout.",
+    required_fields: ["project_id", "source_device_id", "source_root", "local_root"],
+    argument_sources: userInputSources(["project_id", "source_device_id", "source_root", "local_root"]),
+    arguments_by_name: {
+      project_id: { type: "string", required: true, cli: { flag: "--project-id" }, mcp: { argument: "project_id" } },
+      source_device_id: {
+        type: "string",
+        required: true,
+        cli: { flag: "--source-device-id" },
+        mcp: { argument: "source_device_id" }
+      },
+      source_root: { type: "string", required: true, cli: { flag: "--source-root" }, mcp: { argument: "source_root" } },
+      local_root: { type: "string", required: true, cli: { flag: "--local-root" }, mcp: { argument: "local_root" } }
+    },
+    interfaces: {
+      cli: {
+        command:
+          "moryn workspace map set --project-id <project_id> --source-device-id <source_device_id> --source-root <source_root> --local-root <local_root>",
+        argv: [
+          "workspace",
+          "map",
+          "set",
+          "--project-id",
+          "<project_id>",
+          "--source-device-id",
+          "<source_device_id>",
+          "--source-root",
+          "<source_root>",
+          "--local-root",
+          "<local_root>"
+        ]
+      },
+      mcp: {
+        tool: "workspace_mapping_set",
+        arguments: {
+          project_id: "<project_id>",
+          source_device_id: "<source_device_id>",
+          source_root: "<source_root>",
+          local_root: "<local_root>"
+        }
+      }
+    }
+  }),
+  operationContract({
+    operation: "workspace_mapping_list",
+    category: "core",
+    summary: "Read explicit cross-device workspace mappings from local-only state.",
+    safe_to_run: true,
+    required_when: "Before resolving a remote path or auditing local mapping configuration.",
+    required_fields: [],
+    arguments_by_name: {
+      project_id: { type: "string", required: false, cli: { flag: "--project-id" }, mcp: { argument: "project_id" } },
+      source_device_id: {
+        type: "string",
+        required: false,
+        cli: { flag: "--source-device-id" },
+        mcp: { argument: "source_device_id" }
+      }
+    },
+    interfaces: {
+      cli: { command: "moryn workspace map list", argv: ["workspace", "map", "list"] },
+      mcp: { tool: "workspace_mapping_list", arguments: {} }
+    }
+  }),
+  operationContract({
+    operation: "workspace_path_resolve",
+    category: "core",
+    summary: "Resolve one source-device path and verify its real local target remains inside the mapped root.",
+    safe_to_run: true,
+    required_when: "After origin metadata reports that a remote record has an explicit workspace mapping.",
+    required_fields: ["project_id", "source_device_id", "source_path"],
+    argument_sources: userInputSources(["project_id", "source_device_id", "source_path"]),
+    arguments_by_name: {
+      project_id: { type: "string", required: true, cli: { flag: "--project-id" }, mcp: { argument: "project_id" } },
+      source_device_id: {
+        type: "string",
+        required: true,
+        cli: { flag: "--source-device-id" },
+        mcp: { argument: "source_device_id" }
+      },
+      source_path: { type: "string", required: true, cli: { flag: "--source-path" }, mcp: { argument: "source_path" } }
+    },
+    interfaces: {
+      cli: {
+        command:
+          "moryn workspace map resolve --project-id <project_id> --source-device-id <source_device_id> --source-path <source_path>",
+        argv: [
+          "workspace",
+          "map",
+          "resolve",
+          "--project-id",
+          "<project_id>",
+          "--source-device-id",
+          "<source_device_id>",
+          "--source-path",
+          "<source_path>"
+        ]
+      },
+      mcp: {
+        tool: "workspace_path_resolve",
+        arguments: {
+          project_id: "<project_id>",
+          source_device_id: "<source_device_id>",
+          source_path: "<source_path>"
+        }
+      }
+    }
+  }),
+  operationContract({
+    operation: "workspace_mapping_remove",
+    category: "core",
+    summary: "Remove one explicit workspace mapping from device-local state.",
+    safe_to_run: false,
+    required_when: "When a local checkout mapping is obsolete or no longer trusted.",
+    required_fields: ["mapping_id"],
+    argument_sources: userInputSources(["mapping_id"]),
+    arguments_by_name: {
+      mapping_id: { type: "string", required: true, cli: { flag: "--mapping-id" }, mcp: { argument: "mapping_id" } }
+    },
+    interfaces: {
+      cli: {
+        command: "moryn workspace map remove --mapping-id <mapping_id>",
+        argv: ["workspace", "map", "remove", "--mapping-id", "<mapping_id>"]
+      },
+      mcp: { tool: "workspace_mapping_remove", arguments: { mapping_id: "<mapping_id>" } }
+    }
+  }),
+  operationContract({
     operation: "repo_atlas_scan",
     category: "core",
     summary: "Build a local, content-free snapshot from Git-tracked repository evidence.",
@@ -1696,9 +1828,16 @@ export const OPERATION_CONTRACTS = [
     category: "core",
     summary: "Append an agent-authored repository claim bound to exact observation IDs and digests.",
     safe_to_run: false,
-    required_when: "When a reusable architecture statement has explicit tracked-file evidence.",
-    required_fields: ["repo_path", "project_id", "statement", "evidence_paths"],
-    argument_sources: userInputSources(["repo_path", "project_id", "statement", "evidence_paths"]),
+    required_when: "When a reusable architecture statement has explicit tracked-file or parsed-symbol evidence.",
+    required_fields: ["repo_path", "project_id", "statement", "evidence"],
+    argument_sources: userInputSources([
+      "repo_path",
+      "project_id",
+      "statement",
+      "evidence",
+      "evidence_paths",
+      "evidence_symbols"
+    ]),
     arguments_by_name: {
       repo_path: { type: "string", required: true, cli: { flag: "--repo" }, mcp: { argument: "repo_path" } },
       project_id: {
@@ -1715,9 +1854,15 @@ export const OPERATION_CONTRACTS = [
       },
       evidence_paths: {
         type: "string[]",
-        required: true,
+        required: false,
         cli: { flag: "--evidence", repeatable: true },
         mcp: { argument: "evidence_paths" }
+      },
+      evidence_symbols: {
+        type: "string[]",
+        required: false,
+        cli: { flag: "--symbol", repeatable: true },
+        mcp: { argument: "evidence_symbols" }
       },
       confidence: {
         type: "number",
@@ -1741,6 +1886,14 @@ export const OPERATION_CONTRACTS = [
         mcp: { argument: "distribution" }
       },
       source: { type: "object", required: false, mcp: { argument: "source" } }
+    },
+    required_fields_by_name: {
+      evidence: {
+        name: "evidence",
+        argument_path: "evidence_paths|evidence_symbols",
+        placeholder: "<evidence>",
+        alternatives: ["evidence_paths", "evidence_symbols"]
+      }
     },
     interfaces: {
       cli: {
@@ -1767,6 +1920,30 @@ export const OPERATION_CONTRACTS = [
           statement: "<statement>",
           evidence_paths: ["<path>"]
         }
+      }
+    }
+  }),
+  operationContract({
+    operation: "repo_atlas_reverify",
+    category: "core",
+    summary: "Append a claim revision bound to the current file or symbol evidence digests.",
+    safe_to_run: false,
+    required_when: "After a stale Repo Atlas claim has been reviewed against the current repository.",
+    required_fields: ["repo_path", "claim_id"],
+    argument_sources: userInputSources(["repo_path", "claim_id"]),
+    arguments_by_name: {
+      repo_path: { type: "string", required: true, cli: { flag: "--repo" }, mcp: { argument: "repo_path" } },
+      claim_id: { type: "string", required: true, cli: { flag: "--claim-id" }, mcp: { argument: "claim_id" } },
+      source: { type: "object", required: false, mcp: { argument: "source" } }
+    },
+    interfaces: {
+      cli: {
+        command: "moryn repo-atlas reverify --repo <repo_path> --claim-id <claim_id>",
+        argv: ["repo-atlas", "reverify", "--repo", "<repo_path>", "--claim-id", "<claim_id>"]
+      },
+      mcp: {
+        tool: "repo_atlas_reverify",
+        arguments: { repo_path: "<repo_path>", claim_id: "<claim_id>" }
       }
     }
   }),
@@ -3707,10 +3884,14 @@ function operationContractIndexEntry(operation: OperationContract): OperationCon
           }
         }
       : {}),
-    full_contract_lookup: operationContractLookup(operation.operation, {
-      includeCliExecution: operation.operation === "agent_finish",
-      includeExecFile: operation.operation === "agent_finish"
-    })
+    ...(includeDetailedInputHint
+      ? {
+          full_contract_lookup: operationContractLookup(operation.operation, {
+            includeCliExecution: operation.operation === "agent_finish",
+            includeExecFile: operation.operation === "agent_finish"
+          })
+        }
+      : {})
   };
 }
 

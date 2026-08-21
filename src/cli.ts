@@ -78,12 +78,19 @@ import {
   REPO_ATLAS_DISTRIBUTIONS,
   REPO_ATLAS_LENSES,
   readRepoAtlas,
+  reverifyRepoAtlasClaim,
   scanRepoAtlas
 } from "./core/repo-atlas.js";
 import { isValidPatchPath, RECORD_KINDS, RECORD_PRIORITIES, RECORD_SCOPES, RECORD_STATES } from "./core/schema.js";
 import { SOUL_DISTRIBUTIONS } from "./core/soul-profile.js";
 import { SYNC_GATE_DESTINATIONS, type SyncGateMode } from "./core/sync-gate.js";
 import { RECORD_FEEDBACK_OUTCOMES } from "./core/types.js";
+import {
+  listWorkspaceMappings,
+  removeWorkspaceMapping,
+  resolveWorkspacePath,
+  setWorkspaceMapping
+} from "./core/workspace-mapping.js";
 import {
   activateClaudeSettings,
   activateCodexHooks,
@@ -4850,6 +4857,67 @@ continuity
 
 const repoAtlas = program.command("repo-atlas").description("Build and query evidence-backed repository context");
 
+const workspaceMap = program
+  .command("workspace")
+  .description("Manage device-local workspace context")
+  .command("map")
+  .description("Manage explicit cross-device path mappings");
+
+workspaceMap
+  .command("set")
+  .requiredOption("--project-id <id>")
+  .requiredOption("--source-device-id <id>")
+  .requiredOption("--source-root <path>")
+  .requiredOption("--local-root <path>")
+  .action(async (options) => {
+    printJson(
+      await setWorkspaceMapping({
+        store_path: storePath(),
+        project_id: options.projectId,
+        source_device_id: options.sourceDeviceId,
+        source_root: options.sourceRoot,
+        local_root: options.localRoot
+      })
+    );
+  });
+
+workspaceMap
+  .command("list")
+  .option("--project-id <id>")
+  .option("--source-device-id <id>")
+  .action(async (options) => {
+    printJson(
+      await listWorkspaceMappings({
+        store_path: storePath(),
+        project_id: options.projectId,
+        source_device_id: options.sourceDeviceId
+      })
+    );
+  });
+
+workspaceMap
+  .command("resolve")
+  .requiredOption("--project-id <id>")
+  .requiredOption("--source-device-id <id>")
+  .requiredOption("--source-path <path>")
+  .action(async (options) => {
+    printJson(
+      await resolveWorkspacePath({
+        store_path: storePath(),
+        project_id: options.projectId,
+        source_device_id: options.sourceDeviceId,
+        source_path: options.sourcePath
+      })
+    );
+  });
+
+workspaceMap
+  .command("remove")
+  .requiredOption("--mapping-id <id>")
+  .action(async (options) => {
+    printJson(await removeWorkspaceMapping({ store_path: storePath(), mapping_id: options.mappingId }));
+  });
+
 repoAtlas
   .command("scan")
   .option("--repo <path>", "Git repository path", process.cwd())
@@ -4894,7 +4962,8 @@ repoAtlas
   .option("--repo <path>", "Git repository path", process.cwd())
   .requiredOption("--project-id <id>")
   .requiredOption("--statement <text>")
-  .requiredOption("--evidence <path>", "Tracked evidence path", collectNonEmptyOption("--evidence"))
+  .option("--evidence <path>", "Tracked evidence path", collectNonEmptyOption("--evidence"))
+  .option("--symbol <path#qualified_name>", "Parsed symbol evidence", collectNonEmptyOption("--symbol"))
   .option("--confidence <value>", "Confidence from 0 to 1")
   .option("--tag <tag>", "Claim tag", collectNonEmptyOption("--tag"))
   .option("--distribution <class>", "Distribution boundary", "personal_sync")
@@ -4909,10 +4978,35 @@ repoAtlas
         repo_path: options.repo,
         project_id: options.projectId,
         statement: options.statement,
-        evidence_paths: options.evidence,
+        evidence_paths: options.evidence ?? [],
+        evidence_symbols: options.symbol,
         confidence: parseConfidence(options.confidence),
         tags: options.tag,
         distribution: parseEnum(options.distribution, REPO_ATLAS_DISTRIBUTIONS, "--distribution"),
+        source: {
+          client: options.agent,
+          session_id: options.sessionId,
+          model: options.model,
+          device_id: options.deviceId
+        }
+      })
+    );
+  });
+
+repoAtlas
+  .command("reverify")
+  .option("--repo <path>", "Git repository path", process.cwd())
+  .requiredOption("--claim-id <id>")
+  .option("--agent <client>", "Source client", "cli")
+  .option("--session-id <id>")
+  .option("--model <model>")
+  .option("--device-id <id>")
+  .action(async (options) => {
+    printJson(
+      await reverifyRepoAtlasClaim({
+        store_path: storePath(),
+        repo_path: options.repo,
+        claim_id: options.claimId,
         source: {
           client: options.agent,
           session_id: options.sessionId,

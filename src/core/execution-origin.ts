@@ -1,5 +1,7 @@
+import type { ExecutionOriginIndexEntry } from "./execution-origin-index.js";
 import { createStringKeyedRecord } from "./string-keyed-record.js";
 import type { MorynEvent, MorynRecord, RecordSource } from "./types.js";
+import type { WorkspaceMapping } from "./workspace-mapping.js";
 
 export const EXECUTION_ORIGIN_VERSION = 1 as const;
 
@@ -16,6 +18,7 @@ export type RecordDeviceLineage = "current_device_only" | "remote_device_only" |
 export type PathResolutionAction =
   | "verify_on_current_device"
   | "require_explicit_device_or_workspace_mapping"
+  | "resolve_with_explicit_workspace_mapping"
   | "inspect_event_timeline_then_map"
   | "verify_origin_before_access";
 
@@ -38,6 +41,11 @@ export interface RecordExecutionOrigin {
   creation: SourceExecutionOrigin;
   latest_mutation: SourceExecutionOrigin;
   path_resolution: PathResolutionAction;
+  workspace_mapping?: {
+    status: "available" | "not_configured";
+    mapping_ids: string[];
+    resolution_operation: "workspace_path_resolve";
+  };
 }
 
 export interface ExecutionOriginContext {
@@ -56,6 +64,7 @@ export interface ExecutionOriginContext {
     current_device_id: "current_device.device_id";
     record_origin: "records_by_id.<record_id>";
     event_origin: "events_by_id.<event_id>";
+    workspace_mapping: "records_by_id.<record_id>.workspace_mapping";
   };
 }
 
@@ -90,9 +99,13 @@ export function sourceExecutionOrigin(
   };
 }
 
-function pathResolution(lineage: RecordDeviceLineage): PathResolutionAction {
+function pathResolution(lineage: RecordDeviceLineage, mappingCount = 0): PathResolutionAction {
   if (lineage === "current_device_only") return "verify_on_current_device";
-  if (lineage === "remote_device_only") return "require_explicit_device_or_workspace_mapping";
+  if (lineage === "remote_device_only") {
+    return mappingCount > 0
+      ? "resolve_with_explicit_workspace_mapping"
+      : "require_explicit_device_or_workspace_mapping";
+  }
   if (lineage === "multiple_devices") return "inspect_event_timeline_then_map";
   return "verify_origin_before_access";
 }
@@ -116,20 +129,41 @@ function compareEvents(left: MorynEvent, right: MorynEvent): number {
 function recordLineage(
   record: MorynRecord,
   events: readonly MorynEvent[],
-  currentDeviceId: string | undefined
+  currentDeviceId: string | undefined,
+  indexed: ExecutionOriginIndexEntry | undefined,
+  mappings: readonly WorkspaceMapping[]
 ): RecordExecutionOrigin {
   const orderedEvents = [...events].sort(compareEvents);
   const lineageSources = orderedEvents.length ? orderedEvents.map((event) => event.source) : [record.source];
-  const sourceDeviceIds = [
-    ...new Set(lineageSources.map(normalizedDeviceId).filter((value): value is string => Boolean(value)))
-  ].sort();
-  const hasUnknownSource = lineageSources.some((source) => !normalizedDeviceId(source));
+  const sourceDeviceIds = indexed
+    ? indexed.source_device_ids
+    : [...new Set(lineageSources.map(normalizedDeviceId).filter((value): value is string => Boolean(value)))].sort();
+  const hasUnknownSource = indexed
+    ? indexed.has_unknown_source
+    : lineageSources.some((source) => !normalizedDeviceId(source));
   let lineage: RecordDeviceLineage;
   if (!currentDeviceId || hasUnknownSource || sourceDeviceIds.length === 0) lineage = "unknown";
   else if (sourceDeviceIds.length > 1) lineage = "multiple_devices";
   else lineage = sourceDeviceIds[0] === currentDeviceId ? "current_device_only" : "remote_device_only";
-  const creationSource = orderedEvents[0]?.source ?? record.source;
-  const latestSource = orderedEvents.at(-1)?.source ?? record.source;
+  const creationSource = indexed
+    ? indexed.creation_source_device_id
+      ? { client: "moryn.execution-origin-index", device_id: indexed.creation_source_device_id }
+      : undefined
+    : (orderedEvents[0]?.source ?? record.source);
+  const latestSource = indexed
+    ? indexed.latest_source_device_id
+      ? { client: "moryn.execution-origin-index", device_id: indexed.latest_source_device_id }
+      : undefined
+    : (orderedEvents.at(-1)?.source ?? record.source);
+  const matchingMappings =
+    lineage === "remote_device_only" && record.project_id && sourceDeviceIds.length === 1
+      ? mappings
+          .filter(
+            (mapping) => mapping.project_id === record.project_id && mapping.source_device_id === sourceDeviceIds[0]
+          )
+          .map((mapping) => mapping.mapping_id)
+          .sort()
+      : [];
   return {
     record_id: record.id,
     lineage,
@@ -137,7 +171,16 @@ function recordLineage(
     has_unknown_source: hasUnknownSource,
     creation: sourceExecutionOrigin(creationSource, currentDeviceId),
     latest_mutation: sourceExecutionOrigin(latestSource, currentDeviceId),
-    path_resolution: pathResolution(lineage)
+    path_resolution: pathResolution(lineage, matchingMappings.length),
+    ...(lineage === "remote_device_only"
+      ? {
+          workspace_mapping: {
+            status: matchingMappings.length > 0 ? ("available" as const) : ("not_configured" as const),
+            mapping_ids: matchingMappings,
+            resolution_operation: "workspace_path_resolve" as const
+          }
+        }
+      : {})
   };
 }
 
@@ -146,10 +189,13 @@ export function buildExecutionOriginContext(input: {
   records?: readonly MorynRecord[];
   events?: readonly MorynEvent[];
   include_event_origins?: boolean;
+  lineage_by_record_id?: Readonly<Record<string, ExecutionOriginIndexEntry>>;
+  workspace_mappings?: readonly WorkspaceMapping[];
 }): ExecutionOriginContext {
   const currentDeviceId = input.current_device_id?.trim() || undefined;
   const records = [...(input.records ?? [])];
   const events = [...(input.events ?? [])];
+  const mappings = input.workspace_mappings ?? [];
   const selectedRecordIds = new Set(records.map((record) => record.id));
   const relevantEvents =
     selectedRecordIds.size === 0
@@ -167,7 +213,13 @@ export function buildExecutionOriginContext(input: {
 
   const recordsById = createStringKeyedRecord<RecordExecutionOrigin>();
   for (const record of records) {
-    recordsById[record.id] = recordLineage(record, eventsByRecordId.get(record.id) ?? [], currentDeviceId);
+    recordsById[record.id] = recordLineage(
+      record,
+      eventsByRecordId.get(record.id) ?? [],
+      currentDeviceId,
+      input.lineage_by_record_id?.[record.id],
+      mappings
+    );
   }
   const eventsById = createStringKeyedRecord<EventExecutionOrigin>();
   for (const event of input.include_event_origins ? relevantEvents : []) {
@@ -194,7 +246,8 @@ export function buildExecutionOriginContext(input: {
     selection_sources: {
       current_device_id: "current_device.device_id",
       record_origin: "records_by_id.<record_id>",
-      event_origin: "events_by_id.<event_id>"
+      event_origin: "events_by_id.<event_id>",
+      workspace_mapping: "records_by_id.<record_id>.workspace_mapping"
     }
   };
 }

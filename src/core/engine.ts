@@ -47,6 +47,11 @@ import {
   runAutomaticExactDuplicateConsolidation
 } from "./exact-duplicate-consolidation.js";
 import { buildExecutionOriginContext, type ExecutionOriginContext } from "./execution-origin.js";
+import {
+  type ExecutionOriginIndexEntry,
+  ExecutionOriginIndexSourceChangedError,
+  loadExecutionOriginIndex
+} from "./execution-origin-index.js";
 import { diagnoseHealthCheck, HEALTH_CHECK_SELECTION_SOURCES, type HealthCheckInput } from "./health-check.js";
 import {
   HISTORICAL_RECALL_SELECTION_SOURCES,
@@ -106,6 +111,7 @@ import { assessRecallOutcome, queryRecordMatch } from "./recall-outcome.js";
 import {
   type CurrentRecordReadResult,
   DEFAULT_MEMORY_WORKING_SET_OPTIONS,
+  type EventManifest,
   readCurrentRecords,
   selectMemoryWorkingSet
 } from "./record-read-model.js";
@@ -215,6 +221,7 @@ import {
   type RecordState
 } from "./types.js";
 import { type RequiredFieldMetadata, withPhasesByName, withRequiredFieldsByName } from "./workflow.js";
+import { listWorkspaceMappings } from "./workspace-mapping.js";
 
 interface EngineDeps {
   storePath: string;
@@ -3990,18 +3997,50 @@ export function createEngine(deps: EngineDeps) {
 
   async function executionOriginContext(
     records: readonly MorynRecord[],
-    events?: readonly MorynEvent[],
-    includeEventOrigins = false
+    options: {
+      events?: readonly MorynEvent[];
+      include_event_origins?: boolean;
+      event_manifest?: EventManifest;
+    } = {}
   ): Promise<ExecutionOriginContext> {
-    const [deviceId, lineageEvents] = await Promise.all([
+    const loadLineage = async (): Promise<Record<string, ExecutionOriginIndexEntry> | undefined> => {
+      if (options.events || records.length === 0) return undefined;
+      try {
+        return (await loadExecutionOriginIndex(deps.storePath, options.event_manifest)).index.records_by_id;
+      } catch (error) {
+        if (!(error instanceof ExecutionOriginIndexSourceChangedError)) throw error;
+        return stringKeyedRecordFromEntries(
+          records.map(
+            (record) =>
+              [
+                record.id,
+                {
+                  record_id: record.id,
+                  source_device_ids: [],
+                  has_unknown_source: true,
+                  event_count: 1
+                }
+              ] as const
+          )
+        );
+      }
+    };
+    const [deviceId, mappings, loadedIndex] = await Promise.all([
       currentDeviceId(),
-      events ? Promise.resolve(events) : records.length ? readEvents(deps.storePath) : Promise.resolve([])
+      records.length
+        ? listWorkspaceMappings({ store_path: deps.storePath })
+            .then(({ mappings }) => mappings)
+            .catch(() => [])
+        : Promise.resolve([]),
+      loadLineage()
     ]);
     return buildExecutionOriginContext({
       current_device_id: deviceId,
       records,
-      events: lineageEvents,
-      include_event_origins: includeEventOrigins
+      events: options.events ?? [],
+      include_event_origins: options.include_event_origins,
+      lineage_by_record_id: loadedIndex,
+      workspace_mappings: mappings
     });
   }
 
@@ -5816,7 +5855,12 @@ export function createEngine(deps: EngineDeps) {
               : undefined
           })
         : undefined;
-      const originContext = await executionOriginContext(records.map((result) => result.record));
+      const originContext = await executionOriginContext(
+        records.map((result) => result.record),
+        {
+          event_manifest: retrieval?.event_manifest ?? current?.event_manifest
+        }
+      );
       const results = records.map((result) => ({
         ...result,
         origin: originContext.records_by_id[result.record.id]
@@ -5852,7 +5896,10 @@ export function createEngine(deps: EngineDeps) {
       const start = Math.max(0, anchor.index - timelineInput.before);
       const end = Math.min(orderedEvents.length, anchor.index + timelineInput.after + 1);
       const windowEvents = orderedEvents.slice(start, end);
-      const originContext = await executionOriginContext([], windowEvents, true);
+      const originContext = await executionOriginContext([], {
+        events: windowEvents,
+        include_event_origins: true
+      });
       const items = windowEvents.map((event, offset) => {
         const index = start + offset;
         const recordId = recordIdFromEvent(event);
@@ -5997,12 +6044,15 @@ export function createEngine(deps: EngineDeps) {
           ].map((record) => [record.id, record] as const)
         ).values()
       ];
-      const originContext = await executionOriginContext([
-        ...bootRecords,
-        ...(activeCheckpoint && !bootRecords.some((record) => record.id === activeCheckpoint.id)
-          ? [activeCheckpoint]
-          : [])
-      ]);
+      const originContext = await executionOriginContext(
+        [
+          ...bootRecords,
+          ...(activeCheckpoint && !bootRecords.some((record) => record.id === activeCheckpoint.id)
+            ? [activeCheckpoint]
+            : [])
+        ],
+        { event_manifest: retrieval?.event_manifest ?? current?.event_manifest }
+      );
       return {
         ...(retrievalEvidence ? { retrieval: retrievalEvidence } : {}),
         memory_working_set: memoryWorkingSet.report,
@@ -6053,7 +6103,8 @@ export function createEngine(deps: EngineDeps) {
       const refreshInput = { ...input, include_private: input.include_private === true } as ValidatedRefreshInput;
       const parsedCursor = refreshInput.cursor ? parseRefreshCursor(refreshInput.cursor) : undefined;
       const limit = validateLimit(input.limit, 20, "refresh");
-      const records = buildActiveLogicalMemoryView((await currentRecords()).filter(isVisibleByDefault))
+      const current = await readRecords(deps.storePath);
+      const records = buildActiveLogicalMemoryView(current.records.filter(isVisibleByDefault))
         .active_records.filter((record) => isAllowedByPrivateBoundary(record, refreshInput.include_private))
         .filter((record) => recordBootContextMatches(record, input.project_id))
         .filter((record) => {
@@ -6078,7 +6129,12 @@ export function createEngine(deps: EngineDeps) {
       });
       const reportableChanges = allChanges.filter((change) => change.change.importance !== "silent");
       const changes = reportableChanges.slice(0, limit);
-      const originContext = await executionOriginContext(changes.map((change) => change.record));
+      const originContext = await executionOriginContext(
+        changes.map((change) => change.record),
+        {
+          event_manifest: current.event_manifest
+        }
+      );
       const changesWithOrigin = changes.map((change) => ({
         ...change.change,
         origin: originContext.records_by_id[change.record.id]
@@ -6109,14 +6165,15 @@ export function createEngine(deps: EngineDeps) {
         all_projects: listRecentInput.all_projects === true,
         include_private: listRecentInput.include_private === true
       } as ValidatedListRecentInput;
+      const current = await readRecords(deps.storePath);
       const records = compactRecords(
-        buildActiveLogicalMemoryView((await currentRecords()).filter(isVisibleByDefault))
+        buildActiveLogicalMemoryView(current.records.filter(isVisibleByDefault))
           .active_records.filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private))
           .filter((record) => resolvedInput.all_projects || recordBootContextMatches(record, resolvedInput.project_id))
           .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || compareCodeUnits(left.id, right.id))
           .slice(0, validateLimit(resolvedInput.limit, 20, "list_recent"))
       );
-      const originContext = await executionOriginContext(records);
+      const originContext = await executionOriginContext(records, { event_manifest: current.event_manifest });
       return {
         records,
         origin_context: originContext,

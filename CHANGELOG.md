@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Device-local Workspace Mapping with explicit project/source-device roots,
+  serialized updates, restrictive permissions, and realpath containment before
+  a remote path is considered safe to access.
+- A content-free execution-origin index for ordinary recall, boot, refresh, and
+  recent-record reads, including manifest-consistent rebuilds and conservative
+  unknown lineage when a concurrent write advances the selected generation.
+- Repo Atlas v2 incremental scans, bounded JavaScript/TypeScript AST symbols,
+  dependency edges, symbol-scoped claim invalidation, and append-only claim
+  reverification across CLI, MCP, and package APIs.
+
+### Changed
+
+- The compact operation index keeps per-operation lookup recipes only for
+  operations that require input collection or confirmation; safe operations use
+  the shared top-level lookup templates.
+
+### Fixed
+
+- Repo Atlas now records unstaged tracked-file deletion as delta evidence and
+  aggregates TypeScript overload declarations so every signature contributes
+  to the stable symbol digest.
+
 ## 0.4.0 - 2026-07-31
 
 Moryn v0.4 makes accumulated memory bounded and auditable, makes agent/user

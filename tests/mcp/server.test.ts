@@ -157,6 +157,7 @@ const REBUILD_SELECTION_SOURCES = {
   project_snapshots: "artifacts.snapshots.projects_by_id",
   skills_snapshot: "artifacts.snapshots.skills",
   recall_index: "artifacts.indexes.recall",
+  execution_origin_index: "artifacts.indexes.execution_origin",
   sync_cursors_index: "artifacts.indexes.sync_cursors"
 };
 const SYNC_STATUS_SELECTION_SOURCES = {
@@ -4318,6 +4319,7 @@ describe("MCP stdio server", () => {
           "refresh",
           "repo_atlas_claim",
           "repo_atlas_read",
+          "repo_atlas_reverify",
           "repo_atlas_scan",
           "repo_atlas_view",
           "revise",
@@ -4333,6 +4335,10 @@ describe("MCP stdio server", () => {
           "sync_push",
           "sync_status",
           "timeline",
+          "workspace_mapping_list",
+          "workspace_mapping_remove",
+          "workspace_mapping_set",
+          "workspace_path_resolve",
           "write"
         ]);
         const writeTool = tools.tools.find((tool) => tool.name === "write");

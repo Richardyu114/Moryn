@@ -102,16 +102,19 @@ Moryn also exposes four evidence-first controls for multi-agent engineering:
   lifecycle operation and emits content-free conformance receipts. Codex and
   Claude use validated native lifecycle surfaces; OpenCode uses the same
   contract through MCP without pretending its plugin hooks are installed.
-- **Repo Atlas** scans Git-tracked metadata into a rebuildable local snapshot,
-  binds authored architecture claims to exact file digests, marks claims stale
-  after evidence changes, and derives onboarding, request-path, and
-  release-impact views.
+- **Repo Atlas** incrementally scans Git-tracked files plus JavaScript and
+  TypeScript symbols and dependency edges into a rebuildable local snapshot.
+  Authored architecture claims can bind to exact file or symbol digests, become
+  stale when that evidence changes, and be explicitly reverified as a new claim
+  revision. Onboarding, request-path, and release-impact views remain derived.
 - **Sync Gate** routes new local-only payloads to an ignored local journal and
   evaluates synchronized events against personal, trusted-team, or public
   destinations before publication.
-- **Execution Origin Boundary** marks recalled records and timeline events as
-  current-device, remote-device, multi-device, or unknown, so synchronized
-  filesystem paths are never silently treated as local paths.
+- **Execution Origin Boundary** uses a content-free local index to mark recalled
+  records and timeline events as current-device, remote-device, multi-device,
+  or unknown. Explicit workspace mappings can resolve a remote path into a
+  verified local checkout without synchronizing host paths, so a synchronized
+  filesystem reference is never silently treated as local.
 
 Commands, MCP parity, OpenCode setup, and safety boundaries are documented in
 [Context Infrastructure](docs/context-infrastructure.md).
