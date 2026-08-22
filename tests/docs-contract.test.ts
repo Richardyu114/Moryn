@@ -170,8 +170,8 @@ describe("documentation contracts", () => {
     ]);
 
     expect(changelog).toContain("## 0.5.0 - 2026-08-22");
-    expect(readme).toContain("## What v0.5 adds");
-    expect(readme).toContain("[v0.5 release notes](docs/v0.5-release-notes.md)");
+    expect(readme).toContain("## Core capabilities");
+    expect(readme).toContain("(docs/v0.5-release-notes.md)");
     expect(releaseNotes).toContain("## 1. Sync Gate and physical local-only routing");
     expect(releaseNotes).toContain("## 2. Agent Continuity Protocol v1");
     expect(releaseNotes).toContain("## 3. Repo Atlas v2");

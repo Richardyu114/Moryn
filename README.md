@@ -37,86 +37,30 @@ It is the *memory bus between agents*: simple on the default path, and
 fully traceable when someone needs review, provenance, sync, or handoff history.
 
 > Current source/package version: v0.5.0.
->
-> Context boundaries keep local-only bytes local, preserve execution origin,
-> negotiate declared host transports, and bind repository claims to evidence.
-> The v0.4 Distilled Memory and Portable Soul foundation remains compatible.
 
-## What v0.5 adds
+## Core capabilities
 
-v0.5 makes cross-device context safer at four boundaries:
+- **Durable handoffs:** current work, decisions, blockers, files, and next
+  actions survive agent, session, and device changes.
+- **Distilled Memory:** evidence, episodes, reusable knowledge, and identity are
+  managed independently from trust and hot/warm/cold retention.
+- **Bounded recall and Historical recovery:** normal retrieval stays within a
+  deterministic budget; one bounded read-only pass can recover relevant cold or
+  archived evidence without silently restoring it.
+- **Outcome-aware ranking:** explicit `used`, `verified`, and `rejected`
+  feedback improves later selection without storing the query or generated
+  answer.
+- **Bounded semantic maintenance:** proof-gated folds and rollups reduce covered
+  history while preserving source links and append-only auditability.
+- **Portable Soul:** user preferences and agent persona remain separately
+  versioned, approval-gated, and reversible.
+- **Remembered project aliases:** approved project-identity repairs can be
+  reused directionally without weakening private or ambiguous cases.
+- **Evidence-backed boundaries:** publication policy, execution origin,
+  workspace mappings, host transports, and repository claims stay explicit and
+  inspectable.
 
-- **Publication:** Sync Gate routes new `local_only` events to an ignored local
-  journal and evaluates publishable events against an explicit destination.
-- **Agent hosts:** Agent Continuity Protocol v1 negotiates native hooks, MCP, or
-  CLI per lifecycle operation. Compaction recovery uses the installed
-  `SessionStart(source=compact)` route rather than claiming PostCompact support.
-- **Repository knowledge:** Repo Atlas v2 separates rebuildable file, symbol,
-  and dependency observations from authored, evidence-bound claims.
-- **Machines and paths:** execution-origin metadata keeps a synchronized event
-  tied to its source device; a remote path requires an explicit device-local
-  workspace mapping before access.
-
-The release also adds a bounded Dashboard shared-copy sync action and hardens
-project identity, host-hook recovery, request-body limits, claim idempotency,
-origin-index validation, and production dependency resolutions. Existing v0.2,
-v0.3, and v0.4 stores open in place.
-
-See the [v0.5 release notes](docs/v0.5-release-notes.md) and
-[v0.5 migration guide](docs/v0.5-migration.md).
-
-## What v0.4 adds
-
-Moryn now treats long-lived context as a lifecycle rather than an ever-growing
-flat list:
-
-- **Distilled Memory:** L0 evidence, L1 episodes, L2 semantic/procedural
-  knowledge, and L3 identity are selected independently from trust and
-  hot/warm/cold retention. Session Fold and Episode Rollup compact covered
-  history without erasing its provenance.
-- **Bounded recall:** deterministic token budgets keep normal boot and retrieval
-  bounded. Ranked results remain available, while retrieval diagnostics omit
-  the full scanned candidate records and return bounded ranking-pool and
-  working-set evidence instead. L3, pinned, and `never_forget` memory remain
-  mandatory, with explicit overflow evidence instead of silent truncation.
-- **Traceable depth:** a rollup can be expanded to its immediate sources and
-  leaf evidence with digest, privacy, conflict, and quarantine checks.
-- **Historical recovery:** when bounded current recall is missing or incomplete, Moryn performs
-  one bounded, read-only search across cold, archived, logically hidden, and
-  working-set-omitted records. Verified useful evidence returns as a compact
-  current Learning record; archived sources stay archived and auditable.
-  Bounded Chinese/CJK matching supports natural queries without requiring
-  whitespace between words.
-- **Outcome-aware ranking:** recall remains read-only. After a recall interaction
-  ends, a host can explicitly submit exactly one final `recalled`, `used`,
-  `verified`, or `rejected` outcome with a unique idempotency key. Moryn stores
-  record-level outcome metadata, not the query or answer; useful outcomes improve
-  later selection, rejection lowers it, and a plain recall is neutral. Native
-  prompt recall returns a `feedback_bridge` with the selected record and
-  `memory_feedback` arguments so the host can submit that outcome after use or
-  verification completes.
-- **Bounded semantic maintenance:** a newly committed checkpoint and
-  `agent_finish` can each apply at most one proof-gated, public project merge.
-  Idempotent checkpoint replay returns the existing checkpoint without running
-  maintenance again.
-- **Remembered project aliases:** the first approved Dashboard project repair
-  records a directional, portable alias attestation. Later public records under
-  that alias are absorbed automatically with exact record-id revisions; private,
-  Soul, conflicted, protected-state, unknown, and reverse mappings stay manual.
-- **Portable Soul:** User Soul and Agent Persona are versioned separately,
-  support global/project clauses and `local_only`/`personal_sync` distribution,
-  require approval for activation, and can be rolled back append-only.
-- **Truthful hook preparation:** Effective Soul compilation records what was
-  selected, and `host_context_prepared` records that bounded context was prepared
-  for hook output. Its receipt does not prove stdout transport, Host
-  acknowledgment, or model obedience.
-
-Dashboard GET views add read-only Memory Maintenance and Soul Studio
-projections; explicit POST actions remain auditable mutations. See the
-[v0.4 migration guide](docs/v0.4-migration.md) for compatibility and safety
-details.
-
-## Using context infrastructure
+## Context infrastructure
 
 Moryn also exposes four evidence-first controls for multi-agent engineering:
 
@@ -584,6 +528,7 @@ legacy text while also returning `structuredContent.outcome` with `status`,
 - [Contracts](docs/contracts.md) — machine-readable operation contracts
 - [Design Spec](docs/moryn-design.md) — full protocol design
 - [Implementation Roadmap](docs/implementation-roadmap.md)
+- [Release notes](docs/v0.5-release-notes.md) · [Migration guide](docs/v0.5-migration.md)
 - [Development](docs/development.md) · [Changelog](CHANGELOG.md)
 
 ## Development
