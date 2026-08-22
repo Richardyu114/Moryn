@@ -12,6 +12,7 @@ export type GateStepId =
   | "typecheck"
   | "lint"
   | "tests"
+  | "dependency_audit"
   | "release_readiness"
   | "dogfood_smoke"
   | "lifecycle_smoke"
@@ -26,6 +27,7 @@ export type GateStepId =
   | "permission_recovery_smoke"
   | "large_store_smoke"
   | "v04_acceptance"
+  | "v05_acceptance"
   | "package"
   | "private_remote";
 type GateStepMode = "required" | "skipped" | "optional_skipped";
@@ -33,7 +35,7 @@ export interface ReleaseGateStep {
   id: GateStepId;
   mode: GateStepMode;
 }
-export type V04AcceptanceArea =
+export type ReleaseAcceptanceArea =
   | "autopilot"
   | "sync"
   | "working_set"
@@ -44,8 +46,12 @@ export type V04AcceptanceArea =
   | "hosts"
   | "dashboard"
   | "audit"
-  | "reliability";
-export interface V04AcceptanceEvidence {
+  | "reliability"
+  | "context_isolation"
+  | "continuity_protocol"
+  | "repository_evidence"
+  | "execution_origin";
+export interface ReleaseAcceptanceEvidence {
   status: "passed" | "not_verified";
   required_evidence: GateStepId[];
   completed_evidence: GateStepId[];
@@ -56,7 +62,7 @@ export interface ReleaseGateResult {
   status: "passed";
   completed: GateStepId[];
   skipped: GateStepId[];
-  acceptance: Record<V04AcceptanceArea, V04AcceptanceEvidence>;
+  acceptance: Record<ReleaseAcceptanceArea, ReleaseAcceptanceEvidence>;
   acceptance_complete: boolean;
 }
 export interface ReleaseGateOptions {
@@ -102,6 +108,7 @@ export function releaseGateSteps(skipSlowChecks: boolean, hasPrivateRemote: bool
     { id: "typecheck", mode: skipSlowChecks ? "skipped" : "required" },
     { id: "lint", mode: skipSlowChecks ? "skipped" : "required" },
     { id: "tests", mode: skipSlowChecks ? "skipped" : "required" },
+    { id: "dependency_audit", mode: skipSlowChecks ? "skipped" : "required" },
     { id: "release_readiness", mode: "required" },
     { id: "dogfood_smoke", mode: skipSlowChecks ? "skipped" : "required" },
     { id: "lifecycle_smoke", mode: skipSlowChecks ? "skipped" : "required" },
@@ -116,6 +123,7 @@ export function releaseGateSteps(skipSlowChecks: boolean, hasPrivateRemote: bool
     { id: "permission_recovery_smoke", mode: skipSlowChecks ? "skipped" : "required" },
     { id: "large_store_smoke", mode: skipSlowChecks ? "skipped" : "required" },
     { id: "v04_acceptance", mode: skipSlowChecks ? "skipped" : "required" },
+    { id: "v05_acceptance", mode: skipSlowChecks ? "skipped" : "required" },
     { id: "package", mode: "required" },
     {
       id: "private_remote",
@@ -124,7 +132,7 @@ export function releaseGateSteps(skipSlowChecks: boolean, hasPrivateRemote: bool
   ];
 }
 
-const V04_ACCEPTANCE_EVIDENCE: Record<V04AcceptanceArea, GateStepId[]> = {
+const RELEASE_ACCEPTANCE_EVIDENCE: Record<ReleaseAcceptanceArea, GateStepId[]> = {
   autopilot: [
     "build",
     "typecheck",
@@ -142,7 +150,8 @@ const V04_ACCEPTANCE_EVIDENCE: Record<V04AcceptanceArea, GateStepId[]> = {
     "official_host_handoff_smoke",
     "sync_resilience_smoke",
     "sync_conflict_smoke",
-    "permission_recovery_smoke"
+    "permission_recovery_smoke",
+    "v05_acceptance"
   ],
   working_set: ["tests", "large_store_smoke", "v04_acceptance"],
   consolidation: ["tests", "lifecycle_smoke", "large_store_smoke", "v04_acceptance"],
@@ -177,12 +186,14 @@ const V04_ACCEPTANCE_EVIDENCE: Record<V04AcceptanceArea, GateStepId[]> = {
     "transcript_compact_safety_smoke",
     "official_host_handoff_smoke",
     "upgrade_compat_smoke",
+    "v05_acceptance",
     "package"
   ],
-  dashboard: ["tests", "large_store_smoke", "package"],
-  audit: ["tests", "dogfood_smoke", "transcript_compact_safety_smoke", "package"],
+  dashboard: ["tests", "large_store_smoke", "v05_acceptance", "package"],
+  audit: ["tests", "dependency_audit", "dogfood_smoke", "transcript_compact_safety_smoke", "v05_acceptance", "package"],
   reliability: [
     "tests",
+    "dependency_audit",
     "lifecycle_smoke",
     "finalization_assurance_smoke",
     "host_runtime_binding_smoke",
@@ -193,16 +204,40 @@ const V04_ACCEPTANCE_EVIDENCE: Record<V04AcceptanceArea, GateStepId[]> = {
     "permission_recovery_smoke",
     "large_store_smoke",
     "v04_acceptance",
+    "v05_acceptance",
     "package"
-  ]
+  ],
+  context_isolation: [
+    "build",
+    "typecheck",
+    "lint",
+    "tests",
+    "sync_resilience_smoke",
+    "sync_conflict_smoke",
+    "v05_acceptance",
+    "package"
+  ],
+  continuity_protocol: [
+    "build",
+    "typecheck",
+    "tests",
+    "lifecycle_smoke",
+    "host_runtime_binding_smoke",
+    "transcript_compact_safety_smoke",
+    "official_host_handoff_smoke",
+    "v05_acceptance",
+    "package"
+  ],
+  repository_evidence: ["build", "typecheck", "lint", "tests", "v05_acceptance", "package"],
+  execution_origin: ["build", "typecheck", "tests", "lifecycle_smoke", "v05_acceptance", "package"]
 };
 
-export function v04AcceptanceMatrix(
+export function releaseAcceptanceMatrix(
   completedSteps: readonly GateStepId[]
-): Record<V04AcceptanceArea, V04AcceptanceEvidence> {
+): Record<ReleaseAcceptanceArea, ReleaseAcceptanceEvidence> {
   const completed = new Set(completedSteps);
   return Object.fromEntries(
-    Object.entries(V04_ACCEPTANCE_EVIDENCE).map(([area, requiredEvidence]) => {
+    Object.entries(RELEASE_ACCEPTANCE_EVIDENCE).map(([area, requiredEvidence]) => {
       const completedEvidence = requiredEvidence.filter((step) => completed.has(step));
       const missingEvidence = requiredEvidence.filter((step) => !completed.has(step));
       return [
@@ -215,7 +250,7 @@ export function v04AcceptanceMatrix(
         }
       ];
     })
-  ) as Record<V04AcceptanceArea, V04AcceptanceEvidence>;
+  ) as Record<ReleaseAcceptanceArea, ReleaseAcceptanceEvidence>;
 }
 
 export function assertSafePackageFiles(files: string[]): void {
@@ -260,6 +295,8 @@ export function assertPackageFilesComplete(files: string[]): void {
     "docs/implementation-roadmap.md",
     "docs/moryn-design.md",
     "docs/v0.4-migration.md",
+    "docs/v0.5-migration.md",
+    "docs/v0.5-release-notes.md",
     "dist/cli.js",
     "dist/index.js",
     "dist/mcp/server.js",
@@ -362,6 +399,7 @@ export async function runReleaseGate(options: ReleaseGateOptions = {}): Promise<
     typecheck: ["npm", ["run", "typecheck"]],
     lint: ["npm", ["run", "lint"]],
     tests: ["npm", ["test"]],
+    dependency_audit: ["npm", ["audit", "--omit=dev", "--registry", "https://registry.npmjs.org"]],
     release_readiness: ["npm", ["run", "release:readiness"]],
     dogfood_smoke: ["npm", ["run", "smoke:dogfood-demo"]],
     lifecycle_smoke: ["npm", ["run", "smoke:agent-lifecycle"]],
@@ -375,7 +413,8 @@ export async function runReleaseGate(options: ReleaseGateOptions = {}): Promise<
     sync_conflict_smoke: ["npm", ["run", "smoke:sync-conflict"]],
     permission_recovery_smoke: ["npm", ["run", "smoke:permission-recovery"]],
     large_store_smoke: ["npm", ["run", "smoke:large-store"]],
-    v04_acceptance: ["npm", ["run", "test:v04-acceptance"]]
+    v04_acceptance: ["npm", ["run", "test:v04-acceptance"]],
+    v05_acceptance: ["npm", ["run", "test:v05-acceptance"]]
   };
   for (const step of steps) {
     if (step.mode !== "required") {
@@ -397,7 +436,7 @@ export async function runReleaseGate(options: ReleaseGateOptions = {}): Promise<
     completed.push(step.id);
   }
   if (!privateRemote) log("private Git remote validation skipped: set MORYN_PRIVATE_GIT_REMOTE to run it");
-  const acceptance = v04AcceptanceMatrix(completed);
+  const acceptance = releaseAcceptanceMatrix(completed);
   const acceptanceComplete = Object.values(acceptance).every((area) => area.status === "passed");
   const result: ReleaseGateResult = {
     version: 1,

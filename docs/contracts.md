@@ -1257,10 +1257,11 @@ record or evidence text. Repeating an accepted proposal is idempotent. The JSON
 payload is carried by the existing CLI/MCP proposal arguments, so no additional
 flag or tool is required.
 
-## Post-v0.4 Context Infrastructure Contract
+## v0.5 Context Infrastructure Contract
 
-This development line adds three compatible context primitives without
-changing append-only event history or declaring a new release.
+v0.5 adds compatible context primitives without changing append-only event
+history. The complete interface, including Sync Gate and Agent Continuity, is
+documented in [context-infrastructure.md](context-infrastructure.md).
 
 ### Device-local workspace mappings
 

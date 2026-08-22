@@ -22,8 +22,8 @@ First, inspect the environment:
 2. If unavailable, install Moryn:
    - if the current directory is the Moryn source checkout, run `npm install`,
      `npm run build`, and `npm link`;
-   - otherwise run `npm install -g @richardyu114/moryn@0.4.0` and verify
-     `moryn --version` reports `0.4.0`;
+   - otherwise run `npm install -g @richardyu114/moryn@0.5.0` and verify
+     `moryn --version` reports `0.5.0`;
    - if npm is unavailable, clone `https://github.com/Richardyu114/Moryn.git`,
      build it, and link it;
    - if none of those paths are possible, ask me for a source path or install

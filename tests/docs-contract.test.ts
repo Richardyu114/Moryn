@@ -115,7 +115,7 @@ describe("documentation contracts", () => {
     }
   });
 
-  it("documents the v0.4 release and in-place upgrade path", async () => {
+  it("retains the v0.4 release and in-place upgrade path", async () => {
     const [readme, changelog, development, migration] = await Promise.all([
       readFile("README.md", "utf8"),
       readFile("CHANGELOG.md", "utf8"),
@@ -123,7 +123,7 @@ describe("documentation contracts", () => {
       readFile("docs/v0.4-migration.md", "utf8")
     ]);
 
-    expect(readme).toContain("Current source/package version: v0.4.0");
+    expect(readme).toContain("Current source/package version: v0.5.0");
     expect(readme).toContain("Distilled Memory");
     expect(readme).toContain("Portable Soul");
     expectText(readme, "Historical recovery");
@@ -159,6 +159,31 @@ describe("documentation contracts", () => {
     expectText(migration, "does not carry a device-local overlay across an unrelated concurrent branch");
   });
 
+  it("documents the v0.5 context boundaries and upgrade path", async () => {
+    const [readme, changelog, releaseNotes, migration, workflow, design] = await Promise.all([
+      readFile("README.md", "utf8"),
+      readFile("CHANGELOG.md", "utf8"),
+      readFile("docs/v0.5-release-notes.md", "utf8"),
+      readFile("docs/v0.5-migration.md", "utf8"),
+      readFile("docs/agent-workflow.md", "utf8"),
+      readFile("docs/moryn-design.md", "utf8")
+    ]);
+
+    expect(changelog).toContain("## 0.5.0 - 2026-08-22");
+    expect(readme).toContain("## What v0.5 adds");
+    expect(readme).toContain("[v0.5 release notes](docs/v0.5-release-notes.md)");
+    expect(releaseNotes).toContain("## 1. Sync Gate and physical local-only routing");
+    expect(releaseNotes).toContain("## 2. Agent Continuity Protocol v1");
+    expect(releaseNotes).toContain("## 3. Repo Atlas v2");
+    expect(releaseNotes).toContain("## 4. Execution origin and workspace mapping");
+    expectText(releaseNotes, "SessionStart(source=compact)");
+    expectText(releaseNotes, "does not rewrite Git history");
+    expect(migration).toContain("npm install -g @richardyu114/moryn@0.5.0");
+    expectText(migration, "Use v0.5 consistently on devices that publish to the same remote");
+    expect(workflow).toContain("## v0.5 Context Infrastructure Workflow");
+    expect(design).toContain("## v0.5 Context Boundaries");
+  });
+
   it("documents evidence-backed context infrastructure and physical local-only routing", async () => {
     const [readme, context] = await Promise.all([
       readFile("README.md", "utf8"),
@@ -176,6 +201,7 @@ describe("documentation contracts", () => {
     expectText(context, "Historical bytes that were already published are not rewritten");
     expectText(context, "The preflight receipt is content-free");
     expectText(context, "Moryn does not currently install an OpenCode lifecycle plugin");
+    expectText(context, "Generated integrations do not install PostCompact");
   });
 
   it("documents v0.4 Memory Distillation and Portable Soul safety boundaries", async () => {
@@ -1586,7 +1612,7 @@ describe("documentation contracts", () => {
     expectText(roadmap, "The v0.4 release-gate JSON extends the existing evidence matrix");
     expectText(roadmap, "`acceptance_complete: true` means every area's required evidence completed in that run");
     expectText(roadmap, "Fast or skipped-check runs report `not_verified` instead of implying full acceptance");
-    expectText(development, "The final JSON includes `acceptance`, a stable eleven-area v0.4 evidence matrix");
+    expectText(development, "The final JSON includes `acceptance`, a stable fifteen-area evidence matrix");
     expectText(development, "`acceptance_complete` is `true` only when every required evidence step ran successfully");
     expect(roadmap).toContain("Final v0.2.0 Definition of Done");
   });
@@ -1606,9 +1632,9 @@ describe("documentation contracts", () => {
     expect(changelog).not.toContain("docs/superpowers");
     expect(changelog).not.toContain("v0.2-phase-plan.md");
 
-    expect(readme).toContain("Current source/package version: v0.4.0");
+    expect(readme).toContain("Current source/package version: v0.5.0");
     expect(readme).toContain("v0.3 Autopilot lifecycle");
-    expectText(readme, "v0.2/v0.3 stores and explicit handoff commands remain compatible");
+    expectText(readme, "Existing v0.2, v0.3, and v0.4 stores open in place");
     expect(readme).toContain('DashboardReview["Exceptional attention only');
     expect(readme).toContain('MemorySearch["Find what Moryn saved');
     expect(readme).toContain('SharedCopy["Shared copy');

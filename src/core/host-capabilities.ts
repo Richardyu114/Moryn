@@ -54,7 +54,6 @@ export function getHostCapabilities(host: string): HostCapabilities {
         session_start: true,
         user_prompt_submit: true,
         pre_compact: true,
-        post_compact: true,
         stop: true
       }
     };
@@ -68,7 +67,7 @@ export function getHostCapabilities(host: string): HostCapabilities {
         session_start: true,
         user_prompt_submit: true,
         pre_compact: true,
-        post_compact: true,
+        post_compact: false,
         stop: true,
         session_end: true
       }
@@ -89,9 +88,11 @@ export function negotiateHostLifecycle(host: string, requestedEvents: HostLifecy
           ? { mode: "native" as const, hook_event: HOOK_EVENT_NAMES[event] }
           : { mode: "fallback" as const, command: FALLBACK_COMMANDS[event], reason: "host_hook_unavailable" as const }
       ])
-    ) as Record<
-      HostLifecycleEvent,
-      { mode: "native"; hook_event: string } | { mode: "fallback"; command: string; reason: "host_hook_unavailable" }
+    ) as Partial<
+      Record<
+        HostLifecycleEvent,
+        { mode: "native"; hook_event: string } | { mode: "fallback"; command: string; reason: "host_hook_unavailable" }
+      >
     >
   };
 }

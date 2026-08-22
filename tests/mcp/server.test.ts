@@ -9915,7 +9915,7 @@ describe("MCP stdio server", () => {
         });
         expect(started.runtime).toMatchObject({
           transport: "mcp_stdio",
-          package_version: "0.4.0",
+          package_version: "0.5.0",
           exec_file: process.execPath,
           restart_hint: "Restart the host MCP connection after changing the Moryn installation or build."
         });

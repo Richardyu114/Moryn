@@ -295,6 +295,28 @@ describe("evidence-backed Repo Atlas", () => {
     expect((await readSyncedEvents(store)).some((event) => event.event_id.includes("repo_atlas_claim"))).toBe(false);
   });
 
+  it("rejects silent metadata changes to an existing claim identity", async () => {
+    const { repo, store } = await fixture();
+    await scanRepoAtlas({ store_path: store, repo_path: repo });
+    const input = {
+      store_path: store,
+      repo_path: repo,
+      project_id: "atlas-fixture",
+      statement: "The package manifest owns runtime metadata.",
+      evidence_paths: ["package.json"],
+      source: { client: "user", device_id: "device_repo_atlas" }
+    } as const;
+
+    const first = await addRepoAtlasClaim({ ...input, confidence: 0.7, distribution: "personal_sync" });
+    expect(first.created).toBe(true);
+    await expect(addRepoAtlasClaim({ ...input, confidence: 0.9, distribution: "personal_sync" })).rejects.toThrow(
+      "already exists with different metadata"
+    );
+    await expect(addRepoAtlasClaim({ ...input, confidence: 0.7, distribution: "local_only" })).rejects.toThrow(
+      "already exists with different metadata"
+    );
+  });
+
   it("upgrades a v1 local snapshot by rescanning instead of reusing evidence without symbols", async () => {
     const { repo, store } = await fixture();
     const current = await scanRepoAtlas({ store_path: store, repo_path: repo });

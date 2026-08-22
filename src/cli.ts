@@ -109,7 +109,6 @@ import {
   OPERATION_CONTRACTS,
   planInstall,
   setupWizard,
-  version,
   writeHostIntegrationArtifact
 } from "./index.js";
 import { runMcpServer } from "./mcp/server.js";
@@ -129,6 +128,7 @@ import {
   type OperationContractLookupOption
 } from "./operation-contracts.js";
 import { getGitSyncStatus, initializeGitSync, previewGitSync, pullGitSync, pushGitSync } from "./sync/git.js";
+import { version } from "./version.js";
 
 const program = new Command();
 const hostRuntime = {

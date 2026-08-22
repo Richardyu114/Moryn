@@ -12,7 +12,12 @@ describe("Agent Continuity Protocol", () => {
     expect(result.protocol_version).toBe(AGENT_CONTINUITY_PROTOCOL_VERSION);
     expect(result.operations_by_name.start.mode).toBe("native_hook");
     expect(result.operations_by_name.checkpoint.mode).toBe("native_hook");
-    expect(result.operations_by_name.recover.mode).toBe("native_hook");
+    expect(result.operations_by_name.recover).toMatchObject({
+      mode: "native_hook",
+      lifecycle_event: "session_start",
+      hook_event: "SessionStart",
+      hook_condition: "source=compact"
+    });
     expect(result.conformance.conformant).toBe(true);
     expect(result.receipt).toMatchObject({ content_included: false });
     expect(result.receipt.evidence_digest).toMatch(/^[a-f0-9]{64}$/);
@@ -86,5 +91,14 @@ describe("Agent Continuity Protocol", () => {
     const second = negotiateAgentContinuity({ host: "opencode", operations: ["enter", "handoff"] });
 
     expect(second.receipt).toEqual(first.receipt);
+  });
+
+  it("rejects unsupported operations at the package boundary", () => {
+    expect(() =>
+      negotiateAgentContinuity({
+        host: "codex",
+        operations: ["resume" as never]
+      })
+    ).toThrow("Invalid continuity operation");
   });
 });

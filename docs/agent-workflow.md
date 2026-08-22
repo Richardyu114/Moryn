@@ -996,6 +996,61 @@ out-of-band file changes are also detected by the metadata manifest. This is an
 operational corruption guard, not a cryptographic defense against a same-user
 actor deliberately changing bytes while preserving filesystem metadata.
 
+## v0.5 Context Infrastructure Workflow
+
+Treat publication, host lifecycle, repository interpretation, and filesystem
+access as separate decisions.
+
+Before publishing synchronized events, inspect the destination policy. New
+`local_only` writes already live outside the Git event tree; preflight evaluates
+only publication candidates and returns content-free evidence:
+
+```bash
+moryn sync preflight --destination personal_sync --mode shadow
+moryn sync preflight --destination personal_sync --mode enforce
+```
+
+Before transferring work between agent hosts, negotiate routes and preserve one
+project identity:
+
+```bash
+moryn continuity negotiate --host <host>
+moryn continuity transfer \
+  --project-id <project_id> \
+  --source-host <source_host> \
+  --target-host <target_host>
+```
+
+Do not infer that all hosts have PostCompact. Installed Codex and Claude Code
+integrations recover through `SessionStart(source=compact)`; OpenCode normally
+uses MCP or CLI. An unavailable operation is a visible conformance result, not
+permission to pretend the lifecycle step happened.
+
+Use Repo Atlas observations as evidence, not as authored architecture truth:
+
+```bash
+moryn repo-atlas scan --repo .
+moryn repo-atlas view --repo . --lens request_path --query "<task>"
+```
+
+Add a claim only when its statement and evidence are understood. When code
+changes, inspect stale claims and use `repo-atlas reverify`; do not replace the
+old claim or assume a static dependency edge proves runtime execution.
+
+Finally, inspect `origin_context` before using a recalled filesystem path. A
+remote or unknown path is not local merely because the same string exists on
+this machine. Configure a device-local mapping and resolve the exact path:
+
+```bash
+moryn workspace map resolve \
+  --project-id <project_id> \
+  --source-device-id <source_device_id> \
+  --source-path <source_path>
+```
+
+Access is allowed only when `safe_to_access` is true. Missing mappings, missing
+targets, and symlink escapes fail closed.
+
 ## v0.4 Distilled Memory Workflow
 
 Treat abstraction, trust, and retention as separate decisions:

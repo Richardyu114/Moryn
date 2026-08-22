@@ -1324,10 +1324,18 @@ export async function addRepoAtlasClaim(input: AddRepoAtlasClaimInput): Promise<
   if (appended.event.op !== "upsert_record" || appended.event.record.id !== claimId) {
     throw new Error("Repo Atlas claim identity collision");
   }
+  const persistedRecord = appended.event.record;
+  const persisted = claimFromRecord(persistedRecord);
+  if (
+    !persisted ||
+    persistedRecord.project_id !== projectId ||
+    persistedRecord.content.distribution !== distribution ||
+    stableJson(persisted) !== stableJson(claim)
+  ) {
+    throw new Error("Repo Atlas claim identity already exists with different metadata");
+  }
   if (appended.created) await rebuildDerivedViews(storePath);
-  const persisted = claimFromRecord(appended.event.record);
-  if (!persisted) throw new Error("Repo Atlas claim could not be read back");
-  return { claim: persisted, record: appended.event.record, created: appended.created, storage: appended.storage };
+  return { claim: persisted, record: persistedRecord, created: appended.created, storage: appended.storage };
 }
 
 export async function reverifyRepoAtlasClaim(

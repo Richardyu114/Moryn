@@ -1,15 +1,16 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { releaseGateSteps, runReleaseGate, v04AcceptanceMatrix } from "../scripts/release-check.js";
+import { releaseAcceptanceMatrix, releaseGateSteps, runReleaseGate } from "../scripts/release-check.js";
 
-describe("v0.4 release gate", () => {
+describe("release gate", () => {
   it("defines one ordered gate containing tests, both smokes, package validation, and optional remote validation", () => {
     expect(releaseGateSteps(false, true).map((step) => step.id)).toEqual([
       "build",
       "typecheck",
       "lint",
       "tests",
+      "dependency_audit",
       "release_readiness",
       "dogfood_smoke",
       "lifecycle_smoke",
@@ -24,6 +25,7 @@ describe("v0.4 release gate", () => {
       "permission_recovery_smoke",
       "large_store_smoke",
       "v04_acceptance",
+      "v05_acceptance",
       "package",
       "private_remote"
     ]);
@@ -32,6 +34,7 @@ describe("v0.4 release gate", () => {
       ["typecheck", "skipped"],
       ["lint", "skipped"],
       ["tests", "skipped"],
+      ["dependency_audit", "skipped"],
       ["release_readiness", "required"],
       ["dogfood_smoke", "skipped"],
       ["lifecycle_smoke", "skipped"],
@@ -46,6 +49,7 @@ describe("v0.4 release gate", () => {
       ["permission_recovery_smoke", "skipped"],
       ["large_store_smoke", "skipped"],
       ["v04_acceptance", "skipped"],
+      ["v05_acceptance", "skipped"],
       ["package", "required"],
       ["private_remote", "skipped"]
     ]);
@@ -96,6 +100,27 @@ describe("v0.4 release gate", () => {
     );
   });
 
+  it("pins the focused v0.5 acceptance evidence to context boundary fixtures", () => {
+    const packageJson = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")) as {
+      scripts?: Record<string, string>;
+    };
+    const acceptanceCommand = packageJson.scripts?.["test:v05-acceptance"];
+    expect(acceptanceCommand).toBeDefined();
+    expect(acceptanceCommand).toMatch(/^npm run build && vitest run /);
+    expect(acceptanceCommand?.split(/\s+/)).toEqual(
+      expect.arrayContaining([
+        "tests/core/sync-gate.test.ts",
+        "tests/core/agent-continuity-protocol.test.ts",
+        "tests/core/repo-atlas.test.ts",
+        "tests/core/execution-origin-index.test.ts",
+        "tests/core/workspace-mapping.test.ts",
+        "tests/cli/context-infrastructure.test.ts",
+        "tests/mcp/context-infrastructure.test.ts",
+        "tests/observability/dashboard-sync-action.test.ts"
+      ])
+    );
+  });
+
   it("emits machine-readable evidence only after every required step succeeds", async () => {
     const calls: string[] = [];
     const logs: string[] = [];
@@ -121,6 +146,8 @@ describe("v0.4 release gate", () => {
                   { path: "docs/implementation-roadmap.md" },
                   { path: "docs/moryn-design.md" },
                   { path: "docs/v0.4-migration.md" },
+                  { path: "docs/v0.5-migration.md" },
+                  { path: "docs/v0.5-release-notes.md" },
                   { path: "dist/cli.js" },
                   { path: "dist/index.js" },
                   { path: "dist/mcp/server.js" },
@@ -153,6 +180,7 @@ describe("v0.4 release gate", () => {
         "typecheck",
         "lint",
         "tests",
+        "dependency_audit",
         "dogfood_smoke",
         "lifecycle_smoke",
         "learning_inbox_smoke",
@@ -166,6 +194,7 @@ describe("v0.4 release gate", () => {
         "permission_recovery_smoke",
         "large_store_smoke",
         "v04_acceptance",
+        "v05_acceptance",
         "private_remote"
       ],
       acceptance_complete: false
@@ -206,11 +235,11 @@ describe("v0.4 release gate", () => {
     }
   });
 
-  it("maps a full release run to all eleven v0.4 acceptance areas", () => {
+  it("maps a full release run to every v0.4 and v0.5 acceptance area", () => {
     const completed = releaseGateSteps(false, false)
       .filter((step) => step.mode === "required")
       .map((step) => step.id);
-    const acceptance = v04AcceptanceMatrix(completed);
+    const acceptance = releaseAcceptanceMatrix(completed);
     expect(Object.keys(acceptance)).toEqual([
       "autopilot",
       "sync",
@@ -222,7 +251,11 @@ describe("v0.4 release gate", () => {
       "hosts",
       "dashboard",
       "audit",
-      "reliability"
+      "reliability",
+      "context_isolation",
+      "continuity_protocol",
+      "repository_evidence",
+      "execution_origin"
     ]);
     expect(
       Object.values(acceptance).every((area) => area.status === "passed" && area.missing_evidence.length === 0)
@@ -249,8 +282,12 @@ describe("v0.4 release gate", () => {
       ])
     );
     expect(acceptance.reliability.required_evidence).toEqual(
-      expect.arrayContaining(["official_host_handoff_smoke", "v04_acceptance"])
+      expect.arrayContaining(["dependency_audit", "official_host_handoff_smoke", "v04_acceptance", "v05_acceptance"])
     );
+    expect(acceptance.context_isolation.required_evidence).toContain("v05_acceptance");
+    expect(acceptance.continuity_protocol.required_evidence).toContain("official_host_handoff_smoke");
+    expect(acceptance.repository_evidence.required_evidence).toContain("v05_acceptance");
+    expect(acceptance.execution_origin.required_evidence).toContain("v05_acceptance");
   });
 
   it("stops on the first failed required step without success evidence", async () => {
@@ -263,6 +300,6 @@ describe("v0.4 release gate", () => {
       "lifecycle failed"
     );
     expect(logs.some((line) => line.includes('"status":"passed"'))).toBe(false);
-    expect(run).toHaveBeenCalledTimes(7);
+    expect(run).toHaveBeenCalledTimes(8);
   });
 });

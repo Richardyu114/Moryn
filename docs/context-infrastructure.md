@@ -23,7 +23,7 @@ These controls keep Moryn local-first. They do not require a hosted memory servi
 | abort | preserve an interrupted state | agent_status |
 | recover | reload after compaction or interruption | agent_start |
 
-The negotiated route is one of **native_hook**, **mcp**, **cli**, or **unavailable**. A missing hook is therefore visible; it is never reported as a successful capture.
+The negotiated route is one of **native_hook**, **mcp**, **cli**, or **unavailable**. Defaults come from the adapter registry rather than a runtime scan of host configuration; the response records `adapter_registry` or `caller_declaration` as the capability source. Declare unavailable transports explicitly when the runtime differs from the generated integration. Codex and Claude Code integrations recover after compaction through `SessionStart(source=compact)`. Generated integrations do not install PostCompact, so capability negotiation does not report PostCompact as native.
 
 ~~~bash
 moryn continuity negotiate --host codex

@@ -4080,6 +4080,59 @@ The stable CLI/MCP surfaces are `soul status`/`soul_status`,
 `readSoulProfileStatus`, `createSoulProfileDraft`,
 `approveSoulProfileDraft`, and `rollbackSoulProfile`.
 
+## v0.5 Context Boundaries
+
+v0.5 extends the architecture with four independent trust transitions:
+
+```text
+payload ---- publication policy ----> synchronized event
+session ---- host capability -------> lifecycle transport
+source  ---- mechanical evidence ---> authored repository claim
+event   ---- execution origin ------> verified local path
+```
+
+The transitions are deliberately independent. A record can be safe to sync but
+still contain a remote filesystem path. A host can support MCP but lack an
+installed native hook. A file digest can be current while an authored claim is
+wrong. One successful transition must not imply another.
+
+### Publication boundary
+
+The ordinary Git event tree contains only publishable event payloads. New
+`local_only` events live in an ignored local journal and are merged into local
+replay. Sync Gate evaluates the pending synchronized event set against a named
+destination and emits a content-free receipt. It does not rewrite history or
+retroactively remove bytes published by an older release.
+
+### Lifecycle boundary
+
+Agent Continuity Protocol v1 maps each lifecycle operation to a declared
+native-hook, MCP, CLI, or `unavailable` route. Adapter-registry defaults describe
+the generated integration; caller declarations override transport availability
+when the runtime differs. This negotiation is not a host-configuration probe.
+Codex and Claude Code compact recovery is `SessionStart(source=compact)`; Moryn
+does not install or claim PostCompact.
+
+### Repository-evidence boundary
+
+Repo Atlas snapshots are local, rebuildable observations. Claims are
+append-only authored records bound to exact file or symbol observations.
+Observation freshness can make a claim current or stale, but it cannot prove
+the statement true. Reusing a claim identity with different metadata is an
+error rather than an idempotent success.
+
+### Execution boundary
+
+Event `source.device_id` remains the authority for where an operation occurred.
+The derived origin index contains opaque device metadata only. Filesystem roots
+stay in a device-local mapping registry. Path resolution requires explicit
+source-device identity, longest-root matching, target existence, and realpath
+containment; uncertain lineage fails to `unknown`.
+
+These boundaries preserve the append-only compatibility contract: v0.2-v0.4
+stores open in place, local derived artifacts can be rebuilt, and no migration
+claims to erase synchronized history.
+
 ## Testing Strategy
 
 The first version should test the core engine more heavily than the MCP wrapper.

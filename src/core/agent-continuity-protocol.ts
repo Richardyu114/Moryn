@@ -69,7 +69,7 @@ const OPERATION_DEFINITIONS: Record<AgentContinuityOperation, OperationDefinitio
     cli_command: "moryn agent status --status <abort_reason>"
   },
   recover: {
-    lifecycle_event: "post_compact",
+    lifecycle_event: "session_start",
     mcp_tool: "agent_start",
     cli_command: "moryn agent start --current-task <task>"
   }
@@ -126,6 +126,7 @@ function operationRoute(
       mode: "native_hook" as const,
       lifecycle_event: definition.lifecycle_event,
       hook_event: HOOK_EVENT_NAMES[definition.lifecycle_event],
+      ...(operation === "recover" ? { hook_condition: "source=compact" as const } : {}),
       capability_source: transportSource(availabilityInput, "native_hook")
     };
   }
@@ -160,6 +161,9 @@ export function negotiateAgentContinuity(input: AgentContinuityNegotiationInput)
   const requestedOperations = input.operations?.length
     ? [...new Set(input.operations)]
     : [...AGENT_CONTINUITY_OPERATIONS];
+  if (requestedOperations.some((operation) => !AGENT_CONTINUITY_OPERATIONS.includes(operation))) {
+    throw new Error(`Invalid continuity operation; expected one of: ${AGENT_CONTINUITY_OPERATIONS.join(", ")}`);
+  }
   const available = {
     native_hook: input.available_transports?.native_hook ?? capabilities.hook_transport !== "none",
     mcp: input.available_transports?.mcp ?? hasMcpSupport(host),
@@ -170,7 +174,7 @@ export function negotiateAgentContinuity(input: AgentContinuityNegotiationInput)
       operation,
       operationRoute(operation, host, available, input.available_transports)
     ])
-  ) as Record<AgentContinuityOperation, ReturnType<typeof operationRoute>>;
+  ) as Partial<Record<AgentContinuityOperation, ReturnType<typeof operationRoute>>>;
   const descriptor = {
     protocol_version: AGENT_CONTINUITY_PROTOCOL_VERSION,
     host,
@@ -192,9 +196,7 @@ export function negotiateAgentContinuity(input: AgentContinuityNegotiationInput)
     protocol_version: AGENT_CONTINUITY_PROTOCOL_VERSION,
     host,
     requested_operations: requestedOperations,
-    routes: Object.fromEntries(
-      Object.entries(operationsByName).map(([operation, route]) => [operation, { mode: route.mode }])
-    )
+    routes: Object.fromEntries(Object.entries(operationsByName).map(([operation, route]) => [operation, route]))
   };
   const evidenceDigest = digest(receiptCore);
 
@@ -204,9 +206,9 @@ export function negotiateAgentContinuity(input: AgentContinuityNegotiationInput)
     descriptor,
     operations_by_name: operationsByName,
     conformance: {
-      conformant: Object.values(operationsByName).every((route) => route.mode !== "unavailable"),
+      conformant: Object.values(operationsByName).every((route) => route?.mode !== "unavailable"),
       unavailable_operations: requestedOperations.filter(
-        (operation) => operationsByName[operation].mode === "unavailable"
+        (operation) => operationsByName[operation]?.mode === "unavailable"
       )
     },
     receipt: {
@@ -230,6 +232,15 @@ export interface AgentContinuityTransferInput {
   target_transports?: AgentContinuityTransportAvailability;
 }
 
+function requiredOperationRoute(
+  negotiation: ReturnType<typeof negotiateAgentContinuity>,
+  operation: AgentContinuityOperation
+) {
+  const route = negotiation.operations_by_name[operation];
+  if (!route) throw new Error(`Continuity negotiation omitted required operation: ${operation}`);
+  return route;
+}
+
 export function buildAgentContinuityTransferPlan(input: AgentContinuityTransferInput) {
   const projectId = input.project_id.trim();
   if (!projectId) throw new Error("project_id is required");
@@ -249,16 +260,26 @@ export function buildAgentContinuityTransferPlan(input: AgentContinuityTransferI
       id: "source_checkpoint",
       host: source.host,
       operation: "checkpoint" as const,
-      route: source.operations_by_name.checkpoint
+      route: requiredOperationRoute(source, "checkpoint")
     },
     {
       id: "source_handoff",
       host: source.host,
       operation: "handoff" as const,
-      route: source.operations_by_name.handoff
+      route: requiredOperationRoute(source, "handoff")
     },
-    { id: "target_enter", host: target.host, operation: "enter" as const, route: target.operations_by_name.enter },
-    { id: "target_recover", host: target.host, operation: "recover" as const, route: target.operations_by_name.recover }
+    {
+      id: "target_enter",
+      host: target.host,
+      operation: "enter" as const,
+      route: requiredOperationRoute(target, "enter")
+    },
+    {
+      id: "target_recover",
+      host: target.host,
+      operation: "recover" as const,
+      route: requiredOperationRoute(target, "recover")
+    }
   ];
   const receiptCore = {
     protocol_version: AGENT_CONTINUITY_PROTOCOL_VERSION,

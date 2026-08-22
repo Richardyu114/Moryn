@@ -36,12 +36,34 @@ Moryn is not an agent platform, not a vector-memory SDK, and not a hosted cloud 
 It is the *memory bus between agents*: simple on the default path, and
 fully traceable when someone needs review, provenance, sync, or handoff history.
 
-> Current source/package version: v0.4.0.
+> Current source/package version: v0.5.0.
 >
-> Memory Distillation bounds the active working set,
-> and Portable Soul versions user/agent identity and prepares it for Codex and
-> Claude Code hook output.
-> v0.2/v0.3 stores and explicit handoff commands remain compatible.
+> Context boundaries keep local-only bytes local, preserve execution origin,
+> negotiate declared host transports, and bind repository claims to evidence.
+> The v0.4 Distilled Memory and Portable Soul foundation remains compatible.
+
+## What v0.5 adds
+
+v0.5 makes cross-device context safer at four boundaries:
+
+- **Publication:** Sync Gate routes new `local_only` events to an ignored local
+  journal and evaluates publishable events against an explicit destination.
+- **Agent hosts:** Agent Continuity Protocol v1 negotiates native hooks, MCP, or
+  CLI per lifecycle operation. Compaction recovery uses the installed
+  `SessionStart(source=compact)` route rather than claiming PostCompact support.
+- **Repository knowledge:** Repo Atlas v2 separates rebuildable file, symbol,
+  and dependency observations from authored, evidence-bound claims.
+- **Machines and paths:** execution-origin metadata keeps a synchronized event
+  tied to its source device; a remote path requires an explicit device-local
+  workspace mapping before access.
+
+The release also adds a bounded Dashboard shared-copy sync action and hardens
+project identity, host-hook recovery, request-body limits, claim idempotency,
+origin-index validation, and production dependency resolutions. Existing v0.2,
+v0.3, and v0.4 stores open in place.
+
+See the [v0.5 release notes](docs/v0.5-release-notes.md) and
+[v0.5 migration guide](docs/v0.5-migration.md).
 
 ## What v0.4 adds
 
@@ -94,7 +116,7 @@ projections; explicit POST actions remain auditable mutations. See the
 [v0.4 migration guide](docs/v0.4-migration.md) for compatibility and safety
 details.
 
-## Context infrastructure
+## Using context infrastructure
 
 Moryn also exposes four evidence-first controls for multi-agent engineering:
 
@@ -204,8 +226,8 @@ Install and use Moryn for this project.
 
 Work autonomously: install Moryn if needed, initialize the local store, attach
 this repo as a Moryn project, and register `moryn mcp` if this host supports
-MCP. Install `@richardyu114/moryn@0.4.0` from npm and verify `moryn --version`
-reports `0.4.0`. When working inside the Moryn source checkout itself, use
+MCP. Install `@richardyu114/moryn@0.5.0` from npm and verify `moryn --version`
+reports `0.5.0`. When working inside the Moryn source checkout itself, use
 `npm install`, `npm run build`, then `npm link` instead.
 
 Do not ask me to choose Moryn commands. Learn the command surface from
@@ -225,7 +247,7 @@ A longer prompt and setup expectations live in
 **Install from npm:**
 
 ```bash
-npm install -g @richardyu114/moryn@0.4.0
+npm install -g @richardyu114/moryn@0.5.0
 moryn --version
 ```
 
@@ -240,7 +262,7 @@ npm link
 moryn --version
 ```
 
-The executable is `moryn`. Existing v0.2 and v0.3 stores open in place: no
+The executable is `moryn`. Existing v0.2, v0.3, and v0.4 stores open in place: no
 migration command or event-history rewrite is required. After upgrading, run
 `moryn health check --project . --host <host>` to verify the local store and
 host integration.

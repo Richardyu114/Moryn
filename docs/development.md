@@ -23,6 +23,7 @@ npm run typecheck
 npm run lint
 npm test
 npm run test:v04-acceptance
+npm run test:v05-acceptance
 npm run release:readiness
 npm run release:check
 npm run smoke:dogfood-demo
@@ -39,23 +40,26 @@ npm run smoke:permission-recovery
 npm run smoke:large-store
 ```
 
-`npm run release:readiness` is a read-only v0.4 release-candidate check. It
-requires version `0.4.0` across package metadata, README, and CHANGELOG, checks
-required smoke/package coverage, and rejects private release-planning paths
-from npm contents. It does not mutate files, create a tag, push, or publish;
-those remain explicit release actions outside the check.
+`npm run release:readiness` is a read-only v0.5 release-candidate check. It
+requires version `0.5.0` across package metadata, `src/version.ts`, README, and
+CHANGELOG, requires the focused v0.5 acceptance gate, checks smoke/package
+coverage, and rejects private release-planning paths from npm contents. It does
+not mutate files, create a tag, push, or publish; those remain explicit release
+actions outside the check.
 
-The v0.4 release line is `0.4.0`. Development verification uses build,
+The v0.5 release line is `0.5.0`. Development verification uses build,
 typecheck, lint, the full test suite, focused smokes, and dry-run package
 inspection. Tagging and publication remain explicit actions after the release
 gate passes.
 
 `npm run release:check` is the authoritative local release gate. It runs build,
-typecheck, the full test suite, dogfood, cross-host lifecycle, v0.2 in-place
+typecheck, lint, an official-registry production dependency audit, the full test
+suite, dogfood, cross-host lifecycle, v0.2 in-place
 upgrade, sync-resilience, real-conflict guard, and permission-recovery smokes, package-content checks, and optional private Git remote
 validation. Its final line is machine-readable JSON listing completed and
-skipped checks. The final JSON includes `acceptance`, a stable eleven-area v0.4
-evidence matrix. Each area lists its required, completed, and missing evidence;
+skipped checks. The final JSON includes `acceptance`, a stable fifteen-area
+evidence matrix: eleven v0.4 regression areas plus four v0.5 context-boundary
+areas. Each area lists its required, completed, and missing evidence;
 `acceptance_complete` is `true` only when every required evidence step ran
 successfully. Fast or skipped-check runs report affected areas as
 `not_verified` instead of implying full release acceptance.
@@ -130,16 +134,20 @@ The check writes a release-test event. Do not use a production Moryn data repo.
 
 ```text
 src/
+  version.ts                Single source version exported by CLI and package API
   cli.ts                    CLI commands and CLI recovery envelopes
   mcp/server.ts             MCP stdio server and MCP argument normalization
   operation-contracts.ts    Static operation contract registry
   core/
     engine.ts               Record write, recall, boot, refresh, mutations
     agent-lifecycle.ts      Agent enter/start/status/finish/doctor/guide
+    agent-continuity-protocol.ts  Cross-host lifecycle negotiation
     action-interfaces.ts    CLI/MCP action rendering
     action-safety.ts        Execution readiness and runbook metadata
     config.ts               Local store config
     project.ts              Project identity and .moryn.json config
+    repo-atlas.ts           Repository observations, claims, and lenses
+    sync-gate.ts            Destination-aware publication policy
     store.ts                Append-only event files
     replay.ts               Event replay
     derived.ts              Rebuildable snapshots and indexes
@@ -147,14 +155,17 @@ src/
     sensitive.ts            Sensitive-content detection/redaction
     schema.ts               Runtime validation
     types.ts                Shared types
+    execution-origin*.ts    Source-device lineage and derived index
+    workspace-mapping.ts    Device-local verified path translation
   sync/git.ts               Private Git sync adapter
 ```
 
-The largest files are currently `src/core/engine.ts`,
-`src/core/agent-lifecycle.ts`, `src/mcp/server.ts`, `tests/cli/cli.test.ts`,
-and `tests/mcp/server.test.ts`. They are stable and heavily covered, but they
-are clear future refactor candidates. This public-polish pass intentionally
-does not split them because broad structural moves would create avoidable risk.
+The main boundary modules are large but heavily covered. Release work favors
+focused modules for new concerns, such as Sync Gate, Agent Continuity, Repo
+Atlas, execution origin, and workspace mapping. Broad splits of the mature CLI,
+Engine, MCP, lifecycle, operation-contract, and Dashboard modules remain
+separate refactors because moving them immediately before a release would add
+review risk without changing behavior.
 
 Recommended future splits:
 
@@ -187,7 +198,8 @@ The npm package includes only the public runtime and support material:
 - `README.md`, `CHANGELOG.md`, and `LICENSE`
 - public `docs`
 - `assets`
-- v0.4 release smoke scripts and the v0.4 migration guide
+- release smoke scripts, the v0.4 migration guide, and the v0.5 release and
+  migration notes
 
 The release check rejects private Moryn store data such as `.moryn/`,
 `events/`, `snapshots/`, `indexes/`, `config.json`, local agent configuration,
@@ -224,7 +236,7 @@ Implementation history and future work belong in:
 
 Before publishing:
 
-1. Confirm `package.json`, `package-lock.json`, `src/index.ts`, and
+1. Confirm `package.json`, `package-lock.json`, `src/version.ts`, and
    `CHANGELOG.md` describe the same release version.
 2. Run `npm run release:check`.
 3. Run `npm run smoke:dogfood-demo`.
@@ -234,19 +246,20 @@ Before publishing:
 7. Run `npm run smoke:sync-conflict`.
 8. Run `npm run smoke:permission-recovery`.
 9. Inspect `npm pack --dry-run --json`.
-10. Confirm no private memory store data is included.
-11. Confirm README, CHANGELOG, and docs describe the current public interface.
-12. Publish only to the official npm registry:
+10. Run `npm audit --omit=dev` and resolve production advisories.
+11. Confirm no private memory store data is included.
+12. Confirm README, CHANGELOG, and docs describe the current public interface.
+13. Publish only to the official npm registry:
 
    ```bash
    npm publish --dry-run --access public --registry https://registry.npmjs.org
    npm publish --access public --registry https://registry.npmjs.org
    ```
 
-13. If npm requires two-factor auth for publishing, use a granular access token
+14. If npm requires two-factor auth for publishing, use a granular access token
    with publish permission and bypass-2FA enabled, or publish from a session
    that can satisfy the account's configured 2FA policy.
-14. After publishing, verify the public package and release bins:
+15. After publishing, verify the public package and release bins:
 
    ```bash
    npm view @richardyu114/moryn version --registry https://registry.npmjs.org

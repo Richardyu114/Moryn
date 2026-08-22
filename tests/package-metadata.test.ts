@@ -7,7 +7,7 @@ import { version } from "../src/index.js";
 const exec = promisify(execFile);
 
 describe("package metadata", () => {
-  it("keeps scoped package metadata coherent for the v0.4 release", async () => {
+  it("keeps scoped package metadata coherent for the v0.5 release", async () => {
     const packageJson = JSON.parse(await readFile("package.json", "utf8")) as {
       name: string;
       main?: string;
@@ -30,7 +30,7 @@ describe("package metadata", () => {
 
     expect(packageJson.name).toBe("@richardyu114/moryn");
     expect(packageJson.version).toBe(version);
-    expect(packageJson.version).toBe("0.4.0");
+    expect(packageJson.version).toBe("0.5.0");
     expect(packageJson.main).toBe("./dist/index.js");
     expect(packageJson.types).toBe("./dist/index.d.ts");
     expect(packageJson.exports?.["."]).toEqual({
@@ -61,6 +61,8 @@ describe("package metadata", () => {
     expect(files).toContain("docs/dashboard.md");
     expect(files).toContain("docs/implementation-roadmap.md");
     expect(files).toContain("docs/v0.4-migration.md");
+    expect(files).toContain("docs/v0.5-migration.md");
+    expect(files).toContain("docs/v0.5-release-notes.md");
     expect(files).not.toContain("docs/v0.2-phase-plan.md");
     expect(files.some((file) => file.startsWith("docs/superpowers/"))).toBe(false);
     expect(files.some((file) => file.startsWith("state/"))).toBe(false);

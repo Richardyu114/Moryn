@@ -55,6 +55,19 @@ describe("execution origin derived index", () => {
     });
   });
 
+  it("rejects internally inconsistent device lineage in a persisted index", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const manifest: EventManifest = { count: 1, digest: "9".repeat(64) };
+      const index = buildExecutionOriginIndex([event(0)], manifest);
+      index.records_by_id.rec_0 = {
+        ...index.records_by_id.rec_0!,
+        creation_source_device_id: "device-not-in-lineage"
+      };
+
+      await expect(writeExecutionOriginIndex(storePath, index)).rejects.toThrow("invalid entry");
+    });
+  });
+
   it("retries one unstable manifest read and publishes only the stable generation", async () => {
     await withInitializedTempStore(async (storePath) => {
       const firstEvents = [event(0)];

@@ -58,6 +58,8 @@ describe("release check", () => {
       "package/docs/implementation-roadmap.md",
       "package/docs/moryn-design.md",
       "package/docs/v0.4-migration.md",
+      "package/docs/v0.5-migration.md",
+      "package/docs/v0.5-release-notes.md",
       "package/dist/cli.js",
       "package/dist/index.js",
       "package/dist/mcp/server.js",
@@ -81,6 +83,12 @@ describe("release check", () => {
     expect(() =>
       assertPackageFilesComplete(completePackageFiles.filter((file) => file !== "package/docs/v0.4-migration.md"))
     ).toThrow(/missing required package files: .*docs\/v0\.4-migration\.md/);
+    expect(() =>
+      assertPackageFilesComplete(completePackageFiles.filter((file) => file !== "package/docs/v0.5-migration.md"))
+    ).toThrow(/missing required package files: .*docs\/v0\.5-migration\.md/);
+    expect(() =>
+      assertPackageFilesComplete(completePackageFiles.filter((file) => file !== "package/docs/v0.5-release-notes.md"))
+    ).toThrow(/missing required package files: .*docs\/v0\.5-release-notes\.md/);
 
     expect(() =>
       assertPackageFilesComplete([

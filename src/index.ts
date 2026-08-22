@@ -814,7 +814,7 @@ export type { MorynRecord, RecordFeedbackOutcome, RecordMemoryUsage } from "./co
 export { RECORD_FEEDBACK_OUTCOMES } from "./core/types.js";
 export { previewGitSync } from "./sync/git.js";
 
-export const version = "0.4.0";
+export { version } from "./version.js";
 
 export {
   BOOT_SELECTION_SOURCES,

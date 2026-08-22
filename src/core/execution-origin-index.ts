@@ -80,21 +80,30 @@ function parseEntry(recordId: string, value: unknown): ExecutionOriginIndexEntry
     typeof candidate.event_count !== "number" ||
     !Number.isSafeInteger(candidate.event_count) ||
     candidate.event_count < 1 ||
-    (candidate.creation_source_device_id !== undefined && typeof candidate.creation_source_device_id !== "string") ||
-    (candidate.latest_source_device_id !== undefined && typeof candidate.latest_source_device_id !== "string")
+    (candidate.creation_source_device_id !== undefined &&
+      (typeof candidate.creation_source_device_id !== "string" || !candidate.creation_source_device_id.trim())) ||
+    (candidate.latest_source_device_id !== undefined &&
+      (typeof candidate.latest_source_device_id !== "string" || !candidate.latest_source_device_id.trim()))
+  ) {
+    throw new Error("invalid entry");
+  }
+  const sourceDeviceIds = [...new Set(candidate.source_device_ids.map((deviceId) => deviceId.trim()))].sort();
+  const creationSourceDeviceId = candidate.creation_source_device_id?.trim();
+  const latestSourceDeviceId = candidate.latest_source_device_id?.trim();
+  if (
+    (!candidate.has_unknown_source && sourceDeviceIds.length === 0) ||
+    (!candidate.has_unknown_source && (!creationSourceDeviceId || !latestSourceDeviceId)) ||
+    (creationSourceDeviceId !== undefined && !sourceDeviceIds.includes(creationSourceDeviceId)) ||
+    (latestSourceDeviceId !== undefined && !sourceDeviceIds.includes(latestSourceDeviceId))
   ) {
     throw new Error("invalid entry");
   }
   return {
     record_id: recordId,
-    source_device_ids: [...new Set(candidate.source_device_ids.map((deviceId) => deviceId.trim()))].sort(),
+    source_device_ids: sourceDeviceIds,
     has_unknown_source: candidate.has_unknown_source,
-    ...(candidate.creation_source_device_id?.trim()
-      ? { creation_source_device_id: candidate.creation_source_device_id.trim() }
-      : {}),
-    ...(candidate.latest_source_device_id?.trim()
-      ? { latest_source_device_id: candidate.latest_source_device_id.trim() }
-      : {}),
+    ...(creationSourceDeviceId ? { creation_source_device_id: creationSourceDeviceId } : {}),
+    ...(latestSourceDeviceId ? { latest_source_device_id: latestSourceDeviceId } : {}),
     event_count: candidate.event_count
   };
 }

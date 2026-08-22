@@ -11,7 +11,7 @@ describe("host capabilities", () => {
         session_start: true,
         user_prompt_submit: true,
         pre_compact: true,
-        post_compact: true,
+        post_compact: false,
         stop: true,
         session_end: false
       }
@@ -27,7 +27,7 @@ describe("host capabilities", () => {
         session_start: true,
         user_prompt_submit: true,
         pre_compact: true,
-        post_compact: true,
+        post_compact: false,
         stop: true,
         session_end: true
       }
@@ -36,13 +36,17 @@ describe("host capabilities", () => {
 });
 
 describe("host lifecycle negotiation", () => {
-  it("uses native hooks when available", () => {
+  it("uses native hooks when available and reports legacy PostCompact as a fallback", () => {
     expect(
       negotiateHostLifecycle("claude", ["session_start", "pre_compact", "post_compact", "session_end"]).events_by_name
     ).toEqual({
       session_start: { mode: "native", hook_event: "SessionStart" },
       pre_compact: { mode: "native", hook_event: "PreCompact" },
-      post_compact: { mode: "native", hook_event: "PostCompact" },
+      post_compact: {
+        mode: "fallback",
+        command: "moryn agent start --current-task <task>",
+        reason: "host_hook_unavailable"
+      },
       session_end: { mode: "native", hook_event: "SessionEnd" }
     });
   });

@@ -2,29 +2,80 @@
 
 ## Unreleased
 
+## 0.5.0 - 2026-08-22
+
+Moryn v0.5 makes cross-device context physically safer and operationally more
+honest. Local-only bytes stay outside the synchronized event tree, lifecycle
+routes identify whether availability came from the adapter registry or a caller
+declaration, repository claims carry exact evidence, and filesystem paths retain
+the device where they were observed.
+
 ### Added
 
-- Device-local Workspace Mapping with explicit project/source-device roots,
-  serialized updates, restrictive permissions, and realpath containment before
-  a remote path is considered safe to access.
-- A content-free execution-origin index for ordinary recall, boot, refresh, and
-  recent-record reads, including manifest-consistent rebuilds and conservative
-  unknown lineage when a concurrent write advances the selected generation.
-- Repo Atlas v2 incremental scans, bounded JavaScript/TypeScript AST symbols,
-  dependency edges, symbol-scoped claim invalidation, and append-only claim
-  reverification across CLI, MCP, and package APIs.
+- **Sync Gate and local event isolation.** New `local_only` records are routed
+  to an ignored local journal. Destination-aware `shadow` and `enforce`
+  preflight receipts gate personal, team, and public publication without
+  including record bodies or matched secret text.
+- **Agent Continuity Protocol v1.** Seven lifecycle operations negotiate the
+  strongest declared native-hook, MCP, or CLI route across Codex, Claude Code,
+  OpenCode, and compatibility hosts. Transfer plans and conformance receipts
+  remain content-free.
+- **Repo Atlas v2.** Incremental Git-tracked scans produce rebuildable file,
+  bounded JavaScript/TypeScript symbol, and static dependency observations.
+  Authored claims bind to exact file or symbol digests, become stale when that
+  evidence changes, and can be reverified append-only.
+- **Execution Origin Boundary.** Recall, boot, refresh, and timeline results
+  distinguish current-device, remote-device, multi-device, and unknown
+  lineage. A content-free derived index keeps ordinary reads bounded.
+- **Device-local Workspace Mapping.** Explicit project/source-device roots,
+  serialized updates, restrictive permissions, longest-prefix selection, and
+  realpath containment are required before a remote path is safe to access.
+- A confirmation-gated Dashboard action that rebases compatible remote
+  changes, reports a bounded shared-copy receipt, and pushes without force.
+- Local pending-host-follow-up envelopes for bounded lifecycle recovery after
+  interrupted or deferred host work.
+- Public CLI, MCP, operation-contract, and TypeScript interfaces for the new
+  context infrastructure.
 
 ### Changed
 
+- Project alias repair now requires explicit identity evidence instead of
+  accepting a path-shaped inference as proof.
 - The compact operation index keeps per-operation lookup recipes only for
   operations that require input collection or confirmation; safe operations use
   the shared top-level lookup templates.
+- Host capability negotiation distinguishes adapter-registry defaults from
+  caller-declared transport availability. Post-compaction recovery uses
+  `SessionStart(source=compact)`; Moryn does not claim a PostCompact handler
+  that its generated integrations do not install.
+- Host hooks use a bounded local fast path, preserve committed mutation
+  results, and keep follow-up work outside latency-sensitive hook execution.
+- Production dependency resolutions include current fixes for `fast-uri`,
+  Hono, and `ip-address`; the MCP SDK now accepts the Hono 2.x adapter directly.
 
 ### Fixed
 
 - Repo Atlas now records unstaged tracked-file deletion as delta evidence and
   aggregates TypeScript overload declarations so every signature contributes
   to the stable symbol digest.
+- Repo Atlas rejects an idempotency-key reuse when confidence, distribution,
+  project, or other claim metadata differs from the persisted claim.
+- Execution-origin indexes reject internally inconsistent source-device,
+  creation-device, and latest-device metadata instead of publishing it.
+- Dashboard POST bodies are capped at 1 MiB and return HTTP 413 when exceeded.
+
+### Safety and compatibility
+
+- v0.2, v0.3, and v0.4 stores open in place. Append-only event history is not
+  rewritten; derived views rebuild from the existing event set.
+- A Repo Atlas v1 snapshot remains readable and triggers a complete v2 rescan.
+- New local-only events never enter normal Git publication. Bytes already
+  present in published Git history are not erased or claimed to be erased.
+- Workspace roots, hostnames, usernames, and IP addresses remain device-local;
+  synchronized origin evidence uses only opaque device IDs.
+- Older v0.4 clients can read synchronized records but do not enforce the new
+  local journal, origin, mapping, or claim-verification boundaries. Use one
+  release line consistently on devices that publish to the same remote.
 
 ## 0.4.0 - 2026-07-31
 

@@ -1,6 +1,6 @@
 {
   "name": "@richardyu114/moryn",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Local-first memory, skill, and handoff layer for AI agents.",
   "type": "module",
   "main": "./dist/index.js",
@@ -42,6 +42,8 @@
     "docs/implementation-roadmap.md",
     "docs/moryn-design.md",
     "docs/v0.4-migration.md",
+    "docs/v0.5-migration.md",
+    "docs/v0.5-release-notes.md",
     "assets",
     "deploy/container",
     "scripts/agent-lifecycle-smoke.js",
@@ -64,6 +66,7 @@
     "release:check": "tsx scripts/release-check.ts",
     "release:readiness": "tsx scripts/release-readiness.ts",
     "test:v04-acceptance": "npm run build && vitest run tests/core/v04-compaction-quality-gate.test.ts tests/core/state-lease.test.ts tests/core/session-fold-transaction.test.ts tests/core/episode-rollup-transaction.test.ts tests/core/automatic-episode-rollup.test.ts tests/core/memory-compaction.test.ts tests/core/memory-expansion.test.ts tests/core/session-fold-conflict-projection.test.ts tests/core/structured-semantic-merge.test.ts tests/core/semantic-consolidation-engine.test.ts tests/core/automatic-semantic-maintenance.test.ts tests/core/memory-feedback.test.ts tests/core/project-alias-attestation.test.ts tests/e2e/historical-recovery-upgrade.test.ts tests/e2e/soul-git-portability.test.ts tests/e2e/soul-git-sync-receipts.test.ts tests/e2e/compaction-git-concurrency.test.ts tests/mcp/historical-recall.test.ts tests/mcp/memory-feedback.test.ts tests/sync/git-state-lease.test.ts",
+    "test:v05-acceptance": "npm run build && vitest run tests/core/sync-gate.test.ts tests/core/store.test.ts tests/sync/git.test.ts tests/core/agent-continuity-protocol.test.ts tests/core/host-capabilities.test.ts tests/core/repo-atlas.test.ts tests/core/execution-origin.test.ts tests/core/execution-origin-index.test.ts tests/core/execution-origin-engine.test.ts tests/core/workspace-mapping.test.ts tests/cli/context-infrastructure.test.ts tests/mcp/context-infrastructure.test.ts tests/observability/dashboard-sync-action.test.ts",
     "smoke:agent-lifecycle": "node scripts/agent-lifecycle-smoke.js",
     "smoke:host-runtime-binding": "node scripts/host-runtime-binding-smoke.js",
     "smoke:transcript-compact-safety": "node scripts/transcript-compact-safety-smoke.js",
@@ -83,22 +86,23 @@
   },
   "dependencies": {
     "@babel/parser": "^7.29.8",
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "commander": "^14.0.2",
     "zod": "^4.1.13"
   },
   "overrides": {
-    "@modelcontextprotocol/sdk": {
-      "@hono/node-server": "2.0.11"
-    }
+    "esbuild": "0.28.2",
+    "fast-uri": "3.1.5",
+    "hono": "4.12.34",
+    "ip-address": "10.5.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.4",
     "@types/node": "^24.10.1",
     "knip": "^6.27.0",
-    "tsx": "^4.21.0",
+    "tsx": "^4.23.12",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.14"
+    "vitest": "^4.1.11"
   },
   "engines": {
     "node": ">=20"

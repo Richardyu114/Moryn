@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import { version as sourceVersion } from "../src/version.js";
 
 const exec = promisify(execFile);
 const REQUIRED_SMOKES = [
@@ -10,13 +11,14 @@ const REQUIRED_SMOKES = [
   "finalization_assurance_smoke",
   "official_host_handoff_smoke"
 ] as const;
-const TARGET_RELEASE = "0.4.0" as const;
+const TARGET_RELEASE = "0.5.0" as const;
 
 type Check = { status: "passed" } | { status: "failed"; reason: string; missing?: string[]; offending?: string[] };
 type PackageJsonInput = { name?: unknown; version?: unknown; files?: unknown };
 
 export interface ReleaseReadinessInput {
   package_json: PackageJsonInput;
+  source_version: string;
   readme: string;
   changelog: string;
   release_check_source: string;
@@ -31,8 +33,10 @@ export interface ReleaseReadinessResult {
   release_candidate: boolean;
   checks: {
     target_version_matches: Check;
+    source_version_matches: Check;
     documented_source_version_matches: Check;
     changelog_release_notes_present: Check;
+    focused_acceptance_present: Check;
     required_smokes_present: Check;
     private_paths_absent: Check;
   };
@@ -51,12 +55,18 @@ export function evaluateReleaseReadiness(input: ReleaseReadinessInput): ReleaseR
     packageVersion === TARGET_RELEASE
       ? passed()
       : failed(`package.json version must match the v${TARGET_RELEASE} release candidate`);
+  const sourceVersionMatches =
+    input.source_version === packageVersion ? passed() : failed("src/version.ts must match package.json version");
   const documentedSourceVersionMatches = input.readme.includes(`Current source/package version: v${packageVersion}`)
     ? passed()
     : failed("README source/package version statement does not match package.json");
-  const changelogReleaseNotes = /^##\s+0\.4\.0(?:\s|$)/m.test(input.changelog)
+  const changelogReleaseNotes = /^##\s+0\.5\.0(?:\s|$)/m.test(input.changelog)
     ? passed()
-    : failed("CHANGELOG does not contain the v0.4.0 release notes");
+    : failed("CHANGELOG does not contain the v0.5.0 release notes");
+  const focusedAcceptance =
+    input.release_check_source.includes("v05_acceptance") && input.release_check_source.includes("test:v05-acceptance")
+      ? passed()
+      : failed("Release gate does not require the focused v0.5 acceptance suite");
   const packageFiles = Array.isArray(input.package_json.files)
     ? input.package_json.files.filter((value): value is string => typeof value === "string")
     : [];
@@ -69,7 +79,7 @@ export function evaluateReleaseReadiness(input: ReleaseReadinessInput): ReleaseR
     );
   });
   const requiredSmokes = missingSmokes.length
-    ? failed("Required v0.4 smoke evidence is missing", { missing: missingSmokes })
+    ? failed("Required release smoke evidence is missing", { missing: missingSmokes })
     : passed();
   const offending = input.packed_files.filter((file) => {
     const normalized = file.replace(/^package\//, "");
@@ -97,8 +107,10 @@ export function evaluateReleaseReadiness(input: ReleaseReadinessInput): ReleaseR
     : passed();
   const checks = {
     target_version_matches: targetVersionMatches,
+    source_version_matches: sourceVersionMatches,
     documented_source_version_matches: documentedSourceVersionMatches,
     changelog_release_notes_present: changelogReleaseNotes,
+    focused_acceptance_present: focusedAcceptance,
     required_smokes_present: requiredSmokes,
     private_paths_absent: privatePathsAbsent
   };
@@ -127,6 +139,7 @@ export async function main(): Promise<void> {
   );
   const result = evaluateReleaseReadiness({
     package_json: packageJson,
+    source_version: sourceVersion,
     readme,
     changelog,
     release_check_source: releaseCheckSource,

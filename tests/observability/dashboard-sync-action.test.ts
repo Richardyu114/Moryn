@@ -194,6 +194,19 @@ describe("dashboard shared-copy sync action", { timeout: 30_000 }, () => {
       body: JSON.stringify({ confirmed: true })
     });
     expect(wrongContentType.status).toBe(415);
+    const oversized = await fetch(new URL("/api/sync", server.url), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-moryn-dashboard-action": "sync"
+      },
+      body: JSON.stringify({ confirmed: true, padding: "x".repeat(1024 * 1024) })
+    });
+    expect(oversized.status).toBe(413);
+    await expect(oversized.json()).resolves.toMatchObject({
+      ok: false,
+      status: "payload_too_large"
+    });
     const unconfirmed = await postSync(server, {});
     expect(unconfirmed.status).toBe(400);
     const injectedRemote = await postSync(server, { confirmed: true, remote: "https://example.invalid/other.git" });

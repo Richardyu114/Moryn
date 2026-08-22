@@ -171,7 +171,7 @@ describe("published package smoke", () => {
           ],
           { cwd: dir }
         );
-        const v04PublicImportCheck = await exec(
+        const currentPublicImportCheck = await exec(
           "node",
           [
             "--input-type=module",
@@ -1379,8 +1379,8 @@ describe("published package smoke", () => {
         expect(operationLookupErrorImportCheck.stdout.trim()).toBe(
           "true|agent_status|agent_status|operations_by_id.agent_status|agent_status"
         );
-        expect(JSON.parse(v04PublicImportCheck.stdout)).toEqual({
-          version: "0.4.0",
+        expect(JSON.parse(currentPublicImportCheck.stdout)).toEqual({
+          version: "0.5.0",
           layers: ["L0", "L1", "L2", "L3"],
           tiers: ["hot", "warm", "cold", "purged"],
           budget: 16_000,

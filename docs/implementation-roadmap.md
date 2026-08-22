@@ -1,9 +1,9 @@
 # Moryn Implementation Roadmap
 
-This roadmap records the v0.4 release scope: Distilled Memory and Portable
-Soul, alongside the v0.3 Context Autopilot foundation, the v0.2 compatibility
-baseline, and the current product boundaries. The source package version is
-`0.4.0`; new scope moves to the next release line.
+This roadmap records the v0.5 Context Infrastructure release, the v0.4
+Distilled Memory and Portable Soul foundation, the v0.3 Context Autopilot
+foundation, and the v0.2 compatibility baseline. The source package version is
+`0.5.0`.
 Detailed protocol design lives in [moryn-design.md](moryn-design.md). Agent
 usage details live in [agent-workflow.md](agent-workflow.md). Machine-readable
 contracts are summarized in [contracts.md](contracts.md). Dashboard usage lives
@@ -184,20 +184,24 @@ reported when all eleven areas have their required evidence in the same run.
 The external product roadmap is durably recorded in moryn-store as
 `rec_3eba4797c53f4dff9e7897a0cf76a199`.
 
-## Post-v0.4 context hardening
+## v0.5 release: Evidence-backed Context Infrastructure
 
-The development branch now carries three compatible improvements for review
-before any v0.5 release or VPS dogfood switch:
+v0.5 delivers four compatible boundaries without rewriting append-only event
+history:
 
-1. **Workspace Mapping:** explicit, device-local project/source-root mappings
-   resolve remote evidence into an existing local checkout only after realpath
-   containment. Roots never enter append-only or synchronized data.
-2. **Execution Origin Index:** ordinary recall, boot, refresh, and recent-record
-   reads consume a manifest-verified content-free origin index instead of
-   replaying every event solely to classify device lineage.
+1. **Sync Gate:** physical local-event isolation and destination-aware shadow or
+   enforce preflight keep new local-only bytes outside Git publication.
+2. **Agent Continuity Protocol:** per-operation host negotiation exposes native
+   hook, MCP, CLI, and unavailable routes, and identifies adapter-registry versus
+   caller-declared transport availability.
 3. **Repo Atlas v2:** incremental Git work sets, bounded JS/TS AST symbols,
    dependency edges, symbol-scoped claim invalidation, and append-only claim
    reverification improve repository evidence without storing source text.
+4. **Execution Origin and Workspace Mapping:** ordinary recall, boot, refresh, and recent-record
+   reads consume a manifest-verified content-free origin index instead of
+   replaying every event solely to classify device lineage. Explicit,
+   device-local roots resolve remote evidence only after realpath containment;
+   roots never enter append-only or synchronized data.
 
 Focused acceptance includes concurrent mapping updates, symlink-escape
 rejection, stale-index retry/failure behavior, a 25,000-event origin-index
@@ -205,8 +209,10 @@ fixture condensed to 100 record entries, v1 Atlas snapshot compatibility,
 incremental observation reuse, dependency changes, and symbol-level claim
 staleness. These are deterministic test fixtures, not production telemetry.
 
-The package remains `0.4.0` while this work is refined. Release tagging, npm
-publication, and updating the VPS dogfood checkout are explicitly deferred.
+`npm run test:v05-acceptance` is the focused evidence gate. The complete release
+gate retains v0.4 regression acceptance and adds context-isolation,
+continuity-protocol, repository-evidence, and execution-origin areas. VPS
+dogfood rollout remains a separate post-release operation.
 
 ## v0.3.0 Context Autopilot
 

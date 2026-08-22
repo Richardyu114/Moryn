@@ -58,6 +58,7 @@ const DEFAULT_LIMIT = 20;
 export const DASHBOARD_AUTOMATIC_MAINTENANCE_INTERVAL_MS = 60_000;
 const MAX_LIMIT = 100;
 const RECENT_VALUE_LIMIT = 8;
+const DASHBOARD_REQUEST_BODY_LIMIT_BYTES = 1024 * 1024;
 const DASHBOARD_REMOTE_OBSERVATION_TIMEOUT_MS = 5_000;
 const DASHBOARD_SYNC_OPERATION_TIMEOUT_MS = 120_000;
 const CAPTURE_NOISE_RULES: DashboardCaptureNoiseRule[] = [
@@ -10639,13 +10640,54 @@ function sendResponse(
 }
 
 async function readRequestJson(request: IncomingMessage): Promise<unknown> {
+  const contentLength = request.headers["content-length"];
+  if (typeof contentLength === "string" && Number(contentLength) > DASHBOARD_REQUEST_BODY_LIMIT_BYTES) {
+    throw new DashboardRequestBodyTooLargeError();
+  }
   const chunks: Buffer[] = [];
+  let receivedBytes = 0;
   for await (const chunk of request) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    receivedBytes += buffer.byteLength;
+    if (receivedBytes > DASHBOARD_REQUEST_BODY_LIMIT_BYTES) {
+      throw new DashboardRequestBodyTooLargeError();
+    }
+    chunks.push(buffer);
   }
   const body = Buffer.concat(chunks).toString("utf8").trim();
   if (!body) return {};
   return JSON.parse(body) as unknown;
+}
+
+class DashboardRequestBodyTooLargeError extends Error {
+  constructor() {
+    super(`Dashboard request body exceeds ${DASHBOARD_REQUEST_BODY_LIMIT_BYTES} bytes`);
+    this.name = "DashboardRequestBodyTooLargeError";
+  }
+}
+
+function sendRequestJsonError(
+  response: ServerResponse,
+  error: unknown,
+  invalidRequestBody: unknown,
+  includeBody: boolean
+): void {
+  const tooLarge = error instanceof DashboardRequestBodyTooLargeError;
+  sendResponse(
+    response,
+    tooLarge ? 413 : 400,
+    JSON.stringify(
+      tooLarge
+        ? {
+            ok: false,
+            status: "payload_too_large",
+            message: `Request body must not exceed ${DASHBOARD_REQUEST_BODY_LIMIT_BYTES} bytes.`
+          }
+        : invalidRequestBody
+    ),
+    "application/json; charset=utf-8",
+    includeBody
+  );
 }
 
 function approvalPlanId(pathname: string): string | undefined {
@@ -11325,16 +11367,15 @@ export async function startDashboardServer(
           let body: unknown;
           try {
             body = await readRequestJson(request);
-          } catch {
-            sendResponse(
+          } catch (error) {
+            sendRequestJsonError(
               response,
-              400,
-              JSON.stringify({
+              error,
+              {
                 ok: false,
                 status: "invalid_request",
                 message: "Invalid request: JSON body is required"
-              }),
-              "application/json; charset=utf-8",
+              },
               includeBody
             );
             return;
@@ -11354,14 +11395,8 @@ export async function startDashboardServer(
           let body: unknown;
           try {
             body = await readRequestJson(request);
-          } catch {
-            sendResponse(
-              response,
-              400,
-              JSON.stringify({ error: "Invalid request: JSON body is required" }),
-              "application/json; charset=utf-8",
-              includeBody
-            );
+          } catch (error) {
+            sendRequestJsonError(response, error, { error: "Invalid request: JSON body is required" }, includeBody);
             return;
           }
           const result = await applyCaptureInboxGroupAction(
@@ -11385,14 +11420,8 @@ export async function startDashboardServer(
           let body: unknown;
           try {
             body = await readRequestJson(request);
-          } catch {
-            sendResponse(
-              response,
-              400,
-              JSON.stringify({ error: "Invalid request: JSON body is required" }),
-              "application/json; charset=utf-8",
-              includeBody
-            );
+          } catch (error) {
+            sendRequestJsonError(response, error, { error: "Invalid request: JSON body is required" }, includeBody);
             return;
           }
           const result = await applyCaptureInboxAction(
@@ -11416,14 +11445,8 @@ export async function startDashboardServer(
           let body: unknown;
           try {
             body = await readRequestJson(request);
-          } catch {
-            sendResponse(
-              response,
-              400,
-              JSON.stringify({ error: "Invalid request: JSON body is required" }),
-              "application/json; charset=utf-8",
-              includeBody
-            );
+          } catch (error) {
+            sendRequestJsonError(response, error, { error: "Invalid request: JSON body is required" }, includeBody);
             return;
           }
           if (!body || typeof body !== "object") {
@@ -11464,14 +11487,8 @@ export async function startDashboardServer(
         let body: unknown;
         try {
           body = await readRequestJson(request);
-        } catch {
-          sendResponse(
-            response,
-            400,
-            JSON.stringify({ error: "Invalid request: JSON body is required" }),
-            "application/json; charset=utf-8",
-            includeBody
-          );
+        } catch (error) {
+          sendRequestJsonError(response, error, { error: "Invalid request: JSON body is required" }, includeBody);
           return;
         }
         if (!body || typeof body !== "object" || typeof (body as { plan_hash?: unknown }).plan_hash !== "string") {
